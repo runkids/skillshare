@@ -197,6 +197,8 @@ type Candidate struct {
 	Warnings []string `json:"warnings"`
 	// Editable marks unmanaged hooks a NativeEdit can change or remove in place.
 	Editable bool `json:"editable,omitempty"`
+	// Source is the Antigravity block or Copilot file an editable hook was read from.
+	Source string `json:"source,omitempty"`
 }
 
 // ConfigDirsFromEnv reads the Agent directory overrides Agents themselves honor.

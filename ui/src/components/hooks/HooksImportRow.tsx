@@ -69,7 +69,7 @@ export default function HooksImportRow({ row, targetLabel, change, checked, impo
             {lines.length > 1 && <span className="shrink-0 text-xs text-ink-3">{t(plural('hooks.commandCount', lines.length), { count: String(lines.length) })}</span>}
             {change && <span className={`ss-tag inf shrink-0 ${fade}`}>pending</span>}
           </span>
-          {removed ? <span className={`truncate text-xs text-bad ${fade}`}>{t('hooks.importWillRemove', { target: targetLabel })}</span>
+          {removed ? <span className={`truncate text-xs text-bad ${fade}`}>{row.target === 'copilot' && row.candidate.source ? t('hooks.importWillDeleteFile', { file: row.candidate.source }) : t('hooks.importWillRemove', { target: targetLabel })}</span>
             : edited ? <span className={`truncate text-xs text-ink-2 ${fade}`}>{t(edited.key, edited.params)}</span>
               : nameError ? <span className="truncate text-xs text-bad">{nameError}</span>
                 : notes.some((n) => n.problem) ? <span className="truncate text-xs text-bad">{hookMessage(t, notes.find((n) => n.problem)!.message)}</span>

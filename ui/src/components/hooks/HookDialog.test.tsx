@@ -127,6 +127,18 @@ describe('hooks import', () => {
   const editable = (name: string, command: string): HookCandidate => ({ ...candidate(name, command), editable: true });
   const nativePlan = { revision: 'r1', fingerprint: 'r1', sourcePath: '/s.yaml', blocked: false, changes: [], files: [] };
 
+  it('removes only the file it was asked to, when two Copilot files read as the same name', async () => {
+    const user = userEvent.setup();
+    const file = (source: string, command: string): HookCandidate => ({ name: 'lint', source, editable: true, problems: [], warnings: [], entry: { bindings: { copilot: { events: { sessionStart: [{ type: 'command', bash: command }] } } } } });
+    vi.mocked(hooksApi.import).mockResolvedValue([file('lint.json', './a.sh'), file('skillshare-lint.json', './b.sh')]);
+    vi.mocked(hooksApi.previewNative).mockResolvedValue(nativePlan);
+    const copilot = { ...data, paths: { copilot: '/home/u/.copilot/hooks' }, unmanaged: [{ target: 'copilot', path: '/home/u/.copilot/hooks', names: ['lint.json', 'skillshare-lint.json'] }] } as unknown as HookInventory;
+    wrap(<HooksImportDialog data={copilot} onClose={vi.fn()} onChanged={vi.fn()} onImported={vi.fn()} />);
+    await user.click((await screen.findAllByRole('button', { name: 'Remove lint from the target' }))[0]);
+    await user.click(screen.getByRole('button', { name: 'Review changes' }));
+    await waitFor(() => expect(hooksApi.previewNative).toHaveBeenCalledWith([{ target: 'copilot', source: 'lint.json', before: file('lint.json', './a.sh').entry.bindings.copilot.events }]));
+  });
+
   it('writes a removal only after the review, and before importing the rest', async () => {
     const user = userEvent.setup();
     vi.mocked(hooksApi.import).mockResolvedValue([editable('notify', './notify.sh'), editable('format', './format.sh')]);

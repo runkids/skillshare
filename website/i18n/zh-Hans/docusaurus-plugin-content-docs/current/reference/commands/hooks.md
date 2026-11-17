@@ -33,7 +33,7 @@ skillshare hooks restore BACKUP_ID --dry-run
 skillshare hooks restore BACKUP_ID
 ```
 
-没有子命令时列出 entries。`add`／`edit` 从 `--file` 读取 Entry JSON 或 YAML；导入不指定名称时列出候选项（每个 Agent event 或文件各一项），指定名称才保存。保存导入即原地接管读到的注册：下次同步直接 adopt，无需 `--replace`；未导入的 event 保持不受管理。导入只读取配置或代码，不执行。新增、编辑、导入、启用、停用与移除默认只保存来源，加上 `--sync` 才同步。同步与恢复会重新预览。Dashboard 的「目标里的 hook」对话框打开时不会预先勾选任何 hook，要导入的自己勾选；它也能直接修改或移除 Agent 配置文件里还没导入的 hook（限以 event 存在同一个配置文件的 Agent：Claude、Codex、Gemini、Cursor、Qwen，以及 Droid 的 `hooks.json`；整个文件或具名区块的 hook 要先导入）。写入前会显示文件差异并备份，该 hook 保持不受管理。
+没有子命令时列出 entries。`add`／`edit` 从 `--file` 读取 Entry JSON 或 YAML；导入不指定名称时列出候选项（每个 Agent event 或文件各一项），指定名称才保存。保存导入即原地接管读到的注册：下次同步直接 adopt，无需 `--replace`；未导入的 event 保持不受管理。导入只读取配置或代码，不执行。新增、编辑、导入、启用、停用与移除默认只保存来源，加上 `--sync` 才同步。同步与恢复会重新预览。Dashboard 的「目标里的 hook」对话框打开时不会预先勾选任何 hook，要导入的自己勾选；它也能直接修改或移除 Agent 配置文件里还没导入的 hook（hook 是配置的 Agent 都可以：存在同一个配置文件的 event（Claude、Codex、Gemini、Cursor、Qwen，以及 Droid 的 `hooks.json`）、Antigravity 的具名区块，或 Copilot 的 hook 文件，移除时会删除该文件；代码形式的 hook（Pi、Oh My Pi、Amp、OpenCode）要先导入）。写入前会显示文件差异并备份，该 hook 保持不受管理。
 
 | Option | Meaning |
 |---|---|

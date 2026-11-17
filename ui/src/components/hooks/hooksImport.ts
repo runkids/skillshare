@@ -12,8 +12,16 @@ export const rowEvents = (row: ImportRow): HookEvents => row.candidate.entry.bin
 
 /** The event of a one-event candidate; a named block or a whole file goes by its own name. */
 export const rowTitle = (row: ImportRow) => {
+  // Two Copilot files can read as one hook name (team.json, skillshare-team.json); the file tells them apart.
+  if (row.target === 'copilot') return row.candidate.source ?? row.candidate.name;
   const events = Object.keys(rowEvents(row));
   return events.length === 1 && row.target !== 'antigravity' ? events[0] : row.candidate.name;
+};
+
+/** The file an edit writes: a Copilot hook is its own file in the hooks folder, the rest share the target's file. */
+export const rowPath = (row: ImportRow, path: string | undefined) => {
+  if (!path || row.target !== 'copilot' || !row.candidate.source) return path;
+  return `${path}${path.includes('\\') ? '\\' : '/'}${row.candidate.source}`;
 };
 
 const SCRIPT = /(?:"?\$\{?\w+\}?"?|~|\.{1,2})?(?:\/[\w.@+-]+)+\.\w+/g;
@@ -34,8 +42,8 @@ const stable = (v: unknown): unknown =>
 export const sameEvents = (a: HookEvents | undefined, b: HookEvents | undefined) => JSON.stringify(stable(a ?? {})) === JSON.stringify(stable(b ?? {}));
 
 /** The edits to send: each changed hook's events as read, and what replaces them. */
-export function nativeEdits(rows: { target: string; root?: string; before: HookEvents; change: NativeChange }[]): HookNativeEdit[] {
-  return rows.map(({ target, root, before, change }) => ({ target, ...(root && { root }), before, ...('events' in change && { after: change.events }) }));
+export function nativeEdits(rows: { target: string; root?: string; source?: string; before: HookEvents; change: NativeChange }[]): HookNativeEdit[] {
+  return rows.map(({ target, root, source, before, change }) => ({ target, ...(root && { root }), ...(source && { source }), before, ...('events' in change && { after: change.events }) }));
 }
 
 /** One line on what an edit changed, as a translation key: a single matcher or command when that is all, else just "edited". */

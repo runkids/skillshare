@@ -17,7 +17,7 @@ import Spinner from '../Spinner';
 import { bindingLines, suggestName } from './hookCatalog';
 import HooksImportEditor from './HooksImportEditor';
 import HooksImportRow from './HooksImportRow';
-import { nativeEdits, rowEvents, rowTitle, sameEvents } from './hooksImport';
+import { nativeEdits, rowEvents, rowPath, rowTitle, sameEvents } from './hooksImport';
 import type { ImportRow, NativeChange } from './hooksImport';
 import HooksPreview from './HooksPreview';
 import { HOOK_NAME, hookAccounts, hookMessage, agentOfKey, keyLabel, isCodeAgent, scopeEntries, scopePaths, scopeUnmanaged } from './hooksView';
@@ -80,7 +80,7 @@ export default function HooksImportDialog({ data, project, onClose, onImported, 
   const busy = saving || reading;
 
   const rows: ImportRow[] = [
-    ...targets.flatMap((target, i) => (reads[i].data ?? []).map((candidate) => ({ id: `${target}:${candidate.name}`, target, candidate, adopt: true }))),
+    ...targets.flatMap((target, i) => (reads[i].data ?? []).map((candidate) => ({ id: `${target}:${candidate.source ?? candidate.name}`, target, candidate, adopt: true }))),
     ...(pasted ?? []).map((candidate) => ({ id: `${PASTE}:${candidate.name}`, target: pasteFrom, candidate, adopt: false })),
   ];
   // Prefilled names never repeat a saved hook or each other.
@@ -115,7 +115,7 @@ export default function HooksImportDialog({ data, project, onClose, onImported, 
   const chosen = rows.filter(checked);
   const blocked = chosen.some((r) => nameError(r));
   const changed = rows.filter(changeOf);
-  const edits = nativeEdits(changed.map((r) => ({ target: r.target, root: project, before: rowEvents(r), change: changeOf(r)! })));
+  const edits = nativeEdits(changed.map((r) => ({ target: r.target, root: project, source: r.candidate.source, before: rowEvents(r), change: changeOf(r)! })));
   // The hook being edited, while its target still has it.
   const row = rows.find((r) => r.id === editing);
   const undo = (id: string) => setChanges((prev) => Object.fromEntries(Object.entries(prev).filter(([key]) => key !== id)));
@@ -167,7 +167,7 @@ export default function HooksImportDialog({ data, project, onClose, onImported, 
       setPlan(null);
       // A write that failed after its first file names the files it already wrote.
       const applied = !written && plan && e instanceof ApiError && Array.isArray(e.params?.applied) ? e.params.applied as string[] : [];
-      const done = changed.filter((r) => written || applied.includes(paths[r.target] ?? ''));
+      const done = changed.filter((r) => written || applied.includes(rowPath(r, paths[r.target]) ?? ''));
       if (done.length > 0) {
         // Those files hold their changes now, so none of them is sent again; a file the write did not reach
         // keeps its changes pending. Read again, a change may show up as other rows than it was made in (an
@@ -233,7 +233,7 @@ export default function HooksImportDialog({ data, project, onClose, onImported, 
                 <span className={`${tile} bg-sunken text-bad`}><Trash2 size={15} /></span>
                 <span className="flex min-w-0 flex-1 flex-col gap-px">
                   <span className="font-semibold">{t('hooks.importSum.remove', { count: String(removed.length) })}</span>
-                  <span className="text-[13px] text-ink-2">{t('hooks.importSum.removeHint', { target: labels(removed.map((r) => r.target)) })}</span>
+                  <span className="text-[13px] text-ink-2">{removed.every((r) => r.target === 'copilot') ? t('hooks.importSum.deleteFileHint') : t('hooks.importSum.removeHint', { target: labels(removed.map((r) => r.target)) })}</span>
                   <span className="mt-1 flex flex-wrap gap-1.5">{hooksOf(removed)}</span>
                 </span>
               </div>
@@ -324,7 +324,7 @@ export default function HooksImportDialog({ data, project, onClose, onImported, 
             agent={agentOf(row.target)}
             label={labelOf(row.target)}
             title={rowTitle(row)}
-            path={paths[row.target]}
+            path={rowPath(row, paths[row.target])}
             footerHost={footerHost}
             events={(() => { const change = changeOf(row); return change && 'events' in change ? change.events : rowEvents(row); })()}
             original={rowEvents(row)}
