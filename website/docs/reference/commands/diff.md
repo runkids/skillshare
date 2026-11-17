@@ -145,6 +145,7 @@ For targets using merge mode (default):
 - Lists skills in source not yet symlinked to target
 - Shows skills that exist as local copies instead of symlinks
 - Identifies local-only skills in target (not in source — preserved by sync)
+- Shows links to skills no longer in source (will be pruned on sync)
 
 ### Copy Mode Targets
 
@@ -212,7 +213,7 @@ skillshare diff agents claude      # Specific target
 skillshare diff agents --json      # JSON output
 ```
 
-Agent diff shows missing agents (need sync), orphan symlinks (need prune), and local-only agent files. Only targets with an `agents` path configuration are included. See [Agents — Supported Targets](/docs/understand/agents#supported-targets) for the full list.
+Agent diff shows missing agents (need sync), orphan symlinks that sync will prune, and local-only agent files. Only targets with an `agents` path configuration are included. See [Agents — Supported Targets](/docs/understand/agents#supported-targets) for the full list.
 
 ---
 

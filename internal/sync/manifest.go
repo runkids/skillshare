@@ -84,6 +84,16 @@ func (m *Manifest) OwnsCopy(name, dir string) bool {
 // because skillshare did not create it.
 const ForeignLinkReason = "link from another tool (sync --force to replace)"
 
+// Records reports whether the manifest has an entry for name, as a link or as
+// a copy. A manifest that could not be read records nothing.
+func (m *Manifest) Records(name string) bool {
+	if m == nil {
+		return false
+	}
+	_, ok := m.Managed[name]
+	return ok
+}
+
 // OwnsLink reports whether the link at path under name is skillshare's to
 // re-point or remove: the manifest records a link there, or it points into the
 // source. A link that another tool or the user made under the same name is

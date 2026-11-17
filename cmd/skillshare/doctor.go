@@ -349,7 +349,7 @@ func runDoctorChecks(cfg *config.Config, result *doctorResult, isProject bool, p
 	checkSharedTargetPaths(cfg, result, isProject)
 	checkCrossTargetDiscovery(cfg, result, isProject, discovered)
 	checkSyncDrift(cfg, result, discovered, targetCache)
-	checkBrokenSymlinks(cfg, walk.Follow, result)
+	checkBrokenSymlinks(cfg, walk.Follow, result, discovered, discoverErr == nil)
 	checkDuplicateSkills(cfg, result, discovered)
 }
 
@@ -1176,8 +1176,9 @@ func checkSkillTargetsField(result *doctorResult, discovered []sync.DiscoveredSk
 // a source link whose target is away (an unmounted drive) are expected to be
 // broken and are kept by sync, so they are reported as waiting, not as errors.
 // So are broken links skillshare did not create: sync keeps those too, and only
-// the user can say whether they should go.
-func checkBrokenSymlinks(cfg *config.Config, follow *sourcewalk.Follow, result *doctorResult) {
+// the user can say whether they should go. A broken link that sync would prune
+// is an error either way, so the split follows what sync does.
+func checkBrokenSymlinks(cfg *config.Config, follow *sourcewalk.Follow, result *doctorResult, discovered []sync.DiscoveredSkill, discoveredOK bool) {
 	var allBroken, allWaiting, allForeign []string
 	unavailable := follow.Unavailable()
 	names := targetNamesFromConfig(cfg.Targets)
@@ -1190,11 +1191,13 @@ func checkBrokenSymlinks(cfg *config.Config, follow *sourcewalk.Follow, result *
 		}
 		var broken, waiting, foreign []string
 		manifest, _ := sync.ReadManifest(target.SkillsConfig().Path)
+		orphan := orphanNames(name, target, cfg.Mode, manifest, discovered, discoveredOK)
 		for _, b := range findBrokenSymlinks(target.SkillsConfig().Path) {
 			link := filepath.Join(target.SkillsConfig().Path, b)
 			if behindUnavailableLink(link, cfg.EffectiveSkillsSource(), unavailable) {
 				waiting = append(waiting, b)
-			} else if manifest.OwnsLink(b, link, cfg.EffectiveSkillsSource()) {
+			} else if manifest.OwnsLink(b, link, cfg.EffectiveSkillsSource()) ||
+				(orphan != nil && orphan(b) && sync.OrphanLink(link, cfg.EffectiveSkillsSource(), manifest.Records(b), false).RemoveReason != "") {
 				broken = append(broken, b)
 			} else {
 				foreign = append(foreign, b)
@@ -1262,6 +1265,28 @@ func behindUnavailableLink(path, source string, unavailable []string) bool {
 		}
 	}
 	return false
+}
+
+// orphanNames returns a test for entry names in a target that no skill in the
+// source maps to, which is what sync prunes. It returns nil when the skills
+// could not be discovered or the target's filters are invalid, so that failure
+// does not make every entry look like an orphan. An empty source is not a
+// failure: every entry is an orphan then.
+func orphanNames(name string, target config.TargetConfig, defaultMode string, manifest *sync.Manifest, discovered []sync.DiscoveredSkill, discoveredOK bool) func(string) bool {
+	if !discoveredOK {
+		return nil
+	}
+	sc := target.SkillsConfig()
+	resolution, err := sync.ResolveTargetSkillsForTarget(name, sc, discovered)
+	if err != nil {
+		return nil
+	}
+	valid := resolution.ValidTargetNames()
+	legacy := resolution.LegacyNames(getTargetMode(sc.Mode, defaultMode), sc.Path, manifest)
+	return func(entry string) bool {
+		_, isLegacy := legacy[entry]
+		return !valid[entry] && !isLegacy
+	}
 }
 
 func findBrokenSymlinks(dir string) []string {

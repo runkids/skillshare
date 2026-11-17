@@ -16,7 +16,7 @@ import (
 // Like sync, it applies the target's include/exclude and the agents' frontmatter
 // targets first, and a target with an extension compares the converted outputs
 // recorded in its manifest.
-func computeAgentTargetDiff(targetName, targetDir string, ac config.ResourceTargetConfig, agents []resource.DiscoveredResource) []diffItem {
+func computeAgentTargetDiff(targetName, targetDir, sourceDir string, ac config.ResourceTargetConfig, agents []resource.DiscoveredResource) []diffItem {
 	var items []diffItem
 
 	filtered, err := sync.FilterAgents(agents, ac.Include, ac.Exclude)
@@ -122,6 +122,10 @@ func computeAgentTargetDiff(targetName, targetDir string, ac config.ResourceTarg
 		}
 		targetPath := filepath.Join(targetDir, name)
 		if fileType&os.ModeSymlink != 0 || utils.IsSymlinkOrJunction(targetPath) {
+			// Sync keeps a link it would not prune, so it is not a change.
+			if !sync.PrunesAgentLink(ac.Mode, targetPath, sourceDir) {
+				continue
+			}
 			items = append(items, diffItem{
 				Skill:  name,
 				Action: "prune",

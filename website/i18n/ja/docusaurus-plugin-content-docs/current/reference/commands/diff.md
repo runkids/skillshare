@@ -145,6 +145,7 @@ merge mode（デフォルト）を使う Target の場合:
 - まだ Target に symlink されていない、Source 内の Skill を一覧表示する
 - symlink ではなくローカルコピーとして存在する Skill を表示する
 - Target 内のローカル専用の Skill を特定する（Source にない — sync で保持される）
+- Source にもう存在しない Skill へのリンクを表示する（sync 時に刈り取られる）
 
 ### copy mode の Target
 
@@ -212,7 +213,7 @@ skillshare diff agents claude      # 特定の Target
 skillshare diff agents --json      # JSON 出力
 ```
 
-Agent diff は、不足している agent（sync が必要）、孤立した symlink（prune が必要）、ローカル専用の agent ファイルを表示します。`agents` パス設定を持つ Target のみが対象です。全リストは [Agents — 対応 Target](/docs/understand/agents#supported-targets) を参照してください。
+Agent diff は、不足している agent（sync が必要）、sync が刈り取る孤立した symlink、ローカル専用の agent ファイルを表示します。`agents` パス設定を持つ Target のみが対象です。全リストは [Agents — 対応 Target](/docs/understand/agents#supported-targets) を参照してください。
 
 ---
 
