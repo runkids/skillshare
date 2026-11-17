@@ -220,7 +220,7 @@ Codex trust
 
 只写入 `trusted_hash`，而且只会新增。你在 Codex 中停用的 hook 保持停用并会被报告。`enabled`、`config.toml` 的其余部分以及不属于 Skillshare 的 hooks 都不会改动。hook 移动或删除后，旧条目仍留在 `config.toml` 中。它只匹配该位置上 event、matcher 和 handler 都相同的 hook，因此不会让另一个 hook 变成已信任。
 
-`codex` 不在 `PATH` 上或 Codex 失败时，hook 文件仍会写入，命令以 "hook files were written, but Codex trust was not recorded" 失败。有多个 Codex home 时，一个 home 失败不会中止其他 home：错误会列出已记录和未记录的 home。不带 `--trust` 的 `hooks sync` 不会启动 Codex，也不会改变信任。`--trust` 只能用于全局模式；`sync hooks`、`hooks list` 和项目模式会拒绝它。Dashboard 的 Hooks 页面（global scope）有相同的操作：它列出需要信任的 hooks 及其 command，只有在你于对话框中确认后才记录信任。
+`codex` 不在 `PATH` 上或 Codex 失败时，hook 文件仍会写入，命令以 "hook files were written, but Codex trust was not recorded" 失败。有多个 Codex home 时，一个 home 写入失败不会中止其他 home：错误会列出已记录和未记录的 home。不带 `--trust` 的 `hooks sync` 不会启动 Codex，也不会改变信任。`--trust` 只能用于全局模式；`sync hooks`、`hooks list` 和项目模式会拒绝它。Dashboard 的 Hooks 页面（global scope）有相同的操作：它列出需要信任的 hooks 及其 command，只有在你于对话框中确认后才记录信任。
 
 ## Git hooks {#git-hooks}
 

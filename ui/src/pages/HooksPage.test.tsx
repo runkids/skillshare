@@ -136,6 +136,38 @@ describe('Hooks page', () => {
     await waitFor(() => expect(hooksApi.trustCodex).toHaveBeenCalledWith('rev-trust'));
   });
 
+  const openCodexTrust = async (hooks: { target: string; entry: string; key: string; command: string; action: 'needed' | 'unchanged'; disabled?: boolean }[]) => {
+    const user = userEvent.setup();
+    vi.mocked(hooksApi.list).mockResolvedValue(inventory({
+      targets: [{ name: 'claude', kind: 'command', note: '' }, { name: 'codex', kind: 'command', note: '' }],
+      plan: plan([{ target: 'codex', path: '/home/u/.codex/hooks.json', name: 'guard', action: 'unchanged' }]),
+    }));
+    vi.mocked(hooksApi.previewCodexTrust).mockResolvedValue({ hooks, revision: 'rev-trust' });
+    renderPage();
+    await user.click(await screen.findByRole('button', { name: 'Trust Codex hooks' }));
+    return { user, dialog: await screen.findByRole('dialog', { name: 'Trust Codex hooks' }) };
+  };
+  const codexHook = { target: 'codex', entry: 'guard', key: 'k', command: './guard.sh', action: 'needed' as const };
+
+  it('offers no retry when the Codex hooks changed since they were listed', async () => {
+    vi.mocked(hooksApi.trustCodex).mockRejectedValue(new Error('Codex hooks changed since they were listed'));
+    const { user, dialog } = await openCodexTrust([codexHook]);
+    await user.click(await within(dialog).findByRole('button', { name: 'Trust these hooks' }));
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('Codex hooks changed since they were listed');
+    expect(within(dialog).queryByRole('button', { name: 'Trust these hooks' })).not.toBeInTheDocument();
+  });
+
+  it('has nothing to confirm when every Codex hook is already trusted', async () => {
+    const { dialog } = await openCodexTrust([{ ...codexHook, action: 'unchanged' }]);
+    expect(await within(dialog).findByText('No Codex hooks need trust.')).toBeInTheDocument();
+    expect(within(dialog).queryByRole('button', { name: 'Trust these hooks' })).not.toBeInTheDocument();
+  });
+
+  it('marks a hook Codex has disabled', async () => {
+    const { dialog } = await openCodexTrust([{ ...codexHook, disabled: true }]);
+    expect(await within(dialog).findByText('Disabled in Codex')).toBeInTheDocument();
+  });
+
   it('holds Codex trust back until pending changes are synced', async () => {
     vi.mocked(hooksApi.list).mockResolvedValue(inventory({
       targets: [{ name: 'claude', kind: 'command', note: '' }, { name: 'codex', kind: 'command', note: '' }],

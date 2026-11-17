@@ -331,7 +331,7 @@ Codex trust
 
 Only `trusted_hash` is written, and only ever added. A hook you disabled in Codex stays disabled and is reported. `enabled`, the rest of `config.toml` and hooks Skillshare does not own are left alone. When a hook moves or is removed, its old entry stays in `config.toml`. It matches only a hook with the same event, matcher and handler at that position, so it cannot trust a different hook.
 
-If `codex` is not on `PATH` or Codex fails, the hook files are still written and the command fails with "hook files were written, but Codex trust was not recorded". With several Codex homes, one home that fails does not stop the others: the error names the homes that were recorded and the ones that were not. Plain `hooks sync` never starts Codex and never changes trust. `--trust` works in global mode only; `sync hooks`, `hooks list` and project mode reject it. The dashboard's Hooks page (global scope) has the same action: it lists the hooks that need trust with their commands and records trust only after you confirm in the dialog.
+If `codex` is not on `PATH` or Codex fails, the hook files are still written and the command fails with "hook files were written, but Codex trust was not recorded". With several Codex homes, a home whose write fails does not stop the others: the error names the homes that were recorded and the ones that were not. Plain `hooks sync` never starts Codex and never changes trust. `--trust` works in global mode only; `sync hooks`, `hooks list` and project mode reject it. The dashboard's Hooks page (global scope) has the same action: it lists the hooks that need trust with their commands and records trust only after you confirm in the dialog.
 
 ## Git hooks
 
