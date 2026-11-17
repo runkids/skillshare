@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **Versão mais recente**: v0.30.9 — Edite ou remova um hook sem importá-lo: o diálogo de importação de hooks do dashboard agora mostra um Agent por vez e pode alterar um hook diretamente no arquivo de configurações dele. Você vê o diff do arquivo antes de qualquer gravação, e um backup permite restaurá-lo. O hook continua não gerenciado. [Referência de hooks →](https://skillshare.runkids.cc/docs/reference/commands/hooks) · [Todas as versões →](https://github.com/runkids/skillshare/releases)
+> **Versão mais recente**: v0.30.10 — Confie nos hooks do Codex que o skillshare grava: `skillshare hooks sync --trust -g` lista os hooks novos ou alterados com seus comandos e registra a confiança do Codex depois que você confirma, para que o Codex pare de ignorá-los. `--yes` pula a pergunta em scripts, e a página Hooks do dashboard tem a mesma ação. [Referência de hooks →](https://skillshare.runkids.cc/docs/reference/commands/hooks) · [Todas as versões →](https://github.com/runkids/skillshare/releases)
 
 ## Por que skillshare
 

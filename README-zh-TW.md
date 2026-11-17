@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **最新版本**：v0.30.9 — 不必匯入就能編輯或移除 hook：dashboard 的 hooks 匯入對話框現在一次顯示一個 Agent，並可直接修改其設定檔中的 hook。寫入前會先顯示檔案 diff，並留有可還原的備份。該 hook 仍維持未管理。 [hooks 參考 →](https://skillshare.runkids.cc/zh-Hant/docs/reference/commands/hooks) · [更新紀錄 →](https://skillshare.runkids.cc/changelog)
+> **最新版本**：v0.30.10 — 信任 skillshare 寫入的 Codex hooks：`skillshare hooks sync --trust -g` 會列出新增或變更的 hooks 及其指令，在你確認後記錄 Codex 的信任，Codex 就不會再略過它們。腳本可用 `--yes` 略過詢問，dashboard 的 Hooks 頁面也有相同的操作。 [hooks 參考 →](https://skillshare.runkids.cc/zh-Hant/docs/reference/commands/hooks) · [更新紀錄 →](https://skillshare.runkids.cc/changelog)
 
 ## 為什麼用 skillshare
 

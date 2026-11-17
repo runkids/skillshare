@@ -48,7 +48,7 @@
 </p>
 
 > [!NOTE]
-> **Latest**: v0.30.9 — Edit or remove a hook without importing it: the dashboard's hooks import dialog now shows one Agent at a time and can change a hook in its settings file in place. You see the file diff before anything is written, and a backup restores the file. The hook stays unmanaged. [hooks reference →](https://skillshare.runkids.cc/docs/reference/commands/hooks) · [All releases →](https://github.com/runkids/skillshare/releases)
+> **Latest**: v0.30.10 — Trust the Codex hooks skillshare writes: `skillshare hooks sync --trust -g` lists the new or changed hooks with their commands and records Codex's trust once you confirm, so Codex stops skipping them. `--yes` skips the question for scripts, and the dashboard's Hooks page has the same action. [hooks reference →](https://skillshare.runkids.cc/docs/reference/commands/hooks) · [All releases →](https://github.com/runkids/skillshare/releases)
 
 ## Why skillshare
 
@@ -408,6 +408,7 @@ Thanks to everyone who helped shape skillshare.
 <a href="https://github.com/ErykJakubik"><img src="https://github.com/ErykJakubik.png" width="50" style="border-radius:50%" alt="ErykJakubik"></a>
 <a href="https://github.com/maciejniec"><img src="https://github.com/maciejniec.png" width="50" style="border-radius:50%" alt="maciejniec"></a>
 <a href="https://github.com/jani-nieminen-framehaus"><img src="https://github.com/jani-nieminen-framehaus.png" width="50" style="border-radius:50%" alt="jani-nieminen-framehaus"></a>
+<a href="https://github.com/endgame302"><img src="https://github.com/endgame302.png" width="50" style="border-radius:50%" alt="endgame302"></a>
 
 ---
 

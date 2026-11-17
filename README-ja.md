@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **最新バージョン**：v0.30.9 — フックをインポートせずに編集・削除できます。ダッシュボードのフックインポートダイアログは Agent を 1 つずつ表示し、設定ファイル内のフックをその場で変更できるようになりました。書き込み前にファイルの差分を確認でき、バックアップから元に戻せます。フックは未管理のままです。 [hooks リファレンス →](https://skillshare.runkids.cc/ja/docs/reference/commands/hooks) · [変更履歴 →](https://skillshare.runkids.cc/changelog)
+> **最新バージョン**：v0.30.10 — skillshare が書き込んだ Codex のフックを信頼できます。`skillshare hooks sync --trust -g` は新規または変更されたフックをコマンド付きで一覧表示し、確認後に Codex の信頼を記録するので、Codex がフックをスキップしなくなります。スクリプト向けに `--yes` で確認を省略でき、ダッシュボードの Hooks ページにも同じ操作があります。 [hooks リファレンス →](https://skillshare.runkids.cc/ja/docs/reference/commands/hooks) · [変更履歴 →](https://skillshare.runkids.cc/changelog)
 
 ## skillshare を使う理由
 

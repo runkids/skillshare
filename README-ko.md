@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **최신 버전**: v0.30.9 — hook을 가져오지 않고도 수정하거나 삭제하세요. 대시보드의 hook 가져오기 대화상자가 이제 Agent를 하나씩 보여 주며, 설정 파일에 있는 hook을 그 자리에서 변경할 수 있습니다. 파일에 쓰기 전에 diff를 확인할 수 있고, 백업으로 되돌릴 수 있습니다. hook은 관리되지 않는 상태로 남습니다. [hooks 레퍼런스 →](https://skillshare.runkids.cc/ko/docs/reference/commands/hooks) · [변경 기록 →](https://skillshare.runkids.cc/changelog)
+> **최신 버전**: v0.30.10 — skillshare가 기록한 Codex hook을 신뢰하세요. `skillshare hooks sync --trust -g`는 새로 추가되거나 변경된 hook을 command와 함께 나열하고, 확인하면 Codex의 신뢰를 기록하므로 Codex가 더 이상 건너뛰지 않습니다. 스크립트에서는 `--yes`로 질문을 건너뛸 수 있고, 대시보드의 Hooks 페이지에도 같은 동작이 있습니다. [hooks 레퍼런스 →](https://skillshare.runkids.cc/ko/docs/reference/commands/hooks) · [변경 기록 →](https://skillshare.runkids.cc/changelog)
 
 ## skillshare를 쓰는 이유
 
