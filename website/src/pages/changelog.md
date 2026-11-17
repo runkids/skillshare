@@ -9,6 +9,19 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
+## [0.30.11] - 2026-11-17
+
+
+### New Features
+
+* **hooks:** edit and remove unmanaged Antigravity and Copilot hooks in place ([#948](https://github.com/runkids/skillshare/issues/948)) ([6869c39](https://github.com/runkids/skillshare/commit/6869c39d16aa7e30e0fff83b2338acc1a0e263be))
+* **ui:** share npm Pi packages from the Plugins share dialog ([#947](https://github.com/runkids/skillshare/issues/947)) ([752f7b1](https://github.com/runkids/skillshare/commit/752f7b1ce1eab4dffb3721b2e1a28a70753d0ac5))
+
+
+### Bug Fixes
+
+* **ui:** keep the page width steady and list custom targets in the target menus ([#945](https://github.com/runkids/skillshare/issues/945)) ([71ef4b5](https://github.com/runkids/skillshare/commit/71ef4b53f9d71323c9ac477b003e60cb6b841af3))
+
 ## [0.30.10] - 2026-11-17
 
 ### New Features
