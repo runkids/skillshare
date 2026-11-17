@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.30.11] - 2026-11-17
+
+### New Features
+
+- **Share npm Pi packages from the dashboard** — **Share** on the Plugins page listed only the plugins added from an HTTPS Git source, so a Pi setup made of npm packages could not be passed on. The dialog now lists the Pi packages that Pi installed from npm after the plugins, under their own heading, and adds them to the copied command. Pi downloads an npm package itself, so each add names the built-in `pi` target and installs the package right away. With **Ask where to install each one** ticked, the command leaves out `--target pi` and `--no-tui` and asks which Pi targets to use. Plugins come first in the copied line, so a machine without Pi still adds every plugin before the first Pi package stops it. Pi packages from Git or a local path are not listed. See [Manage plugins across tools](https://skillshare.runkids.cc/docs/how-to/daily-tasks/sharing-plugins). Refs: #947.
+  ```bash
+  skillshare plugin add npm:pi-subagents --target pi -g --no-tui
+  ```
+- **Edit and remove Antigravity and Copilot hooks without importing them** — the dashboard's **Hooks in targets** dialog could change or remove a hook in place only for Agents that keep hooks as events of one settings file (Claude, Codex, Gemini, Cursor, Qwen, Droid). Antigravity and Copilot hooks had to be imported first. An Antigravity edit now replaces or removes the whole named block, and a disabled block stays disabled. A Copilot edit rewrites only the file's `hooks` key, and removing the hook deletes its file; Copilot rows show the file name, and the dialog says when a file will be deleted. Both keep the preview diff, the check that the file has not changed since it was read, and the backup, and the hook stays unmanaged. Hooks that are code (Pi, Oh My Pi, Amp, OpenCode) still need importing. Refs: #948.
+
+### Bug Fixes
+
+- **The dashboard page keeps its width when the scrollbar comes and goes** — whenever a page stopped needing to scroll (a short tab, a filtered list) or a dialog opened, the scrollbar vanished and the whole page grew 8px wider, then shrank again. The page now uses the system scrollbar, which takes no width where scrollbars overlay the content; on macOS it hides when idle. Scrolling areas inside the page keep the styled scrollbar. Refs: #945.
+- **Custom targets appear in "Available in..." and "Set targets"** — the skill target menus listed only the built-in tools, so a target with a custom name could not be picked from the dashboard, and the order changed between openings. The menus now list the configured targets, sorted by name. Refs: #945.
+
 ## [0.30.10] - 2026-11-17
 
 ### New Features
