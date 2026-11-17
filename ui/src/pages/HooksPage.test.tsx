@@ -136,13 +136,13 @@ describe('Hooks page', () => {
     await waitFor(() => expect(hooksApi.trustCodex).toHaveBeenCalledWith('rev-trust'));
   });
 
-  const openCodexTrust = async (hooks: { target: string; entry: string; key: string; command: string; action: 'needed' | 'unchanged'; disabled?: boolean }[]) => {
+  const openCodexTrust = async (hooks: { target: string; entry: string; key: string; command: string; action: 'needed' | 'unchanged'; disabled?: boolean }[], failed?: { target: string; error: string }[]) => {
     const user = userEvent.setup();
     vi.mocked(hooksApi.list).mockResolvedValue(inventory({
       targets: [{ name: 'claude', kind: 'command', note: '' }, { name: 'codex', kind: 'command', note: '' }],
       plan: plan([{ target: 'codex', path: '/home/u/.codex/hooks.json', name: 'guard', action: 'unchanged' }]),
     }));
-    vi.mocked(hooksApi.previewCodexTrust).mockResolvedValue({ hooks, revision: 'rev-trust' });
+    vi.mocked(hooksApi.previewCodexTrust).mockResolvedValue({ hooks, revision: 'rev-trust', failed });
     renderPage();
     await user.click(await screen.findByRole('button', { name: 'Trust Codex hooks' }));
     return { user, dialog: await screen.findByRole('dialog', { name: 'Trust Codex hooks' }) };
@@ -166,6 +166,12 @@ describe('Hooks page', () => {
   it('marks a hook Codex has disabled', async () => {
     const { dialog } = await openCodexTrust([{ ...codexHook, disabled: true }]);
     expect(await within(dialog).findByText('Disabled in Codex')).toBeInTheDocument();
+  });
+
+  it('names a home Codex could not list and still offers the others', async () => {
+    const { dialog } = await openCodexTrust([codexHook], [{ target: 'codex-2', error: 'codex exited' }]);
+    expect(await within(dialog).findByText('Codex could not list the hooks of codex-2, so they are left out: codex exited')).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'Trust these hooks' })).toBeEnabled();
   });
 
   it('holds Codex trust back until pending changes are synced', async () => {

@@ -90,7 +90,7 @@ export interface HookGitInfo {
 
 /** One Codex hook Skillshare owns. `needed`: not trusted yet or its command changed; `unchanged`: already trusted; `trusted`: recorded by this call. */
 export interface CodexTrustHook { target: string; entry: string; key: string; command?: string; action: 'needed' | 'unchanged' | 'trusted'; disabled?: boolean }
-export interface CodexTrustPlan { hooks: CodexTrustHook[]; revision: string }
+export interface CodexTrustPlan { hooks: CodexTrustHook[]; revision: string; /** Homes Codex could not list; their hooks are left out. */ failed?: { target: string; error: string }[] }
 
 const post = <T,>(path: string, body: unknown) => apiFetch<T>(path, { method: 'POST', body: JSON.stringify(body) });
 

@@ -18,13 +18,16 @@ func trustCodexHooks(service *hooks.Service, o hooksOptions) (trust []hooks.Code
 	}
 	needed := plan.Needed()
 	if len(needed) == 0 {
-		return plan.Hooks, false, nil
+		return plan.Hooks, false, plan.Err()
 	}
 	if !o.yes {
 		if o.json || !runningInInteractiveTTY() {
 			return plan.Hooks, false, fmt.Errorf("%s trust; review the commands and pass --yes to record it", needVerb(len(needed), "Codex hook"))
 		}
 		printHooksTrust(needed)
+		for _, f := range plan.Failed {
+			ui.Warning("Codex could not list the hooks of %s, so they are left out: %s", f.Target, f.Error)
+		}
 		fmt.Println()
 		ok, err := ui.ConfirmAction("Trust "+plural(len(needed), "hook")+" in Codex?", false)
 		if err != nil {
@@ -32,7 +35,7 @@ func trustCodexHooks(service *hooks.Service, o hooksOptions) (trust []hooks.Code
 		}
 		if !ok {
 			ui.Cancelled("trusted")
-			return plan.Hooks, true, nil
+			return plan.Hooks, true, plan.Err()
 		}
 	}
 	start := time.Now()

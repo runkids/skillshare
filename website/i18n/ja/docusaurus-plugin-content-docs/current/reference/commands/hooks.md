@@ -222,7 +222,7 @@ Codex trust
 
 書き込むのは `trusted_hash` だけで、追加のみです。Codex で無効にした hook は無効のまま報告されます。`enabled`、`config.toml` のその他の部分、Skillshare が所有しない hooks には触れません。hook が移動または削除されると、古いエントリは `config.toml` に残ります。このエントリは、その位置で event、matcher、handler が同じ hook にしか一致しないため、別の hook を信頼することはありません。
 
-`codex` が `PATH` にない場合や Codex が失敗した場合も hook ファイルは書き込まれ、コマンドは "hook files were written, but Codex trust was not recorded" で失敗します。Codex home が複数ある場合、1 つの home への書き込みが失敗しても他の home の記録は続行され、エラーには記録できた home とできなかった home が示されます。`--trust` なしの `hooks sync` は Codex を起動せず、信頼も変更しません。`--trust` はグローバルモードのみで、`sync hooks`、`hooks list`、プロジェクトモードでは拒否されます。Dashboard の Hooks ページ（global scope）にも同じ操作があり、信頼が必要な hooks を command とともに一覧表示し、ダイアログで確認した後にのみ信頼を記録します。
+`codex` が `PATH` にない場合や Codex が失敗した場合も hook ファイルは書き込まれ、コマンドは "hook files were written, but Codex trust was not recorded" で失敗します。Codex home が複数ある場合、Codex が一覧できない home や書き込みに失敗した home があっても他の home の記録は続行され、エラーには記録できた home とできなかった home が示されます。`--trust` なしの `hooks sync` は Codex を起動せず、信頼も変更しません。`--trust` はグローバルモードのみで、`sync hooks`、`hooks list`、プロジェクトモードでは拒否されます。Dashboard の Hooks ページ（global scope）にも同じ操作があり、信頼が必要な hooks を command とともに一覧表示し、ダイアログで確認した後にのみ信頼を記録します。
 
 ## Git hooks {#git-hooks}
 

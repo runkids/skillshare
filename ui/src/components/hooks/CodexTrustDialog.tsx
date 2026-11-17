@@ -47,6 +47,7 @@ export default function CodexTrustDialog({ onClose }: { onClose: () => void }) {
           : isPending ? <Spinner size="sm" />
           : plan && (
             <div className="flex flex-col gap-3">
+              {plan.failed?.map((f) => <div key={f.target} className="ss-note warn"><AlertCircle size={16} /><span className="flex-1">{t('hooks.codexTrust.failed', { target: f.target, error: f.error })}</span></div>)}
               {needed.length === 0 && <p className="text-[13px] text-ink-2">{t('hooks.codexTrust.none')}</p>}
               {needed.map((h) => (
                 <div key={h.key} className="flex flex-col gap-1">

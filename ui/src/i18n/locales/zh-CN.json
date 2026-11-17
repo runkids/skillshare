@@ -3372,6 +3372,7 @@
   "hooks.codexTrust.unchanged.one": "{count} 个 hook 已受信任。",
   "hooks.codexTrust.unchanged.other": "{count} 个 hook 已受信任。",
   "hooks.codexTrust.none": "没有需要信任的 Codex hook。",
+  "hooks.codexTrust.failed": "Codex 无法列出 {target} 的 hooks，因此不包含在内：{error}",
   "hooks.codexTrust.confirm": "信任这些 hooks",
   "hooks.codexTrust.done.one": "已记录 {count} 个 hook 的信任。",
   "hooks.codexTrust.done.other": "已记录 {count} 个 hook 的信任。",

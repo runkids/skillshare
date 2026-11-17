@@ -24,6 +24,7 @@ type fakeCodex struct {
 	beforeList  func(home string)
 	setTrustErr error
 	failHome    string // only this home's write fails, when set
+	listErrHome string // this home's hooks/list fails
 }
 
 var fakeCodexEvents = map[string]string{"SessionStart": "session_start", "Stop": "stop"}
@@ -56,6 +57,9 @@ func (s *fakeCodexServer) state() map[string]map[string]any {
 func (s *fakeCodexServer) ListHooks() ([]CodexHook, error) {
 	if s.f.beforeList != nil {
 		s.f.beforeList(s.home)
+	}
+	if s.f.listErrHome == s.home {
+		return nil, fmt.Errorf("hooks/list failed")
 	}
 	path := filepath.Join(s.home, "hooks.json")
 	if !exists(path) {
@@ -443,6 +447,47 @@ func TestCodexTrustKeepsWritingOtherHomesWhenOneFails(t *testing.T) {
 	}
 	if trustedHash(t, filepath.Join(e.home, ".codex"), "session_start:0:0") == "" {
 		t.Fatal("the home after the failed one was not written")
+	}
+}
+
+// A home Codex cannot list is reported and left out; the other home is still trusted.
+func TestCodexTrustLeavesOutAHomeCodexCannotList(t *testing.T) {
+	e, f := trustEnv(t)
+	save(t, e.service, Mutation{Name: "k", Entry: accountEntry(t, "codex", "codex-2")})
+	f.listErrHome = filepath.Join(e.home, ".codex-2")
+
+	plan, err := e.service.PreviewCodexTrust()
+	must(t, err)
+	if got := trustActions(t, plan.Hooks); got != "codex:k:session_start:0:0:needed" {
+		t.Fatalf("preview = %s", got)
+	}
+	if len(plan.Failed) != 1 || plan.Failed[0].Target != "codex-2" || !strings.Contains(plan.Failed[0].Error, "hooks/list failed") {
+		t.Fatalf("failed = %+v, want codex-2 with its error", plan.Failed)
+	}
+	plan, err = e.service.TrustCodex(plan.Revision)
+	if err == nil || !strings.Contains(err.Error(), "recorded for codex, but not for every home: codex-2: ") {
+		t.Fatalf("err = %v, want it to name the written and the unlisted home", err)
+	}
+	if got := trustActions(t, plan.Hooks); got != "codex:k:session_start:0:0:trusted" {
+		t.Fatalf("trust = %s", got)
+	}
+
+	// With no home left to list, the preview itself fails.
+	must(t, os.RemoveAll(filepath.Join(e.home, ".codex")))
+	if _, err := e.service.PreviewCodexTrust(); err == nil || !strings.Contains(err.Error(), "codex-2: ") {
+		t.Fatalf("err = %v, want the only home's failure", err)
+	}
+}
+
+// Codex reports a home it cannot load inside a successful reply.
+func TestParseCodexHooksListFailsWhenCodexLoadedNothing(t *testing.T) {
+	_, err := parseCodexHooksList(json.RawMessage(`{"data":[{"cwd":"/h","hooks":[],"warnings":[],"errors":[{"path":"/h","message":"/h/config.toml:3:6: key with no value"}]}]}`))
+	if err == nil || !strings.Contains(err.Error(), "config.toml:3:6") {
+		t.Fatalf("err = %v, want Codex's own reason", err)
+	}
+	hooks, err := parseCodexHooksList(json.RawMessage(`{"data":[{"hooks":[{"key":"k"}],"errors":[]}]}`))
+	if err != nil || len(hooks) != 1 {
+		t.Fatalf("hooks = %+v, err = %v", hooks, err)
 	}
 }
 

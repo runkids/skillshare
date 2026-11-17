@@ -3372,6 +3372,7 @@
   "hooks.codexTrust.unchanged.one": "{count} Hook wird bereits vertraut.",
   "hooks.codexTrust.unchanged.other": "{count} Hooks werden bereits vertraut.",
   "hooks.codexTrust.none": "Keine Codex-Hooks benötigen Vertrauen.",
+  "hooks.codexTrust.failed": "Codex konnte die Hooks von {target} nicht auflisten, sie bleiben außen vor: {error}",
   "hooks.codexTrust.confirm": "Diesen Hooks vertrauen",
   "hooks.codexTrust.done.one": "Vertrauen für {count} Hook gespeichert.",
   "hooks.codexTrust.done.other": "Vertrauen für {count} Hooks gespeichert.",

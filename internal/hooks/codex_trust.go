@@ -36,6 +36,24 @@ type CodexTrust struct {
 type CodexTrustPlan struct {
 	Hooks    []CodexTrust `json:"hooks"`
 	Revision string       `json:"revision"`
+	// Failed are the homes Codex could not list. Their hooks are not in Hooks, so
+	// they are never trusted; the other homes go on without them.
+	Failed []CodexTrustFailure `json:"failed,omitempty"`
+}
+
+// CodexTrustFailure is one Codex home that could not be listed, and why.
+type CodexTrustFailure struct {
+	Target string `json:"target"`
+	Error  string `json:"error"`
+}
+
+// Err reports the homes Codex could not list, or nil.
+func (p *CodexTrustPlan) Err() error {
+	var errs []error
+	for _, f := range p.Failed {
+		errs = append(errs, fmt.Errorf("%s: %s", f.Target, f.Error))
+	}
+	return errors.Join(errs...)
 }
 
 // Needed are the hooks that would be newly trusted.
@@ -142,12 +160,14 @@ func (s *Service) codexTrust(revision string, apply bool) (*CodexTrustPlan, erro
 		edits  map[string]string
 	}
 	var writes []write
+	var servers []CodexAppServer
 	defer func() {
-		for _, w := range writes {
-			w.server.Close()
+		for _, server := range servers {
+			server.Close()
 		}
 	}()
 	var needed []string
+	listed := 0
 	for _, file := range sortedKeys(homes) {
 		h := homes[file]
 		if info, err := os.Stat(filepath.Dir(h.path)); len(h.owned) == 0 || err != nil || !info.IsDir() {
@@ -155,15 +175,22 @@ func (s *Service) codexTrust(revision string, apply bool) (*CodexTrustPlan, erro
 		}
 		server, hooks, edits, err := s.listCodexHome(h)
 		if server != nil {
-			writes = append(writes, write{h.target, server, edits})
+			servers = append(servers, server)
 		}
 		if err != nil {
-			return plan, fmt.Errorf("%s: %w", h.target, err)
+			// One home Codex cannot list does not stop the others.
+			plan.Failed = append(plan.Failed, CodexTrustFailure{Target: h.target, Error: err.Error()})
+			continue
 		}
+		listed++
+		writes = append(writes, write{h.target, server, edits})
 		plan.Hooks = append(plan.Hooks, hooks...)
 		for key, hash := range edits {
 			needed = append(needed, key+"\x00"+hash)
 		}
+	}
+	if listed == 0 && len(plan.Failed) > 0 {
+		return plan, plan.Err()
 	}
 	slices.Sort(needed)
 	plan.Revision = digest([]byte(strings.Join(needed, "\n")))
@@ -176,6 +203,9 @@ func (s *Service) codexTrust(revision string, apply bool) (*CodexTrustPlan, erro
 	// One home that fails does not stop the others, and the error says which is which.
 	var done []string
 	var failed []error
+	if err := plan.Err(); err != nil {
+		failed = append(failed, err)
+	}
 	for _, w := range writes {
 		if len(w.edits) == 0 {
 			continue
@@ -428,17 +458,34 @@ func (p *codexProcess) ListHooks() ([]CodexHook, error) {
 	if err != nil {
 		return nil, err
 	}
+	return parseCodexHooksList(raw)
+}
+
+// parseCodexHooksList reads a hooks/list result. Codex answers a home it cannot load,
+// such as one with an invalid config.toml, with no hooks and the reason in errors;
+// that is a failed listing, not a home without hooks.
+func parseCodexHooksList(raw json.RawMessage) ([]CodexHook, error) {
 	var res struct {
 		Data []struct {
-			Hooks []CodexHook `json:"hooks"`
+			Hooks  []CodexHook `json:"hooks"`
+			Errors []struct {
+				Message string `json:"message"`
+			} `json:"errors"`
 		} `json:"data"`
 	}
 	if err := json.Unmarshal(raw, &res); err != nil {
 		return nil, fmt.Errorf("codex app-server hooks/list: %w", err)
 	}
 	var out []CodexHook
+	var problems []string
 	for _, entry := range res.Data {
 		out = append(out, entry.Hooks...)
+		for _, e := range entry.Errors {
+			problems = append(problems, e.Message)
+		}
+	}
+	if len(out) == 0 && len(problems) > 0 {
+		return nil, fmt.Errorf("Codex could not load its hooks: %s", strings.Join(problems, "; "))
 	}
 	return out, nil
 }

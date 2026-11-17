@@ -89,7 +89,8 @@ once; nothing to trust means no question. `--yes`/`-y` (only with `--trust`) ski
 the question. Without a terminal and without `--yes`, nothing is trusted: it lists
 the hooks and exits with an error naming `--yes`, because Codex's review exists so a
 person sees the command before it runs. `--json` never asks: without `--yes` it
-reports the hooks as `needed` and exits non-zero with no error text. Only `trusted_hash` is
+reports the hooks as `needed` and exits non-zero with no error text. A home Codex cannot list, or whose
+write fails, is named in the error and does not stop the other homes. Only `trusted_hash` is
 added (disabled hooks are reported, not enabled). A moved or removed hook leaves its
 old entry in `config.toml`; it matches only the same event, matcher and handler at
 that position, so it cannot trust another hook. Global mode only; `sync hooks`,
