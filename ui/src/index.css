@@ -90,6 +90,19 @@ html.theme-transitioning :is(.ss-box, .ss-list, .ss-btn, .ss-tag, .ss-inp, .ss-d
 }
 
 /* Scrollbar styling */
+/* The page uses the system scrollbar, so a short tab or an open dialog does not shift the layout sideways:
+   an overlay scrollbar takes no width, and a classic one keeps its gutter. The 8px one below would come and go. */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: var(--ink-3) transparent;
+  scrollbar-gutter: stable;
+}
+
+/* scrollbar-color inherits and would switch off the styled scrollbars below */
+body {
+  scrollbar-color: auto;
+}
+
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;

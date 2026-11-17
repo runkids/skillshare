@@ -133,7 +133,6 @@ describe('Skills tree view', () => {
     vi.mocked(api.getSyncMatrix).mockResolvedValue({ entries: [] } as unknown as Awaited<ReturnType<typeof api.getSyncMatrix>>);
     vi.mocked(api.batchToggleResources).mockResolvedValue({ results: [], summary: { updated: 1, unchanged: 0, failed: 0 } } as Awaited<ReturnType<typeof api.batchToggleResources>>);
     vi.mocked(api.batchSetTargets).mockResolvedValue({ updated: 2, skipped: 0, errors: [] });
-    vi.mocked(api.availableTargets).mockResolvedValue({ targets: [{ name: 'claude', installed: true }] } as Awaited<ReturnType<typeof api.availableTargets>>);
   });
 
   it('turns every skill of a partly enabled folder on from its switch', async () => {
@@ -164,13 +163,15 @@ describe('Skills tree view', () => {
     expect(screen.queryByRole('menuitem', { name: 'Move whole folder…' })).toBeNull();
   });
 
-  it('sets targets for a folder inside a tracked repo', async () => {
+  it('sets targets for a folder inside a tracked repo, offering a custom target', async () => {
+    // "my-tool" is in no built-in list of tools; only the configured targets name it.
+    vi.mocked(api.listTargets).mockImplementation(async (scope) => ({ targets: scope ? [] : [{ name: 'my-tool' }], sourceSkillCount: 0 }) as Awaited<ReturnType<typeof api.listTargets>>);
     const user = userEvent.setup();
     mount();
     await user.click(await row('plugins/demo/skills'));
     await user.click(screen.getByRole('button', { name: 'Set targets' }));
-    await user.click(within(await screen.findByRole('menu')).getByRole('menuitem', { name: 'claude' }));
-    await waitFor(() => expect(api.batchSetTargets).toHaveBeenCalledWith('_repo/plugins/demo/skills', 'claude'));
+    await user.click(within(await screen.findByRole('menu')).getByRole('menuitem', { name: 'my-tool' }));
+    await waitFor(() => expect(api.batchSetTargets).toHaveBeenCalledWith('_repo/plugins/demo/skills', 'my-tool'));
   });
 
 });
