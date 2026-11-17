@@ -10,7 +10,7 @@ import HooksPage from './HooksPage';
 
 vi.mock('../api/hooks', async (load) => ({
   ...await load<typeof import('../api/hooks')>(),
-  hooksApi: { list: vi.fn(), catalog: vi.fn(), preview: vi.fn(), render: vi.fn(), save: vi.fn(), configure: vi.fn(), import: vi.fn(), previewRestore: vi.fn(), restore: vi.fn() },
+  hooksApi: { list: vi.fn(), catalog: vi.fn(), preview: vi.fn(), render: vi.fn(), save: vi.fn(), configure: vi.fn(), import: vi.fn(), previewRestore: vi.fn(), restore: vi.fn(), previewCodexTrust: vi.fn(), trustCodex: vi.fn() },
 }));
 
 const plan = (changes: HookPlan['changes']) => ({ revision: 'rev-1', fingerprint: 'fp', sourcePath: '/s.yaml', blocked: false, changes });
@@ -119,4 +119,68 @@ describe('Hooks page', () => {
     await waitFor(() => expect(hooksApi.configure).toHaveBeenCalledWith({}, 'rev-fresh', true));
   });
 
+  it('shows a Codex hook command before trusting and sends the preview revision', async () => {
+    const user = userEvent.setup();
+    const hook = { target: 'codex-2', entry: 'guard', key: 'k', command: 'echo "a long one-liner" && ./guard.sh', action: 'needed' as const };
+    vi.mocked(hooksApi.list).mockResolvedValue(inventory({
+      targets: [{ name: 'claude', kind: 'command', note: '' }, { name: 'codex-2', agent: 'codex', kind: 'command', note: '' }],
+      plan: plan([{ target: 'codex-2', path: '/home/u/.codex-2/hooks.json', name: 'guard', action: 'unchanged' }]),
+    }));
+    vi.mocked(hooksApi.previewCodexTrust).mockResolvedValue({ hooks: [hook], revision: 'rev-trust' });
+    vi.mocked(hooksApi.trustCodex).mockResolvedValue({ hooks: [{ ...hook, action: 'trusted' }], revision: 'rev-trust' });
+    renderPage();
+    await user.click(await screen.findByRole('button', { name: 'Trust Codex hooks' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Trust Codex hooks' });
+    expect(await within(dialog).findByText(hook.command)).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: 'Trust these hooks' }));
+    await waitFor(() => expect(hooksApi.trustCodex).toHaveBeenCalledWith('rev-trust'));
+  });
+
+  const openCodexTrust = async (hooks: { target: string; entry: string; key: string; command: string; action: 'needed' | 'unchanged'; disabled?: boolean }[], failed?: { target: string; error: string }[]) => {
+    const user = userEvent.setup();
+    vi.mocked(hooksApi.list).mockResolvedValue(inventory({
+      targets: [{ name: 'claude', kind: 'command', note: '' }, { name: 'codex', kind: 'command', note: '' }],
+      plan: plan([{ target: 'codex', path: '/home/u/.codex/hooks.json', name: 'guard', action: 'unchanged' }]),
+    }));
+    vi.mocked(hooksApi.previewCodexTrust).mockResolvedValue({ hooks, revision: 'rev-trust', failed });
+    renderPage();
+    await user.click(await screen.findByRole('button', { name: 'Trust Codex hooks' }));
+    return { user, dialog: await screen.findByRole('dialog', { name: 'Trust Codex hooks' }) };
+  };
+  const codexHook = { target: 'codex', entry: 'guard', key: 'k', command: './guard.sh', action: 'needed' as const };
+
+  it('offers no retry when the Codex hooks changed since they were listed', async () => {
+    vi.mocked(hooksApi.trustCodex).mockRejectedValue(new Error('Codex hooks changed since they were listed'));
+    const { user, dialog } = await openCodexTrust([codexHook]);
+    await user.click(await within(dialog).findByRole('button', { name: 'Trust these hooks' }));
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('Codex hooks changed since they were listed');
+    expect(within(dialog).queryByRole('button', { name: 'Trust these hooks' })).not.toBeInTheDocument();
+  });
+
+  it('has nothing to confirm when every Codex hook is already trusted', async () => {
+    const { dialog } = await openCodexTrust([{ ...codexHook, action: 'unchanged' }]);
+    expect(await within(dialog).findByText('No Codex hooks need trust.')).toBeInTheDocument();
+    expect(within(dialog).queryByRole('button', { name: 'Trust these hooks' })).not.toBeInTheDocument();
+  });
+
+  it('marks a hook Codex has disabled', async () => {
+    const { dialog } = await openCodexTrust([{ ...codexHook, disabled: true }]);
+    expect(await within(dialog).findByText('Disabled in Codex')).toBeInTheDocument();
+  });
+
+  it('names a home Codex could not list and still offers the others', async () => {
+    const { dialog } = await openCodexTrust([codexHook], [{ target: 'codex-2', error: 'codex exited' }]);
+    expect(await within(dialog).findByText('Codex could not list the hooks of codex-2, so they are left out: codex exited')).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'Trust these hooks' })).toBeEnabled();
+  });
+
+  it('holds Codex trust back until pending changes are synced', async () => {
+    vi.mocked(hooksApi.list).mockResolvedValue(inventory({
+      targets: [{ name: 'claude', kind: 'command', note: '' }, { name: 'codex', kind: 'command', note: '' }],
+      plan: plan([{ target: 'codex', path: '/home/u/.codex/hooks.json', name: 'guard', action: 'update' }]),
+    }));
+    renderPage();
+    expect(await screen.findByRole('button', { name: 'Sync hooks' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Trust Codex hooks' })).not.toBeInTheDocument();
+  });
 });

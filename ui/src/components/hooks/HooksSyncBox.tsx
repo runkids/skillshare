@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertCircle, CircleCheck, RefreshCw } from 'lucide-react';
+import { AlertCircle, CircleCheck, RefreshCw, ShieldCheck } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { hooksApi, type HookChange, type HookEntry, type HookMutation, type HookPlan } from '../../api/hooks';
 import { useTheme } from '../../context/ThemeContext';
@@ -11,8 +11,9 @@ import Button from '../Button';
 import DialogShell from '../DialogShell';
 import Spinner from '../Spinner';
 import { SyncBox } from '../StatusRail';
+import CodexTrustDialog from './CodexTrustDialog';
 import HooksPreview from './HooksPreview';
-import { actionLabel, blockedHint, fileName, hookLabel, needsTakeover, rootPlan, writes } from './hooksView';
+import { actionLabel, agentOfKey, blockedHint, fileName, hookLabel, needsTakeover, rootPlan, writes } from './hooksView';
 import { invalidate } from '../../lib/queryEvents';
 
 /**
@@ -83,11 +84,15 @@ export function HooksSyncDialog({ project, takeover, canTakeOver, onTakeover, on
 }
 
 /** What Sync would write. This is Skillshare's side only: whether an Agent trusts and loads it is that Agent's call. */
-export default function HooksSyncBox({ plan, project, canTakeOver, onTakeover }: { plan: HookPlan; project?: string; canTakeOver?: (c: HookChange) => boolean; onTakeover?: (name: string) => void }) {
+export default function HooksSyncBox({ plan, project, accounts = {}, canTakeOver, onTakeover }: { plan: HookPlan; project?: string; /** Account target name → Agent, so `codex-2` counts as Codex. */ accounts?: Record<string, string>; canTakeOver?: (c: HookChange) => boolean; onTakeover?: (name: string) => void }) {
   const t = useT();
   const { style } = useTheme();
   const [reviewing, setReviewing] = useState(false);
+  const [trusting, setTrusting] = useState(false);
   const pending = plan.changes.filter(writes);
+  // Codex trust is global only, and only worth offering when the plan binds a hook to a Codex target.
+  // Trust covers the hooks on disk, so it waits until pending changes are synced.
+  const hasCodex = !project && pending.length === 0 && plan.changes.some((c) => !c.root && agentOfKey(accounts, c.target) === 'codex');
   const conflicts = plan.changes.filter((c) => c.action === 'conflict');
   const inactive = plan.changes.filter((c) => c.action === 'inactive' || c.inactiveReason);
   const inactiveReasons = [...new Set(inactive.map((c) => c.inactiveReason || c.message).filter(Boolean))];
@@ -128,8 +133,10 @@ export default function HooksSyncBox({ plan, project, canTakeOver, onTakeover }:
           {plan.blocked && <p className="text-xs leading-normal text-warn">{blockedHint(t, plan)}</p>}
         </>
       )}
+      {hasCodex && <Button className="w-full justify-center" variant="secondary" onClick={() => setTrusting(true)}><ShieldCheck size={15} />{t('hooks.codexTrust.button')}</Button>}
       {inactiveReasons.map((reason) => <p key={reason} className="text-xs leading-normal text-ink-2">{reason}</p>)}
       <p className="text-xs leading-normal text-ink-2">{t('hooks.syncHint')}</p>
+      {trusting && <CodexTrustDialog onClose={() => setTrusting(false)} />}
       {reviewing && <HooksSyncDialog project={project} canTakeOver={canTakeOver} onTakeover={onTakeover && ((name) => { setReviewing(false); onTakeover(name); })} onClose={() => setReviewing(false)} />}
     </SyncBox>
   );

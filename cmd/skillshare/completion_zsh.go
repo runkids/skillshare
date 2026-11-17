@@ -140,6 +140,8 @@ _skillshare() {
                         '--sync[Sync after saving]' \
                         '--replace[Replace an existing entry]' \
                         '--keep-files[remove: leave Agent entries as they are]' \
+                        '--trust[sync: record Codex trust]' \
+                        '(-y --yes)'{-y,--yes}'[sync --trust: record trust without asking]' \
                         '--revision[Preview revision]:revision:' \
                         '--dry-run[Preview changes]' \
                         '-n[Preview changes]' \
