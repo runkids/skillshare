@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.30.10](https://github.com/runkids/skillshare/compare/v0.30.9...v0.30.10) (2026-11-17)
+
+
+* release as 0.30.10 ([6b83611](https://github.com/runkids/skillshare/commit/6b83611ca426099c262f428f0102db9e34972ef1))
+
+
+### New Features
+
+* **hooks:** record Codex hook trust on sync with --trust ([#829](https://github.com/runkids/skillshare/issues/829)) ([ed3c825](https://github.com/runkids/skillshare/commit/ed3c825c49f8d622b555581521e213c5f0f4300a))
+
+
+### Bug Fixes
+
+* **diff:** list only what sync prunes, and have doctor follow it ([#942](https://github.com/runkids/skillshare/issues/942)) ([7af9224](https://github.com/runkids/skillshare/commit/7af922489670d46d221769285ad10a7338aef44f)), closes [#939](https://github.com/runkids/skillshare/issues/939) [#940](https://github.com/runkids/skillshare/issues/940) [#941](https://github.com/runkids/skillshare/issues/941)
+* **init:** name the agent files the first sync kept ([#943](https://github.com/runkids/skillshare/issues/943)) ([d2cc0d8](https://github.com/runkids/skillshare/commit/d2cc0d86816216cdb2d2da081f2ec0305f2b87b1)), closes [#938](https://github.com/runkids/skillshare/issues/938)
+* **sync:** let --force take over an agent file that already matches ([#944](https://github.com/runkids/skillshare/issues/944)) ([c626c4b](https://github.com/runkids/skillshare/commit/c626c4bf1f869d27f3f5ab39334d4d2b1f4eddba))
+* **sync:** never delete or re-point entries skillshare did not create ([#914](https://github.com/runkids/skillshare/issues/914)) ([1419b62](https://github.com/runkids/skillshare/commit/1419b624995128a0b08e265228eb76b7bf247e86))
+* **ui:** fetch each repository once when the dashboard updates skills ([#931](https://github.com/runkids/skillshare/issues/931)) ([310478c](https://github.com/runkids/skillshare/commit/310478c28d34bb9acb0eaecdc64f61069db4720c))
+* **ui:** keep one thing moving while an update runs ([#932](https://github.com/runkids/skillshare/issues/932)) ([27e6734](https://github.com/runkids/skillshare/commit/27e67347aa2fbdcd0dcd960750e252318df495b1))
+* **ui:** pick nothing by default when taking over hooks from targets ([#935](https://github.com/runkids/skillshare/issues/935)) ([0f816a3](https://github.com/runkids/skillshare/commit/0f816a3425c66cd647716e4219899eacc4934599))
+
 ## [0.30.9] - 2026-11-16
 
 ### New Features
