@@ -18,8 +18,9 @@ type RenderedFile struct {
 }
 
 // RenderNative shows what one hook writes, per Agent, without the rest of any existing
-// file. It reads no ownership state or native file contents, writes nothing and runs
-// nothing. A disabled entry renders its stored bindings, which sync would not write.
+// file. It reads no ownership state or native file contents and writes nothing.
+// OpenCode runs only a read-only version probe. A disabled entry renders its stored
+// bindings, which sync would not write.
 // A binding whose path cannot be resolved or safely written reports its own error.
 func (s *Service) RenderNative(m Mutation) ([]RenderedFile, error) {
 	if m.Remove || m.Replace {
@@ -67,6 +68,7 @@ func (s *Service) RenderNative(m Mutation) ([]RenderedFile, error) {
 		return nil, err
 	}
 	entry.Enabled = nil
+	scope = scope.memoProbe()
 	out := []RenderedFile{}
 	for _, target := range sortedKeys(entry.Bindings) {
 		one := Entry{Bindings: map[string]Binding{target: entry.Bindings[target]}}
@@ -76,7 +78,7 @@ func (s *Service) RenderNative(m Mutation) ([]RenderedFile, error) {
 			continue
 		}
 		// A skipped account home writes nothing; say why instead of rendering no file.
-		if len(d.warnings) > 0 {
+		if len(d.warnings) > 0 && len(d.files)+len(d.elements)+len(d.git) == 0 {
 			out = append(out, RenderedFile{Target: target, Error: strings.Join(d.warnings, "; ")})
 			continue
 		}

@@ -41,7 +41,7 @@ import { globToRegex } from '../lib/glob';
 import { parseRemoteURL } from '../lib/parseRemoteURL';
 import { folderOf, formatTrackedRepoName, resourceHref } from '../lib/resourceNames';
 import {
-  byTargetOrProject, countLabel, groupByFolder, groupBySource, descendantCount, limitGroups, nestSkills, parentPath, projectOf, repoOf, sortSkills, sourceLinkOf, sourceName, splitTargets, syncedByTarget, withAncestors,
+  byTargetOrProject, countLabel, groupByFolder, groupBySource, descendantCount, limitGroups, nestSkills, parentPath, projectOf, repoOf, sortSkills, sourceLinkOf, sourceName, splitTargets, syncedByTarget, targetReach, withAncestors,
   SOURCE_LABEL, SOURCE_ORDER,
   type FolderGroup, type Group, type Nest, type SortType, type SourceFilter,
 } from '../lib/resourceGrouping';
@@ -396,7 +396,7 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
   const someSelected = !allSelected && filtered.some((s) => selected.has(s.flatName));
   const trashCount = (trashData?.items ?? []).filter((i) => (i.kind ?? 'skill') === kind).length;
 
-  // Which targets can receive agents at all. Only agents get 'na' entries in the matrix.
+  // Which targets can receive agents at all: the matrix has agent entries only for those.
   const agentSupport = useMemo(() => {
     if (!isAgent) return null;
     const names = new Set(items.map((s) => s.flatName));
@@ -404,20 +404,18 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
     const supported = new Set<string>();
     for (const e of matrix) {
       targets.add(e.target);
-      if (names.has(e.skill) && e.status !== 'na') supported.add(e.target);
+      if (names.has(e.skill)) supported.add(e.target);
     }
     return { supported: [...supported].sort(), total: targets.size };
   }, [isAgent, items, matrix]);
 
   const rowInfo = (s: Skill): { synced: string[]; reachable: string[]; tone: Tone; label: string } => {
     const entries = getSkillTargets(s.flatName);
-    const synced = entries.filter((e) => e.status === 'synced').map((e) => e.target).sort();
-    const applicable = entries.some((e) => e.status !== 'na');
-    // Projects this item could sync to, whether or not it does: the tooltip names the ones it misses.
-    const reachable = [...new Set(entries.filter((e) => e.status !== 'na').map((e) => projectOf(e.target)).filter(Boolean))].sort();
+    // `reachable`: projects this item could sync to, whether or not it does. The tooltip names the ones it misses.
+    const { synced, reachable, none } = targetReach(entries);
     if (s.disabled) return { synced, reachable, tone: 'off', label: t('resources.status.disabled') };
-    if (entries.length > 0 && !applicable) return { synced, reachable, tone: 'off', label: t('resources.tree.noAgentTargets.label') };
-    if (applicable && synced.length === 0) return { synced, reachable, tone: 'off', label: t('resources.tree.filteredOut.label') };
+    if (none === 'off') return { synced, reachable, tone: 'off', label: t('targets.skillsOff') };
+    if (none === 'filtered') return { synced, reachable, tone: 'off', label: t('resources.tree.filteredOut.label') };
     return { synced, reachable, tone: 'ok', label: t('resources.status.enabled') };
   };
   const syncedCell = (s: Skill) => {
@@ -477,7 +475,7 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
   const setTargets = useMutation({
     mutationFn: ({ name, target }: { name: string; target: string | null }) => api.setSkillTargets(name, target),
     onMutate: ({ name, target }) => patch((list) => list.map((x) => (x.flatName === name ? { ...x, targets: target ? [target] : undefined } : x))),
-    onSuccess: (_, { name, target }) => toast(t('resources.toast.nowAvailableIn', { name, target: target ?? t('resources.targets.all') }), 'success'),
+    onSuccess: (_, { name, target }) => toast(target ? t('resources.toast.nowAvailableIn', { name, target }) : t('resources.toast.limitRemoved', { name }), 'success'),
     onError: rollback,
     onSettled: refreshAfterTargets,
   });
@@ -487,7 +485,7 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
     onSuccess: (res, { folder: path, target }) => {
       const folder = formatTrackedRepoName(path);
       if (res.updated === 0 && res.skipped > 0) toast(t('resources.folder.noEditableSkills', { folder }), 'error');
-      else toast(t('resources.folder.skillsUpdated', { count: res.updated, folder, target: target ?? t('resources.targets.all') }), 'success');
+      else toast(target ? t('resources.folder.skillsUpdated', { count: res.updated, folder, target }) : t('resources.folder.limitRemoved', { count: res.updated, folder }), 'success');
     },
     onError: (err: Error) => toast(err.message, 'error'),
     onSettled: refreshAfterTargets,
@@ -496,7 +494,7 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
   const setManyTargets = async (names: string[], target: string | null) => {
     const results = await Promise.allSettled(names.map((n) => api.setSkillTargets(n, target)));
     const failed = results.filter((r) => r.status === 'rejected').length;
-    if (failed === 0) toast(t(plural('resources.bulk.targetsSet', names.length), { count: names.length, target: target ?? t('resources.targets.all') }), 'success');
+    if (failed === 0) toast(target ? t(plural('resources.bulk.targetsSet', names.length), { count: names.length, target }) : t(plural('resources.bulk.limitRemoved', names.length), { count: names.length }), 'success');
     else toast(t('resources.batchToggle.toast.partial', { updated: names.length - failed, failed }), failed === names.length ? 'error' : 'warning');
     refreshAfterTargets();
   };

@@ -54,7 +54,7 @@ func DraftCandidates(sourcePath string, walk ...sourcewalk.Options) ([]DraftEntr
 		if desc := utils.ParseFrontmatterField(filepath.Join(skill.SourcePath, "SKILL.md"), "description"); desc != "" {
 			setField(data, "description", desc)
 		}
-		if tags := utils.ParseFrontmatterList(filepath.Join(skill.SourcePath, "SKILL.md"), "tags"); len(tags) > 0 {
+		if tags := readSkillTags(skill.SourcePath); len(tags) > 0 {
 			data["tags"], _ = json.Marshal(tags)
 		}
 		if SourceProblem(field(data, "source")) == "credentials" {

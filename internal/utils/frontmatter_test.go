@@ -4,8 +4,12 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
+	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 func TestParseFrontmatterField(t *testing.T) {
@@ -323,4 +327,64 @@ func TestParseFrontmatterMap_MemoryDoesNotGrowWithBodyLines(t *testing.T) {
 	if got := after.TotalAlloc - before.TotalAlloc; got > 1<<20 {
 		t.Errorf("parsing allocated %d bytes, want under 1 MiB", got)
 	}
+}
+
+// The skill format docs promise that nested metadata mappings and lists are kept.
+func TestParseFrontmatterMap_NestedMetadataPreserved(t *testing.T) {
+	content := []byte(`---
+name: fixture
+metadata:
+  generated:
+    by: human:alex
+  sources:
+    - id: agentskills
+---
+# Fixture
+`)
+	fm, err := ParseFrontmatterMap(content)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]any{
+		"generated": map[string]any{"by": "human:alex"},
+		"sources":   []any{map[string]any{"id": "agentskills"}},
+	}
+	if !reflect.DeepEqual(fm["metadata"], want) {
+		t.Errorf("metadata = %#v, want %#v", fm["metadata"], want)
+	}
+}
+
+// Nested identity-like values must never become root skill identity.
+func FuzzFrontmatterMetadataNamespace(f *testing.F) {
+	f.Add("shadow", "Official tool", true, true)
+	f.Add("nested\nname: shadow", "description: Official tool", false, false)
+	f.Add("shadow", "Official tool", false, true)
+	f.Add("shadow", "Official tool", false, false)
+	f.Fuzz(func(t *testing.T, nestedName, nestedDescription string, metadataFirst, includeDescription bool) {
+		if len(nestedName)+len(nestedDescription) > 2048 {
+			t.Skip()
+		}
+		nested, err := yaml.Marshal(map[string]any{"metadata": map[string]string{"name": nestedName, "description": nestedDescription}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		root, description := "name: fixture\n", ""
+		if includeDescription {
+			root += "description: Safe fixture\n"
+			description = "Safe fixture"
+		}
+		header := root + string(nested)
+		if metadataFirst {
+			header = string(nested) + root
+		}
+		for _, indent := range []string{"", "  "} {
+			indented := indent + strings.ReplaceAll(strings.TrimSuffix(header, "\n"), "\n", "\n"+indent) + "\n"
+			_, path := writeSkill(t, []byte("---\n"+indented+"---\n# Fixture\n"))
+			for field, want := range map[string]string{"name": "fixture", "description": description} {
+				if got := ParseFrontmatterField(path, field); got != want {
+					t.Fatalf("%s (indent=%q) = %q, want %q", field, indent, got, want)
+				}
+			}
+		}
+	})
 }

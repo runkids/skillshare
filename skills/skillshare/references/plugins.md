@@ -130,10 +130,9 @@ no Agent holds it, drops the package from Skillshare entirely.
 
 Claude supports native updates; Codex re-adds the reviewed snapshot unless the plugin is disabled in Codex. Cursor/Antigravity replace managed
 local copies; Pi/OpenCode refresh reviewed source snapshots; OMP removes its scoped registration and reinstalls the reviewed commit. Imported Codex plugins update by upgrading their marketplace; imported Pi packages through `pi update`, global only. Imported OpenCode v1 packages must be updated natively. OpenCode v2 global
-imports may use native update; project imports may not. Copilot and Antigravity CLI source updates
+package imports may use native update; imported local directories and project imports may not. Copilot and Antigravity CLI source updates
 require known native enabled state; Grok updates natively. Project mode supports Claude, Antigravity, Pi,
-OMP and OpenCode, never falling back to global scope. An update skips a target it
-cannot reach, says why, and still updates the other targets.
+OMP and OpenCode, never falling back to global scope. An update reports failed targets and continues healthy targets; intentional skips remain pending. Dry runs print the complete plan and exit nonzero on failure; isolated failures include `failed: true` in JSON.
 
 ## Additional formats and scopes
 
@@ -176,14 +175,14 @@ cannot reach, says why, and still updates the other targets.
   Remove and deselection-plus-sync use a scoped adapter: registration, runtime
   selection and verified links are removed, not disabled; cache, marketplace
   registrations and plugin settings remain. Reinstall chooses a fresh cache
-  identity. A missing cache manifest requires a unique runtime-lock key and link
+  identity when retained cache exists; an already registered owned marketplace has its catalog refreshed before install. Removal validates the scoped native version and cache path even when the binding version differs. A missing cache manifest requires a unique runtime-lock key and link
   to the exact retained cache, never a guessed marketplace name. Unverifiable active
   ownership or metadata blocks removal, Windows requires private
   native ACLs, and interrupted removal can be retried. Do not run native plugin
   mutations concurrently; their writer does not share the adapter lock.
   Updates never run OMP's native upgrade: they remove the scope's registration with the
   same adapter and install the reviewed commit under a fresh cache identity. An update whose
-  removal cannot be verified is blocked (`update --all` skips it); imported code is not
+  removal cannot be verified is blocked (`update --all` reports a failed outcome and continues other targets); imported code is not
   upgraded without a reviewed source. Native `.omp-plugin/marketplace.json` catalogs take precedence; Claude catalogs
   are a fallback only when no OMP catalog exists, not when an entry is missing or invalid.
   Catalog entries can point to `package.json` with `omp.extensions` or `pi.extensions`, using the catalog
@@ -211,7 +210,7 @@ cannot reach, says why, and still updates the other targets.
   during selection management, and selected never means loaded or running.
 - OpenCode: SDK dependency, `.opencode/plugins/` convention, or explicit `--entry`,
   with an existing JS/TS entry.
-  Preserve the whole tree and register its file URL in the native JSON/JSONC config.
+  Preserve the whole tree and manifest: v1 registers the entry file URL, v2 the directory URL in native JSON/JSONC. v2 requires name plus a string root/server export or a conventional root server/index file; --entry cannot override it. Conditional/fallback server exports fail closed. Hook packages registered as `plugins/skillshare-NAME` belong to hooks and are not listed.
   Version 1 uses `plugin`, version 2 uses `plugins`. Runtime dependencies must already
   be available. The CLI version selects the schema; do not guess from docs alone.
 - Another account of an Agent (a target with `agent:` and `config_dir:` in the global

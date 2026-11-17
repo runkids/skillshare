@@ -162,7 +162,7 @@ func cmdUpdate(args []string) error {
 			result, err := cmdUpdateProject(rest, cwd)
 			restore()
 			logUpdateOp(config.ProjectConfigPath(cwd), rest, projOpts, "project", start, err, result)
-			return updateOutputJSON(result, projOpts.dryRun, start, err)
+			return updateOutputJSON(result, projOpts.dryRun, true, start, err)
 		}
 		result, err := cmdUpdateProject(rest, cwd)
 		logUpdateOp(config.ProjectConfigPath(cwd), rest, projOpts, "project", start, err, result)
@@ -202,7 +202,7 @@ func cmdUpdate(args []string) error {
 	}
 	jsonWriteResult := func(result *updateResult, cmdErr error) error {
 		jsonUI.Flush()
-		return updateOutputJSON(result, opts.dryRun, start, cmdErr)
+		return updateOutputJSON(result, opts.dryRun, false, start, cmdErr)
 	}
 
 	// --- Resolve targets ---
@@ -405,7 +405,7 @@ func cmdUpdate(args []string) error {
 		if opts.jsonOutput {
 			return jsonWriteResult(&r, updateErr)
 		}
-		displayMissingTrackedReposWarning(r.missingTrackedRepos)
+		displayMissingTrackedReposWarning(r.missingTrackedRepos, false)
 		return updateErr
 	}
 
@@ -431,7 +431,7 @@ func cmdUpdate(args []string) error {
 }
 
 // updateOutputJSON converts an update result to JSON and writes to stdout.
-func updateOutputJSON(result *updateResult, dryRun bool, start time.Time, updateErr error) error {
+func updateOutputJSON(result *updateResult, dryRun, isProject bool, start time.Time, updateErr error) error {
 	output := updateJSONOutput{
 		DryRun:   dryRun,
 		Duration: formatDuration(start),
@@ -446,7 +446,7 @@ func updateOutputJSON(result *updateResult, dryRun bool, start time.Time, update
 		if len(result.missingTrackedRepos) > 0 {
 			output.MissingTrackedRepos = &missingTrackedReposSummary{
 				Names: result.missingTrackedRepos,
-				Hint:  missingTrackedRepoHint(),
+				Hint:  missingTrackedRepoHint(isProject),
 			}
 		}
 	}

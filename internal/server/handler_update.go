@@ -38,6 +38,10 @@ type updateResultItem struct {
 	Kind           string `json:"kind,omitempty"`
 }
 
+// locallyModifiedMessage is the reason a skill edited since install is skipped;
+// the dashboard offers Force Retry on its "(try force update)" hint.
+const locallyModifiedMessage = "has local changes since install (try force update)"
+
 func (s *Server) updateAuditThreshold() string {
 	if s.IsProjectMode() && s.projectCfg != nil {
 		if threshold, err := audit.NormalizeThreshold(s.projectCfg.Audit.BlockThreshold); err == nil {
@@ -440,7 +444,7 @@ func (s *Server) reinstallRegularSkill(name, skillPath, branch string, force, sk
 		return updateResultItem{Name: name, Action: "error", Message: "no metadata found"}
 	}
 	if !force && entry.LocallyModified(skillPath, follow...) {
-		return updateResultItem{Name: name, Action: "skipped", Message: "has local changes since install (try force update)"}
+		return updateResultItem{Name: name, Action: "skipped", Message: locallyModifiedMessage}
 	}
 	source, err := install.RecordedSource(entry, s.parseOpts())
 	if err != nil {
@@ -456,20 +460,9 @@ func (s *Server) reinstallRegularSkill(name, skillPath, branch string, force, sk
 	source.ApplyRecordedBranch(branch)
 
 	sourceDir := s.cfg.EffectiveSkillsSource()
-	opts := install.InstallOptions{
-		Force:          true,
-		AuditOverride:  force,
-		Reinstall:      force,
-		Update:         true,
-		SkipAudit:      skipAudit,
-		AuditThreshold: s.updateAuditThreshold(),
-		SourceDir:      sourceDir,
-	}
+	opts := s.skillUpdateOpts(force, skipAudit)
 	if len(follow) > 0 {
 		opts.SourceFollow = follow[0]
-	}
-	if s.IsProjectMode() {
-		opts.AuditProjectRoot = s.projectRoot
 	}
 	result, err := install.Install(source, skillPath, opts)
 	if err != nil {
@@ -512,13 +505,157 @@ func (s *Server) updateAll(force, skipAudit bool) []updateResultItem {
 	// Update regular skills with source metadata
 	skills, err := getServerUpdatableSkills(s.cfg.EffectiveSkillsSource(), s.skillsStore, walk)
 	if err == nil {
+		batch := s.newSkillBatch(skills, force, skipAudit, walk.Follow)
 		for _, skill := range skills {
-			skillPath := filepath.Join(s.cfg.EffectiveSkillsSource(), skill)
-			results = append(results, s.updateRegularSkill(skill, skillPath, force, skipAudit, walk.Follow))
+			results = append(results, batch.update(skill))
 		}
 	}
 
 	return results
+}
+
+// skillUpdateOpts returns the install options every regular-skill update uses.
+func (s *Server) skillUpdateOpts(force, skipAudit bool) install.InstallOptions {
+	opts := install.InstallOptions{
+		ParseOptions:   s.parseOpts(),
+		Force:          true,
+		AuditOverride:  force,
+		Reinstall:      force,
+		Update:         true,
+		SkipAudit:      skipAudit,
+		AuditThreshold: s.updateAuditThreshold(),
+		SourceDir:      s.cfg.EffectiveSkillsSource(),
+	}
+	if s.IsProjectMode() {
+		opts.AuditProjectRoot = s.projectRoot
+	}
+	return opts
+}
+
+// skillBatch updates the regular skills of one request. Skills installed from
+// the same repository and branch share one fetch, and a skill that already
+// matches the fetched state is reported up to date instead of reinstalled, as
+// `skillshare update` does. Callers hold s.mu for every update call.
+type skillBatch struct {
+	s         *Server
+	names     []string // every regular skill the request updates
+	force     bool
+	skipAudit bool
+	follow    *sourcewalk.Follow
+	done      map[string]updateResultItem // results of the repositories already fetched
+}
+
+func (s *Server) newSkillBatch(names []string, force, skipAudit bool, follow *sourcewalk.Follow) *skillBatch {
+	return &skillBatch{s: s, names: names, force: force, skipAudit: skipAudit, follow: follow, done: make(map[string]updateResultItem)}
+}
+
+// update returns the result for one skill. The first skill of a repository
+// fetches it and settles every other skill of the request that shares it.
+func (b *skillBatch) update(name string) updateResultItem {
+	if item, ok := b.done[name]; ok {
+		return item
+	}
+	entry := b.s.skillsStore.GetByPath(name)
+	if entry == nil || entry.RepoURL == "" {
+		skillPath := filepath.Join(b.s.cfg.EffectiveSkillsSource(), name)
+		return b.s.updateRegularSkill(name, skillPath, b.force, b.skipAudit, b.follow)
+	}
+	b.updateRepo(entry.RepoURL, entry.Branch)
+	return b.done[name]
+}
+
+// updateRepo fetches one repository and updates the request's skills recorded
+// from it at branch.
+func (b *skillBatch) updateRepo(repoURL, branch string) {
+	s := b.s
+	sourceDir := s.cfg.EffectiveSkillsSource()
+	targets := make(map[string]string) // repo subdir → skill path
+	owners := make(map[string]string)  // repo subdir → skill name
+	sources := make(map[string]string) // skill name → the source its record keeps
+	for _, name := range b.names {
+		if _, ok := b.done[name]; ok {
+			continue
+		}
+		entry := s.skillsStore.GetByPath(name)
+		if entry == nil || entry.RepoURL != repoURL || entry.Branch != branch {
+			continue
+		}
+		skillPath := filepath.Join(sourceDir, name)
+		if install.IsGitRepo(skillPath) {
+			// A skill kept as a checkout updates by pulling; a copy from the
+			// shared fetch would replace its repository.
+			b.done[name] = s.updateRegularSkill(name, skillPath, b.force, b.skipAudit, b.follow)
+			continue
+		}
+		if refusal := s.refuseFollowedCheckout(name, skillPath, []*sourcewalk.Follow{b.follow}); refusal != nil {
+			b.done[name] = *refusal
+			continue
+		}
+		if !b.force && entry.LocallyModified(skillPath, b.follow) {
+			b.done[name] = updateResultItem{Name: name, Action: "skipped", Message: locallyModifiedMessage}
+			continue
+		}
+		subdir := entry.Subdir
+		if subdir == "" {
+			subdir = "."
+		}
+		if owners[subdir] == name {
+			continue // named twice in the request
+		}
+		if _, taken := targets[subdir]; taken {
+			// A second local copy of the same repo path updates on its own.
+			b.done[name] = s.updateRegularSkill(name, skillPath, b.force, b.skipAudit, b.follow)
+			continue
+		}
+		targets[subdir] = skillPath
+		owners[subdir] = name
+		sources[name] = install.RecordedSourceString(entry, s.parseOpts())
+	}
+	if len(targets) == 0 {
+		return
+	}
+
+	opts := s.skillUpdateOpts(b.force, b.skipAudit)
+	opts.SourceFollow = b.follow
+	res, err := install.UpdateSkillsFromRepo(repoURL, branch, targets, opts)
+	for subdir, name := range owners {
+		item := updateResultItem{Name: name}
+		switch {
+		case err != nil:
+			item.Action, item.Message = "error", err.Error()
+		case res.Errors[subdir] != nil:
+			item.Action, item.Message = "error", res.Errors[subdir].Error()
+		case res.Results[subdir] != nil:
+			item.Action, item.Message = "updated", "reinstalled from source"
+			if label := res.Results[subdir].AuditRiskLabel; label != "" {
+				item.AuditRiskScore = res.Results[subdir].AuditRiskScore
+				item.AuditRiskLabel = label
+			}
+		case res.Current[subdir]:
+			item.Action = "up-to-date"
+		default:
+			item.Action = "skipped"
+		}
+		b.done[name] = item
+	}
+	if err != nil || s.reloadSkillsStore() != nil {
+		return
+	}
+	// The shared fetch records each source in the repository's canonical
+	// spelling. Declarations match the spelling a skill was installed with, so
+	// the record keeps it, as updating one skill does.
+	respelled := false
+	for name, source := range sources {
+		if entry := s.skillsStore.GetByPath(name); entry != nil && entry.Source != source && b.done[name].Action == "updated" {
+			entry.Source = source
+			respelled = true
+		}
+	}
+	if respelled {
+		if saveErr := s.skillsStore.Save(sourceDir); saveErr != nil {
+			log.Printf("warning: failed to keep recorded sources: %v", saveErr)
+		}
+	}
 }
 
 // getServerUpdatableSkills returns relative paths of skills that have metadata with a remote source.

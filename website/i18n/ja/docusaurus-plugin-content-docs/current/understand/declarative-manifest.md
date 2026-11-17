@@ -78,7 +78,13 @@ skillshare install --dry-run
 
 Project mode では `config.yaml` と `skills.lock.json` が更新されます。Global mode では `.metadata.json` が更新されます。マニフェストを手動で編集する必要は（可能ではありますが）ありません。
 
-このマシンにまだインストールされていない Skill のエントリ（クローン直後など）は残るため、`skillshare install` で引き続きインストールできます。エントリがマニフェストから消えるのは、その Skill をアンインストールしたとき、またはインストール済みのフォルダを削除したときだけです。
+Global の tracked 宣言と監査の承認記録は checkout がなくても残り、手動で checkout を削除しても消えません。復元するには、ソースにアクセスでき、復元先が空いている状態で `skillshare install` を実行します。別のフォルダがある場合は先に移動してください。復元先を空けるために `unlink` を使うと、対応する global の tracked 記録も削除されます。
+
+宣言を削除する場合は `skillshare uninstall _team-skills -g`（または `devops/_team-skills` などの記録された完全なパス）を実行します。checkout やソースへのアクセスは不要です。checkout のない tracked 宣言のままであれば、記録と監査の承認記録だけを削除します。そのパスにある通常のフォルダや Git checkout ではないリンク先は変更せず、リンクと `.gitignore` もそのままです。trash に移動しないため `trash restore` では元に戻せません。パスが使用中の場合は `_` を含む正式名を指定してください。省略名は既存の Skill やフォルダを選択することがあります。
+
+その後の `install` や reconcile がそのパスの通常フォルダ、または追跡対象のリンク先（Git checkout ではないもの）を走査すると、通常の記録（`Tracked=false`）に正規化されます。その後は通常の uninstall が適用され、その場所の内容が trash に移動します。存在しないパス、追跡しないリンク、利用できないリンクはこの走査の対象外です。
+
+Project mode では、ローカルのインストール記録がない config の宣言は、fresh clone で `skillshare install -p` を実行できるように残ります。
 
 ## Skill エントリのフィールド
 

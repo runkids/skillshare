@@ -89,7 +89,7 @@ skillshare ui start --clear-cache
 
 | ページ | 説明 |
 |------|-------------|
-| **Dashboard** | Skill、Agent、Extras、MCP サーバー、Hook、Plugin、Target の件数、および対応が必要な項目。コミットされていない変更がある、または git ステータスを読み取れない tracked repo をアンインストールすると、理由を示して再確認し、repo をそのままゴミ箱へ移動します（`uninstall --force` と同じ） |
+| **Dashboard** | Skill、Agent、Extras、MCP サーバー、Hook、Plugin、Target の件数、および対応が必要な項目。コミットされていない変更がある、または git ステータスを読み取れない tracked repo をアンインストールすると、理由を示して再確認し、repo をそのままゴミ箱へ移動します（`uninstall --force` と同じ）。metadata に記録されているがこのマシンに clone されていない tracked repo には **このマシンにチェックアウトはありません** と表示され、アンインストールしてもその記録と監査の承認だけが削除され、ゴミ箱には何も移動しません。確認前にチェックアウトが現れた場合はその旨が表示され、もう一度 **アンインストール** を選択します |
 | **Sync** | 書き込む前に、Target ごとにすべての変更をプレビュー。含める項目を選択（Skills、Agents、Extras、MCP）。Target 内で編集されたファイルは、**Force** がオンでない限り保持される。Target にのみ存在する項目は、ここから Source に collect し戻せる。各 sync は最初に Target フォルダをバックアップする。Target が失敗しても他の Target は sync される。失敗した Target は、その部分（Skills、Agents、Extras、Config）とエラーとともに他の警告より上に一覧表示され、よくある原因（別の場所を指す symlink、権限不足、読み取り専用のファイルシステム、存在しないファイルやフォルダー、無効な Target 設定）にはわかりやすい説明も付き、別の場所を指す Skills の symlink には **Force をオンにする** が表示され、変更一覧でもその Target に印が付く。すべての Target が失敗した場合も、同じように一覧表示される。**前回の同期** カードには、直近の sync で失敗した Target が表示される。同じ変更を受け取る Target は 1 枚のカードにまとめられ、Skill がフォルダごとに並ぶ。**Discard all** は確認のあと、まだどの Target にも届いていない Skill をゴミ箱に移す。Target の `include` フィルターがどの Skill にも一致しないときは、その Target に Skill が届かないことを知らせる通知が表示され、**Edit filter** でそのフィルターを設定している場所を開ける。Git Sync でも pull のあとに同じ通知が表示される |
 | **Git Sync** | Source リポジトリのコミットとプッシュ、remote にまだないコミットのプッシュ、プルを実行。ページを開くと remote から fetch するため、**Pull** には remote にあるコミット数が表示される。プルはリポジトリのスコープ（`skills`、`agents`、`extras`、または `root`）が保持するものを sync する。詳細は [`pull`](/docs/reference/commands/pull) を参照。**Sync both ways** はローカルの変更をコミットし、プルしてマージし、target を sync してからプッシュする（[`push --pull`](/docs/reference/commands/push#push-and-pull-together) と同じ）。コンフリクトが発生した場合はプッシュ前に停止する。remote に新しいコミットがあるためにプッシュが拒否された場合、エラーに **Pull** が表示される。最初のプルが remote とマージできない場合、remote ブランチでローカルファイルを置き換える force pull を提案する |
 | **Hubs** | スキル ページから移動。内蔵の hub、保存済みの hub、自分の Hub（**自分の**）を一覧表示し、選ぶとその Skill を絞り込んでインストールできる。**Hub を追加・作成** は既存の hub の追加、新しい Hub の作成、`skillshare-hub.json` の読み込みを行う。自分の Hub は **編集** で変更し、**共有** でインデックスをダウンロードして `hub add` コマンドを作る。保存済みと内蔵の hub は **更新** で、2 分間のキャッシュを待たずに一覧を読み直す。[`hub`](/docs/reference/commands/hub) を参照 |
@@ -106,7 +106,7 @@ skillshare ui start --clear-cache
 
 Git の競合比較ではファイル全体のバージョンを選びます。ファイルごとにローカルかリモートを選ぶか、**すべてローカルを保持**／**すべてリモートを保持**で一括選択し、適用前に個別の選択を変更できます。削除された側を選ぶと、そのファイルはマージで削除されます。両方のコミット履歴は保持され、キャンセルしてもファイルは変わりません。
 
-**Updates** タブでは、プログレスバーに更新の進行状況が表示され、更新中の行が示されます。ブロックされた更新や失敗した更新は別のセクションに表示されます。更新が成功すると、その種類の同期に未反映の変更があるか確認します。**Sync Now** は適用する変更がある場合にだけ表示され、変更がなければ同期不要と表示されます。既存の symlink は更新された source の内容をすでに読み取れます。同期の確認に失敗した場合は、最新状態と表示する代わりにエラーと **Retry** が表示されます。 たどられた Git チェックアウトは、リンク名とターゲットパスを含む情報行として表示されます。`skillshare update --all` と同様、このタブではチェック、更新、強制再試行を行いません。チェックアウトは自分で管理するか、CLI で名前を指定して更新してください。
+**Updates** タブでは、プログレスバーに更新の進行状況が表示され、更新中の行が示されます。ブロックされた更新や失敗した更新は別のセクションに表示されます。同じリポジトリの skill は 1 回の取得でまとめて更新され、upstream で変更のない skill はそのまま残り、最新と表示されます。更新が成功すると、その種類の同期に未反映の変更があるか確認します。**Sync Now** は適用する変更がある場合にだけ表示され、変更がなければ同期不要と表示されます。既存の symlink は更新された source の内容をすでに読み取れます。同期の確認に失敗した場合は、最新状態と表示する代わりにエラーと **Retry** が表示されます。 たどられた Git チェックアウトは、リンク名とターゲットパスを含む情報行として表示されます。`skillshare update --all` と同様、このタブではチェック、更新、強制再試行を行いません。チェックアウトは自分で管理するか、CLI で名前を指定して更新してください。
 
 `/collect`、`/install`、`/search`、`/trash`、`/analyze`、`/backup`、`/log`、`/doctor` などの古いリンクは、新しい場所にリダイレクトされます。
 
@@ -188,7 +188,7 @@ Web ダッシュボードは `/api/` に REST API を公開しています。す
 | GET | `/api/skillignore` | `.skillignore` の内容、ある場合は `.skillignore.local` の内容、ignore の統計を取得 |
 | PUT | `/api/skillignore` | `.skillignore` の内容を更新 |
 | GET | `/api/doctor` | すべてのヘルスチェックを実行（JSON） |
-| GET | `/api/doctor/stream` | すべてのヘルスチェックを Server-Sent Events で実行。チェックが見つかるたびに `check` イベントを送り、最後に `/api/doctor` と同じ JSON を `done` で送る |
+| GET | `/api/doctor/stream` | すべてのヘルスチェックを Server-Sent Events で実行。チェックが見つかるたびに `check` イベントを送る。時間のかかるチェックはまず状態 `pending` で届き、同じ名前の後続の `check` イベントで置き換えられる。その結果を必要としないチェックは先に届く。最後に `/api/doctor` と同じ JSON を `done` で送る |
 | GET | `/api/health` | 死活監視プローブ。サーバーの準備ができると `200` を返す |
 | GET | `/api/version` | 現在/最新バージョン、アップグレードの可否、Nix でのインストールでは CLI を更新するコマンド（`nixUpgradeCommand`） |
 | POST | `/api/upgrade` | `skillshare upgrade` をその場で実行（バイナリが開発ビルドの場合は `devMode: true` を返し、Nix でのインストールで新しい CLI が待機中の場合はコード `upgrade.nix` の `409` を返す） |

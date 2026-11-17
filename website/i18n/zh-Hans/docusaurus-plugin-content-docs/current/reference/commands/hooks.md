@@ -31,7 +31,7 @@ skillshare hooks restore BACKUP_ID --dry-run
 skillshare hooks restore BACKUP_ID
 ```
 
-没有子命令时列出 entries。`add`／`edit` 从 `--file` 读取 Entry JSON 或 YAML；导入不指定名称时列出候选项（每个 Agent event 或文件各一项），指定名称才保存。保存导入即原地接管读到的注册：下次同步直接 adopt，无需 `--replace`；未导入的 event 保持不受管理。导入只读取配置或代码，不执行。新增、编辑、导入、启用、停用与移除默认只保存来源，加上 `--sync` 才同步。同步与恢复会重新预览。
+没有子命令时列出 entries。`add`／`edit` 从 `--file` 读取 Entry JSON 或 YAML；导入不指定名称时列出候选项（每个 Agent event 或文件各一项），指定名称才保存。保存导入即原地接管读到的注册：下次同步直接 adopt，无需 `--replace`；未导入的 event 保持不受管理。导入只读取配置或代码，不执行。新增、编辑、导入、启用、停用与移除默认只保存来源，加上 `--sync` 才同步。同步与恢复会重新预览。Dashboard 的「目标里的 hook」对话框打开时不会预先勾选任何 hook，要导入的自己勾选；它也能直接修改或移除 Agent 配置文件里还没导入的 hook（限以 event 存在同一个配置文件的 Agent：Claude、Codex、Gemini、Cursor、Qwen，以及 Droid 的 `hooks.json`；整个文件或具名区块的 hook 要先导入）。写入前会显示文件差异并备份，该 hook 保持不受管理。
 
 | Option | Meaning |
 |---|---|
@@ -93,7 +93,7 @@ Skillshare 以缩进的 block 格式写入 `hooks` 区段；每次保存也会�
 | `bindings.AGENT.codeFile` | 代替 `code`：相对于 config 所在文件夹的路径，文件内容作为 `code` 使用，每次读取 config 时重新读取；路径必须位于该文件夹内 |
 | `bindings.AGENT.files` | 可选 UTF-8 脚本文件，以相对文件名为 key；值为文件内容，或按 `codeFile` 相同规则读取的 `{from: path}` |
 
-Agent ID 为 `claude`、`codex`、`gemini`、`copilot`、`cursor`、`droid`、`qwen`、`antigravity`、`pi`、`omp`、`amp`、`opencode`、`git`；`factory` 是 `droid` 的别名，`antigravity-cli` 和 `agy` 是 `antigravity` 的别名。event、matcher、handler type、command、timeout 单位和 payload 均保留原生格式，不自动跨 Agent 转换。event 名称会对照各 command Agent 文档列出的事件检查：未知名称（例如拼错的 `Stopp`）在预览和 plan 的 `warnings` 中显示警告，但不阻止同步，因为 Agent 会陆续新增事件。Pi、OMP、Amp、OpenCode 的代码不检查。Pi、OMP、Amp、OpenCode 的代码及 imports 须匹配已安装版本，发布为独立的 `skillshare-NAME.ts`，不生成共享执行引擎。
+Agent ID 为 `claude`、`codex`、`gemini`、`copilot`、`cursor`、`droid`、`qwen`、`antigravity`、`pi`、`omp`、`amp`、`opencode`、`git`；`factory` 是 `droid` 的别名，`antigravity-cli` 和 `agy` 是 `antigravity` 的别名。event、matcher、handler type、command、timeout 单位和 payload 均保留原生格式，不自动跨 Agent 转换。event 名称会对照各 command Agent 文档列出的事件检查：未知名称（例如拼错的 `Stopp`）在预览和 plan 的 `warnings` 中显示警告，但不阻止同步，因为 Agent 会陆续新增事件。Pi、OMP、Amp、OpenCode 的代码不检查。Pi、OMP、Amp、OpenCode 的代码及 imports 须匹配已安装版本，发布为独立的 `skillshare-NAME.ts` 文件（OpenCode v1）或 OpenCode v2 目录包，不生成共享执行引擎。
 
 较长的代码和脚本可以用 `codeFile` 或 `files` 的 `{from: path}` 从独立文件读取。路径以持有该 entry 的 config 所在文件夹为准（项目是 `.skillshare/`，global 的 `hooks.projects` 则是 global config 文件夹）；`hooks add|edit --file` 也以选定的 config 为准，而不是 entry 文件所在位置。路径必须位于该文件夹内，不能经过 symlink；文件缺失会使 config 读取失败。每次读取 config 都会重新读取文件，预览后内容有变化就会拒绝应用。
 
@@ -140,7 +140,7 @@ command binding 的脚本位于 Agent 配置目录的 `hooks/skillshare/NAME/`�
 | [Pi](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/extensions.md) | `~/.pi/agent/extensions/skillshare-NAME.ts` | `.pi/extensions/skillshare-NAME.ts` | Native extension code |
 | [Oh My Pi](https://github.com/can1357/oh-my-pi/blob/v18.6.1/docs/extensions.md) | `~/.omp/agent/extensions/skillshare-NAME.ts` | `.omp/extensions/skillshare-NAME.ts` | Native OMP extension code |
 | [Amp](https://ampcode.com/docs/plugin-api) | `~/.config/amp/plugins/skillshare-NAME.ts` | `.amp/plugins/skillshare-NAME.ts` | Native plugin code |
-| [OpenCode](https://opencode.ai/docs/plugins/) | `~/.config/opencode/plugins/skillshare-NAME.ts` | `.opencode/plugins/skillshare-NAME.ts` | Supplied v1/v2 plugin code |
+| [OpenCode](https://opencode.ai/docs/plugins/) | `~/.config/opencode/plugins/skillshare-NAME[.ts]` | `.opencode/plugins/skillshare-NAME[.ts]` | v1 file; v2 directory package (see below) |
 
 global scope 使用原生配置目录的环境变量 override，但指向账号 `config_dir` 时除外；project scope 只写入项目，不回退到 global。Codex inline TOML 等其他来源仍独立存在。Antigravity 及其 CLI（`agy`）读取同一份 `hooks.json`；每个 hook 是一个以其名称命名的 block，导入时保留原名。CLI 的 `~/.gemini/antigravity-cli/settings.json` 中的 hooks 保持独立。Droid 发布独立 hooks 文件会影响原生加载来源，请先检查已有 inline hooks。Copilot 只在受信任的文件夹中加载 `.github/hooks` 的项目 hooks。
 
@@ -241,3 +241,16 @@ global 配置的 `hooks.projects` 将绝对项目路径映射到相同 Entry 格
 备份恢复原生输出并保留后续无关改动，不改写来源定义。使用“设置 → 备份 → Hooks”或 `hooks restore` 先预览再恢复。
 
 **已同步**只表示 Skillshare 已写入配置。请按 Agent 原生流程重启／重新加载；信任、启用 hooks 和代码兼容性由 Agent 控制。管理操作不执行 hook command，也不自动改变原生信任；只有在你要求时，[`--trust`](#codex-trust) 才会记录 Codex 信任。
+
+
+### OpenCode v2 目录包
+
+Windows 上的 hook 版本探测会将 `opencode-ai`（较新 v1）和 `@opencode/cli`（v2）的标准 npm `.cmd` 启动器直接解析为已安装的 `bin/opencode.exe`，不使用 shell。不会推测或执行早期 v1 的 Node 启动器或自定义批处理包装器。此类安装请将 OpenCode 账户的 `cli` 设为已安装的原生 `opencode.exe` 的绝对路径（例如匹配的 `opencode-windows-x64-baseline` 包内的 `bin/opencode.exe`），或将其目录放在 `PATH` 最前面。Skillshare 不运行 postinstall 脚本，也不修复缺失的二进制文件。
+
+Skillshare 只探测 `opencode --version`（或账户的 `cli`）。当无法检测到版本时（二进制文件缺失、执行失败，或报告的主版本不是 1 或 2），只会跳过 OpenCode 的 binding：预览会显示警告，现有的 OpenCode 输出保持不变，其他所有 Agent 照常同步。v1 保留扁平的 `.ts` 文件。v2 写入 `plugins/skillshare-NAME/index.ts` 和 `package.json`（声明 `@opencode/plugin: ^2.0.0`），并将该目录的 `file://` URL 添加到 `opencode.json(c)` 的 `plugins` 中。项目 hook 使用 `.opencode/opencode.json(c)`。注释和无关的注册保持不变。存在冲突的 JSON/JSONC 文件，或 `OPENCODE_CONFIG`/`OPENCODE_CONFIG_CONTENT` 覆盖，会被 hooks 拒绝。`code` binding 在两个版本上都按给定内容写入；Skillshare 不检查它是否符合 v1 或 v2 的插件 API。
+
+完整的 v2 包请使用 `bindings.opencode.package` 代替 `code`/`codeFile`：这是一个从相对文件名到 UTF-8 内容的映射，其中包含 `package.json`。manifest 及其依赖要求会原样保留。允许嵌套文件；路径越界、符号链接、文件与目录冲突、`.git` 和 `node_modules` 都不属于包的内容。原生编辑器将此文件映射显示为 JSON。server 入口必须是带有包名的字符串形式根导出或 `./server` 导出，或是约定的根目录 `server`/`index` 文件（`.ts`、`.tsx`、`.js`）。条件式和回退式 server 导出会被拒绝，而不是猜测。`package` binding 需要 OpenCode v2；在 v1 上会被跳过并给出警告。
+
+`hooks import --from opencode` 还会读取原生 `plugins` 文件夹下的直接子包目录。与扁平代码导入一样，它会将其复制到 Skillshare 的命名输出，并警告你在同步后移除原始文件和注册，以避免重复加载。已安装的 `node_modules` 和 `.git` 不会导入。包含无法读取的文件（例如符号链接）的包会连同该问题一起列出；其他包和扁平文件仍可导入。在 OpenCode v1 上，`plugins` 下的目录不会作为 hook 列出。同步、编辑和移除使用与其他 hook 相同的所有权检查和备份；被外部编辑的包文件会产生冲突，而不是被覆盖。
+
+请在加载前自行准备声明的依赖；只要预览会写入包文件，就会提示这一点。Skillshare 从不运行插件代码、安装依赖或将 v1 代码转换为 v2。注册并不能证明插件已加载。由于两种 API 不同，仪表板有意不提供 OpenCode 入门代码。

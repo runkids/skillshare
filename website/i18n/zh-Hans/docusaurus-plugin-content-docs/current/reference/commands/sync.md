@@ -231,7 +231,7 @@ $ skillshare sync
   Context  ~1.2K tokens always loaded · ~18.5K on demand
 ```
 
-如果你自己创建的文件夹已占用某个 skill 要同步的名称，sync 会保留你的文件夹，不安装该 skill。每个有这类文件夹的 target 会多一行，列出前几个名称（`kept local: a, b (sync --force replaces them)`），并计为 `local` 而不是 `up to date`。`skillshare diff` 会把它们列为 `Local override`。
+如果你自己创建的文件夹已占用某个 skill 要同步的名称，sync 会保留你的文件夹，不安装该 skill。其他工具放在那里的链接（指向 source 之外，且 manifest 没有记录）也一样。每个有这类文件夹的 target 会多一行，列出前几个名称（`kept local: a, b (sync --force replaces them)`），并计为 `local` 而不是 `up to date`。`skillshare diff` 会把它们列为 `Local override`。
 
 ---
 

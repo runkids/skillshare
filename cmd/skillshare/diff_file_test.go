@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"skillshare/internal/sync"
 )
 
 func TestDiffSkillFiles_IdenticalDirs(t *testing.T) {
@@ -148,5 +150,58 @@ func writeTestFile(t *testing.T, dir, relPath, content string) {
 	}
 	if err := os.WriteFile(full, []byte(content), 0644); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// Sync keeps another tool's link on a skill's name, so diff lists it as a
+// local override instead of reporting the target in sync or a skill to add.
+func TestDiffListsLinkFromAnotherToolAsOverride(t *testing.T) {
+	source, target := t.TempDir(), t.TempDir()
+	skill := filepath.Join(source, "alpha")
+	if err := os.MkdirAll(skill, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// Broken, so a check that follows the link would see nothing there.
+	if err := os.Symlink(filepath.Join(t.TempDir(), "gone"), filepath.Join(target, "alpha")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	resolved := []sync.ResolvedTargetSkill{{Skill: sync.DiscoveredSkill{SourcePath: skill, FlatName: "alpha"}, TargetName: "alpha"}}
+	names := map[string]bool{"alpha": true}
+	manifest, _ := sync.ReadManifest(target)
+
+	var merge, copyMode targetDiffResult
+	collectMergeDiff(&merge, target, source, names, map[string]string{"alpha": skill}, nil)
+	collectCopyDiff(&copyMode, "claude", target, source, resolved, "flat", names, nil, manifest, nil, nil)
+
+	for mode, r := range map[string]targetDiffResult{"merge": merge, "copy": copyMode} {
+		cats := categorizeItems(r.items)
+		if len(cats) != 1 || cats[0].kind != "override" {
+			t.Errorf("%s: want one local override, got items %+v", mode, r.items)
+		}
+	}
+}
+
+// In merge mode sync prunes a link whose skill left the source, so diff lists
+// it. A live link to another location is kept, so diff says nothing about it.
+func TestDiffListsOrphanLinkThatSyncPrunes(t *testing.T) {
+	source, target, other := t.TempDir(), t.TempDir(), t.TempDir()
+	if err := os.Symlink(filepath.Join(source, "removed"), filepath.Join(target, "removed")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if err := os.Symlink(other, filepath.Join(target, "theirs")); err != nil {
+		t.Fatal(err)
+	}
+	if err := sync.WriteManifest(target, &sync.Manifest{Managed: map[string]string{"removed": "symlink"}}); err != nil {
+		t.Fatal(err)
+	}
+
+	var r targetDiffResult
+	collectMergeDiff(&r, target, source, map[string]bool{}, map[string]string{}, nil)
+
+	if len(r.items) != 1 || r.items[0].name != "removed" || r.items[0].action != "remove" || !r.items[0].isSync || r.syncCount != 1 {
+		t.Fatalf("items = %+v syncCount = %d, want only the orphan link listed as a sync change", r.items, r.syncCount)
+	}
+	if cats := categorizeItems(r.items); len(cats) != 1 || cats[0].kind != "orphan" {
+		t.Errorf("want one orphan category, got %+v", cats)
 	}
 }

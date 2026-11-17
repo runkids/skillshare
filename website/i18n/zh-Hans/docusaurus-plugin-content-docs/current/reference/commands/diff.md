@@ -145,6 +145,7 @@ claude
 - 列出 Source 中尚未 symlink 到 Target 的 Skill
 - 显示以本地副本形式存在（而非 symlink）的 Skill
 - 识别 Target 中仅本地存在的 Skill（不在 Source 中 — sync 会保留它们）
+- 显示指向 Source 中已不存在的 Skill 的链接（sync 时会被清理）
 
 ### Copy Mode 的 Target
 
@@ -212,7 +213,7 @@ skillshare diff agents claude      # 指定 Target
 skillshare diff agents --json      # JSON 输出
 ```
 
-Agent diff 会显示缺失的 Agent（需要 sync）、孤立的 symlink（需要 prune），以及仅本地存在的 Agent 文件。只有配置了 `agents` 路径的 Target 才会被包含在内。完整列表参见 [Agents — Supported Targets](/docs/understand/agents#supported-targets)。
+Agent diff 会显示缺失的 Agent（需要 sync）、sync 会清理的孤立 symlink，以及仅本地存在的 Agent 文件。只有配置了 `agents` 路径的 Target 才会被包含在内。完整列表参见 [Agents — Supported Targets](/docs/understand/agents#supported-targets)。
 
 ---
 

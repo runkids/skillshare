@@ -37,6 +37,30 @@
         "codeFile": {"type": "string", "minLength": 1, "description": "Instead of code: a path, relative to the config's folder and inside it, whose contents are used as code. Read every time the config is read."}
       }
     },
+    "openCodeBinding": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/codeBinding"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "package"
+          ],
+          "properties": {
+            "package": {
+              "type": "object",
+              "minProperties": 1,
+              "description": "OpenCode v2 directory package: relative filenames mapped to UTF-8 contents, including package.json. Dependencies are preserved, never installed.",
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      ]
+    },
     "gitBinding": {
       "type": "object",
       "additionalProperties": false,
@@ -148,7 +172,7 @@
         "pi": {"$ref": "#/$defs/codeBinding"},
         "omp": {"$ref": "#/$defs/codeBinding"},
         "amp": {"$ref": "#/$defs/codeBinding"},
-        "opencode": {"$ref": "#/$defs/codeBinding"}
+        "opencode": {"$ref": "#/$defs/openCodeBinding"}
       }
     },
     "globalBindings": {
@@ -170,12 +194,12 @@
         "pi": {"$ref": "#/$defs/codeBinding"},
         "omp": {"$ref": "#/$defs/codeBinding"},
         "amp": {"$ref": "#/$defs/codeBinding"},
-        "opencode": {"$ref": "#/$defs/codeBinding"}
+        "opencode": {"$ref": "#/$defs/openCodeBinding"}
       },
       "patternProperties": {
         "^(?!(claude|codex|gemini|qwen|copilot|cursor|droid|factory|antigravity|antigravity-cli|agy|pi|omp|amp|opencode|git)$)[A-Za-z0-9][A-Za-z0-9._-]*$": {
           "description": "Account keys are declared under targets with agent and config_dir and are valid in global config only.",
-          "anyOf": [{"$ref": "#/$defs/commandBinding"}, {"$ref": "#/$defs/codeBinding"}]
+          "anyOf": [{"$ref": "#/$defs/commandBinding"}, {"$ref": "#/$defs/openCodeBinding"}]
         }
       }
     },

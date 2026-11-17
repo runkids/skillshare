@@ -11,6 +11,7 @@ rules:
     pattern: prompt-injection
     message: "SYSTEM: prompt override detected"
     regex: '(?im)^\s*(SYSTEM|OVERRIDE|IGNORE|ADMIN|ROOT):'
+    # In source files only an uppercase label matches; see rulesForFile.
     # Lowercase config keys whose value is data on the same line are not
     # directives; uppercase labels always match. Each key accepts only the
     # value kinds its config uses: scalars for all, space-free paths for root

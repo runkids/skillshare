@@ -89,7 +89,7 @@ skillshare ui start --clear-cache
 
 | Page | 설명 |
 |------|-------------|
-| **Dashboard** | skill, agent, extras, MCP 서버, hook, plugin, target의 개수와 주의가 필요한 항목. 커밋되지 않은 변경 사항이 있거나 git 상태를 읽을 수 없는 tracked repo를 제거하면 이유를 알려 주고 다시 확인한 뒤 repo를 그대로 휴지통으로 옮깁니다(`uninstall --force`와 같음) |
+| **Dashboard** | skill, agent, extras, MCP 서버, hook, plugin, target의 개수와 주의가 필요한 항목. 커밋되지 않은 변경 사항이 있거나 git 상태를 읽을 수 없는 tracked repo를 제거하면 이유를 알려 주고 다시 확인한 뒤 repo를 그대로 휴지통으로 옮깁니다(`uninstall --force`와 같음). metadata에는 기록되어 있지만 이 컴퓨터에 clone되지 않은 tracked repo는 **이 컴퓨터에 체크아웃이 없습니다**로 표시되며, 제거하면 그 기록과 감사 승인만 삭제되고 휴지통으로 옮겨지는 것은 없습니다. 확인하기 전에 체크아웃이 생기면 그렇게 알려 주며, **제거**를 다시 선택하면 됩니다 |
 | **Sync** | target별로 기록 전에 모든 변경 사항을 미리 봅니다. 포함할 부분(Skills, Agents, Extras, MCP)을 선택합니다. target 내부에서 편집된 파일은 **Force**가 켜져 있지 않은 한 유지됩니다. target에만 존재하는 항목은 여기서 source로 다시 수집할 수 있습니다. 각 sync는 먼저 target 폴더를 백업합니다. target이 실패해도 다른 target은 sync됩니다. 실패한 target은 해당 부분(Skills, Agents, Extras, Config)과 오류와 함께 다른 경고보다 위에 표시되고, 흔한 원인(다른 곳을 가리키는 symlink, 권한 거부, 읽기 전용 파일 시스템, 없는 파일이나 폴더, 잘못된 target 설정)에는 쉬운 설명도 붙으며, 다른 곳을 가리키는 Skills symlink에는 **Force 켜기**가 제공되며, 변경 목록에서도 해당 target이 표시됩니다. 모든 target이 실패해도 같은 방식으로 표시됩니다. **마지막 동기화** 카드에는 가장 최근 sync에서 실패한 target이 표시됩니다. 같은 변경을 받는 target들은 한 카드로 묶이고 skill이 폴더별로 나열됩니다. **Discard all**은 확인 후, 아직 어떤 target에도 전달되지 않은 skill을 휴지통으로 옮깁니다. target의 `include` 필터가 어떤 skill과도 일치하지 않으면 그 target이 skill을 하나도 받지 못한다는 알림이 표시되고, **Edit filter**로 그 필터를 설정하는 곳을 열 수 있습니다. Git Sync도 pull 후에 같은 알림을 표시합니다 |
 | **Git Sync** | source repo를 commit하고 push하며, 아직 remote에 없는 커밋을 push하고, pull합니다. 페이지를 열면 remote에서 fetch하므로 **Pull** 버튼에 remote에 있는 커밋 수가 표시됩니다. Pull은 [`pull`](/docs/reference/commands/pull)과 마찬가지로 repo scope가 담고 있는 것(`skills`, `agents`, `extras`, 또는 `root`)을 동기화합니다. **Sync both ways**는 로컬 변경 사항을 commit하고, pull해 병합하고, target을 동기화한 뒤 push합니다([`push --pull`](/docs/reference/commands/push#push-and-pull-together)과 같음). 충돌이 발생하면 push하기 전에 멈춥니다. remote에 더 새로운 커밋이 있어 push가 거부되면 오류 알림에서 **Pull**을 제공합니다. 첫 pull이 remote와 병합할 수 없을 때는 로컬 파일을 remote 브랜치로 교체하는 force pull을 제공합니다 |
 | **Hubs** | Skills 페이지에서 접근합니다. 내장 hub, 저장된 hub, 내 Hub(**내 Hub**)를 나열하며, 하나를 선택해 Skill을 필터링하고 설치합니다. **Hub 추가 또는 만들기**는 기존 hub 추가, 새 Hub 만들기, `skillshare-hub.json` 가져오기를 합니다. 내 Hub는 **편집**으로 변경하고 **공유**로 인덱스를 다운로드하고 `hub add` 명령을 만듭니다. 저장된 hub와 내장 hub는 **새로고침**으로 2분 캐시를 기다리지 않고 목록을 다시 불러옵니다. [`hub`](/docs/reference/commands/hub) 참고 |
@@ -106,7 +106,7 @@ skillshare ui start --clear-cache
 
 Git 충돌 비교에서는 파일 전체 버전을 선택합니다. 파일마다 로컬 또는 원격을 고르거나 **모두 로컬 유지**／**모두 원격 유지**로 한 번에 선택한 뒤 적용 전에 개별 선택을 바꿀 수 있습니다. 삭제된 쪽을 선택하면 병합에서 해당 파일이 삭제됩니다. 양쪽 커밋 기록은 유지되며 취소하면 파일은 바뀌지 않습니다.
 
-**Updates** 탭의 진행률 표시줄은 업데이트 진행 상황을 보여 주며 업데이트 중인 행도 표시됩니다. 차단되거나 실패한 업데이트는 별도 섹션에 표시됩니다. 업데이트가 성공하면 해당 종류에 적용할 동기화 변경 사항이 있는지 확인합니다. **Sync Now**는 적용할 변경 사항이 있을 때만 표시되며, 없으면 동기화가 필요 없다고 안내합니다. 기존 symlink는 이미 갱신된 source 내용을 읽습니다. 동기화 확인에 실패하면 최신 상태라고 표시하는 대신 오류와 **Retry**를 표시합니다. 링크를 따라 발견한 Git 체크아웃은 링크 이름과 대상 경로가 있는 정보 행으로 표시됩니다. `skillshare update --all`처럼 이 탭에서는 확인, 업데이트 또는 강제 재시도를 하지 않습니다. 체크아웃을 직접 관리하거나 CLI에서 이름을 지정해 업데이트하세요.
+**Updates** 탭의 진행률 표시줄은 업데이트 진행 상황을 보여 주며 업데이트 중인 행도 표시됩니다. 차단되거나 실패한 업데이트는 별도 섹션에 표시됩니다. 같은 저장소의 skill은 한 번만 가져오며, upstream에서 바뀌지 않은 skill은 그대로 두고 최신 상태로 표시합니다. 업데이트가 성공하면 해당 종류에 적용할 동기화 변경 사항이 있는지 확인합니다. **Sync Now**는 적용할 변경 사항이 있을 때만 표시되며, 없으면 동기화가 필요 없다고 안내합니다. 기존 symlink는 이미 갱신된 source 내용을 읽습니다. 동기화 확인에 실패하면 최신 상태라고 표시하는 대신 오류와 **Retry**를 표시합니다. 링크를 따라 발견한 Git 체크아웃은 링크 이름과 대상 경로가 있는 정보 행으로 표시됩니다. `skillshare update --all`처럼 이 탭에서는 확인, 업데이트 또는 강제 재시도를 하지 않습니다. 체크아웃을 직접 관리하거나 CLI에서 이름을 지정해 업데이트하세요.
 
 `/collect`, `/install`, `/search`, `/trash`, `/analyze`, `/backup`, `/log`, `/doctor`와 같은 이전 링크는 새 위치로 리디렉션됩니다.
 
@@ -188,7 +188,7 @@ project mode(`-p`)로 실행할 때 대시보드는 다음과 같이 달라집�
 | GET | `/api/skillignore` | `.skillignore` 내용, 있으면 `.skillignore.local` 내용, ignore 통계 조회 |
 | PUT | `/api/skillignore` | `.skillignore` 내용 업데이트 |
 | GET | `/api/doctor` | 모든 상태 검사 실행(JSON) |
-| GET | `/api/doctor/stream` | 모든 상태 검사를 Server-Sent Events로 실행: 검사가 끝날 때마다 `check` 이벤트를 보내고, 마지막에 `/api/doctor`와 같은 JSON을 담은 `done`을 보냅니다 |
+| GET | `/api/doctor/stream` | 모든 상태 검사를 Server-Sent Events로 실행: 검사가 끝날 때마다 `check` 이벤트를 보냅니다. 오래 걸리는 검사는 먼저 `pending` 상태로 오고, 이름이 같은 이후 `check` 이벤트가 이를 대체합니다. 그 결과가 필요 없는 검사는 먼저 옵니다. 마지막에 `/api/doctor`와 같은 JSON을 담은 `done`을 보냅니다 |
 | GET | `/api/health` | liveness probe. 서버가 준비되면 `200`을 반환합니다 |
 | GET | `/api/version` | 현재/최신 버전 + 업그레이드 가능 여부 + Nix 설치의 경우 CLI를 업데이트하는 명령(`nixUpgradeCommand`) |
 | POST | `/api/upgrade` | 제자리에서 `skillshare upgrade` 실행(바이너리가 dev build인 경우 `devMode: true` 반환, Nix 설치에서 새 CLI가 대기 중이면 코드 `upgrade.nix`와 함께 `409` 반환) |

@@ -165,7 +165,7 @@ func cmdStatus(args []string) error {
 	}
 	counts := sync.CountSkills(discovered)
 	output.SkillCount, output.VariantCount = counts.Skills, counts.Variants
-	output.TrackedRepos = buildTrackedRepoJSON(cfg.EffectiveSkillsSource(), trackedRepos, discovered, walk)
+	output.TrackedRepos = buildTrackedRepoJSON(cfg.EffectiveSkillsSource(), false, trackedRepos, discovered, walk)
 	warningSkills := variantWarningSkills(cfg.EffectiveSkillsSource(), cfg.Targets, cfg.Mode, walk, discovered)
 
 	for name, target := range cfg.Targets {
@@ -263,7 +263,7 @@ func extractTrackedRepos(sourcePath string, walk sourcewalk.Options) []string {
 }
 
 // buildTrackedRepoJSON builds statusJSONRepo entries with parallel git.IsDirty checks.
-func buildTrackedRepoJSON(sourcePath string, trackedRepos []string, discovered []sync.DiscoveredSkill, walks ...sourcewalk.Options) []statusJSONRepo {
+func buildTrackedRepoJSON(sourcePath string, isProject bool, trackedRepos []string, discovered []sync.DiscoveredSkill, walks ...sourcewalk.Options) []statusJSONRepo {
 	results := make([]statusJSONRepo, len(trackedRepos))
 
 	missingRepos, _ := install.GetMissingTrackedRepos(sourcePath, walks...)
@@ -298,7 +298,7 @@ func buildTrackedRepoJSON(sourcePath string, trackedRepos []string, discovered [
 		results = append(results, statusJSONRepo{
 			Name:    repo.Name,
 			Status:  "missing",
-			Message: missingTrackedRepoMessage(repo.Name),
+			Message: missingTrackedRepoMessage(repo.Name, isProject),
 		})
 	}
 	return results

@@ -30,7 +30,8 @@ func checkFollowedCheckoutClean(repoPath string, opts InstallOptions) error {
 
 // auditInstalledResource runs the audit gate shared by skill and agent installs.
 // scan performs the actual scan; cleanupOnBlock removes the installed artifact
-// when findings at/above threshold fire and --force is not set.
+// when the scan fails, or when findings at/above threshold fire and --force is
+// not set.
 func auditInstalledResource(
 	destPath string,
 	result *InstallResult,
@@ -53,9 +54,7 @@ func auditInstalledResource(
 
 	scanResult, err := scan()
 	if err != nil {
-		// Non-fatal: warn but don't block
-		result.Warnings = append(result.Warnings, fmt.Sprintf("audit scan error: %v", err))
-		return nil
+		return scanFailedError(destPath, err, cleanupOnBlock)
 	}
 	result.AuditRiskScore = scanResult.RiskScore
 	result.AuditRiskLabel = scanResult.RiskLabel
@@ -107,6 +106,19 @@ func auditInstalledResource(
 	return nil
 }
 
+// ErrAuditScanFailed marks an install refused because its audit could not run.
+var ErrAuditScanFailed = errors.New("audit scan failed")
+
+// scanFailedError removes an install whose audit could not run. --force does
+// not override it: accepting findings is not accepting an unaudited install.
+// It does not wrap audit.ErrBlocked, so callers do not offer --force.
+func scanFailedError(path string, scanErr error, cleanup func() error) error {
+	if cleanupErr := cleanup(); cleanupErr != nil {
+		return fmt.Errorf("%w: %v\n\nAutomatic cleanup failed for %s: %v\nManual removal is required", ErrAuditScanFailed, scanErr, path, cleanupErr)
+	}
+	return fmt.Errorf("%w: %w\n\nFix the cause or use --skip-audit to bypass scanning", ErrAuditScanFailed, scanErr)
+}
+
 func auditInstalledSkill(destPath string, result *InstallResult, opts InstallOptions) error {
 	scan := func() (*audit.Result, error) {
 		if opts.AuditProjectRoot != "" {
@@ -153,7 +165,8 @@ func cleanEmptyInstallParents(path, stopAt string) {
 
 // auditTrackedRepo scans an entire tracked repo directory for security threats.
 // It blocks installation when findings are at or above configured threshold
-// unless force is enabled. On block, the repo directory is removed.
+// unless force is enabled. On block or a failed scan, the repo directory is
+// removed.
 func auditTrackedRepo(repoPath string, result *TrackedRepoResult, opts InstallOptions) error {
 	if opts.SkipAudit {
 		result.AuditSkipped = true
@@ -175,8 +188,7 @@ func auditTrackedRepo(repoPath string, result *TrackedRepoResult, opts InstallOp
 		scanResult, err = audit.ScanSkillWithFollow(repoPath, opts.SourceFollow)
 	}
 	if err != nil {
-		result.Warnings = append(result.Warnings, fmt.Sprintf("audit scan error: %v", err))
-		return nil
+		return scanFailedError(repoPath, err, func() error { return removeAll(repoPath) })
 	}
 	result.AuditRiskScore = scanResult.RiskScore
 	result.AuditRiskLabel = scanResult.RiskLabel

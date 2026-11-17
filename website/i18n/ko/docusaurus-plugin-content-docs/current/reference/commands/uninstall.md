@@ -6,6 +6,8 @@ sidebar_position: 3
 
 source 디렉터리에서 하나 이상의 skill 또는 tracked repository를 제거합니다. skill은 trash로 이동되어 자동 정리 전까지 7일간 보관됩니다.
 
+checkout이 없는 global tracked 선언은 메타데이터만 제거할 수 있습니다. 아래 Tracked Repositories를 참고하세요.
+
 ```bash
 skillshare uninstall my-skill              # Remove a single skill
 skillshare uninstall a b c --force         # Remove multiple skills at once
@@ -71,11 +73,15 @@ skillshare uninstall my-skill another-skill --json
 }
 ```
 
+global mode에서 선택적 `record_only` 배열은 checkout 없이 선언만 제거된 이름으로, `removed`의 부분집합입니다. 이 이름에는 trash 항목이나 trash 복원이 없으며 나머지 성공한 제거 항목은 trash로 이동합니다. `dry_run: true`이면 두 배열은 예정된 작업이며 아직 제거되지 않았습니다. agent 및 project 제거를 포함해 해당 항목이 없으면 `record_only`는 생략됩니다. CLI uninstall 로그에도 선택적 `record_only` 부분집합이 기록되며 JSON 미리보기 로그에는 `dry_run: true`가 추가됩니다.
+
 `--dry-run`과 조합하여 미리보기할 수 있습니다.
 
 ```bash
 skillshare uninstall --all --json --dry-run
 ```
+
+확인할 수 없는 입력과 그 이유도 `failed`에 포함됩니다. dry run이나 입력을 하나도 확인할 수 없는 경우도 같습니다.
 
 모든 skill의 제거가 실패하면 명령은 0이 아닌 코드로 종료되고 `error` 필드에 각 skill 이름과 이유가 담깁니다. 일부만 실패하면 `failed`에 이름과 이유가 기록되고 명령은 0으로 종료됩니다. `uninstall agents --json`은 agent가 하나라도 실패하면 0이 아닌 코드로 종료되고, 실패한 이름을 `failed`에, 각각의 이유를 `error`에 담습니다. JSON 출력은 project mode(`-p`)에서도 사용할 수 있습니다.
 
@@ -170,7 +176,7 @@ skillshare uninstall frontend/hooks -G frontend --force  # hooks removed once
 
 ## Tracked Repositories
 
-tracked repository(`_`로 시작하는 폴더)의 경우:
+기존 checkout(Git checkout을 가리키는 링크 포함)의 경우:
 
 - 커밋되지 않은 변경 사항을 확인합니다(재정의하려면 `--force` 사용)
 - skillshare가 repo의 git status를 읽을 수 없으면 `failed to check git status`로 실패합니다. 배치의 다른 항목은 계속 제거되며, `--force`를 사용하면 이 확인을 건너뜁니다
@@ -187,6 +193,10 @@ skillshare uninstall _team-skills --force # Force remove with uncommitted change
 skillshare uninstall devops/_team-skills # --into devops로 설치한 repo
 skillshare uninstall devops/team-skills  # 같은 repo (이 경로가 이미 있으면 제외)
 ```
+
+- Global mode에서는 checkout이 없는 tracked 선언(없는 경로, 일반 폴더, 비 checkout 링크)을 이름으로 명시하여 제거할 수 있습니다. 소스에 연결하지 않으므로 소스에 접근할 수 없어도 됩니다. 기록과 감사 승인 기록만 제거하고 해당 항목과 `.gitignore`는 유지합니다. Git 확인이나 휴지통 이동이 없으며 `trash restore`로 되돌릴 수 없습니다. `skillshare uninstall devops/_team-skills -g`처럼 `_`가 포함된 정식 이름이나 기록된 전체 경로를 쓰세요. 축약 이름은 기존 skill이나 폴더를 선택할 수 있습니다. glob, `--all`, `--group`은 checkout이 없는 선언을 선택하지 않습니다.
+
+checkout을 수동으로 삭제해도 global 선언은 남습니다. 선언을 제거하는 대신 복원하려면 소스에 접근할 수 있고 대상 경로가 비어 있을 때 `skillshare install -g`를 실행하세요. 이후 `install`이나 reconcile이 선언된 경로의 일반 폴더 또는 따라가는 비 checkout 링크를 탐색하면 일반 기록(`Tracked=false`)으로 정규화되며, 일반 uninstall이 해당 항목을 휴지통으로 옮깁니다. 없는 경로와 따라가지 않거나 사용할 수 없는 링크에는 이 정규화가 적용되지 않습니다.
 
 ## 예시
 

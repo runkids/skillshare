@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -12,7 +13,49 @@ import (
 	"skillshare/internal/config"
 	"skillshare/internal/install"
 	"skillshare/internal/oplog"
+	"skillshare/internal/testutil"
 )
+
+func TestHandleInstallFromConfig_FollowsAdvancedProjectLock(t *testing.T) {
+	s, project := newTestProjectServerWithExtras(t, nil)
+	base := t.TempDir()
+	remote := testutil.SetupBareRemoteRepo(t, base)
+	testutil.SeedRemoteBranch(t, base, remote, "main", map[string]string{"demo/SKILL.md": "# Original\n"})
+	source := "file://" + remote + "//demo"
+	s.projectCfg.Skills = []config.SkillEntry{{Name: "demo", Source: source}}
+	if err := s.projectCfg.Save(project); err != nil {
+		t.Fatal(err)
+	}
+	rr := httptest.NewRecorder()
+	s.handleInstallFromConfig(rr, httptest.NewRequest(http.MethodPost, "/api/install/from-config", nil))
+	installed := filepath.Join(s.skillsSource(), "demo", "SKILL.md")
+	if body, err := os.ReadFile(installed); err != nil || string(body) != "# Original\n" {
+		t.Fatalf("initial install: %q, %v; response: %s", body, err, rr.Body.String())
+	}
+
+	seed := filepath.Join(base, "seed-main")
+	if err := os.WriteFile(filepath.Join(seed, "demo", "SKILL.md"), []byte("# New pin\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	testutil.RunGit(t, seed, "commit", "-am", "advance skill")
+	testutil.RunGit(t, seed, "push", "origin", "HEAD:main")
+	lockDir := filepath.Join(project, ".skillshare")
+	lock, err := install.LoadLock(lockDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pin := lock.Skills["demo"]
+	pin.Commit = strings.TrimSpace(testutil.RunGit(t, seed, "rev-parse", "HEAD"))
+	lock.Skills["demo"] = pin
+	if err := lock.Save(lockDir); err != nil {
+		t.Fatal(err)
+	}
+	rr = httptest.NewRecorder()
+	s.handleInstallFromConfig(rr, httptest.NewRequest(http.MethodPost, "/api/install/from-config", nil))
+	if body, err := os.ReadFile(installed); err != nil || string(body) != "# New pin\n" {
+		t.Fatalf("dashboard did not follow advanced lock: %q, %v; response: %s", body, err, rr.Body.String())
+	}
+}
 
 func TestHandleMissingConfigEntries_ListsAbsentEntries(t *testing.T) {
 	s, src := newTestServer(t)
@@ -58,6 +101,33 @@ func TestHandleInstallFromConfig_AllFailedLogsError(t *testing.T) {
 	entries, _ := oplog.Read(s.configPath(), oplog.OpsFile, 10)
 	if len(entries) != 1 || entries[0].Status != "error" || !strings.Contains(entries[0].Message, "broken: ") {
 		t.Errorf("oplog = %+v, want one error entry naming the skill", entries)
+	}
+	// Nothing kept is an empty list, not null, which the dashboard log would print.
+	if len(entries) == 1 && entries[0].Args["skipped_skills"] == nil {
+		t.Errorf("skipped_skills = nil, want an empty list: %+v", entries[0].Args)
+	}
+}
+
+// Skills already on disk are kept; the log names them, as the CLI's does.
+func TestHandleInstallFromConfig_LogsSkippedSkills(t *testing.T) {
+	s, src := newTestServer(t)
+	store := install.LoadMetadataOrNew(src)
+	store.Set("kept", &install.MetadataEntry{Source: "https://github.com/team/kept.git"})
+	if err := store.Save(src); err != nil {
+		t.Fatalf("save metadata: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(src, "kept"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(src, "kept", "SKILL.md"), []byte("# Kept\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	s.handleInstallFromConfig(rr, httptest.NewRequest(http.MethodPost, "/api/install/from-config", nil))
+	entries, _ := oplog.Read(s.configPath(), oplog.OpsFile, 10)
+	if len(entries) != 1 || fmt.Sprint(entries[0].Args["skipped_skills"]) != "[kept]" {
+		t.Errorf("oplog = %+v, want skipped_skills [kept]; response: %s", entries, rr.Body.String())
 	}
 }
 

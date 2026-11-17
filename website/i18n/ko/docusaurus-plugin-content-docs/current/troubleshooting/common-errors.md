@@ -288,6 +288,14 @@ skillshare sync -p
 
 `status`, `check`, `update --all`, `doctor`는 이 상태를 보고하고 `skillshare install`을 제안합니다.
 
+Global checkout을 수동으로 삭제해도 선언과 감사 승인 기록은 남습니다. 다시 사용하고 싶을 때만, 소스에 접근할 수 있고 대상 경로가 비어 있는 상태에서 복원하세요. 소스에 접근할 수 없어도 선언을 제거할 수 있습니다.
+
+```bash
+skillshare uninstall _team-skills -g
+```
+
+일반 폴더나 비 checkout 링크가 경로를 차지한다면 `devops/_team-skills`처럼 `_`가 포함된 기록된 전체 정식 이름을 쓰세요. tracked 선언인 동안에는 메타데이터만 제거하며 해당 항목과 `.gitignore`는 유지되고 복원할 휴지통 항목도 생기지 않습니다. `install` 등 reconcile이 해당 폴더나 따라가는 비 checkout 링크를 탐색한 후에는 일반 기록이 되어 일반 uninstall이 해당 항목을 휴지통으로 옮깁니다. [uninstall](../reference/commands/uninstall.md)을 참고하세요.
+
 ### `nested git repositories must be disabled first`
 
 **Cause:** `git_root: root`에서, Git이 무시하지 않는 하위 디렉터리(예: 직접 clone한 skill)가 자체 `.git`을 가지고 있습니다. Git은 이를 **빈 submodule**로 업로드해 조용히 파일을 누락시키므로, 각 중첩 repo가 비활성화될 때까지 `commit`/`push`가 중단됩니다. `--track`으로 설치한 tracked repo는 관리되는 `.gitignore` 블록에 등록되므로, 이미 커밋된 경우가 아니라면 건너뜁니다.
@@ -471,6 +479,16 @@ skillshare install <source> --force
 **Cause:** skill에 보이지 않는 유니코드 문자가 포함되어 있으며, 이는 복사-붙여넣기 흔적이거나 의도적인 난독화일 수 있습니다.
 
 **Solution:** 숨겨진 문자를 표시하는 에디터에서 파일을 열어 제거하거나, Source를 신뢰한다면 강제 설치하세요.
+
+### `audit scan failed`
+
+**Cause:** audit를 실행할 수 없었습니다. 예를 들어 `audit-rules.yaml`을 파싱할 수 없거나 패턴 중 하나를 컴파일할 수 없는 경우입니다. 오류 메시지에 해당 파일이 표시됩니다. `install`은 skill, agent, tracked repository 설치를 거부하고 설치한 내용을 제거합니다. `update`와 `upgrade --skill`은 설치된 복사본을 유지합니다. `--force`로는 해결되지 않습니다. `--force`는 findings를 수락하는 옵션인데, 실행되지 않은 스캔에는 수락할 findings가 없습니다.
+
+**Solution:** 오류에 표시된 파일을 수정하세요([audit rules](/docs/reference/commands/audit-rules) 참고). Source를 신뢰한다면 스캔 없이 설치할 수 있습니다.
+
+```bash
+skillshare install <source> --skip-audit
+```
 
 ---
 

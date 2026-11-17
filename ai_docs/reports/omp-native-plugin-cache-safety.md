@@ -43,7 +43,7 @@ The adapter therefore does not provide a complete OMP plugin lifecycle:
   unreadable/linked/non-directory destination blocks installation. Reinstall picks a fresh marketplace/cache identity when
   retained cache exists; old content and shared registrations are never replaced.
   Cached install paths from old registrations are not trusted as the next destination.
-- Native update/uninstall commands are not invoked. Update remains blocked.
+- Native update/uninstall commands are not invoked. Reviewed updates use scoped removal followed by installation into a fresh cache identity. An existing owned marketplace catalog is refreshed before installation.
 - The minimum replaced an exact 18.6.1 pin after the sources this boundary relies on
   were compared across every tag from v18.6.1 to v18.10.2: `marketplace/cache.ts`,
   `manager.ts`, `types.ts`, `cli/plugin-cli.ts`, `extensions/loader.ts`,
@@ -54,12 +54,12 @@ The adapter therefore does not provide a complete OMP plugin lifecycle:
 - Scoped removal uses `omp_remove.go`: delete only the verified scope's registry
   entry, runtime selection and link, retaining all cache, marketplaces and plugin
   settings. The plugin is genuinely uninstalled in that scope, not disabled.
-  Ambiguous JSON/ownership, version mismatch, foreign links, real module folders
+  Ambiguous JSON/ownership, an unsafe native version or cache path, foreign links, real module folders
   and npm collisions refuse writes. A missing cache manifest requires a unique
   runtime-lock key whose link targets the exact cache; otherwise active removal
   fails closed instead of guessing the marketplace name. Windows native writes
   require private ACLs.
-- Interrupted removal is retryable from retained cache and binding identity.
+- Interrupted removal is retryable from retained cache and the pending verified native identity.
   Revisions include native registry, runtime lock, dependency/package metadata
   and link target. Skillshare removals share a lock, but native OMP plugin commands
   do not; concurrent native mutations are unsupported, not an atomic native CAS.
@@ -101,7 +101,4 @@ No native trust prompt is bypassed and no extension code runs during management.
   user removal/reinstall preserves an invisible project's cache; project
   deselection-plus-sync preserves the user installation.
 
-The scoped removal adapter resolves removal, not native cache collection or
-safe upgrades. Completing safe update still requires an upstream contract or a
-separately reviewed non-destructive upgrade adapter. macOS and Windows runtime
-behavior remains unverified.
+The scoped removal adapter also supports reviewed updates through removal and fresh-cache installation. Native cache collection and native upgrades remain outside its scope. macOS and Windows runtime behavior remains unverified.

@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **Dernière version** : v0.30.6 — Repérez les skills obsolètes en CI : `skillshare check --exit-code` se termine avec le code 1 dès qu’un élément vérifié n’est pas à jour, et `check --all` vérifie désormais les agents en plus des skills : une seule étape CI couvre les deux. [Référence de check →](https://skillshare.runkids.cc/docs/reference/commands/check) · [Toutes les versions →](https://github.com/runkids/skillshare/releases)
+> **Dernière version** : v0.30.9 — Modifiez ou supprimez un hook sans l’importer : la boîte de dialogue d’import des hooks du tableau de bord affiche désormais un Agent à la fois et peut modifier un hook directement dans son fichier de paramètres. Vous voyez le diff du fichier avant toute écriture, et une sauvegarde permet de le restaurer. Le hook reste non géré. [Référence des hooks →](https://skillshare.runkids.cc/docs/reference/commands/hooks) · [Toutes les versions →](https://github.com/runkids/skillshare/releases)
 
 ## Pourquoi skillshare
 

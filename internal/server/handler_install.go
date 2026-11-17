@@ -261,6 +261,7 @@ func (s *Server) handleInstallBatch(w http.ResponseWriter, r *http.Request) {
 		AuditOverride:  body.Force,
 		SkipAudit:      body.SkipAudit,
 		AuditThreshold: s.auditThreshold(),
+		Into:           body.Into,
 		Branch:         body.Branch,
 		SourceDir:      s.cfg.EffectiveSkillsSource(),
 		SourceFollow:   s.skillsWalk().Follow,
@@ -310,6 +311,11 @@ func (s *Server) handleInstallBatch(w http.ResponseWriter, r *http.Request) {
 				Name: sel.Name,
 				Path: sel.Path,
 			}, destPath, installOpts)
+			if errors.Is(err, install.ErrSkipSameRepo) {
+				// Already installed from this repo: kept, as an existing agent is.
+				results = append(results, batchResultItem{Name: skillName, Action: "skipped"})
+				continue
+			}
 			if err != nil {
 				results = append(results, batchResultItem{
 					Name:  skillName,
@@ -328,17 +334,21 @@ func (s *Server) handleInstallBatch(w http.ResponseWriter, r *http.Request) {
 	// Summary for toast
 	installed := 0
 	installedSkills := make([]string, 0, len(results))
+	skippedSkills := make([]string, 0, len(results))
 	failedSkills := make([]string, 0, len(results))
 	var firstErr string
 	for _, r := range results {
-		if r.Error == "" {
+		switch {
+		case r.Error != "":
+			if firstErr == "" {
+				firstErr = r.Error
+			}
+			failedSkills = append(failedSkills, r.Name)
+		case r.Action == "skipped":
+			skippedSkills = append(skippedSkills, r.Name)
+		default:
 			installed++
 			installedSkills = append(installedSkills, r.Name)
-		} else if firstErr == "" {
-			firstErr = r.Error
-			failedSkills = append(failedSkills, r.Name)
-		} else {
-			failedSkills = append(failedSkills, r.Name)
 		}
 	}
 	kindLabel := "skills"
@@ -354,7 +364,7 @@ func (s *Server) handleInstallBatch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	status := "ok"
-	if installed < len(body.Skills) {
+	if installed+len(skippedSkills) < len(body.Skills) {
 		status = "partial"
 	}
 	args := map[string]any{
@@ -376,6 +386,9 @@ func (s *Server) handleInstallBatch(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(failedSkills) > 0 {
 		args["failed_skills"] = failedSkills
+	}
+	if len(skippedSkills) > 0 {
+		args["skipped_skills"] = skippedSkills
 	}
 	s.writeOpsLog("install", status, start, args, firstErr)
 
@@ -506,6 +519,21 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 			AuditProjectRoot: installOpts.AuditProjectRoot,
 			SourceFollow:     installOpts.SourceFollow,
 		})
+		if errors.Is(err, install.ErrSkipSameRepo) && result != nil {
+			// Already tracked from this repo: kept, not failed. Nothing was
+			// installed, so the request is still refused.
+			s.writeOpsLog("install", "ok", start, map[string]any{
+				"source":         body.Source,
+				"mode":           s.installLogMode(),
+				"tracked":        true,
+				"force":          body.Force,
+				"threshold":      s.auditThreshold(),
+				"scope":          "ui",
+				"skipped_skills": []string{result.RepoName},
+			}, "")
+			writeError(w, http.StatusConflict, err.Error())
+			return
+		}
 		if err != nil {
 			s.writeOpsLog("install", "error", start, map[string]any{
 				"source":        body.Source,

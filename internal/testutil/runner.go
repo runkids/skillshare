@@ -145,6 +145,24 @@ func (r *Result) Output() string {
 	return r.Stdout + r.Stderr
 }
 
+// MachineEnv isolates native clients, Git and platform paths for a sandboxed machine.
+func (sb *Sandbox) MachineEnv() map[string]string {
+	return map[string]string{
+		"USERPROFILE":         sb.Home,
+		"XDG_CONFIG_HOME":     filepath.Join(sb.Home, ".config"),
+		"XDG_DATA_HOME":       filepath.Join(sb.Home, ".local", "share"),
+		"XDG_STATE_HOME":      filepath.Join(sb.Home, ".local", "state"),
+		"XDG_CACHE_HOME":      filepath.Join(sb.Home, ".cache"),
+		"CLAUDE_CONFIG_DIR":   filepath.Join(sb.Home, "clients", "claude"),
+		"CODEX_HOME":          filepath.Join(sb.Home, "clients", "codex"),
+		"COPILOT_HOME":        filepath.Join(sb.Home, "clients", "copilot"),
+		"OPENCODE_CONFIG_DIR": filepath.Join(sb.Home, "clients", "opencode"),
+		"PI_CODING_AGENT_DIR": filepath.Join(sb.Home, "clients", "pi"),
+		"GIT_CONFIG_GLOBAL":   filepath.Join(sb.Home, ".gitconfig"),
+		"GIT_CONFIG_NOSYSTEM": "1",
+	}
+}
+
 // RunCLIEnv executes the CLI with additional environment variables.
 // The extra env vars are appended after the standard HOME and
 // SKILLSHARE_CONFIG, so they override any pre-existing values.

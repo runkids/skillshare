@@ -269,6 +269,8 @@ skillshare audit <name>              # Check a specific skill
 skillshare audit --json | jq '.skills[].findings'  # Inspect findings programmatically
 ```
 
+如果规则文件无法读取、解析或编译（例如正则表达式无效），使用它的每次扫描都会报告指明该文件的扫描错误，`audit` 以 `2` 退出。修正该文件之前，安装会被拦截。
+
 摘要解读：
 
 - `Failed` 统计的是发现结果达到或超过当前阈值的 skills 数量。

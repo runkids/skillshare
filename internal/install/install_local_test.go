@@ -687,3 +687,58 @@ func TestAuditMessagesExplainLoweredSeverity(t *testing.T) {
 		}
 	}
 }
+
+// A scan that cannot run blocks the install even with --force: accepting
+// findings is not the same as accepting an unaudited install.
+func TestAudit_ScanErrorBlocksAndCleansUp(t *testing.T) {
+	audits := map[string]func(path string) error{
+		"skill": func(path string) error {
+			return auditInstalledSkill(path, &InstallResult{}, InstallOptions{AuditOverride: true})
+		},
+		"tracked repo": func(path string) error {
+			return auditTrackedRepo(path, &TrackedRepoResult{}, InstallOptions{AuditOverride: true})
+		},
+	}
+	for name, run := range audits {
+		t.Run(name, func(t *testing.T) {
+			tmp := t.TempDir()
+			cfgDir := filepath.Join(tmp, "config")
+			os.MkdirAll(cfgDir, 0755)
+			t.Setenv("SKILLSHARE_CONFIG", filepath.Join(cfgDir, "config.yaml"))
+			os.WriteFile(filepath.Join(cfgDir, "audit-rules.yaml"), []byte("rules:\n  - id: bad-regex\n    severity: HIGH\n    pattern: custom\n    message: bad\n    regex: '[invalid'\n"), 0644)
+			audit.ResetGlobalCache()
+			t.Cleanup(audit.ResetGlobalCache)
+			destDir := createLocalSkillSource(t, tmp, "scan-error")
+
+			err := run(destDir)
+			if !errors.Is(err, ErrAuditScanFailed) || !strings.Contains(err.Error(), "bad-regex") {
+				t.Fatalf("expected scan error naming the rule, got: %v", err)
+			}
+			if _, statErr := os.Stat(destDir); !os.IsNotExist(statErr) {
+				t.Fatalf("expected %s to be removed, stat error: %v", destDir, statErr)
+			}
+		})
+	}
+}
+
+// upgrade reinstalls the built-in skill with Force and Update, so a scan
+// that cannot run must leave the installed copy in place.
+func TestInstall_ForceUpdateScanErrorKeepsExistingSkill(t *testing.T) {
+	tmp := t.TempDir()
+	cfgDir := filepath.Join(tmp, "config")
+	os.MkdirAll(cfgDir, 0755)
+	t.Setenv("SKILLSHARE_CONFIG", filepath.Join(cfgDir, "config.yaml"))
+	os.WriteFile(filepath.Join(cfgDir, "audit-rules.yaml"), []byte("rules:\n  - id: bad-regex\n    severity: HIGH\n    pattern: custom\n    message: bad\n    regex: '[invalid'\n"), 0644)
+	audit.ResetGlobalCache()
+	t.Cleanup(audit.ResetGlobalCache)
+	srcDir := createLocalSkillSource(t, tmp, "builtin")
+	destDir := createLocalSkillSource(t, filepath.Join(tmp, "skills"), "builtin")
+	source := &Source{Type: SourceTypeLocalPath, Raw: srcDir, Path: srcDir, Name: "builtin"}
+
+	if _, err := Install(source, destDir, InstallOptions{Force: true, Update: true}); err == nil {
+		t.Fatal("expected scan error")
+	}
+	if _, err := os.Stat(filepath.Join(destDir, "SKILL.md")); err != nil {
+		t.Fatalf("existing skill should remain: %v", err)
+	}
+}

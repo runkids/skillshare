@@ -29,6 +29,23 @@ func openCodeImportPath(id string) string {
 	return filepath.FromSlash(path)
 }
 
+// openCodeLocalPath resolves native relative registrations from their containing
+// config, keeping the original ID untouched for inventory matching and removal.
+func (s *Service) openCodeLocalPath(target, id string) (string, error) {
+	path := openCodeImportPath(id)
+	if filepath.IsAbs(path) {
+		return path, nil
+	}
+	if strings.HasPrefix(id, "./") || strings.HasPrefix(id, "../") {
+		config, err := s.openCodeConfigPath(target)
+		if err != nil {
+			return "", err
+		}
+		return filepath.Clean(filepath.Join(filepath.Dir(config), filepath.FromSlash(id))), nil
+	}
+	return "", nil
+}
+
 // A native file belongs to a package only when that package resolves to this
 // entry. Npm identifiers have no local root and keep their inventory identity.
 func openCodeImportRoot(id, entry string) (string, bool) {
@@ -37,6 +54,10 @@ func openCodeImportRoot(id, entry string) (string, bool) {
 		return "", !strings.HasPrefix(id, "file:")
 	}
 	info, err := os.Stat(path)
+	if err == nil && info.IsDir() {
+		err = openCodeDirectory(path)
+		return path, err == nil
+	}
 	if err != nil || !info.Mode().IsRegular() {
 		return "", false
 	}

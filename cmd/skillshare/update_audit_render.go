@@ -184,7 +184,7 @@ func displayUpdateBlockedSection(blocked []batchBlockedEntry) {
 		label := blockedSkillLabel(b.name, digest.threshold)
 		ui.StepFail(label, compactBlockedUpdateMessage(b.errMsg))
 	}
-	ui.Note("Use --force or --skip-audit to bypass")
+	ui.Note("Use --force to override findings or --skip-audit to bypass scanning")
 }
 
 // compactBlockedUpdateMessage extracts a compact message from a blocked update error.
@@ -199,6 +199,9 @@ func compactBlockedUpdateMessage(errMsg string) string {
 		parts = append(parts, fmt.Sprintf("(%s, %d %s)", digest.threshold, digest.findingCount, suffix))
 	} else if digest.threshold != "" {
 		parts = append(parts, "("+digest.threshold+")")
+	} else {
+		// No findings: the audit itself failed, so show why.
+		return firstWarningLine(errMsg)
 	}
 	return strings.Join(parts, " ")
 }
@@ -259,7 +262,7 @@ func displayModifiedWarning(modified []string) {
 
 // displayMissingTrackedReposWarning warns about tracked repos declared in
 // metadata whose clone directories are absent on disk (issue #212).
-func displayMissingTrackedReposWarning(missing []string) {
+func displayMissingTrackedReposWarning(missing []string, isProject bool) {
 	if len(missing) == 0 {
 		return
 	}
@@ -269,5 +272,5 @@ func displayMissingTrackedReposWarning(missing []string) {
 	for _, name := range missing {
 		ui.Row(ui.MarkWarn, name, missingTrackedRepoShortReason, width)
 	}
-	ui.Note(missingTrackedRepoHint())
+	ui.Note(missingTrackedRepoHint(isProject))
 }

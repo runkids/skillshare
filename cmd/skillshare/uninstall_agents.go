@@ -48,7 +48,7 @@ func cmdUninstallAgents(agentsDir string, opts *uninstallOptions, cfgPath string
 		if len(targets) == 0 {
 			if opts.jsonOutput {
 				jsonUI.Flush()
-				return uninstallOutputJSON(nil, nil, 0, opts.dryRun, start, nil)
+				return uninstallOutputJSON(nil, nil, nil, 0, opts.dryRun, start, nil)
 			}
 			ui.Done(ui.MarkNone, "No agents found", 0)
 			return nil
@@ -165,7 +165,7 @@ func cmdUninstallAgents(agentsDir string, opts *uninstallOptions, cfgPath string
 			jsonErr = fmt.Errorf("%d agent(s) failed to uninstall: %s", len(failed), strings.Join(reasons, "; "))
 		}
 		jsonUI.Flush()
-		return uninstallOutputJSON(removed, failed, 0, opts.dryRun, start, jsonErr)
+		return uninstallOutputJSON(removed, nil, failed, 0, opts.dryRun, start, jsonErr)
 	}
 
 	// Summary

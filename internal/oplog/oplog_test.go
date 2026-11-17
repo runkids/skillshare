@@ -166,6 +166,44 @@ func TestWriteWithArgs(t *testing.T) {
 	}
 }
 
+// A source typed as a URL can carry credentials in its userinfo or query, and
+// git echoes the query in its error text (issue #878).
+func TestWrite_RedactsSourceCredentials(t *testing.T) {
+	cfgPath := tempConfigPath(t)
+
+	e := Entry{
+		Command: "install",
+		Args:    map[string]any{"source": "https://someone:s3cret@git.example.com/team/skills.git?token=q-s3cret"},
+		Status:  "error",
+		Message: "fatal: unable to access 'https://git.example.com/team/skills.git?token=q-s3cret/': Failed to connect",
+	}
+	if err := Write(cfgPath, OpsFile, e); err != nil {
+		t.Fatalf("Write() error: %v", err)
+	}
+	// The dashboard's source edit logs the old and new source.
+	edit := Entry{
+		Command: "skill.source",
+		Args:    map[string]any{"oldSource": "https://old:s3cret@git.example.com/team/skills.git", "newSource": "https://someone:s3cret@git.example.com/team/skills.git"},
+		Status:  "ok",
+	}
+	if err := Write(cfgPath, OpsFile, edit); err != nil {
+		t.Fatalf("Write() error: %v", err)
+	}
+
+	raw, err := os.ReadFile(filepath.Join(LogDir(cfgPath), OpsFile))
+	if err != nil {
+		t.Fatalf("read log: %v", err)
+	}
+	for _, leak := range []string{"s3cret", "someone"} {
+		if strings.Contains(string(raw), leak) {
+			t.Errorf("log leaked %q: %s", leak, raw)
+		}
+	}
+	if !strings.Contains(string(raw), `"source":"https://git.example.com/team/skills.git"`) {
+		t.Errorf("log lost the source host and path: %s", raw)
+	}
+}
+
 func TestAuditFileIsSeparate(t *testing.T) {
 	cfgPath := tempConfigPath(t)
 

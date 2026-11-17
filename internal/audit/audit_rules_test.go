@@ -494,3 +494,102 @@ func TestProjectRules_DisableTierRule(t *testing.T) {
 		t.Error("tier-interpreter-network should be suppressed when disabled in audit-rules.yaml")
 	}
 }
+
+const badRegexRules = `rules:
+  - id: bad-regex
+    severity: HIGH
+    pattern: custom
+    message: "Bad rule"
+    regex: '[invalid'
+`
+
+func TestGlobalScans_ReturnRulesLoadError(t *testing.T) {
+	resetForTest()
+	t.Cleanup(resetForTest)
+
+	tmpDir := t.TempDir()
+	cfgDir := filepath.Join(tmpDir, "config")
+	os.MkdirAll(cfgDir, 0755)
+	t.Setenv("SKILLSHARE_CONFIG", filepath.Join(cfgDir, "config.yaml"))
+	rulesPath := filepath.Join(cfgDir, "audit-rules.yaml")
+	os.WriteFile(rulesPath, []byte(badRegexRules), 0644)
+
+	skillDir := filepath.Join(tmpDir, "skill")
+	os.MkdirAll(skillDir, 0755)
+	skillFile := filepath.Join(skillDir, "SKILL.md")
+	os.WriteFile(skillFile, []byte("# Skill\n"), 0644)
+
+	scans := map[string]func() (*Result, error){
+		"ScanSkill":         func() (*Result, error) { return ScanSkill(skillDir) },
+		"ScanSkillFiltered": func() (*Result, error) { return ScanSkillFiltered(skillDir, DefaultRegistry()) },
+		"ScanFile":          func() (*Result, error) { return ScanFile(skillFile) },
+	}
+	for name, scan := range scans {
+		t.Run(name, func(t *testing.T) {
+			result, err := scan()
+			if err == nil {
+				t.Fatalf("expected rules-load error, got result %+v", result)
+			}
+			if !strings.Contains(err.Error(), rulesPath) || !strings.Contains(err.Error(), "bad-regex") {
+				t.Errorf("error should name %s and the rule, got: %v", rulesPath, err)
+			}
+		})
+	}
+}
+
+func TestRulesWithProject_InvalidProjectRuleNamesFile(t *testing.T) {
+	resetForTest()
+	t.Cleanup(resetForTest)
+
+	tmpDir := t.TempDir()
+	cfgDir := filepath.Join(tmpDir, "config")
+	os.MkdirAll(cfgDir, 0755)
+	t.Setenv("SKILLSHARE_CONFIG", filepath.Join(cfgDir, "config.yaml"))
+	projectRoot := filepath.Join(tmpDir, "project")
+	projectPath := ProjectAuditRulesPath(projectRoot)
+	os.MkdirAll(filepath.Dir(projectPath), 0755)
+	os.WriteFile(projectPath, []byte(badRegexRules), 0644)
+
+	_, err := RulesWithProject(projectRoot)
+	if err == nil || !strings.Contains(err.Error(), projectPath) {
+		t.Fatalf("error should name %s, got: %v", projectPath, err)
+	}
+}
+
+func TestRulesWithProject_BadGlobalRule(t *testing.T) {
+	tests := map[string]struct {
+		projectRules string
+		wantErr      bool
+	}{
+		"project disables it":     {projectRules: "rules:\n  - id: bad-regex\n    enabled: false\n"},
+		"error names global file": {projectRules: "rules:\n  - id: other\n    enabled: false\n", wantErr: true},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			resetForTest()
+			t.Cleanup(resetForTest)
+
+			tmpDir := t.TempDir()
+			cfgDir := filepath.Join(tmpDir, "config")
+			os.MkdirAll(cfgDir, 0755)
+			t.Setenv("SKILLSHARE_CONFIG", filepath.Join(cfgDir, "config.yaml"))
+			globalPath := filepath.Join(cfgDir, "audit-rules.yaml")
+			os.WriteFile(globalPath, []byte(badRegexRules), 0644)
+			projectRoot := filepath.Join(tmpDir, "project")
+			projectPath := ProjectAuditRulesPath(projectRoot)
+			os.MkdirAll(filepath.Dir(projectPath), 0755)
+			os.WriteFile(projectPath, []byte(tc.projectRules), 0644)
+
+			_, err := RulesWithProject(projectRoot)
+			if !tc.wantErr {
+				if err != nil {
+					t.Fatalf("RulesWithProject() error: %v", err)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), globalPath) {
+				t.Fatalf("error should name %s, got: %v", globalPath, err)
+			}
+		})
+	}
+}

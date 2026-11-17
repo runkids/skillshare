@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { MCPPlan } from '../../api/mcp';
-import { buildMatrix, denyRemovesAll, describeError, describeMessage, canImportConflict, groupByFile, isResolvable, joinCommand, projectFileTargets, mcpClient, mcpNotice, parsePiOptions, parseToolChange, parseToolNotice, pinFindingKey, serverCount, setToolChecked, splitCommand, switchTargets, targetLabel, toolRules, toolSummary } from './mcpView';
+import { buildMatrix, denyRemovesAll, describeError, describeMessage, canImportConflict, groupByFile, isResolvable, joinCommand, projectFileTargets, mcpClient, mcpNotice, otherConflicts, parsePiOptions, parseToolChange, parseToolNotice, pinFindingKey, serverCount, setToolChecked, splitCommand, switchTargets, targetLabel, toolRules, toolSummary } from './mcpView';
 import { mcpTargets } from '../../api/mcp';
 
 const change = (name: string, target: string, action: string, message?: string) => ({ name, target, action, message, path: `/${target}.json` });
@@ -140,6 +140,27 @@ describe('groupByFile', () => {
       { target: 'opencode', path: '/work/app/opencode.json', name: 'context7', root: '/work/app', action: 'add' },
     ]);
     expect(groups.map((g) => g.offListFor)).toEqual([undefined, '/work/app', undefined]);
+  });
+});
+
+// After importing one Agent's version, the others still holding a different one are what
+// the user must replace next; another scope's conflicts are not settled by this import.
+describe('otherConflicts', () => {
+  const unmanaged = 'existing entry is not managed; import it to explicitly adopt it';
+  const changes = [
+    change('docs', 'claude', 'conflict', unmanaged),
+    change('docs', 'codex', 'conflict', unmanaged),
+    { ...change('docs', 'cursor', 'conflict', unmanaged), root: '/work/app' },
+    change('docs', 'vscode', 'conflict', 'managed by another Skillshare config: /other.yaml'),
+    change('other', 'gemini', 'conflict', unmanaged),
+  ];
+
+  it('names the other Agents of the same server and scope that can be replaced', () => {
+    expect(otherConflicts(changes, { target: 'claude', name: 'docs' })).toEqual(['codex']);
+  });
+
+  it("keeps a project's import to that project", () => {
+    expect(otherConflicts(changes, { target: 'claude', name: 'docs' }, '/work/app')).toEqual(['cursor']);
   });
 });
 

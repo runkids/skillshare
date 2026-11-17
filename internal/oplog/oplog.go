@@ -5,6 +5,7 @@ package oplog
 import (
 	"bufio"
 	"encoding/json"
+	"maps"
 	"os"
 	"path/filepath"
 	"time"
@@ -64,8 +65,22 @@ func IsProjectConfig(configPath string) bool {
 	return ok
 }
 
-// Write appends a single JSONL entry to the named log file.
+// sourceArgs are the args that hold a source as the user typed it.
+var sourceArgs = []string{"source", "oldSource", "newSource"}
+
+// Write appends a single JSONL entry to the named log file. A source keeps no
+// credentials: its userinfo and query are dropped, also where the message
+// echoes them.
 func Write(configPath, filename string, e Entry) error {
+	e.Args = maps.Clone(e.Args)
+	for _, key := range sourceArgs {
+		if source, ok := e.Args[key].(string); ok {
+			clean, redact := install.RedactRepoURL(source)
+			e.Args[key] = clean
+			e.Message = redact.Replace(e.Message)
+		}
+	}
+
 	dir := LogDir(configPath)
 	dirInfo, statErr := os.Stat(dir)
 	logsDirMissing := os.IsNotExist(statErr)

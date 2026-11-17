@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **최신 버전**: v0.30.6 — CI에서 오래된 스킬을 잡아내세요. `skillshare check --exit-code`는 확인한 항목 중 하나라도 최신이 아니면 종료 코드 1을 반환하고, `check --all`은 이제 스킬과 함께 에이전트도 확인하므로 CI 단계 하나로 둘 다 다룰 수 있습니다. [check 레퍼런스 →](https://skillshare.runkids.cc/ko/docs/reference/commands/check) · [변경 기록 →](https://skillshare.runkids.cc/changelog)
+> **최신 버전**: v0.30.9 — hook을 가져오지 않고도 수정하거나 삭제하세요. 대시보드의 hook 가져오기 대화상자가 이제 Agent를 하나씩 보여 주며, 설정 파일에 있는 hook을 그 자리에서 변경할 수 있습니다. 파일에 쓰기 전에 diff를 확인할 수 있고, 백업으로 되돌릴 수 있습니다. hook은 관리되지 않는 상태로 남습니다. [hooks 레퍼런스 →](https://skillshare.runkids.cc/ko/docs/reference/commands/hooks) · [변경 기록 →](https://skillshare.runkids.cc/changelog)
 
 ## skillshare를 쓰는 이유
 

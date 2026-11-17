@@ -235,6 +235,7 @@ skills:
 |---------|------------------------|
 | `skillshare install <source> -p` | 새 skill을 설치된 커밋에 고정합니다 |
 | `skillshare install -p` | 모든 skill을 고정된 커밋으로 설치합니다. 이미 다른 커밋으로 설치되어 있는 skill은 고정된 커밋으로 이동됩니다 |
+| `skillshare install -p --json` | `--json`을 사용하면 프로젝트 잠금 파일이 다른 커밋을 가리켜도 기존 복사본을 건너뜁니다. 해당 고정 커밋으로 맞추려면 `--force`를 추가하세요. |
 | `skillshare update <name> -p` | skill을 최신 커밋으로 이동시키고 고정을 다시 씁니다. 그러면 코드 리뷰에 변경 사항이 나타납니다 |
 | `skillshare uninstall <name> -p` | 고정을 제거합니다 |
 

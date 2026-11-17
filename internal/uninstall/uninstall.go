@@ -1,7 +1,7 @@
 // Package uninstall moves resolved skills, tracked repos and agents out of
 // their source directory into the trash and removes what the install recorded
 // about them, keeping a copy of that record beside the trash entry so restore
-// can put it back. Callers resolve names and report the results.
+// can put it back. Callers choose the mode and report the results.
 package uninstall
 
 import (
@@ -21,11 +21,12 @@ import (
 
 // Item is one resolved skill, group directory or tracked repo.
 type Item struct {
-	Name      string // source-relative slash path; its metadata key
-	Path      string // logical path below the source
-	TrashName string // name of the trash entry, which decides where restore puts it
-	Repo      bool   // tracked repo: refused while dirty unless forced
-	Gitignore string // .gitignore entry to drop once removed; "" for none
+	Name         string // source-relative slash path; its metadata key
+	Path         string // logical path below the source
+	TrashName    string // name of the trash entry, which decides where restore puts it
+	Repo         bool   // tracked repo: refused while dirty unless forced
+	MetadataOnly bool   // remove only the declaration; Path and Gitignore are ignored
+	Gitignore    string // .gitignore entry to drop once removed; "" for none
 }
 
 // Options describes the source the items live in.
@@ -44,6 +45,12 @@ var ErrDirty = errors.New("uncommitted changes")
 // ErrInsideRepo refuses a skill or folder inside a tracked repo's checkout.
 var ErrInsideRepo = errors.New("inside a tracked repo; uninstall the repo instead")
 
+// ErrNotDeclared refuses metadata-only removal when the declaration is gone.
+var ErrNotDeclared = errors.New("no tracked repository declaration")
+
+// ErrCheckoutRestored refuses a stale metadata-only selection, even with force.
+var ErrCheckoutRestored = errors.New("checkout now exists; refresh and confirm checkout removal")
+
 // StatusError refuses a tracked repo whose git status could not be read.
 type StatusError struct{ Err error }
 
@@ -56,7 +63,7 @@ type TrashError struct{ Err error }
 func (e *TrashError) Error() string { return fmt.Sprintf("failed to move to trash: %v", e.Err) }
 func (e *TrashError) Unwrap() error { return e.Err }
 
-// Result is the outcome for one item; a nil Err means it is in the trash.
+// Result is the outcome for one item; a nil Err means it was trashed or its declaration was saved.
 type Result struct {
 	Item Item
 	Err  error
@@ -81,6 +88,9 @@ func Preflight(items []Item, o Options) []error {
 	sem := make(chan struct{}, maxDirtyWorkers)
 	var wg gosync.WaitGroup
 	for i, item := range items {
+		if item.MetadataOnly {
+			continue
+		}
 		if errs[i] = checkMoveOut(item, o); errs[i] != nil || !item.Repo {
 			continue
 		}
@@ -107,14 +117,27 @@ func checkDirty(repoPath string) error {
 	return nil
 }
 
-// Run uninstalls the items in order: move-out check, dirty check for tracked
-// repos unless forced, move to trash. For everything that was removed it then
-// drops the .gitignore entries and prunes the metadata store.
+// Run uninstalls the items in order: metadata-only items forget a declaration;
+// other items check move-out and git state, then move to trash. Only trashed
+// items drop .gitignore entries. The pruned metadata is saved once at the end.
 func Run(items []Item, o Options) Outcome {
 	out := Outcome{Results: make([]Result, len(items))}
 	names := map[string]bool{}
 	var gitignore []string
+	forgot := false
 	for i, item := range items {
+		if item.MetadataOnly {
+			out.Results[i] = Result{Item: item}
+			// Recheck the resolved name after confirmation, never the caller's Path.
+			if err := CheckRecordOnly(o.SourceDir, item.Name); err != nil {
+				out.Results[i].Err = err
+			} else if o.Store.ForgetTrackedRepo(item.Name) {
+				forgot = true
+			} else {
+				out.Results[i].Err = ErrNotDeclared
+			}
+			continue
+		}
 		out.Results[i] = Result{Item: item, Err: moveOut(item, o)}
 		if out.Results[i].Err != nil {
 			continue
@@ -124,7 +147,7 @@ func Run(items []Item, o Options) Outcome {
 			gitignore = append(gitignore, item.Gitignore)
 		}
 	}
-	if len(names) == 0 {
+	if len(names) == 0 && !forgot {
 		return out
 	}
 
@@ -133,6 +156,13 @@ func Run(items []Item, o Options) Outcome {
 	}
 	o.Store.RemoveByNames(names)
 	out.SaveErr = o.Store.Save(o.SourceDir)
+	if out.SaveErr != nil {
+		for i := range out.Results {
+			if out.Results[i].Item.MetadataOnly && out.Results[i].Err == nil {
+				out.Results[i].Err = out.SaveErr
+			}
+		}
+	}
 	return out
 }
 
@@ -179,6 +209,20 @@ func moveOut(item Item, o Options) error {
 		return &TrashError{Err: err}
 	}
 	return nil
+}
+
+// ForgetUnlinkedName keeps undo metadata for an already trashed source link
+// before pruning its records. store must be freshly loaded from sourceDir.
+func ForgetUnlinkedName(sourceDir, trashPath, name string, store *install.MetadataStore) error {
+	saved := store.ExtractUnlinkedName(name)
+	if saved.IsEmpty() {
+		return nil
+	}
+	if err := saveMetadata(trashPath, saved); err != nil {
+		return err
+	}
+	store.ForgetUnlinkedName(name)
+	return store.Save(sourceDir)
 }
 
 // Agent is one resolved agent file.

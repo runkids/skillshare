@@ -78,6 +78,21 @@ describe('InstallDialog', () => {
     expect(screen.getByRole('checkbox', { name: 'docx' })).toBeChecked();
   });
 
+  it('reports a kept skill as already installed, not as installed', async () => {
+    vi.mocked(api.discover).mockResolvedValue({ needsSelection: true, skills: [{ name: 'deploy', path: 'deploy' }], agents: [] });
+    vi.mocked(api.installBatch).mockResolvedValue({ results: [{ name: 'deploy', action: 'skipped' }], summary: 'Installed 0 of 1 skills' });
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    renderDialog('url', onClose);
+
+    await user.type(screen.getByLabelText(/git url/i), 'acme/ops-skills');
+    await user.click(screen.getByRole('button', { name: /find skills/i }));
+    await user.click(await screen.findByRole('button', { name: /install 1 skill$/i }));
+
+    expect(await screen.findByText(/1 already installed: deploy/)).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
   it('force installs only the skill the audit blocked', async () => {
     vi.mocked(api.discover).mockResolvedValue({ needsSelection: true, skills: [{ name: 'deploy', path: 'deploy' }], agents: [] });
     vi.mocked(api.installBatch)

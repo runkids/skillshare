@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **最新版本**：v0.30.6 — 在 CI 中发现过期的 skill：`skillshare check --exit-code` 在检查到任何项目不是最新时以代码 1 退出，`check --all` 现在会同时检查 skill 与 agent，一个 CI 步骤即可涵盖两者。[check 参考 →](https://skillshare.runkids.cc/zh-Hans/docs/reference/commands/check) · [更新记录 →](https://skillshare.runkids.cc/changelog)
+> **最新版本**：v0.30.9 — 无需导入即可编辑或移除 hook：dashboard 的 hooks 导入对话框现在一次显示一个 Agent，并可直接修改其设置文件中的 hook。写入前会先显示文件 diff，并留有可还原的备份。该 hook 仍保持未托管。 [hooks 参考 →](https://skillshare.runkids.cc/zh-Hans/docs/reference/commands/hooks) · [更新记录 →](https://skillshare.runkids.cc/changelog)
 
 ## 为什么用 skillshare
 

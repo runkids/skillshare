@@ -318,6 +318,14 @@ skillshare sync -p
 
 `status`, `check`, `update --all`, and `doctor` report this state and suggest `skillshare install`.
 
+Deleting a global checkout by hand leaves its declaration and audit acceptances. Restore it only if you want it back and its source is reachable and destination free. To drop the declaration instead, even when the source is unreachable:
+
+```bash
+skillshare uninstall _team-skills -g
+```
+
+Use the full canonical recorded name with `_` (for example `devops/_team-skills`) when a plain folder or link to a non-checkout occupies the path. While the tracked declaration remains, this removes only metadata; the occupant and `.gitignore` stay untouched, and there is no trash entry to restore. After `install` or another reconcile walks that folder or followed non-checkout link, it becomes an ordinary record and ordinary uninstall moves the occupant to trash. See [uninstall](../reference/commands/uninstall.md#tracked-repositories).
+
 ### `nested git repositories must be disabled first`
 
 **Cause:** With `git_root: root`, a subdirectory that Git does not ignore (e.g. a skill you cloned by hand) has its own `.git`. Git would upload it as an **empty submodule**, silently dropping its files, so `commit`/`push` abort until each nested repo is disabled. Tracked repositories installed with `--track` are listed in the managed `.gitignore` block, so they are skipped unless they were already committed.
@@ -507,6 +515,16 @@ skillshare install <source> --force
 **Cause:** The skill contains invisible Unicode characters, which may be a copy-paste artifact or intentional obfuscation.
 
 **Solution:** Open the file in an editor that shows hidden characters and remove them, or force install if you trust the source.
+
+### `audit scan failed`
+
+**Cause:** The audit could not run, for example because `audit-rules.yaml` does not parse or one of its patterns does not compile. The error names the file. `install` refuses the skill, agent or tracked repository and removes what it installed. `update` and `upgrade --skill` keep the installed copy. `--force` does not help: it accepts findings, and a scan that did not run has none.
+
+**Solution:** Fix the file the error names (see [audit rules](/docs/reference/commands/audit-rules)). If you trust the source, you can install without scanning:
+
+```bash
+skillshare install <source> --skip-audit
+```
 
 ---
 

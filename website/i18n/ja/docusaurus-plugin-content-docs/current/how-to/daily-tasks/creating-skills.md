@@ -282,8 +282,9 @@ name: acme-code-review
 ---
 name: my-skill
 description: My skill
-version: 1.0.0
-author: Your Name
+metadata:
+  version: 1.0.0
+  author: Your Name
 ---
 ```
 

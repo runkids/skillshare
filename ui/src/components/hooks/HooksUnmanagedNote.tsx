@@ -1,4 +1,3 @@
-import { Download } from 'lucide-react';
 import type { HookUnmanaged } from '../../api/hooks';
 import { useT, plural } from '../../i18n';
 import AgentIcon from '../AgentIcon';
@@ -21,7 +20,7 @@ export default function HooksUnmanagedNote({ entries, onImport }: { entries: Hoo
           <span className="min-w-0 flex-1 [text-wrap:balance]">{t(plural('hooks.unmanaged', count), { count: String(count), target: hookLabel(target) })}</span>
         </span>
       ))}
-      <Button size="sm" variant="secondary" className="self-start" onClick={onImport}><Download size={14} />{t('hooks.unmanaged.review')}</Button>
+      <Button size="sm" variant="secondary" className="self-start" onClick={onImport}>{t('hooks.unmanaged.review')}</Button>
     </div>
   );
 }

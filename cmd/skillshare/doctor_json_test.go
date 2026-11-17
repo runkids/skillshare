@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestCheckBackupStatus_LockOnly(t *testing.T) {
@@ -95,5 +97,62 @@ func TestDoctorCheckStreamWritesEachCheckAsItIsAdded(t *testing.T) {
 func TestDoctorCheckStreamOffWithoutEnv(t *testing.T) {
 	if stream := doctorCheckStream(&strings.Builder{}); stream != nil {
 		t.Fatal("doctor streamed checks without being asked to")
+	}
+}
+
+func TestDoctorLaterStreamsPendingAndKeepsItsPlace(t *testing.T) {
+	t.Setenv(doctorStreamEnv, "1")
+	var out strings.Builder
+	result := &doctorResult{stream: doctorCheckStream(&out)}
+	release := make(chan struct{})
+
+	result.addCheck("mcp", checkPass, "MCP ok", nil)
+	result.later("plugins", "Checking plugins...", func() func(*doctorResult) {
+		<-release
+		return func(r *doctorResult) { r.addCheck("plugins", checkWarning, "Plugins: 1 warning(s)", nil) }
+	})
+	result.addCheck("backup", checkPass, "Backups ok", nil)
+	close(release)
+	result.finishLater()
+
+	want := `{"check":{"name":"mcp","status":"pass","message":"MCP ok"}}` + "\n" +
+		`{"check":{"name":"plugins","status":"pending","message":"Checking plugins..."}}` + "\n" +
+		`{"check":{"name":"backup","status":"pass","message":"Backups ok"}}` + "\n" +
+		`{"check":{"name":"plugins","status":"warning","message":"Plugins: 1 warning(s)"}}` + "\n"
+	if got := out.String(); got != want {
+		t.Fatalf("stream = %q, want %q", got, want)
+	}
+	var names []string
+	for _, c := range result.checks {
+		names = append(names, c.Name)
+	}
+	if got := strings.Join(names, ","); got != "mcp,plugins,backup" {
+		t.Fatalf("checks = %s, want mcp,plugins,backup", got)
+	}
+}
+
+func TestDoctorLaterRecordsAFinishedCheckAtTheNextCheck(t *testing.T) {
+	t.Setenv(doctorStreamEnv, "1")
+	var out strings.Builder
+	result := &doctorResult{stream: doctorCheckStream(&out)}
+
+	result.later("git_status", "Checking Git...", func() func(*doctorResult) {
+		return func(r *doctorResult) { r.addCheck("git_status", checkPass, "Git: ok", nil) }
+	})
+	for deadline := time.Now().Add(5 * time.Second); len(result.waiting[0].done) == 0; runtime.Gosched() {
+		if time.Now().After(deadline) {
+			t.Fatal("background check did not finish")
+		}
+	}
+	result.addCheck("targets", checkPass, "Targets ok", nil)
+
+	want := `{"check":{"name":"git_status","status":"pending","message":"Checking Git..."}}` + "\n" +
+		`{"check":{"name":"targets","status":"pass","message":"Targets ok"}}` + "\n" +
+		`{"check":{"name":"git_status","status":"pass","message":"Git: ok"}}` + "\n"
+	if got := out.String(); got != want {
+		t.Fatalf("stream = %q, want %q", got, want)
+	}
+	if len(result.waiting) != 0 || len(result.checks) != 2 || result.checks[0].Name != "git_status" || result.checks[0].Status != checkPass {
+		t.Fatalf("checks = %+v, waiting = %d; want git_status recorded in its place", result.checks, len(result.waiting))
 	}
 }

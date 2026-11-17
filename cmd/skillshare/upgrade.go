@@ -364,8 +364,10 @@ func doSkillDownload(skillshareSkillDir, sourceDir, fromVersion string) error {
 	}
 	source.Name = "skillshare"
 
+	// Update stages the download, so a failed audit keeps the installed skill.
 	_, err = install.Install(source, skillshareSkillDir, install.InstallOptions{
 		Force:  true,
+		Update: true,
 		DryRun: false,
 	})
 	spinner.Stop()

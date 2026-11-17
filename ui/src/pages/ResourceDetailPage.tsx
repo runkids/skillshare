@@ -19,6 +19,7 @@ import { repoOf, sourceLinkOf } from '../lib/resourceGrouping';
 import { targetFilterPatch } from '../lib/targetFilter';
 import { useSyncMatrix } from '../hooks/useSyncMatrix';
 import { projectUrl } from '../components/projects/projectView';
+import { receivesSkill } from '../components/sync/syncView';
 import { formatDateTime, formatRelativeTime, useI18n, useT, plural } from '../i18n';
 import AgentIcon from '../components/AgentIcon';
 import Button from '../components/Button';
@@ -586,7 +587,7 @@ function TargetsSection({ resource }: { resource: Skill }) {
     const entry = entries.get(target.name);
     const action = diffQuery.data?.diffs.find((d) => d.target === target.name)?.items
       .find((i) => i.skill === resource.flatName && (i.kind ?? 'skill') === 'skill')?.action;
-    return { target, entry, action, on: entry?.status === 'synced' || entry?.status === 'na' };
+    return { target, entry, action, on: !!entry && receivesSkill(entry) };
   });
   const supported = rows.filter((r) => r.entry);
 
@@ -620,7 +621,8 @@ function TargetsSection({ resource }: { resource: Skill }) {
       case 'skill_target_mismatch':
         return t('resourceDetail.targets.mismatch');
       case 'na':
-        return t('resourceDetail.targets.symlink');
+        // Skills switched off for the target is 'na' too, but nothing syncs there.
+        return t(receivesSkill(entry) ? 'resourceDetail.targets.symlink' : 'targets.skillsOff');
       default:
         return null;
     }
@@ -695,7 +697,7 @@ export function ProjectsList({ resource, diffs, statusText }: {
   }
   const projects = [...byProject.values()].sort((a, b) => a.name.localeCompare(b.name));
   if (projects.length === 0) return null;
-  const on = (p: (typeof projects)[number]) => p.rows.some((r) => r.entry.status === 'synced' || r.entry.status === 'na');
+  const on = (p: (typeof projects)[number]) => p.rows.some((r) => receivesSkill(r.entry));
 
   return (
     <>

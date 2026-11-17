@@ -49,7 +49,7 @@ target 會儲存這個選擇。下一次 `sync plugins` 會移除其受管理的
 | `remove [NAME]` | 解除安裝受管理的綁定並移除其定義 |
 
 在終端機中執行不帶參數的指令會提示輸入缺少的內容。非互動式的異動指令則需要明確的輸入。
-`sync` 和 `check` 可以對所有套件操作；`update` 傳入 `--all`（`-a`）時會更新所有受管理的套件。為多個 Agent 更新單一套件時（不帶 `--target`，或指定多個），各個 Agent 也以同樣方式處理：無法更新的 Agent 會連同原因回報為失敗，其他 Agent 照常更新，指令以非零狀態結束。沒有其他 Agent 需要更新，或只指定一個 `--target` 時，更新會被擋下。`sync --all` **不會**包含 plugin；請明確使用 `sync plugins`。
+`sync` 和 `check` 可以對所有套件操作；`update` 傳入 `--all`（`-a`）時會更新所有受管理的套件。為多個 Agent 更新單一套件時（不帶 `--target`，或指定多個），各個 Agent 也以同樣方式處理：失敗的 Agent 會連同原因回報，其他 Agent 照常更新，指令以非零狀態結束。沒有其他 Agent 需要更新，或只指定一個 `--target` 時，更新會被擋下。`sync --all` **不會**包含 plugin；請明確使用 `sync plugins`。
 
 ## Options
 
@@ -151,8 +151,7 @@ skillshare plugin import demo@my-market --from omp --dry-run --json -g
 安裝需要 OMP **18.6.1+**、已審閱的本機/Git source、一個經過驗證且先前未使用過的 cache
 目的地，以及尚不存在的 scope 本機 runtime 目的地。Runtime 套件名稱來自已審閱的 source，
 而不只是 marketplace 名稱。既有的 module 目錄或連結會擋下安裝，而不會被取代；目的地會綁定
-到預覽，並在安裝前再次檢查。Adapter 會讓 plugin 樹保持完整，使用原生 marketplace 安裝，
-並驗證產生的註冊結果。Catalog 優先使用 `.omp-plugin/marketplace.json`，只有在 OMP catalog 不存在時才退回
+到預覽，並在安裝前再次檢查。Adapter 會讓 plugin 樹保持完整，使用原生 marketplace 安裝，並驗證產生的註冊結果。Catalog 優先使用 `.omp-plugin/marketplace.json`，只有在 OMP catalog 不存在時才退回
 `.claude-plugin/marketplace.json`。OMP entry 可以指向在 `package.json` 宣告 `omp.extensions` 或 `pi.extensions`
 的套件；即使 npm 名稱不同或未提供，也會使用 marketplace 的 plugin 名稱。
 不同 catalog 將同名 plugin 放在不同目錄時，OMP 會保留自己的路徑、版本與 components。
@@ -169,10 +168,10 @@ skillshare plugin import demo@my-market --from omp --dry-run --json -g
 runtime 選取以及經過驗證的 `node_modules` 連結。Plugin 會從該 scope 解除安裝，而不只是停用。
 共用 cache、marketplaces 與 plugin 設定會保留；不會嘗試清理 cache。舊 cache 仍存在時，
 重新安裝會自動選擇新的 marketplace/cache 身分，不會取代其他 project 可能使用的檔案。
-無法讀取、被連結或不是目錄的 cache 目的地仍會被擋下。
+無法讀取、被連結或不是目錄的 cache 目的地仍會被擋下。安裝至已註冊且歸屬已驗證的 marketplace 前會重新整理目錄。
 
-移除需要經過驗證的 18.6.1+ metadata 契約、相符的已安裝版本、明確的 JSON，以及可證明的
-runtime 連結所有權。真實的 module 資料夾、外部連結、npm 依賴衝突或不明確的 runtime 擁有者
+移除需要經過驗證的 18.6.1+ metadata 契約、明確的 JSON，以及可證明的 runtime 連結所有權。
+若存在原生註冊，即使綁定版本不同，它也必須 scope 相符，且版本與 cache 路徑經過驗證。真實的 module 資料夾、外部連結、npm 依賴衝突或不明確的 runtime 擁有者
 都會被拒絕。若缺少 cache manifest，adapter 需要一個唯一的 runtime-lock 鍵，且其 scope 本機
 連結指向該安裝的 cache；它絕不猜測 marketplace 名稱，也不會在實際 runtime 連結仍在時回報成功。
 無法驗證的作用中安裝仍會被擋下。若原生解除安裝已經移除 cache、註冊以及 runtime 連結/選取，
@@ -185,7 +184,7 @@ Adapter 會將 Skillshare 的移除操作序列化並檢查原生檔案的版本
 不參與它的鎖；請勿同時執行原生 plugin 變更。這不是原子性的多檔案原生交易。
 更新絕不會執行 OMP 原生的 upgrade：它用同一個 adapter 移除這個 scope 的註冊，再把已審閱的 commit
 安裝到全新的 cache identity，因此保留的 cache 會繼續留給其他專案。無法驗證移除時，更新會被擋下；
-`update --all` 會略過它並說明原因。匯入的程式碼絕不會在沒有已審閱 source 的情況下升級。
+`update --all` 會回報失敗與原因，並繼續處理其他目標。匯入的程式碼絕不會在沒有已審閱 source 的情況下升級。
 
 Project 操作要求所選的根目錄與 OMP 原生的 project anchor 相符；絕不會默默改為全域安裝或
 安裝到上層 project。原生 profile/config 根目錄覆寫（`PI_CONFIG_DIR`、`PI_CODING_AGENT_DIR`、
@@ -250,19 +249,19 @@ Skillshare 讀取套件時不會執行它們，因此這個分頁顯示的是設
 
 同步到 Pi 的專案在專案頁面上也有這個分頁。它顯示專案設定疊加在全域設定之上後，每個套件選取的內容，並標示是繼承自 `pi (global)` 還是專案覆寫。開關只會把規則存到專案的 `.pi/settings.json`，做法和 `pi config` 相同：全域套件會得到一個專案項目 `{"source": ..., "autoload": false, "extensions": [...]}`，只改變它指名的檔案，全域項目維持原樣。本機來源會寫成相對於 `.pi` 的路徑，npm 或 git 來源則照全域設定的寫法。移除這類項目的最後一條專案規則時，只有不會讓較早登錄的 filters 生效才移除該項目；否則保留空的 winning override。只有明確的 JSON `false` 才表示 delta，`autoload: null` 不是 `false`。沒有對應全域項目、且 `autoload: false` 的專案項目只會載入它用 `+` 指名的檔案。檔案與其 `.pi` 資料夾只會在套用時建立。全域設定與 Pi 的 `trust.json` 永遠不會被寫入，Skillshare 也不會替你信任專案：Pi 只有在信任專案時才會使用專案設定。含有憑證或查詢字串的全域來源不會被複製到專案，所以該套件在專案中是唯讀；專案設定中有 Skillshare 無法讀取的項目時，所有套件都是唯讀。套用時會持有 Pi 對專案檔案的鎖，並在寫入前再次檢查兩個設定檔與套件。Pi 自己的 `extensions` 資料夾中的 extension（包括 [extras](./extras.md) 連結到那裡的檔案）以唯讀方式列出，並說明在哪裡修改；專案會列出自己的資料夾（Pi 只有在信任專案時才會讀取）和全域資料夾。
 
-OpenCode 會在 `opencode.json` 或既有的 `opencode.jsonc` 中，把受管理的進入點註冊為 file URL，
+OpenCode v1 將受管理的進入點檔案、v2 將 package 目錄作為 file URL 註冊到 `opencode.json` 或既有的 `opencode.jsonc` 中，
 並保留註解與無關的項目。Version 1 使用 `plugin`；version 2 使用 `plugins`。會遵循
 `XDG_CONFIG_HOME` 與絕對路徑的全域 `OPENCODE_CONFIG`；模糊或不支援的覆寫會被拒絕。OpenCode
 必須位於 PATH 上，Skillshare 才能選擇對應版本的 schema。
+[`hooks`](./hooks.md) 在同一個 `plugins` 陣列中註冊的 v2 目錄套件（`plugins/skillshare-NAME`）歸 hooks 所有；`plugin list` 與 `plugin import` 不會顯示它。
 
-本機 OpenCode source 必須已經包含建置好的進入點（`main`、字串形式的 root export，或
-`index.js`）以及所需的執行期依賴。Skillshare 不會執行建置腳本，也不會將依賴安裝進 source。
+本機 OpenCode v1 source 需要建置好的進入點（`main`、字串形式的 root export，或 `index.js`）。v2 使用目錄載入器：需要 `name` 加字串形式的 root 或 `./server` export，或根目錄的 `server`/`index` 檔案（`.ts`、`.tsx`、`.js`）。`--entry` 不會覆寫 v2 的目錄載入；條件式或後備形式的 server export 會被拒絕。`@opencode-ai/plugin` 與 `@opencode/plugin` 都能識別 OpenCode package。manifest 與依賴要求保持不變。Skillshare 不會執行建置腳本，也不會將依賴安裝進 source。
 註冊成功不代表模組已成功載入；請在重新載入後檢查 OpenCode。
 
 全域 npm 登錄沒有 managed cache 時顯示 Unknown／唯讀，不代表尚未安裝；Pi 可能使用 Skillshare 不探查的 legacy global npm/pnpm 路徑。
 
 匯入接受一般 Pi source，以及Pi 0.99.2 以上來源與選項格式受支援的 filtered object。預覽只顯示保留的欄位名稱，不顯示 opaque 值。匯入不修改原生設定或已安裝檔案；原始項目保存在 Skillshare 私有狀態，本機安裝紀錄僅存 digest。sync/update 保留現有項目；解除安裝前保存最新選項，重新安裝時先恢復 object，避免暫時以預設規則啟用其他資源。同一次 Apply 批次恢復時，只接受此次操作自己寫出的精確內容；其他設定變動仍會阻止後續恢復。這些 bindings 必須保留私有狀態：紀錄遺失、被修改或屬於其他 target 時拒絕恢復。Windows 的新登錄目錄以受保護的 owner/SYSTEM ACL 建立。現有目錄與紀錄若允許目前使用者及特權 SYSTEM/Administrators 以外的主體存取，或無法驗證 ACL，便拒絕匯入或恢復。不會修改現有 ACL；請保留紀錄，由擁有者修復存取保護後再重試。不確定的來源或優先序、不支援的編碼，以及 Pi 會正規化的本機參照仍為唯讀。一般 OpenCode 項目可匯入，filtered OpenCode 項目仍拒絕。超過 Pi 10 秒過期門檻的空鎖目錄，只有 inode 與 mtime 未變動時才能回收；新鎖、更新或被替換的鎖、非空目錄、檔案與 symlink 一律保留。過期不代表擁有者已終止，最後檢查與移除不是原子 CAS。已匯入的 Pi 套件在全域模式下以 `pi update SOURCE` 更新，並保留其設定項目；專案中的則要在 Pi 裡更新，因為 `pi update` 也會動到全域套件。已匯入的 OpenCode v1 套件會在其原生工具中更新。OpenCode
-v2 的全域匯入可以使用其原生更新指令；專案匯入則必須以原生方式更新，因為 v2 的更新指令是
+v2 的全域 package 匯入可以使用其原生更新指令；匯入的本機目錄由你在來源位置更新，不執行依賴安裝器；專案匯入則必須以原生方式更新，因為 v2 的更新指令是
 全域性的。
 
 ```bash
@@ -319,7 +318,7 @@ Copilot 與 Antigravity CLI 的安裝使用已檢視過的本機快照。匯入�
   請設定 [`SKILLSHARE_CODEX_CLI`](/docs/reference/appendix/environment-variables#skillshare_codex_cli)。自己設了 `cli` 的帳號不會進行搜尋。
 - 此 adapter 不提供 Codex 原生的專案安裝。全域 Codex 安裝的 sync 選擇仍然可用。
 - Codex 沒有 update 指令，因此更新會以重新整理後的快照再次 add 該 plugin。add 一定會啟用它，所以在 Codex 中被停用的 plugin 會被略過。匯入的 Codex plugin 會以 `codex plugin marketplace upgrade NAME` 更新，這會重新安裝 Codex 從該 marketplace 安裝的所有 plugin，Codex 啟動時也會這麼做。
-- 更新遇到無法處理的 target 時會略過並說明原因；該 plugin 的其他 Agent 仍會照常更新，被略過的更新會保留為待處理，留待之後的 sync。
+- 更新會回報失敗的 target 及其原因，同時繼續處理正常的 target；有意略過的目標仍待後續 sync 處理。預演會輸出完整計畫，失敗時以非零狀態結束；隔離的失敗在 JSON 中包含 `failed: true`。
 - 匯入的 plugin 會保留其原始的 marketplace 身分。對於沒有 source 的匯入 plugin，`check` 無法
   推斷是否有新版本可用，但 Pi 的 npm 套件會向 npm 檢查。若匯入的 Claude 或 Codex plugin 的原生 marketplace 已經不在，
   sync 和 update 會略過該 target 並說明原因。新機器即使有同名 marketplace，仍需要明確在本機匯入。請在 Agent 中恢復該 marketplace，或移除該
@@ -395,3 +394,5 @@ skillshare plugin sync NAME --no-tui
 `unimport` 要求明確指定一個或多個 `--target`，且各目標必須已有本機匯入紀錄及共用來源設定。它透過目標的移除配接器解除本機匯入的安裝，然後清除本機紀錄。共用宣告和其他機器的安裝保持不變。下一次 sync 會從共用來源安裝。
 
 解除安裝也會移除原生用戶端中與該安裝相關的設定或登入資料。
+
+舊版 Skillshare OpenCode v2 配接器留下的單一檔案註冊，在 add/import/sync/update 時會被拒絕。請移除舊的受管理 binding，再重新加入其目錄套件。移除操作仍然可用，且不會更動無關的原生註冊。預覽之後執行階段版本若有變更，需要重新預覽。

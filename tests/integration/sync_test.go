@@ -404,11 +404,12 @@ targets:
 	}
 }
 
-func TestSync_Pruning_RemovesBrokenExternalSymlinks(t *testing.T) {
+// A broken link that points outside the source and that skillshare did not
+// create belongs to another tool or the user, so sync keeps it.
+func TestSync_Pruning_KeepsBrokenExternalSymlinkItDidNotCreate(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
-	// Create a skill and sync it
 	sb.CreateSkill("skill-a", map[string]string{"SKILL.md": "# Skill A"})
 	targetPath := sb.CreateTarget("claude")
 
@@ -419,28 +420,71 @@ targets:
     path: ` + targetPath + `
 `)
 
+	sb.RunCLI("sync").AssertSuccess(t)
+
+	foreign := filepath.Join(targetPath, "other-tool-skill")
+	if err := os.Symlink(filepath.Join(sb.Home, "other-tool", "skills", "gone"), foreign); err != nil {
+		t.Fatal(err)
+	}
+
 	result := sb.RunCLI("sync")
 	result.AssertSuccess(t)
 
-	// Simulate data migration: create a symlink pointing to a non-existent
-	// external path (as if the old source directory was moved/deleted)
-	oldPath := filepath.Join(sb.Home, "old-config", "skillshare", "skills", "migrated-skill")
-	os.Symlink(oldPath, filepath.Join(targetPath, "migrated-skill"))
-
-	if !sb.IsSymlink(filepath.Join(targetPath, "migrated-skill")) {
-		t.Fatal("setup: migrated-skill symlink should exist")
+	// IsSymlink uses Lstat; FileExists follows the link and is false for a broken one.
+	if !sb.IsSymlink(foreign) {
+		t.Error("broken link skillshare did not create should be kept")
 	}
-
-	// Sync again — broken external symlink should be auto-removed
-	result = sb.RunCLI("sync")
-	result.AssertSuccess(t)
-
-	if sb.FileExists(filepath.Join(targetPath, "migrated-skill")) {
-		t.Error("broken external symlink should have been pruned")
-	}
-	// Valid skill should still exist
+	result.AssertAnyOutputContains(t, "skillshare did not create")
 	if !sb.IsSymlink(filepath.Join(targetPath, "skill-a")) {
 		t.Error("skill-a should still be a symlink")
+	}
+}
+
+// After the source moves, the links sync made earlier point into the old
+// location. The manifest records them, so sync removes the ones left broken.
+func TestSync_Pruning_RemovesBrokenExternalSymlinkItCreated(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("skill-a", map[string]string{"SKILL.md": "# Skill A"})
+	sb.CreateSkill("migrated-skill", map[string]string{"SKILL.md": "# Migrated"})
+	targetPath := sb.CreateTarget("claude")
+	config := func(source string) string {
+		return `source: ` + source + `
+mode: merge
+targets:
+  claude:
+    path: ` + targetPath + `
+`
+	}
+
+	sb.WriteConfig(config(sb.SourcePath))
+	sb.RunCLI("sync").AssertSuccess(t)
+
+	// The source moves, and migrated-skill does not come along.
+	newSource := filepath.Join(sb.Home, "new-source")
+	if err := os.MkdirAll(filepath.Join(newSource, "skill-a"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(newSource, "skill-a", "SKILL.md"), []byte("# Skill A"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.RemoveAll(sb.SourcePath); err != nil {
+		t.Fatal(err)
+	}
+	sb.WriteConfig(config(newSource))
+	migrated := filepath.Join(targetPath, "migrated-skill")
+	if !sb.IsSymlink(migrated) {
+		t.Fatal("setup: migrated-skill should be a broken link into the old source")
+	}
+
+	sb.RunCLI("sync").AssertSuccess(t)
+
+	if _, err := os.Lstat(migrated); !os.IsNotExist(err) {
+		t.Errorf("broken link recorded in the manifest should be pruned: %v", err)
+	}
+	if !sb.FileExists(filepath.Join(targetPath, "skill-a", "SKILL.md")) {
+		t.Error("skill-a should be re-pointed to the new source")
 	}
 }
 

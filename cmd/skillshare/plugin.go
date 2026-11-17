@@ -282,6 +282,13 @@ func executePlugin(s *plugin.Service, o pluginOptions) error {
 		if p.Blocked {
 			return fmt.Errorf("plugin changes are blocked")
 		}
+		if o.dryRun {
+			for _, c := range p.Changes {
+				if c.Failed {
+					return fmt.Errorf("some plugin changes failed")
+				}
+			}
+		}
 		return nil
 	}
 	start := time.Now()
@@ -331,10 +338,14 @@ func printPluginPlan(p *plugin.Plan) {
 	width := ui.RowWidth(names...)
 	for _, c := range p.Changes {
 		mark := ui.MarkNone
-		if c.Action == "blocked" {
+		action := c.Action
+		if c.Action == "blocked" || c.Failed {
 			mark = ui.MarkFail
 		}
-		value := pluginTargetLabel(c.Target) + " · " + c.Action
+		if c.Failed {
+			action = "failed"
+		}
+		value := pluginTargetLabel(c.Target) + " · " + action
 		if c.ID != "" {
 			value += ui.DimText(" · " + c.ID)
 		}

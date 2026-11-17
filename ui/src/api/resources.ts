@@ -5,7 +5,7 @@ export const resourcesApi = {
   createSourceLink: (body: SourceLinkRequest) =>
     apiFetch<SourceLinkResult>('/source-links', { method: 'POST', body: JSON.stringify(body) }),
   removeSourceLink: (name: string) =>
-    apiFetch<{ success: boolean; name: string }>(`/source-links/${encodeURIComponent(name)}`, { method: 'DELETE' }),
+    apiFetch<{ success: boolean; name: string; warning?: string }>(`/source-links/${encodeURIComponent(name)}`, { method: 'DELETE' }),
   getOverview: () => apiFetch<Overview>('/overview'),
   listSkills: (kind?: 'skill' | 'agent') =>
     apiFetch<{ resources: Skill[]; sourceLinks?: SourceLink[]; sourceLinkWarnings?: string[]; linked_repos?: LinkedRepo[] }>(`/resources${kindQuery(kind)}`),
@@ -71,8 +71,8 @@ export const resourcesApi = {
       body: JSON.stringify({ target: target ?? '' }),
     }),
   // Repo uninstall
-  deleteRepo: (name: string, force = false) =>
-    apiFetch<{ success: boolean; name: string }>(`/repos/${encodeURIComponent(name)}${force ? '?force=true' : ''}`, { method: 'DELETE' }),
+  deleteRepo: (name: string, force = false, recordOnly = false) =>
+    apiFetch<{ success: boolean; name: string; movedToTrash: boolean }>(`/repos/${encodeURIComponent(name)}${force ? '?force=true' : ''}${recordOnly ? `${force ? '&' : '?'}recordOnly=true` : ''}`, { method: 'DELETE' }),
   // Skill file content
   getSkillFile: (skillName: string, filepath: string) =>
     apiFetch<SkillFileContent>(`/resources/${encodeURIComponent(skillName)}/files/${filepath}`),

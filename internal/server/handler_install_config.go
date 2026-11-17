@@ -90,6 +90,9 @@ func (s *Server) handleInstallFromConfig(w http.ResponseWriter, r *http.Request)
 		SourceFollow:   s.skillsWalk().Follow,
 	}
 	if s.IsProjectMode() {
+		// The dashboard's config-install action follows project lock advances,
+		// matching ordinary CLI installs rather than JSON-only automation.
+		opts.Update = true
 		opts.AuditProjectRoot = s.projectRoot
 		lock, err := install.LoadLock(projectdir.Resolve(s.projectRoot))
 		if err != nil {
@@ -121,6 +124,7 @@ func (s *Server) handleInstallFromConfig(w http.ResponseWriter, r *http.Request)
 		"scope":            "ui",
 		"installed_skills": result.InstalledSkills,
 		"failed_skills":    result.FailedSkills,
+		"skipped_skills":   result.SkippedSkills,
 	}, msg)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())

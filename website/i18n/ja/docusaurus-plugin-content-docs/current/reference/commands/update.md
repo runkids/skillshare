@@ -119,7 +119,7 @@ tracked repos が metadata に宣言されているがディスク上に存在�
   ],
   "missing_tracked_repos": {
     "names": ["_team-skills"],
-    "hint": "Run 'skillshare install' to rehydrate tracked repositories"
+    "hint": "Run 'skillshare install -g' to rehydrate tracked repositories, or 'skillshare uninstall <name> -g' to remove an unwanted declaration"
   }
 }
 ```
@@ -248,10 +248,12 @@ Next
 ```
 ! 1 tracked repo declared in metadata but missing on disk
 ! _team-skills  clone directory absent
-  Run 'skillshare install' to rehydrate tracked repositories
+  Run 'skillshare install -g' to rehydrate tracked repositories, or 'skillshare uninstall <name> -g' to remove an unwanted declaration
 ```
 
 これは global mode と project mode（`-p`）の両方に適用されます。metadata からクローンを再作成するには、引数なしの [install](/docs/reference/commands/install) を実行してください（[Rehydrating After a Fresh Clone](/docs/understand/tracked-repositories#rehydrating-after-a-fresh-clone) を参照）。
+
+global mode では、checkout のない不要な宣言を `skillshare uninstall <name> -g` で削除することもできます。trash への移動はなく、trash からの復元もできません。project mode の案内は `skillshare install -p` のみで、宣言だけの削除には対応しません。
 
 ## 古い Skill のクリーンアップ（`--prune`）
 

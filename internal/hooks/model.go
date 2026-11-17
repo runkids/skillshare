@@ -37,6 +37,8 @@ type Project struct {
 
 // Binding is what one Agent receives. Command Agents use Events and Files, code Agents Code.
 type Binding struct {
+	// Package preserves an OpenCode v2 directory, relative filename to UTF-8 contents.
+	Package map[string]string `yaml:"package,omitempty" json:"package,omitempty"`
 	// Events is the Agent's own event map, written without translation.
 	Events map[string]any `yaml:"events,omitempty" json:"events,omitempty"`
 	// Code is one standalone native TypeScript/JavaScript extension or plugin.
@@ -286,7 +288,7 @@ var Targets = []TargetDef{
 	{Name: "pi", Kind: KindCode, Note: "Pi discovers extensions at startup; project extensions load only after project trust is granted. The code must use the extension API of your installed Pi version."},
 	{Name: "omp", Kind: KindCode, Note: "Oh My Pi discovers extensions at startup from its agent directory (~/.omp/agent/extensions, or PI_CODING_AGENT_DIR, which Pi reads too) and from .omp/extensions in a project. OMP has no project trust gate, so the next startup can execute the code. Its own hooks/pre and hooks/post factories are left untouched and listed as additional sources. The code must use the extension API of your installed OMP version."},
 	{Name: "amp", Kind: KindCode, Note: "Amp runs plugins from its plugins folder with Bun; run 'plugins: reload' after sync. The code must use your Amp version's plugin API."},
-	{Name: "opencode", Kind: KindCode, Note: "OpenCode loads plugins from its plugins folder. v1 plugins are named exports and v2 plugins export default Plugin.define(...); Skillshare writes your code as given and never converts between them."},
+	{Name: "opencode", Kind: KindCode, Note: "OpenCode v1 receives a flat plugin file; v2 receives a directory package and directory registration. Code must match the installed API. Skillshare never loads code or installs dependencies."},
 }
 
 // targetAliases are accepted spellings of canonical Agent names.
@@ -422,6 +424,15 @@ func (e Entry) validate(name string, accounts map[string]string, scope validatio
 			}
 		}
 		b := e.Bindings[target]
+		if b.Package != nil {
+			if agent != "opencode" || b.Code != "" || b.CodeFile != "" || len(b.Events) > 0 || len(b.Files) > 0 || b.Commands != nil || b.Scripts != nil {
+				return fmt.Errorf("hook %s: package is exclusive to OpenCode v2; do not combine it with code, events or files", name)
+			}
+			if err := validateOpenCodePackage(b.Package); err != nil {
+				return fmt.Errorf("hook %s: %w", name, err)
+			}
+			continue
+		}
 		if def.Kind == KindGit {
 			if err := validateGit(b); err != nil {
 				return fmt.Errorf("hook %s: git: %w", name, err)

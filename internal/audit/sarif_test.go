@@ -172,6 +172,47 @@ func TestToSARIF_SeverityMapping(t *testing.T) {
 	}
 }
 
+func TestToSARIF_DescriptorMaximumSeverity(t *testing.T) {
+	builtin, err := loadBuiltinRules()
+	if err != nil {
+		t.Fatal(err)
+	}
+	findings := ScanContentWithRules([]byte("# cat ~/.aws/credentials\nimport os\nos.system(\"cat ~/.aws/credentials\")\n"), "hook.py", credentialRules(t, builtin))
+	if len(findings) != 2 || findings[0].Severity != SeverityHigh || findings[1].Severity != SeverityCritical || findings[0].RuleID != findings[1].RuleID {
+		t.Fatalf("unexpected scan findings: %+v", findings)
+	}
+	run := ToSARIF([]*Result{{Findings: findings}}, SARIFOptions{}).Runs[0]
+	if got := run.Tool.Driver.Rules[0].Properties.SecuritySeverity; got != 9 {
+		t.Errorf("scanned rule security-severity = %v, want 9", got)
+	}
+
+	for _, tc := range []struct {
+		name          string
+		first, second string
+		levels        [2]string
+	}{
+		{"ascending", SeverityLow, SeverityHigh, [2]string{"note", "error"}},
+		{"descending", SeverityHigh, SeverityLow, [2]string{"error", "note"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			run := ToSARIF([]*Result{
+				{Findings: []Finding{{Pattern: "fallback", Severity: tc.first}, {RuleID: "other", Severity: SeverityInfo}}},
+				{Findings: []Finding{{Pattern: "fallback", Severity: tc.second}}},
+			}, SARIFOptions{}).Runs[0]
+			if len(run.Tool.Driver.Rules) != 2 || run.Tool.Driver.Rules[0].ID != "fallback" || run.Tool.Driver.Rules[1].ID != "other" {
+				t.Fatalf("rules = %+v", run.Tool.Driver.Rules)
+			}
+			rule := run.Tool.Driver.Rules[0]
+			if rule.Properties.SecuritySeverity != 7 || rule.DefaultConfig.Level != "error" {
+				t.Errorf("descriptor = %+v, want severity 7 and level error", rule)
+			}
+			if len(run.Results) != 3 || run.Results[0].RuleIndex != 0 || run.Results[1].RuleIndex != 1 || run.Results[2].RuleIndex != 0 || run.Results[0].Level != tc.levels[0] || run.Results[2].Level != tc.levels[1] {
+				t.Errorf("results = %+v", run.Results)
+			}
+		})
+	}
+}
+
 func TestToSARIF_ValidJSON(t *testing.T) {
 	t.Parallel()
 

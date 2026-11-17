@@ -17,7 +17,6 @@ cmd/skillshare/helpers.go	copyDir	os.MkdirAll	dstPath	source-unmigrated
 cmd/skillshare/helpers.go	copyFile	os.OpenFile	dst	source-unmigrated
 cmd/skillshare/helpers.go	removeEmptyDir	os.Remove	dir	extras
 cmd/skillshare/init_apply.go	applyInitPlan	os.MkdirAll	dir	source-root
-cmd/skillshare/init_apply.go	replaceIdenticalCopies	os.RemoveAll	dst	target
 cmd/skillshare/init_project.go	createProjectTargetDirs	os.MkdirAll	absPath	target
 cmd/skillshare/init_project.go	ensureProjectGitignore	os.WriteFile	gitignorePath	project
 cmd/skillshare/init_project.go	performProjectInit	os.MkdirAll	filepath.Join(projectDir, "agents")	agents

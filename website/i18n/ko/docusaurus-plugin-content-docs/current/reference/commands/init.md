@@ -51,7 +51,7 @@ flowchart TD
 
 **Connect my existing repo**는 두 번째 머신용입니다. 아무것도 쓰지 않고 먼저 저장소를 확인해 구조를 판단합니다. `--git-root root`로 push한 저장소는 skillshare 폴더 전체가 되고, skill이 `skills/` 폴더에 있는 저장소는 그 폴더를 source로 사용합니다. 이 머신과 저장소 양쪽에 있는 같은 이름의 skill은 저장소 버전을 사용합니다. 이 머신에만 있는 skill은 유지할지 묻고, 다음 `skillshare push` 때 저장소에 추가됩니다.
 
-첫 sync에서 source와 바이트 단위로 같은 도구 쪽 skill 폴더는 링크로 바뀝니다. 내용이 다른 폴더는 유지하고 목록으로 보여 주며, `skillshare sync --force`로 바꿀 수 있습니다.
+첫 sync에서 source와 바이트 단위로 같은 도구 쪽 skill 폴더는 링크로 바뀝니다. 폴더는 먼저 trash로 옮겨지며, trash 정리로 삭제될 때까지(7일) `skillshare trash list`의 `replaced-by-init/<tool>/` 아래에 표시됩니다. `trash restore`는 source로 복원하는데 source에는 같은 skill이 이미 있으므로, 이 항목은 복원할 수 없습니다. 필요하면 trash 폴더에서 직접 복사하세요. 내용이 다른 폴더와 다른 도구가 skill과 같은 이름으로 둔 링크는 유지하고 목록으로 보여 주며, `skillshare sync --force`로 바꿀 수 있습니다. 도구에 agent와 같은 이름의 파일이 이미 있으면 같은 방식으로 유지하고 목록으로 보여 주며, `skillshare sync agents --force`로 바꿀 수 있습니다.
 
 ### 터미널이 없을 때
 

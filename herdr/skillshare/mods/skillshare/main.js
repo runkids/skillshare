@@ -14,7 +14,7 @@ import {
   parseJSON, lastLine, failure, flag, sourceLine, buildItems, shownRows, endedRequests, afterRead, afterChecks, hookArgs, toggleArgs, rowState, previewTargets, eligibleTargets, targetList, waitsForSync, syncScopes, overviewAnswer, resourceProgress, remoteLine, waitingNames, mapLanes, needsBothWays, filterItems, groupItems, sourceGroups, counts,
   cloneUrl, installResult, newerVersion, panelUpdate, updateState, ago, auditMessage, parseDiscover, parseAudit,
 } from "./model.js";
-import { createRunner } from "./jobs.js";
+import { createRunner, withShell } from "./jobs.js";
 import { createChannel, EVERY } from "./channel.js";
 import { operate } from "./operations.js";
 import { findProject, loadResources, loadChecks, loadMachine, loadLatestRelease, loadPreview, loadFile } from "./loader.js";
@@ -31,9 +31,11 @@ const PATHS = 'PATH="$HOME/.local/bin:$HOME/go/bin:/opt/homebrew/bin:/usr/local/
 
 // ---- Running skillshare on the space's machine ----
 
-// Herdr's adapter for the job runner (jobs.js): every script gets the usual PATH.
+// Herdr's adapter for the job runner (jobs.js): every script gets the usual PATH, in sh or, on
+// Windows, Git for Windows' sh.
+const shell = withShell((command, args, on) => exec(command, args, { on }));
 const runner = createRunner({
-  exec: (script, args, on) => exec("sh", ["-c", `${PATHS}\n${script}`, "skillshare-panel", ...args], { on })
+  exec: (script, args, on) => shell(["-c", `${PATHS}\n${script}`, "skillshare-panel", ...args], on)
     .catch((e) => ({ code: 127, stdout: "", stderr: String(e.message ?? e) })),
   readText: (path, on) => readTextFile(path, { on }),
 });

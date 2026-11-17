@@ -217,7 +217,7 @@ func hooksAccounts(cfg *config.Config) map[string]hooks.Account {
 	accounts := map[string]hooks.Account{}
 	for name, target := range cfg.Targets {
 		if target.Agent != "" && target.ConfigDir != "" {
-			accounts[name] = hooks.Account{Agent: target.Agent, Dir: target.ConfigDir}
+			accounts[name] = hooks.Account{Agent: target.Agent, Dir: target.ConfigDir, CLI: target.CLI}
 		}
 	}
 	return accounts

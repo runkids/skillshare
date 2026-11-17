@@ -73,7 +73,9 @@ func (r Request) isolatesTargets() bool {
 // ProblemKey names the sentence the dashboard can translate and ProblemArgs fill its
 // {placeholders}. Problem stays the English the CLI prints, and is the fallback.
 type TargetPackage struct {
-	Manifest string `json:"manifest"`
+	openCodeV1Error string
+	openCodeV2Error string
+	Manifest        string `json:"manifest"`
 	// Path is set when this Agent's catalog points at its own folder; empty means Candidate.Path.
 	Path        string            `json:"path,omitempty"`
 	Marketplace string            `json:"marketplace,omitempty"`
@@ -249,7 +251,7 @@ type Change struct {
 	ompRuntimePath string
 	// piRecordAfter records the entry Pi writes on install, which keeps another version's filters.
 	piRecordAfter bool
-	batchError    bool
+	Failed        bool   `json:"failed,omitempty"`
 	ompRefresh    bool   // either half of an OMP update's removal and fresh reinstall
 	Name          string `json:"name"`
 	Target        string `json:"target"`

@@ -91,7 +91,7 @@ func TestMarkdownSystemParameterBoundaries(t *testing.T) {
 			t.Fatalf("expected unchanged CRITICAL %s: %+v", tc.ruleID, findings)
 		})
 	}
-	content := []byte("```\nsystem: \"Helpful assistant\"\n```")
+	content := []byte("```\nSYSTEM: \"Helpful assistant\"\n```")
 	var found bool
 	for _, f := range ScanContent(content, "example.ts") {
 		if f.RuleID == "prompt-injection-1" {

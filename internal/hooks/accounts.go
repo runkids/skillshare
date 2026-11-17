@@ -9,6 +9,7 @@ import (
 
 // Account is a target that is another config directory of a built-in Agent.
 type Account struct {
+	CLI   string `json:"cli,omitempty"`
 	Agent string `json:"agent"`
 	Dir   string `json:"configDir"`
 }
@@ -110,19 +111,55 @@ func (s *Service) parkReason(r record) string {
 	if err != nil {
 		return ""
 	}
-	if !samePath(recordDir(r), dir) {
+	if !samePath(recordHome(r, dir, agent), dir) {
 		reason := fmt.Sprintf("%s now resolves to %s", agent, dir)
 		if sc.scopedAccount == "" && sc.ConfigDirs[agent] != "" && sc.envShadow(agent) == "" {
 			reason += " (" + configDirEnv[agent] + ")"
 		}
 		return reason
 	}
+	if agent == "opencode" {
+		// The version decides the layout, so an owned output is neither rewritten
+		// nor removed while it is unknown.
+		if _, err := sc.openCode2(); err != nil {
+			return "the installed OpenCode version could not be detected"
+		}
+	}
 	return ""
 }
 
-// recordDir identifies the previous home for warnings, including script outputs.
-func recordDir(r record) string {
+// recordHome recognizes package files from their exact owned entry and current
+// native home, never from folder names inside a package payload.
+func recordHome(r record, current, agent string) string {
+	if agent == "opencode" && r.Event == "" && r.Entry != "" {
+		packageDir := filepath.Join(current, "plugins", "skillshare-"+r.Entry)
+		if rel, err := filepath.Rel(packageDir, r.Path); err == nil && rel != "." && filepath.IsLocal(rel) {
+			return current
+		}
+	}
+	return recordDir(r, agent)
+}
+
+// recordDir identifies the previous home for moved-account warnings. Package
+// records carry their entry name; inner payload directories are not homes.
+func recordDir(r record, agent string) string {
 	dir := filepath.Dir(r.Path)
+	// A flat OpenCode v1 file may live under an account whose own path looks
+	// like a package. Prefer its exact native filename to ancestor matching.
+	if agent == "opencode" && r.Event == "" && r.Entry != "" && filepath.Base(dir) == "plugins" && filepath.Base(r.Path) == "skillshare-"+r.Entry+".ts" {
+		return filepath.Dir(dir)
+	}
+	if agent == "opencode" && r.Event == "" && r.Entry != "" {
+		home := ""
+		for parent := dir; filepath.Dir(parent) != parent; parent = filepath.Dir(parent) {
+			if filepath.Base(filepath.Dir(parent)) == "plugins" && filepath.Base(parent) == "skillshare-"+r.Entry {
+				home = filepath.Dir(filepath.Dir(parent))
+			}
+		}
+		if home != "" {
+			return home
+		}
+	}
 	if r.Event == "" && filepath.Base(filepath.Dir(dir)) == "skillshare" {
 		return filepath.Dir(filepath.Dir(filepath.Dir(dir)))
 	}

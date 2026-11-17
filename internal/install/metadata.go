@@ -291,11 +291,30 @@ func (s *MetadataStore) MovePath(from, to string) int {
 // basename keys become full paths, so a later Merge cannot mistake them for
 // another skill of the same name.
 func (s *MetadataStore) Extract(relPath string) *MetadataStore {
+	return s.extract(relPath, removedWith)
+}
+
+// ExtractUnlinkedName copies exactly what ForgetUnlinkedName removes.
+func (s *MetadataStore) ExtractUnlinkedName(rel string) *MetadataStore {
+	rel = cleanName(rel)
+	out := s.extract(rel, unlinkedWith)
+	for key, entry := range s.Entries {
+		if accepted, ok := s.AuditAccepted[key]; ok && unlinkedWith(key, entry, rel) {
+			if out.AuditAccepted == nil {
+				out.AuditAccepted = map[string][]string{}
+			}
+			out.AuditAccepted[key] = accepted // Remove also drops the raw key's acceptance.
+		}
+	}
+	return out
+}
+
+func (s *MetadataStore) extract(relPath string, matches func(string, *MetadataEntry, string) bool) *MetadataStore {
 	out := NewMetadataStore()
 	for key, entry := range s.Entries {
-		if entry != nil && removedWith(key, entry, relPath) {
+		if entry != nil && matches(key, entry, relPath) {
 			e := *entry
-			if !inLegacyRepoGroup(entry, relPath) { // its Group is not its path
+			if !inLegacyRepoGroup(key, entry, relPath) { // its Group is not its path
 				key = KeyToRelPath(key, entry)
 			}
 			out.Entries[key] = &e
@@ -353,6 +372,38 @@ func (s *MetadataStore) List() []string {
 	return names
 }
 
+// TrackedDeclarations lists repository declaration keys, excluding recorded members.
+// A missing checkout does not change the intent of a sourced, prefixed record.
+func (s *MetadataStore) TrackedDeclarations() []string {
+	if s == nil {
+		return nil
+	}
+	var keys []string
+	for _, key := range s.List() {
+		entry := s.Get(key)
+		if entry == nil || !entry.Tracked || entry.Source == "" {
+			continue
+		}
+		rel := filepath.ToSlash(KeyToRelPath(key, entry))
+		if !utils.IsTrackedRepoDir(path.Base(rel)) {
+			continue
+		}
+		member := false
+		for parent := path.Dir(rel); parent != "."; parent = path.Dir(parent) {
+			owner := s.GetExact(parent)
+			if owner != nil && owner.Tracked && owner.Source != "" && utils.IsTrackedRepoDir(path.Base(parent)) &&
+				filepath.ToSlash(KeyToRelPath(parent, owner)) == parent {
+				member = true
+				break
+			}
+		}
+		if !member {
+			keys = append(keys, key)
+		}
+	}
+	return keys
+}
+
 // EffectiveKind returns "skill" if Kind is empty.
 func (e *MetadataEntry) EffectiveKind() string {
 	if e.Kind == "" {
@@ -367,12 +418,16 @@ func (e *MetadataEntry) EffectiveKind() string {
 // path or a legacy basename with a Group. A basename alone never matches, so
 // "foo" and "frontend/foo" stay independent.
 func (s *MetadataStore) RemoveByNames(names map[string]bool) {
+	s.removeByNames(names, removedWith)
+}
+
+func (s *MetadataStore) removeByNames(names map[string]bool, matches func(string, *MetadataEntry, string) bool) {
 	for name := range names {
 		s.RemoveTargetOverrides(name)
 	}
 	for _, key := range s.List() {
 		for name := range names {
-			if removedWith(key, s.Get(key), name) {
+			if matches(key, s.Get(key), name) {
 				s.Remove(key)
 				break
 			}
@@ -380,20 +435,62 @@ func (s *MetadataStore) RemoveByNames(names map[string]bool) {
 	}
 }
 
+// ForgetTrackedRepo removes a repository declaration and its source-relative
+// audit acceptances. It never reads or changes the path on disk.
+func (s *MetadataStore) ForgetTrackedRepo(rel string) bool {
+	rel = cleanName(rel)
+	for _, key := range s.TrackedDeclarations() {
+		if filepath.ToSlash(KeyToRelPath(key, s.Get(key))) != rel {
+			continue
+		}
+		s.forgetName(rel, unlinkedWith)
+		return true
+	}
+	return false
+}
+
+// ForgetUnlinkedName removes records and acceptances at or below a removed
+// source link, including ordinary records normalized by reconcile. It never
+// reads the link's referent. Removal uses the existing resolved/legacy paths.
+func (s *MetadataStore) ForgetUnlinkedName(rel string) bool {
+	return s.forgetName(rel, unlinkedWith)
+}
+
+func (s *MetadataStore) forgetName(rel string, matches func(string, *MetadataEntry, string) bool) bool {
+	rel = cleanName(rel)
+	before := len(s.Entries) + len(s.AuditAccepted) + len(s.TargetOverrides)
+	s.removeByNames(map[string]bool{rel: true}, matches)
+	for accepted := range s.AuditAccepted {
+		if accepted == rel || strings.HasPrefix(accepted, rel+"/") {
+			delete(s.AuditAccepted, accepted)
+		}
+	}
+	return before != len(s.Entries)+len(s.AuditAccepted)+len(s.TargetOverrides)
+}
+
+// unlinkedWith reports whether forgetting a declaration or unlinking name
+// removes the entry at key.
+func unlinkedWith(key string, entry *MetadataEntry, name string) bool {
+	full := filepath.ToSlash(KeyToRelPath(key, entry))
+	return full == name || strings.HasPrefix(full, name+"/") || inLegacyRepoGroup(key, entry, name)
+}
+
 // removedWith reports whether uninstalling name removes the entry at key.
 func removedWith(key string, entry *MetadataEntry, name string) bool {
 	full := KeyToRelPath(key, entry)
 	return full == name ||
 		strings.HasPrefix(key, name+"/") || strings.HasPrefix(full, name+"/") ||
-		inLegacyRepoGroup(entry, name)
+		inLegacyRepoGroup(key, entry, name)
 }
 
 // inLegacyRepoGroup matches entries written when a top-level tracked repo
 // "_team" grouped its skills as "team". Untracked entries and nested repos are
-// left out: a plain group or a sibling repo may share that name.
-func inLegacyRepoGroup(entry *MetadataEntry, repo string) bool {
+// left out: a plain group or a sibling repo may share that name. So is a repo
+// installed into the group, such as team/_b, which is independent of _team.
+func inLegacyRepoGroup(key string, entry *MetadataEntry, repo string) bool {
 	return entry != nil && entry.Tracked && entry.Group != "" &&
-		!strings.Contains(repo, "/") && repo == "_"+entry.Group
+		!strings.Contains(repo, "/") && repo == "_"+entry.Group &&
+		!utils.IsTrackedRepoDir(path.Base(filepath.ToSlash(KeyToRelPath(key, entry))))
 }
 
 // WriteMetaToStore writes a SkillMeta to the centralized .metadata.json store.

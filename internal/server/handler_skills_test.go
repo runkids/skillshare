@@ -356,6 +356,9 @@ func TestHandleUninstallRepo_PrunesRegistry(t *testing.T) {
 	s.skillsStore.Set("team-skills/vue-best-practices", &install.MetadataEntry{Group: "team-skills", Tracked: true})
 	s.skillsStore.Set("team-skills/react-patterns", &install.MetadataEntry{Group: "team-skills", Tracked: true})
 	s.skillsStore.Set("unrelated-skill", &install.MetadataEntry{})
+	if err := s.skillsStore.Save(src); err != nil {
+		t.Fatal(err)
+	}
 
 	req := httptest.NewRequest(http.MethodDelete, "/api/repos/_team-skills?force=true", nil)
 	req.SetPathValue("name", "_team-skills")
@@ -385,6 +388,9 @@ func TestHandleUninstallRepo_NestedPruneDoesNotAffectSibling(t *testing.T) {
 	s.skillsStore.Set("org/_team-skills/vue", &install.MetadataEntry{Group: "org/_team-skills", Tracked: true})
 	s.skillsStore.Set("dept/_team-skills/react", &install.MetadataEntry{Group: "dept/_team-skills", Tracked: true})
 	s.skillsStore.Set("unrelated", &install.MetadataEntry{})
+	if err := s.skillsStore.Save(src); err != nil {
+		t.Fatal(err)
+	}
 
 	req := httptest.NewRequest(http.MethodDelete, "/api/repos/org/_team-skills?force=true", nil)
 	req.SetPathValue("name", "org/_team-skills")
@@ -549,6 +555,9 @@ func TestHandleUninstallRepo_PrunesNestedFullPathGroup(t *testing.T) {
 	s.skillsStore.Set("org/_team-skills/vue", &install.MetadataEntry{Group: "org/_team-skills", Tracked: true})
 	s.skillsStore.Set("org/_team-skills/react", &install.MetadataEntry{Group: "org/_team-skills", Tracked: true})
 	s.skillsStore.Set("unrelated", &install.MetadataEntry{})
+	if err := s.skillsStore.Save(src); err != nil {
+		t.Fatal(err)
+	}
 
 	req := httptest.NewRequest(http.MethodDelete, "/api/repos/org/_team-skills?force=true", nil)
 	req.SetPathValue("name", "org/_team-skills")
@@ -578,6 +587,9 @@ func TestHandleUninstallRepo_PrunesNestedMembersByPrefix(t *testing.T) {
 	s.skillsStore.Set("org/_team-skills", &install.MetadataEntry{Tracked: true})                                      // repo entry
 	s.skillsStore.Set("org/_team-skills/sub-skill", &install.MetadataEntry{Group: "org/_team-skills", Tracked: true}) // member
 	s.skillsStore.Set("standalone", &install.MetadataEntry{})
+	if err := s.skillsStore.Save(src); err != nil {
+		t.Fatal(err)
+	}
 
 	req := httptest.NewRequest(http.MethodDelete, "/api/repos/org/_team-skills?force=true", nil)
 	req.SetPathValue("name", "org/_team-skills")

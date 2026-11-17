@@ -90,6 +90,8 @@ Next
 
 agent의 경우, restore 힌트는 대신 `skillshare sync agents`를 제안합니다.
 
+`replaced-by-init/<tool>/` 아래의 폴더는 예외입니다. [`init`](./init.md)이 도구 쪽 폴더를 링크로 바꾸면서 옮겨 둔 것이고 source에는 같은 skill이 이미 있으므로, `restore`로 복원할 수 없습니다. 필요하면 trash 폴더에서 직접 복사하세요.
+
 restore는 설치 시 기록된 정보도 함께 되돌립니다. GitHub 등 원격에서 설치한 skill, tracked repo, agent는 source를 유지하므로 `update`와 `check`를 계속 사용할 수 있습니다. 이전 버전에서 trash로 이동된 항목은 local로 복원됩니다.
 
 휴지통으로 보낸 [source 링크](../targets/configuration.md#follow_source_links)는 `link → <target>`으로 나열되며, 대상의 복사본이 아니라 다시 링크(또는 junction)로 복원됩니다. 따라간 링크 뒤에서 휴지통으로 보낸 skill(`_dev-skills/foo`)은 `follow_source_links`가 켜져 있으면 실제 checkout으로 복원됩니다. 설정이 꺼져 있거나 checkout 아래의 중첩 링크가 다른 곳으로 이어지면 복원은 실패하고 휴지통 항목은 유지됩니다.

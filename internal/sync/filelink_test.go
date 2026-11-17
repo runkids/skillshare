@@ -431,3 +431,33 @@ func TestExtensionOutputStatus_PlainCopyIsNotConverted(t *testing.T) {
 		t.Error("tracked plain copy tutor.md counted as a converted output")
 	}
 }
+
+// A file that already matches the source but that skillshare did not write is
+// kept as the user's. --force takes it over, so later syncs update it and it is
+// no longer reported as kept.
+func TestSyncAgents_MergeWithoutFileLinksForceTakesOverIdenticalFile(t *testing.T) {
+	withoutFileLinks(t)
+	src, tgt, agents := agentFixture(t)
+	os.WriteFile(filepath.Join(tgt, "tutor.md"), []byte("v1"), 0644)
+
+	kept, err := SyncAgents(agents, src, tgt, "merge", false, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	forced, err := SyncAgents(agents, src, tgt, "merge", false, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.WriteFile(filepath.Join(src, "tutor.md"), []byte("v2"), 0644)
+	after, err := SyncAgents(agents, src, tgt, "merge", false, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(kept.Skipped) != 1 || len(forced.Skipped) != 0 || len(forced.Updated) != 1 {
+		t.Errorf("kept = %+v, forced = %+v; want kept without force and taken over with it", kept, forced)
+	}
+	if got := readFile(t, filepath.Join(tgt, "tutor.md")); got != "v2" || len(after.Skipped) != 0 {
+		t.Errorf("after takeover the file is %q and sync reported %+v; want it updated to v2", got, after)
+	}
+}

@@ -227,7 +227,7 @@ skillshare install -p    # 從專案設定安裝所有 remote skills
 skillshare sync
 ```
 
-標記 `tracked: true` 的 skills 會以完整 git 歷史 clone（與 `--track` 相同），讓 `skillshare update` 可以正常運作。磁碟上已存在的 skills 會被跳過。當 tracked repo 目錄被 gitignore 而在本地遺失時，這是在全新 clone 後用來復原的指令。
+標記 `tracked: true` 的 skills 會以完整 git 歷史 clone（與 `--track` 相同），讓 `skillshare update` 可以正常運作。磁碟上已存在的 skills 會被跳過，除非專案的釘選版本已變更。當 tracked repo 目錄被 gitignore 而在本地遺失時，這是在全新 clone 後用來復原的指令。 使用 `--json` 時，即使專案鎖定檔指向不同的 commit，也會跳過既有副本；加上 `--force` 才會更新到該釘選版本。
 
 :::tip push/pull 與 install from config 的差異
 `push`/`pull` 會透過 git 同步實際的 skill **檔案**。`install`（從 config）則是從 **source URLs** 重新下載。兩者是互補的 — 何時該用哪個，見 [Cross-Machine Sync](/docs/how-to/sharing/cross-machine-sync#alternative-install-from-config)。
@@ -287,7 +287,7 @@ skillshare sync
 |------|-------|-------------|
 | `--name <name>` | | 只安裝一個 skill 時覆寫其安裝名稱 |
 | `--into <dir>` | | 安裝到子目錄中（例如 `--into frontend` 或 `--into frontend/react`） |
-| `--force` | `-f` | 覆蓋既有 skill；略過 audit 阻擋與跨路徑重複檢查 |
+| `--force` | `-f` | 覆蓋既有 skill；略過 audit 發現項目的阻擋（掃描失敗除外）與跨路徑重複檢查 |
 | `--update` | `-u` | 若已存在則更新（git pull 或重新安裝） |
 | `--branch <ref>` | `-b` | 要安裝的 git branch、tag 或 commit SHA（預設：remote 的預設分支） |
 | `--track` | `-t` | 保留 tracked repos 的 `.git`。不能與 `--all`、`--yes`、`--skill` 或 `--agent` 同時使用。 |
@@ -303,7 +303,7 @@ skillshare sync
 | `--project` | `-p` | 安裝到專案的 `.skillshare/skills/` |
 | `--global` | `-g` | 安裝到全域的 `~/.config/skillshare/skills/` |
 | `--dry-run` | `-n` | 只預覽 |
-| `--json` | | 以 JSON 輸出（和 `--force` 一樣允許覆寫既有 skill，但安全稽核的阻擋仍然有效；若未指定 `--skill`/`--agent` 篩選，也隱含非互動式選擇） |
+| `--json` | | 以非互動式 JSON 輸出；未指定 `--skill`/`--agent` 篩選時全選。覆寫既有 skill 或 agent 需要 `--force`；安全稽核阻擋仍然有效 |
 
 ## JSON 輸出
 
@@ -311,7 +311,9 @@ skillshare sync
 skillshare install anthropics/skills --json
 ```
 
-對明確指定、非追蹤的 skill 來源，加上 `--dry-run --json` 可取得 `planned` 陣列，內含 `{name, path}`，不會安裝。名稱是 CLI 的安裝名稱；Git 路徑相對於儲存庫根目錄（包含選取的子目錄），本機 skill 則使用 `.`。清單遵循探索、`.skillignore` 與選取規則；JSON 模式未指定篩選條件時會全選。`skills` 仍只回報已安裝名稱，在 dry-run 中保持空陣列。探索後沒有選取的 skill 時回傳 `planned: []`；追蹤與設定檔安裝不提供此欄位。
+僅使用 JSON 輸出會保留既有的 skill 與 agent。覆寫時請明確加上 `--force`。`skipped` 陣列回報因重複檢查而略過的名稱；其他衝突會傳回 `error` 或列在 `failed` 中。`skills` 陣列僅包含已安裝的名稱。
+
+對明確指定、非追蹤的 skill 來源，加上 `--dry-run --json` 可取得 `planned` 陣列，內含 `{name, path}`，不會安裝。名稱是 CLI 的安裝名稱；Git 路徑相對於儲存庫根目錄（包含選取的子目錄），本機 skill 則使用 `.`。清單遵循探索、`.skillignore` 與選取規則；JSON 模式未指定篩選條件時會全選。`skills` 仍只回報已安裝名稱，在 dry-run 中保持空陣列。探索後沒有選取的 skill 時回傳 `planned: []`；追蹤與設定檔安裝不提供此欄位。 既有目的地與跨路徑的重複安裝不會阻擋此唯讀預覽。
 
 ```json
 {
@@ -319,6 +321,7 @@ skillshare install anthropics/skills --json
   "tracked": false,
   "dry_run": false,
   "skills": ["pdf", "commit", "review"],
+  "skipped": [],
   "failed": [],
   "duration": "2.345s"
 }
@@ -337,6 +340,7 @@ skillshare install anthropics/skills --json --into frontend
   "dry_run": false,
   "into": "frontend",
   "skills": ["pdf", "commit"],
+  "skipped": [],
   "failed": [],
   "duration": "1.890s"
 }
@@ -354,6 +358,7 @@ skillshare install github.com/user/agents --kind agent --json
   "tracked": false,
   "dry_run": false,
   "skills": ["reviewer", "tutor"],
+  "skipped": [],
   "failed": [],
   "duration": "1.234s"
 }
@@ -367,6 +372,7 @@ skillshare install github.com/user/agents --kind agent --json
   "tracked": true,
   "dry_run": false,
   "skills": [],
+  "skipped": [],
   "failed": [],
   "duration": "0.412s",
   "error": "blocked by security audit (use --force to override)"
@@ -391,6 +397,8 @@ skillshare install anthropics/skills/skills/pdf
 
 用 `--update` 更新，或用 `--force` 覆蓋。
 
+只有同一個 repo 中的同一個 skill 會被跳過。如果同一個 repo 的另一個 skill（例如透過 `--name`）要使用同一個資料夾，安裝會像[下文](#conflict-with-different-repo)所述以衝突失敗。
+
 對位於[已跟進的 source 連結](../targets/configuration.md#follow_source_links)背後的 tracked repo 使用 `--update` 時，若該 checkout 有未提交的變更，會拒絕拉取。請先 commit 或 stash。
 
 ### 跨路徑重複
@@ -409,7 +417,7 @@ skillshare install runkids/feature-radar
 
 這可以防止在不同路徑間發生意外重複。若要有意允許，請用 `--force`。
 
-### 與不同 repo 衝突
+### 與不同 repo 衝突 {#conflict-with-different-repo}
 
 如果目的地目錄已存在，但是從**不同**的 repo 安裝的，錯誤訊息會包含原本的來源：
 
@@ -617,6 +625,7 @@ install-skills:
 每個 skill 在安裝時都會自動掃描安全威脅：
 
 - 達到或超過 `audit.block_threshold` 的發現會**阻擋安裝**（預設：`CRITICAL`）
+- 如果掃描無法執行（例如 `audit-rules.yaml` 含有無效的 regex），安裝會被阻擋並移除。`--force` 無法覆寫；請修正原因或使用 `--skip-audit`
 - 較低等級的發現會以警告顯示，並包含風險分數的說明
 - `audit.block_threshold` 只控制阻擋等級；它**不會**停用掃描
 - 沒有設定開關能永久跳過 audit；需要時請針對單次指令使用 `--skip-audit`
@@ -646,7 +655,7 @@ skillshare install suspicious-skill --threshold high
 skillshare install suspicious-skill -T h
 ```
 
-用 `--force` 覆寫阻擋決定，或用 `--skip-audit` 完全略過掃描。掃描細節見 [audit](/docs/reference/commands/audit)。
+用 `--force` 覆寫由發現項目造成的阻擋決定，或用 `--skip-audit` 完全略過掃描。掃描細節見 [audit](/docs/reference/commands/audit)。
 
 Install 的決定使用**發現的嚴重程度 vs 門檻**。風險分數／標籤僅作為情境參考，本身不會阻擋安裝。預設情況下，audit 的發現會以精簡摘要顯示（依嚴重程度與訊息分組）。用 `--audit-verbose` 可查看完整清單。
 
@@ -656,6 +665,7 @@ Tracked repos 使用相同的門檻模型，但掃描範圍與失敗處理更嚴
 
 - 全新的 `--track` 安裝會掃描**整個 clone 的 repository**（而不只是一個 skill 資料夾）
 - 達到或超過門檻的發現會阻擋安裝，除非使用 `--force`
+- 掃描無法執行時同樣會阻擋安裝，即使使用 `--force`
 - 若全新安裝被阻擋，skillshare 會自動從 source 中移除已 clone 的 repo
 - 若自動清理失敗，install 會回傳明確錯誤，並告知你需要手動移除該路徑
 

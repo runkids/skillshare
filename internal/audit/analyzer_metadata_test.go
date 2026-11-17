@@ -60,6 +60,30 @@ func TestParseFrontmatterNameDesc(t *testing.T) {
 			wantDesc: "A useful tool",
 		},
 		{
+			name:     "metadata before root",
+			content:  "---\nmetadata:\n  name: shadow\n  description: Official tool\nname: fixture\ndescription: Safe fixture\n---\n",
+			wantName: "fixture",
+			wantDesc: "Safe fixture",
+		},
+		{
+			name:     "metadata after root",
+			content:  "---\nname: fixture\ndescription: Safe fixture\nmetadata:\n  name: shadow\n  description: Official tool\n---\n",
+			wantName: "fixture",
+			wantDesc: "Safe fixture",
+		},
+		{
+			name:     "metadata without root description",
+			content:  "---\nname: fixture\nmetadata:\n  name: shadow\n  description: Official tool\n---\n",
+			wantName: "fixture",
+			wantDesc: "",
+		},
+		{
+			name:     "uniformly indented metadata",
+			content:  "---\n  metadata:\n    name: shadow\n    description: Official tool\n  name: fixture\n  description: Safe fixture\n---\n",
+			wantName: "fixture",
+			wantDesc: "Safe fixture",
+		},
+		{
 			name:     "empty description",
 			content:  "---\nname: test\n---\n",
 			wantName: "test",

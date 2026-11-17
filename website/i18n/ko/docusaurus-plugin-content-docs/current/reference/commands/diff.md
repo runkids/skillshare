@@ -145,6 +145,7 @@ merge mode(기본값)를 사용하는 target의 경우:
 - source에는 있지만 아직 target에 symlink되지 않은 skill을 나열
 - symlink 대신 local 사본으로 존재하는 skill을 표시
 - target에서 local-only인 skill을 식별(source에는 없음 — sync에 의해 보존됨)
+- source에 더 이상 없는 skill을 가리키는 링크를 표시(sync 시 제거됨)
 
 ### Copy Mode Target
 
@@ -212,7 +213,7 @@ skillshare diff agents claude      # 특정 target
 skillshare diff agents --json      # JSON 출력
 ```
 
-Agent diff는 누락된 agent(sync 필요), orphan symlink(prune 필요), local-only agent file을 표시합니다. `agents` path가 구성된 target만 포함됩니다. 전체 목록은 [Agents — Supported Targets](/docs/understand/agents#supported-targets)를 참고하세요.
+Agent diff는 누락된 agent(sync 필요), sync가 제거할 orphan symlink, local-only agent file을 표시합니다. `agents` path가 구성된 target만 포함됩니다. 전체 목록은 [Agents — Supported Targets](/docs/understand/agents#supported-targets)를 참고하세요.
 
 ---
 

@@ -12,6 +12,8 @@ export interface HookBinding {
   /** The Agent's own event map, passed through as written. */
   events?: Record<string, unknown>;
   code?: string;
+  /** OpenCode v2 directory: relative filenames mapped to UTF-8 contents. */
+  package?: Record<string, string>;
   /** Path, relative to the config's folder, that `code` was read from. */
   codeFile?: string;
   /** Relative script filename → UTF-8 contents. */
@@ -56,7 +58,10 @@ export interface HookTargetDef { name: string; agent?: string; kind: string; not
 /** Hooks in an Agent's native configuration that Skillshare does not manage. */
 export interface HookUnmanaged { target: string; path: string; names: string[]; project?: string }
 export interface HookBackup { id: string; target: string; path: string; root?: string; time?: string }
-export interface HookCandidate { name: string; entry: HookEntry; problems: string[]; warnings: string[] }
+/** `editable`: the hook can be changed or removed in its target file without importing it. */
+export interface HookCandidate { name: string; entry: HookEntry; problems: string[]; warnings: string[]; editable?: boolean }
+/** A change to hooks Skillshare does not manage: `before` as the import listed them, `after` their replacement (left out removes them). */
+export interface HookNativeEdit { target: string; root?: string; before: Record<string, unknown>; after?: Record<string, unknown> }
 export interface HookImportRequest { from: string; content?: string; name?: string; /** Reads the Agent's file under this hooks.projects root. */ root?: string }
 /** One root under hooks.projects: hooks that live in that folder's own native files. */
 export interface HookProject { entries?: Record<string, HookEntry> }
@@ -103,6 +108,10 @@ export const hooksApi = {
     const res = await post<{ candidates: HookCandidate[] } | HookCandidate[]>('/hooks/import', body);
     return Array.isArray(res) ? res : res.candidates ?? [];
   },
+  /** What editing or removing unmanaged hooks would write to their target files. Writes nothing. */
+  previewNative: (edits: HookNativeEdit[]) => post<HookPreview>('/hooks/native/preview', { edits }),
+  /** Writes previewed edits, with a backup per file. The hooks stay unmanaged. */
+  applyNative: (edits: HookNativeEdit[], revision: string) => post<HookResult>('/hooks/native', { edits, revision }),
   previewRestore: (backupId: string) => post<HookPlan>('/hooks/restore', { backupId, preview: true }),
   restore: (backupId: string, revision: string) => post<HookResult>('/hooks/restore', { backupId, revision }),
 };

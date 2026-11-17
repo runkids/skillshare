@@ -72,7 +72,7 @@ tracked リポジトリ内の skill も、リポジトリ全体に対して記�
 
 audit エンジンは、Skill ディレクトリ内のすべてのテキストベースのファイルを 100 以上の組み込みルール（正規表現パターン、テーブル駆動の認証情報検出、構造チェック、コンテンツの整合性検証、サプライチェーンの信頼性分析）と照合し、5 段階の重大度（**CRITICAL**、**HIGH**、**MEDIUM**、**LOW**、**INFO**）に分類します。
 
-Markdown のサンプルもスキャンされます。解析されたフェンス付きコードブロック内で、パラメータ形式の SDK `system:` / `System:` 値（`prompt-injection-1`）は HIGH として報告されます。「Do not tell the user they need to adopt an eval framework」のような一般的な開示制限は、すべてのファイル形式で HIGH の `prompt-injection-5` に一致します。明示的な隠蔽は `prompt-injection-4` の CRITICAL を維持します。`.py` ファイルでは、コメントだけの行と docstring での組み込み CRITICAL credential-access マッチは HIGH として報告されます（[認証情報アクセス](../../understand/audit-engine.md#credential-access)を参照）。HIGH は既定の CRITICAL しきい値では警告、`strict` ではブロックとなります。制限とルール上書きの互換性は [Prompt Injection](../../understand/audit-engine.md#prompt-injection) を参照してください。
+Markdown のサンプルもスキャンされます。解析されたフェンス付きコードブロック内で、パラメータ形式の SDK `system:` / `System:` 値（`prompt-injection-1`）は HIGH として報告されます。Markdown 以外のソースファイルでは、`prompt-injection-1` は `ROOT:` のような大文字ラベルにのみ一致します。「Do not tell the user they need to adopt an eval framework」のような一般的な開示制限は、すべてのファイル形式で HIGH の `prompt-injection-5` に一致します。明示的な隠蔽は `prompt-injection-4` の CRITICAL を維持します。`.py` ファイルでは、コメントだけの行と docstring での組み込み CRITICAL credential-access マッチは HIGH として報告されます（[認証情報アクセス](../../understand/audit-engine.md#credential-access)を参照）。HIGH は既定の CRITICAL しきい値では警告、`strict` ではブロックとなります。制限とルール上書きの互換性は [Prompt Injection](../../understand/audit-engine.md#prompt-injection) を参照してください。
 
 完全な検出カタログ、脅威カテゴリの詳細、リスクスコアリングアルゴリズム、コマンド安全性のティア分類、Skill 間の相互作用分析については、[Audit Engine](/docs/understand/audit-engine) を参照してください。
 
@@ -210,7 +210,7 @@ skillshare install /path/to/skill --skip-audit
 # スキャンをバイパスする（注意して使用）
 ```
 
-`--force` はブロックの判定を上書きします。`--skip-audit` は、そのインストールコマンドに対するスキャンを無効化します。
+`--force` は検出結果によるブロックの判定を上書きします。スキャンを実行できない場合はブロックされたままです。`--skip-audit` は、そのインストールコマンドに対するスキャンを無効化します。
 
 install 時の audit をグローバルに無効化する config フラグはありません。意図的にスキャンをバイパスしたいコマンドに限って `--skip-audit` を使用してください。
 

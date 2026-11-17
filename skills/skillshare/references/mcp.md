@@ -63,7 +63,12 @@ skillshare mcp serve --check [--target NAME]         # List skipped, editable an
   again. Without `--live` the pins are untouched.
 - `mcp serve` serves skills to Agents that cannot reach the synced folders (VMs, MCP
   gateways): stdio by default, global unless `-p`. `--target NAME` applies that target's
-  filters. Skipped skills (`SKILL.md` a link or not starting with frontmatter, name not matching
+  filters. `resources/list` lists served `SKILL.md` files with frontmatter name and description.
+  `directoryRead: true` enables `resources/directory/read` (`uri`, optional `cursor`):
+  direct children in `resources`, including empty directories (`inode/directory`).
+  Directory URIs have no trailing slash; unknown directories and files return `-32602`.
+  Both listings return at most 100 resources in URI order; continue with `nextCursor` as `cursor`.
+  Skipped skills (`SKILL.md` a link or not starting with frontmatter, name not matching
   its directory, description missing or over 1,024 characters, compatibility empty or over 500, over 512 files/16 MiB) are
   listed on stderr; `--check` lists them without serving. `--http` on a non-loopback address requires `SKILLSHARE_MCP_TOKEN` and, by default, `--tls-cert`/`--tls-key` (or bind loopback behind a TLS proxy). On a trusted private network, explicitly opt in to plain HTTP with `--http-allow-insecure`; this logs a startup warning and still requires the token. Cross-origin browser requests to the MCP endpoint are refused.
   Do not connect local Agents that already sync skills; they would see each skill twice.

@@ -89,7 +89,7 @@ skillshare ui start --clear-cache
 
 | 頁面 | 說明 |
 |------|------|
-| **Dashboard** | Skills、agents、extras、MCP servers、hooks、plugins 與 targets 的數量，以及需要注意的項目。解除安裝有未提交變更、或讀不到 git 狀態的 tracked repo 時，會說明原因並再次確認，然後把 repo 原樣移到垃圾桶，等同 `uninstall --force` |
+| **Dashboard** | Skills、agents、extras、MCP servers、hooks、plugins 與 targets 的數量，以及需要注意的項目。解除安裝有未提交變更、或讀不到 git 狀態的 tracked repo 時，會說明原因並再次確認，然後把 repo 原樣移到垃圾桶，等同 `uninstall --force`。metadata 中有記錄、但這台機器沒有 clone 的 tracked repo 會顯示 **這台機器上沒有簽出副本**，解除安裝只移除它的記錄與稽核接受記錄，不會移到垃圾桶。若確認前簽出副本已出現，dashboard 會提示，需再次選擇 **解除安裝** |
 | **Sync** | 在寫入前預覽每個 target 的每項變更。選擇要包含的部分（Skills、Agents、Extras、MCP）。在 target 內編輯過的檔案，除非開啟 **Force**，否則會保留。只存在於 target 中的項目可以從這裡收集回 source。每次同步都會先備份 target 資料夾。某個 target 失敗時，其他 target 仍會同步：頁面會在其他警告上方列出每個失敗的 target，以及它的部分（Skills、Agents、Extras 或 Config）和錯誤，常見原因（symlink 指向別處、權限不足、唯讀檔案系統、檔案或資料夾不存在、target 設定無效）還會附上一句易懂的說明；若 Skills 的 symlink 指向別處，會提供 **開啟 Force**；變更清單中也會標出該 target。即使所有 target 都失敗，也會以同樣方式列出。**上次同步** 卡片會列出最近一次同步中失敗的 target。收到相同變更的 targets 會合併成一張卡片，依資料夾列出 skills。**Discard all** 會在確認後，把還沒有任何 target 收到的 skills 移到垃圾桶。當某個 target 的 `include` 篩選條件沒有符合任何 skill 時，會顯示提示說明這個 target 收不到任何 skill，**Edit filter** 會開啟設定該篩選條件的地方；Git Sync 在 pull 之後也會顯示同樣的提示 |
 | **Git Sync** | Commit 並 push source repo、push 尚未在 remote 上的 commits，以及 pull。開啟頁面時會先從 remote fetch，所以 **Pull** 按鈕會顯示 remote 有幾個新的 commits。Pull 會同步 repo scope 所涵蓋的內容（`skills`、`agents`、`extras` 或 `root`），如同 [`pull`](/docs/reference/commands/pull)。**Sync both ways** 會 commit 本機變更、pull 並合併、sync targets，然後 push，如同 [`push --pull`](/docs/reference/commands/push#push-and-pull-together)；遇到衝突時會在 push 前停止。當 remote 因為有較新的 commits 而拒絕 push 時，錯誤訊息會提供 **Pull**。當第一次 pull 無法與 remote 合併時，會提供強制 pull 以本機檔案取代 remote 分支 |
 | **Hubs** | 從 Skills 頁面進入。列出內建 hub、已儲存的 hubs 與你自己的 Hub（**我的**）；選擇一個即可篩選並安裝其中的 skills。**加入或建立 Hub** 可加入現有的 hub、建立新的 Hub，或匯入 `skillshare-hub.json`。自己的 Hub 以 **編輯** 修改；**分享** 會下載索引並產生 `hub add` 指令。已儲存與內建的 hub 可按 **重新整理**，不必等兩分鐘快取過期就重新讀取清單。參見 [`hub`](/docs/reference/commands/hub) |
@@ -106,7 +106,7 @@ skillshare ui start --clear-cache
 
 Git 衝突比較使用完整檔案版本。可以逐個檔案選擇本機或遠端，也能用 **全部保留本機**／**全部保留遠端** 一次選擇，再於套用前調整個別檔案。選擇已刪除的一方會在合併中刪除該檔案。雙方的提交紀錄都會保留；取消不會修改檔案。
 
-在 **Updates** 分頁中，進度列會顯示更新進度，正在更新的列也會標示出來。被阻擋或失敗的更新會顯示在獨立區塊。更新成功後，分頁會檢查該類型是否有待同步變更。只有有變更可套用時才會顯示 **Sync Now**；沒有差異時會提示無需同步。既有的 symlink 已能讀取更新後的 source 內容。同步檢查失敗時會顯示錯誤與 **Retry**，不會誤報全部為最新狀態。 連結指向的 Git checkout 會以資訊列顯示連結名稱和目標路徑。與 `skillshare update --all` 一樣，此分頁不會檢查、更新或強制重試這些 checkout；請自行管理，或在 CLI 中按名稱明確更新。
+在 **Updates** 分頁中，進度列會顯示更新進度，正在更新的列也會標示出來。被阻擋或失敗的更新會顯示在獨立區塊。同一個儲存庫的 skill 只取得一次，在 upstream 沒有變更的 skill 維持不動，並顯示為已是最新版本。更新成功後，分頁會檢查該類型是否有待同步變更。只有有變更可套用時才會顯示 **Sync Now**；沒有差異時會提示無需同步。既有的 symlink 已能讀取更新後的 source 內容。同步檢查失敗時會顯示錯誤與 **Retry**，不會誤報全部為最新狀態。 連結指向的 Git checkout 會以資訊列顯示連結名稱和目標路徑。與 `skillshare update --all` 一樣，此分頁不會檢查、更新或強制重試這些 checkout；請自行管理，或在 CLI 中按名稱明確更新。
 
 舊連結如 `/collect`、`/install`、`/search`、`/trash`、`/analyze`、`/backup`、`/log` 與 `/doctor` 會重新導向至新的位置。
 
@@ -188,7 +188,7 @@ Web dashboard 在 `/api/` 上提供 REST API。所有端點皆回傳 JSON。
 | GET | `/api/skillignore` | 取得 `.skillignore` 內容、存在時的 `.skillignore.local` 內容，以及忽略統計 |
 | PUT | `/api/skillignore` | 更新 `.skillignore` 內容 |
 | GET | `/api/doctor` | 執行所有健康檢查（JSON） |
-| GET | `/api/doctor/stream` | 以 Server-Sent Events 執行所有健康檢查：每完成一項送出一個 `check` 事件，最後以 `done` 送出與 `/api/doctor` 相同的 JSON |
+| GET | `/api/doctor/stream` | 以 Server-Sent Events 執行所有健康檢查：每完成一項送出一個 `check` 事件。較慢的檢查會先以狀態 `pending` 送出，之後同名的 `check` 事件會取代它，不需要它結果的檢查會先送出；最後以 `done` 送出與 `/api/doctor` 相同的 JSON |
 | GET | `/api/health` | 存活探測；伺服器就緒後回傳 `200` |
 | GET | `/api/version` | 目前/最新版本 + 是否有可用升級 + Nix 安裝時更新 CLI 的指令（`nixUpgradeCommand`） |
 | POST | `/api/upgrade` | 就地執行 `skillshare upgrade`（若執行檔為開發版本則回傳 `devMode: true`；透過 Nix 安裝且有較新的 CLI 待安裝時回傳 `409`，錯誤碼為 `upgrade.nix`） |

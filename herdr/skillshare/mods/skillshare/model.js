@@ -15,7 +15,9 @@ export const SCOPES = [["all", "All"], ["project", "Project"], ["global", "Globa
 const DETACH = 'unset HC_SCOPE; if command -v setsid >/dev/null 2>&1; then bg() { exec setsid "$@"; }; else set -m; bg() { exec "$@"; }; fi';
 // Named so SWEEP can tell the panel's job folders from anything else in the temp folder.
 const TEMP = 'd=$(mktemp -d "${TMPDIR:-/tmp}/skillshare-panel.XXXXXX")';
-const READY = 'i=0; while [ ! -s "$d/pid" ] && [ $i -lt 50 ]; do sleep 0.1; i=$((i+1)); done; printf %s "$d"';
+// The panel reads the folder's files with Herdr, not sh, so under Git for Windows' sh it gets
+// the Windows path (cygpath -m: C:/...), which that sh accepts too.
+const READY = 'i=0; while [ ! -s "$d/pid" ] && [ $i -lt 50 ]; do sleep 0.1; i=$((i+1)); done; command -v cygpath >/dev/null 2>&1 && d=$(cygpath -m "$d"); printf %s "$d"';
 // sh -c START <name> <dir> <args...>: runs skillshare <args> in <dir>; prints the temp folder.
 export const START = `${DETACH}; ${TEMP}; dir=$1; shift
 bg sh -c 'echo $$ >"$2/pid"; cd "$1" 2>/dev/null || cd; d=$2; shift 2; skillshare "$@" >"$d/out" 2>"$d/err" </dev/null; echo $? >"$d/code"' job "$dir" "$d" "$@" >/dev/null 2>&1 </dev/null &
@@ -630,7 +632,7 @@ export function cloneUrl(source) {
 
 // Keep exit status authoritative even with valid JSON from an older CLI.
 export function installResult(r) {
-  const j = parseJSON(r.stdout), done = j?.skills ?? [], failed = j?.failed ?? [];
+  const j = parseJSON(r.stdout), done = j?.skills ?? [], failed = j?.failed ?? [], skipped = j?.skipped ?? [];
   if (j?.error) return { done: null, error: j.error };
   if (r.code !== 0) {
     const details = [done.length ? `Installed: ${done.join(", ")}.` : "", failed.length ? `Failed: ${failed.join(", ")}.` : "", lastLine(r.stderr)].filter(Boolean);
@@ -638,6 +640,7 @@ export function installResult(r) {
     return { done: null, error: details.join(" ") };
   }
   if (failed.length) return { done: null, error: `Installed ${done.length} skill(s); ${failed.join(", ")} failed. The install's own audit can stop one.` };
+  if (skipped.length) return { done: null, error: `Installed ${done.length} skill(s); ${skipped.join(", ")} already installed and left as is.` };
   if (!j) return { done: null, error: failure(r, "skillshare install returned no JSON") };
   return { done, error: null };
 }

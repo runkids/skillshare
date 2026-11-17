@@ -81,6 +81,9 @@ func TestIsSecurityError(t *testing.T) {
 		// Wrapped sentinel
 		{fmt.Errorf("outer: %w", fmt.Errorf("inner: %w", audit.ErrBlocked)), true},
 
+		// An install audit that could not run blocks the update too
+		{fmt.Errorf("outer: %w", install.ErrAuditScanFailed), true},
+
 		// Non-sentinel errors with similar text should NOT match
 		{fmt.Errorf("security audit something"), false},
 		{fmt.Errorf("was rolled back successfully"), false},
@@ -267,5 +270,12 @@ func TestIsGroupDir_UnprefixedCheckoutIsGroup(t *testing.T) {
 	}
 	if isGroupDir("_team", src, store) {
 		t.Error("a _-prefixed checkout is a tracked repo, not a group")
+	}
+}
+
+func TestCompactBlockedUpdateMessage_ShowsScanFailure(t *testing.T) {
+	msg := "audit scan failed: load rules: bad regex\n\nFix the cause or use --skip-audit to bypass scanning"
+	if got := compactBlockedUpdateMessage(msg); got != "audit scan failed: load rules: bad regex" {
+		t.Fatalf("compactBlockedUpdateMessage() = %q", got)
 	}
 }

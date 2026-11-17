@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"skillshare/internal/config"
+	"skillshare/internal/install"
 	ssync "skillshare/internal/sync"
 )
 
@@ -214,5 +215,42 @@ func TestHandleOverview_ProjectMode(t *testing.T) {
 	}
 	if resp["projectRoot"] != tmp {
 		t.Errorf("expected projectRoot %q, got %v", tmp, resp["projectRoot"])
+	}
+}
+
+func TestHandleOverview_DeclarationWithoutCheckout(t *testing.T) {
+	s, src := newTestServer(t)
+	for _, name := range []string{"_absent", "_occupied"} {
+		s.skillsStore.Set(name, &install.MetadataEntry{Source: "https://example.invalid/unreachable.git", Tracked: true})
+	}
+	addSkill(t, src, "_occupied/kept")
+	// A link to a checkout is not a declaration row, even when unfollowed.
+	checkout := t.TempDir()
+	if err := os.Mkdir(filepath.Join(checkout, ".git"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(checkout, filepath.Join(src, "_checkout-link")); err != nil {
+		t.Fatal(err)
+	}
+	s.skillsStore.Set("_checkout-link", &install.MetadataEntry{Source: "checkout", Tracked: true})
+	if err := s.skillsStore.Save(src); err != nil {
+		t.Fatal(err)
+	}
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/api/overview", nil))
+	var body struct{ TrackedRepos []trackedRepoItem }
+	if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if rr.Code != http.StatusOK || len(body.TrackedRepos) != 2 {
+		t.Fatalf("declarations hidden: %d %s", rr.Code, rr.Body.String())
+	}
+	for _, repo := range body.TrackedRepos {
+		if !repo.NoCheckout || repo.Dirty || repo.SkillCount != 0 || repo.VariantCount != 0 {
+			t.Fatalf("declaration inspected occupant: %+v", repo)
+		}
+	}
+	if got := buildTrackedRepos(src, nil, s.skillsWalk(), nil); len(got) != 0 {
+		t.Fatalf("nil/project store listed declarations: %+v", got)
 	}
 }

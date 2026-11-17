@@ -81,8 +81,7 @@ func (s *Server) handleUpdateStream(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			// Regular skill
-			skillPath := filepath.Join(source, name)
-			items = append(items, updateItem{name: name, isRepo: false, path: skillPath})
+			items = append(items, updateItem{name: name})
 		}
 	} else {
 		// Update all: tracked repos + regular skills
@@ -101,14 +100,18 @@ func (s *Server) handleUpdateStream(w http.ResponseWriter, r *http.Request) {
 		s.mu.RUnlock()
 		if err == nil {
 			for _, skill := range skills {
-				items = append(items, updateItem{
-					name:   skill,
-					isRepo: false,
-					path:   filepath.Join(source, skill),
-				})
+				items = append(items, updateItem{name: skill})
 			}
 		}
 	}
+
+	var skillNames []string
+	for _, item := range items {
+		if !item.invalid && !item.agent && !item.isRepo {
+			skillNames = append(skillNames, item.name)
+		}
+	}
+	batch := s.newSkillBatch(skillNames, force, skipAudit, walk.Follow)
 
 	safeSend("start", map[string]int{"total": len(items)})
 
@@ -141,7 +144,7 @@ func (s *Server) handleUpdateStream(w http.ResponseWriter, r *http.Request) {
 		case item.isRepo:
 			result = s.updateTrackedRepo(item.name, item.path, s.cfg.EffectiveSkillsSource(), force, skipAudit, walk.Follow)
 		default:
-			result = s.updateRegularSkill(item.name, item.path, force, skipAudit, walk.Follow)
+			result = batch.update(item.name)
 		}
 		s.mu.Unlock()
 

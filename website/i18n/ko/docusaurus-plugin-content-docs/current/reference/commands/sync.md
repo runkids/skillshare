@@ -220,7 +220,7 @@ $ skillshare sync
   Context  ~1.2K tokens always loaded · ~18.5K on demand
 ```
 
-직접 만든 폴더가 skill의 sync 대상 이름을 이미 차지하고 있으면, sync는 그 폴더를 그대로 두고 skill을 설치하지 않습니다. 이런 폴더가 있는 target마다 처음 몇 개의 이름을 알려 주는 한 줄(`kept local: a, b (sync --force replaces them)`)이 출력되며, `up to date`가 아닌 `local`로 집계됩니다. `skillshare diff`는 이들을 `Local override`로 보여 줍니다.
+직접 만든 폴더가 skill의 sync 대상 이름을 이미 차지하고 있으면, sync는 그 폴더를 그대로 두고 skill을 설치하지 않습니다. 다른 도구가 둔 링크(source 밖을 가리키고 manifest에 기록되지 않은 것)도 똑같이 처리됩니다. 이런 폴더가 있는 target마다 처음 몇 개의 이름을 알려 주는 한 줄(`kept local: a, b (sync --force replaces them)`)이 출력되며, `up to date`가 아닌 `local`로 집계됩니다. `skillshare diff`는 이들을 `Local override`로 보여 줍니다.
 
 ---
 

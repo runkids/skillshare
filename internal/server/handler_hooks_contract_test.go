@@ -379,3 +379,57 @@ func TestHooksUIContract_AccountTargets(t *testing.T) {
 		t.Fatalf("%d %s", w.Code, w.Body)
 	}
 }
+
+// HooksImportDialog editing a hook that was never imported: preview the edit, apply it
+// with that revision. The hook changes in the target's file and stays unmanaged.
+func TestHooksUIContract_EditUnmanagedHook(t *testing.T) {
+	for i, newScope := range hooksUIScopes {
+		t.Run(hooksUIScopeNames[i], func(t *testing.T) {
+			sc := newScope(t)
+			// A managed hook registers the scope and shares the file with the user's own hook.
+			sc.addAndSync(t, "guard", "echo contract-guard")
+			mine := `{"hooks":[{"type":"command","command":"echo mine"}]}`
+			var doc struct {
+				Hooks map[string]json.RawMessage `json:"hooks"`
+			}
+			if err := json.Unmarshal([]byte(readOrEmpty(sc.settings)), &doc); err != nil {
+				t.Fatal(err)
+			}
+			doc.Hooks["SessionEnd"] = json.RawMessage(`[` + mine + `]`)
+			own, err := json.Marshal(doc)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(sc.settings, own, 0644); err != nil {
+				t.Fatal(err)
+			}
+			root := ""
+			if sc.project != "" {
+				root = `"root":"` + sc.project + `",`
+			}
+			edits := `[{"target":"claude",` + root + `"before":{"SessionEnd":[` + mine + `]},"after":{"SessionEnd":[` + strings.Replace(mine, "echo mine", "echo edited", 1) + `]}}]`
+			preview := hooksPost(sc.s, sc.s.handleHooksNativePreview, "/api/hooks/native/preview", `{"edits":`+edits+`}`)
+			var p struct {
+				Revision string `json:"revision"`
+				Files    []struct {
+					After string `json:"after"`
+				} `json:"files"`
+			}
+			if preview.Code != http.StatusOK || json.Unmarshal(preview.Body.Bytes(), &p) != nil || len(p.Files) != 1 || !strings.Contains(p.Files[0].After, "echo edited") {
+				t.Fatalf("native preview: %d %s", preview.Code, preview.Body)
+			}
+			if w := hooksPost(sc.s, sc.s.handleHooksNativeApply, "/api/hooks/native", `{"edits":`+edits+`}`); w.Code != http.StatusBadRequest {
+				t.Fatalf("apply without a preview: %d %s", w.Code, w.Body)
+			}
+			if w := hooksPost(sc.s, sc.s.handleHooksNativeApply, "/api/hooks/native", `{"edits":`+edits+`,"revision":"`+p.Revision+`"}`); w.Code != http.StatusOK {
+				t.Fatalf("native apply: %d %s", w.Code, w.Body)
+			}
+			if got := readOrEmpty(sc.settings); !strings.Contains(got, "echo edited") || strings.Contains(got, "echo mine") || !strings.Contains(got, "echo contract-guard") {
+				t.Fatalf("edited file:\n%s", got)
+			}
+			if _, ok := sc.entries(t)["guard"]; !ok || len(sc.entries(t)) != 1 {
+				t.Fatalf("the edited hook must stay out of the source: %v", sc.entries(t))
+			}
+		})
+	}
+}

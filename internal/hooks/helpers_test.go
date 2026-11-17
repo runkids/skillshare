@@ -25,14 +25,14 @@ func newEnv(t *testing.T) *env {
 	config := filepath.Join(dir, "skillshare", "config.yaml")
 	must(t, os.MkdirAll(home, 0755))
 	write(t, config, "targets: {}\n")
-	return &env{t: t, home: home, config: config, service: &Service{ConfigPath: config, Home: home, StateDir: filepath.Join(dir, "state"), ConfigDirs: map[string]string{}}}
+	return &env{t: t, home: home, config: config, service: &Service{ConfigPath: config, Home: home, StateDir: filepath.Join(dir, "state"), OpenCodeVersion: func(string) (string, error) { return "1.18.31", nil }, ConfigDirs: map[string]string{}}}
 }
 
 // project is a project scope sharing e's state directory.
 func (e *env) project(root string) *Service {
 	config := filepath.Join(root, ".skillshare", "config.yaml")
 	write(e.t, config, "targets: []\n")
-	return &Service{ConfigPath: config, ProjectRoot: root, Home: e.home, StateDir: e.service.StateDir}
+	return &Service{ConfigPath: config, ProjectRoot: root, Home: e.home, StateDir: e.service.StateDir, OpenCodeVersion: e.service.OpenCodeVersion}
 }
 
 func must(t *testing.T, err error) {

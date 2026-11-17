@@ -422,6 +422,9 @@ func TestHandleUninstallRepo_RemovesTargetOverrides(t *testing.T) {
 	addTrackedRepoSkill(t, src)
 	setSkillTarget(t, s, "cavecrew", "claude")
 	s.skillsStore.SetTargetOverride("_other/skill", []string{"cursor"})
+	if err := s.skillsStore.Save(src); err != nil {
+		t.Fatal(err)
+	}
 
 	req := httptest.NewRequest(http.MethodDelete, "/api/repos/_caveman", nil)
 	req.SetPathValue("name", "_caveman")

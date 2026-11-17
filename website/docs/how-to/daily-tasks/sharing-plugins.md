@@ -147,9 +147,7 @@ installs the reviewed commit again, without running OMP's native upgrade. Copilo
 reviewed source while preserving known enabled state. Grok updates stay in
 the native tool, and the dialog lists such installs apart under **Update inside
 the Agent**; see the command reference for imported-package limits. A source that
-no longer provides a compatible plugin is listed under **Cannot update**. A target
-an update cannot reach is skipped with the reason, and the plugin's other Agents
-still update.
+no longer provides a compatible plugin is listed under **Cannot update**. An unreachable target is reported as failed with the reason, and the plugin's other Agents still update.
 
 An npm package in Pi has no source to compare, so the check compares its
 installed version with the latest version on npm.

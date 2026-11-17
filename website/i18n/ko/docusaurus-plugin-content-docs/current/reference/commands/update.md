@@ -119,7 +119,7 @@ tracked 저장소가 메타데이터에 선언되어 있지만 디스크에 없�
   ],
   "missing_tracked_repos": {
     "names": ["_team-skills"],
-    "hint": "Run 'skillshare install' to rehydrate tracked repositories"
+    "hint": "Run 'skillshare install -g' to rehydrate tracked repositories, or 'skillshare uninstall <name> -g' to remove an unwanted declaration"
   }
 }
 ```
@@ -248,10 +248,12 @@ Next
 ```
 ! 1 tracked repo declared in metadata but missing on disk
 ! _team-skills  clone directory absent
-  Run 'skillshare install' to rehydrate tracked repositories
+  Run 'skillshare install -g' to rehydrate tracked repositories, or 'skillshare uninstall <name> -g' to remove an unwanted declaration
 ```
 
 이는 global mode와 project(`-p`) mode 모두에 적용됩니다. metadata로부터 클론을 다시 생성하려면 인수 없이 [install](/docs/reference/commands/install)을 실행하세요([Rehydrating After a Fresh Clone](/docs/understand/tracked-repositories#rehydrating-after-a-fresh-clone) 참고).
+
+global mode에서는 checkout이 없는 불필요한 선언을 `skillshare uninstall <name> -g`로 제거할 수도 있습니다. trash로 이동하지 않으므로 trash에서 복원할 수 없습니다. project mode에서는 `skillshare install -p`를 안내하며 선언만 제거하는 기능은 지원하지 않습니다.
 
 ## Stale Skill 정리 (`--prune`)
 

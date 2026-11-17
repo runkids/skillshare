@@ -22,7 +22,7 @@ const events = {
   // The list shows frontmatter (description, manual only), so an edit refreshes it too.
   skillEdited: (name: string) => keys(k.skills.all, k.skills.detail(name)),
   installDialogClosed: () => keys(k.skills.all),
-  reposChanged: () => keys(k.overview, k.skills.all, k.trash),
+  reposChanged: () => keys(k.overview, k.skills.all, k.trash, k.missingConfigEntries),
   skillsMoved: () => keys(k.skills.all, k.overview, k.syncMatrixAll, k.diff()),
   skillsUninstalled: () => keys(k.skills.all, k.overview, k.trash, k.syncMatrixAll, k.diff()),
   trashChanged: () => keys(k.trash, k.skills.all, k.syncMatrixAll),
@@ -30,7 +30,7 @@ const events = {
   skillsToggled: () => keys(k.skills.all, k.syncMatrixAll, k.overview),
   skillTargetFilterChanged: () => keys(k.targets.all, k.syncMatrixAll, k.diffAll),
   sourceLinked: () => keys(...sourceLinks),
-  sourceUnlinked: () => keys(...sourceLinks, k.trash),
+  sourceUnlinked: () => keys(...sourceLinks, k.trash, k.missingConfigEntries),
   collected: (target?: string) => keys(k.skills.all, k.overview, k.targets.all, k.diff(), k.syncMatrix(), k.collectScan(target)),
   configInstalled: () => keys(k.missingConfigEntries, k.skills.all, k.overview, k.syncMatrixAll, k.diff()),
 

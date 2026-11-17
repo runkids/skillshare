@@ -302,8 +302,8 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
         findings.push(...parseFindings(item.error.split('\n'), false).map((f) => ({ ...f, name: item.name })));
         const skill = opts.skills.find((s) => s.name === item.name);
         if (skill) blockedItems.push(skill);
-      } else if (item.error?.startsWith('already exists')) {
-        // The server's hint is a CLI command; the dialog's own Force overwrite option does the same
+      } else if (item.action === 'skipped' || item.error?.startsWith('already exists')) {
+        // Kept as installed. The server's hint is a CLI command; the dialog's own Force overwrite option does the same
         existing.push(formatSkillDisplayName(item.name));
       } else if (item.error) {
         errors.push(`${formatSkillDisplayName(item.name)}: ${item.error}`);

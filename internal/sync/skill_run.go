@@ -43,7 +43,8 @@ type SkillTargetResult struct {
 	Linked  []string // merge: linked; copy: copied
 	Updated []string
 	Skipped []string
-	// KeptLocal are the skipped entries that are a user's folder on a skill's name.
+	// KeptLocal are the skipped entries that are a user's folder, or a link
+	// skillshare did not create, on a skill's name.
 	KeptLocal []string
 	Pruned    []string // nil when no prune ran or it returned nothing
 	// LocalDirs are user folders a merge prune kept.
@@ -72,7 +73,7 @@ func SyncSkillTarget(t SkillTarget, skills []DiscoveredSkill, opts SkillRunOptio
 			return res
 		}
 		res.Linked, res.Updated, res.Skipped, res.DirCreated = result.Linked, result.Updated, result.Skipped, result.DirCreated
-		res.KeptLocal = result.Skipped // merge skips only folders the user made
+		res.KeptLocal = result.Skipped // merge skips only entries skillshare did not create
 		// A partial source may hold what the filter names, so only a full one reports unmatched patterns.
 		if opts.SourceIncomplete {
 			break

@@ -6,6 +6,8 @@ sidebar_position: 3
 
 从 source 目录中移除一个或多个 skills 或 tracked repositories。Skills 会被移动到 trash，保留 7 天后自动清理。
 
+没有 checkout 的 global 追踪声明可以只移除元数据；参见[追踪仓库](#tracked-repositories)。
+
 ```bash
 skillshare uninstall my-skill              # Remove a single skill
 skillshare uninstall a b c --force         # Remove multiple skills at once
@@ -71,11 +73,15 @@ skillshare uninstall my-skill another-skill --json
 }
 ```
 
+在全局模式下，可选的 `record_only` 数组是 `removed` 中没有 checkout、仅移除声明的名称子集。这些名称没有 trash 条目，无法通过 trash 撤销；其他成功移除的项目会移入 trash。`dry_run: true` 时，两个数组都表示计划操作，尚未移除任何内容。子集为空时会省略 `record_only`，包括 agent 和项目模式的移除。 CLI uninstall 日志也使用可选的 `record_only` 子集；JSON 预览会在日志中加入 `dry_run: true`。
+
 结合 `--dry-run` 进行预览：
 
 ```bash
 skillshare uninstall --all --json --dry-run
 ```
+
+无法解析的输入及其原因也会列入 `failed`，包括 dry-run 和没有任何输入可解析的请求。
 
 所有 skill 都卸载失败时，命令以非零状态退出，`error` 字段列出每个 skill 及其原因；只有部分失败时，它们会连同原因列在 `failed` 中，命令以 0 退出。`uninstall agents --json` 只要有 agent 失败就以非零状态退出，把失败的名称列在 `failed`，并在 `error` 中给出每个的原因。JSON 输出在 project mode（`-p`）中同样可用。
 
@@ -175,7 +181,7 @@ skillshare uninstall frontend/hooks -G frontend --force  # hooks removed once
 
 ## Tracked Repositories
 
-对于 tracked repositories（以 `_` 开头的文件夹）：
+对于现有 checkout（包括指向 Git checkout 的链接）：
 
 - 检查是否有未提交的更改（使用 `--force` 覆盖）
 - 当 skillshare 无法读取该仓库的 git status 时，以 `failed to check git status` 失败；批次中的其他项目仍会被移除，`--force` 会跳过此检查
@@ -192,6 +198,10 @@ skillshare uninstall _team-skills --force # Force remove with uncommitted change
 skillshare uninstall devops/_team-skills # 用 --into devops 安装的 repo
 skillshare uninstall devops/team-skills  # 同一个 repo（除非此路径已存在）
 ```
+
+- 在 global mode 中，可以按名称明确移除没有 checkout 的追踪声明（路径不存在、普通文件夹或非 checkout 链接）。不会连接源，因此源不可访问时也适用。只移除记录及其审计接受记录，占用路径的内容和 `.gitignore` 不变，不检查 Git，也不移到回收站，无法通过 `trash restore` 撤销。请使用带 `_` 的规范名称或记录的完整路径，如 `skillshare uninstall devops/_team-skills -g`；简写可能选中现有 Skill 或文件夹。glob、`--all` 和 `--group` 不会选中没有 checkout 的声明。
+
+手动删除 checkout 会保留 global 声明。若想恢复而非移除声明，请在源可访问且目标路径空闲时运行 `skillshare install -g`。后续 `install` 或 reconcile 若遍历了声明路径的普通文件夹或被跟随的非 checkout 链接，会将其规范化为普通记录（`Tracked=false`），此后普通卸载会把占用路径的内容移到回收站。不存在的路径、未跟随或不可用的链接不会被这样规范化。
 
 ## 示例
 

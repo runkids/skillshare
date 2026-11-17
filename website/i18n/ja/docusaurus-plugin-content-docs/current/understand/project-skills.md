@@ -233,6 +233,7 @@ skills:
 |---------|------------------------|
 | `skillshare install <source> -p` | 新しい skill を、インストール元のコミットに固定します |
 | `skillshare install -p` | すべての skill をそれぞれの固定コミットでインストールします。別のコミットで既にインストール済みの skill は、固定されたコミットへ移動します |
+| `skillshare install -p --json` | `--json` を使用すると、プロジェクトのロックファイルが別のコミットを指していても既存のコピーはスキップされます。その固定コミットに合わせるには `--force` を追加してください。 |
 | `skillshare update <name> -p` | skill を最新コミットへ移動し、固定を書き換えます。これによりコードレビューで変更が確認できます |
 | `skillshare uninstall <name> -p` | 固定を解除します |
 

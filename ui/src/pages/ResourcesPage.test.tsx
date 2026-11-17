@@ -7,7 +7,7 @@ import { api } from '../api/client';
 import type { Skill, SyncMatrixEntry } from '../api/client';
 import { I18nProvider } from '../i18n';
 import { ToastProvider } from '../components/Toast';
-import { byTargetOrProject, splitTargets, syncedByTarget } from '../lib/resourceGrouping';
+import { byTargetOrProject, splitTargets, syncedByTarget, targetReach } from '../lib/resourceGrouping';
 import ResourcesPage from './ResourcesPage';
 
 vi.mock('../context/AppContext', () => ({ useAppContext: () => ({ isProjectMode: false }) }));
@@ -24,6 +24,9 @@ const skill = (flatName: string): Skill => ({
 
 const entry = (s: string, target: string, status: SyncMatrixEntry['status']): SyncMatrixEntry =>
   ({ skill: s, target, status, reason: '' });
+// The matrix reports both as 'na': a symlinked folder carries every skill, a target with skills off gets none.
+const symlinked = (s: string, target: string): SyncMatrixEntry => ({ ...entry(s, target, 'na'), reasonCode: 'sync_matrix.symlink_filters_not_applicable' });
+const skillsOff = (s: string, target: string) => entry(s, target, 'na');
 
 describe('splitTargets', () => {
   it('groups project targets by project and keeps global tools apart', () => {
@@ -57,6 +60,31 @@ describe('syncedByTarget', () => {
 
     expect([...index.keys()]).toEqual(['claude']);
     expect([...index.get('claude')!]).toEqual(['a', 'b']);
+  });
+
+  it('counts a symlink-mode target but not one with skills off', () => {
+    const index = syncedByTarget([skill('a')], [symlinked('a', 'pi'), skillsOff('a', 'copilot')]);
+
+    expect([...index.keys()]).toEqual(['pi']);
+  });
+});
+
+describe('targetReach', () => {
+  it('lists a symlink-mode target among the targets that get the item', () => {
+    expect(targetReach([entry('a', 'claude', 'synced'), symlinked('a', 'pi'), skillsOff('a', 'copilot')]).synced).toEqual(['claude', 'pi']);
+  });
+
+  it.each([
+    ['off', [skillsOff('a', 'copilot')]],
+    ['filtered', [skillsOff('a', 'copilot'), entry('a', 'claude', 'excluded')]],
+    [null, [symlinked('a', 'pi')]],
+    [null, []],
+  ] as const)('gives %s as the reason for reaching no target', (none, entries) => {
+    expect(targetReach([...entries]).none).toBe(none);
+  });
+
+  it('leaves a project with skills off out of the projects the item could reach', () => {
+    expect(targetReach([skillsOff('a', 'blog@claude'), entry('a', 'app@claude', 'not_included')]).reachable).toEqual(['app']);
   });
 });
 
@@ -316,6 +344,20 @@ describe('Unlink folder', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(vi.mocked(api.listSkills).mock.calls.length).toBeGreaterThan(calls);
     expect(screen.getByText('Unlinked team')).toBeInTheDocument();
+  });
+
+  it('closes and refreshes a completed unlink with a metadata warning without retrying', async () => {
+    const warning = 'Unlinked, but could not update metadata: failed to save metadata';
+    vi.mocked(api.removeSourceLink).mockResolvedValue({ success: true, name: 'team', warning });
+    mount();
+    const dialog = await openUnlink();
+    const calls = vi.mocked(api.listSkills).mock.calls.length;
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Unlink' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(vi.mocked(api.listSkills).mock.calls.length).toBeGreaterThan(calls);
+    expect(screen.getByText(/The link was removed, but its tracked repository record may remain/)).toBeInTheDocument();
+    expect(screen.queryByText('Unlinked team')).not.toBeInTheDocument();
+    expect(vi.mocked(api.removeSourceLink).mock.calls).toEqual([['team']]);
   });
 
   it.each(['actions', 'right-click', 'cards actions', 'cards right-click', 'tree right-click'])('confirms single linked skill uninstall from %s and sends only that skill name', async (action) => {

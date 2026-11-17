@@ -98,8 +98,12 @@ func TestInstallFromConfig_SkipsMovedSkill(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := InstallFromConfig(metadataInstallContext{sourceDir}, InstallOptions{SkipAudit: true, Quiet: true}); err != nil {
+	result, err := InstallFromConfig(metadataInstallContext{sourceDir}, InstallOptions{SkipAudit: true, Quiet: true})
+	if err != nil {
 		t.Fatalf("InstallFromConfig() error = %v", err)
+	}
+	if result.Skipped != 1 || len(result.SkippedSkills) != 1 || result.SkippedSkills[0] != "demo" {
+		t.Fatalf("expected the moved skill to be reported as skipped, got %+v", result)
 	}
 
 	if _, err := os.Stat(filepath.Join(sourceDir, "demo")); !os.IsNotExist(err) {

@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **Neueste Version**: v0.30.6 — Veraltete Skills im CI erkennen: `skillshare check --exit-code` beendet sich mit Code 1, sobald etwas Geprüftes nicht aktuell ist, und `check --all` prüft jetzt neben Skills auch Agents, sodass ein CI-Schritt beides abdeckt. [check-Referenz →](https://skillshare.runkids.cc/docs/reference/commands/check) · [Alle Releases →](https://github.com/runkids/skillshare/releases)
+> **Neueste Version**: v0.30.9 — Hooks bearbeiten oder entfernen, ohne sie zu importieren: Der Import-Dialog für Hooks im Dashboard zeigt jetzt einen Agent nach dem anderen und kann einen Hook direkt in dessen Einstellungsdatei ändern. Du siehst den Datei-Diff, bevor etwas geschrieben wird, und ein Backup stellt die Datei wieder her. Der Hook bleibt unverwaltet. [hooks-Referenz →](https://skillshare.runkids.cc/docs/reference/commands/hooks) · [Alle Releases →](https://github.com/runkids/skillshare/releases)
 
 ## Warum skillshare
 

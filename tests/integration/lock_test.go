@@ -133,6 +133,47 @@ func TestLock_InstallFollowsALockThatMovedOn(t *testing.T) {
 	}
 }
 
+func TestLock_JSONInstallRequiresOverwriteConsent(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	source, bump := lockRemote(t, sb)
+	project := sb.SetupProjectDir("claude")
+	sb.RunCLIInDir(project, "install", source, "-p").AssertSuccess(t)
+	other := teammate(t, sb, project)
+	sb.RunCLIInDir(other, "install", "-p").AssertSuccess(t)
+
+	bump("v2")
+	sb.RunCLIInDir(project, "update", "demo", "-p").AssertSuccess(t)
+	lockPath := filepath.Join(other, ".skillshare", install.LockFileName)
+	lock := sb.ReadFile(filepath.Join(project, ".skillshare", install.LockFileName))
+	sb.WriteFile(lockPath, lock)
+	const edited = "---\nname: demo\n---\n# Local edit\n"
+	sb.WriteFile(filepath.Join(other, ".skillshare", "skills", "demo", "SKILL.md"), edited)
+
+	result := sb.RunCLIInDir(other, "install", "-p", "--json")
+	if body := skillBody(t, other); body != edited {
+		t.Fatalf("JSON install followed a changed lock without overwrite consent:\n%s", body)
+	}
+	result.AssertSuccess(t)
+	out := parseJSON(t, result.Stdout)
+	if skipped, ok := out["skipped"].([]any); !ok || len(skipped) != 1 || skipped[0] != "demo" {
+		t.Fatalf("missing skipped locked skill: %s", result.Stdout)
+	}
+	if got := sb.ReadFile(lockPath); got != lock {
+		t.Fatal("skipping an installed skill changed the teammate's lock")
+	}
+
+	forced := sb.RunCLIInDir(other, "install", "-p", "--json", "--force")
+	forced.AssertSuccess(t)
+	if body := skillBody(t, other); !strings.Contains(body, "# v2") {
+		t.Fatalf("explicit force did not follow the new lock:\n%s", body)
+	}
+	out = parseJSON(t, forced.Stdout)
+	if installed, ok := out["skills"].([]any); !ok || len(installed) != 1 || installed[0] != "demo" {
+		t.Fatalf("forced relock not reported: %s", forced.Stdout)
+	}
+}
+
 func TestLock_UninstallDropsThePin(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

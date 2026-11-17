@@ -814,7 +814,10 @@ server，反之亦然。若要重新管理某个条目，请 import 它。
   **Import from** 按钮，例如 **Import from Cursor**。与 source 相符的条目会按原样被接管。若 conflict 位于
   `mcp.projects` 下的文件夹，按钮会读取该文件夹的文件，并导入到那个 project。
 - 用 source 定义替换它：仪表盘中的 **Replace with source**，或在 import 时使用
-  `--replace`。
+  `--replace`。仪表盘按钮会一次替换该 server 所有有冲突的 Agent 条目。
+
+若各 Agent 的 server 版本不同，先导入你要的那个。即使其他 Agent 仍有冲突，导入也会
+接管该 Agent 的条目；之后再替换其余的。
 
 ## 通过 MCP 提供 skill {#serve-skills-over-mcp}
 
@@ -828,11 +831,17 @@ SKILLSHARE_MCP_TOKEN=change-me skillshare mcp serve --http 0.0.0.0:8765 \
 `mcp serve` 是一个 MCP server，除非[开启编辑](#edit-skills-over-mcp)，否则为只读，供无法访问 skill 同步目标文件夹的 Agent 使用，例如运行在
 一次性 VM 上或位于 MCP gateway 之后的 Agent。它实现了
 [Skills extension](https://modelcontextprotocol.io/seps/2640-skills-extension)
-（`io.modelcontextprotocol/skills`，SEP-2640）：`skills/list`、`skills/get` 和
-`resources/read`。每个 skill 是一个条目，其 URI 跟随它在 source 中的路径，例如
+（`io.modelcontextprotocol/skills`，SEP-2640）：`skills/list`、`skills/get`、`resources/list`、`resources/read` 和 `resources/directory/read`。每个 skill 是一个条目，其 URI 跟随它在 source 中的路径，例如
 `skill://_team/tools/pdf/SKILL.md`，并带有完整的 frontmatter，以及每个文件的
 `sha256` 摘要和大小。你自己机器上的 Agent 已经通过 `sync` 获得 skill；
 再把它们连接到 `mcp serve`，每个 skill 就会出现两次。
+
+`resources/list` 列出所提供 `SKILL.md` 的 frontmatter 名称和描述。
+`directoryRead: true` 让 client 通过 `resources/directory/read`（`uri`、可选 `cursor`）
+浏览 skill 根目录（例如 `skill://_team/tools/pdf`）及其子目录；响应的 `resources` 只含直接子项，包括 MIME 类型为
+`inode/directory` 的空目录。目录 URI 不加结尾斜线；文件或未知目录返回 `-32602`。
+两种列表都按 URI 排序，每页最多 100 项，以 `nextCursor` 作为 `cursor` 继续，
+并使用与 skills 相同的选择和刷新规则。
 
 大多数 Agent 尚不支持 Skills extension（见下文），因此这个 server 还提供两个工具：
 `list_skills` 列出名称、描述和 URI（`query` 可缩小范围；一次最多列出 200 个），

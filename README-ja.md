@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **最新バージョン**：v0.30.6 — CI で古いスキルを検出できます。`skillshare check --exit-code` は、確認対象のいずれかが最新でないとき終了コード 1 を返します。`check --all` はスキルに加えてエージェントも確認するようになり、1 つの CI ステップで両方をカバーできます。[check リファレンス →](https://skillshare.runkids.cc/ja/docs/reference/commands/check) · [変更履歴 →](https://skillshare.runkids.cc/changelog)
+> **最新バージョン**：v0.30.9 — フックをインポートせずに編集・削除できます。ダッシュボードのフックインポートダイアログは Agent を 1 つずつ表示し、設定ファイル内のフックをその場で変更できるようになりました。書き込み前にファイルの差分を確認でき、バックアップから元に戻せます。フックは未管理のままです。 [hooks リファレンス →](https://skillshare.runkids.cc/ja/docs/reference/commands/hooks) · [変更履歴 →](https://skillshare.runkids.cc/changelog)
 
 ## skillshare を使う理由
 

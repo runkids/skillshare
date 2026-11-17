@@ -233,6 +233,7 @@ skills:
 |---------|------------------------|
 | `skillshare install <source> -p` | 把新 skill 釘選到它安裝時的 commit |
 | `skillshare install -p` | 依釘選的 commit 安裝每個 skill。若某個 skill 已安裝在其他 commit，會被移動到釘選的 commit |
+| `skillshare install -p --json` | 使用 `--json` 時，即使專案鎖定檔指向不同的 commit，也會跳過既有副本；加上 `--force` 才會更新到該釘選版本。 |
 | `skillshare update <name> -p` | 把 skill 移動到最新 commit 並重寫它的釘選，讓這項變更能出現在 code review 中 |
 | `skillshare uninstall <name> -p` | 移除釘選 |
 

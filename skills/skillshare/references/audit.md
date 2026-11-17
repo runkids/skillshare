@@ -64,7 +64,7 @@ Explicit flags always override profile defaults.
 
 Markdown is still scanned, including fenced code blocks. A shared Markdown parser supplies code-block context; it does not establish trust. Fenced shell samples in raw HTML blocks and comments also receive command-tier and dataflow analysis, with taint isolated per block. Raw HTML blocks do not qualify for SDK parameter downgrades.
 
-- `prompt-injection-1`: SDK-style `system:` / `System:` parameters inside a fenced code block are downgraded from CRITICAL to HIGH. Recognized values include quoted strings, arrays, function calls, comma-terminated variables, YAML block scalars, and a quoted string or array on the next line. Uppercase `SYSTEM:` directives, bare role labels, and prose outside fences do not qualify. Other rules still scan the parameter contents.
+- `prompt-injection-1`: SDK-style `system:` / `System:` parameters inside a fenced code block are downgraded from CRITICAL to HIGH. Recognized values include quoted strings, arrays, function calls, comma-terminated variables, YAML block scalars, and a quoted string or array on the next line. Uppercase `SYSTEM:` directives, bare role labels, and prose outside fences do not qualify. Other rules still scan the parameter contents. In non-Markdown source files (`.py`, `.js`, `.ts`, `.sh` and the other code extensions), only uppercase labels such as `ROOT:` match; a lowercase `root:` or `system:` there is a parameter, field or docstring entry and is not reported.
 - `prompt-injection-4`: explicit concealment of actions, changes, or instructions, and requests to hide content or remove conversation history, remain CRITICAL.
 - `prompt-injection-5`: generic disclosure restrictions using `don't` or `do not` followed by `tell the user` are HIGH in all file types. These can be advice or concealment; no framework, repository, or schema wording is treated as proof of safety. A separate explicit-concealment match on the same line still blocks at CRITICAL.
 
@@ -126,8 +126,8 @@ skillshare install user/repo --force      # Override block
 skillshare install user/repo --skip-audit # Skip audit entirely
 ```
 
-`install --json` retains the audit gate even though it enables overwrite/noninteractive
-selection. Explicit `--force` and `--skip-audit` have different security effects.
+`install --json` retains the audit gate and enables noninteractive selection;
+it does not permit overwriting existing items without `--force`. Explicit `--force` and `--skip-audit` have different security effects.
 
 ## Managing Rules
 
@@ -151,7 +151,7 @@ skillshare audit --init-rules       # Global: ~/.config/skillshare/audit-rules.y
 skillshare audit --init-rules -p    # Project: .skillshare/audit-rules.yaml
 ```
 
-Three-layer merge (later overrides earlier): built-in → global → project. Set `confidence` from 0 to 1 by rule ID or pattern; rules without a value default to 0.95. The HIGH prose patterns `anti-refusal`, `prompt-leakage`, `memory-poisoning`, `agent-snooping`, and `persistence` detect narrowly phrased risky directives.
+Three-layer merge (later overrides earlier): built-in → global → project. A rules file that cannot be read, parsed, or compiled makes every scan using it a scan error that names the file. Set `confidence` from 0 to 1 by rule ID or pattern; rules without a value default to 0.95. The HIGH prose patterns `anti-refusal`, `prompt-leakage`, `memory-poisoning`, `agent-snooping`, and `persistence` detect narrowly phrased risky directives.
 
 ```yaml
 rules:

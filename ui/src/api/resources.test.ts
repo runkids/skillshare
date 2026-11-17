@@ -26,3 +26,18 @@ describe('source links API', () => {
     expect(fetch).toHaveBeenCalledWith('/api/source-links/_my%20team', expect.objectContaining({ method: 'DELETE' }));
   });
 });
+
+
+describe('repo removal intent', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it.each<[boolean, boolean, string]>([
+    [false, false, ''], [true, false, '?force=true'],
+    [false, true, '?recordOnly=true'], [true, true, '?force=true&recordOnly=true'],
+  ])('encodes force=%s and recordOnly=%s', async (force, recordOnly, query) => {
+    const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ success: true })));
+    vi.stubGlobal('fetch', fetch);
+    await resourcesApi.deleteRepo('org/_team', force, recordOnly);
+    expect(fetch).toHaveBeenCalledWith(`/api/repos/org%2F_team${query}`, expect.objectContaining({ method: 'DELETE' }));
+  });
+});

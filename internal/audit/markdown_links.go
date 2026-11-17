@@ -15,13 +15,10 @@ var (
 	splitGlobalLinkRules    []rule
 )
 
-// globalSplitMarkdownLinkRules returns the cached split of global rules.
-func globalSplitMarkdownLinkRules() (contentRules []rule, linkRules []rule) {
+// globalSplitMarkdownLinkRules returns the cached split of the global rules,
+// which the caller has already loaded with Rules().
+func globalSplitMarkdownLinkRules(rules []rule) (contentRules []rule, linkRules []rule) {
 	splitGlobalOnce.Do(func() {
-		rules, err := Rules()
-		if err != nil {
-			return
-		}
 		splitGlobalContentRules, splitGlobalLinkRules = splitMarkdownLinkRules(rules)
 	})
 	return splitGlobalContentRules, splitGlobalLinkRules

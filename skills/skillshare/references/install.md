@@ -24,9 +24,11 @@ returns `planned: [{name, path}]`: canonical install names and repository-relati
 Git paths (including a selected subdirectory), or `.` for a local skill. Use this
 instead of scanning for `SKILL.md` or guessing names. Discovery, `.skillignore`, and
 selection rules apply; without a filter JSON mode selects all. `skills` remains
-empty during dry-run. An empty discovered selection returns `planned: []`;
+empty during dry-run, and existing destinations do not block the preview. An empty discovered selection returns `planned: []`;
 tracked and config-based installs omit the field. Check the exit status as well
 as `error`, including when consuming JSON from older CLIs.
+
+With `--json`, existing copies are skipped even when the project lock points to a different commit; add `--force` to follow that pin.
 
 ### Source Formats
 
@@ -132,7 +134,7 @@ or `--kind agent` to choose which resource to manage.
 | `--kind <skill\|agent>` | Restrict resource discovery |
 | `--agent, -a <names>` | Select agents by name (comma-separated) |
 | `--branch, -b <name>` | Select a Git branch, tag or commit SHA (overrides a ref in a web URL) |
-| `--force, -f` | Overwrite existing and explicitly override audit blocking |
+| `--force, -f` | Overwrite existing and explicitly override audit blocking from findings (not a failed scan) |
 | `--update, -u` | Update if exists |
 | `--track, -t` | Track for updates (preserves .git); a local path works if it is a git repository. Rejects `--all`, `--yes`, `--skill`, and `--agent` |
 | `--skill, -s <names>` | Select specific skills from multi-skill repo (comma-separated). Rejects `--track`, `--all`, and `--yes` |
@@ -142,7 +144,7 @@ or `--kind agent` to choose which resource to manage.
 | `--exclude <name>` | Skip specific skills during multi-skill install (repeatable) |
 | `--skip-audit` | Skip security audit for this install |
 | `--audit-threshold <t>` / `--threshold <t>` / `-T <t>` | Override block threshold for this run (`critical\|high\|medium\|low\|info`; shorthand: `c\|h\|m\|l\|i`, plus `crit`, `med`) |
-| `--json` | Noninteractive JSON; permits overwrite and selects all when no skill/agent filter is given; retains audit blocking; when every skill fails or is blocked it exits non-zero with an `error` field naming each one, while a partial failure lists names in `failed` and exits 0 |
+| `--json` | Noninteractive JSON; selects all when no skill/agent filter is given; requires `--force` to overwrite existing items; reports skipped names in `skipped`; retains audit blocking; when every skill fails or is blocked it exits non-zero with an `error` field naming each one, while a partial failure lists names in `failed` and exits 0 |
 | `--dry-run, -n` | Preview |
 
 **Fuzzy subdirectory resolution:** When a monorepo has nested skill directories, you can specify just the skill name — e.g., `user/repo/vue-best-practices` finds `skills/vue-best-practices/` automatically. Fails with an error if multiple matches exist.
@@ -162,7 +164,7 @@ Tracked custom names must not contain path separators (`/`, `\`) or `..`.
 
 **License display:** If a SKILL.md has a `license` frontmatter field, it's shown in selection prompts (e.g., `my-skill (MIT)`) and in the single-skill confirmation box.
 
-**Security audit:** Install auto-scans skills after download. Blocking follows the active threshold (default `CRITICAL`), while aggregate risk is reported separately for context. Use `--force` to override blocking, `--skip-audit` to skip scanning, or `--audit-threshold` / `--threshold` / `-T` to override threshold per command.
+**Security audit:** Install auto-scans skills after download. Blocking follows the active threshold (default `CRITICAL`), while aggregate risk is reported separately for context. Use `--force` to override blocking, `--skip-audit` to skip scanning, or `--audit-threshold` / `--threshold` / `-T` to override threshold per command. A scan that cannot run (for example, an invalid `audit-rules.yaml`) blocks the install, and `--force` does not override it.
 
 **Private repos (HTTPS):** Provider tokens are sent only over HTTPS on the default port (or 443): `github.com`, `gitlab.com`, `bitbucket.org`, `dev.azure.com`, `*.visualstudio.com`, `gitea.com`, and `cnb.cool`. Self-hosted Gitea/CNB requires an exact hostname in `gitea_hosts`/`cnb_hosts`, even if its name contains the provider name. For self-hosted GitHub/GitLab or other hosts, use a host-scoped Git credential helper, or set `SKILLSHARE_GIT_TOKEN` only for the intended invocation. That generic fallback can be sent to **any HTTPS source**; provider-looking names do not authorize provider tokens. SSH and host-scoped Git credential helpers work as usual.
 
@@ -249,7 +251,7 @@ Explicit `--force` can discard local changes and override findings, but not scan
 
 ## uninstall
 
-Remove one or more skills from source. Moves to trash (7-day retention) instead of permanent deletion.
+Remove one or more skills from source. Installed content moves to trash (7-day retention) instead of permanent deletion. A global tracked declaration without a checkout is removed as metadata only.
 
 ```bash
 # Single skill
@@ -274,15 +276,24 @@ skillshare uninstall --group frontend --dry-run
 # JSON output, global or -p (skips confirmation; dirty tracked repos still require --force;
 # when every skill fails, or any agent fails, it exits non-zero and "error" gives the reasons)
 skillshare uninstall my-skill --json
+# Unresolved inputs and reasons also appear in "failed", including dry runs.
 ```
 
 **Tracked repo names:** `uninstall org/team` accepts the shorthand for `org/_team` installed with `--into org`. An existing skill or folder at the typed path wins; use `org/_team` to explicitly remove the repo. Ambiguous short names require the full path.
+
+`uninstall --json` includes an optional `record_only` subset of `removed` for declarations removed without a checkout; these names have no trash undo. The field is omitted for an empty subset. In dry runs both arrays describe planned actions. CLI uninstall log entries also include the `record_only` subset; JSON previews carry `dry_run: true` in the log.
+
+**Declarations without checkouts (global only):** Deleting a checkout by hand leaves its tracked declaration and audit acceptances. An explicit `skillshare uninstall org/_team -g` removes that declaration and its acceptances without contacting the source, even when it is unreachable. While it remains a tracked declaration without a checkout, a plain folder or link to a non-checkout at that path is untouched; `.gitignore` is unchanged, no Git check runs, and nothing goes to trash. Use the canonical recorded name including `_` and any group: shorthand can select an existing skill or folder. Globs, `--all`, and `--group` do not select these declarations. To restore missing checkouts instead, use `skillshare install -g` with reachable sources and free destinations.
+
+**After reconcile:** If `install` or another reconcile walks a plain folder or followed link to a non-checkout at the declared path, the entry becomes an ordinary record (`Tracked=false`). Ordinary uninstall then moves the occupant to trash. An absent path or an unfollowed or unavailable link is not normalized this way.
+
+**Unlink:** In global mode, `skillshare unlink <name>` also forgets the matching tracked-repository record and audit acceptances, while leaving the link target untouched. If metadata cleanup fails, the link is already in trash and a warning says its record may remain; resolve the metadata error before installing again.
 
 **Safety:** Tracked repos with uncommitted changes are skipped, and repos whose git status cannot be read fail. Use `--force` to override both.
 
 **Group auto-detection:** When uninstalling a directory that contains sub-skills, the confirmation prompt shows `Uninstalling group (N skills)` with a list of contained skills.
 
-**Undo:** `skillshare trash restore <name>` to recover. See [trash.md](trash.md).
+**Undo:** `skillshare trash restore <name>` recovers content moved to trash; it cannot undo metadata-only declaration removal. See [trash.md](trash.md).
 
 **After uninstall:** `skillshare sync`
 

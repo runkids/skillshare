@@ -233,6 +233,7 @@ skills:
 |---------|------------------------|
 | `skillshare install <source> -p` | 将新 Skill 固定到其安装时所在的 commit |
 | `skillshare install -p` | 按固定的 commit 安装每个 Skill。已安装在其他 commit 上的 Skill 会被移动到固定的 commit |
+| `skillshare install -p --json` | 使用 `--json` 时，即使项目锁定文件指向不同的 commit，也会跳过现有副本；加上 `--force` 才会更新到该固定版本。 |
 | `skillshare update <name> -p` | 将 Skill 移动到最新 commit 并重写其固定点,使该变更能在代码审查中体现出来 |
 | `skillshare uninstall <name> -p` | 移除固定 |
 

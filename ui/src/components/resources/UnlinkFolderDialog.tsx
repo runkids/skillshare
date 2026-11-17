@@ -19,9 +19,10 @@ export default function UnlinkFolderDialog({ link, skills, onClose }: { link: So
     setSaving(true);
     setFailure('');
     try {
-      await api.removeSourceLink(link.name);
+      const result = await api.removeSourceLink(link.name);
       await invalidate(queryClient, 'sourceUnlinked');
-      toast(t('sourceLinks.unlinked', { name: link.name }), 'success');
+      if (result.warning) toast(t('sourceLinks.metadataWarning'), 'warning');
+      else toast(t('sourceLinks.unlinked', { name: link.name }), 'success');
       onClose();
     } catch (err) {
       setFailure((err as Error).message);

@@ -74,7 +74,7 @@ const stale: Record<QueryEvent, Label[] | { args: string[]; stale: Label[] }> = 
   skillBranchSwitched: [...S, 'overview', 'diff', 'config'],
   skillEdited: { args: ['a'], stale: S },
   installDialogClosed: S,
-  reposChanged: [...S, 'overview', 'trash'],
+  reposChanged: [...S, 'overview', 'trash', 'missingConfigEntries'],
   skillsMoved: [...S, 'overview', ...SM, 'diff'],
   skillsUninstalled: [...S, 'overview', 'trash', ...SM, 'diff'],
   trashChanged: ['trash', ...S, ...SM],
@@ -82,7 +82,7 @@ const stale: Record<QueryEvent, Label[] | { args: string[]; stale: Label[] }> = 
   skillsToggled: [...S, ...SM, 'overview'],
   skillTargetFilterChanged: [...T, ...SM, 'diff', 'diffClaude'],
   sourceLinked: [...S, 'overview', 'config', 'diff', 'syncMatrix'],
-  sourceUnlinked: [...S, 'overview', 'config', 'diff', 'syncMatrix', 'trash'],
+  sourceUnlinked: [...S, 'overview', 'config', 'diff', 'syncMatrix', 'trash', 'missingConfigEntries'],
   collected: { args: ['claude'], stale: [...S, 'overview', ...T, 'diff', 'syncMatrix', 'collectScanClaude'] },
   configInstalled: ['missingConfigEntries', ...S, 'overview', ...SM, 'diff'],
 

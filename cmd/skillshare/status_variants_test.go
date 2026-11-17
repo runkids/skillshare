@@ -30,7 +30,7 @@ func TestTrackedRepoStatusCountsLogicalVariants(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	repos := buildTrackedRepoJSON(src, trackedRepos, skills)
+	repos := buildTrackedRepoJSON(src, false, trackedRepos, skills)
 	if len(repos) != 1 || repos[0].SkillCount != 2 {
 		t.Fatalf("repository counts = %+v, want 2 logical skills", repos)
 	}

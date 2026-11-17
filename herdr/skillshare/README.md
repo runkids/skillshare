@@ -98,6 +98,7 @@ Read ~/.config/herdr-app/AGENTS.md, then update only the installed skillshare mo
 ## How it reads
 
 - It runs on the shown space's machine (`exec` with `on`), in the focused terminal's folder.
+  On Windows, which has no `sh`, it runs through Git for Windows' `bin/sh.exe`.
 - A folder with `.skillshare/config.yaml` or `skillshare/config.yaml` is a project; both
   scopes show and the All · Project · Global switch appears beside the tabs.
 - Per scope, independent detached reads run `list --all`, `diff`, `mcp list`, `plugin list` and

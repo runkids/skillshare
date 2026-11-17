@@ -29,10 +29,11 @@ type packageDeclaration struct {
 	Bindings  map[string]declaration `yaml:"bindings"`
 }
 type receipt struct {
-	Intent  string  `json:"intent"`
-	Store   string  `json:"store"`
-	Binding Binding `json:"binding"`
-	Action  string  `json:"action,omitempty"`
+	Intent            string  `json:"intent"`
+	Store             string  `json:"store"`
+	Binding           Binding `json:"binding"`
+	Action            string  `json:"action,omitempty"`
+	OMPRemovalVersion string  `json:"ompRemovalVersion,omitempty"`
 }
 type localBinding struct {
 	Applied *receipt `json:"applied,omitempty"`
@@ -396,7 +397,7 @@ func (s *Service) ownedSnapshot(b Binding, target string) bool {
 			if c.Name == b.Plugin {
 				path := filepath.Join(root, "content", filepath.FromSlash(c.pathFor(agent)))
 				if agent == "opencode" {
-					return b.ID == fileURL(filepath.Join(path, c.Entry))
+					return b.ID == fileURL(path) || b.ID == fileURL(filepath.Join(path, c.Entry))
 				}
 				return b.ID == path
 			}
@@ -453,7 +454,7 @@ func sourceChangeFailure(name, target string, all bool, err error) (Change, erro
 		return Change{}, err
 	}
 	key, args := ErrorKey(err)
-	return Change{Name: name, Target: target, Action: "skip", batchError: true, Message: err.Error(), MessageKey: key, MessageArgs: args}, nil
+	return Change{Name: name, Target: target, Action: "skip", Failed: true, Message: err.Error(), MessageKey: key, MessageArgs: args}, nil
 }
 
 // Prepare the replacement before scheduling cleanup, so a failed batch target
@@ -466,9 +467,9 @@ func (s *Service) sourceReplacementChanges(ctx context.Context, r Request, name,
 			return nil, err
 		}
 		if r.isolatesTargets() && c.Action == "blocked" {
-			c.Action, c.batchError = "skip", true
+			c.Action, c.Failed = "skip", true
 		}
-		if c.batchError {
+		if c.Failed {
 			return []Change{c}, nil
 		}
 		changes = append(changes, c)
@@ -490,7 +491,13 @@ func (s *Service) importMatchesRecipe(ctx context.Context, target string, instal
 	case isNpmSource(installed.ID):
 		nativeName = logicalName(installed.ID)
 	case agent == "opencode":
-		root, ok := openCodeImportRoot(installed.ID, decl.Entry)
+		id := installed.ID
+		if path, err := s.openCodeLocalPath(target, id); err != nil {
+			return false, err
+		} else if path != "" {
+			id = path
+		}
+		root, ok := openCodeImportRoot(id, decl.Entry)
 		if !ok {
 			return false, nil
 		}

@@ -90,6 +90,8 @@ Next
 
 对于 agents，恢复提示会改为建议运行 `skillshare sync agents`。
 
+`replaced-by-init/<tool>/` 之下的文件夹是例外：它们是 [`init`](./init.md) 把工具中的文件夹替换为链接时移入的，而 source 中已有相同的 skill，所以 `restore` 拒绝恢复。需要时请从 trash 文件夹手动复制回去。
+
 恢复时也会还原安装时记录的信息：从 GitHub 或其他远程来源安装的 skill、tracked repo 和 agent 会保留来源，`update` 和 `check` 照常可用。旧版本移入 trash 的项目会以 local 恢复。
 
 被移到 trash 的 [source link](../targets/configuration.md#follow_source_links) 会显示为 `link → <target>`，恢复时仍会以链接（或 junction）的形式重建，绝不会变成其目标的副本。从被跟随的链接背后移到 trash 的 skill（`_dev-skills/foo`）在 `follow_source_links` 开启时会被恢复到真实的 checkout 中；如果该设置关闭，或 checkout 之下存在指向别处的嵌套链接，恢复会失败并保留 trash 条目。

@@ -90,7 +90,8 @@ func TestRemoveMovesOnlyTheLink(t *testing.T) {
 		t.Fatal(err)
 	}
 	trashDir := t.TempDir()
-	if err := Remove(source, trashDir, "_dev/"); err != nil {
+	trashPath, err := Remove(source, trashDir, "_dev/")
+	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Lstat(filepath.Join(source, "_dev")); !os.IsNotExist(err) {
@@ -99,7 +100,7 @@ func TestRemoveMovesOnlyTheLink(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(checkout, "foo")); err != nil {
 		t.Fatalf("target touched: %v", err)
 	}
-	if entry := trash.FindByName(trashDir, "_dev"); entry == nil || entry.LinkTarget == "" {
+	if entry := trash.FindByName(trashDir, "_dev"); entry == nil || entry.LinkTarget == "" || entry.Path != trashPath {
 		t.Fatalf("trash entry %+v, want the link", entry)
 	}
 }
@@ -109,7 +110,7 @@ func TestRemoveRefusesDirectory(t *testing.T) {
 	if err := os.Mkdir(filepath.Join(source, "local"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := Remove(source, t.TempDir(), "local"); err == nil || !strings.Contains(err.Error(), "is not a link") {
+	if path, err := Remove(source, t.TempDir(), "local"); path != "" || err == nil || !strings.Contains(err.Error(), "is not a link") {
 		t.Fatalf("Remove = %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(source, "local")); err != nil {

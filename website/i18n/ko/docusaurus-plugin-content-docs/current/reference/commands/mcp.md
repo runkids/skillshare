@@ -835,6 +835,10 @@ plan은 `existing entry is not managed` 충돌을 보고하고, 그 항목에 �
   그대로 채택됩니다. `mcp.projects` 아래 폴더의 충돌이라면 버튼은 그 폴더의 파일을 읽고
   해당 project로 가져옵니다.
 - source 정의로 교체: 대시보드의 **Replace with source**, 또는 import의 `--replace`.
+  대시보드 버튼은 그 서버에서 충돌하는 모든 Agent의 항목을 한 번에 교체합니다.
+
+Agent마다 서버 버전이 다르면 원하는 것을 먼저 import하세요. import는 다른 Agent가 아직
+충돌 중이어도 그 Agent의 항목을 채택합니다. 나머지는 그다음에 교체하세요.
 
 ## Serve skills over MCP {#serve-skills-over-mcp}
 
@@ -847,10 +851,17 @@ SKILLSHARE_MCP_TOKEN=change-me skillshare mcp serve --http 0.0.0.0:8765 \
 
 `mcp serve`는 skill이 동기화되는 폴더에 접근할 수 없는 Agent(일회용 VM에 있거나 MCP 게이트웨이 뒤에 있는 Agent 등)를 위한 MCP 서버이며, [편집을 켜지 않는 한](#edit-skills-over-mcp) 읽기 전용입니다.
 [Skills extension](https://modelcontextprotocol.io/seps/2640-skills-extension)
-(`io.modelcontextprotocol/skills`, SEP-2640)의 `skills/list`, `skills/get`, `resources/read`를 구현합니다.
+(`io.modelcontextprotocol/skills`, SEP-2640)의 `skills/list`, `skills/get`, `resources/list`, `resources/read`, `resources/directory/read`를 구현합니다.
 각 skill은 하나의 항목이며, URI는 `skill://_team/tools/pdf/SKILL.md`처럼 source 경로를 따릅니다.
 전체 frontmatter와 함께 모든 파일이 `sha256` digest 및 크기와 함께 제공됩니다.
 내 컴퓨터의 Agent는 이미 `sync`로 skill을 받으므로, 여기에 `mcp serve`까지 연결하면 각 skill이 두 번 보입니다.
+
+`resources/list`는 제공되는 `SKILL.md`의 frontmatter 이름과 설명을 나열합니다.
+`directoryRead: true`로 client는 `resources/directory/read`(`uri`, 선택 사항인 `cursor`)를 통해
+`skill://_team/tools/pdf` 같은 skill 루트와 그 하위 디렉터리를 탐색할 수 있습니다. 응답의 `resources`는 바로 아래 항목만 포함하며,
+MIME 타입이 `inode/directory`인 빈 디렉터리도 포함합니다. 디렉터리 URI에는 끝 슬래시가 없으며,
+파일이나 알 수 없는 디렉터리는 `-32602`를 반환합니다. 두 목록 모두 URI 순서로 페이지당 최대
+100개를 반환합니다. `nextCursor`를 `cursor`로 전달하여 계속하며, skill과 같은 선택 및 갱신 규칙을 따릅니다.
 
 대부분의 Agent는 아직 Skills extension을 지원하지 않으므로(아래 참고), 서버는 도구 두 개도 제공합니다.
 `list_skills`는 이름, 설명, URI를 나열하며(`query`로 좁힐 수 있고, 한 번의 응답에 최대 200개),

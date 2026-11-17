@@ -374,7 +374,7 @@ func runCheck(sourceDir, agentsDir, projectRoot string, opts *checkOptions, extr
 		repoResults = append(repoResults, checkRepoResult{
 			Name:    repo.Name,
 			Status:  "missing",
-			Message: missingTrackedRepoMessage(repo.Name),
+			Message: missingTrackedRepoMessage(repo.Name, projectRoot != ""),
 		})
 	}
 

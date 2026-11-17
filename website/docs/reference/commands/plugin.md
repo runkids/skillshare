@@ -58,7 +58,7 @@ Bare commands prompt for missing inputs in a terminal. Noninteractive mutation
 commands require explicit inputs. `sync` and `check` may operate on all packages;
 `update` updates all managed packages when passed `--all` (`-a`).
 Updating one package for several Agents (no `--target`, or more than one) works the
-same way per Agent: an Agent that cannot update is reported as failed with its reason,
+same way per Agent: a failed Agent is reported with its reason,
 the others still update, and the command exits non-zero. When no other Agent has
 anything to update, or the update names a single `--target`, it is blocked instead.
 `sync --all` does **not** include plugins; use `sync plugins` explicitly.
@@ -199,10 +199,13 @@ is uninstalled from that scope, not merely disabled. Shared cache, marketplaces
 and plugin settings are retained; no cache garbage collection is attempted.
 Reinstall automatically chooses a fresh marketplace/cache identity when the old
 cache still exists, without replacing files another project may use. Unreadable,
-linked or non-directory cache destinations remain blocked.
+linked or non-directory cache destinations remain blocked. When an owned marketplace
+is already registered, its catalog is refreshed before installation.
 
-Removal requires the verified 18.6.1+ metadata contract, matching installed
-version, unambiguous JSON and proven runtime-link ownership. A real module folder,
+Removal requires the verified 18.6.1+ metadata contract, unambiguous JSON and
+proven runtime-link ownership. A present native registry entry must match the
+scope and have a verified version and cache path, even if the binding version
+differs. A real module folder,
 foreign link, npm dependency collision or ambiguous runtime owner is refused.
 If the cache manifest is missing, the adapter requires a unique runtime-lock key
 whose scope-local link points to that installation's cache; it never guesses the
@@ -221,7 +224,8 @@ mutations concurrently. This is not an atomic multi-file native transaction.
 An update never runs OMP's native upgrade. It removes this scope's registration with
 the same adapter, then installs the reviewed commit under a fresh cache identity, so
 the retained cache stays for other projects. When the removal cannot be verified,
-the update is blocked; `update --all` skips it with the reason. Imported code is
+the update is blocked; `update --all` reports it as failed with the reason and
+continues other targets. Imported code is
 never upgraded without a reviewed source.
 
 Project operations require the selected root to match OMP's native project
@@ -391,14 +395,16 @@ folders, including files linked there by [extras](./extras.md), are listed
 read-only with where to change them; a project lists its own folder, which Pi
 reads only if it trusts the project, and the global one.
 
-OpenCode registers the managed entry as a file URL in `opencode.json` or the
+OpenCode v1 registers the managed entry file; v2 registers the package directory as a file URL in `opencode.json` or the
 existing `opencode.jsonc`, preserving comments and unrelated entries. Version 1
 uses `plugin`; version 2 uses `plugins`. `XDG_CONFIG_HOME` and an absolute global
 `OPENCODE_CONFIG` are respected; ambiguous or unsupported overrides are rejected.
 OpenCode must be on PATH so Skillshare can choose the version's schema.
+A v2 directory package that [`hooks`](./hooks.md) registers in the same `plugins`
+array (`plugins/skillshare-NAME`) belongs to hooks; `plugin list` and
+`plugin import` do not show it.
 
-A local OpenCode source must already include its built entry (`main`, a string
-root export, or `index.js`) and required runtime dependencies. Skillshare does not
+A local OpenCode v1 source needs its built entry (`main`, a string root export, or `index.js`). v2 uses the directory loader: `name` plus a string root or `./server` export, or a root `server`/`index` file (`.ts`, `.tsx`, `.js`). `--entry` does not override v2 directory loading; conditional and fallback server exports are refused. Both `@opencode-ai/plugin` and `@opencode/plugin` identify OpenCode packages. Manifests and dependency requirements remain unchanged. Skillshare does not
 run build scripts or install dependencies into the source. Registration is not
 proof the module loaded successfully; check OpenCode after reload.
 
@@ -422,7 +428,7 @@ can be imported; filtered OpenCode entries are still rejected.
 Imported Pi packages are updated with `pi update SOURCE` in global mode, which
 keeps their settings entry; a project's are updated in Pi, because `pi update`
 also reaches global packages. Imported OpenCode v1 packages are updated in their
-native tool. OpenCode v2 global imports can use its native update command; project imports must be
+native tool. OpenCode v2 global package imports can use its native update command; imported local directories are left for you to update without running dependency installers; project imports must be
 updated natively because the v2 update command is global.
 
 ```bash
@@ -495,8 +501,9 @@ never supplies native trust approval flags.
   skipped. An imported Codex plugin is updated with
   `codex plugin marketplace upgrade NAME`, which reinstalls every plugin Codex
   installed from that marketplace, as Codex also does when it starts.
-- An update skips a target it cannot reach and says why; the plugin's other
-  Agents still update, and a skipped update stays pending for a later sync.
+- An update reports a failed target and its reason while continuing healthy targets;
+  intentional skips remain pending for a later sync. A dry run prints the complete
+  plan and exits nonzero on failure; isolated failures include `failed: true` in JSON.
 - Imported plugins retain their original marketplace identity. `check` cannot
   infer release availability for an imported plugin without a source, except an npm
   package in Pi, which it checks against npm. If an
@@ -635,3 +642,5 @@ its local receipt. Shared declarations and other machines' installations stay
 unchanged. The next sync installs the shared source recipe.
 
 Uninstalling also removes native-client configuration or login associated with that installation.
+
+A flat-file registration left by an older Skillshare OpenCode v2 adapter is rejected for add/import/sync/update. Remove the old managed binding and add its directory package again. Removal remains available and leaves unrelated native registrations untouched. A runtime version change after preview requires a fresh preview.

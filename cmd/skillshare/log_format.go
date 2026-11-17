@@ -104,6 +104,9 @@ func formatInstallLogPairs(args map[string]any) []logDetailPair {
 	if failedSkills, ok := logArgStringSlice(args, "failed_skills"); ok && len(failedSkills) > 0 {
 		pairs = append(pairs, logDetailPair{key: "failed", isList: true, listValues: failedSkills})
 	}
+	if skippedSkills, ok := logArgStringSlice(args, "skipped_skills"); ok && len(skippedSkills) > 0 {
+		pairs = append(pairs, logDetailPair{key: "skipped", isList: true, listValues: skippedSkills})
+	}
 
 	return pairs
 }
@@ -584,6 +587,9 @@ func formatInstallLogDetail(args map[string]any) string {
 	}
 	if failedSkills, ok := logArgStringSlice(args, "failed_skills"); ok && len(failedSkills) > 0 {
 		parts = append(parts, "failed="+strings.Join(failedSkills, ", "))
+	}
+	if skippedSkills, ok := logArgStringSlice(args, "skipped_skills"); ok && len(skippedSkills) > 0 {
+		parts = append(parts, "skipped="+strings.Join(skippedSkills, ", "))
 	}
 	if dryRun, ok := logArgBool(args, "dry_run"); ok && dryRun {
 		parts = append(parts, "dry-run")

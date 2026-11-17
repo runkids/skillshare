@@ -269,6 +269,8 @@ skillshare audit <name>              # Check a specific skill
 skillshare audit --json | jq '.skills[].findings'  # Inspect findings programmatically
 ```
 
+If a rules file cannot be read, parsed, or compiled (for example, an invalid regex), every scan that uses it reports a scan error naming the file, and `audit` exits `2`. Installs are blocked until you fix the file.
+
 Summary interpretation:
 
 - `Failed` counts skills with findings at or above the active threshold.
