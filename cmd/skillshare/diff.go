@@ -817,9 +817,19 @@ func collectMergeDiff(r *targetDiffResult, targetPath, source string, sourceSkil
 		if _, keepLegacy := legacyNames[skill]; keepLegacy {
 			continue
 		}
-		if !sourceSkills[skill] && !targetSymlinks[skill] {
-			r.items = append(r.items, copyDiffEntry{action: "remove", name: skill, reason: "local only", isSync: false, dstDir: filepath.Join(targetPath, skill)})
+		if sourceSkills[skill] {
+			continue
+		}
+		dstDir := filepath.Join(targetPath, skill)
+		if !targetSymlinks[skill] {
+			r.items = append(r.items, copyDiffEntry{action: "remove", name: skill, reason: "local only", isSync: false, dstDir: dstDir})
 			r.localCount++
+			continue
+		}
+		// A link no skill maps to: listed only when sync would prune it.
+		if sync.OrphanLink(dstDir, source, manifest.Records(skill), false).RemoveReason != "" {
+			r.items = append(r.items, copyDiffEntry{action: "remove", name: skill, reason: "orphan (will be pruned)", isSync: true, dstDir: dstDir})
+			r.syncCount++
 		}
 	}
 

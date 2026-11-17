@@ -89,10 +89,11 @@ func linkResolvesToSource(absLink, absSource string) bool {
 	return utils.PathsEqual(utils.ResolveSymlink(absLink), utils.ResolveSymlink(absSource))
 }
 
-// prunableLink reports whether an orphan link at path may be removed: it is
+// PrunableLink reports whether an orphan link at path may be removed: it is
 // broken, or it resolves inside sourceDir. Live links to other locations, which
-// skillshare never creates, survive.
-func prunableLink(path, sourceDir string) bool {
+// skillshare never creates, survive. Merge-mode prune and the agent diffs both
+// call this, so a diff lists only the links sync removes.
+func PrunableLink(path, sourceDir string) bool {
 	if _, err := os.Stat(path); errors.Is(err, fs.ErrNotExist) {
 		return true
 	} else if err != nil {
@@ -628,7 +629,7 @@ func PruneOrphanAgentLinks(targetDir, sourceDir string, agents []resource.Discov
 			continue
 		}
 
-		if expected[name] || !prunableLink(filepath.Join(targetDir, name), sourceDir) {
+		if expected[name] || !PrunableLink(filepath.Join(targetDir, name), sourceDir) {
 			continue
 		}
 
