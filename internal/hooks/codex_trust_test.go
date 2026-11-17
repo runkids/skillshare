@@ -491,6 +491,23 @@ func TestParseCodexHooksListFailsWhenCodexLoadedNothing(t *testing.T) {
 	}
 }
 
+// A home that fails after the review is reported; the reviewed home is still trusted.
+func TestCodexTrustKeepsReviewedHomesWhenAnotherFailsToListAgain(t *testing.T) {
+	e, f := trustEnv(t)
+	save(t, e.service, Mutation{Name: "k", Entry: accountEntry(t, "codex", "codex-2")})
+	plan, err := e.service.PreviewCodexTrust()
+	must(t, err)
+	f.listErrHome = filepath.Join(e.home, ".codex-2")
+
+	plan, err = e.service.TrustCodex(plan.Revision)
+	if err == nil || errors.Is(err, ErrStaleRevision) || !strings.Contains(err.Error(), "codex-2: ") {
+		t.Fatalf("err = %v, want the listing failure of codex-2, not a stale revision", err)
+	}
+	if got := trustActions(t, plan.Hooks); got != "codex:k:session_start:0:0:trusted" {
+		t.Fatalf("trust = %s", got)
+	}
+}
+
 // Codex can take a while to answer a preview; other hooks operations must not wait for it.
 func TestCodexTrustPreviewDoesNotHoldTheOperationLock(t *testing.T) {
 	e, f := trustEnv(t)

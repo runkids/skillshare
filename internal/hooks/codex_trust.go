@@ -32,7 +32,8 @@ type CodexTrust struct {
 }
 
 // CodexTrustPlan is what sync --trust looked at. Revision names the hooks that need
-// trust and their hashes, so trust is recorded only for what was shown.
+// trust and their hashes, one part per home, so trust is recorded only for what was
+// shown and a home that fails later does not hold back the homes that were reviewed.
 type CodexTrustPlan struct {
 	Hooks    []CodexTrust `json:"hooks"`
 	Revision string       `json:"revision"`
@@ -158,6 +159,7 @@ func (s *Service) codexTrust(revision string, apply bool) (*CodexTrustPlan, erro
 		target string
 		server CodexAppServer
 		edits  map[string]string
+		review string // names this home's needed hooks and hashes; empty when none
 	}
 	var writes []write
 	var servers []CodexAppServer
@@ -166,7 +168,7 @@ func (s *Service) codexTrust(revision string, apply bool) (*CodexTrustPlan, erro
 			server.Close()
 		}
 	}()
-	var needed []string
+	var reviews []string
 	listed := 0
 	for _, file := range sortedKeys(homes) {
 		h := homes[file]
@@ -183,22 +185,34 @@ func (s *Service) codexTrust(revision string, apply bool) (*CodexTrustPlan, erro
 			continue
 		}
 		listed++
-		writes = append(writes, write{h.target, server, edits})
-		plan.Hooks = append(plan.Hooks, hooks...)
-		for key, hash := range edits {
-			needed = append(needed, key+"\x00"+hash)
+		review := ""
+		if len(edits) > 0 {
+			var needed []string
+			for key, hash := range edits {
+				needed = append(needed, key+"\x00"+hash)
+			}
+			slices.Sort(needed)
+			review = digest([]byte(strings.Join(needed, "\n")))
+			reviews = append(reviews, review)
 		}
+		writes = append(writes, write{h.target, server, edits, review})
+		plan.Hooks = append(plan.Hooks, hooks...)
 	}
 	if listed == 0 && len(plan.Failed) > 0 {
 		return plan, plan.Err()
 	}
-	slices.Sort(needed)
-	plan.Revision = digest([]byte(strings.Join(needed, "\n")))
+	slices.Sort(reviews)
+	plan.Revision = strings.Join(reviews, ".")
 	if !apply {
 		return plan, nil
 	}
-	if revision != plan.Revision {
-		return plan, fmt.Errorf("Codex hooks changed since they were listed: %w", ErrStaleRevision)
+	// Each home is checked on its own: a home that cannot be listed now is reported
+	// below, and it does not make the homes that were reviewed look changed.
+	reviewed := strings.Split(revision, ".")
+	for _, w := range writes {
+		if w.review != "" && !slices.Contains(reviewed, w.review) {
+			return plan, fmt.Errorf("Codex hooks changed since they were listed: %w", ErrStaleRevision)
+		}
 	}
 	// One home that fails does not stop the others, and the error says which is which.
 	var done []string
