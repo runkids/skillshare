@@ -51,7 +51,7 @@ flowchart TD
 
 **Connect my existing repo** は 2 台目のマシン向けです。何も書き込まずに先にリポジトリを確認し、構成を判断します。`--git-root root` で push したリポジトリは skillshare フォルダ全体になり、Skill が `skills/` フォルダにあるリポジトリはそのフォルダを source にします。このマシンとリポジトリの両方にある同名の Skill はリポジトリ版を使います。このマシンにしかない Skill は残すかどうかを尋ね、次の `skillshare push` でリポジトリに追加されます。
 
-初回の sync では、source とバイト単位で同一のツール側 Skill フォルダはリンクに置き換えられます。フォルダは先に trash へ移され、trash のクリーンアップで削除されるまで（7 日間）`skillshare trash list` の `replaced-by-init/<tool>/` 以下に表示されます。`trash restore` は source に復元するコマンドで、source には同じ Skill がすでにあるため、これらのエントリは復元できません。必要な場合は trash のフォルダから手動でコピーしてください。内容が異なるフォルダや、他のツールが Skill と同じ名前で置いたリンクは、残して一覧表示します。`skillshare sync --force` で置き換えられます。
+初回の sync では、source とバイト単位で同一のツール側 Skill フォルダはリンクに置き換えられます。フォルダは先に trash へ移され、trash のクリーンアップで削除されるまで（7 日間）`skillshare trash list` の `replaced-by-init/<tool>/` 以下に表示されます。`trash restore` は source に復元するコマンドで、source には同じ Skill がすでにあるため、これらのエントリは復元できません。必要な場合は trash のフォルダから手動でコピーしてください。内容が異なるフォルダや、他のツールが Skill と同じ名前で置いたリンクは、残して一覧表示します。`skillshare sync --force` で置き換えられます。ツール側に Agent と同じ名前のファイルがすでにある場合も、同じように残して一覧表示します。`skillshare sync agents --force` で置き換えられます。
 
 ### ターミナルがない場合
 

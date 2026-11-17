@@ -98,3 +98,32 @@ func TestFirstSyncReportsLinkKeptFromAnotherTool(t *testing.T) {
 		t.Fatalf("want the kept link reported, got %v", warnings)
 	}
 }
+
+// The first sync keeps an agent file a tool already has under an agent's
+// name. init must name it, with the command that replaces it.
+func TestFirstSyncReportsAgentFileKeptInTool(t *testing.T) {
+	t.Setenv("XDG_DATA_HOME", t.TempDir())
+	agents, agentsTgt := t.TempDir(), t.TempDir()
+	if err := os.WriteFile(filepath.Join(agents, "helper.md"), []byte("---\nname: helper\ndescription: x\n---\nours"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(agentsTgt, "helper.md"), []byte("theirs"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg := &config.Config{Source: t.TempDir(), AgentsSource: agents, Mode: "merge", Targets: map[string]config.TargetConfig{
+		"claude": {Path: t.TempDir(), Agents: &config.ResourceTargetConfig{Path: agentsTgt}},
+	}}
+
+	var warnings []string
+	captureStdout(t, func() {
+		var err error
+		if _, warnings, err = firstSync(cfg); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	want := "claude: kept local agents: helper.md (sync agents --force replaces them)"
+	if len(warnings) != 1 || warnings[0] != want {
+		t.Fatalf("warnings = %v, want %q", warnings, want)
+	}
+}

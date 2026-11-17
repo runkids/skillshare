@@ -264,7 +264,8 @@ func printInitDone(p *initPlan, res *initResult) {
 // firstSync replaces target copies identical to the source with links, then
 // syncs skills (and agents, if any) quietly. warnings are what a plain sync
 // would have printed under each tool, such as the entries it kept because
-// skillshare did not create them, plus the copies the trash could not take.
+// skillshare did not create them, plus the copies the trash could not take
+// and the agent files each tool kept.
 func firstSync(cfg *config.Config) (skills int, warnings []string, err error) {
 	cfg.Targets = config.WithSharedSkillsTargets(cfg.Targets, cfg.Mode)
 	start := time.Now()
@@ -283,7 +284,8 @@ func firstSync(cfg *config.Config) (skills int, warnings []string, err error) {
 		entries = append(entries, syncTargetEntry{name: name, target: target, mode: getTargetMode(target.SkillsConfig().Mode, cfg.Mode)})
 	}
 	results, failed := runParallelSyncQuiet(entries, cfg.EffectiveSkillsSource(), discovered, ssync.EffectiveFileIgnorePatterns(cfg.Ignore), false, false, "")
-	if _, agentErr := syncAgentsGlobal(cfg, false, false, true, start); agentErr != nil && err == nil {
+	agentStats, agentErr := syncAgentsGlobal(cfg, false, false, true, start)
+	if agentErr != nil && err == nil {
 		err = agentErr
 	}
 	spinner.Stop()
@@ -301,6 +303,7 @@ func firstSync(cfg *config.Config) (skills int, warnings []string, err error) {
 			warnings = append(warnings, w)
 		}
 	}
+	warnings = append(warnings, agentStats.warnings...)
 	return counts.Skills, warnings, err
 }
 
