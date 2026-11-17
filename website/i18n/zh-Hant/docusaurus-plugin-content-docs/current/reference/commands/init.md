@@ -51,7 +51,7 @@ flowchart TD
 
 **Connect my existing repo** 用於第二台機器。它會先檢查 repo（不寫入任何東西）並判斷結構：用 `--git-root root` 推上去的 repo 會成為整個 skillshare 資料夾；skills 放在 `skills/` 資料夾的 repo 會以該資料夾作為 source。這台機器和 repo 都有的同名 skill 使用 repo 版本。只存在於這台機器的 skills 會詢問是否保留，並在下次 `skillshare push` 時加入 repo。
 
-第一次 sync 時，工具裡與 source 逐位元組相同的 skill 資料夾會換成連結。資料夾會先移到 trash，在 trash 清理把它刪除之前（7 天），`skillshare trash list` 會把它列在 `replaced-by-init/<tool>/` 之下。`trash restore` 會還原到 source，而 source 已經有相同的 skill，所以它拒絕還原這些項目；需要時請從 trash 資料夾手動複製回去。內容不同的資料夾，以及其他工具以同名放置的連結，會保留並列出；執行 `skillshare sync --force` 可以把它們換掉。
+第一次 sync 時，工具裡與 source 逐位元組相同的 skill 資料夾會換成連結。資料夾會先移到 trash，在 trash 清理把它刪除之前（7 天），`skillshare trash list` 會把它列在 `replaced-by-init/<tool>/` 之下。`trash restore` 會還原到 source，而 source 已經有相同的 skill，所以它拒絕還原這些項目；需要時請從 trash 資料夾手動複製回去。內容不同的資料夾，以及其他工具以同名放置的連結，會保留並列出；執行 `skillshare sync --force` 可以把它們換掉。工具裡已有與 agent 同名的檔案時，也會同樣保留並列出；執行 `skillshare sync agents --force` 可以把它換掉。
 
 ### 沒有終端機時
 
