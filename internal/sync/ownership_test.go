@@ -353,3 +353,50 @@ func TestSyncCopyKeepsLinkThatReplacedARecordedCopy(t *testing.T) {
 		t.Errorf("link was replaced: %q (%v), want a link to %q", got, err, other)
 	}
 }
+
+// OrphanLink is the one rule prune and its previews share. Each row is a link
+// no skill maps to, with what prune does to it.
+func TestOrphanLinkVerdict(t *testing.T) {
+	src, tgt := setupMergeTest(t, "alpha")
+	other := t.TempDir()
+	gone := filepath.Join(other, "gone")
+	if err := os.MkdirAll(gone, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	dirLink(t, filepath.Join(tgt, "live-in-source"), filepath.Join(src, "alpha"))
+	dirLink(t, filepath.Join(tgt, "live-external"), other)
+	dirLink(t, filepath.Join(tgt, "broken-external"), gone)
+	renamed := filepath.Join(src, "renamed")
+	if err := os.MkdirAll(renamed, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	dirLink(t, filepath.Join(tgt, "broken-in-source"), renamed)
+	for _, dir := range []string{gone, renamed} {
+		if err := os.RemoveAll(dir); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	cases := []struct {
+		link              string
+		inManifest, force bool
+		remove, warn      bool
+	}{
+		{link: "live-in-source"},
+		{link: "live-in-source", inManifest: true, remove: true},
+		{link: "live-in-source", force: true, remove: true},
+		{link: "broken-in-source", remove: true},
+		{link: "live-external", warn: true},
+		{link: "live-external", inManifest: true, warn: true},
+		{link: "live-external", force: true, remove: true},
+		{link: "broken-external", warn: true},
+		{link: "broken-external", inManifest: true, remove: true},
+		{link: "broken-external", force: true, remove: true},
+	}
+	for _, c := range cases {
+		got := OrphanLink(filepath.Join(tgt, c.link), src, c.inManifest, c.force)
+		if (got.RemoveReason != "") != c.remove || (got.KeptWarning != "") != c.warn {
+			t.Errorf("%s inManifest=%v force=%v: got %+v, want remove=%v warn=%v", c.link, c.inManifest, c.force, got, c.remove, c.warn)
+		}
+	}
+}

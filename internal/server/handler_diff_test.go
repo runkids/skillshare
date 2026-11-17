@@ -226,3 +226,23 @@ func TestComputeTargetDiff_KeepsRecordedLinkThatStillResolvesElsewhere(t *testin
 		t.Fatalf("items = %+v, want only the broken link pruned", dt.Items)
 	}
 }
+
+// Prune treats a link it cannot follow as broken, not only one whose
+// destination is missing. A recorded link that loops is removed by sync, so the
+// diff must list it.
+func TestComputeTargetDiff_ListsRecordedLinkThatCannotBeFollowed(t *testing.T) {
+	source, target := t.TempDir(), t.TempDir()
+	loop := filepath.Join(target, "loop")
+	if err := os.Symlink(loop, loop); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if err := sync.WriteManifest(target, &sync.Manifest{Managed: map[string]string{"loop": "symlink"}}); err != nil {
+		t.Fatal(err)
+	}
+
+	dt := (&Server{}).computeTargetDiff("claude", config.TargetConfig{Skills: &config.ResourceTargetConfig{Path: target, Mode: "merge"}}, nil, "merge", source, nil)
+
+	if len(dt.Items) != 1 || dt.Items[0].Skill != "loop" || dt.Items[0].Action != "prune" {
+		t.Fatalf("items = %+v, want the looping link pruned", dt.Items)
+	}
+}
