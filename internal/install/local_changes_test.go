@@ -84,9 +84,9 @@ func TestLocalChanges_NoRecordedCommit(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("# a\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	_, err := LocalChanges(&MetadataEntry{Source: "file:///nonexistent/repo", RepoURL: "file:///nonexistent/repo", FileHashes: map[string]string{"SKILL.md": "sha256:old"}}, ParseOptions{}, dir)
-	if err == nil || !strings.Contains(err.Error(), "no recorded commit") {
-		t.Errorf("err = %v, want no recorded commit", err)
+	changes, err := LocalChanges(&MetadataEntry{Source: "file:///nonexistent/repo", RepoURL: "file:///nonexistent/repo", FileHashes: map[string]string{"SKILL.md": "sha256:old"}}, ParseOptions{}, dir)
+	if err != nil || len(changes) != 1 || changes[0] != (FileChange{Path: "SKILL.md", Status: "modified"}) {
+		t.Errorf("LocalChanges = %+v, %v; want hash-only modified status", changes, err)
 	}
 }
 
@@ -122,5 +122,38 @@ func TestInstalledCommit(t *testing.T) {
 		if got := installedCommit(&MetadataEntry{Version: c.version, Commit: c.commit}); got != c.want {
 			t.Errorf("installedCommit(%q, %q) = %q, want %q", c.version, c.commit, got, c.want)
 		}
+	}
+}
+
+func TestLocalChanges_ArchiveListsHashesWithoutFetching(t *testing.T) {
+	dir := t.TempDir()
+	for _, name := range []string{"SKILL.md", "removed.md"} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte("original"), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	hashes, err := ComputeFileHashes(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry := &MetadataEntry{Source: "https://127.0.0.1:1/missing.zip", Type: "archive-subdir", FileHashes: hashes}
+	if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("edited"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(filepath.Join(dir, "removed.md")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "added.md"), []byte("new"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	changes, err := LocalChanges(entry, ParseOptions{}, dir)
+	if !entry.LocallyModified(dir) {
+		t.Fatal("digest-free ZIP edits not protected")
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(changes) != 3 || changes[0] != (FileChange{Path: "SKILL.md", Status: "modified"}) || changes[1] != (FileChange{Path: "added.md", Status: "added"}) || changes[2] != (FileChange{Path: "removed.md", Status: "deleted"}) {
+		t.Fatalf("hash-only archive changes = %+v", changes)
 	}
 }

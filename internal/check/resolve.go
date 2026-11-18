@@ -82,7 +82,8 @@ type remoteKey struct{ url, branch string }
 
 type remoteGroup struct {
 	remoteKey
-	skills []Skill
+	skills  []Skill
+	archive bool
 }
 
 // Plan resolves the skills that have no remote and groups the others by
@@ -91,7 +92,8 @@ func Plan(skills []Skill, projectRoot string) *Resolution {
 	r := &Resolution{}
 	index := make(map[remoteKey]int)
 	for _, s := range skills {
-		if s.Entry == nil || s.Entry.RepoURL == "" {
+		archive := s.Entry.IsArchive()
+		if s.Entry == nil || (s.Entry.RepoURL == "" && !archive) {
 			result := baseResult(s)
 			result.Local = true
 			result.Status, result.Message = LocalSourceStatus(s.Entry, projectRoot)
@@ -99,11 +101,15 @@ func Plan(skills []Skill, projectRoot string) *Resolution {
 			continue
 		}
 		key := remoteKey{s.Entry.RepoURL, s.Entry.Branch}
+		if archive {
+			key.url, _, _ = strings.Cut(s.Entry.Source, "#")
+			key.branch = ""
+		}
 		i, ok := index[key]
 		if !ok {
 			i = len(r.groups)
 			index[key] = i
-			r.groups = append(r.groups, remoteGroup{remoteKey: key})
+			r.groups = append(r.groups, remoteGroup{remoteKey: key, archive: archive})
 		}
 		r.groups[i].skills = append(r.groups[i].skills, s)
 	}
@@ -185,14 +191,32 @@ func (g remoteGroup) resolve(remote Remote) []SkillResult {
 		results[i] = baseResult(s)
 	}
 
-	remoteHash, err := remote.Hash(g.url, g.branch)
+	var remoteHash string
+	var err error
+	if g.archive {
+		remoteHash, err = install.ArchiveHash(g.url)
+	} else {
+		remoteHash, err = remote.Hash(g.url, g.branch)
+	}
 	if err != nil {
 		for i := range results {
 			results[i].Status = "error"
+			if g.archive {
+				results[i].Message = err.Error()
+			}
 		}
 		return results
 	}
 
+	if g.archive {
+		for i, s := range g.skills {
+			results[i].Status = "update_available"
+			if s.Entry.ArchiveSHA256 == remoteHash {
+				results[i].Status = "up_to_date"
+			}
+		}
+		return results
+	}
 	// Tree hashes cost a fetch, so they are skipped when every skill is at the
 	// remote commit and when no skill recorded one.
 	allMatch, hasTreeHash := true, false

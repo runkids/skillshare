@@ -16,6 +16,10 @@ skillshare check --json               # Machine-readable output
 skillshare check my-skill --diff      # Show what you changed in a skill since install
 ```
 
+### HTTPS ZIP 확인
+
+같은 URL(쿼리 포함)을 공유하는 Skill은 한 번만 다운로드하여 SHA256을 비교합니다. 같으면 `up_to_date`, 변경되면 `update_available`, 다운로드 실패 시 `error`입니다. 원격 확인 성공 후 로컬 수정은 `modified`로 표시합니다. 압축을 해제하거나 설치 상태를 쓰지 않으며 기존 `--json`, `--exit-code` 규칙을 따릅니다. 과거 ZIP 내용의 차이와 아카이브 잠금 고정은 지원하지 않습니다. `check <name> --diff`는 기록된 해시로 수정·추가·삭제 파일을 나열합니다.
+
 ## 언제 사용하나요
 
 ### 업데이트 전에

@@ -100,6 +100,7 @@ const (
 	SourceTypeGitHub
 	SourceTypeGitHTTPS
 	SourceTypeGitSSH
+	SourceTypeArchive
 )
 
 func (t SourceType) String() string {
@@ -112,6 +113,8 @@ func (t SourceType) String() string {
 		return "git-https"
 	case SourceTypeGitSSH:
 		return "git-ssh"
+	case SourceTypeArchive:
+		return "archive"
 	default:
 		return "unknown"
 	}
@@ -119,13 +122,14 @@ func (t SourceType) String() string {
 
 // Source represents a parsed installation source
 type Source struct {
-	Type     SourceType
-	Raw      string // Original user input
-	CloneURL string // Git clone URL (empty for local)
-	Subdir   string // Subdirectory path for monorepo
-	Path     string // Local path (empty for git)
-	Name     string // Derived skill name
-	Branch   string // Git branch to clone from (empty = remote default)
+	Type          SourceType
+	Raw           string // Original user input
+	CloneURL      string // Git clone URL (empty for local)
+	Subdir        string // Subdirectory path for monorepo
+	Path          string // Local path (empty for git)
+	Name          string // Derived skill name
+	ArchiveSHA256 string // SHA256 of the downloaded ZIP bytes
+	Branch        string // Git branch to clone from (empty = remote default)
 	// Commit is the exact commit to check out. A lockfile sets it before the
 	// install; a clone fills it with the full SHA it ended up on. Unlike
 	// Branch it is never written back to the config as the skill's ref.
@@ -237,6 +241,9 @@ func ParseSourceWithOptions(input string, opts ParseOptions) (*Source, error) {
 	// Check for local path first (starts with /, ~, or .)
 	if isLocalPath(input) {
 		return parseLocalPath(input, source)
+	}
+	if u, err := url.Parse(input); err == nil && (u.Scheme == "https" || u.Scheme == "http") && strings.HasSuffix(strings.ToLower(u.Path), ".zip") {
+		return parseArchiveSource(u, source)
 	}
 
 	// Try Azure DevOps patterns (before generic HTTPS to avoid misparse)

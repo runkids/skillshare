@@ -609,7 +609,7 @@ func cleanupDiscoveryImpl(result *DiscoveryResult) {
 	if result == nil || result.RepoPath == "" || result.Source == nil {
 		return
 	}
-	if !result.Source.IsGit() {
+	if !result.Source.IsGit() && result.Source.Type != SourceTypeArchive {
 		return
 	}
 	cleanupTempRepo(result.RepoPath)

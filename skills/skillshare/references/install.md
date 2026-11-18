@@ -5,7 +5,16 @@ see [native-agents.md](native-agents.md). These examples use skills unless speci
 
 ## install
 
-Install skills from local path or git repository.
+Install skills from local paths, Git repositories or HTTPS `.zip` URLs. ZIPs reuse
+skill discovery, selection, naming, groups and audit. Downloads allow 100 MiB;
+extraction allows 250 MiB and 10,000 entries, rejecting unsafe paths, links and
+`.git` entries at any depth (case-insensitive); `.gitignore` remains supported.
+ZIP default names are normalized for config reinstalls (dots become hyphens), without
+changing member paths. Select one member with `#skill=` if normalization causes a name collision.
+Metadata keeps the original URL (including query), a `#skill=<escaped-relative-path>`
+selector and the downloaded SHA256. `check` hashes each URL once; `update` only
+reinstalls changed bytes, while `update --force` can restore local edits. ZIPs
+support skills only, without Git tracking/refs, filename-version discovery or lock pins.
 
 Skills normally keep their directory name. For generic `skill` or `skills` directories,
 a valid `SKILL.md` frontmatter `name` is used, lowercased with spaces normalized to hyphens

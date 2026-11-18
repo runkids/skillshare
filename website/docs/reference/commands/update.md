@@ -61,6 +61,16 @@ flowchart TD
     TITLE --> S1 --> S2 --> S3
 ```
 
+### For HTTPS ZIP Skills
+
+`update` downloads the recorded URL and compares its SHA256 before extraction.
+Identical bytes leave files, metadata and timestamps unchanged. Changed bytes
+reinstall the exact selected member into its existing name and group, after the
+normal audit. Download, extraction, missing-member and audit failures preserve the
+installed copy. Local edits use the normal protection; `--force` restores the
+upstream copy even when the archive bytes are unchanged. Updates stay at the
+recorded URL and do not search for versioned filenames.
+
 ## Options
 
 | Flag | Description |

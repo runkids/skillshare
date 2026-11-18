@@ -294,6 +294,23 @@ func TestHandlePatchSkillSource_UpdatesRemoteAndMetadata(t *testing.T) {
 	if entry.RepoURL != "https://github.com/new/repo.git" {
 		t.Fatalf("metadata RepoURL = %q, want new repo URL", entry.RepoURL)
 	}
+	before, err := os.ReadFile(filepath.Join(src, install.MetadataFileName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rr = httptest.NewRecorder()
+	s.mux.ServeHTTP(rr, httptest.NewRequest(http.MethodPatch, "/api/resources/_team-repo__skill-a/source", strings.NewReader(`{"source":"https://host/pack.zip"}`)))
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("checkout ZIP source: %d %s", rr.Code, rr.Body)
+	}
+	after, _ := os.ReadFile(filepath.Join(src, install.MetadataFileName))
+	if !bytes.Equal(before, after) {
+		t.Fatal("checkout refusal changed metadata")
+	}
+	if out := runGit(t, repoDir, "remote", "get-url", "origin"); strings.TrimSpace(string(out)) != "https://github.com/new/repo.git" {
+		t.Fatalf("refusal changed remote: %s", out)
+	}
+
 }
 
 // TestFindRepoRoot_ExcludesSourceRoot guards the origin-hijack regression: when

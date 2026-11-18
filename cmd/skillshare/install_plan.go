@@ -20,7 +20,7 @@ func (s *installLogSummary) planSkills(source *install.Source, skills []install.
 	s.PlannedSkills = make([]installPlannedSkill, 0, len(skills))
 	for _, skill := range skills {
 		path := skill.Path
-		if source.IsGit() && source.HasSubdir() {
+		if (source.IsGit() || source.Type == install.SourceTypeArchive) && source.HasSubdir() {
 			path = filepath.ToSlash(filepath.Join(source.Subdir, path))
 		}
 		s.PlannedSkills = append(s.PlannedSkills, installPlannedSkill{Name: skill.Name, Path: path})

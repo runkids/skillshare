@@ -52,6 +52,32 @@ skillshare install
 
 ## Source Formats
 
+### HTTPS ZIP Archives
+
+```bash
+skillshare install https://host/brief.zip -g
+skillshare install 'https://host/pack.zip?download=1' -s brief --into legal -g
+skillshare install 'https://host/pack.zip#skill=legal%2Fbrief' --name custom -p
+```
+
+ZIPs use the existing skill discovery, selection and security audit. Root-level,
+wrapped and multi-skill archives work. Downloads require HTTPS, including redirects,
+and are limited to 100 MiB; extraction allows at most 10,000 entries and 250 MiB
+in total. Traversal, absolute paths, backslashes, symlinks, special files and `.git`
+entries at any depth (case-insensitive) are rejected; `.gitignore` remains supported.
+Default names are normalized for config reinstalls (for example, `brief-1.0.0` becomes
+`brief-1-0-0`); member paths stay unchanged. If normalization makes names ambiguous,
+select one member with `#skill=<escaped-relative-path>`.
+ZIP sources support skills; Git tracking and branch/ref options are unavailable.
+
+Metadata records the original URL, the downloaded bytes' SHA256 and the selected
+member as `#skill=<escaped-relative-path>` (`.` selects the archive root). Query
+parameters are preserved, so treat URLs with private query parameters as private
+configuration. Project declarations can reinstall the same selection on another machine.
+[`check`](./check.md) compares bytes at that URL, and [`update`](./update.md) replaces
+changed archives after auditing. A version appearing at a new filename requires
+installing its new URL. Tar archives and archive lock pins are unsupported.
+
 ### GitHub Shorthand
 
 Use `owner/repo` format — automatically expands to `github.com/owner/repo`:

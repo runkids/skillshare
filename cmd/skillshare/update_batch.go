@@ -267,6 +267,13 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 	}
 	for _, t := range standaloneSkills {
 		progressBar.UpdateTitle(fmt.Sprintf("Updating %s", t.name))
+		if !uc.opts.force && t.meta.LocallyModified(t.path, uc.follow) {
+			modifiedNames = append(modifiedNames, t.name)
+			result.skipped++
+			result.items = append(result.items, updateJSONItem{Name: t.name, Type: "skill", Status: "skipped", Error: modifiedSkillReason})
+			progressBar.Increment()
+			continue
+		}
 		updated, installRes, err := updateSkillFromMeta(uc, t.path, t.meta)
 		if err != nil {
 			if isStaleError(err) {
@@ -289,6 +296,8 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 			}
 		} else if updated {
 			result.updated++
+		} else if installRes != nil && installRes.Action == "skipped" {
+			result.upToDate++
 		} else {
 			result.skipped++
 		}

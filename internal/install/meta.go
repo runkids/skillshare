@@ -17,18 +17,19 @@ const MetaFileName = ".skillshare-meta.json"
 
 // SkillMeta contains metadata about an installed skill or agent
 type SkillMeta struct {
-	Source      string            `json:"source"`                // Original source input
-	Kind        string            `json:"kind,omitempty"`        // "skill" (default/empty) or "agent"
-	Type        string            `json:"type"`                  // Source type (github, local, etc.)
-	InstalledAt time.Time         `json:"installed_at"`          // Installation timestamp
-	RepoURL     string            `json:"repo_url,omitempty"`    // Git repo URL (for git sources)
-	Subdir      string            `json:"subdir,omitempty"`      // Subdirectory path (for monorepo)
-	Version     string            `json:"version,omitempty"`     // Git commit hash or version
-	TreeHash    string            `json:"tree_hash,omitempty"`   // Git tree SHA of Subdir
-	FileHashes  map[string]string `json:"file_hashes,omitempty"` // sha256:<hex> per file
-	Branch      string            `json:"branch,omitempty"`      // Git branch (when non-default)
-	Commit      string            `json:"commit,omitempty"`      // Full commit SHA, what the lockfile records
-	Layout      string            `json:"layout,omitempty"`      // Files a local install copied
+	Source        string            `json:"source"`         // Original source input
+	Kind          string            `json:"kind,omitempty"` // "skill" (default/empty) or "agent"
+	Type          string            `json:"type"`           // Source type (github, local, etc.)
+	InstalledAt   time.Time         `json:"installed_at"`   // Installation timestamp
+	ArchiveSHA256 string            `json:"archive_sha256,omitempty"`
+	RepoURL       string            `json:"repo_url,omitempty"`    // Git repo URL (for git sources)
+	Subdir        string            `json:"subdir,omitempty"`      // Subdirectory path (for monorepo)
+	Version       string            `json:"version,omitempty"`     // Git commit hash or version
+	TreeHash      string            `json:"tree_hash,omitempty"`   // Git tree SHA of Subdir
+	FileHashes    map[string]string `json:"file_hashes,omitempty"` // sha256:<hex> per file
+	Branch        string            `json:"branch,omitempty"`      // Git branch (when non-default)
+	Commit        string            `json:"commit,omitempty"`      // Full commit SHA, what the lockfile records
+	Layout        string            `json:"layout,omitempty"`      // Files a local install copied
 }
 
 // EffectiveKind returns "skill" if Kind is empty, otherwise the Kind value.
@@ -149,11 +150,12 @@ func ComputeFileHashes(skillPath string, follow ...*sourcewalk.Follow) (map[stri
 // New code should use MetadataStore.SetFromSource() instead.
 func NewMetaFromSource(source *Source) *SkillMeta {
 	meta := &SkillMeta{
-		Source:      source.Raw,
-		Type:        source.MetaType(),
-		InstalledAt: time.Now(),
-		Branch:      source.Branch,
-		Commit:      source.Commit,
+		Source:        source.Raw,
+		Type:          source.MetaType(),
+		InstalledAt:   time.Now(),
+		Branch:        source.Branch,
+		Commit:        source.Commit,
+		ArchiveSHA256: source.ArchiveSHA256,
 	}
 
 	if source.IsGit() {
