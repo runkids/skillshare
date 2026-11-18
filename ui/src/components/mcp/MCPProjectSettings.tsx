@@ -45,18 +45,20 @@ export function ProjectTargets({ value, defaults, offered, onChange, disabled }:
       setPicking(false);
     });
   };
+  // The project's own list as on screen: a list just saved counts before it comes back.
+  const ownList = sent ?? value;
   // Going back drops the project's own list, which then has to be ticked again.
   const inherit = () => {
-    if (value?.length) return setAsking(true);
+    if (ownList?.length) return setAsking(true);
     setPicking(false);
     setSent(null);
-    if (value !== undefined) onChange(undefined);
+    if (ownList !== undefined) onChange(undefined);
   };
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap gap-x-6 gap-y-3.5"><TargetToggles offered={offered} selected={selected} onToggle={pick} disabled={disabled} /></div>
       {own && <Button variant="link" className="min-h-6 self-end !text-xs" onClick={inherit} disabled={disabled}>{t('mcp.projects.backToGlobal')}</Button>}
-      <ConfirmDialog open={asking} title={t('mcp.projects.inheritTitle')} message={t('mcp.projects.inheritMessage', { targets: (value ?? []).map(targetLabel).join(', ') })} confirmText={t('mcp.projects.inheritConfirm')} onCancel={() => setAsking(false)} onConfirm={() => { setAsking(false); setPicking(false); setSent(null); onChange(undefined); }} />
+      <ConfirmDialog open={asking} title={t('mcp.projects.inheritTitle')} message={t('mcp.projects.inheritMessage', { targets: (ownList ?? []).map(targetLabel).join(', ') })} confirmText={t('mcp.projects.inheritConfirm')} onCancel={() => setAsking(false)} onConfirm={() => { setAsking(false); setPicking(false); setSent(null); onChange(undefined); }} />
     </div>
   );
 }

@@ -32,6 +32,15 @@ describe('project targets', () => {
     expect(screen.getByRole('checkbox', { name: /Claude/ })).toHaveAttribute('aria-checked', 'true');
   });
 
+  it('drops a list saved by the first tick even before it comes back', async () => {
+    const user = userEvent.setup();
+    const onChange = renderTargets(undefined, vi.fn().mockResolvedValue(true));
+    await user.click(screen.getByRole('checkbox', { name: /OpenCode/ }));
+    await user.click(screen.getByRole('button', { name: 'Back to global' }));
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Use global targets' }));
+    expect(onChange).toHaveBeenLastCalledWith(undefined);
+  });
+
   it("asks before going back to the global targets, which drops the project's own list", async () => {
     const user = userEvent.setup();
     const onChange = renderTargets(['opencode', 'pi']);
