@@ -28,7 +28,7 @@ export const useHooksQuery = (options?: Options<Data<typeof hooksApi.list>>) =>
 export const useSkillsQuery = (options?: Options<Data<typeof api.listSkills>>) =>
   useQuery({
     queryKey: queryKeys.skills.all,
-    queryFn: () => api.listSkills(),
+    queryFn: ({ signal }) => api.listSkills(undefined, signal),
     staleTime: staleTimes.skills,
     ...options,
   });

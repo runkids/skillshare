@@ -1,4 +1,4 @@
-import { apiFetch } from './client';
+import { http } from './http';
 import type { MCPMutation } from './mcp';
 
 /** One result of `skillshare mcp check`. `subject` names the variable, command, package, image, or host; never a value. */
@@ -32,8 +32,7 @@ export interface MCPProbe {
 
 export const mcpCheckApi = {
   /** Read-only. Findings that are errors still resolve; only a check that cannot run rejects. */
-  run: () => apiFetch<MCPCheckReport>('/mcp/check'),
+  run: () => http.get<MCPCheckReport>('/mcp/check'),
   /** Starts the server as the form describes it, saved or not, and asks for its tools. Saves nothing. */
-  probe: (mutation: MCPMutation) =>
-    apiFetch<MCPProbe>('/mcp/probe', { method: 'POST', body: JSON.stringify({ mutation }) }),
+  probe: (mutation: MCPMutation) => http.post<MCPProbe>('/mcp/probe', { mutation }),
 };

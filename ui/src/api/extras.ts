@@ -1,5 +1,8 @@
-import { apiFetch } from './http';
+import { http, type SuccessResponse } from './http';
 import type {
+  CreateExtraRequest,
+  EditExtraTarget,
+  ExtensionActionResult,
   ExtensionInfo,
   Extra,
   ExtraDiffResult,
@@ -8,109 +11,50 @@ import type {
   ExtrasSyncResult,
 } from './types/extras';
 
+const extraPath = (name: string) => `/extras/${encodeURIComponent(name)}`;
+
 export const extrasApi = {
-  listExtras: () => apiFetch<{ extras: Extra[] }>('/extras'),
+  listExtras: () => http.get<{ extras: Extra[] }>('/extras'),
   diffExtras: (name?: string) =>
-    apiFetch<{ extras: ExtraDiffResult[] }>(
+    http.get<{ extras: ExtraDiffResult[] }>(
       `/extras/diff${name ? '?name=' + encodeURIComponent(name) : ''}`,
     ),
-  createExtra: (data: {
-    name: string;
-    source?: string;
-    folder?: string; // a folder in the shared extras folder; the server stores it as the source
-    file?: string; // single-file extra: the file in the source folder
-    targets: Array<{
-      path: string;
-      mode: string;
-      flatten?: boolean;
-      extension?: string;
-      as?: string;
-    }>;
-  }) =>
-    apiFetch<{ success: boolean }>('/extras', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
-  syncExtras: (opts?: { name?: string; dry_run?: boolean; force?: boolean }) =>
-    apiFetch<{ extras: ExtrasSyncResult[] }>('/extras/sync', {
-      method: 'POST',
-      body: JSON.stringify(opts ?? {}),
-    }),
-  deleteExtra: (name: string) =>
-    apiFetch<{ success: boolean }>(`/extras/${encodeURIComponent(name)}`, { method: 'DELETE' }),
-  listExtraExtensions: () => apiFetch<{ extensions: string[] }>('/extras/extensions'),
-  // Extensions management (Config page)
-  listExtensions: () => apiFetch<{ extensions: ExtensionInfo[] }>('/extensions'),
-  installExtension: (name: string) =>
-    apiFetch<{ success: boolean; name: string }>('/extensions/install', {
-      method: 'POST',
-      body: JSON.stringify({ name }),
-    }),
-  openExtensionsDir: () => apiFetch<{ path: string }>('/extensions/open', { method: 'POST' }),
-  removeExtension: (name: string) =>
-    apiFetch<{ success: boolean; name: string }>(`/extensions/${encodeURIComponent(name)}`, {
-      method: 'DELETE',
-    }),
-  // extension: undefined = leave unchanged; '' = clear; name = set (forces copy mode)
+  createExtra: (input: CreateExtraRequest) => http.post<SuccessResponse>('/extras', input),
+  syncExtras: (options: { name?: string; dry_run?: boolean; force?: boolean } = {}) =>
+    http.post<{ extras: ExtrasSyncResult[] }>('/extras/sync', options),
+  deleteExtra: (name: string) => http.delete<SuccessResponse>(extraPath(name)),
+
+  // undefined leaves the extension unchanged; '' clears it; a name forces copy mode.
   setExtraMode: (
     name: string,
     target: string,
     mode: string,
     flatten?: boolean,
     extension?: string,
-  ) =>
-    apiFetch<{ success: boolean }>(`/extras/${encodeURIComponent(name)}/mode`, {
-      method: 'PATCH',
-      body: JSON.stringify({
-        target,
-        mode,
-        ...(flatten !== undefined && { flatten }),
-        ...(extension !== undefined && { extension }),
-      }),
-    }),
+  ) => http.patch<SuccessResponse>(`${extraPath(name)}/mode`, { target, mode, flatten, extension }),
   addExtraTarget: (
     name: string,
     target: { path: string; mode?: string; flatten?: boolean; as?: string },
-  ) =>
-    apiFetch<{ success: boolean }>(`/extras/${encodeURIComponent(name)}/targets`, {
-      method: 'POST',
-      body: JSON.stringify(target),
-    }),
+  ) => http.post<SuccessResponse>(`${extraPath(name)}/targets`, target),
   previewExtraFilter: (name: string, include: string[], exclude: string[]) =>
-    apiFetch<{ files: ExtraFilterEntry[]; unmatched: string[] | null }>(
-      `/extras/${encodeURIComponent(name)}/preview`,
-      {
-        method: 'POST',
-        body: JSON.stringify({ include, exclude }),
-      },
+    http.post<{ files: ExtraFilterEntry[]; unmatched: string[] | null }>(
+      `${extraPath(name)}/preview`,
+      { include, exclude },
     ),
   // A new path or file name also clears the old place and syncs.
-  editExtraTarget: (
-    name: string,
-    path: string,
-    target: {
-      path: string;
-      mode: string;
-      flatten: boolean;
-      extension: string;
-      as: string;
-      include: string[];
-      exclude: string[];
-    },
-  ) =>
-    apiFetch<ExtraEditResult>(`/extras/${encodeURIComponent(name)}/targets`, {
-      method: 'PUT',
-      body: JSON.stringify({ path, target }),
-    }),
+  editExtraTarget: (name: string, path: string, target: EditExtraTarget) =>
+    http.put<ExtraEditResult>(`${extraPath(name)}/targets`, { path, target }),
   // source: omitted = unchanged, '' = the default folder; a new source relinks every target.
   editExtra: (name: string, data: { name?: string; source?: string }) =>
-    apiFetch<ExtraEditResult>(`/extras/${encodeURIComponent(name)}`, {
-      method: 'PATCH',
-      body: JSON.stringify(data),
-    }),
+    http.patch<ExtraEditResult>(extraPath(name), data),
   removeExtraTarget: (name: string, path: string) =>
-    apiFetch<{ success: boolean }>(`/extras/${encodeURIComponent(name)}/targets`, {
-      method: 'DELETE',
-      body: JSON.stringify({ path }),
-    }),
+    http.delete<SuccessResponse>(`${extraPath(name)}/targets`, { path }),
+
+  listExtraExtensions: () => http.get<{ extensions: string[] }>('/extras/extensions'),
+  listExtensions: () => http.get<{ extensions: ExtensionInfo[] }>('/extensions'),
+  installExtension: (name: string) =>
+    http.post<ExtensionActionResult>('/extensions/install', { name }),
+  openExtensionsDir: () => http.post<{ path: string }>('/extensions/open'),
+  removeExtension: (name: string) =>
+    http.delete<ExtensionActionResult>(`/extensions/${encodeURIComponent(name)}`),
 };

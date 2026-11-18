@@ -2020,6 +2020,7 @@
   "sync.changes.one": "변경 {count}개",
   "sync.changes.other": "변경 {count}개",
   "sync.checking": "바뀔 내용을 확인하는 중…",
+  "sync.migrateMcpSource": "MCP 소스 설정 마이그레이션",
   "sync.nothing": "동기화할 내용이 없습니다. 모든 대상이 소스와 같습니다.",
   "sync.noTargets": "아직 대상이 없습니다. 대상을 추가하면 동기화할 수 있습니다.",
   "sync.addTarget": "대상 추가",

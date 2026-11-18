@@ -1,4 +1,4 @@
-import { apiFetch } from './client';
+import { http } from './http';
 
 export const mcpTargets = [
   'claude',
@@ -125,11 +125,10 @@ export interface MCPImportSource {
   path: string;
   piExtension?: string;
 }
-const post = <T>(path: string, body: unknown) =>
-  apiFetch<T>(path, { method: 'POST', body: JSON.stringify(body) });
+
 export const mcpApi = {
   list: () =>
-    apiFetch<{
+    http.get<{
       source: {
         path: string;
         configPath: string;
@@ -161,23 +160,23 @@ export const mcpApi = {
       backups: MCPBackup[];
       unmanaged: MCPUnmanaged[];
     }>('/mcp'),
-  preview: (mutation: MCPMutation = {}) => post<MCPPlan>('/mcp/preview', { mutation }),
+  preview: (mutation: MCPMutation = {}) => http.post<MCPPlan>('/mcp/preview', { mutation }),
   configure: (mutation: MCPMutation, revision: string, sync: boolean) =>
-    post<MCPResult>('/mcp', { mutation, revision, sync }),
+    http.post<MCPResult>('/mcp', { mutation, revision, sync }),
   /** Apply only the changes of one mcp.projects root; the global scope and other projects stay pending. */
   syncProject: (root: string, revision: string) =>
-    post<MCPResult>('/mcp', { mutation: {}, revision, sync: true, root }),
+    http.post<MCPResult>('/mcp', { mutation: {}, revision, sync: true, root }),
   /** Save to the source only. The server refuses a write it has not previewed; the revision also catches concurrent edits. */
   save: async (mutation: MCPMutation) =>
-    post<MCPResult>('/mcp', {
+    http.post<MCPResult>('/mcp', {
       mutation,
-      revision: (await post<MCPPlan>('/mcp/preview', { mutation })).revision,
+      revision: (await http.post<MCPPlan>('/mcp/preview', { mutation })).revision,
       sync: false,
     }),
   /** One server as each of its targets' config files would hold it. Reads configuration only; no server is executed and no file is written. */
   /** `toolGaps`: the parts of the server's tool policy that Agent does not apply. */
   render: (mutation: MCPMutation) =>
-    post<{
+    http.post<{
       rendered: {
         target: string;
         path: string;
@@ -193,11 +192,12 @@ export const mcpApi = {
     name?: string;
     root?: string;
     piExtension?: string;
-  }) => post<{ candidates: MCPCandidate[] }>('/mcp/import', body),
-  previewRestore: (backupId: string) => post<MCPPlan>('/mcp/restore', { backupId, preview: true }),
+  }) => http.post<{ candidates: MCPCandidate[] }>('/mcp/import', body),
+  previewRestore: (backupId: string) =>
+    http.post<MCPPlan>('/mcp/restore', { backupId, preview: true }),
   restore: (backupId: string, revision: string) =>
-    post<MCPResult>('/mcp/restore', { backupId, revision }),
+    http.post<MCPResult>('/mcp/restore', { backupId, revision }),
   /** Open one Agent's config file, as listed in `paths` or `projectPaths`, the way the skill page opens a skill; `folder` opens its directory instead. */
   open: (target: string, opts: { project?: string; folder?: boolean } = {}) =>
-    post<{ editor: string; path: string; pid: number }>('/mcp/open', { target, ...opts }),
+    http.post<{ editor: string; path: string; pid: number }>('/mcp/open', { target, ...opts }),
 };

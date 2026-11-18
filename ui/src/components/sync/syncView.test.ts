@@ -17,6 +17,7 @@ import {
   mcpGroups,
   otherWarnings,
   pendingCount,
+  reviewSyncConfig,
   receivesSkill,
   resourceGroups,
   runSync,
@@ -626,6 +627,34 @@ describe('failureExplanation', () => {
     };
 
     beforeEach(() => vi.clearAllMocks());
+
+    it('shows a scoped conflict but only submits/counts the unblocked project', () => {
+      const plan = {
+        ...hooks,
+        blocked: true,
+        changes: [
+          { ...hookChange, root: '/a', action: 'conflict' },
+          { ...hookChange, root: '/b' },
+        ],
+      };
+      const a = reviewSyncConfig(null, plan, '/a'),
+        b = reviewSyncConfig(null, plan, '/b');
+      expect(a.hookRows).toHaveLength(1);
+      expect([a.count, a.run.hooks]).toEqual([0, null]);
+      expect([b.count, b.run.hooks]).toEqual([1, plan]);
+    });
+
+    it('counts a global migration even without file rows', () => {
+      const plan: MCPPlan = {
+        revision: 'r',
+        sourcePath: '',
+        blocked: false,
+        changes: [],
+        migrates: true,
+      };
+      const reviewed = reviewSyncConfig(plan, null);
+      expect([reviewed.count, reviewed.run.mcp]).toEqual([1, plan]);
+    });
 
     it('applies the fresh revision of a reviewed hooks plan, after checking it is unchanged', async () => {
       vi.mocked(hooksApi.preview).mockResolvedValue({ ...hooks, revision: 'h2' });

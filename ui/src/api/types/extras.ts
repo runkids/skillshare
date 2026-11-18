@@ -1,4 +1,32 @@
-// Extras types
+export interface CreateExtraRequest {
+  name: string;
+  source?: string;
+  folder?: string; // a folder in the shared extras folder; the server stores it as the source
+  file?: string; // single-file extra: the file in the source folder
+  targets: Array<{
+    path: string;
+    mode: string;
+    flatten?: boolean;
+    extension?: string;
+    as?: string;
+  }>;
+}
+
+export interface EditExtraTarget {
+  path: string;
+  mode: string;
+  flatten: boolean;
+  extension: string;
+  as: string;
+  include: string[];
+  exclude: string[];
+}
+
+export interface ExtensionActionResult {
+  success: boolean;
+  name: string;
+}
+
 export interface ExtraTarget {
   path: string;
   mode: string;

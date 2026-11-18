@@ -1,3 +1,5 @@
+import { optimisticTargets } from '../lib/optimisticTargets';
+import { useResourceToggle } from '../hooks/useResourceToggle';
 import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -131,7 +133,6 @@ type MenuState =
   | { mode: 'skill'; skill: Skill; point: Point }
   | { mode: 'bulk'; names: string[]; point: Point }
   | { mode: 'add'; point: Point };
-type SkillsData = { resources: Skill[] };
 
 const EMPTY: Skill[] = [];
 // ponytail: "Show more" paging instead of virtualization; add a virtual list if 1000+ rows get slow.
@@ -622,32 +623,8 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
 
   const refreshAfterTargets = () => void invalidate(queryClient, 'skillSyncChanged');
 
-  /** Optimistic patch of the skills cache; returns the snapshot to roll back to. */
-  const patch = async (fn: (skills: Skill[]) => Skill[]) => {
-    await queryClient.cancelQueries({ queryKey: queryKeys.skills.all });
-    const previous = queryClient.getQueryData<SkillsData>(queryKeys.skills.all);
-    if (previous)
-      queryClient.setQueryData<SkillsData>(queryKeys.skills.all, {
-        ...previous,
-        resources: fn(previous.resources),
-      });
-    return { previous };
-  };
-  const rollback = (err: Error, _: unknown, ctx?: { previous?: SkillsData }) => {
-    if (ctx?.previous) queryClient.setQueryData(queryKeys.skills.all, ctx.previous);
-    toast(err.message, 'error');
-  };
-
-  const toggleOne = useMutation({
-    mutationFn: ({ s, disable }: { s: Skill; disable: boolean }) =>
-      disable ? api.disableResource(s.flatName, s.kind) : api.enableResource(s.flatName, s.kind),
-    onMutate: ({ s, disable }) =>
-      patch((list) =>
-        list.map((x) =>
-          x.flatName === s.flatName && x.kind === s.kind ? { ...x, disabled: disable } : x,
-        ),
-      ),
-    onSuccess: (_, { s, disable }) => {
+  const { toggleOne, toggleMany } = useResourceToggle({
+    onOne: ({ s, disable }) => {
       const kindLabel = isAgent ? 'Agent' : 'Skill';
       toast(
         t(disable ? 'resources.toast.disabled' : 'resources.toast.enabled', {
@@ -658,20 +635,7 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
         { key: TOGGLE_TOAST },
       );
     },
-    onError: rollback,
-    onSettled: refreshAfterTargets,
-  });
-
-  const toggleMany = useMutation({
-    mutationFn: ({ names, enable }: { names: string[]; enable: boolean }) =>
-      api.batchToggleResources(names, enable, kind),
-    onMutate: ({ names, enable }) => {
-      const set = new Set(names);
-      return patch((list) =>
-        list.map((x) => (x.kind === kind && set.has(x.flatName) ? { ...x, disabled: !enable } : x)),
-      );
-    },
-    onSuccess: (res, { enable }) => {
+    onMany: (res, { enable }) => {
       const { updated, unchanged, failed } = res.summary;
       // Name the first failure: the count alone hides why an item stayed as it was.
       const firstError = res.results.find((r) => r.error);
@@ -695,19 +659,13 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
         );
       setSelected(new Set());
     },
-    onError: rollback,
-    onSettled: () => void invalidate(queryClient, 'skillsToggled'),
+    onError: (err) => toast(err.message, 'error'),
   });
 
   const setTargets = useMutation({
     mutationFn: ({ name, target }: { name: string; target: string | null }) =>
       api.setSkillTargets(name, target),
-    onMutate: ({ name, target }) =>
-      patch((list) =>
-        list.map((x) =>
-          x.flatName === name ? { ...x, targets: target ? [target] : undefined } : x,
-        ),
-      ),
+    onMutate: ({ name, target }) => optimisticTargets(queryClient, kind, name, target),
     onSuccess: (_, { name, target }) =>
       toast(
         target
@@ -715,7 +673,10 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
           : t('resources.toast.limitRemoved', { name }),
         'success',
       ),
-    onError: rollback,
+    onError: (err, _, restoreTargets) => {
+      restoreTargets?.();
+      toast(err.message, 'error');
+    },
     onSettled: refreshAfterTargets,
   });
 
@@ -1423,7 +1384,7 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
             subject={subject}
             busy={toggleMany.isPending || toggleOne.isPending}
             onToggleAll={(list, enable) =>
-              toggleMany.mutate({ names: list.map((s) => s.flatName), enable })
+              toggleMany.mutate({ kind, names: list.map((s) => s.flatName), enable })
             }
             onToggleOne={(s) => toggleOne.mutate({ s, disable: !s.disabled })}
             onSetTargets={(e) => {
@@ -1909,7 +1870,11 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
                 size="sm"
                 disabled={toggleMany.isPending}
                 onClick={() =>
-                  toggleMany.mutate({ names: selectedItems.map((s) => s.flatName), enable: true })
+                  toggleMany.mutate({
+                    kind,
+                    names: selectedItems.map((s) => s.flatName),
+                    enable: true,
+                  })
                 }
               >
                 <CircleCheck size={15} />
@@ -2134,7 +2099,7 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
             variant="danger"
             loading={toggleMany.isPending}
             onConfirm={() => {
-              if (confirmDisable) toggleMany.mutate({ names: confirmDisable, enable: false });
+              if (confirmDisable) toggleMany.mutate({ kind, names: confirmDisable, enable: false });
               setConfirmDisable(null);
             }}
             onCancel={() => setConfirmDisable(null)}

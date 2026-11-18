@@ -43,6 +43,28 @@ describe('source links API', () => {
   });
 });
 
+describe('resource list transport', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('preserves cancellation rather than reporting a lost connection', async () => {
+    const controller = new AbortController();
+    const fetch = vi.fn<typeof globalThis.fetch>(
+      (_, init) =>
+        new Promise((_, reject) =>
+          init?.signal?.addEventListener('abort', () => reject(controller.signal.reason)),
+        ),
+    );
+    vi.stubGlobal('fetch', fetch);
+    const request = resourcesApi.listSkills('agent', controller.signal);
+    controller.abort();
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/resources?kind=agent',
+      expect.objectContaining({ signal: controller.signal }),
+    );
+    await expect(request).rejects.toBe(controller.signal.reason);
+  });
+});
+
 describe('repo removal intent', () => {
   afterEach(() => vi.unstubAllGlobals());
 

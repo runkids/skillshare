@@ -86,6 +86,33 @@ describe('Sync page folder conflicts', () => {
     vi.mocked(api.updateTarget).mockResolvedValue({ success: true });
   });
 
+  it('shows a pending source migration even without MCP file changes', async () => {
+    vi.mocked(mcpApi.list).mockResolvedValue({
+      ...(await mcpApi.list()),
+      plan: {
+        changes: [],
+        blocked: false,
+        migrates: true,
+        revision: 'r',
+        sourcePath: 'config.yaml',
+      },
+    });
+    render(
+      <MemoryRouter>
+        <QueryClientProvider client={new QueryClient()}>
+          <I18nProvider>
+            <ToastProvider>
+              <SyncPage />
+            </ToastProvider>
+          </I18nProvider>
+        </QueryClientProvider>
+      </MemoryRouter>,
+    );
+    expect(await screen.findByRole('button', { name: 'Sync 1 change' })).toBeEnabled();
+    expect(screen.getByText('Migrate MCP source settings')).toBeInTheDocument();
+    expect(screen.queryByText(/No targets yet|Nothing to sync/)).not.toBeInTheDocument();
+  });
+
   it('names the targets that undo each other and stops skills for the one to drop', async () => {
     const user = userEvent.setup();
     render(

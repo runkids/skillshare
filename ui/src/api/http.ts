@@ -90,7 +90,8 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
       headers: { 'Content-Type': 'application/json' },
       ...init,
     });
-  } catch {
+  } catch (error) {
+    if (init?.signal?.aborted) throw error;
     throw new ApiError(0, 'Server connection lost - try restarting with "skillshare ui".', {
       code: 'connection_lost',
     });
@@ -124,6 +125,23 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   }
   return data as T;
 }
+
+export type SuccessResponse = { success: boolean };
+
+function jsonRequest(method: 'POST' | 'PUT' | 'PATCH' | 'DELETE') {
+  return <T>(path: string, body?: unknown) =>
+    apiFetch<T>(path, { method, body: JSON.stringify(body) });
+}
+
+export const http = {
+  get: <T>(path: string, signal?: AbortSignal) => apiFetch<T>(path, { signal }),
+  // Import already-serialized JSON without quoting it a second time.
+  postRaw: <T>(path: string, body: string) => apiFetch<T>(path, { method: 'POST', body }),
+  post: jsonRequest('POST'),
+  put: jsonRequest('PUT'),
+  patch: jsonRequest('PATCH'),
+  delete: jsonRequest('DELETE'),
+};
 
 // createSSEStream creates an EventSource with the standard done/error lifecycle.
 // The `handlers` map registers named SSE event listeners; the special key "done"

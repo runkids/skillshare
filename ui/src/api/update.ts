@@ -1,4 +1,4 @@
-import { apiFetch, BASE, createSSEStream } from './http';
+import { http, BASE, createSSEStream } from './http';
 import type { UpdateResultItem, UpdateStreamSummary } from './types/update';
 
 export const updateApi = {
@@ -9,11 +9,7 @@ export const updateApi = {
     all?: boolean;
     skipAudit?: boolean;
     branch?: string;
-  }) =>
-    apiFetch<{ results: UpdateResultItem[] }>('/update', {
-      method: 'POST',
-      body: JSON.stringify(opts),
-    }),
+  }) => http.post<{ results: UpdateResultItem[] }>('/update', opts),
   updateAllStream: (
     onStart: (total: number) => void,
     onResult: (item: UpdateResultItem) => void,

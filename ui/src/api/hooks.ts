@@ -1,4 +1,4 @@
-import { apiFetch } from './client';
+import { http } from './http';
 
 /** The Agents hooks can be managed for, in display order. */
 export const hookAgents = [
@@ -216,48 +216,46 @@ export interface CodexTrustPlan {
   }[];
 }
 
-const post = <T>(path: string, body: unknown) =>
-  apiFetch<T>(path, { method: 'POST', body: JSON.stringify(body) });
-
 export const hooksApi = {
-  list: () => apiFetch<HookInventory>('/hooks'),
-  catalog: () => apiFetch<Record<string, HookAgentCatalog>>('/hooks/catalog'),
+  list: () => http.get<HookInventory>('/hooks'),
+  catalog: () => http.get<Record<string, HookAgentCatalog>>('/hooks/catalog'),
   /** An empty mutation previews synchronizing the current source. */
-  preview: (mutation: HookMutation = {}) => post<HookPreview>('/hooks/preview', { mutation }),
+  preview: (mutation: HookMutation = {}) => http.post<HookPreview>('/hooks/preview', { mutation }),
   configure: (mutation: HookMutation, revision: string, sync: boolean) =>
-    post<HookResult>('/hooks', { mutation, revision, sync }),
+    http.post<HookResult>('/hooks', { mutation, revision, sync }),
   /** Save to the source only. The server refuses a write it has not previewed; the revision also catches concurrent edits. */
   save: async (mutation: HookMutation) =>
-    post<HookResult>('/hooks', {
+    http.post<HookResult>('/hooks', {
       mutation,
-      revision: (await post<HookPlan>('/hooks/preview', { mutation })).revision,
+      revision: (await http.post<HookPlan>('/hooks/preview', { mutation })).revision,
       sync: false,
     }),
   /** Each Agent's native contribution of one hook, as sync would write it: its own file(s) and scripts only, never the shared settings. Writes nothing. */
   render: (mutation: HookMutation) =>
-    post<{ rendered: HookRendered[] }>('/hooks/render', { mutation }),
+    http.post<{ rendered: HookRendered[] }>('/hooks/render', { mutation }),
   /** Apply only the changes of one hooks.projects root; the global scope and other projects stay pending. */
   syncProject: (root: string, revision: string) =>
-    post<HookResult>('/hooks', { mutation: {}, revision, sync: true, root }),
+    http.post<HookResult>('/hooks', { mutation: {}, revision, sync: true, root }),
   /** Reads native configuration or code, or the pasted `content`; nothing is executed. */
   import: async (body: HookImportRequest) => {
-    const res = await post<{ candidates: HookCandidate[] } | HookCandidate[]>(
+    const res = await http.post<{ candidates: HookCandidate[] } | HookCandidate[]>(
       '/hooks/import',
       body,
     );
     return Array.isArray(res) ? res : (res.candidates ?? []);
   },
   /** What editing or removing unmanaged hooks would write to their target files. Writes nothing. */
-  previewNative: (edits: HookNativeEdit[]) => post<HookPreview>('/hooks/native/preview', { edits }),
+  previewNative: (edits: HookNativeEdit[]) =>
+    http.post<HookPreview>('/hooks/native/preview', { edits }),
   /** Writes previewed edits, with a backup per file. The hooks stay unmanaged. */
   applyNative: (edits: HookNativeEdit[], revision: string) =>
-    post<HookResult>('/hooks/native', { edits, revision }),
+    http.post<HookResult>('/hooks/native', { edits, revision }),
   /** Starts a Codex process to list the hooks, so call it only when the user asks. Global scope only. */
-  previewCodexTrust: () => post<CodexTrustPlan>('/hooks/codex-trust/preview', {}),
+  previewCodexTrust: () => http.post<CodexTrustPlan>('/hooks/codex-trust/preview', {}),
   /** Records trust for the previewed hooks. Refused (409) when they changed since the preview. */
-  trustCodex: (revision: string) => post<CodexTrustPlan>('/hooks/codex-trust', { revision }),
+  trustCodex: (revision: string) => http.post<CodexTrustPlan>('/hooks/codex-trust', { revision }),
   previewRestore: (backupId: string) =>
-    post<HookPlan>('/hooks/restore', { backupId, preview: true }),
+    http.post<HookPlan>('/hooks/restore', { backupId, preview: true }),
   restore: (backupId: string, revision: string) =>
-    post<HookResult>('/hooks/restore', { backupId, revision }),
+    http.post<HookResult>('/hooks/restore', { backupId, revision }),
 };

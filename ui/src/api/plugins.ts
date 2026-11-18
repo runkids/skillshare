@@ -1,4 +1,4 @@
-import { apiFetch } from './client';
+import { http } from './http';
 import { BASE, createSSEStream, parseApiErrorPayload } from './http';
 
 export type PluginTarget = string;
@@ -336,12 +336,10 @@ async function updateStream(items: PluginUpdateItem[], on: (e: PluginUpdateEvent
   }
 }
 
-const post = <T>(path: string, body: unknown) =>
-  apiFetch<T>(path, { method: 'POST', body: JSON.stringify(body) });
 export const pluginsApi = {
   /** `hosts: false` answers from config alone, without waiting on any Agent's CLI; `hosts` comes back empty. */
   list: (hosts = true) =>
-    apiFetch<PluginInventory>(hosts ? '/plugins' : '/plugins?hosts=false').then((inv) => ({
+    http.get<PluginInventory>(hosts ? '/plugins' : '/plugins?hosts=false').then((inv) => ({
       ...inv,
       // A failed inventory could arrive as null; one Agent must not break the whole page.
       hosts: inv.hosts.map((h) => ({
@@ -351,15 +349,15 @@ export const pluginsApi = {
     })),
   /** `name` is a plugin already managed here: its reviewed copy answers instead of downloading the source again. */
   discover: (source: string, sourceRef?: string, entry?: string, name?: string) =>
-    post<PluginDiscovery>('/plugins/discover', { source, sourceRef, entry, name }),
+    http.post<PluginDiscovery>('/plugins/discover', { source, sourceRef, entry, name }),
   /** The reviewed local copy of the plugin's source; empty for an imported plugin, which has none. */
   files: (name: string) =>
-    apiFetch<{ files: string[] }>(`/plugins/${encodeURIComponent(name)}/files`),
+    http.get<{ files: string[] }>(`/plugins/${encodeURIComponent(name)}/files`),
   file: (name: string, path: string) =>
-    apiFetch<{ content: string }>(
+    http.get<{ content: string }>(
       `/plugins/${encodeURIComponent(name)}/files/${path.split('/').map(encodeURIComponent).join('/')}`,
     ),
-  preview: (request: PluginRequest) => post<PluginPlan>('/plugins/preview', { request }),
+  preview: (request: PluginRequest) => http.post<PluginPlan>('/plugins/preview', { request }),
   /** Checks every plugin at once on the server; each plugin's answer arrives through `on` as soon as it is ready. */
   check: (on: (e: PluginCheckEvent) => void) =>
     new Promise<void>((resolve, reject) => {
@@ -374,9 +372,9 @@ export const pluginsApi = {
       );
     }),
   apply: (request: PluginRequest, revision: string) =>
-    post<PluginResult>('/plugins/apply', { request, revision }),
+    http.post<PluginResult>('/plugins/apply', { request, revision }),
   /** Updates the plugins one after another on the server; each one's progress arrives through `on`. */
   update: updateStream,
   /** The plugin under way finishes; no other starts. */
-  stopUpdate: () => post<{ stopping: boolean }>('/plugins/update/stop', {}),
+  stopUpdate: () => http.post<{ stopping: boolean }>('/plugins/update/stop', {}),
 };

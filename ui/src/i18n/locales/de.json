@@ -2020,6 +2020,7 @@
   "sync.changes.one": "{count} Änderung",
   "sync.changes.other": "{count} Änderungen",
   "sync.checking": "Prüfe, was sich ändert…",
+  "sync.migrateMcpSource": "MCP-Quelleinstellungen migrieren",
   "sync.nothing": "Nichts zu synchronisieren. Alle Ziele entsprechen deiner Quelle.",
   "sync.noTargets": "Noch keine Ziele. Füge eines hinzu, um zu synchronisieren.",
   "sync.addTarget": "Ziel hinzufügen",

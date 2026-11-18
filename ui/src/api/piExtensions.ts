@@ -1,4 +1,4 @@
-import { apiFetch } from './client';
+import { http } from './http';
 
 /** What a Pi target's settings select for an extension; whether Pi loaded it is never known here. */
 export type PiSelection = 'loads' | 'skipped' | 'unknown' | 'none';
@@ -118,18 +118,12 @@ export interface PiExtensionsPlan {
 const base = (target: string) => `/targets/${encodeURIComponent(target)}/pi-extensions`;
 
 export const piExtensionsApi = {
-  get: (target: string) => apiFetch<PiExtensionsView>(base(target)),
+  get: (target: string) => http.get<PiExtensionsView>(base(target)),
   /** Writes nothing; the plan's revision is what apply checks the file against. */
   preview: (target: string, changes: PiExtensionChange[]) =>
-    apiFetch<PiExtensionsPlan>(`${base(target)}/preview`, {
-      method: 'POST',
-      body: JSON.stringify({ changes }),
-    }),
+    http.post<PiExtensionsPlan>(`${base(target)}/preview`, { changes }),
   apply: (target: string, changes: PiExtensionChange[], revision: string) =>
-    apiFetch<PiExtensionsPlan>(`${base(target)}/apply`, {
-      method: 'POST',
-      body: JSON.stringify({ changes, revision }),
-    }),
+    http.post<PiExtensionsPlan>(`${base(target)}/apply`, { changes, revision }),
 };
 
 /** A target whose Agent is Pi: pi itself or a Pi account. A project's Pi has its tab on the project page. */

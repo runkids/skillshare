@@ -12,14 +12,11 @@ import SyncResultList, { SyncUpToDate } from '../SyncResultList';
 import {
   countChanges,
   HOOKS_CHANGED,
-  hooksGroups,
+  reviewSyncConfig,
   MCP_CHANGED,
-  mcpGroups,
   otherWarnings,
-  projectChanges,
   resourceGroups,
   runSync,
-  type ChangeGroup,
   type SyncFailure,
 } from '../sync/syncView';
 import SyncResult from '../sync/SyncResult';
@@ -55,13 +52,9 @@ export default function ProjectSyncDialog({ open, onClose, project, targets }: P
   const diffs = (diff.data?.diffs ?? []).filter((d) => names.has(d.target));
   const ignored = { skill: diff.data?.ignored_skills, agent: diff.data?.agent_ignored_skills };
   const plan = mcp.data?.plan;
-  const changes = projectChanges(plan, project.path);
-  const conflicts = changes.filter((c) => c.action === 'conflict');
-  const mcpBlocked = conflicts.length > 0;
-  const hookPlan = hooks.data?.plan;
-  const hookChanges = (hookPlan?.changes ?? []).filter((c) => c.root === project.path);
-  const hooksBlocked = hookChanges.some((c) => c.action === 'conflict');
-  const sections: { label: string; groups: ChangeGroup[] }[] = [
+  const config = reviewSyncConfig(plan, hooks.data?.plan, project.path);
+  const { conflicts, mcpBlocked, hookChanges, hooksBlocked } = config;
+  const resourceSections = [
     {
       label: 'Skills',
       groups: resourceGroups(diffs, mine, new Set(['skill']), false, ignored).groups,
@@ -70,17 +63,13 @@ export default function ProjectSyncDialog({ open, onClose, project, targets }: P
       label: 'Agents',
       groups: resourceGroups(diffs, mine, new Set(['agent']), false, ignored).groups,
     },
-    { label: 'MCP', groups: plan ? mcpGroups({ ...plan, changes }) : [] },
-    { label: 'Hooks', groups: hookPlan ? hooksGroups({ ...hookPlan, changes: hookChanges }) : [] },
-  ].filter((s) => s.groups.length > 0);
-  const count = sections.reduce(
-    (n, s) =>
-      n +
-      ((s.label === 'MCP' && mcpBlocked) || (s.label === 'Hooks' && hooksBlocked)
-        ? 0
-        : countChanges(s.groups)),
-    0,
-  );
+  ];
+  const sections = [
+    ...resourceSections,
+    { label: 'MCP', groups: config.mcpRows },
+    { label: 'Hooks', groups: config.hookRows },
+  ].filter((s) => s.groups.length);
+  const count = resourceSections.reduce((n, s) => n + countChanges(s.groups), 0) + config.count;
   const loading = diff.isPending || mcp.isPending || (hooks.isPending && !hooks.error) || !targets;
 
   const close = () => {
@@ -96,14 +85,7 @@ export default function ProjectSyncDialog({ open, onClose, project, targets }: P
       const { resources, failures: failed } = await runSync({
         resources: project.declared ? 'both' : null,
         extras: false,
-        mcp:
-          plan && !mcpBlocked && (plan.migrates || changes.some((c) => c.action !== 'unchanged'))
-            ? plan
-            : null,
-        hooks:
-          hookPlan && !hooksBlocked && hookChanges.some((c) => c.action !== 'unchanged')
-            ? hookPlan
-            : null,
+        ...config.run,
         force: false,
         project: { root: project.root, path: project.path },
       });

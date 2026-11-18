@@ -369,12 +369,12 @@ export function pendingCount(
   hooks?: HookPlan | null,
 ): number {
   const parts = new Set<Part>(['skill', 'agent', 'extra', 'mcp', 'hooks']);
-  return countChanges([
-    ...resourceGroups(diffs, targets, parts, false).groups,
-    ...extraGroups(extras, false),
-    ...(plan?.blocked ? [] : mcpGroups(plan)),
-    ...(hooks?.blocked ? [] : hooksGroups(hooks)),
-  ]);
+  const config = reviewSyncConfig(plan, hooks);
+  return (
+    countChanges(resourceGroups(diffs, targets, parts, false).groups) +
+    countChanges(extraGroups(extras, false)) +
+    config.count
+  );
 }
 export const countEdited = (groups: ChangeGroup[]) =>
   groups.reduce((n, g) => n + g.rows.filter((r) => r.edited).length, 0);
@@ -387,6 +387,42 @@ export const HOOKS_CHANGED = 'hooks-changed';
 /** The plan's changes for one mcp.projects root. */
 export const projectChanges = (plan: MCPPlan | null | undefined, root: string) =>
   (plan?.changes ?? []).filter((c) => projectOf([root], c) === root);
+
+/** Use the same scoped eligibility for the preview, its count, and the submitted plans. */
+export function reviewSyncConfig(
+  mcp: MCPPlan | null | undefined,
+  hooks: HookPlan | null | undefined,
+  root?: string,
+) {
+  const changes = root ? projectChanges(mcp, root) : (mcp?.changes ?? []);
+  const hookChanges = (hooks?.changes ?? []).filter((c) => !root || c.root === root);
+  const conflicts = changes.filter((c) => c.action === 'conflict');
+  const mcpBlocked = root ? conflicts.length > 0 : !!mcp?.blocked;
+  const hooksBlocked = root ? hookChanges.some((c) => c.action === 'conflict') : !!hooks?.blocked;
+  const mcpRows = mcpGroups(mcp && { ...mcp, changes });
+  const hookRows = hooksGroups(hooks && { ...hooks, changes: hookChanges });
+  const reviewedMcp =
+    mcp && !mcpBlocked && (mcp.migrates || changes.some((c) => c.action !== 'unchanged'))
+      ? mcp
+      : null;
+  const reviewedHooks =
+    hooks && !hooksBlocked && hookChanges.some((c) => c.action !== 'unchanged') ? hooks : null;
+  const migrationOnly = !!reviewedMcp?.migrates && !root && !countChanges(mcpRows);
+  return {
+    migrationOnly,
+    mcpRows,
+    hookRows,
+    conflicts,
+    hookChanges,
+    mcpBlocked,
+    hooksBlocked,
+    count:
+      (reviewedMcp ? countChanges(mcpRows) : 0) +
+      (reviewedHooks ? countChanges(hookRows) : 0) +
+      Number(migrationOnly),
+    run: { mcp: reviewedMcp, hooks: reviewedHooks },
+  };
+}
 
 // Revisions move on any config write, including the resource sync; only the reviewed changes must hold.
 const changeKey = (plan: MCPPlan, root?: string) =>
