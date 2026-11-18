@@ -29,13 +29,13 @@ export const resourcesApi = {
       { method: 'DELETE' },
     ),
   getOverview: () => apiFetch<Overview>('/overview'),
-  listSkills: (kind?: 'skill' | 'agent') =>
+  listSkills: (kind?: 'skill' | 'agent', signal?: AbortSignal) =>
     apiFetch<{
       resources: Skill[];
       sourceLinks?: SourceLink[];
       sourceLinkWarnings?: string[];
       linked_repos?: LinkedRepo[];
-    }>(`/resources${kindQuery(kind)}`),
+    }>(`/resources${kindQuery(kind)}`, { signal }),
   getResource: (name: string, kind?: 'skill' | 'agent') =>
     apiFetch<{ resource: Skill; skillMdContent: string; files: string[] }>(
       `/resources/${encodeURIComponent(name)}${kindQuery(kind)}`,

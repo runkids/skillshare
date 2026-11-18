@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useResourceMove } from '../../hooks/useResourceMove';
 import {
   ArrowLeft,
   CircleCheck,
@@ -12,9 +12,8 @@ import {
   TriangleAlert,
   X,
 } from 'lucide-react';
-import { api, ApiError } from '../../api/client';
+import { ApiError } from '../../api/client';
 import type { MoveItemResult, Skill } from '../../api/client';
-import { clearAuditCache } from '../../lib/auditCache';
 import {
   baseName,
   existingFolders,
@@ -22,8 +21,6 @@ import {
   linkPrefix,
   planFolder,
 } from '../../lib/moveFolders';
-import { queryKeys } from '../../lib/queryKeys';
-import { invalidate } from '../../lib/queryEvents';
 import { countLabel } from '../../lib/resourceGrouping';
 import { plural, useT } from '../../i18n';
 import Button from '../Button';
@@ -52,7 +49,6 @@ const known = (code?: string) => (code && KNOWN_CODES.has(code) ? code : undefin
 const codeOf = (err: unknown) => known(err instanceof ApiError ? err.code : undefined);
 
 /** The API takes '.' for the source root. */
-const wire = (dest: string) => (dest === '' ? '.' : dest);
 
 /** An item that stays where it is is not a move. */
 const unchanged = (r: MoveItemResult) =>
@@ -241,10 +237,8 @@ export function MoveDialog({
   onClose,
 }: Props) {
   const t = useT();
-  const queryClient = useQueryClient();
   const [dest, setDest] = useState<string | null>(null);
   const [naming, setNaming] = useState(false);
-  const [running, setRunning] = useState(false);
   const [results, setResults] = useState<MoveItemResult[] | null>(null);
   const [syncing, setSyncing] = useState(false);
   // What was asked for stays what is shown: a detail page changes its skill's name once the move is done.
@@ -284,18 +278,8 @@ export function MoveDialog({
     onBack: () => setNaming(false),
   });
 
-  // What a move to `dest` would do: new paths, link names, refusals, filter warnings. Changes nothing, so
-  // it is not worth repeating on focus, and it stops once the real move has run.
-  const preview = useQuery({
-    queryKey: queryKeys.movePreview(names, dest ?? ''),
-    queryFn: () => api.moveResources({ names, dest: wire(dest ?? ''), dryRun: true }),
-    enabled: dest !== null && !results,
-    gcTime: 0,
-    staleTime: 0,
-    retry: false,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-  });
+  const { preview, move } = useResourceMove(names, dest, results !== null);
+  const running = move.isPending;
   const planned = useMemo(
     () => new Map((preview.data?.results ?? []).map((r) => [r.name, r])),
     [preview.data],
@@ -306,15 +290,8 @@ export function MoveDialog({
 
   const run = async (targets: string[], force: boolean) => {
     if (dest === null) return;
-    setRunning(true);
     try {
-      const res = await api.moveResources({
-        names: targets,
-        dest: wire(dest),
-        force: force || undefined,
-      });
-      clearAuditCache(queryClient);
-      void invalidate(queryClient, 'skillsMoved');
+      const res = await move.mutateAsync({ targets, destination: dest, force });
       // A retry replaces only the rows it retried.
       setResults((prev) =>
         prev ? prev.map((r) => res.results.find((n) => n.name === r.name) ?? r) : res.results,
@@ -330,8 +307,6 @@ export function MoveDialog({
             )
           : names.map((name) => ({ name, success: false, error_code: code })),
       );
-    } finally {
-      setRunning(false);
     }
   };
 

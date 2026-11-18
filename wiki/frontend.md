@@ -21,13 +21,15 @@ Use when changing React components, pages, CSS, responsive layouts, interactions
 | Query keys | `ui/src/lib/queryKeys.ts` |
 | Which queries a mutation makes stale | named events in `ui/src/lib/queryEvents.ts`, called as `invalidate(queryClient, '<event>')` |
 | Queries shared across pages (overview, MCP, skills, targets, diff) | `ui/src/hooks/useSharedQueries.ts` |
-| API client | `ui/src/api/client.ts` |
+| API client | `ui/src/api/http.ts` handles transport; domain modules own endpoints and request sequences. `ui/src/api/client.ts` remains a compatibility facade. |
 | `?kind=` query strings | `kindQuery()` in `ui/src/api/http.ts` |
 | Translation strings | `ui/src/i18n/` |
 
 The dashboard supports Clean and Playful styles plus light, dark, and system modes. New UI must use CSS variables, token utilities, and existing `ss-*` classes. Never hardcode colors, radii, shadows, or fonts. Scope Playful-only pastels to the Playful theme.
 
 `python3 scripts/design/tokens.py` exports the Clean tokens from `components.css` in Design System `tokens.json` format, for mockup tools that read a design system instead of the CSS. A new Clean color variable needs a usage note in that script, or the export (and its test) fails.
+
+Operation hooks such as `useResourceToggle` and `useResourceMove` own requests and cache reconciliation; pages and dialogs own selection, confirmation, and translated feedback. Pass React Query's signal to cancellable reads, not writes. Keep MCP preview/revision sequencing in `mcpApi.save`, not its callers.
 
 ## Dashboard Composition
 

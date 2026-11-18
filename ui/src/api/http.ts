@@ -90,7 +90,8 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
       headers: { 'Content-Type': 'application/json' },
       ...init,
     });
-  } catch {
+  } catch (error) {
+    if (init?.signal?.aborted) throw error;
     throw new ApiError(0, 'Server connection lost - try restarting with "skillshare ui".', {
       code: 'connection_lost',
     });
