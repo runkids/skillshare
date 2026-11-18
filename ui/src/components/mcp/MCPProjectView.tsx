@@ -4,6 +4,7 @@ import { mcpApi, mcpOffTargets, mcpTargets, type MCPMutation, type MCPServer } f
 import AgentIcon from '../AgentIcon';
 import Button from '../Button';
 import ConfirmDialog from '../ConfirmDialog';
+import Reveal from '../Reveal';
 import { RailLayout, RailRow, RailSection } from '../StatusRail';
 import { SkillContextMenu, type ContextMenuItem } from '../TargetMenu';
 import { useToast } from '../Toast';
@@ -62,13 +63,15 @@ function ProjectSettings({ model, offered, pickTargets, onPickTargets, busy, sav
   const t = useT();
   const { project, targets, defaults, name } = model;
   return (
-    <div className="ss-box flex flex-col gap-3.5">
-      <dl className="ss-kv !grid-cols-[auto_minmax(0,1fr)] items-center">
-        <dt>{t('mcp.targets')}</dt>
-        <dd><TargetPill selected={targets} text={project.targets ? `${targets.length}/${offered.length}` : t('mcp.projects.inherit')} expanded={pickTargets} label={t('mcp.chooseAgents', { name })} onClick={() => onPickTargets()} /></dd>
-        {/* In the value column, so the expanded control lines up under the pill that opened it. */}
-        {pickTargets && <dd className="col-start-2 !font-normal"><ProjectTargets value={project.targets} defaults={defaults} offered={offered} disabled={busy} onChange={(next) => void save({ replace: true, settings: { targets: next } })} /></dd>}
-      </dl>
+    <div className="ss-box !p-0">
+      {/* Laid out like the global MCP defaults: the setting and its pill on one row, its toggles under it. */}
+      <div className="ss-setrow">
+        <div className="l"><b>{t('mcp.targets')}</b><span>{t('mcp.defaults.targetsHint')}</span></div>
+        <TargetPill selected={targets} text={project.targets ? `${targets.length}/${offered.length}` : t('mcp.projects.inherit')} expanded={pickTargets} label={t('mcp.chooseAgents', { name })} onClick={() => onPickTargets()} />
+      </div>
+      <Reveal open={pickTargets}>
+        <div className="px-[18px] pb-4"><ProjectTargets value={project.targets} defaults={defaults} offered={offered} disabled={busy} onChange={(next) => save({ replace: true, settings: { targets: next } })} /></div>
+      </Reveal>
     </div>
   );
 }

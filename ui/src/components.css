@@ -157,18 +157,19 @@ svg.lucide { flex: none; stroke-width: var(--isw); }
 .ss-chk.rad { border-radius: 99px; }
 .ss-chk.rad.on { background: var(--surface); border-width: 5px; }
 /* Toggle whose icon is the checkbox: faded when off, full colour with a check badge when on */
-.ss-tgl { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-3); }
+.ss-tgl { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-3); transition: color .15s; }
 .ss-tgl .ic { position: relative; display: grid; place-items: center; width: 24px; height: 24px; filter: grayscale(1); opacity: .45; transition: filter .15s, opacity .15s; }
-.ss-tgl .ic>i { position: absolute; right: -4px; bottom: -4px; display: none; place-items: center; width: 14px; height: 14px; border-radius: 99px; background: var(--pri); color: var(--on-pri); box-shadow: 0 0 0 2px var(--surface); }
+/* The badge pops in when ticked and shrinks away, quicker, when unticked; transitions, so rapid clicks reverse it midway. */
+.ss-tgl .ic>i { position: absolute; right: -4px; bottom: -4px; display: grid; place-items: center; width: 14px; height: 14px; border-radius: 99px; background: var(--pri); color: var(--on-pri); box-shadow: 0 0 0 2px var(--surface); opacity: 0; transform: scale(.6); transition: opacity .12s, transform .12s cubic-bezier(.23,1,.32,1); }
 .ss-tgl.on { color: var(--ink); }
-.ss-tgl.on .ic { filter: none; opacity: 1; }
-.ss-tgl.on .ic>i { display: grid; }
+.ss-tgl.on .ic>i { transition-duration: .18s; }
 /* Applying a selection shells out to the agent's own CLI and takes seconds, so
-   the badge stays visible in both states to carry a spinner. Without it the row
-   just freezes and reads as a hang. */
-.ss-tgl.working .ic { filter: none; opacity: 1; }
-.ss-tgl.working .ic>i { display: grid; }
-.ss-tgl:not(.on):not(:disabled):hover .ic { opacity: .75; }
+   the badge stays visible in both states (.working) to carry a spinner. Without it
+   the row just freezes and reads as a hang. */
+.ss-tgl:is(.on, .working) .ic { filter: none; opacity: 1; }
+.ss-tgl:is(.on, .working) .ic>i { opacity: 1; transform: none; }
+/* Touch screens keep :hover after a tap, which would leave an unticked logo half lit. */
+@media (hover: hover) and (pointer: fine) { .ss-tgl:not(.on):not(:disabled):hover .ic { opacity: .75; } }
 .ss-tgl:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
 :root[data-theme="playful"] .ss-tgl .ic>i { background: var(--ink); color: var(--pa); }
 :root[data-theme="playful"].dark .ss-tgl .ic>i { background: var(--pa); color: #1B1916; }
@@ -347,6 +348,8 @@ svg.lucide { flex: none; stroke-width: var(--isw); }
   .ss-draw path { stroke-dashoffset: 0; animation: none; }
   /* The slot keeps its delay, so the finished bar is still seen before it goes. */
   .ss-barslot { transition-duration: 0s; }
+  /* The badge only fades. */
+  .ss-tgl .ic>i { transform: none; }
   /* .grow and .grow.shut set their own transitions, so they are named to outrank them. */
   .ss-bar>i, .ss-prog i, .ss-collapse, .ss-collapse.grow, .ss-collapse.grow.shut, .ss-collapse .ss-r, .ss-note.live { transition: none; }
 }
