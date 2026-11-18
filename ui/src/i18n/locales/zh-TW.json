@@ -2020,6 +2020,7 @@
   "sync.changes.one": "{count} 項變更",
   "sync.changes.other": "{count} 項變更",
   "sync.checking": "正在檢查會有哪些變更…",
+  "sync.migrateMcpSource": "遷移 MCP 來源設定",
   "sync.nothing": "沒有需要同步的內容，所有目標都與來源一致。",
   "sync.noTargets": "還沒有目標，新增一個即可開始同步。",
   "sync.addTarget": "新增目標",

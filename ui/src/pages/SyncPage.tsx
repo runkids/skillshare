@@ -225,6 +225,7 @@ export default function SyncPage() {
   ];
   const groups = [...resourceRows, ...config.mcpRows, ...config.hookRows];
   const count = countChanges(resourceRows) + config.count;
+  const previewEmpty = groups.length === 0 && !config.migrationOnly;
   const edited = countEdited(groups);
   const total = tally(groups.flatMap((g) => g.rows).filter((r) => r.counts));
   const loading = diff.isPending || targets.isPending;
@@ -636,7 +637,7 @@ export default function SyncPage() {
             />
           ))}
 
-          {!loading && !diff.error && groups.length > 0 && (
+          {!loading && !diff.error && !previewEmpty && (
             <div className="flex items-center gap-3">
               <h2 className="ss-h2">{t(plural('sync.pending', count), { count })}</h2>
               <span className="flex-1 text-[12px] text-ink-2">
@@ -672,7 +673,7 @@ export default function SyncPage() {
                 <AlertCircle size={16} />
                 <SyncError error={diff.error.message} />
               </div>
-            ) : diffs.length === 0 && groups.length === 0 ? (
+            ) : diffs.length === 0 && previewEmpty ? (
               <div className="ss-r text-[13px] text-ink-2">
                 <span className="flex-1">{t('sync.noTargets')}</span>
                 <Link to="/targets" className="ss-btn sm">
@@ -681,7 +682,10 @@ export default function SyncPage() {
               </div>
             ) : (
               <>
-                {groups.length === 0 && (
+                {config.migrationOnly && (
+                  <div className="ss-r text-[13px]">{t('sync.migrateMcpSource')}</div>
+                )}
+                {previewEmpty && (
                   <div className="ss-r text-[13px]">
                     <CircleCheck size={16} className="text-ok" />
                     {t('sync.nothing')}

@@ -2020,6 +2020,7 @@
   "sync.changes.one": "{count} تغییر",
   "sync.changes.other": "{count} تغییر",
   "sync.checking": "در حال بررسی تغییرات…",
+  "sync.migrateMcpSource": "انتقال تنظیمات منبع MCP",
   "sync.nothing": "چیزی برای همگام‌سازی نیست. همه هدف‌ها با منبع شما یکسان‌اند.",
   "sync.noTargets": "هنوز هدفی ندارید. برای شروع همگام‌سازی یکی اضافه کنید.",
   "sync.addTarget": "افزودن هدف",

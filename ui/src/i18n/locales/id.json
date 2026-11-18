@@ -2020,6 +2020,7 @@
   "sync.changes.one": "{count} perubahan",
   "sync.changes.other": "{count} perubahan",
   "sync.checking": "Memeriksa apa yang akan berubah…",
+  "sync.migrateMcpSource": "Migrasikan pengaturan sumber MCP",
   "sync.nothing": "Tidak ada yang perlu disinkronkan. Semua target sama dengan sumber Anda.",
   "sync.noTargets": "Belum ada target. Tambahkan satu untuk mulai sinkronisasi.",
   "sync.addTarget": "Tambah target",

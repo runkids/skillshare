@@ -407,7 +407,9 @@ export function reviewSyncConfig(
       : null;
   const reviewedHooks =
     hooks && !hooksBlocked && hookChanges.some((c) => c.action !== 'unchanged') ? hooks : null;
+  const migrationOnly = !!reviewedMcp?.migrates && !root && !countChanges(mcpRows);
   return {
+    migrationOnly,
     mcpRows,
     hookRows,
     conflicts,
@@ -417,7 +419,7 @@ export function reviewSyncConfig(
     count:
       (reviewedMcp ? countChanges(mcpRows) : 0) +
       (reviewedHooks ? countChanges(hookRows) : 0) +
-      (reviewedMcp?.migrates && !root && !countChanges(mcpRows) ? 1 : 0),
+      Number(migrationOnly),
     run: { mcp: reviewedMcp, hooks: reviewedHooks },
   };
 }
