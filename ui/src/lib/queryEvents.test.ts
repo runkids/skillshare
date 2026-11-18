@@ -102,7 +102,7 @@ const stale: Record<QueryEvent, Label[] | { args: string[]; stale: Label[] }> = 
   syncRan: [...TARGETS, 'extrasDiff', ...X, ...M, ...H, 'log'],
   projectSynced: [...TARGETS, ...M, ...H, 'log'],
   projectChanged: [...TARGETS, ...M, ...H],
-  projectAdded: [...TARGETS, ...M],
+  projectAdded: [...TARGETS, ...M, ...H],
   targetFilesChanged: { args: ['claude'], stale: ['targetFiles', 'targetFile'] },
   targetFileRemoved: { args: ['claude'], stale: ['targetFiles'] },
 

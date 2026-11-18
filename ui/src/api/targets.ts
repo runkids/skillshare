@@ -4,6 +4,8 @@ import type {
   ProjectInput,
   ProjectList,
   ProjectMutation,
+  ProjectScan,
+  ProjectScanInput,
   SkillsDetach,
   SkillsOffPreview,
   Target,
@@ -21,6 +23,8 @@ export const targetsApi = {
     http.delete<ProjectMutation>(
       `/projects?root=${encodeURIComponent(root)}${shared ? '&shared=true' : ''}`,
     ),
+  /** Adds root and each Git checkout below the scan folders; a dry run writes nothing. */
+  scanProjects: (input: ProjectScanInput) => http.post<ProjectScan>('/projects/scan', input),
   convertProject: (root: string) => http.post<ProjectMutation>('/projects/convert', { root }),
   /** skillsEnabled false adds a target that skillshare writes no skills to, and creates no skills folder. */
   addTarget: (

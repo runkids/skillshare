@@ -43,7 +43,7 @@ const events = {
   syncRan: () => keys(...targets, k.extrasDiff(), k.extras, k.mcp, k.hooks, k.logAll),
   projectSynced: () => keys(...targets, k.mcp, k.hooks, k.logAll),
   projectChanged: () => keys(...targets, k.mcp, k.hooks),
-  projectAdded: () => keys(...targets, k.mcp),
+  projectAdded: () => keys(...targets, k.mcp, k.hooks),
   targetFilesChanged: (target: string) => keys(k.targetFiles.list(target)),
   // Only the list: the removed file's content query is still mounted and would fetch again.
   targetFileRemoved: (target: string): InvalidateQueryFilters[] => [

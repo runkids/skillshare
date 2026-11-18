@@ -35,6 +35,37 @@ export type ProjectInput = Pick<Project, 'root' | 'targets' | 'skills' | 'agents
 
 export type ProjectStorage = 'shared' | 'local';
 
+/** A project add that also adds each Git checkout below the scan folders. */
+export type ProjectScanInput = Omit<ProjectInput, 'create'> & { scan: string[]; dryRun: boolean };
+
+/** One folder a scan considered: the picked folder or a checkout below it. */
+export interface ProjectScanRow {
+  /** The stored root key */
+  root: string;
+  /** Relative to the picked folder; "." for the folder itself */
+  path: string;
+  name: string;
+  result: 'added' | 'kept' | 'skipped';
+  /** Why the folder was skipped, as a code */
+  skip?: string;
+  /** The CLI's English reason, shown for a skip code the dashboard does not know */
+  reason?: string;
+}
+
+export interface ProjectScanWarning {
+  kind: 'missing' | 'unreadable';
+  folder: string;
+  detail?: string;
+}
+
+export interface ProjectScan {
+  /** False for a dry run, or when nothing new was found */
+  applied: boolean;
+  rows: ProjectScanRow[];
+  /** Scan folders that do not exist, and folders that could not be read */
+  warnings: ProjectScanWarning[];
+}
+
 export interface ProjectMutation {
   success: boolean;
   root: string;
