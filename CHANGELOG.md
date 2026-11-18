@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.30.12](https://github.com/runkids/skillshare/compare/v0.30.11...v0.30.12) (2026-11-18)
+
+
+### New Features
+
+* **project:** register every Git checkout in a workspace with --scan ([#958](https://github.com/runkids/skillshare/issues/958)) ([52744e2](https://github.com/runkids/skillshare/commit/52744e2f3448f527f404de1bc706a2185ce26971)), closes [#953](https://github.com/runkids/skillshare/issues/953)
+
+
+### Bug Fixes
+
+* **plugins:** make OMP removal previews deterministic ([#949](https://github.com/runkids/skillshare/issues/949)) ([ef07211](https://github.com/runkids/skillshare/commit/ef072113a9d30960614640daf9ff8a075c48ecae))
+* **projects:** say where a removed project's MCP and hook settings go ([#955](https://github.com/runkids/skillshare/issues/955)) ([f8d768a](https://github.com/runkids/skillshare/commit/f8d768a2568d9d3bab07c0b6e7cde02e46946f37))
+* **ui:** show each MCP server's Agents once and animate target pickers ([#952](https://github.com/runkids/skillshare/issues/952)) ([d0530b6](https://github.com/runkids/skillshare/commit/d0530b6599319825f602d1a3091aa92c4abd491d))
+
 ## [0.30.11] - 2026-11-17
 
 ### New Features
