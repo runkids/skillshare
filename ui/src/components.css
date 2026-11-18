@@ -347,7 +347,8 @@ svg.lucide { flex: none; stroke-width: var(--isw); }
   .ss-draw path { stroke-dashoffset: 0; animation: none; }
   /* The slot keeps its delay, so the finished bar is still seen before it goes. */
   .ss-barslot { transition-duration: 0s; }
-  .ss-bar>i, .ss-prog i, .ss-collapse, .ss-collapse .ss-r, .ss-note.live { transition: none; }
+  /* .grow and .grow.shut set their own transitions, so they are named to outrank them. */
+  .ss-bar>i, .ss-prog i, .ss-collapse, .ss-collapse.grow, .ss-collapse.grow.shut, .ss-collapse .ss-r, .ss-note.live { transition: none; }
 }
 .ss-note { display: flex; align-items: flex-start; gap: 10px; padding: 11px 14px; border-radius: 10px; background: var(--sunken); border: 1px solid var(--line); font-size: 13px; line-height: 1.5; }
 :root[data-theme="playful"] .ss-note { border: 2px solid var(--line); border-radius: 12px; }
