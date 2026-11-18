@@ -76,7 +76,7 @@ This topic also loads `website/AGENTS.md` for website-specific commands, structu
 
 Run all package commands inside the devcontainer. Select checks according to scope:
 
-- Dashboard: targeted Vitest, `pnpm run lint`, `pnpm run build`, and visual screenshots.
+- Dashboard (`ui/`): `pnpm lint` runs the fast Oxlint checks. Before submitting, run `pnpm lint:typed` (Oxlint with the tsrs backend; CI fails on errors) and `pnpm format:check` (Oxfmt). Use `pnpm format` to apply formatting. Run targeted Vitest tests and `pnpm build` (tsrs typecheck followed by Vite); inspect screenshots for visual changes.
 - Website: `pnpm run typecheck` and `pnpm run build`; the build validates broken links.
 - API-connected UI: compare `internal/server/server.go` routes, handler tests, and client types.
 

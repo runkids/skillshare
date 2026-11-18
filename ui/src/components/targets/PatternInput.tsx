@@ -3,7 +3,12 @@ import { X } from 'lucide-react';
 import { useT } from '../../i18n';
 
 /** Include/exclude patterns as removable tags. Enter, comma or blur adds; Backspace on an empty field removes the last. */
-export default function PatternInput({ id, patterns, onChange, disabled }: {
+export default function PatternInput({
+  id,
+  patterns,
+  onChange,
+  disabled,
+}: {
   id: string;
   patterns: string[];
   onChange: (patterns: string[]) => void;
@@ -21,7 +26,13 @@ export default function PatternInput({ id, patterns, onChange, disabled }: {
       {patterns.map((p) => (
         <span key={p} className="ss-tag !h-[22px] !text-[12px]">
           {p}
-          <button type="button" className="text-ink-3 hover:text-ink" aria-label={t('targetDetail.removePattern', { pattern: p })} onClick={() => onChange(patterns.filter((x) => x !== p))} disabled={disabled}>
+          <button
+            type="button"
+            className="text-ink-3 hover:text-ink"
+            aria-label={t('targetDetail.removePattern', { pattern: p })}
+            onClick={() => onChange(patterns.filter((x) => x !== p))}
+            disabled={disabled}
+          >
             <X size={11} />
           </button>
         </span>

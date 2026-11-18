@@ -21,7 +21,15 @@ interface Options {
  * The new-folder step of the folder picker, for a dialog to show in place of its form: the header text
  * and the body and footer to render. `start(parent)` seeds it with the folder that was selected.
  */
-export function useNewFolderStep({ kind, folders, rootCount, skill, disabledPaths, onUse, onBack }: Options) {
+export function useNewFolderStep({
+  kind,
+  folders,
+  rootCount,
+  skill,
+  disabledPaths,
+  onUse,
+  onBack,
+}: Options) {
   const t = useT();
   const [draft, setDraft] = useState({ parent: '', name: '' });
   // Which way the dialog's content just moved, until its slide-in has played.
@@ -71,8 +79,12 @@ export function useNewFolderStep({ kind, folders, rootCount, skill, disabledPath
     ),
     foot: (
       <>
-        <Button variant="secondary" onClick={back}>{t('folderPicker.back')}</Button>
-        <Button variant="primary" disabled={!path} onClick={use}>{t('folderPicker.use')}</Button>
+        <Button variant="secondary" onClick={back}>
+          {t('folderPicker.back')}
+        </Button>
+        <Button variant="primary" disabled={!path} onClick={use}>
+          {t('folderPicker.use')}
+        </Button>
       </>
     ),
   };

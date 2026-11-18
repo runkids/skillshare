@@ -14,19 +14,24 @@
     <!-- Body text uses the system font. Kalam is only for Playful headings. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&display=swap" rel="stylesheet" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
     <script>
       // FOUC prevention: handle Clean theme + dark mode before first paint
       // Default is Playful (already set on <html>); only remove for explicit Clean
       // URL ?theme= param overrides localStorage (values: dark, light, playful, clean).
       // ?mode= (dark, light) and ?style= (playful, clean) name one axis each and win over it.
-      (function() {
+      (function () {
         var q = new URLSearchParams(location.search);
-        var get = function(key) { return (q.get(key) || '').toLowerCase(); };
-        [get('theme'), get('mode')].forEach(function(p) {
+        var get = function (key) {
+          return (q.get(key) || '').toLowerCase();
+        };
+        [get('theme'), get('mode')].forEach(function (p) {
           if (p === 'dark' || p === 'light') localStorage.setItem('skillshare-theme-preference', p);
         });
-        [get('theme'), get('style')].forEach(function(p) {
+        [get('theme'), get('style')].forEach(function (p) {
           if (p === 'playful' || p === 'clean') localStorage.setItem('skillshare-style', p);
         });
         var style = localStorage.getItem('skillshare-style');
@@ -34,7 +39,9 @@
         if (style === 'clean') {
           document.documentElement.removeAttribute('data-theme');
         }
-        var dark = pref === 'dark' || (pref === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+        var dark =
+          pref === 'dark' ||
+          (pref === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
         if (dark) document.documentElement.classList.add('dark');
       })();
     </script>

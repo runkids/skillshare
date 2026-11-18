@@ -1,10 +1,24 @@
 import { apiFetch, BASE, createSSEStream } from './http';
-import type { AnalyzeResponse, DoctorCheck, DoctorResponse, VersionCheck } from './types/diagnostics';
+import type {
+  AnalyzeResponse,
+  DoctorCheck,
+  DoctorResponse,
+  VersionCheck,
+} from './types/diagnostics';
 
 export const systemApi = {
-  getUpdatePolicy: () => apiFetch<{ enabled: boolean; configured: boolean; envOverride: boolean }>('/update-settings'),
-  getVersionCheck: (manual = false) => apiFetch<VersionCheck>(manual ? '/version?manual=true' : '/version'),
-  upgradeApp: () => apiFetch<{ ok: boolean; updated: boolean; devMode?: boolean; latestVersion?: string; output?: string }>('/upgrade', { method: 'POST' }),
+  getUpdatePolicy: () =>
+    apiFetch<{ enabled: boolean; configured: boolean; envOverride: boolean }>('/update-settings'),
+  getVersionCheck: (manual = false) =>
+    apiFetch<VersionCheck>(manual ? '/version?manual=true' : '/version'),
+  upgradeApp: () =>
+    apiFetch<{
+      ok: boolean;
+      updated: boolean;
+      devMode?: boolean;
+      latestVersion?: string;
+      output?: string;
+    }>('/upgrade', { method: 'POST' }),
   restartApp: (opts?: { clearCache?: boolean }) =>
     apiFetch<{ ok: boolean; restarting: boolean }>('/restart', {
       method: 'POST',
@@ -14,7 +28,12 @@ export const systemApi = {
   /** Runs doctor, passing each check to onCheck as it is found; resolves with the full result. */
   doctorStream: (onCheck: (check: DoctorCheck) => void, signal?: AbortSignal) =>
     new Promise<DoctorResponse>((resolve, reject) => {
-      const es = createSSEStream(BASE + '/doctor/stream', { check: onCheck, done: resolve }, reject, 'Health check failed');
+      const es = createSSEStream(
+        BASE + '/doctor/stream',
+        { check: onCheck, done: resolve },
+        reject,
+        'Health check failed',
+      );
       signal?.addEventListener('abort', () => es.close());
     }),
   analyze: () => apiFetch<AnalyzeResponse>('/analyze'),

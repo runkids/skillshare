@@ -11,7 +11,8 @@ const docs: Record<string, string> = {
   pi: 'https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/packages.md',
   omp: 'https://github.com/can1357/oh-my-pi/blob/v18.6.1/docs/extensions.md',
   opencode: 'https://opencode.ai/docs/plugins/',
-  copilot: 'https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/plugins-finding-installing',
+  copilot:
+    'https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/plugins-finding-installing',
   grok: 'https://docs.x.ai/build/features/skills-plugins-marketplaces',
   kimi: 'https://www.kimi.com/code/docs/en/kimi-code-cli/customization/plugins',
   hermes: 'https://hermes-agent.nousresearch.com/docs/user-guide/features/plugins',
@@ -21,7 +22,16 @@ const docs: Record<string, string> = {
 export default function PluginDocsLink({ target, label }: { target: string; label: string }) {
   const t = useT();
   if (!docs[target]) return null;
-  return <a href={docs[target]} target="_blank" rel="noopener noreferrer" className="inline-flex shrink-0 items-center gap-1 text-xs text-link underline" aria-label={`${label} · ${t('plugins.officialDocs')}`}>
-    {t('plugins.officialDocs')}<ExternalLink size={12} aria-hidden="true" />
-  </a>;
+  return (
+    <a
+      href={docs[target]}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex shrink-0 items-center gap-1 text-xs text-link underline"
+      aria-label={`${label} · ${t('plugins.officialDocs')}`}
+    >
+      {t('plugins.officialDocs')}
+      <ExternalLink size={12} aria-hidden="true" />
+    </a>
+  );
 }

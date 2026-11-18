@@ -5,14 +5,23 @@ import { keyedText } from './outcomeText';
 type T = ReturnType<typeof useT>;
 
 /** Why each Agent cannot take this plugin, or '' when it can. One place, so the list and the dialog never disagree. */
-export function agentReasons(candidate: PluginCandidate | undefined, definitions: Record<string, PluginTargetDefinition>, isProjectMode: boolean, t: T) {
+export function agentReasons(
+  candidate: PluginCandidate | undefined,
+  definitions: Record<string, PluginTargetDefinition>,
+  isProjectMode: boolean,
+  t: T,
+) {
   return (Object.keys(definitions) as PluginTarget[]).map((target) => {
     const definition = definitions[target];
     const info = candidate?.targetInfo?.[target];
-    const reason = keyedText(t, info?.problemKey, info?.problem, info?.problemArgs)
-      || (!candidate?.targets.includes(target) ? t('plugins.unsupported')
-        : isProjectMode && !definition.project ? t('plugins.globalOnly')
-          : !definition.operations.includes('add') ? keyedText(t, definition.reasonKey, definition.reason) || t('plugins.unsupported')
+    const reason =
+      keyedText(t, info?.problemKey, info?.problem, info?.problemArgs) ||
+      (!candidate?.targets.includes(target)
+        ? t('plugins.unsupported')
+        : isProjectMode && !definition.project
+          ? t('plugins.globalOnly')
+          : !definition.operations.includes('add')
+            ? keyedText(t, definition.reasonKey, definition.reason) || t('plugins.unsupported')
             : '');
     return { target, definition, reason };
   });

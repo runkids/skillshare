@@ -18,7 +18,11 @@ export function Input({ label, className = '', id, size = 'md', ...props }: Inpu
   return (
     <div className={label ? 'ss-fld' : undefined}>
       {label && <label htmlFor={inputId}>{label}</label>}
-      <input id={inputId} className={`${control} ${size === 'sm' ? 'h-[30px] text-xs' : ''} ${className}`} {...props} />
+      <input
+        id={inputId}
+        className={`${control} ${size === 'sm' ? 'h-[30px] text-xs' : ''} ${className}`}
+        {...props}
+      />
     </div>
   );
 }
@@ -34,7 +38,11 @@ export function Textarea({ label, className = '', id, size = 'md', ...props }: T
   return (
     <div className={label ? 'ss-fld' : undefined}>
       {label && <label htmlFor={inputId}>{label}</label>}
-      <textarea id={inputId} className={`${control} area resize-y ${size === 'sm' ? 'text-xs' : ''} ${className}`} {...props} />
+      <textarea
+        id={inputId}
+        className={`${control} area resize-y ${size === 'sm' ? 'text-xs' : ''} ${className}`}
+        {...props}
+      />
     </div>
   );
 }

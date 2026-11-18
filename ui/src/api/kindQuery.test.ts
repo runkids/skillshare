@@ -3,7 +3,10 @@ import { apiFetch } from './http';
 import { auditApi } from './audit';
 import { resourcesApi } from './resources';
 
-vi.mock('./http', async (load) => ({ ...await load<typeof import('./http')>(), apiFetch: vi.fn() }));
+vi.mock('./http', async (load) => ({
+  ...(await load<typeof import('./http')>()),
+  apiFetch: vi.fn(),
+}));
 
 // The kind unions are closed today; a cast stands in for a value that needs escaping.
 const odd = 'a&b' as 'skill';

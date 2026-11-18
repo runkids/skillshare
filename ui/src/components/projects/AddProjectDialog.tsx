@@ -28,11 +28,24 @@ const PARTS = ['skills', 'agents', 'mcp', 'hooks'] as const;
 type PartName = (typeof PARTS)[number];
 
 /** Add one folder to projects. Filters and MCP servers are edited on the project's page. */
-export default function AddProjectDialog({ tools, common, defaultStorage = 'shared', storagePaths, existing, onClose, onAdded }: Props) {
+export default function AddProjectDialog({
+  tools,
+  common,
+  defaultStorage = 'shared',
+  storagePaths,
+  existing,
+  onClose,
+  onAdded,
+}: Props) {
   const t = useT();
   const [path, setPath] = useState('');
   const [targets, setTargets] = useState<string[]>([]);
-  const [parts, setParts] = useState<Record<PartName, boolean>>({ skills: true, agents: false, mcp: false, hooks: false });
+  const [parts, setParts] = useState<Record<PartName, boolean>>({
+    skills: true,
+    agents: false,
+    mcp: false,
+    hooks: false,
+  });
   const [storage, setStorage] = useState<ProjectStorage>(defaultStorage);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -41,14 +54,20 @@ export default function AddProjectDialog({ tools, common, defaultStorage = 'shar
   const root = path.trim().replace(/(?<=.)[\\/]+$/, '');
   const absolute = /^(~($|[\\/])|\/|[A-Za-z]:[\\/])/.test(root);
   const taken = existing.some((x) => x === root || shortenHome(x) === root);
-  const pathError = root && !absolute ? t('projects.add.folderHint') : taken ? t('projects.add.taken') : '';
+  const pathError =
+    root && !absolute ? t('projects.add.folderHint') : taken ? t('projects.add.taken') : '';
   const agentTools = targets.filter((x) => tools.find((tool) => tool.name === x)?.agentsPath);
   const folders = toolGroups(tools, targets).length;
-  const canSave = Boolean(root) && !pathError && targets.length > 0 && PARTS.some((p) => parts[p]) && !saving;
+  const canSave =
+    Boolean(root) && !pathError && targets.length > 0 && PARTS.some((p) => parts[p]) && !saving;
 
   const partHint = (p: PartName) => {
     if (p === 'agents' && targets.length > 0) {
-      return agentTools.length === 0 ? t('projects.add.agentsNone') : agentTools.length < targets.length ? t('projects.add.agentsSome', { targets: agentTools.join(', ') }) : t('projects.add.agentsHint');
+      return agentTools.length === 0
+        ? t('projects.add.agentsNone')
+        : agentTools.length < targets.length
+          ? t('projects.add.agentsSome', { targets: agentTools.join(', ') })
+          : t('projects.add.agentsHint');
     }
     return t(`projects.add.${p}Hint`);
   };
@@ -58,8 +77,20 @@ export default function AddProjectDialog({ tools, common, defaultStorage = 'shar
     return full ? { detail: shortenHome(full), detailTitle: full } : {};
   };
   const storageOptions = [
-    { value: 'shared', label: 'config.yaml', mono: true, description: t('projects.add.storageShared'), ...where('shared') },
-    { value: 'local', label: t('projects.add.storageLocal'), triggerLabel: t('projects.add.storageLocalShort'), description: t('projects.add.storageLocalHint'), ...where('local') },
+    {
+      value: 'shared',
+      label: 'config.yaml',
+      mono: true,
+      description: t('projects.add.storageShared'),
+      ...where('shared'),
+    },
+    {
+      value: 'local',
+      label: t('projects.add.storageLocal'),
+      triggerLabel: t('projects.add.storageLocalShort'),
+      description: t('projects.add.storageLocalHint'),
+      ...where('local'),
+    },
   ];
 
   const save = async () => {
@@ -68,10 +99,20 @@ export default function AddProjectDialog({ tools, common, defaultStorage = 'shar
     setError('');
     const all = { mode: '', include: [], exclude: [] };
     try {
-      const saved = await api.saveProject({ create: true, storage, root, targets, skills: parts.skills ? all : null, agents: parts.agents ? all : null });
+      const saved = await api.saveProject({
+        create: true,
+        storage,
+        root,
+        targets,
+        skills: parts.skills ? all : null,
+        agents: parts.agents ? all : null,
+      });
       if (parts.mcp) {
         const clients = mcpTargets.filter((x) => targets.includes(x));
-        await mcpApi.save({ project: root, settings: { targets: clients.length > 0 ? clients : undefined } });
+        await mcpApi.save({
+          project: root,
+          settings: { targets: clients.length > 0 ? clients : undefined },
+        });
       }
       // An empty hooks block: the project's own hooks are added on its Hooks tab.
       if (parts.hooks) await hooksApi.save({ project: saved.root });
@@ -83,49 +124,130 @@ export default function AddProjectDialog({ tools, common, defaultStorage = 'shar
   };
 
   return (
-    <DialogShell open onClose={onClose} padding="none" preventClose={saving} ariaLabel={t('projects.add.title')} className="!max-w-[640px]">
+    <DialogShell
+      open
+      onClose={onClose}
+      padding="none"
+      preventClose={saving}
+      ariaLabel={t('projects.add.title')}
+      className="!max-w-[640px]"
+    >
       <div className="dh">
         <h2 className="ss-h2">{t('projects.add.title')}</h2>
-        <button type="button" className="ss-ib" aria-label={t('common.close')} onClick={onClose} disabled={saving}><X size={16} /></button>
+        <button
+          type="button"
+          className="ss-ib"
+          aria-label={t('common.close')}
+          onClick={onClose}
+          disabled={saving}
+        >
+          <X size={16} />
+        </button>
       </div>
-      <form id="add-project" className="db" onSubmit={(e) => { e.preventDefault(); void save(); }}>
+      <form
+        id="add-project"
+        className="db"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void save();
+        }}
+      >
         <div className="ss-fld">
           <label htmlFor="add-project-path">{t('projects.add.folder')}</label>
           <span className={`ss-inp font-mono ${pathError ? 'err' : ''}`}>
             <Folder size={15} className="shrink-0 text-ink-3" />
-            <input id="add-project-path" autoFocus value={path} onChange={(e) => setPath(e.target.value)} placeholder="~/work/my-project" disabled={saving} />
+            <input
+              id="add-project-path"
+              autoFocus
+              value={path}
+              onChange={(e) => setPath(e.target.value)}
+              placeholder="~/work/my-project"
+              disabled={saving}
+            />
           </span>
-          <span className={`hp ${pathError ? '!text-bad' : ''}`}>{pathError || t('projects.add.folderHint')}</span>
+          <span className={`hp ${pathError ? '!text-bad' : ''}`}>
+            {pathError || t('projects.add.folderHint')}
+          </span>
         </div>
         <div className="ss-fld">
           <span className="text-[13px] font-semibold">{t('projects.targets')}</span>
-          <ProjectTools tools={tools} common={common} selected={targets} onChange={setTargets} disabled={saving} />
+          <ProjectTools
+            tools={tools}
+            common={common}
+            selected={targets}
+            onChange={setTargets}
+            disabled={saving}
+          />
           <span className="hp">{t('projects.add.targetsHint')}</span>
-          {folders > 0 && <span className="hp">{t(plural('projects.add.writes', folders), { count: folders })}</span>}
+          {folders > 0 && (
+            <span className="hp">
+              {t(plural('projects.add.writes', folders), { count: folders })}
+            </span>
+          )}
         </div>
         <div className="ss-fld">
           <span className="text-[13px] font-semibold">{t('projects.add.parts')}</span>
           <div className="ss-list">
             {PARTS.map((p, i) => (
-              <button key={p} type="button" role="checkbox" aria-checked={parts[p]} className={`flex min-h-[52px] w-full items-center gap-3 px-4 py-2 text-left ${i > 0 ? 'border-t border-line-soft' : ''}`} onClick={() => setParts({ ...parts, [p]: !parts[p] })} disabled={saving}>
-                <span className={`ss-chk ${parts[p] ? 'on' : ''}`}>{parts[p] && <Check size={12} strokeWidth={3} />}</span>
+              <button
+                key={p}
+                type="button"
+                role="checkbox"
+                aria-checked={parts[p]}
+                className={`flex min-h-[52px] w-full items-center gap-3 px-4 py-2 text-left ${i > 0 ? 'border-t border-line-soft' : ''}`}
+                onClick={() => setParts({ ...parts, [p]: !parts[p] })}
+                disabled={saving}
+              >
+                <span className={`ss-chk ${parts[p] ? 'on' : ''}`}>
+                  {parts[p] && <Check size={12} strokeWidth={3} />}
+                </span>
                 <span className="flex flex-col gap-px">
-                  <span className="text-[14px] font-semibold">{p === 'mcp' ? 'MCP' : p === 'hooks' ? 'Hooks' : p === 'agents' ? 'Agents' : 'Skills'}</span>
+                  <span className="text-[14px] font-semibold">
+                    {p === 'mcp'
+                      ? 'MCP'
+                      : p === 'hooks'
+                        ? 'Hooks'
+                        : p === 'agents'
+                          ? 'Agents'
+                          : 'Skills'}
+                  </span>
                   <span className="text-[13px] text-ink-2">{partHint(p)}</span>
                 </span>
               </button>
             ))}
           </div>
         </div>
-        {error && <div className="ss-note bad"><span className="flex-1">{error}</span></div>}
+        {error && (
+          <div className="ss-note bad">
+            <span className="flex-1">{error}</span>
+          </div>
+        )}
       </form>
       <div className="df">
         <span className="flex flex-1 items-center gap-1 text-[13px] text-ink-3">
           {t('projects.add.savedTo')}
-          <Select quiet up ariaLabel={t('projects.add.savedTo')} value={storage} onChange={(v) => setStorage(v as ProjectStorage)} options={storageOptions} disabled={saving} />
+          <Select
+            quiet
+            up
+            ariaLabel={t('projects.add.savedTo')}
+            value={storage}
+            onChange={(v) => setStorage(v as ProjectStorage)}
+            options={storageOptions}
+            disabled={saving}
+          />
         </span>
-        <Button variant="ghost" onClick={onClose} disabled={saving}>{t('common.cancel')}</Button>
-        <Button type="submit" form="add-project" variant="primary" loading={saving} disabled={!canSave}>{t('projects.add.submit')}</Button>
+        <Button variant="ghost" onClick={onClose} disabled={saving}>
+          {t('common.cancel')}
+        </Button>
+        <Button
+          type="submit"
+          form="add-project"
+          variant="primary"
+          loading={saving}
+          disabled={!canSave}
+        >
+          {t('projects.add.submit')}
+        </Button>
       </div>
     </DialogShell>
   );

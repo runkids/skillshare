@@ -17,16 +17,36 @@ export default function SyncError({ error }: { error: string }) {
       <span className="break-words font-mono text-[12px] text-ink-2">{summary}</span>
       {condensed && (
         <>
-          <button type="button" className="ss-btn ghost sm self-start" aria-expanded={open} aria-controls={id} onClick={() => setOpen(!open)}>
+          <button
+            type="button"
+            className="ss-btn ghost sm self-start"
+            aria-expanded={open}
+            aria-controls={id}
+            onClick={() => setOpen(!open)}
+          >
             {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
             {t(open ? 'sync.error.hideDetails' : 'sync.error.showDetails')}
           </button>
           {open && (
             <div id={id} className="ss-pre min-w-0">
               <div className="mb-1 flex justify-end">
-                <CopyButton value={error} unstyled className="ss-btn ghost sm" title={t('common.copy')} label={t('common.copy')} copiedLabel={t('doctor.copied')} errorMessage={t('memory.copyFailed')} />
+                <CopyButton
+                  value={error}
+                  unstyled
+                  className="ss-btn ghost sm"
+                  title={t('common.copy')}
+                  label={t('common.copy')}
+                  copiedLabel={t('doctor.copied')}
+                  errorMessage={t('memory.copyFailed')}
+                />
               </div>
-              <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words" tabIndex={0} aria-label={t('sync.error.showDetails')}>{error}</pre>
+              <pre
+                className="max-h-64 overflow-auto whitespace-pre-wrap break-words"
+                tabIndex={0}
+                aria-label={t('sync.error.showDetails')}
+              >
+                {error}
+              </pre>
             </div>
           )}
         </>

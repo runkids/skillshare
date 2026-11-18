@@ -1,12 +1,24 @@
 import { apiFetch, BASE, createSSEStream } from './http';
-import type { DiffTarget, FolderConflict, IgnoreSources, SyncMatrixEntry, SyncResponse } from './types/sync';
+import type {
+  DiffTarget,
+  FolderConflict,
+  IgnoreSources,
+  SyncMatrixEntry,
+  SyncResponse,
+} from './types/sync';
 
 export const syncApi = {
   getSyncMatrix: (target?: string) =>
     apiFetch<{ entries: SyncMatrixEntry[] }>(
-      `/sync-matrix${target ? '?target=' + encodeURIComponent(target) : ''}`
+      `/sync-matrix${target ? '?target=' + encodeURIComponent(target) : ''}`,
     ),
-  previewSyncMatrix: (target: string, include: string[], exclude: string[], agentInclude?: string[], agentExclude?: string[]) =>
+  previewSyncMatrix: (
+    target: string,
+    include: string[],
+    exclude: string[],
+    agentInclude?: string[],
+    agentExclude?: string[],
+  ) =>
     apiFetch<{ entries: SyncMatrixEntry[] }>('/sync-matrix/preview', {
       method: 'POST',
       body: JSON.stringify({
@@ -24,7 +36,9 @@ export const syncApi = {
       body: JSON.stringify(opts),
     }),
   diff: (target?: string) =>
-    apiFetch<{ diffs: DiffTarget[]; folder_conflicts?: FolderConflict[] } & IgnoreSources>(`/diff${target ? '?target=' + encodeURIComponent(target) : ''}`),
+    apiFetch<{ diffs: DiffTarget[]; folder_conflicts?: FolderConflict[] } & IgnoreSources>(
+      `/diff${target ? '?target=' + encodeURIComponent(target) : ''}`,
+    ),
   diffStream: (
     onDiscovering: () => void,
     onStart: (total: number) => void,
@@ -32,10 +46,15 @@ export const syncApi = {
     onDone: (data: { diffs: DiffTarget[] } & IgnoreSources) => void,
     onError: (err: Error) => void,
   ): EventSource =>
-    createSSEStream(BASE + '/diff/stream', {
-      discovering: () => onDiscovering(),
-      start: (d) => onStart(d.total),
-      result: (d) => onResult(d.diff, d.checked),
-      done: onDone,
-    }, onError, 'Diff stream failed'),
+    createSSEStream(
+      BASE + '/diff/stream',
+      {
+        discovering: () => onDiscovering(),
+        start: (d) => onStart(d.total),
+        result: (d) => onResult(d.diff, d.checked),
+        done: onDone,
+      },
+      onError,
+      'Diff stream failed',
+    ),
 };

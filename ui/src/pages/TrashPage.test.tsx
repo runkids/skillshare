@@ -52,7 +52,9 @@ describe('TrashPage', () => {
     renderTrashPage('agent');
 
     await user.click(await screen.findByRole('button', { name: /empty trash/i }));
-    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: /empty trash/i }));
+    await user.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: /empty trash/i }),
+    );
 
     await waitFor(() => expect(api.emptyTrash).toHaveBeenCalledWith('agent'));
   });

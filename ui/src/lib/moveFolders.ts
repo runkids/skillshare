@@ -26,10 +26,12 @@ export function existingFolders(resources: Skill[]): FolderOption[] {
 }
 
 /** Client-side mirror of `validate.SkillName`, which `validate.IntoPath` applies to each segment. */
-export const isValidFolderName = (name: string) => /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/.test(name) && name.toLowerCase() !== 'agents';
+export const isValidFolderName = (name: string) =>
+  /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/.test(name) && name.toLowerCase() !== 'agents';
 
 /** Client-side mirror of `validate.IntoPath`. */
-export const isValidIntoPath = (path: string) => path.length <= 256 && path.split('/').every(isValidFolderName);
+export const isValidIntoPath = (path: string) =>
+  path.length <= 256 && path.split('/').every(isValidFolderName);
 
 /** `name` inside `parent` ('' is the source root). */
 export const joinFolder = (parent: string, name: string) => (parent ? `${parent}/${name}` : name);
@@ -49,7 +51,10 @@ export const linkPrefix = (folder: string) => (folder ? `${folder.replace(/\//g,
  * no skill. Only a best guess for a caption; the server decides the real name.
  */
 export function skillNameFromSource(source: string): string | null {
-  const value = source.trim().replace(/\/+$/, '').replace(/\.git$/, '');
+  const value = source
+    .trim()
+    .replace(/\/+$/, '')
+    .replace(/\.git$/, '');
   if (/^[/~.]/.test(value) || /^[a-zA-Z]:\\/.test(value)) return lastName(value.split(/[\\/]/));
   if (value.startsWith('git@')) return null;
   const parts = value.replace(/^[a-z+]+:\/\//i, '').split('/');
@@ -74,8 +79,16 @@ export const baseName = (path: string) => path.slice(path.lastIndexOf('/') + 1);
  * A folder the move dialog can take whole: not the source root, not a tracked repo or followed link,
  * not inside a `_`-prefixed (tracked) folder and not below a followed link (`linkNames`). The server's dry run has the last word.
  */
-export const canMoveFolder = (path: string, node: { repo?: unknown; link?: unknown } = {}, linkNames: string[] = []) =>
-  path !== '' && !node.repo && !node.link && !path.split('/').some((seg) => seg.startsWith('_')) && !linkNames.some((n) => under(path, n));
+export const canMoveFolder = (
+  path: string,
+  node: { repo?: unknown; link?: unknown } = {},
+  linkNames: string[] = [],
+) =>
+  path !== '' &&
+  !node.repo &&
+  !node.link &&
+  !path.split('/').some((seg) => seg.startsWith('_')) &&
+  !linkNames.some((n) => under(path, n));
 
 export interface FolderPlan {
   /** Skills directly in the folder. */
@@ -91,14 +104,19 @@ export interface FolderPlan {
 /** What moving `folder` takes along, from the loaded resources. */
 export function planFolder(resources: Skill[], folder: string): FolderPlan {
   // A folder can itself be a skill (SKILL.md at its root); it moves with what is below it.
-  const inside = resources.filter((s) => s.kind === 'skill' && (s.relPath === folder || s.relPath.startsWith(`${folder}/`)));
+  const inside = resources.filter(
+    (s) => s.kind === 'skill' && (s.relPath === folder || s.relPath.startsWith(`${folder}/`)),
+  );
   const moving = inside.filter(canMove);
   const counts = new Map<string, number>();
   const direct: Skill[] = [];
   for (const s of moving) {
     const rest = s.relPath.slice(folder.length + 1);
     const i = rest.indexOf('/');
-    if (s.relPath === folder) { direct.push(s); continue; }
+    if (s.relPath === folder) {
+      direct.push(s);
+      continue;
+    }
     if (i < 0) direct.push(s);
     else counts.set(rest.slice(0, i), (counts.get(rest.slice(0, i)) ?? 0) + 1);
   }
@@ -111,8 +129,13 @@ export function planFolder(resources: Skill[], folder: string): FolderPlan {
   }
   return {
     direct,
-    subfolders: [...counts].map(([name, count]) => ({ name, count })).sort((a, b) => a.name.localeCompare(b.name)),
-    blocked: [...blocked].map(([path, why]) => ({ path: path.startsWith(`${folder}/`) ? path.slice(folder.length + 1) : path, why })),
+    subfolders: [...counts]
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => a.name.localeCompare(b.name)),
+    blocked: [...blocked].map(([path, why]) => ({
+      path: path.startsWith(`${folder}/`) ? path.slice(folder.length + 1) : path,
+      why,
+    })),
     count: moving.length,
   };
 }

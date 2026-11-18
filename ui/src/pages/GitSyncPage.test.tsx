@@ -10,13 +10,35 @@ import GitSyncPage from './GitSyncPage';
 vi.mock('../context/AppContext', () => ({ useAppContext: () => ({ isProjectMode: false }) }));
 vi.mock('../api/client', async (load) => {
   const actual = await load<typeof import('../api/client')>();
-  return { ...actual, api: { ...actual.api, gitStatus: vi.fn(), gitBranches: vi.fn(), gitDiscard: vi.fn(), gitCommit: vi.fn(), pull: vi.fn(), push: vi.fn() } };
+  return {
+    ...actual,
+    api: {
+      ...actual.api,
+      gitStatus: vi.fn(),
+      gitBranches: vi.fn(),
+      gitDiscard: vi.fn(),
+      gitCommit: vi.fn(),
+      pull: vi.fn(),
+      push: vi.fn(),
+    },
+  };
 });
 
 const status: GitStatus = {
-  gitInstalled: true, isRepo: true, hasRemote: false, branch: 'main', isDirty: true,
-  files: [' M .metadata.json', '?? new-skill/'], sourceDir: '/source', scope: 'skills',
-  scopeMismatch: false, headHash: 'abc123', ahead: 0, behind: 0, nestedRepos: [], configTracked: false,
+  gitInstalled: true,
+  isRepo: true,
+  hasRemote: false,
+  branch: 'main',
+  isDirty: true,
+  files: [' M .metadata.json', '?? new-skill/'],
+  sourceDir: '/source',
+  scope: 'skills',
+  scopeMismatch: false,
+  headHash: 'abc123',
+  ahead: 0,
+  behind: 0,
+  nestedRepos: [],
+  configTracked: false,
 };
 
 function mount() {
@@ -24,7 +46,11 @@ function mount() {
   render(
     <MemoryRouter>
       <QueryClientProvider client={client}>
-        <I18nProvider><ToastProvider><GitSyncPage /></ToastProvider></I18nProvider>
+        <I18nProvider>
+          <ToastProvider>
+            <GitSyncPage />
+          </ToastProvider>
+        </I18nProvider>
       </QueryClientProvider>
     </MemoryRouter>,
   );
@@ -35,24 +61,54 @@ beforeEach(() => {
   vi.clearAllMocks();
   localStorage.setItem('skillshare:locale', 'en');
   vi.mocked(api.gitStatus).mockResolvedValue(status);
-  vi.mocked(api.gitBranches).mockResolvedValue({ current: 'main', local: ['main'], remote: [], isDirty: true, dirtyFiles: status.files });
+  vi.mocked(api.gitBranches).mockResolvedValue({
+    current: 'main',
+    local: ['main'],
+    remote: [],
+    isDirty: true,
+    dirtyFiles: status.files,
+  });
   vi.mocked(api.gitDiscard).mockResolvedValue({ success: true, message: 'changes discarded' });
   vi.mocked(api.gitCommit).mockResolvedValue({ success: true, message: 'committed' });
-  vi.mocked(api.pull).mockResolvedValue({ success: true, upToDate: false, commits: [], stats: { filesChanged: 1, insertions: 1, deletions: 0 }, syncResults: [] });
+  vi.mocked(api.pull).mockResolvedValue({
+    success: true,
+    upToDate: false,
+    commits: [],
+    stats: { filesChanged: 1, insertions: 1, deletions: 0 },
+    syncResults: [],
+  });
 });
 
 describe('updates from another computer', () => {
   const conflicts = {
-    localHash: 'local-head', remoteHash: 'remote-head',
+    localHash: 'local-head',
+    remoteHash: 'remote-head',
     files: [
-      { path: 'shared.md', local: { deleted: false, noPreview: false, content: 'my edits' }, remote: { deleted: false, noPreview: false, content: 'other computer edits' } },
-      { path: 'removed.md', local: { deleted: true, noPreview: false, content: '' }, remote: { deleted: false, noPreview: true, content: '' } },
+      {
+        path: 'shared.md',
+        local: { deleted: false, noPreview: false, content: 'my edits' },
+        remote: { deleted: false, noPreview: false, content: 'other computer edits' },
+      },
+      {
+        path: 'removed.md',
+        local: { deleted: true, noPreview: false, content: '' },
+        remote: { deleted: false, noPreview: true, content: '' },
+      },
     ],
   };
 
   it('compares conflicts and requires a choice for every file before applying', async () => {
-    vi.mocked(api.gitStatus).mockResolvedValue({ ...status, hasRemote: true, isDirty: false, files: [], ahead: 1, behind: 1 });
-    vi.mocked(api.pull).mockRejectedValueOnce(new ApiError(409, 'conflict', { code: 'pull_conflict', params: conflicts }));
+    vi.mocked(api.gitStatus).mockResolvedValue({
+      ...status,
+      hasRemote: true,
+      isDirty: false,
+      files: [],
+      ahead: 1,
+      behind: 1,
+    });
+    vi.mocked(api.pull).mockRejectedValueOnce(
+      new ApiError(409, 'conflict', { code: 'pull_conflict', params: conflicts }),
+    );
     mount();
     fireEvent.click(await screen.findByRole('button', { name: 'Pull and merge' }));
     const dialog = await screen.findByRole('dialog', { name: 'Resolve pull conflicts' });
@@ -61,21 +117,41 @@ describe('updates from another computer', () => {
     expect(within(dialog).getByText('Deleted in this version')).toBeTruthy();
     const apply = within(dialog).getByRole('button', { name: 'Apply choices and pull' });
     expect((apply as HTMLButtonElement).disabled).toBe(true);
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Keep local version of shared.md' }));
+    fireEvent.click(
+      within(dialog).getByRole('button', { name: 'Keep local version of shared.md' }),
+    );
     expect((apply as HTMLButtonElement).disabled).toBe(true);
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Keep remote version of removed.md' }));
+    fireEvent.click(
+      within(dialog).getByRole('button', { name: 'Keep remote version of removed.md' }),
+    );
     expect(api.pull).toHaveBeenCalledTimes(1);
     fireEvent.click(apply);
-    await waitFor(() => expect(api.pull).toHaveBeenCalledWith({ resolution: {
-      localHash: 'local-head', remoteHash: 'remote-head', choices: { 'shared.md': 'local', 'removed.md': 'remote' },
-    }, dryRun: false }));
+    await waitFor(() =>
+      expect(api.pull).toHaveBeenCalledWith({
+        resolution: {
+          localHash: 'local-head',
+          remoteHash: 'remote-head',
+          choices: { 'shared.md': 'local', 'removed.md': 'remote' },
+        },
+        dryRun: false,
+      }),
+    );
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(api.push).not.toHaveBeenCalled();
   });
 
   it('can cancel conflict review and reopen it without changing files', async () => {
-    vi.mocked(api.gitStatus).mockResolvedValue({ ...status, hasRemote: true, isDirty: false, files: [], ahead: 1, behind: 1 });
-    vi.mocked(api.pull).mockRejectedValueOnce(new ApiError(409, 'conflict', { code: 'pull_conflict', params: conflicts }));
+    vi.mocked(api.gitStatus).mockResolvedValue({
+      ...status,
+      hasRemote: true,
+      isDirty: false,
+      files: [],
+      ahead: 1,
+      behind: 1,
+    });
+    vi.mocked(api.pull).mockRejectedValueOnce(
+      new ApiError(409, 'conflict', { code: 'pull_conflict', params: conflicts }),
+    );
     mount();
     fireEvent.click(await screen.findByRole('button', { name: 'Pull and merge' }));
     const dialog = await screen.findByRole('dialog', { name: 'Resolve pull conflicts' });
@@ -94,7 +170,9 @@ describe('updates from another computer', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Commit and pull' }));
     await waitFor(() => expect(api.pull).toHaveBeenCalledWith({ force: false, dryRun: false }));
     expect(api.gitCommit).toHaveBeenCalledWith({ message: undefined, dryRun: false });
-    expect(vi.mocked(api.gitCommit).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(api.pull).mock.invocationCallOrder[0]);
+    expect(vi.mocked(api.gitCommit).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(api.pull).mock.invocationCallOrder[0],
+    );
     expect(api.push).not.toHaveBeenCalled();
   });
 
@@ -103,30 +181,57 @@ describe('updates from another computer', () => {
     vi.mocked(api.push).mockResolvedValue({ success: true, message: 'pushed successfully' });
     mount();
     fireEvent.click(await screen.findByRole('button', { name: 'Sync both ways' }));
-    fireEvent.click(within(await screen.findByRole('dialog', { name: 'Sync both ways?' })).getByRole('button', { name: 'Sync both ways' }));
+    fireEvent.click(
+      within(await screen.findByRole('dialog', { name: 'Sync both ways?' })).getByRole('button', {
+        name: 'Sync both ways',
+      }),
+    );
     await waitFor(() => expect(api.push).toHaveBeenCalledWith({}));
     expect(api.pull).toHaveBeenCalledWith({ force: false, dryRun: false, alwaysSync: true });
-    const order = [api.gitCommit, api.pull, api.push].map((fn) => vi.mocked(fn).mock.invocationCallOrder[0]);
+    const order = [api.gitCommit, api.pull, api.push].map(
+      (fn) => vi.mocked(fn).mock.invocationCallOrder[0],
+    );
     expect(order).toEqual([...order].sort((a, b) => a - b));
   });
 
   it('stops before pushing when syncing both ways hits a conflict', async () => {
-    vi.mocked(api.gitStatus).mockResolvedValue({ ...status, hasRemote: true, isDirty: false, files: [] });
-    vi.mocked(api.pull).mockRejectedValueOnce(new ApiError(409, 'conflict', { code: 'pull_conflict', params: conflicts }));
+    vi.mocked(api.gitStatus).mockResolvedValue({
+      ...status,
+      hasRemote: true,
+      isDirty: false,
+      files: [],
+    });
+    vi.mocked(api.pull).mockRejectedValueOnce(
+      new ApiError(409, 'conflict', { code: 'pull_conflict', params: conflicts }),
+    );
     mount();
     fireEvent.click(await screen.findByRole('button', { name: 'Sync both ways' }));
-    fireEvent.click(within(await screen.findByRole('dialog', { name: 'Sync both ways?' })).getByRole('button', { name: 'Sync both ways' }));
+    fireEvent.click(
+      within(await screen.findByRole('dialog', { name: 'Sync both ways?' })).getByRole('button', {
+        name: 'Sync both ways',
+      }),
+    );
     expect(await screen.findByRole('dialog', { name: 'Resolve pull conflicts' })).toBeTruthy();
     expect(api.gitCommit).not.toHaveBeenCalled();
     expect(api.push).not.toHaveBeenCalled();
   });
 
   it('asks before syncing both ways, explaining each step, and does nothing when cancelled', async () => {
-    vi.mocked(api.gitStatus).mockResolvedValue({ ...status, hasRemote: true, remoteURL: 'git@github.com:me/skills.git', behind: 3 });
+    vi.mocked(api.gitStatus).mockResolvedValue({
+      ...status,
+      hasRemote: true,
+      remoteURL: 'git@github.com:me/skills.git',
+      behind: 3,
+    });
     mount();
     fireEvent.click(await screen.findByRole('button', { name: 'Sync both ways' }));
     const dialog = await screen.findByRole('dialog', { name: 'Sync both ways?' });
-    for (const step of ['Commit 2 changed files', 'Pull and merge 3 remote commits', 'Sync targets for the skills scope', 'Push the merged result to me/skills']) {
+    for (const step of [
+      'Commit 2 changed files',
+      'Pull and merge 3 remote commits',
+      'Sync targets for the skills scope',
+      'Push the merged result to me/skills',
+    ]) {
       expect(within(dialog).getByText(step)).toBeTruthy();
     }
     expect(within(dialog).getByText(/nothing is pushed/)).toBeTruthy();
@@ -154,10 +259,11 @@ describe('updates from another computer', () => {
     expect(api.pull).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('switch', { name: 'Dry run' }));
     fireEvent.click(button);
-    await waitFor(() => expect(api.gitCommit).toHaveBeenCalledWith({ message: undefined, dryRun: true }));
+    await waitFor(() =>
+      expect(api.gitCommit).toHaveBeenCalledWith({ message: undefined, dryRun: true }),
+    );
     expect(api.pull).not.toHaveBeenCalled();
   });
-
 });
 
 describe('discard changes', () => {
@@ -177,10 +283,14 @@ describe('discard changes', () => {
       return { success: true, message: 'changes discarded' };
     });
     fireEvent.click(screen.getByRole('button', { name: 'Discard changes' }));
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Discard changes' }));
+    fireEvent.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: 'Discard changes' }),
+    );
     await waitFor(() => expect(api.gitDiscard).toHaveBeenCalledWith({ dryRun: false }));
     expect(await screen.findByText('Changes discarded')).toBeTruthy();
-    await waitFor(() => expect(screen.queryByRole('button', { name: 'Discard changes' })).toBeNull());
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'Discard changes' })).toBeNull(),
+    );
     expect(invalidate).toHaveBeenCalledWith({});
   });
 
@@ -188,10 +298,13 @@ describe('discard changes', () => {
     vi.mocked(api.gitDiscard).mockRejectedValue(new Error('permission denied'));
     mount();
     fireEvent.click(await screen.findByRole('button', { name: 'Discard changes' }));
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Discard changes' }));
+    fireEvent.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: 'Discard changes' }),
+    );
     expect(await screen.findByText('permission denied')).toBeTruthy();
     expect(screen.queryByRole('dialog')).toBeNull();
-    expect((screen.getByRole('button', { name: 'Discard changes' }) as HTMLButtonElement).disabled).toBe(false);
+    expect(
+      (screen.getByRole('button', { name: 'Discard changes' }) as HTMLButtonElement).disabled,
+    ).toBe(false);
   });
-
 });

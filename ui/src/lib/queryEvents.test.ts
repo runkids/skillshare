@@ -82,8 +82,19 @@ const stale: Record<QueryEvent, Label[] | { args: string[]; stale: Label[] }> = 
   skillsToggled: [...S, ...SM, 'overview'],
   skillTargetFilterChanged: [...T, ...SM, 'diff', 'diffClaude'],
   sourceLinked: [...S, 'overview', 'config', 'diff', 'syncMatrix'],
-  sourceUnlinked: [...S, 'overview', 'config', 'diff', 'syncMatrix', 'trash', 'missingConfigEntries'],
-  collected: { args: ['claude'], stale: [...S, 'overview', ...T, 'diff', 'syncMatrix', 'collectScanClaude'] },
+  sourceUnlinked: [
+    ...S,
+    'overview',
+    'config',
+    'diff',
+    'syncMatrix',
+    'trash',
+    'missingConfigEntries',
+  ],
+  collected: {
+    args: ['claude'],
+    stale: [...S, 'overview', ...T, 'diff', 'syncMatrix', 'collectScanClaude'],
+  },
   configInstalled: ['missingConfigEntries', ...S, 'overview', ...SM, 'diff'],
 
   targetsChanged: [...TARGETS, 'instructions'],
@@ -95,7 +106,23 @@ const stale: Record<QueryEvent, Label[] | { args: string[]; stale: Label[] }> = 
   targetFilesChanged: { args: ['claude'], stale: ['targetFiles', 'targetFile'] },
   targetFileRemoved: { args: ['claude'], stale: ['targetFiles'] },
 
-  configSaved: ['policy', 'version', 'config', ...M, 'overview', ...T, ...S, ...X, 'extrasDiff', 'diff', 'syncMatrix', 'doctor', 'instructions', 'memory', 'memoryOverview'],
+  configSaved: [
+    'policy',
+    'version',
+    'config',
+    ...M,
+    'overview',
+    ...T,
+    ...S,
+    ...X,
+    'extrasDiff',
+    'diff',
+    'syncMatrix',
+    'doctor',
+    'instructions',
+    'memory',
+    'memoryOverview',
+  ],
   updatePolicyChanged: ['version', 'doctor'],
   settingsSaved: ['policy', 'config', 'version', 'doctor'],
   skillignoreSaved: ['skillignore', 'diff', 'overview', ...S, 'doctor'],
@@ -139,8 +166,14 @@ it.each(Object.entries(stale))('%s makes exactly its queries stale', async (even
   for (const key of Object.values(cached)) client.setQueryData(key, 1);
   const { args, stale: labels } = Array.isArray(want) ? { args: [], stale: want } : want;
 
-  await (invalidate as (c: QueryClient, e: string, ...a: string[]) => Promise<unknown>)(client, event, ...args);
+  await (invalidate as (c: QueryClient, e: string, ...a: string[]) => Promise<unknown>)(
+    client,
+    event,
+    ...args,
+  );
 
-  const got = (Object.keys(cached) as Label[]).filter((label) => client.getQueryState(cached[label])?.isInvalidated);
+  const got = (Object.keys(cached) as Label[]).filter(
+    (label) => client.getQueryState(cached[label])?.isInvalidated,
+  );
   expect(got.sort()).toEqual([...labels].sort());
 });

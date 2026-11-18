@@ -7,7 +7,15 @@ import ConfirmDialog from '../ConfirmDialog';
 import { useToast } from '../Toast';
 import { invalidate } from '../../lib/queryEvents';
 
-export default function UnlinkFolderDialog({ link, skills, onClose }: { link: SourceLink; skills: Skill[]; onClose: () => void }) {
+export default function UnlinkFolderDialog({
+  link,
+  skills,
+  onClose,
+}: {
+  link: SourceLink;
+  skills: Skill[];
+  onClose: () => void;
+}) {
   const t = useT();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -31,8 +39,14 @@ export default function UnlinkFolderDialog({ link, skills, onClose }: { link: So
   };
 
   return (
-    <ConfirmDialog open title={t('sourceLinks.unlinkTitle', { name: link.name })} confirmText={t('sourceLinks.unlink')}
-      variant="danger" loading={saving} onConfirm={() => void unlink()} onCancel={onClose}
+    <ConfirmDialog
+      open
+      title={t('sourceLinks.unlinkTitle', { name: link.name })}
+      confirmText={t('sourceLinks.unlink')}
+      variant="danger"
+      loading={saving}
+      onConfirm={() => void unlink()}
+      onCancel={onClose}
       message={
         <div className="flex flex-col gap-3">
           <p>{t('sourceLinks.unlinkMessage')}</p>
@@ -44,13 +58,21 @@ export default function UnlinkFolderDialog({ link, skills, onClose }: { link: So
             <div className="ss-r items-start gap-3">
               <span className="w-16 shrink-0 text-xs text-ink-3">{t('layout.nav.skills')}</span>
               <div className="min-w-0">
-                <p className="break-words font-mono text-xs">{skills.length ? skills.map((s) => s.name).join(', ') : t('resources.count.skills', { count: 0 })}</p>
+                <p className="break-words font-mono text-xs">
+                  {skills.length
+                    ? skills.map((s) => s.name).join(', ')
+                    : t('resources.count.skills', { count: 0 })}
+                </p>
                 <p className="mt-1 text-xs text-ink-3">{t('sourceLinks.unlinkSkills')}</p>
               </div>
             </div>
           </div>
           <p className="text-xs text-ink-3">{t('sourceLinks.unlinkTrash')}</p>
-          {failure && <div className="ss-note bad" role="alert">{failure}</div>}
+          {failure && (
+            <div className="ss-note bad" role="alert">
+              {failure}
+            </div>
+          )}
         </div>
       }
     />

@@ -60,9 +60,16 @@ const handHighlightStyle = HighlightStyle.define([
   { tag: [tags.keyword, tags.link], color: 'var(--accent)' },
   { tag: [tags.string, tags.special(tags.string), tags.attributeValue], color: 'var(--ok)' },
   { tag: [tags.number, tags.bool, tags.atom, tags.typeName, tags.className], color: 'var(--warn)' },
-  { tag: [tags.comment, tags.meta, tags.punctuation, tags.quote], color: 'var(--ink-3)', fontStyle: 'italic' },
+  {
+    tag: [tags.comment, tags.meta, tags.punctuation, tags.quote],
+    color: 'var(--ink-3)',
+    fontStyle: 'italic',
+  },
   { tag: [tags.propertyName, tags.attributeName], color: 'var(--c-mcp)' },
-  { tag: [tags.definition(tags.variableName), tags.macroName, tags.tagName], color: 'var(--c-agent)' },
+  {
+    tag: [tags.definition(tags.variableName), tags.macroName, tags.tagName],
+    color: 'var(--c-agent)',
+  },
   { tag: [tags.variableName, tags.operator], color: 'var(--ink)' },
   { tag: tags.url, color: 'var(--accent)' },
   { tag: [tags.heading, tags.strong], fontWeight: '600' },

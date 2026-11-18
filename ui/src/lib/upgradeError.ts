@@ -17,7 +17,8 @@ export function nixUpdateNote(data: VersionCheck, t: T): string | null {
 
 /** Turns a failed POST /api/upgrade into the message to show. */
 export function upgradeErrorMessage(err: unknown, t: T): string {
-  if (err instanceof ApiError && err.code === 'upgrade.needs_sudo') return t('updateDialog.needsSudo');
+  if (err instanceof ApiError && err.code === 'upgrade.needs_sudo')
+    return t('updateDialog.needsSudo');
   if (err instanceof ApiError && err.code === 'upgrade.nix') {
     const command = typeof err.params?.command === 'string' ? err.params.command : '';
     return nixAdvice(command, t);

@@ -19,12 +19,18 @@ function loadWidth(): number {
   try {
     const n = Number(localStorage.getItem(TREE_WIDTH_KEY));
     if (n) return clamp(n);
-  } catch { /* storage unavailable */ }
+  } catch {
+    /* storage unavailable */
+  }
   return DEFAULT;
 }
 
 function saveWidth(w: number) {
-  try { localStorage.setItem(TREE_WIDTH_KEY, String(w)); } catch { /* storage unavailable */ }
+  try {
+    localStorage.setItem(TREE_WIDTH_KEY, String(w));
+  } catch {
+    /* storage unavailable */
+  }
 }
 
 /** One framed box: the tree on the left, the detail pane on the right, a draggable divider between. */
@@ -60,14 +66,32 @@ export default function TreeSplit({ tree, pane }: { tree: ReactNode; pane: React
   const onKeyDown = (e: KeyboardEvent) => {
     setSettling(false);
     const delta = { ArrowLeft: -STEP, ArrowRight: STEP }[e.key];
-    if (delta) { set(width + delta); e.preventDefault(); }
-    else if (e.key === 'Home') { set(MIN); e.preventDefault(); }
-    else if (e.key === 'End') { set(MAX); e.preventDefault(); }
+    if (delta) {
+      set(width + delta);
+      e.preventDefault();
+    } else if (e.key === 'Home') {
+      set(MIN);
+      e.preventDefault();
+    } else if (e.key === 'End') {
+      set(MAX);
+      e.preventDefault();
+    }
   };
 
   return (
     <div className="ss-list ss-split">
-      <div className={`lp${settling ? ' settle' : ''}`} style={{ width }} onTransitionEnd={(e) => { if (e.target === e.currentTarget) setSettling(false); }} onAnimationEnd={(e) => { if (e.target === e.currentTarget) setSettling(false); }}>{tree}</div>
+      <div
+        className={`lp${settling ? ' settle' : ''}`}
+        style={{ width }}
+        onTransitionEnd={(e) => {
+          if (e.target === e.currentTarget) setSettling(false);
+        }}
+        onAnimationEnd={(e) => {
+          if (e.target === e.currentTarget) setSettling(false);
+        }}
+      >
+        {tree}
+      </div>
       <div
         role="separator"
         aria-orientation="vertical"

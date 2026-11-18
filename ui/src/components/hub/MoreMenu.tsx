@@ -46,9 +46,23 @@ export default function MoreMenu({ label, items }: { label: string; items: Item[
         <MoreHorizontal size={16} />
       </button>
       {menu.shown && (
-        <div role="menu" aria-label={label} {...menu.exitProps} className={`ss-menu absolute right-0 top-full z-50 mt-1 !w-44 origin-top-right ${menu.motion}`}>
+        <div
+          role="menu"
+          aria-label={label}
+          {...menu.exitProps}
+          className={`ss-menu absolute right-0 top-full z-50 mt-1 !w-44 origin-top-right ${menu.motion}`}
+        >
           {items.map(({ label: text, icon: Icon, onClick, danger }) => (
-            <button key={text} type="button" role="menuitem" className={danger ? 'dng' : ''} onClick={() => { setOpen(false); onClick(); }}>
+            <button
+              key={text}
+              type="button"
+              role="menuitem"
+              className={danger ? 'dng' : ''}
+              onClick={() => {
+                setOpen(false);
+                onClick();
+              }}
+            >
               <Icon size={15} />
               {text}
             </button>

@@ -1,6 +1,11 @@
 export const CODE_EXT = /\.(ts|tsx|js|jsx|mjs|go|py|rs|rb|sh|bash|zsh|ps1|json|ya?ml|toml)$/i;
 
-export interface FileRow { path: string; label: string; depth: number; folder: boolean }
+export interface FileRow {
+  path: string;
+  label: string;
+  depth: number;
+  folder: boolean;
+}
 
 /** Rows for a file list drawn as a tree. A folder row is emitted once, the first time a file inside it appears. */
 export function fileTree(paths: string[]): FileRow[] {

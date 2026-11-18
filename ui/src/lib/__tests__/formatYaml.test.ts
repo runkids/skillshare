@@ -4,27 +4,45 @@ import { formatYaml } from '../formatYaml';
 
 describe('formatYaml', () => {
   it('normalizes block indentation while keeping comments and flow collections', () => {
-    const source = "# config\ntargets: [claude, codex]\nmcp:\n    servers:\n        docs: {url: 'https://example.com/mcp'}\n";
+    const source =
+      "# config\ntargets: [claude, codex]\nmcp:\n    servers:\n        docs: {url: 'https://example.com/mcp'}\n";
     const formatted = formatYaml(source);
-    expect(formatted).toBe("# config\ntargets: [claude, codex]\nmcp:\n  servers:\n    docs: {url: 'https://example.com/mcp'}\n");
+    expect(formatted).toBe(
+      "# config\ntargets: [claude, codex]\nmcp:\n  servers:\n    docs: {url: 'https://example.com/mcp'}\n",
+    );
     expect(parse(formatted)).toEqual(parse(source));
     expect(formatYaml(formatted)).toBe(formatted);
   });
   it('expands nested flow collections on request and keeps short flow lists', () => {
-    const source = 'targets: [claude, codex]\nempty: {}\nhooks:\n  entries: {guard: {bindings: {claude: {events: {Stop: [{command: echo hi}]}}}}}\n';
+    const source =
+      'targets: [claude, codex]\nempty: {}\nhooks:\n  entries: {guard: {bindings: {claude: {events: {Stop: [{command: echo hi}]}}}}}\n';
     const formatted = formatYaml(source, { expandNested: true });
-    expect(formatted).toBe('targets: [claude, codex]\nempty: {}\nhooks:\n  entries:\n    guard:\n      bindings:\n        claude:\n          events:\n            Stop:\n              - command: echo hi\n');
+    expect(formatted).toBe(
+      'targets: [claude, codex]\nempty: {}\nhooks:\n  entries:\n    guard:\n      bindings:\n        claude:\n          events:\n            Stop:\n              - command: echo hi\n',
+    );
     expect(parse(formatted)).toEqual(parse(source));
   });
   it('rejects invalid YAML instead of replacing it', () => {
     expect(() => formatYaml('mcp: [')).toThrow();
   });
   it('orders config sections and separates them without changing their contents', () => {
-    const source = '# config\naudit: {block_threshold: CRITICAL}\nhooks: {}\nplugins: {}\nmcp: {}\nextras: []\nagents: {}\nskills: {}\ntargets: [codex, claude]\nmode: merge\n# shared sources\nsources:\n  skills: /skills\n  extras: /extras\nignore: ["**/.DS_Store", "**/.git/**"]\ncustom_b: true\ncustom_a: false\n';
+    const source =
+      '# config\naudit: {block_threshold: CRITICAL}\nhooks: {}\nplugins: {}\nmcp: {}\nextras: []\nagents: {}\nskills: {}\ntargets: [codex, claude]\nmode: merge\n# shared sources\nsources:\n  skills: /skills\n  extras: /extras\nignore: ["**/.DS_Store", "**/.git/**"]\ncustom_b: true\ncustom_a: false\n';
     const formatted = formatYaml(source, { organizeConfig: true });
     expect(Object.keys(parse(formatted))).toEqual([
-      'sources', 'mode', 'targets', 'skills', 'agents', 'extras', 'mcp', 'plugins', 'hooks',
-      'ignore', 'audit', 'custom_b', 'custom_a',
+      'sources',
+      'mode',
+      'targets',
+      'skills',
+      'agents',
+      'extras',
+      'mcp',
+      'plugins',
+      'hooks',
+      'ignore',
+      'audit',
+      'custom_b',
+      'custom_a',
     ]);
     expect(formatted).toContain('# shared sources\nsources:');
     expect(formatted).toContain('\n\nmode: merge\n\ntargets: [codex, claude]\n\n');
@@ -46,7 +64,11 @@ describe('formatYaml', () => {
     '# yaml-language-server: $schema=https://example.com/config.schema.json\n\n# MCP servers\nmcp: {}\nsources: {skills: /skills}\n',
   ])('keeps the schema directive at the top while retaining section comments', (source) => {
     const formatted = formatYaml(source, { organizeConfig: true });
-    expect(formatted.startsWith('# yaml-language-server: $schema=https://example.com/config.schema.json\n')).toBe(true);
+    expect(
+      formatted.startsWith(
+        '# yaml-language-server: $schema=https://example.com/config.schema.json\n',
+      ),
+    ).toBe(true);
     expect(formatted.match(/yaml-language-server/g)).toHaveLength(1);
     expect(formatted).toContain('# MCP servers\nmcp: {}');
     expect(parse(formatted)).toEqual(parse(source));

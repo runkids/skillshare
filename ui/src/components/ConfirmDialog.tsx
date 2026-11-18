@@ -32,7 +32,14 @@ export default function ConfirmDialog({
   const resolvedCancelText = cancelText ?? t('common.cancel');
   const resolvedConfirmText = confirmText ?? t('common.confirm');
   return (
-    <DialogShell open={open} onClose={onCancel} maxWidth={wide ? '2xl' : 'md'} padding="none" preventClose={loading} ariaLabel={title}>
+    <DialogShell
+      open={open}
+      onClose={onCancel}
+      maxWidth={wide ? '2xl' : 'md'}
+      padding="none"
+      preventClose={loading}
+      ariaLabel={title}
+    >
       <div className="dh">
         <h2 className="ss-h2">{title}</h2>
       </div>
@@ -43,7 +50,11 @@ export default function ConfirmDialog({
             {resolvedCancelText}
           </Button>
         )}
-        <Button variant={variant === 'danger' ? 'danger' : 'primary'} onClick={onConfirm} loading={loading}>
+        <Button
+          variant={variant === 'danger' ? 'danger' : 'primary'}
+          onClick={onConfirm}
+          loading={loading}
+        >
           {resolvedConfirmText}
         </Button>
       </div>

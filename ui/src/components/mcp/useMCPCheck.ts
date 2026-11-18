@@ -4,11 +4,16 @@ import type { MCPCheckFinding, MCPCheckReport, MCPCheckServer } from '../../api/
 
 /** The servers one page lists: global ones without `project`, else one mcp.projects root's. Names repeat across scopes, so each page counts only its own. */
 export function serversFor(report?: MCPCheckReport, project?: string): MCPCheckServer[] {
-  return (report?.servers ?? []).filter((server) => (server.project || undefined) === (project || undefined));
+  return (report?.servers ?? []).filter(
+    (server) => (server.project || undefined) === (project || undefined),
+  );
 }
 
 /** What the page shows of a check: errors and warnings. Info findings stay in the CLI. */
-export function problemsByServer(report?: MCPCheckReport, project?: string): Record<string, MCPCheckFinding[]> {
+export function problemsByServer(
+  report?: MCPCheckReport,
+  project?: string,
+): Record<string, MCPCheckFinding[]> {
   const out: Record<string, MCPCheckFinding[]> = {};
   for (const server of serversFor(report, project)) {
     const problems = server.findings.filter((f) => f.level !== 'info');
@@ -19,7 +24,11 @@ export function problemsByServer(report?: MCPCheckReport, project?: string): Rec
 
 /** Runs the check on demand only. The result lives in memory, so a reload clears it. */
 export function useMCPCheck() {
-  const [result, setResult] = useState<{ report?: MCPCheckReport; checkedAt?: number; error?: string }>({});
+  const [result, setResult] = useState<{
+    report?: MCPCheckReport;
+    checkedAt?: number;
+    error?: string;
+  }>({});
   const [running, setRunning] = useState(false);
   const run = async () => {
     setRunning(true);

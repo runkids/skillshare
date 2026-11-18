@@ -14,7 +14,9 @@ export function exitGhost(leave: Leave) {
       const parent = node.parentNode;
       // Read now: a detached element reports no scroll position.
       const scrolled: [number, number][] = [];
-      [node, ...node.querySelectorAll<HTMLElement>('*')].forEach((el, i) => { if (el.scrollTop) scrolled.push([i, el.scrollTop]); });
+      [node, ...node.querySelectorAll<HTMLElement>('*')].forEach((el, i) => {
+        if (el.scrollTop) scrolled.push([i, el.scrollTop]);
+      });
       queueMicrotask(() => {
         if (node.isConnected) return; // StrictMode re-attaching the ref, not a removal
         if (!parent?.isConnected) return;
@@ -37,7 +39,8 @@ export function exitGhost(leave: Leave) {
           for (const [i, top] of scrolled) copies[i].scrollTop = top;
         }
         const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
-        leave(ghost, reduced).finished.finally(() => ghost.remove());
+        const remove = () => ghost.remove();
+        void leave(ghost, reduced).finished.then(remove, remove);
       });
     };
   };
@@ -48,7 +51,9 @@ const out = (ms: number) => ({ duration: ms, easing: 'ease-in', fill: 'forwards'
 /** Dialog scrim: the backdrop lightens while the dialog shrinks back the way it came. */
 export const dialogGhost = exitGhost((ghost, reduced) => {
   if (reduced) return ghost.animate([{ opacity: 1 }, { opacity: 0 }], out(150));
-  ghost.querySelector('.ss-dlg')?.animate([{ transform: 'none' }, { transform: 'scale(.97) translateY(4px)' }], out(200));
+  ghost
+    .querySelector('.ss-dlg')
+    ?.animate([{ transform: 'none' }, { transform: 'scale(.97) translateY(4px)' }], out(200));
   return ghost.animate([{ opacity: 1 }, { opacity: 0 }], out(200));
 });
 
@@ -59,7 +64,11 @@ export const bulkGhost = exitGhost((ghost, reduced) =>
     : ghost.animate(
         [
           { opacity: 1, transform: 'translateX(-50%)', filter: 'blur(0)' },
-          { opacity: 0, transform: 'translateX(-50%) translateY(100%) scale(.97)', filter: 'blur(6px)' },
+          {
+            opacity: 0,
+            transform: 'translateX(-50%) translateY(100%) scale(.97)',
+            filter: 'blur(6px)',
+          },
         ],
         out(250),
       ),

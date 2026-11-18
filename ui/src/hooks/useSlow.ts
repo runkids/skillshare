@@ -6,7 +6,10 @@ export function useSlow(active: boolean, ms: number) {
   useEffect(() => {
     if (!active) return;
     const timer = setTimeout(() => setSlow(true), ms);
-    return () => { clearTimeout(timer); setSlow(false); };
+    return () => {
+      clearTimeout(timer);
+      setSlow(false);
+    };
   }, [active, ms]);
   return active && slow;
 }

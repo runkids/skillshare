@@ -11,7 +11,11 @@ describe('fieldDocs', () => {
 
   it('documents target_naming values at both global and target scope', () => {
     expect(fieldDocs.target_naming?.allowedValues).toEqual(['flat', 'standard', 'prefixed']);
-    expect(fieldDocs['targets.skills.target_naming']?.allowedValues).toEqual(['flat', 'standard', 'prefixed']);
+    expect(fieldDocs['targets.skills.target_naming']?.allowedValues).toEqual([
+      'flat',
+      'standard',
+      'prefixed',
+    ]);
   });
 
   it('every entry has description, type, and example', () => {

@@ -13,10 +13,21 @@ import { useT } from '../../i18n';
 import { shortenHome } from '../../lib/paths';
 import { queryKeys } from '../../lib/queryKeys';
 import { BoxHeader, InstructionsPreview } from './ViewTabs';
-import { instructionsErrorMessage, isOtherExtra, isImportLine, sharedNameProblem, takenName } from './instructionsView';
+import {
+  instructionsErrorMessage,
+  isOtherExtra,
+  isImportLine,
+  sharedNameProblem,
+  takenName,
+} from './instructionsView';
 
 /** Creates a shared instruction file, from content or by moving a target's current file into it. */
-export default function NewSharedDialog({ targets, project = false, onClose, onCreated }: {
+export default function NewSharedDialog({
+  targets,
+  project = false,
+  onClose,
+  onCreated,
+}: {
   targets: SharedInstructionsTarget[];
   /** A project's shared file starts empty: there is no target file to move in. */
   project?: boolean;
@@ -43,7 +54,10 @@ export default function NewSharedDialog({ targets, project = false, onClose, onC
   const create = async () => {
     setSaving(true);
     try {
-      await api.createSharedInstructions({ name: name.trim(), ...(from ? { from_target: from } : { content }) });
+      await api.createSharedInstructions({
+        name: name.trim(),
+        ...(from ? { from_target: from } : { content }),
+      });
       await onCreated(name.trim());
       toast(t('instructions.shared.created', { name: name.trim() }), 'success');
     } catch (err) {
@@ -53,43 +67,105 @@ export default function NewSharedDialog({ targets, project = false, onClose, onC
   };
 
   return (
-    <DialogShell open onClose={onClose} padding="none" preventClose={saving} ariaLabel={title} className="!max-w-[720px]">
+    <DialogShell
+      open
+      onClose={onClose}
+      padding="none"
+      preventClose={saving}
+      ariaLabel={title}
+      className="!max-w-[720px]"
+    >
       <div className="dh">
         <div className="flex flex-col gap-1">
           <h2 className="ss-h2">{title}</h2>
-          <p className="text-[13px] text-ink-2">{t(project ? 'instructions.projectShared.newSubtitle' : 'instructions.shared.newSubtitle')}</p>
+          <p className="text-[13px] text-ink-2">
+            {t(
+              project
+                ? 'instructions.projectShared.newSubtitle'
+                : 'instructions.shared.newSubtitle',
+            )}
+          </p>
         </div>
-        <button type="button" className="ss-ib" aria-label={t('common.close')} onClick={onClose} disabled={saving}><X size={16} /></button>
+        <button
+          type="button"
+          className="ss-ib"
+          aria-label={t('common.close')}
+          onClick={onClose}
+          disabled={saving}
+        >
+          <X size={16} />
+        </button>
       </div>
       <div className="db">
         <div className="grid grid-cols-2 gap-3.5">
           <div className="ss-fld">
             <label htmlFor="shared-name">{t('instructions.shared.name')}</label>
             <span className={`ss-inp ${problem ? 'err' : ''}`}>
-              <input id="shared-name" autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="personal" disabled={saving} />
+              <input
+                id="shared-name"
+                autoFocus
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="personal"
+                disabled={saving}
+              />
             </span>
-            <span className={`hp ${problem ? 'text-bad' : ''}`}>{problem === 'invalid' ? t('instructions.shared.nameInvalid') : problem === 'taken' ? t(isOtherExtra(taken, extras.data?.extras ?? []) ? 'instructions.shared.nameTakenFolder' : 'instructions.convert.nameTaken', { name: taken }) : t('instructions.shared.nameHint')}</span>
+            <span className={`hp ${problem ? 'text-bad' : ''}`}>
+              {problem === 'invalid'
+                ? t('instructions.shared.nameInvalid')
+                : problem === 'taken'
+                  ? t(
+                      isOtherExtra(taken, extras.data?.extras ?? [])
+                        ? 'instructions.shared.nameTakenFolder'
+                        : 'instructions.convert.nameTaken',
+                      { name: taken },
+                    )
+                  : t('instructions.shared.nameHint')}
+            </span>
           </div>
-          {!project && <div className="ss-fld">
-            <span className="text-[13px] font-semibold">{t('instructions.shared.startFrom')}</span>
-            <Select
-              value={from}
-              onChange={setFrom}
-              options={[
-                { value: '', label: t('instructions.shared.startEmpty') },
-                ...sources.map((tg) => ({ value: tg.name, label: t('instructions.shared.startCopy', { name: tg.name }), icon: <AgentIcon target={tg.name} size={14} />, description: shortenHome(tg.path) })),
-              ]}
-              disabled={saving}
-            />
-            <span className="hp">{t(from ? 'instructions.shared.startCopyHint' : 'instructions.shared.startEmptyHint', { name: from })}</span>
-          </div>}
+          {!project && (
+            <div className="ss-fld">
+              <span className="text-[13px] font-semibold">
+                {t('instructions.shared.startFrom')}
+              </span>
+              <Select
+                value={from}
+                onChange={setFrom}
+                options={[
+                  { value: '', label: t('instructions.shared.startEmpty') },
+                  ...sources.map((tg) => ({
+                    value: tg.name,
+                    label: t('instructions.shared.startCopy', { name: tg.name }),
+                    icon: <AgentIcon target={tg.name} size={14} />,
+                    description: shortenHome(tg.path),
+                  })),
+                ]}
+                disabled={saving}
+              />
+              <span className="hp">
+                {t(
+                  from ? 'instructions.shared.startCopyHint' : 'instructions.shared.startEmptyHint',
+                  { name: from },
+                )}
+              </span>
+            </div>
+          )}
         </div>
         {!from && (
           <div className="ss-code flex h-[300px] flex-col !overflow-hidden !p-0 !whitespace-normal">
             <BoxHeader content={content} view={view} onChange={setView} />
             {view === 'edit' ? (
-              <CodeEditor value={content} onChange={setContent} ariaLabel={t('instructions.shared.content')} markLine={isImportLine} disabled={saving} wrap fill
-                className="min-h-0 flex-1 !rounded-none !border-0" placeholder={t('instructions.shared.contentPlaceholder')} />
+              <CodeEditor
+                value={content}
+                onChange={setContent}
+                ariaLabel={t('instructions.shared.content')}
+                markLine={isImportLine}
+                disabled={saving}
+                wrap
+                fill
+                className="min-h-0 flex-1 !rounded-none !border-0"
+                placeholder={t('instructions.shared.contentPlaceholder')}
+              />
             ) : (
               <InstructionsPreview content={content} names={[]} />
             )}
@@ -98,8 +174,17 @@ export default function NewSharedDialog({ targets, project = false, onClose, onC
       </div>
       <div className="df">
         <span className="flex-1" />
-        <Button variant="ghost" onClick={onClose} disabled={saving}>{t('common.cancel')}</Button>
-        <Button variant="primary" onClick={create} loading={saving} disabled={!name.trim() || Boolean(problem)}>{t('instructions.shared.create')}</Button>
+        <Button variant="ghost" onClick={onClose} disabled={saving}>
+          {t('common.cancel')}
+        </Button>
+        <Button
+          variant="primary"
+          onClick={create}
+          loading={saving}
+          disabled={!name.trim() || Boolean(problem)}
+        >
+          {t('instructions.shared.create')}
+        </Button>
       </div>
     </DialogShell>
   );

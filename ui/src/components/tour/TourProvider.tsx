@@ -1,4 +1,12 @@
-import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useEffect,
+  useRef,
+  type ReactNode,
+} from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAppContext } from '../../context/AppContext';
@@ -46,45 +54,58 @@ export function TourProvider({ children }: { children: ReactNode }) {
   const skippingRef = useRef(false);
 
   const clearPolling = useCallback(() => {
-    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
-    if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null; }
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
   }, []);
 
-  const findTarget = useCallback((step: TourStep) => {
-    setIsWaiting(true);
-    clearPolling();
-
-    const tryFind = () => {
-      const el = document.querySelector(step.targetSelector);
-      if (el) {
-        clearPolling();
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        setTimeout(() => {
-          setTargetRect(el.getBoundingClientRect());
-          setIsWaiting(false);
-        }, 300);
-        return true;
-      }
-      return false;
-    };
-
-    if (tryFind()) return;
-
-    pollRef.current = setInterval(() => { tryFind(); }, POLL_INTERVAL);
-
-    timeoutRef.current = setTimeout(() => {
+  const findTarget = useCallback(
+    (step: TourStep) => {
+      setIsWaiting(true);
       clearPolling();
-      setIsWaiting(false);
-      if (skippingRef.current) return;
-      skippingRef.current = true;
-      console.warn(`[Tour] Target not found: ${step.targetSelector}, skipping`);
-      setCurrentStep((prev) => {
-        const next = prev + 1;
-        return next < steps.length ? next : prev;
-      });
-      setTimeout(() => { skippingRef.current = false; }, 100);
-    }, POLL_TIMEOUT);
-  }, [clearPolling, steps.length]);
+
+      const tryFind = () => {
+        const el = document.querySelector(step.targetSelector);
+        if (el) {
+          clearPolling();
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          setTimeout(() => {
+            setTargetRect(el.getBoundingClientRect());
+            setIsWaiting(false);
+          }, 300);
+          return true;
+        }
+        return false;
+      };
+
+      if (tryFind()) return;
+
+      pollRef.current = setInterval(() => {
+        tryFind();
+      }, POLL_INTERVAL);
+
+      timeoutRef.current = setTimeout(() => {
+        clearPolling();
+        setIsWaiting(false);
+        if (skippingRef.current) return;
+        skippingRef.current = true;
+        console.warn(`[Tour] Target not found: ${step.targetSelector}, skipping`);
+        setCurrentStep((prev) => {
+          const next = prev + 1;
+          return next < steps.length ? next : prev;
+        });
+        setTimeout(() => {
+          skippingRef.current = false;
+        }, 100);
+      }, POLL_TIMEOUT);
+    },
+    [clearPolling, steps.length],
+  );
 
   // Single useEffect for navigation + target finding
   useEffect(() => {
@@ -92,7 +113,7 @@ export function TourProvider({ children }: { children: ReactNode }) {
     const step = steps[currentStep];
     if (!step) return;
     if (location.pathname !== step.page) {
-      navigate(step.page);
+      void navigate(step.page);
     } else {
       findTarget(step);
     }
@@ -117,8 +138,11 @@ export function TourProvider({ children }: { children: ReactNode }) {
 
   // Add/remove body class for toast z-index promotion
   useEffect(() => {
-    if (isActive) { document.body.classList.add('tour-active'); }
-    else { document.body.classList.remove('tour-active'); }
+    if (isActive) {
+      document.body.classList.add('tour-active');
+    } else {
+      document.body.classList.remove('tour-active');
+    }
     return () => document.body.classList.remove('tour-active');
   }, [isActive]);
 
@@ -127,12 +151,16 @@ export function TourProvider({ children }: { children: ReactNode }) {
     const cached = queryClient.getQueryData<Overview>(queryKeys.overview);
     const skillCount = cached?.skillCount ?? 0;
 
-    const builtSteps = buildSteps({ isProjectMode, skillCount, isMobile: !window.matchMedia('(min-width: 768px)').matches });
+    const builtSteps = buildSteps({
+      isProjectMode,
+      skillCount,
+      isMobile: !window.matchMedia('(min-width: 768px)').matches,
+    });
     setSteps(builtSteps);
     setCurrentStep(0);
     setIsActive(true);
     const first = builtSteps[0];
-    if (first && location.pathname !== first.page) navigate(first.page);
+    if (first && location.pathname !== first.page) void navigate(first.page);
   }, [isProjectMode, location.pathname, navigate, queryClient]);
 
   const nextStepFn = useCallback(() => {
@@ -171,19 +199,43 @@ export function TourProvider({ children }: { children: ReactNode }) {
     if (!isActive) return;
     const handler = (e: KeyboardEvent) => {
       switch (e.key) {
-        case 'Escape': e.preventDefault(); skipRef.current(); break;
-        case 'ArrowRight': case 'Enter': e.preventDefault(); nextRef.current(); break;
-        case 'ArrowLeft': e.preventDefault(); prevRef.current(); break;
+        case 'Escape':
+          e.preventDefault();
+          skipRef.current();
+          break;
+        case 'ArrowRight':
+        case 'Enter':
+          e.preventDefault();
+          nextRef.current();
+          break;
+        case 'ArrowLeft':
+          e.preventDefault();
+          prevRef.current();
+          break;
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [isActive]);
 
-  useEffect(() => { return () => clearPolling(); }, [clearPolling]);
+  useEffect(() => {
+    return () => clearPolling();
+  }, [clearPolling]);
 
   return (
-    <TourContext.Provider value={{ isActive, currentStep, steps, targetRect, isWaiting, startTour, nextStep: nextStepFn, prevStep: prevStepFn, skipTour: skipTourFn }}>
+    <TourContext.Provider
+      value={{
+        isActive,
+        currentStep,
+        steps,
+        targetRect,
+        isWaiting,
+        startTour,
+        nextStep: nextStepFn,
+        prevStep: prevStepFn,
+        skipTour: skipTourFn,
+      }}
+    >
       {children}
     </TourContext.Provider>
   );

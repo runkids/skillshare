@@ -1,14 +1,31 @@
 import { describe, expect, it } from 'vitest';
-import { commandSummary, describeChange, formatCommand, nativeEdits, rowPath, rowTitle, sameEvents } from './hooksImport';
+import {
+  commandSummary,
+  describeChange,
+  formatCommand,
+  nativeEdits,
+  rowPath,
+  rowTitle,
+  sameEvents,
+} from './hooksImport';
 
-const group = (matcher: string, command: string) => ({ matcher, hooks: [{ type: 'command', command }] });
+const group = (matcher: string, command: string) => ({
+  matcher,
+  hooks: [{ type: 'command', command }],
+});
 
 describe('commandSummary', () => {
   it('shows the script a long command ends up running', () => {
-    expect(commandSummary('if [ -z "$X" ]; then exit 0; fi; [ -x ~/.claude/hook.sh ] && ~/.claude/hook.sh Stop')).toBe('~/.claude/hook.sh');
+    expect(
+      commandSummary(
+        'if [ -z "$X" ]; then exit 0; fi; [ -x ~/.claude/hook.sh ] && ~/.claude/hook.sh Stop',
+      ),
+    ).toBe('~/.claude/hook.sh');
   });
   it('keeps the variable a script path starts with', () => {
-    expect(commandSummary('"$CLAUDE_PROJECT_DIR"/.claude/hooks/fmt.sh')).toBe('$CLAUDE_PROJECT_DIR/.claude/hooks/fmt.sh');
+    expect(commandSummary('"$CLAUDE_PROJECT_DIR"/.claude/hooks/fmt.sh')).toBe(
+      '$CLAUDE_PROJECT_DIR/.claude/hooks/fmt.sh',
+    );
   });
   it('falls back to the first line', () => {
     expect(commandSummary('\nafplay Glass\necho done')).toBe('afplay Glass');
@@ -28,19 +45,37 @@ describe('nativeEdits', () => {
   it('sends a removal without an after and an edit with one', () => {
     const before = { Stop: [group('', 'a')] };
     const after = { Stop: [group('', 'b')] };
-    expect(nativeEdits([
-      { target: 'claude', before, change: { remove: true } },
-      { target: 'codex', root: '/repo', before, change: { events: after } },
-    ])).toEqual([{ target: 'claude', before }, { target: 'codex', root: '/repo', before, after }]);
+    expect(
+      nativeEdits([
+        { target: 'claude', before, change: { remove: true } },
+        { target: 'codex', root: '/repo', before, change: { events: after } },
+      ]),
+    ).toEqual([
+      { target: 'claude', before },
+      { target: 'codex', root: '/repo', before, after },
+    ]);
   });
   it('names the block or file a hook was read from', () => {
     const before = { Stop: [{ command: 'a' }] };
-    expect(nativeEdits([{ target: 'antigravity', source: 'lint', before, change: { remove: true } }])).toEqual([{ target: 'antigravity', source: 'lint', before }]);
+    expect(
+      nativeEdits([{ target: 'antigravity', source: 'lint', before, change: { remove: true } }]),
+    ).toEqual([{ target: 'antigravity', source: 'lint', before }]);
   });
 });
 
 describe('rowTitle and rowPath', () => {
-  const row = { id: 'copilot:team.json', target: 'copilot', adopt: true, candidate: { name: 'team', source: 'team.json', problems: [], warnings: [], entry: { bindings: { copilot: { events: { sessionStart: [] } } } } } };
+  const row = {
+    id: 'copilot:team.json',
+    target: 'copilot',
+    adopt: true,
+    candidate: {
+      name: 'team',
+      source: 'team.json',
+      problems: [],
+      warnings: [],
+      entry: { bindings: { copilot: { events: { sessionStart: [] } } } },
+    },
+  };
   it('names a Copilot hook by its file, even with one event', () => {
     expect(rowTitle(row)).toBe('team.json');
   });
@@ -51,32 +86,51 @@ describe('rowTitle and rowPath', () => {
 
 describe('describeChange', () => {
   it('names a matcher change', () => {
-    expect(describeChange({ PreToolUse: [group('', 'a')] }, { PreToolUse: [group('Bash', 'a')] })).toEqual({ key: 'hooks.importChange.matcher', params: { from: '*', to: 'Bash' } });
+    expect(
+      describeChange({ PreToolUse: [group('', 'a')] }, { PreToolUse: [group('Bash', 'a')] }),
+    ).toEqual({ key: 'hooks.importChange.matcher', params: { from: '*', to: 'Bash' } });
   });
   it('names the command that changed', () => {
-    expect(describeChange({ Stop: [group('', 'a'), group('', 'b')] }, { Stop: [group('', 'a'), group('', 'c')] })).toEqual({ key: 'hooks.importChange.command', params: { n: '2' } });
+    expect(
+      describeChange(
+        { Stop: [group('', 'a'), group('', 'b')] },
+        { Stop: [group('', 'a'), group('', 'c')] },
+      ),
+    ).toEqual({ key: 'hooks.importChange.command', params: { n: '2' } });
   });
   it('says only that anything larger was edited', () => {
-    expect(describeChange({ Stop: [group('', 'a')] }, { Stop: [group('', 'a'), group('', 'b')] })).toEqual({ key: 'hooks.importChange.edited' });
+    expect(
+      describeChange({ Stop: [group('', 'a')] }, { Stop: [group('', 'a'), group('', 'b')] }),
+    ).toEqual({ key: 'hooks.importChange.edited' });
   });
 });
 
 describe('formatCommand', () => {
   it('puts one statement on a line and indents blocks', () => {
-    expect(formatCommand('if [ -z "$X" ]; then case "$Y" in a) exit 0;; esac; fi; [ -x ~/h.sh ] && ~/h.sh Stop')).toBe([
-      'if [ -z "$X" ]; then',
-      '  case "$Y" in a) exit 0;; esac',
-      'fi',
-      '[ -x ~/h.sh ] &&',
-      '  ~/h.sh Stop',
-    ].join('\n'));
+    expect(
+      formatCommand(
+        'if [ -z "$X" ]; then case "$Y" in a) exit 0;; esac; fi; [ -x ~/h.sh ] && ~/h.sh Stop',
+      ),
+    ).toBe(
+      [
+        'if [ -z "$X" ]; then',
+        '  case "$Y" in a) exit 0;; esac',
+        'fi',
+        '[ -x ~/h.sh ] &&',
+        '  ~/h.sh Stop',
+      ].join('\n'),
+    );
   });
   it('leaves separators inside quotes and substitutions alone', () => {
     const escaped = String.raw`find . -exec rm {} \;`;
-    expect(formatCommand(`echo "a; b" && x=$(date; id) ; ${escaped}`)).toBe(['echo "a; b" &&', '  x=$(date; id)', escaped].join('\n'));
+    expect(formatCommand(`echo "a; b" && x=$(date; id) ; ${escaped}`)).toBe(
+      ['echo "a; b" &&', '  x=$(date; id)', escaped].join('\n'),
+    );
   });
   it('formats a loop', () => {
-    expect(formatCommand('for f in a b; do echo $f; done')).toBe('for f in a b; do\n  echo $f\ndone');
+    expect(formatCommand('for f in a b; do echo $f; done')).toBe(
+      'for f in a b; do\n  echo $f\ndone',
+    );
   });
   it.each([
     'cat <<EOF; echo x',

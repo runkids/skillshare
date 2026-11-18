@@ -60,12 +60,7 @@ export function normalizeLocale(value: string | null | undefined): Locale | null
   if (lower === 'zh' || lower.startsWith('zh-hans') || lower === 'zh-cn' || lower === 'zh-sg') {
     return 'zh-CN';
   }
-  if (
-    lower.startsWith('zh-hant') ||
-    lower === 'zh-tw' ||
-    lower === 'zh-hk' ||
-    lower === 'zh-mo'
-  ) {
+  if (lower.startsWith('zh-hant') || lower === 'zh-tw' || lower === 'zh-hk' || lower === 'zh-mo') {
     return 'zh-TW';
   }
   if (lower === 'pt-br') return 'pt-BR';
@@ -91,7 +86,9 @@ export function getInitialLocale(): Locale {
   } catch {
     // Ignore storage access failures and fall back to browser detection.
   }
-  return detectBrowserLocale(navigator.languages?.length ? navigator.languages : [navigator.language]);
+  return detectBrowserLocale(
+    navigator.languages?.length ? navigator.languages : [navigator.language],
+  );
 }
 
 export function interpolate(template: string, params?: TranslationParams): string {
@@ -116,6 +113,7 @@ export function translate(
   params?: TranslationParams,
   fallback?: string,
 ): string {
-  const template = messagesByLocale[locale][key] ?? messagesByLocale[DEFAULT_LOCALE][key] ?? fallback ?? key;
+  const template =
+    messagesByLocale[locale][key] ?? messagesByLocale[DEFAULT_LOCALE][key] ?? fallback ?? key;
   return interpolate(template, params);
 }

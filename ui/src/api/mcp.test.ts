@@ -6,10 +6,19 @@ vi.mock('./client', () => ({ apiFetch: vi.fn() }));
 
 describe('mcpApi.save', () => {
   it('previews the mutation and saves with its revision', async () => {
-    vi.mocked(apiFetch).mockResolvedValueOnce({ revision: 'rev-1' }).mockResolvedValueOnce({ applied: [] });
+    vi.mocked(apiFetch)
+      .mockResolvedValueOnce({ revision: 'rev-1' })
+      .mockResolvedValueOnce({ applied: [] });
     const mutation = { name: 'docs', server: { url: 'https://docs.example/mcp' } };
     await mcpApi.save(mutation);
-    expect(vi.mocked(apiFetch).mock.calls.map(([path, init]) => [path, JSON.parse(String(init?.body))])).toEqual([
+    expect(
+      vi
+        .mocked(apiFetch)
+        .mock.calls.map(([path, init]) => [
+          path,
+          typeof init?.body === 'string' ? JSON.parse(init.body) : init?.body,
+        ]),
+    ).toEqual([
       ['/mcp/preview', { mutation }],
       ['/mcp', { mutation, revision: 'rev-1', sync: false }],
     ]);

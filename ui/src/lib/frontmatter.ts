@@ -2,10 +2,7 @@ import { Document, isScalar, isSeq, parse, Scalar } from 'yaml';
 
 export type FrontmatterScalar = string | number | boolean | null;
 export type FrontmatterNested = { [key: string]: FrontmatterValue };
-export type FrontmatterValue =
-  | FrontmatterScalar
-  | FrontmatterValue[]
-  | FrontmatterNested;
+export type FrontmatterValue = FrontmatterScalar | FrontmatterValue[] | FrontmatterNested;
 export type Frontmatter = Record<string, FrontmatterValue>;
 
 export interface ParsedSkillMarkdown {
@@ -101,7 +98,12 @@ function parseLegacyYaml(text: string): Frontmatter {
         const arr: string[] = [];
         i++;
         while (i < lines.length && /^\s*-\s+/.test(lines[i])) {
-          arr.push(lines[i].replace(/^\s*-\s+/, '').trim().replace(/^['"]|['"]$/g, ''));
+          arr.push(
+            lines[i]
+              .replace(/^\s*-\s+/, '')
+              .trim()
+              .replace(/^['"]|['"]$/g, ''),
+          );
           i++;
         }
         if (arr.length) {
@@ -114,7 +116,10 @@ function parseLegacyYaml(text: string): Frontmatter {
         while (i < lines.length && /^\s{2,}\S/.test(lines[i])) {
           const subLine = lines[i].replace(/^\s+/, '');
           const subColon = subLine.indexOf(':');
-          if (subColon === -1) { i++; continue; }
+          if (subColon === -1) {
+            i++;
+            continue;
+          }
           const subKey = subLine.slice(0, subColon).trim();
           const subAfter = subLine.slice(subColon + 1).trim();
           if (subAfter.startsWith('[') && subAfter.endsWith(']')) {
@@ -161,10 +166,19 @@ export function serializeFrontmatter(fm: Frontmatter, keyOrder?: string[]): stri
     if (value == null || value === '' || (Array.isArray(value) && value.length === 0)) continue;
     const node = doc.createNode(value);
     // Prose stays readable without adding quote escapes to the source.
-    if (key === 'description' && isScalar(node) && typeof value === 'string' && /:\s|\n/.test(value)) {
+    if (
+      key === 'description' &&
+      isScalar(node) &&
+      typeof value === 'string' &&
+      /:\s|\n/.test(value)
+    ) {
       node.type = Scalar.BLOCK_FOLDED;
     }
-    if (isSeq(node) && value instanceof Array && value.every((v) => v == null || typeof v !== 'object')) {
+    if (
+      isSeq(node) &&
+      value instanceof Array &&
+      value.every((v) => v == null || typeof v !== 'object')
+    ) {
       node.flow = value.every((v) => !/[,\s]/.test(String(v)));
     }
     doc.set(key, node);
@@ -181,9 +195,8 @@ export function composeSkillMarkdown(
 ): string {
   // Preserve original frontmatter text when it hasn't been edited,
   // avoiding spurious formatting changes (quote style, line wrapping).
-  const fmText = rawFrontmatter != null
-    ? `---\n${rawFrontmatter}\n---`
-    : serializeFrontmatter(fm, keyOrder);
+  const fmText =
+    rawFrontmatter != null ? `---\n${rawFrontmatter}\n---` : serializeFrontmatter(fm, keyOrder);
   const bodyText = body.startsWith('\n') ? body : '\n' + body;
   return `${bom}${fmText}${bodyText}`;
 }

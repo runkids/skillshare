@@ -65,6 +65,28 @@ jobs:
         env:
           SKILLSHARE_TEST_BINARY: ${{ github.workspace }}/bin/skillshare
 
+  dashboard-check:
+    if: *not-release-duplicate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.6.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: ui/pnpm-lock.yaml
+      - name: Check dashboard formatting and type-aware lint
+        working-directory: ui
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm format:check
+          pnpm lint:typed
+
   integration-test:
     if: *not-release-duplicate
     runs-on: ${{ matrix.os }}

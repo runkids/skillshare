@@ -39,13 +39,31 @@ export default function AgentOptionsFields({ agents, texts, error, onChange, dis
           value={agent}
           onChange={setPicked}
           disabled={disabled}
-          options={agents.map((a) => ({ value: a, label: targetLabel(a), icon: <AgentIcon target={a} size={16} />, ...(texts[a]?.trim() && { note: `· ${t('mcp.agentOptionsSet')}` }) }))}
+          options={agents.map((a) => ({
+            value: a,
+            label: targetLabel(a),
+            icon: <AgentIcon target={a} size={16} />,
+            ...(texts[a]?.trim() && { note: `· ${t('mcp.agentOptionsSet')}` }),
+          }))}
         />
       </div>
       <div className="ss-fld">
         <label>{label}</label>
-        <CodeEditor key={agent} value={texts[agent] ?? ''} onChange={(text) => onChange(agent, text)} lang="json" placeholder={examples[agent] ?? '{\n  "field": "value"\n}'} ariaLabel={label} disabled={disabled} minHeight="96px" />
-        {error ? <span className="hp !text-bad">{error}</span> : <span className="hp">{t('mcp.agentOptionsHint')}</span>}
+        <CodeEditor
+          key={agent}
+          value={texts[agent] ?? ''}
+          onChange={(text) => onChange(agent, text)}
+          lang="json"
+          placeholder={examples[agent] ?? '{\n  "field": "value"\n}'}
+          ariaLabel={label}
+          disabled={disabled}
+          minHeight="96px"
+        />
+        {error ? (
+          <span className="hp !text-bad">{error}</span>
+        ) : (
+          <span className="hp">{t('mcp.agentOptionsHint')}</span>
+        )}
       </div>
     </>
   );

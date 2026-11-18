@@ -27,7 +27,11 @@ export interface Project {
   hasOwnConfig: boolean;
 }
 
-export type ProjectInput = Pick<Project, 'root' | 'targets' | 'skills' | 'agents'> & { name?: string; create?: boolean; /** Where a new project is saved; used only with `create`. */ storage?: ProjectStorage };
+export type ProjectInput = Pick<Project, 'root' | 'targets' | 'skills' | 'agents'> & {
+  name?: string;
+  create?: boolean;
+  /** Where a new project is saved; used only with `create`. */ storage?: ProjectStorage;
+};
 
 export type ProjectStorage = 'shared' | 'local';
 

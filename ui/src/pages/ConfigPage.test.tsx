@@ -12,19 +12,47 @@ import ConfigPage from './ConfigPage';
 vi.mock('../context/AppContext', () => ({ useAppContext: () => ({ isProjectMode: false }) }));
 // CodeMirror does not edit under jsdom; a textarea stands in for the editor, and a stub view records
 // where the page puts the cursor.
-const view = { text: '', state: { doc: { get length() { return view.text.length; }, toString: () => view.text } }, dispatch: vi.fn(), focus: vi.fn() };
+const view = {
+  text: '',
+  state: {
+    doc: {
+      get length() {
+        return view.text.length;
+      },
+      toString: () => view.text,
+    },
+  },
+  dispatch: vi.fn(),
+  focus: vi.fn(),
+};
 vi.mock('@uiw/react-codemirror', () => ({
-  default: ({ value, onChange, onCreateEditor }: { value: string; onChange: (v: string) => void; onCreateEditor?: (v: unknown) => void }) => {
+  default: ({
+    value,
+    onChange,
+    onCreateEditor,
+  }: {
+    value: string;
+    onChange: (v: string) => void;
+    onCreateEditor?: (v: unknown) => void;
+  }) => {
     view.text = value;
     onCreateEditor?.(view);
-    return <textarea aria-label="editor" value={value} onChange={(e) => onChange(e.target.value)} />;
+    return (
+      <textarea aria-label="editor" value={value} onChange={(e) => onChange(e.target.value)} />
+    );
   },
 }));
 vi.mock('../api/client', async (load) => {
   const actual = await load<typeof import('../api/client')>();
   return {
     ...actual,
-    api: { ...actual.api, getOverview: vi.fn(), getConfig: vi.fn(), getSkillignore: vi.fn(), getAgentignore: vi.fn() },
+    api: {
+      ...actual.api,
+      getOverview: vi.fn(),
+      getConfig: vi.fn(),
+      getSkillignore: vi.fn(),
+      getAgentignore: vi.fn(),
+    },
   };
 });
 
@@ -32,7 +60,13 @@ function renderPage(query: string) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <MemoryRouter initialEntries={[`/config?${query}`]}>
-      <QueryClientProvider client={client}><I18nProvider><ToastProvider><ConfigPage /></ToastProvider></I18nProvider></QueryClientProvider>
+      <QueryClientProvider client={client}>
+        <I18nProvider>
+          <ToastProvider>
+            <ConfigPage />
+          </ToastProvider>
+        </I18nProvider>
+      </QueryClientProvider>
     </MemoryRouter>,
   );
 }
@@ -53,9 +87,10 @@ describe('ConfigPage', () => {
     const editor = await screen.findByDisplayValue('draft-*');
     fireEvent.change(editor, { target: { value: 'draft-*\ntmp-*\n' } });
     await user.click(screen.getAllByRole('button', { name: 'Revert' })[0]);
-    await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Revert' }));
+    await user.click(
+      within(await screen.findByRole('dialog')).getByRole('button', { name: 'Revert' }),
+    );
 
     expect((screen.getByLabelText('editor') as HTMLTextAreaElement).value).toBe('draft-*\n');
   });
-
 });

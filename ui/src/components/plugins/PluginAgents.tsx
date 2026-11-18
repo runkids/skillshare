@@ -29,45 +29,137 @@ export default function PluginAgents({ inventory, ready, refreshing, disabled, o
   const labels = targetMap(definitions);
   const label = (target: string) => labels[target]?.label ?? target;
   // Native registrations need not be managed by Skillshare; extension selection stays on each Pi and Oh My Pi target.
-  const extensionTargets = new Set((useSyncedTargetsQuery().data?.targets ?? []).filter((x) => isPiTarget(x) || isOmpTarget(x)).map((x) => x.name));
+  const extensionTargets = new Set(
+    (useSyncedTargetsQuery().data?.targets ?? [])
+      .filter((x) => isPiTarget(x) || isOmpTarget(x))
+      .map((x) => x.name),
+  );
   const manual = inventory.hosts.filter((h) => labels[h.target]?.operations.length === 0);
-  const byStatus = (status: string) => inventory.hosts.filter((h) => h.status === status && !manual.includes(h));
-  const reasoned = (hosts: PluginInventory['hosts']) => hosts.map((h) => (
-    <RailRow key={h.target} target={h.target} label={label(h.target)} dim sub={keyedText(t, h.errorKey, h.error, h.errorArgs)}
-      detail={<><span>{keyedText(t, h.errorKey, h.error, h.errorArgs)}</span><PluginDocsLink target={h.target} label={label(h.target)} /></>} />
-  ));
+  const byStatus = (status: string) =>
+    inventory.hosts.filter((h) => h.status === status && !manual.includes(h));
+  const reasoned = (hosts: PluginInventory['hosts']) =>
+    hosts.map((h) => (
+      <RailRow
+        key={h.target}
+        target={h.target}
+        label={label(h.target)}
+        dim
+        sub={keyedText(t, h.errorKey, h.error, h.errorArgs)}
+        detail={
+          <>
+            <span>{keyedText(t, h.errorKey, h.error, h.errorArgs)}</span>
+            <PluginDocsLink target={h.target} label={label(h.target)} />
+          </>
+        }
+      />
+    ));
 
   return (
-    <RailSection title={t('plugins.hostsTitle')} count={definitions.length} action={<IconButton icon={<RefreshCw size={15} className={refreshing ? 'animate-spin' : ''} />} label={t('plugins.refresh')} disabled={disabled || refreshing} onClick={onRefresh} />}>
+    <RailSection
+      title={t('plugins.hostsTitle')}
+      count={definitions.length}
+      action={
+        <IconButton
+          icon={<RefreshCw size={15} className={refreshing ? 'animate-spin' : ''} />}
+          label={t('plugins.refresh')}
+          disabled={disabled || refreshing}
+          onClick={onRefresh}
+        />
+      }
+    >
       <p className="text-xs leading-normal text-ink-3">{t('plugins.hostsHelp')}</p>
       {!ready ? (
-        <RailGroup label={t('plugins.hostsAsking')} foot={slow ? t('plugins.hostsSlow') : undefined}>
-          {definitions.map((d) => <RailRow key={d.target} target={d.target} label={d.label} dim right={<span className="ss-skel w-11 shrink-0" />} />)}
+        <RailGroup
+          label={t('plugins.hostsAsking')}
+          foot={slow ? t('plugins.hostsSlow') : undefined}
+        >
+          {definitions.map((d) => (
+            <RailRow
+              key={d.target}
+              target={d.target}
+              label={d.label}
+              dim
+              right={<span className="ss-skel w-11 shrink-0" />}
+            />
+          ))}
         </RailGroup>
       ) : (
         <>
           {byStatus('ready').length > 0 && (
             <RailGroup label={t('plugins.hostReady')} count={byStatus('ready').length}>
               {byStatus('ready').map((h) => (
-                <RailRow key={h.target} target={h.target} label={label(h.target)}
-                  right={h.installed.length > 0 && <span className="shrink-0 text-xs text-ink-3">{t(plural('plugins.hostRegistered', h.installed.length), { count: h.installed.length })}</span>}
-                  detail={<>
-                    <span>{h.target === 'grok' ? t('plugins.reason.grok') : keyedText(t, h.noteKey || 'plugins.note.native', h.note)}</span>
-                    {h.version && <span className="break-all font-mono text-xs text-ink-3">{h.version}</span>}
-                    {extensionTargets.has(h.target) && <Link to={`/targets/${encodeURIComponent(h.target)}?tab=extensions`} className="text-xs font-semibold text-ink-2 hover:text-ink">{t('plugins.piExtensions', { name: label(h.target) })}</Link>}
-                    <PluginDocsLink target={h.target} label={label(h.target)} />
-                  </>} />
+                <RailRow
+                  key={h.target}
+                  target={h.target}
+                  label={label(h.target)}
+                  right={
+                    h.installed.length > 0 && (
+                      <span className="shrink-0 text-xs text-ink-3">
+                        {t(plural('plugins.hostRegistered', h.installed.length), {
+                          count: h.installed.length,
+                        })}
+                      </span>
+                    )
+                  }
+                  detail={
+                    <>
+                      <span>
+                        {h.target === 'grok'
+                          ? t('plugins.reason.grok')
+                          : keyedText(t, h.noteKey || 'plugins.note.native', h.note)}
+                      </span>
+                      {h.version && (
+                        <span className="break-all font-mono text-xs text-ink-3">{h.version}</span>
+                      )}
+                      {extensionTargets.has(h.target) && (
+                        <Link
+                          to={`/targets/${encodeURIComponent(h.target)}?tab=extensions`}
+                          className="text-xs font-semibold text-ink-2 hover:text-ink"
+                        >
+                          {t('plugins.piExtensions', { name: label(h.target) })}
+                        </Link>
+                      )}
+                      <PluginDocsLink target={h.target} label={label(h.target)} />
+                    </>
+                  }
+                />
               ))}
             </RailGroup>
           )}
-          {byStatus('blocked').length > 0 && <RailGroup label={t('plugins.hostBlocked')} count={byStatus('blocked').length}>{reasoned(byStatus('blocked'))}</RailGroup>}
-          {manual.length > 0 && <RailGroup label={t('plugins.hostManual')} count={manual.length} foot={t('plugins.hostManualHelp')}>{reasoned(manual)}</RailGroup>}
+          {byStatus('blocked').length > 0 && (
+            <RailGroup label={t('plugins.hostBlocked')} count={byStatus('blocked').length}>
+              {reasoned(byStatus('blocked'))}
+            </RailGroup>
+          )}
+          {manual.length > 0 && (
+            <RailGroup
+              label={t('plugins.hostManual')}
+              count={manual.length}
+              foot={t('plugins.hostManualHelp')}
+            >
+              {reasoned(manual)}
+            </RailGroup>
+          )}
           {/* One cause shared by every Agent here, so it is stated once instead of per row. */}
           {byStatus('missing').length > 0 && (
-            <RailGroup label={t('plugins.hostMissing')} count={byStatus('missing').length} foot={t('plugins.hostMissingHelp')}>
-              {byStatus('missing').map((h) => h.errorArgs
-                ? reasoned([h])[0]
-                : <RailRow key={h.target} target={h.target} label={label(h.target)} dim right={<PluginDocsLink target={h.target} label={label(h.target)} />} />)}
+            <RailGroup
+              label={t('plugins.hostMissing')}
+              count={byStatus('missing').length}
+              foot={t('plugins.hostMissingHelp')}
+            >
+              {byStatus('missing').map((h) =>
+                h.errorArgs ? (
+                  reasoned([h])[0]
+                ) : (
+                  <RailRow
+                    key={h.target}
+                    target={h.target}
+                    label={label(h.target)}
+                    dim
+                    right={<PluginDocsLink target={h.target} label={label(h.target)} />}
+                  />
+                ),
+              )}
             </RailGroup>
           )}
         </>

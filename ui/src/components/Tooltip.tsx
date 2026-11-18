@@ -14,7 +14,14 @@ interface TooltipProps {
 const OFFSET = 12;
 const MARGIN = 8;
 
-export default function Tooltip({ children, content, side = 'bottom', followCursor, delay = 200, block }: TooltipProps) {
+export default function Tooltip({
+  children,
+  content,
+  side = 'bottom',
+  followCursor,
+  delay = 200,
+  block,
+}: TooltipProps) {
   // `above` is where the tip's bottom edge goes when it does not fit below its anchor.
   const [pos, setPos] = useState<{ x: number; y: number; above?: number } | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -45,27 +52,30 @@ export default function Tooltip({ children, content, side = 'bottom', followCurs
     el.style.visibility = 'visible';
   }, [pos]);
 
-  const show = useCallback((e: React.MouseEvent | React.FocusEvent) => {
-    // Hover and focus can both start one; only the latest timer may fire.
-    if (timerRef.current) clearTimeout(timerRef.current);
-    if (followCursor) {
-      const { clientX, clientY } = e as React.MouseEvent;
-      latestCursor.current = { x: clientX + OFFSET, y: clientY + OFFSET };
-      timerRef.current = setTimeout(() => {
-        visibleRef.current = true;
-        setPos({ ...latestCursor.current });
-      }, delay);
-    } else {
-      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-      timerRef.current = setTimeout(() => {
-        setPos({
-          x: rect.left,
-          y: side === 'top' ? rect.top - 4 : rect.bottom + 4,
-          above: rect.top - 4,
-        });
-      }, delay);
-    }
-  }, [side, followCursor, delay]);
+  const show = useCallback(
+    (e: React.MouseEvent | React.FocusEvent) => {
+      // Hover and focus can both start one; only the latest timer may fire.
+      if (timerRef.current) clearTimeout(timerRef.current);
+      if (followCursor) {
+        const { clientX, clientY } = e as React.MouseEvent;
+        latestCursor.current = { x: clientX + OFFSET, y: clientY + OFFSET };
+        timerRef.current = setTimeout(() => {
+          visibleRef.current = true;
+          setPos({ ...latestCursor.current });
+        }, delay);
+      } else {
+        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+        timerRef.current = setTimeout(() => {
+          setPos({
+            x: rect.left,
+            y: side === 'top' ? rect.top - 4 : rect.bottom + 4,
+            above: rect.top - 4,
+          });
+        }, delay);
+      }
+    },
+    [side, followCursor, delay],
+  );
 
   const move = useCallback((e: React.MouseEvent) => {
     latestCursor.current = { x: e.clientX + OFFSET, y: e.clientY + OFFSET };
@@ -85,28 +95,40 @@ export default function Tooltip({ children, content, side = 'bottom', followCurs
     setPos(null);
   }, []);
 
-  useEffect(() => () => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-    if (rafRef.current !== undefined) cancelAnimationFrame(rafRef.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      if (rafRef.current !== undefined) cancelAnimationFrame(rafRef.current);
+    },
+    [],
+  );
 
   return (
     <>
-      <span className={block ? 'block' : undefined} onMouseEnter={show} onMouseLeave={hide} onMouseMove={followCursor ? move : undefined} onFocus={followCursor ? undefined : show} onBlur={hide}>
+      <span
+        className={block ? 'block' : undefined}
+        onMouseEnter={show}
+        onMouseLeave={hide}
+        onMouseMove={followCursor ? move : undefined}
+        onFocus={followCursor ? undefined : show}
+        onBlur={hide}
+      >
         {children}
       </span>
       {/* No content leaves the wrapper in place, so a caller can keep its tree stable while the text loads. */}
-      {pos && content && createPortal(
-        <div
-          ref={tooltipRef}
-          role="tooltip"
-          className="ss-tip fixed z-[9999] max-w-sm whitespace-pre-line pointer-events-none animate-fade-in"
-          style={{ left: 0, top: 0, visibility: 'hidden' }}
-        >
-          {content}
-        </div>,
-        document.body,
-      )}
+      {pos &&
+        content &&
+        createPortal(
+          <div
+            ref={tooltipRef}
+            role="tooltip"
+            className="ss-tip fixed z-[9999] max-w-sm whitespace-pre-line pointer-events-none animate-fade-in"
+            style={{ left: 0, top: 0, visibility: 'hidden' }}
+          >
+            {content}
+          </div>,
+          document.body,
+        )}
     </>
   );
 }

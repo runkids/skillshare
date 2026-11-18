@@ -40,9 +40,18 @@ export function useInstallFromConfig() {
   const repos = entries.filter((e) => e.tracked).length;
   /** What a finished run did: "Installed 1 tracked repo (12 skills), 1 failed". */
   const summary = [
-    installed > 0 && t('install.fromConfig.installed', { items: counts(installedRepos, installed - installedRepos, installedRepos > 0 ? repoSkills : undefined) }),
+    installed > 0 &&
+      t('install.fromConfig.installed', {
+        items: counts(
+          installedRepos,
+          installed - installedRepos,
+          installedRepos > 0 ? repoSkills : undefined,
+        ),
+      }),
     failed.size > 0 && t('install.fromConfig.failed', { count: failed.size }),
-  ].filter(Boolean).join(', ');
+  ]
+    .filter(Boolean)
+    .join(', ');
   /** What the entries hold: "1 tracked repo, 2 skills". */
   const contents = counts(repos, entries.length - repos);
 
@@ -70,21 +79,42 @@ export function useInstallFromConfig() {
     }, COLLAPSE_MS);
   }, []);
 
-  return { entries, file: data?.file ?? '.metadata.json', phase, done, failed, summary, contents, error, run, dismiss };
+  return {
+    entries,
+    file: data?.file ?? '.metadata.json',
+    phase,
+    done,
+    failed,
+    summary,
+    contents,
+    error,
+    run,
+    dismiss,
+  };
 }
 
 /** Counts up from 0 to `target` once `active` turns on, for a summary number that fills in. */
 function useCountUp(target: number, active: boolean) {
   const [value, setValue] = useState(0);
   useEffect(() => {
-    if (!active) { setValue(0); return; }
-    if (target <= 0 || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) { setValue(target); return; }
+    if (!active) {
+      setValue(0);
+      return;
+    }
+    if (target <= 0 || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      setValue(target);
+      return;
+    }
     const step = Math.max(1, Math.ceil(target / 24));
-    const id = setInterval(() => setValue((v) => {
-      const next = Math.min(target, v + step);
-      if (next === target) clearInterval(id);
-      return next;
-    }), 40);
+    const id = setInterval(
+      () =>
+        setValue((v) => {
+          const next = Math.min(target, v + step);
+          if (next === target) clearInterval(id);
+          return next;
+        }),
+      40,
+    );
     return () => clearInterval(id);
   }, [target, active]);
   return value;
@@ -97,7 +127,11 @@ function useEntryCounts() {
     const parts: string[] = [];
     if (repos > 0) {
       const label = t(plural('install.fromConfig.repos', repos), { count: repos });
-      parts.push(repoSkills === undefined ? label : `${label} (${t(plural('install.fromConfig.skills', repoSkills), { count: repoSkills })})`);
+      parts.push(
+        repoSkills === undefined
+          ? label
+          : `${label} (${t(plural('install.fromConfig.skills', repoSkills), { count: repoSkills })})`,
+      );
     }
     if (skills > 0) parts.push(t(plural('install.fromConfig.skills', skills), { count: skills }));
     return parts.join(', ');

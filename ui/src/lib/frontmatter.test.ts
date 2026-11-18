@@ -5,7 +5,7 @@ import { parseSkillMarkdown, serializeFrontmatter, composeSkillMarkdown } from '
 describe('parseSkillMarkdown', () => {
   it('parses scalar fields', () => {
     const { frontmatter, body } = parseSkillMarkdown(
-      '---\nname: foo\ndescription: bar\n---\n# body'
+      '---\nname: foo\ndescription: bar\n---\n# body',
     );
     expect(frontmatter.name).toBe('foo');
     expect(frontmatter.description).toBe('bar');
@@ -14,26 +14,28 @@ describe('parseSkillMarkdown', () => {
 
   it('parses inline arrays', () => {
     const { frontmatter } = parseSkillMarkdown(
-      '---\nallowed-tools: [Read, Grep, Bash(git status *)]\n---\nbody'
+      '---\nallowed-tools: [Read, Grep, Bash(git status *)]\n---\nbody',
     );
     expect(frontmatter['allowed-tools']).toEqual(['Read', 'Grep', 'Bash(git status *)']);
   });
 
   it('handles multiline block scalars (|)', () => {
     const { frontmatter } = parseSkillMarkdown(
-      '---\ndescription: |\n  Line one\n  Line two\n---\nbody'
+      '---\ndescription: |\n  Line one\n  Line two\n---\nbody',
     );
     expect(frontmatter.description).toBe('Line one\nLine two\n');
   });
 
   it('keeps legacy headers with unquoted description colons editable', () => {
-    const { frontmatter } = parseSkillMarkdown('---\nname: foo\ndescription: Use when asked: convert PDF\n---\nbody');
+    const { frontmatter } = parseSkillMarkdown(
+      '---\nname: foo\ndescription: Use when asked: convert PDF\n---\nbody',
+    );
     expect(frontmatter).toEqual({ name: 'foo', description: 'Use when asked: convert PDF' });
   });
 
   it('skips a leading BOM before the opening fence', () => {
     const { frontmatter, body, hasFrontmatter } = parseSkillMarkdown(
-      '\uFEFF---\nname: foo\n---\n# body'
+      '\uFEFF---\nname: foo\n---\n# body',
     );
     expect(hasFrontmatter).toBe(true);
     expect(frontmatter.name).toBe('foo');
@@ -77,16 +79,30 @@ describe('edited frontmatter', () => {
   });
 
   it('preserves folded descriptions and nested flow metadata through repeated edits', () => {
-    const metadata = { openclaw: { emoji: '📄', requires: { bins: ['mineru-open-api'] }, install: [{ kind: 'node', package: 'mineru-open-api' }] } };
+    const metadata = {
+      openclaw: {
+        emoji: '📄',
+        requires: { bins: ['mineru-open-api'] },
+        install: [{ kind: 'node', package: 'mineru-open-api' }],
+      },
+    };
     const original = `---\nname: MinerU Document Extractor\ndescription: >-\n  Convert PDFs.\n  Use when asked: "convert PDF to Markdown".\nmetadata: ${JSON.stringify(metadata)}\nallowed-tools: Bash(mineru-open-api:*)\n---\n# MinerU\n`;
-    const description = 'MinerU document extraction: convert PDFs. Use when asked: "convert PDF". 文件提取 C:\\tools';
+    const description =
+      'MinerU document extraction: convert PDFs. Use when asked: "convert PDF". 文件提取 C:\\tools';
     let content = original;
     for (let i = 0; i < 3; i++) {
       const parsed = parseSkillMarkdown(content);
       expect(parsed.frontmatter.metadata).toEqual(metadata);
-      content = composeSkillMarkdown({ ...parsed.frontmatter, name: 'mineru-document-extractor', description }, parsed.body);
+      content = composeSkillMarkdown(
+        { ...parsed.frontmatter, name: 'mineru-document-extractor', description },
+        parsed.body,
+      );
       const saved = parseSkillMarkdown(content);
-      expect(parseYaml(saved.rawFrontmatter)).toMatchObject({ name: 'mineru-document-extractor', description, metadata });
+      expect(parseYaml(saved.rawFrontmatter)).toMatchObject({
+        name: 'mineru-document-extractor',
+        description,
+        metadata,
+      });
       expect(saved.frontmatter.description).toBe(description);
       expect(saved.body).toBe('# MinerU\n');
     }
@@ -95,12 +111,20 @@ describe('edited frontmatter', () => {
   });
 
   it('preserves YAML chomp indicators, paragraphs and typed metadata', () => {
-    const content = '---\ndescription: >-\n  Line one\n  wraps here\n\n  Next paragraph\nmetadata:\n  version: "1.0"\n  enabled: false\n  aliases: ["a, b", "true"]\n---\nbody';
+    const content =
+      '---\ndescription: >-\n  Line one\n  wraps here\n\n  Next paragraph\nmetadata:\n  version: "1.0"\n  enabled: false\n  aliases: ["a, b", "true"]\n---\nbody';
     const parsed = parseSkillMarkdown(content);
     expect(parsed.frontmatter.description).toBe('Line one wraps here\nNext paragraph');
-    expect(parsed.frontmatter.metadata).toEqual({ version: '1.0', enabled: false, aliases: ['a, b', 'true'] });
+    expect(parsed.frontmatter.metadata).toEqual({
+      version: '1.0',
+      enabled: false,
+      aliases: ['a, b', 'true'],
+    });
     const saved = composeSkillMarkdown({ ...parsed.frontmatter, name: 'foo' }, parsed.body);
-    expect(parseYaml(parseSkillMarkdown(saved).rawFrontmatter)).toEqual({ ...parsed.frontmatter, name: 'foo' });
+    expect(parseYaml(parseSkillMarkdown(saved).rawFrontmatter)).toEqual({
+      ...parsed.frontmatter,
+      name: 'foo',
+    });
   });
 });
 
@@ -127,10 +151,7 @@ describe('serializeFrontmatter', () => {
   });
 
   it('respects keyOrder', () => {
-    const out = serializeFrontmatter(
-      { description: 'b', name: 'a' },
-      ['name', 'description']
-    );
+    const out = serializeFrontmatter({ description: 'b', name: 'a' }, ['name', 'description']);
     expect(out.indexOf('name:')).toBeLessThan(out.indexOf('description:'));
   });
 });

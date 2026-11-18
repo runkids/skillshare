@@ -67,7 +67,11 @@ export function syncToastType(totals: SyncTotals): 'success' | 'warning' | 'erro
 // Toast renders with `whitespace-pre-line`, so each newline becomes a line break
 // — far more readable than cramming everything onto one line.
 function buildErrorLines(totals: SyncTotals, t: TFunc): string[] {
-  const errorText = t('extras.toast.nErrors', { errors: totals.errors }, `${totals.errors} error${totals.errors > 1 ? 's' : ''}`);
+  const errorText = t(
+    'extras.toast.nErrors',
+    { errors: totals.errors },
+    `${totals.errors} error${totals.errors > 1 ? 's' : ''}`,
+  );
   const [first, ...rest] = totals.errorDetails;
   const lines = [errorText];
   if (first) lines.push(first);
@@ -76,7 +80,13 @@ function buildErrorLines(totals: SyncTotals, t: TFunc): string[] {
   return lines;
 }
 
-export function buildSyncToast(label: string, failLabel: string, totals: SyncTotals, isForce: boolean, t: TFunc): string {
+export function buildSyncToast(
+  label: string,
+  failLabel: string,
+  totals: SyncTotals,
+  isForce: boolean,
+  t: TFunc,
+): string {
   // Full failure (nothing synced): headline + count on line 1, then details.
   if (totals.errors > 0 && totals.synced === 0) {
     const [count, ...detail] = buildErrorLines(totals, t);
@@ -87,11 +97,23 @@ export function buildSyncToast(label: string, failLabel: string, totals: SyncTot
 
   // Partial success: one summary line, then any errors on following lines.
   const parts: string[] = [];
-  parts.push(t('extras.toast.syncedNFiles', { synced: totals.synced, targets: totals.targets }, `${totals.synced} file${totals.synced !== 1 ? 's' : ''} to ${totals.targets} target${totals.targets !== 1 ? 's' : ''}`));
+  parts.push(
+    t(
+      'extras.toast.syncedNFiles',
+      { synced: totals.synced, targets: totals.targets },
+      `${totals.synced} file${totals.synced !== 1 ? 's' : ''} to ${totals.targets} target${totals.targets !== 1 ? 's' : ''}`,
+    ),
+  );
   if (totals.skipped > 0)
-    parts.push(!isForce
-      ? t('extras.toast.skippedForce', { skipped: totals.skipped }, `${totals.skipped} skipped (enable Force to override)`)
-      : t('extras.toast.skipped', { skipped: totals.skipped }, `${totals.skipped} skipped`));
+    parts.push(
+      !isForce
+        ? t(
+            'extras.toast.skippedForce',
+            { skipped: totals.skipped },
+            `${totals.skipped} skipped (enable Force to override)`,
+          )
+        : t('extras.toast.skipped', { skipped: totals.skipped }, `${totals.skipped} skipped`),
+    );
 
   let msg = `${label} — ${parts.join(', ')}`;
   if (totals.errors > 0) msg += `\n${buildErrorLines(totals, t).join('\n')}`;

@@ -69,7 +69,8 @@ export default function LanguagePopover() {
           ref={panelRef}
           role="radiogroup"
           aria-label={t('language.settings')}
-          {...menu.exitProps} className={`ss-menu absolute left-0 bottom-full mb-3 z-50 origin-bottom-left !w-[300px] max-w-[calc(100vw-6rem)] max-h-[calc(100dvh-8rem)] overflow-y-auto ${menu.motion}`}
+          {...menu.exitProps}
+          className={`ss-menu absolute left-0 bottom-full mb-3 z-50 origin-bottom-left !w-[300px] max-w-[calc(100vw-6rem)] max-h-[calc(100dvh-8rem)] overflow-y-auto ${menu.motion}`}
         >
           {localeOptions.map((entry) => {
             const on = locale === entry.code;
@@ -85,7 +86,9 @@ export default function LanguagePopover() {
                 tabIndex={on ? 0 : -1}
               >
                 <span className="whitespace-nowrap">{entry.nativeName}</span>
-                <span className="ml-auto text-xs text-ink-3 whitespace-nowrap">{english !== entry.nativeName ? t(`language.${entry.code}`) : ''}</span>
+                <span className="ml-auto text-xs text-ink-3 whitespace-nowrap">
+                  {english !== entry.nativeName ? t(`language.${entry.code}`) : ''}
+                </span>
                 {on ? <Check size={14} /> : <span className="w-3.5" />}
               </button>
             );

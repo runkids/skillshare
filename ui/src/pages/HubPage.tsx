@@ -1,3 +1,4 @@
+import { scalarText } from '../lib/scalarText';
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Library, Pencil, Share, Star, Trash2 } from 'lucide-react';
@@ -39,25 +40,39 @@ export default function HubPage() {
     queryFn: () => api.getHubConfig(),
     staleTime: staleTimes.config,
   });
-  const { data: drafts = [], isPending: draftsPending } = useQuery({ queryKey: queryKeys.hub.drafts, queryFn: () => hubDrafts.list() });
+  const { data: drafts = [], isPending: draftsPending } = useQuery({
+    queryKey: queryKeys.hub.drafts,
+    queryFn: () => hubDrafts.list(),
+  });
 
   // A subscription to one of the user's own published hubs is the same hub; show it once.
   const saved = useMemo(() => {
-    const own = drafts.map((d) => String(d.fields?.publishUrl ?? '')).filter(Boolean);
-    const rest = (config?.hubs ?? []).filter((h) => !sameURL(h.url, COMMUNITY.url) && !own.some((u) => sameURL(u, h.url)));
+    const own = drafts.map((d) => scalarText(d.fields?.publishUrl)).filter(Boolean);
+    const rest = (config?.hubs ?? []).filter(
+      (h) => !sameURL(h.url, COMMUNITY.url) && !own.some((u) => sameURL(u, h.url)),
+    );
     return [COMMUNITY, ...rest];
   }, [config, drafts]);
   // With no default saved, `search --hub` falls back to the built-in hub, so that one is the default.
   const isDefault = (hub: HubSavedEntry) =>
-    config?.default ? hub.label.toLowerCase() === config.default.toLowerCase() : hub.builtIn === true;
+    config?.default
+      ? hub.label.toLowerCase() === config.default.toLowerCase()
+      : hub.builtIn === true;
 
   const items: HubListItem[] = [
-    ...saved.map((h) => ({ key: h.url, label: h.label, sub: h.url, mine: false, isDefault: isDefault(h) })),
+    ...saved.map((h) => ({
+      key: h.url,
+      label: h.label,
+      sub: h.url,
+      mine: false,
+      isDefault: isDefault(h),
+    })),
     ...drafts.map((d) => ({
       key: DRAFT + d.id,
       label: d.name || t('hubBuilder.untitled'),
-      sub: t(plural('hubBuilder.count', d.entries.length), { count: d.entries.length })
-        + (String(d.fields?.publishUrl ?? '').trim() ? ` · ${t('hubs.shared')}` : ''),
+      sub:
+        t(plural('hubBuilder.count', d.entries.length), { count: d.entries.length }) +
+        (scalarText(d.fields?.publishUrl).trim() ? ` · ${t('hubs.shared')}` : ''),
       mine: true,
       isDefault: false,
     })),
@@ -65,8 +80,15 @@ export default function HubPage() {
 
   // Open on the user's own hub when there is one; that is the one they came to work on.
   // Otherwise open on the hub installs come from, once it is known there is no own hub.
-  const fallback = draftsPending ? null : (items.find((i) => i.isDefault) ?? items[0])?.key ?? null;
-  const selected = picked && items.some((i) => i.key === picked) ? picked : drafts[0] ? DRAFT + drafts[0].id : fallback;
+  const fallback = draftsPending
+    ? null
+    : ((items.find((i) => i.isDefault) ?? items[0])?.key ?? null);
+  const selected =
+    picked && items.some((i) => i.key === picked)
+      ? picked
+      : drafts[0]
+        ? DRAFT + drafts[0].id
+        : fallback;
   const draftId = selected?.startsWith(DRAFT) ? selected.slice(DRAFT.length) : undefined;
   const hub = draftId ? undefined : saved.find((h) => h.url === selected);
   const current = items.find((i) => i.key === selected);
@@ -76,10 +98,17 @@ export default function HubPage() {
     enabled: Boolean(draftId),
   });
 
-  const pick = (key: string) => { setPicked(key); setEditing(false); setError(''); };
+  const pick = (key: string) => {
+    setPicked(key);
+    setEditing(false);
+    setError('');
+  };
 
   const saveConfig = async (next: HubSavedEntry[], defaultLabel: string) => {
-    const body = { hubs: next.filter((h) => !h.builtIn).map(({ label, url }) => ({ label, url })), default: defaultLabel };
+    const body = {
+      hubs: next.filter((h) => !h.builtIn).map(({ label, url }) => ({ label, url })),
+      default: defaultLabel,
+    };
     await api.putHubConfig(body);
     queryClient.setQueryData(queryKeys.hubConfig, body);
   };
@@ -87,7 +116,8 @@ export default function HubPage() {
   const addHub = async (raw: string) => {
     const url = raw.trim();
     if (!url) throw new Error(t('install.hubs.urlRequired'));
-    if ((config?.hubs ?? []).some((h) => sameURL(h.url, url)) || sameURL(url, COMMUNITY.url)) throw new Error(t('install.hubs.urlExists'));
+    if ((config?.hubs ?? []).some((h) => sameURL(h.url, url)) || sameURL(url, COMMUNITY.url))
+      throw new Error(t('install.hubs.urlExists'));
     // The default hub is kept by label, so two hubs must never share one.
     const base = url.split('/').filter(Boolean).pop() || url;
     const taken = new Set([COMMUNITY, ...(config?.hubs ?? [])].map((h) => h.label.toLowerCase()));
@@ -100,7 +130,10 @@ export default function HubPage() {
   const opened = (res: DraftResponse, edit: boolean) => {
     queryClient.setQueryData(queryKeys.hub.draft(res.draft.id), res);
     // In the list before it is picked, or the page falls back to another draft until the refetch.
-    queryClient.setQueryData<HubDraft[]>(queryKeys.hub.drafts, (list = []) => [res.draft, ...list.filter((d) => d.id !== res.draft.id)]);
+    queryClient.setQueryData<HubDraft[]>(queryKeys.hub.drafts, (list = []) => [
+      res.draft,
+      ...list.filter((d) => d.id !== res.draft.id),
+    ]);
     void invalidate(queryClient, 'hubDraftsChanged');
     pick(DRAFT + res.draft.id);
     setEditing(edit);
@@ -108,48 +141,99 @@ export default function HubPage() {
 
   const run = async (action: () => Promise<void>) => {
     setError('');
-    try { await action(); } catch (e) { setError((e as Error).message); }
+    try {
+      await action();
+    } catch (e) {
+      setError((e as Error).message);
+    }
   };
 
-  const create = () => run(async () => {
-    opened(await hubDrafts.create({ name: t('hubBuilder.untitled'), description: '', entries: [], fields: {} }), true);
-  });
+  const create = () =>
+    run(async () => {
+      opened(
+        await hubDrafts.create({
+          name: t('hubBuilder.untitled'),
+          description: '',
+          entries: [],
+          fields: {},
+        }),
+        true,
+      );
+    });
 
-  const importFile = (file: File) => run(async () => {
-    if (file.size > 4 * 1024 * 1024) throw new Error(t('hubBuilder.fileTooLarge'));
-    opened(await hubDrafts.import(await file.text()), false);
-  });
+  const importFile = (file: File) =>
+    run(async () => {
+      if (file.size > 4 * 1024 * 1024) throw new Error(t('hubBuilder.fileTooLarge'));
+      opened(await hubDrafts.import(await file.text()), false);
+    });
 
-  const deleteDraft = () => run(async () => {
-    setDeleting(false);
-    if (!draft.data) return;
-    await hubDrafts.remove(draft.data.draft);
-    queryClient.removeQueries({ queryKey: queryKeys.hub.draft(draft.data.draft.id) });
-    await invalidate(queryClient, 'hubDraftsChanged');
-    setPicked(null);
-  });
+  const deleteDraft = () =>
+    run(async () => {
+      setDeleting(false);
+      if (!draft.data) return;
+      await hubDrafts.remove(draft.data.draft);
+      queryClient.removeQueries({ queryKey: queryKeys.hub.draft(draft.data.draft.id) });
+      await invalidate(queryClient, 'hubDraftsChanged');
+      setPicked(null);
+    });
 
-  const removeHub = (target: HubSavedEntry) => run(async () => {
-    await saveConfig((config?.hubs ?? []).filter((h) => h.url !== target.url), isDefault(target) ? '' : config?.default ?? '');
-    setPicked(null);
-  });
+  const removeHub = (target: HubSavedEntry) =>
+    run(async () => {
+      await saveConfig(
+        (config?.hubs ?? []).filter((h) => h.url !== target.url),
+        isDefault(target) ? '' : (config?.default ?? ''),
+      );
+      setPicked(null);
+    });
 
   let actions = null;
   if (draftId) {
     actions = (
       <>
-        <Button variant="secondary" disabled={!draft.data} onClick={() => setEditing(true)}><Pencil size={14} />{t('hubs.view.edit')}</Button>
-        <Button disabled={!draft.data} onClick={() => setSharing(true)}><Share size={14} />{t('hubs.view.share')}</Button>
-        <MoreMenu label={t('hubs.view.more')} items={[{ label: t('hubs.view.delete'), icon: Trash2, danger: true, onClick: () => setDeleting(true) }]} />
+        <Button variant="secondary" disabled={!draft.data} onClick={() => setEditing(true)}>
+          <Pencil size={14} />
+          {t('hubs.view.edit')}
+        </Button>
+        <Button disabled={!draft.data} onClick={() => setSharing(true)}>
+          <Share size={14} />
+          {t('hubs.view.share')}
+        </Button>
+        <MoreMenu
+          label={t('hubs.view.more')}
+          items={[
+            {
+              label: t('hubs.view.delete'),
+              icon: Trash2,
+              danger: true,
+              onClick: () => setDeleting(true),
+            },
+          ]}
+        />
       </>
     );
   } else if (hub && !hub.builtIn) {
     actions = (
       <>
         {!isDefault(hub) && (
-          <Button variant="secondary" onClick={() => void run(() => saveConfig(config?.hubs ?? [], hub.label))}><Star size={14} />{t('hubs.browse.makeDefault')}</Button>
+          <Button
+            variant="secondary"
+            onClick={() => void run(() => saveConfig(config?.hubs ?? [], hub.label))}
+          >
+            <Star size={14} />
+            {t('hubs.browse.makeDefault')}
+          </Button>
         )}
-        <MoreMenu label={t('hubs.view.more')} items={[{ label: t('install.hubs.remove'), icon: Trash2, danger: true, onClick: () => setRemoving(hub) }]} />
+        <MoreMenu
+          label={t('hubs.view.more')}
+          items={[
+            {
+              label: t('install.hubs.remove'),
+              icon: Trash2,
+              danger: true,
+              onClick: () => setRemoving(hub),
+            },
+          ]}
+        />
       </>
     );
   }
@@ -168,18 +252,38 @@ export default function HubPage() {
           onImport={(file) => void importFile(file)}
         />
         <div className="flex min-w-0 flex-col gap-3">
-          {error && <div role="alert" className="ss-note bad"><span className="flex-1 break-words">{error}</span></div>}
+          {error && (
+            <div role="alert" className="ss-note bad">
+              <span className="flex-1 break-words">{error}</span>
+            </div>
+          )}
           {!current ? (
-            <EmptyState icon={Library} title={t('hubs.browse.pickTitle')} description={t('hubs.browse.pickHint')} />
+            <EmptyState
+              icon={Library}
+              title={t('hubs.browse.pickTitle')}
+              description={t('hubs.browse.pickHint')}
+            />
           ) : editing && draft.data ? (
-            <HubEditor key={draft.data.draft.id} response={draft.data} onDone={() => setEditing(false)} />
+            <HubEditor
+              key={draft.data.draft.id}
+              response={draft.data}
+              onDone={() => setEditing(false)}
+            />
           ) : (
-            <HubView key={current.key} title={current.label} draftId={draftId} url={hub?.url} actions={actions} />
+            <HubView
+              key={current.key}
+              title={current.label}
+              draftId={draftId}
+              url={hub?.url}
+              actions={actions}
+            />
           )}
         </div>
       </div>
 
-      {sharing && draft.data && <ShareDialog response={draft.data} onClose={() => setSharing(false)} />}
+      {sharing && draft.data && (
+        <ShareDialog response={draft.data} onClose={() => setSharing(false)} />
+      )}
       <ConfirmDialog
         open={deleting}
         title={t('hubs.view.delete')}
@@ -194,7 +298,11 @@ export default function HubPage() {
         message={t('hubs.browse.removeHint', { name: removing?.label ?? '' })}
         variant="danger"
         onCancel={() => setRemoving(null)}
-        onConfirm={() => { const target = removing; setRemoving(null); if (target) void removeHub(target); }}
+        onConfirm={() => {
+          const target = removing;
+          setRemoving(null);
+          if (target) void removeHub(target);
+        }}
       />
     </div>
   );

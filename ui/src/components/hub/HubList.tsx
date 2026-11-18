@@ -22,7 +22,15 @@ interface Props {
 }
 
 /** Every hub in one list: the built-in one, saved subscriptions and the user's own. */
-export default function HubList({ items, selected, onPick, locked, onAdd, onCreate, onImport }: Props) {
+export default function HubList({
+  items,
+  selected,
+  onPick,
+  locked,
+  onAdd,
+  onCreate,
+  onImport,
+}: Props) {
   const t = useT();
   return (
     <div className="sticky top-6 z-20 flex flex-col gap-3">
@@ -30,7 +38,10 @@ export default function HubList({ items, selected, onPick, locked, onAdd, onCrea
         <h2>{t('hubs.browse.sources')}</h2>
         <span className="ss-cnt">{items.length}</span>
       </div>
-      <div className={`ss-list ${locked ? 'pointer-events-none opacity-55' : ''}`} aria-disabled={locked || undefined}>
+      <div
+        className={`ss-list ${locked ? 'pointer-events-none opacity-55' : ''}`}
+        aria-disabled={locked || undefined}
+      >
         {items.map((hub) => (
           <button
             key={hub.key}
@@ -42,7 +53,9 @@ export default function HubList({ items, selected, onPick, locked, onAdd, onCrea
           >
             <span className="flex items-center gap-1.5 text-[13.5px] font-semibold">
               {hub.label}
-              {hub.isDefault && <Star size={12} className="fill-current text-warn" aria-label={t('hubs.default')} />}
+              {hub.isDefault && (
+                <Star size={12} className="fill-current text-warn" aria-label={t('hubs.default')} />
+              )}
               {hub.mine && <span className="ss-tag inf">{t('hubs.mine')}</span>}
             </span>
             <span className="w-full truncate font-mono text-[11.5px] text-ink-3">{hub.sub}</span>

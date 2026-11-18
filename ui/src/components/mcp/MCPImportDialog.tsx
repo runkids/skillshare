@@ -1,7 +1,13 @@
 import { useContext, useEffect, useState } from 'react';
 import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { Braces, Check, Download, FileUp, Info, Plus, X } from 'lucide-react';
-import { mcpApi, type MCPCandidate, type MCPImportSource, type MCPMutation, type MCPServer } from '../../api/mcp';
+import {
+  mcpApi,
+  type MCPCandidate,
+  type MCPImportSource,
+  type MCPMutation,
+  type MCPServer,
+} from '../../api/mcp';
 import MCPConfigView from './MCPConfigView';
 import PiSettingsFields from './PiSettingsFields';
 import { piOptionsError } from './mcpServerDraft';
@@ -15,7 +21,14 @@ import { useToast } from '../Toast';
 import { useT, plural } from '../../i18n';
 import { useAppContext } from '../../context/AppContext';
 import { shortenHome } from '../../lib/paths';
-import { describeEndpoint, describeError, hasToolPolicy, otherConflicts, targetLabel, parsePiOptions } from './mcpView';
+import {
+  describeEndpoint,
+  describeError,
+  hasToolPolicy,
+  otherConflicts,
+  targetLabel,
+  parsePiOptions,
+} from './mcpView';
 import { MCPTargetOrder } from './targetOrder';
 import type { AddMode } from './mcpServerDraft';
 import { queryKeys } from '../../lib/queryKeys';
@@ -69,17 +82,25 @@ interface Props {
 // Pi has two files, told apart by piExtension; the path shown is what tells them apart for the user.
 const sourceKey = (s: MCPImportSource) => `${s.target}:${s.piExtension ?? ''}`;
 
-function importSourceChoices({ paths, importSources, detected, conflict, defaultFrom, defaultPath }: Props, order: readonly string[]) {
+function importSourceChoices(
+  { paths, importSources, detected, conflict, defaultFrom, defaultPath }: Props,
+  order: readonly string[],
+) {
   // An account of an Agent has its own file, so it is an import source under its own name.
   const sourcesByTarget = new Map<string, MCPImportSource[]>();
-  for (const file of importSources ?? Object.entries(paths).map(([target, path]) => ({ target, path }))) {
+  for (const file of importSources ??
+    Object.entries(paths).map(([target, path]) => ({ target, path }))) {
     const files = sourcesByTarget.get(file.target) ?? [];
     files.push(file);
     sourcesByTarget.set(file.target, files);
   }
   const sources = order.flatMap((target) => sourcesByTarget.get(target) ?? []);
   const detectedTargets = new Set(detected);
-  const initialTarget = conflict?.target ?? defaultFrom ?? sources.find((s) => detectedTargets.has(s.target))?.target ?? sources[0]?.target;
+  const initialTarget =
+    conflict?.target ??
+    defaultFrom ??
+    sources.find((s) => detectedTargets.has(s.target))?.target ??
+    sources[0]?.target;
   const initialSources = sources.filter((s) => s.target === initialTarget);
   const initialSource = initialSources.find((s) => s.path === defaultPath) ?? initialSources[0];
   return { sources, initialSource };
@@ -96,44 +117,105 @@ interface ImportSelection {
   tab: Source;
 }
 
-function importSelection({ candidates, servers, conflict, picked, targets, defaultTargets, previewName, tab }: ImportSelection) {
+function importSelection({
+  candidates,
+  servers,
+  conflict,
+  picked,
+  targets,
+  defaultTargets,
+  previewName,
+  tab,
+}: ImportSelection) {
   const exists = (c: MCPCandidate) => c.name in servers && c.name !== conflict?.name;
   const importable = candidates.filter((c) => c.problems.length === 0 && !exists(c));
   // Everything importable starts ticked; a conflict import starts with just that entry
-  const selected = picked ?? importable.filter((c) => !conflict || c.name === conflict.name).map((c) => c.name);
+  const selected =
+    picked ?? importable.filter((c) => !conflict || c.name === conflict.name).map((c) => c.name);
   const chosen = importable.filter((c) => selected.includes(c.name));
-  const piChosen = targets.includes('pi') || chosen.some((c) => servers[c.name]?.targets?.includes('pi'));
+  const piChosen =
+    targets.includes('pi') || chosen.some((c) => servers[c.name]?.targets?.includes('pi'));
   // Pi's settings are checked as the form checks them, so an import cannot save what the form refuses.
-  const piProblem = piChosen ? chosen.map((c) => ({ name: c.name, options: parsePiOptions(JSON.stringify(c.server.piOptions ?? {}), hasToolPolicy(c.server.tools)) })).find((p) => !p.options.value && Object.keys(p.options).length > 0) : undefined;
+  const piProblem = piChosen
+    ? chosen
+        .map((c) => ({
+          name: c.name,
+          options: parsePiOptions(
+            JSON.stringify(c.server.piOptions ?? {}),
+            hasToolPolicy(c.server.tools),
+          ),
+        }))
+        .find((p) => !p.options.value && Object.keys(p.options).length > 0)
+    : undefined;
   const incompatible = Boolean(piProblem);
   const preview = chosen.find((c) => c.name === previewName) ?? chosen[0];
 
-  const showList = tab === 'target' || candidates.length > 1 || candidates.some((c) => c.problems.length || c.warnings.length || exists(c));
+  const showList =
+    tab === 'target' ||
+    candidates.length > 1 ||
+    candidates.some((c) => c.problems.length || c.warnings.length || exists(c));
 
   // An import that matches the inherited targets keeps inheriting them, like the server dialog
-  const inherited = targets.length > 0 && targets.length === defaultTargets.length && targets.every((x) => defaultTargets.includes(x));
+  const inherited =
+    targets.length > 0 &&
+    targets.length === defaultTargets.length &&
+    targets.every((x) => defaultTargets.includes(x));
   // A pasted snippet is a new server and may stay in Skillshare only. Importing from an Agent
   // takes over the entry that Agent has, so it still needs somewhere to write.
   const needsTarget = tab === 'target' && targets.length === 0;
-  return { exists, importable, selected, chosen, piChosen, piProblem, incompatible, preview, showList, inherited, needsTarget };
+  return {
+    exists,
+    importable,
+    selected,
+    chosen,
+    piChosen,
+    piProblem,
+    incompatible,
+    preview,
+    showList,
+    inherited,
+    needsTarget,
+  };
 }
 
 /** Pi settings of the one pasted server: the field starts from its own, and only an edit changes it. */
-function pastedPiSettings(single: MCPCandidate | undefined, edit: string | undefined, t: ReturnType<typeof useT>) {
-  const optionsText = edit ?? (single?.server.piOptions ? JSON.stringify(single.server.piOptions, null, 2) : '');
+function pastedPiSettings(
+  single: MCPCandidate | undefined,
+  edit: string | undefined,
+  t: ReturnType<typeof useT>,
+) {
+  const optionsText =
+    edit ?? (single?.server.piOptions ? JSON.stringify(single.server.piOptions, null, 2) : '');
   const options = single ? parsePiOptions(optionsText, hasToolPolicy(single.server.tools)) : {};
   const optionsError = piOptionsError(options, t);
   let server: MCPServer | undefined;
   if (single && !optionsError && edit !== undefined) {
     server = { ...single.server };
-    if (options.value && Object.keys(options.value).length > 0) server.piOptions = options.value; else delete server.piOptions;
+    if (options.value && Object.keys(options.value).length > 0) server.piOptions = options.value;
+    else delete server.piOptions;
   }
   return { optionsText, options, optionsError, server };
 }
 
 type ImportQuery = UseQueryResult<{ candidates: MCPCandidate[] }, Error>;
 
-function ImportSourceEditor({ content, pasted, tomlFrom, query, saving, onContent, onTomlFrom }: { content: string; pasted: string; tomlFrom: string; query: ImportQuery; saving: boolean; onContent: (text: string) => void; onTomlFrom: (value: string) => void }) {
+function ImportSourceEditor({
+  content,
+  pasted,
+  tomlFrom,
+  query,
+  saving,
+  onContent,
+  onTomlFrom,
+}: {
+  content: string;
+  pasted: string;
+  tomlFrom: string;
+  query: ImportQuery;
+  saving: boolean;
+  onContent: (text: string) => void;
+  onTomlFrom: (value: string) => void;
+}) {
   const t = useT();
   const { toast } = useToast();
   const tomlInput = TOML.test(content);
@@ -146,7 +228,14 @@ function ImportSourceEditor({ content, pasted, tomlFrom, query, saving, onConten
           <span className="text-[13px] font-semibold">{t('mcp.snippet')}</span>
           <span className="flex items-center gap-4">
             {formatted !== null && formatted !== content && (
-              <button type="button" className="flex items-center gap-1.5 text-[13px] text-ink-2 hover:text-ink" onClick={() => { onContent(formatted); }} disabled={saving}>
+              <button
+                type="button"
+                className="flex items-center gap-1.5 text-[13px] text-ink-2 hover:text-ink"
+                onClick={() => {
+                  onContent(formatted);
+                }}
+                disabled={saving}
+              >
                 <Braces size={14} />
                 {t('mcp.format')}
               </button>
@@ -163,7 +252,11 @@ function ImportSourceEditor({ content, pasted, tomlFrom, query, saving, onConten
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   e.target.value = ''; // so picking the same file again still fires
-                  if (file) void file.text().then(onContent).catch((error: Error) => toast(describeError(t, error.message), 'error'));
+                  if (file)
+                    void file
+                      .text()
+                      .then(onContent)
+                      .catch((error: Error) => toast(describeError(t, error.message), 'error'));
                 }}
               />
             </label>
@@ -179,12 +272,24 @@ function ImportSourceEditor({ content, pasted, tomlFrom, query, saving, onConten
         />
         <span className="hp">{t('mcp.pasteHint')}</span>
       </div>
-      {pasted && <SnippetStatus pasted={pasted} tomlFrom={tomlFrom} query={query} onTomlFrom={onTomlFrom} />}
+      {pasted && (
+        <SnippetStatus pasted={pasted} tomlFrom={tomlFrom} query={query} onTomlFrom={onTomlFrom} />
+      )}
     </>
   );
 }
 
-function SnippetStatus({ pasted, tomlFrom, query, onTomlFrom }: { pasted: string; tomlFrom: string; query: ImportQuery; onTomlFrom: (value: string) => void }) {
+function SnippetStatus({
+  pasted,
+  tomlFrom,
+  query,
+  onTomlFrom,
+}: {
+  pasted: string;
+  tomlFrom: string;
+  query: ImportQuery;
+  onTomlFrom: (value: string) => void;
+}) {
   const t = useT();
   const toml = TOML.test(pasted);
   const candidates = query.data?.candidates ?? [];
@@ -193,14 +298,23 @@ function SnippetStatus({ pasted, tomlFrom, query, onTomlFrom }: { pasted: string
       {query.error ? (
         <span className="ss-st bad wrap min-w-0">{describeError(t, query.error.message)}</span>
       ) : query.data ? (
-        <span className="ss-st ok">{t(plural('mcp.detected', candidates.length), { format: toml ? 'TOML' : MCP_YAML.test(pasted) ? 'YAML' : 'JSON', count: candidates.length })}</span>
+        <span className="ss-st ok">
+          {t(plural('mcp.detected', candidates.length), {
+            format: toml ? 'TOML' : MCP_YAML.test(pasted) ? 'YAML' : 'JSON',
+            count: candidates.length,
+          })}
+        </span>
       ) : (
         <span className="text-ink-3">{t('mcp.reading')}</span>
       )}
       {toml && (
         <span className="flex items-center gap-2.5">
           <span className="text-ink-2">{t('mcp.tomlFrom')}</span>
-          <SegmentedControl value={tomlFrom} onChange={onTomlFrom} options={['codex', 'grok'].map((v) => ({ value: v, label: v }))} />
+          <SegmentedControl
+            value={tomlFrom}
+            onChange={onTomlFrom}
+            options={['codex', 'grok'].map((v) => ({ value: v, label: v }))}
+          />
         </span>
       )}
     </div>
@@ -213,7 +327,21 @@ function importButtonLabel(adding: boolean, count: number, t: ReturnType<typeof 
   return t(plural(key, count), { count });
 }
 
-function ImportCandidateList({ tab, candidates, selection, query, saving, onPick }: { tab: Source; candidates: MCPCandidate[]; selection: ReturnType<typeof importSelection>; query: ImportQuery; saving: boolean; onPick: (names: string[]) => void }) {
+function ImportCandidateList({
+  tab,
+  candidates,
+  selection,
+  query,
+  saving,
+  onPick,
+}: {
+  tab: Source;
+  candidates: MCPCandidate[];
+  selection: ReturnType<typeof importSelection>;
+  query: ImportQuery;
+  saving: boolean;
+  onPick: (names: string[]) => void;
+}) {
   const t = useT();
   const { exists, importable, chosen, selected } = selection;
   return (
@@ -228,29 +356,51 @@ function ImportCandidateList({ tab, candidates, selection, query, saving, onPick
           disabled={saving || importable.length === 0}
         />
         <span className="flex-1">
-          {query.isPending && query.fetchStatus !== 'idle' ? t('mcp.reading') : t(plural('mcp.found', candidates.length), { count: candidates.length })}
+          {query.isPending && query.fetchStatus !== 'idle'
+            ? t('mcp.reading')
+            : t(plural('mcp.found', candidates.length), { count: candidates.length })}
         </span>
         <span>{t('mcp.transport')}</span>
       </div>
-      {tab === 'target' && query.error && <div className="ss-r text-[13px] text-bad">{describeError(t, query.error.message)}</div>}
+      {tab === 'target' && query.error && (
+        <div className="ss-r text-[13px] text-bad">{describeError(t, query.error.message)}</div>
+      )}
       {candidates.map((c) => {
         const blocked = c.problems.length > 0 || exists(c);
         const on = selected.includes(c.name) && !blocked;
         return (
-          <div key={c.name} className={`ss-r !items-start !py-2.5 ${on ? 'sel' : ''} ${blocked ? 'opacity-55' : ''}`}>
+          <div
+            key={c.name}
+            className={`ss-r !items-start !py-2.5 ${on ? 'sel' : ''} ${blocked ? 'opacity-55' : ''}`}
+          >
             <Checkbox
               className="mt-0.5"
               hideLabel
               label={c.name}
               checked={on}
-              onChange={(v) => onPick(v ? [...selected, c.name] : selected.filter((n) => n !== c.name))}
+              onChange={(v) =>
+                onPick(v ? [...selected, c.name] : selected.filter((n) => n !== c.name))
+              }
               disabled={saving || blocked}
             />
             <span className="flex min-w-0 flex-1 flex-col gap-px">
               <span className="font-mono text-[13px] font-semibold">{c.name}</span>
-              <span className="truncate font-mono text-xs text-ink-3" title={describeEndpoint(c.server)}>{describeEndpoint(c.server)}</span>
-              {[...new Set(c.problems)].map((p) => <span key={p} className="text-xs text-bad">{describeError(t, p)}</span>)}
-              {[...new Set(c.warnings)].map((w) => <span key={w} className="text-xs text-warn">{w}</span>)}
+              <span
+                className="truncate font-mono text-xs text-ink-3"
+                title={describeEndpoint(c.server)}
+              >
+                {describeEndpoint(c.server)}
+              </span>
+              {[...new Set(c.problems)].map((p) => (
+                <span key={p} className="text-xs text-bad">
+                  {describeError(t, p)}
+                </span>
+              ))}
+              {[...new Set(c.warnings)].map((w) => (
+                <span key={w} className="text-xs text-warn">
+                  {w}
+                </span>
+              ))}
             </span>
             {exists(c) ? (
               <span className="ss-st off self-center">{t('mcp.alreadyAdded')}</span>
@@ -268,21 +418,54 @@ function ImportTargetNote({ targets, needsTarget }: { targets: string[]; needsTa
   const t = useT();
   return (
     <span className="flex-1 text-[13px]">
-      {targets.length === 0
-        ? (needsTarget ? <span className="ss-st warn">{t('mcp.pickTarget')}</span> : <span className="text-ink-2">{t('mcp.noTargetsNote')}</span>)
-        : <span className="text-ink-2">{t(plural('mcp.writes', targets.length), { count: targets.length })}</span>}
+      {targets.length === 0 ? (
+        needsTarget ? (
+          <span className="ss-st warn">{t('mcp.pickTarget')}</span>
+        ) : (
+          <span className="text-ink-2">{t('mcp.noTargetsNote')}</span>
+        )
+      ) : (
+        <span className="text-ink-2">
+          {t(plural('mcp.writes', targets.length), { count: targets.length })}
+        </span>
+      )}
     </span>
   );
 }
 
-function ImportFooter({ adding, count, targets, needsTarget, incompatible, saving, onClose, onRun }: { adding: boolean; count: number; targets: string[]; needsTarget: boolean; incompatible: boolean; saving: boolean; onClose: () => void; onRun: () => Promise<void> }) {
+function ImportFooter({
+  adding,
+  count,
+  targets,
+  needsTarget,
+  incompatible,
+  saving,
+  onClose,
+  onRun,
+}: {
+  adding: boolean;
+  count: number;
+  targets: string[];
+  needsTarget: boolean;
+  incompatible: boolean;
+  saving: boolean;
+  onClose: () => void;
+  onRun: () => Promise<void>;
+}) {
   const t = useT();
   return (
     <div className="df">
       {/* Name what is missing: a greyed-out button next to "writes 0 config files" reads as a bug. */}
       <ImportTargetNote targets={targets} needsTarget={needsTarget} />
-      <Button variant="ghost" onClick={onClose} disabled={saving}>{t('common.cancel')}</Button>
-      <Button variant="primary" loading={saving} disabled={count === 0 || needsTarget || incompatible} onClick={onRun}>
+      <Button variant="ghost" onClick={onClose} disabled={saving}>
+        {t('common.cancel')}
+      </Button>
+      <Button
+        variant="primary"
+        loading={saving}
+        disabled={count === 0 || needsTarget || incompatible}
+        onClick={onRun}
+      >
         {adding ? <Plus size={15} /> : <Download size={15} />}
         {/* "Add 0 servers" reads as a bug before anything is pasted; the plain verb doesn't. */}
         {importButtonLabel(adding, count, t)}
@@ -291,10 +474,28 @@ function ImportFooter({ adding, count, targets, needsTarget, incompatible, savin
   );
 }
 
-function useImportQuery(sourceID: string, selectedSource: MCPImportSource | undefined, project: string | undefined, tab: Source, pasted: string, tomlFrom: string) {
+function useImportQuery(
+  sourceID: string,
+  selectedSource: MCPImportSource | undefined,
+  project: string | undefined,
+  tab: Source,
+  pasted: string,
+  tomlFrom: string,
+) {
   const from = selectedSource?.target ?? '';
   const toml = TOML.test(pasted);
-  const fromTarget = useQuery({ queryKey: queryKeys.mcpImport(sourceID, project), queryFn: () => mcpApi.import({ from, ...(selectedSource?.piExtension && { piExtension: selectedSource.piExtension }), ...(project && { root: project }) }), enabled: tab === 'target' && from !== '', gcTime: 0, retry: false });
+  const fromTarget = useQuery({
+    queryKey: queryKeys.mcpImport(sourceID, project),
+    queryFn: () =>
+      mcpApi.import({
+        from,
+        ...(selectedSource?.piExtension && { piExtension: selectedSource.piExtension }),
+        ...(project && { root: project }),
+      }),
+    enabled: tab === 'target' && from !== '',
+    gcTime: 0,
+    retry: false,
+  });
   const fromPaste = useQuery({
     queryKey: queryKeys.mcpImportPaste(pasted, toml && tomlFrom),
     queryFn: () => mcpApi.import({ content: pasted, ...(toml && { from: tomlFrom }) }),
@@ -305,17 +506,35 @@ function useImportQuery(sourceID: string, selectedSource: MCPImportSource | unde
   return tab === 'target' ? fromTarget : fromPaste;
 }
 
-function ImportPreview({ selection, targets, project, onPreviewName }: { selection: ReturnType<typeof importSelection>; targets: string[]; project?: string; onPreviewName: (name: string) => void }) {
+function ImportPreview({
+  selection,
+  targets,
+  project,
+  onPreviewName,
+}: {
+  selection: ReturnType<typeof importSelection>;
+  targets: string[];
+  project?: string;
+  onPreviewName: (name: string) => void;
+}) {
   const t = useT();
   const { preview, chosen } = selection;
   if (!preview || targets.length === 0) return null;
   return (
     <div className="ss-fld">
-      {chosen.length > 1 && <Select ariaLabel={t('mcp.name')} value={preview.name} onChange={onPreviewName} options={chosen.map((c) => ({ value: c.name, label: c.name }))} />}
-      <MCPConfigView mutation={{ project, name: preview.name, server: { ...preview.server, targets } }} />
+      {chosen.length > 1 && (
+        <Select
+          ariaLabel={t('mcp.name')}
+          value={preview.name}
+          onChange={onPreviewName}
+          options={chosen.map((c) => ({ value: c.name, label: c.name }))}
+        />
+      )}
+      <MCPConfigView
+        mutation={{ project, name: preview.name, server: { ...preview.server, targets } }}
+      />
     </div>
   );
-
 }
 
 /** The other Agents whose entry of the imported server still conflicts with the source. */
@@ -326,7 +545,18 @@ async function conflictsLeft(conflict: { target: string; name: string }, project
 }
 
 export default function MCPImportDialog(props: Props) {
-  const { source, servers, defaultTargets, paths, conflict, project, availableTargets: offered, onMode, onClose, onImported } = props;
+  const {
+    source,
+    servers,
+    defaultTargets,
+    paths,
+    conflict,
+    project,
+    availableTargets: offered,
+    onMode,
+    onClose,
+    onImported,
+  } = props;
   const t = useT();
   const { isProjectMode } = useAppContext();
   const { toast } = useToast();
@@ -358,11 +588,20 @@ export default function MCPImportDialog(props: Props) {
   const base = { servers, conflict, picked, targets, defaultTargets, previewName, tab };
   const raw = importSelection({ ...base, candidates });
   // One pasted server gets the form's Pi settings; several keep their own.
-  const single = tab === 'paste' && candidates.length === 1 && raw.chosen.length === 1 && raw.piChosen ? raw.chosen[0] : undefined;
+  const single =
+    tab === 'paste' && candidates.length === 1 && raw.chosen.length === 1 && raw.piChosen
+      ? raw.chosen[0]
+      : undefined;
   const pi = pastedPiSettings(single, piEdit, t);
-  const selection = single && pi.server ? importSelection({ ...base, candidates: [{ ...single, server: pi.server }] }) : raw;
+  const selection =
+    single && pi.server
+      ? importSelection({ ...base, candidates: [{ ...single, server: pi.server }] })
+      : raw;
   const { chosen, piProblem, incompatible, showList, inherited, needsTarget } = selection;
-  const reset = () => { setPicked(null); setPiEdit(undefined); };
+  const reset = () => {
+    setPicked(null);
+    setPiEdit(undefined);
+  };
 
   const run = async () => {
     setSaving(true);
@@ -371,9 +610,15 @@ export default function MCPImportDialog(props: Props) {
       // A takeover keeps the targets the existing server already has
       const own = servers[c.name]?.targets;
       const write = own ?? (inherited ? undefined : order.filter((x) => targets.includes(x)));
-      const mutation: MCPMutation = { ...(project && { project }), name: c.name, server: { ...c.server, ...(write && { targets: write }) }, replace: c.name in servers };
+      const mutation: MCPMutation = {
+        ...(project && { project }),
+        name: c.name,
+        server: { ...c.server, ...(write && { targets: write }) },
+        replace: c.name in servers,
+      };
       // Adopting records the tool's identical entry as managed, so the next sync has no conflict there
-      if (c.from && (own ?? targets).includes(c.from)) mutation.resolutions = [{ target: c.from, name: c.name, action: 'adopt' }];
+      if (c.from && (own ?? targets).includes(c.from))
+        mutation.resolutions = [{ target: c.from, name: c.name, action: 'adopt' }];
       try {
         await mcpApi.save(mutation);
       } catch (e) {
@@ -384,7 +629,15 @@ export default function MCPImportDialog(props: Props) {
     // Another Agent may hold a different definition of the server just imported. Say which,
     // and how to settle it, rather than leave the next import to flip the conflict back.
     const left = conflict && done > 0 ? await conflictsLeft(conflict, project) : [];
-    if (left.length > 0) toast(t('mcp.toast.conflictsLeft', { name: conflict!.name, from: targetLabel(conflict!.target), targets: left.join(', ') }), 'warning');
+    if (left.length > 0)
+      toast(
+        t('mcp.toast.conflictsLeft', {
+          name: conflict!.name,
+          from: targetLabel(conflict!.target),
+          targets: left.join(', '),
+        }),
+        'warning',
+      );
     else if (done > 0) toast(t(plural('mcp.toast.imported', done), { count: done }), 'success');
     if (failed.length) toast(failed.join('\n'), 'error');
     onImported();
@@ -395,13 +648,30 @@ export default function MCPImportDialog(props: Props) {
   const count = chosen.length;
 
   return (
-    <DialogShell open onClose={onClose} padding="none" preventClose={saving} ariaLabel={title} className="!max-w-[880px]">
+    <DialogShell
+      open
+      onClose={onClose}
+      padding="none"
+      preventClose={saving}
+      ariaLabel={title}
+      className="!max-w-[880px]"
+    >
       <div className="dh">
         <div className="flex flex-col gap-1">
           <h2 className="ss-h2">{title}</h2>
-          <p className="text-[13px] text-ink-2">{t(adding ? 'mcp.pasteSubtitle' : 'mcp.importSubtitle')}</p>
+          <p className="text-[13px] text-ink-2">
+            {t(adding ? 'mcp.pasteSubtitle' : 'mcp.importSubtitle')}
+          </p>
         </div>
-        <button type="button" className="ss-ib" aria-label={t('common.close')} onClick={onClose} disabled={saving}><X size={16} /></button>
+        <button
+          type="button"
+          className="ss-ib"
+          aria-label={t('common.close')}
+          onClick={onClose}
+          disabled={saving}
+        >
+          <X size={16} />
+        </button>
       </div>
       <div className="db">
         {onMode && (
@@ -409,7 +679,12 @@ export default function MCPImportDialog(props: Props) {
             className="self-start"
             value="paste"
             onChange={onMode}
-            options={[{ value: 'form', label: t('mcp.manualTab') }, { value: 'paste', label: t('mcp.pasteTab') }, { value: 'serve', label: 'Skillshare' }, ...(props.copyable ? [{ value: 'copy' as const, label: t('mcp.copyTab') }] : [])]}
+            options={[
+              { value: 'form', label: t('mcp.manualTab') },
+              { value: 'paste', label: t('mcp.pasteTab') },
+              { value: 'serve', label: 'Skillshare' },
+              ...(props.copyable ? [{ value: 'copy' as const, label: t('mcp.copyTab') }] : []),
+            ]}
           />
         )}
 
@@ -419,46 +694,110 @@ export default function MCPImportDialog(props: Props) {
             <Select
               ariaLabel={t('mcp.target')}
               value={sourceID}
-              onChange={(v) => { setSourceID(v); reset(); setPreviewName(''); }}
-              options={sources.map((s) => ({ value: sourceKey(s), label: `${targetLabel(s.target)}  ${shortenHome(s.path)}`, icon: <AgentIcon target={s.target} size={16} /> }))}
+              onChange={(v) => {
+                setSourceID(v);
+                reset();
+                setPreviewName('');
+              }}
+              options={sources.map((s) => ({
+                value: sourceKey(s),
+                label: `${targetLabel(s.target)}  ${shortenHome(s.path)}`,
+                icon: <AgentIcon target={s.target} size={16} />,
+              }))}
               disabled={saving}
             />
             <span className="hp">{t('mcp.fromTargetHint')}</span>
           </div>
         ) : (
-          <ImportSourceEditor content={content} pasted={pasted} tomlFrom={tomlFrom} query={query} saving={saving} onContent={(text) => { setContent(text); reset(); }} onTomlFrom={(value) => { setTomlFrom(value); reset(); }} />
+          <ImportSourceEditor
+            content={content}
+            pasted={pasted}
+            tomlFrom={tomlFrom}
+            query={query}
+            saving={saving}
+            onContent={(text) => {
+              setContent(text);
+              reset();
+            }}
+            onTomlFrom={(value) => {
+              setTomlFrom(value);
+              reset();
+            }}
+          />
         )}
 
         {showList && (
-          <ImportCandidateList tab={tab} candidates={candidates} selection={selection} query={query} saving={saving} onPick={setPicked} />
+          <ImportCandidateList
+            tab={tab}
+            candidates={candidates}
+            selection={selection}
+            query={query}
+            saving={saving}
+            onPick={setPicked}
+          />
         )}
 
         <div className="ss-fld">
           <span className="text-[13px] font-semibold">{t('mcp.targets')}</span>
           <div className="flex flex-wrap gap-x-5 gap-y-3">
-            {order.filter((target) => visibleTargets.has(target)).map((target) => {
-              const on = targets.includes(target);
-              return (
-                <button
-                  key={target}
-                  type="button"
-                  role="checkbox"
-                  aria-checked={on}
-                  className={`ss-tgl ${on ? 'on' : ''}`}
-                  onClick={() => setTargets((prev) => (prev.includes(target) ? prev.filter((x) => x !== target) : [...prev, target]))}
-                  disabled={saving}
-                >
-                  <span className="ic"><AgentIcon target={target} size={20} /><i><Check size={9} strokeWidth={3.5} /></i></span>
-                  {targetLabel(target)}
-                </button>
-              );
-            })}
+            {order
+              .filter((target) => visibleTargets.has(target))
+              .map((target) => {
+                const on = targets.includes(target);
+                return (
+                  <button
+                    key={target}
+                    type="button"
+                    role="checkbox"
+                    aria-checked={on}
+                    className={`ss-tgl ${on ? 'on' : ''}`}
+                    onClick={() =>
+                      setTargets((prev) =>
+                        prev.includes(target)
+                          ? prev.filter((x) => x !== target)
+                          : [...prev, target],
+                      )
+                    }
+                    disabled={saving}
+                  >
+                    <span className="ic">
+                      <AgentIcon target={target} size={20} />
+                      <i>
+                        <Check size={9} strokeWidth={3.5} />
+                      </i>
+                    </span>
+                    {targetLabel(target)}
+                  </button>
+                );
+              })}
           </div>
         </div>
 
-        {single && <PiSettingsFields optionsText={pi.optionsText} options={pi.options} optionsError={pi.optionsError} onOptions={setPiEdit} disabled={saving} project={Boolean(project) || isProjectMode} toolsSet={hasToolPolicy(single.server.tools)} />}
-        {piProblem && <div className="ss-note bad"><span><span className="font-mono">{piProblem.name}</span>: {piOptionsError(piProblem.options, t)}</span></div>}
-        <ImportPreview selection={selection} targets={targets} project={project} onPreviewName={setPreviewName} />
+        {single && (
+          <PiSettingsFields
+            optionsText={pi.optionsText}
+            options={pi.options}
+            optionsError={pi.optionsError}
+            onOptions={setPiEdit}
+            disabled={saving}
+            project={Boolean(project) || isProjectMode}
+            toolsSet={hasToolPolicy(single.server.tools)}
+          />
+        )}
+        {piProblem && (
+          <div className="ss-note bad">
+            <span>
+              <span className="font-mono">{piProblem.name}</span>:{' '}
+              {piOptionsError(piProblem.options, t)}
+            </span>
+          </div>
+        )}
+        <ImportPreview
+          selection={selection}
+          targets={targets}
+          project={project}
+          onPreviewName={setPreviewName}
+        />
         {tab === 'target' && candidates.length > 0 && (
           <div className="ss-note inf">
             <Info size={16} />
@@ -466,7 +805,16 @@ export default function MCPImportDialog(props: Props) {
           </div>
         )}
       </div>
-      <ImportFooter adding={adding} count={count} targets={targets} needsTarget={needsTarget} incompatible={incompatible || Boolean(pi.optionsError)} saving={saving} onClose={onClose} onRun={run} />
+      <ImportFooter
+        adding={adding}
+        count={count}
+        targets={targets}
+        needsTarget={needsTarget}
+        incompatible={incompatible || Boolean(pi.optionsError)}
+        saving={saving}
+        onClose={onClose}
+        onRun={run}
+      />
     </DialogShell>
   );
 }

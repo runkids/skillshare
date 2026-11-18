@@ -11,7 +11,10 @@ interface EditableFileOptions {
 
 // useEditableFile holds the editor state for one server file: it loads the
 // fetched text, tracks whether the edit differs from it, saves, and resets.
-export function useEditableFile(data: { raw?: string } | undefined, { save, skipEmpty = false }: EditableFileOptions) {
+export function useEditableFile(
+  data: { raw?: string } | undefined,
+  { save, skipEmpty = false }: EditableFileOptions,
+) {
   const { toast } = useToast();
   const [value, setValue] = useState('');
   const [dirty, setDirty] = useState(false);

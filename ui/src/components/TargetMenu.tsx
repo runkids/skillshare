@@ -84,7 +84,11 @@ export function SkillContextMenu({
       left = Math.max(8, anchorPoint.x - rect.width);
     }
     // Grow out of the corner that touches the anchor, whichever way the menu flipped.
-    setPosition({ top, left, origin: `${top < anchorPoint.y ? 'bottom' : 'top'} ${left < anchorPoint.x ? 'right' : 'left'}` });
+    setPosition({
+      top,
+      left,
+      origin: `${top < anchorPoint.y ? 'bottom' : 'top'} ${left < anchorPoint.x ? 'right' : 'left'}`,
+    });
   }, [open, anchorPoint, align]);
 
   // Close on Escape (submenu first, then parent)
@@ -115,11 +119,20 @@ export function SkillContextMenu({
   // propagate to underlying Links — first click only dismisses the menu.
   return createPortal(
     <>
-      {open && <div
-        className="fixed inset-0 z-[99]"
-        onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onClose(); }}
-        onContextMenu={(e) => { e.preventDefault(); onClose(); }}
-      />}
+      {open && (
+        <div
+          className="fixed inset-0 z-[99]"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onClose();
+          }}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            onClose();
+          }}
+        />
+      )}
       <div
         ref={menuRef}
         {...menu.exitProps}
@@ -146,16 +159,26 @@ export function SkillContextMenu({
                 type="button"
                 className={`${item.danger ? 'dng' : ''} ${item.description ? '!h-auto max-w-[340px] py-1.5' : ''}`}
                 role="menuitem"
-                onMouseDown={(e) => { e.preventDefault(); item.onSelect?.(); onClose(); }}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  item.onSelect?.();
+                  onClose();
+                }}
                 onMouseEnter={() => setExpandedKey(null)}
               >
-                {item.icon && <span className="w-4 shrink-0 flex items-center justify-center">{item.icon}</span>}
+                {item.icon && (
+                  <span className="w-4 shrink-0 flex items-center justify-center">{item.icon}</span>
+                )}
                 {item.description ? (
                   <span className="flex min-w-0 flex-col gap-0.5">
                     <span className={item.mono ? 'font-mono' : ''}>{item.label}</span>
-                    <span className="text-xs font-normal leading-snug text-ink-3">{item.description}</span>
+                    <span className="text-xs font-normal leading-snug text-ink-3">
+                      {item.description}
+                    </span>
                   </span>
-                ) : item.label}
+                ) : (
+                  item.label
+                )}
               </button>
             )}
           </Fragment>
@@ -215,10 +238,19 @@ function SubmenuTrigger({
   // Hover intent: collapse after delay when mouse leaves
   const collapseTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => () => clearTimeout(collapseTimer.current), []);
-  const handleEnter = () => { clearTimeout(collapseTimer.current); onExpand(); };
-  const handleLeave = () => { collapseTimer.current = setTimeout(onCollapse, 180); };
-  const handleSubEnter = () => { clearTimeout(collapseTimer.current); };
-  const handleSubLeave = () => { collapseTimer.current = setTimeout(onCollapse, 180); };
+  const handleEnter = () => {
+    clearTimeout(collapseTimer.current);
+    onExpand();
+  };
+  const handleLeave = () => {
+    collapseTimer.current = setTimeout(onCollapse, 180);
+  };
+  const handleSubEnter = () => {
+    clearTimeout(collapseTimer.current);
+  };
+  const handleSubLeave = () => {
+    collapseTimer.current = setTimeout(onCollapse, 180);
+  };
 
   return (
     <>
@@ -233,36 +265,46 @@ function SubmenuTrigger({
         onMouseLeave={handleLeave}
         onClick={handleEnter}
       >
-        {item.icon && <span className="w-4 shrink-0 flex items-center justify-center">{item.icon}</span>}
+        {item.icon && (
+          <span className="w-4 shrink-0 flex items-center justify-center">{item.icon}</span>
+        )}
         <span className="flex-1">{item.label}</span>
         <ChevronRight size={14} className="shrink-0 text-ink-3" />
       </button>
 
       {/* Submenu panel — portaled to body to escape parent's transform containing block */}
-      {expanded && subPos && createPortal(
-        <div
-          {...(closing ? { inert: true, 'aria-hidden': true } : {})}
-          className={`ss-menu fixed z-[101] !w-auto min-w-[176px] max-h-64 overflow-y-auto ${closing ? 'animate-dropdown-out' : ''}`}
-          style={{ top: subPos.top, left: subPos.left }}
-          role="menu"
-          onMouseEnter={handleSubEnter}
-          onMouseLeave={handleSubLeave}
-        >
-          {item.items?.map((sub) => (
-            <button
-              type="button"
-              key={sub.key}
-              role="menuitemradio"
-              aria-checked={!!sub.selected}
-              onMouseDown={(e) => { e.preventDefault(); sub.onSelect(); onClose(); }}
-            >
-              <span className="w-4 shrink-0 flex items-center justify-center">{sub.selected && <Check size={14} />}</span>
-              <span className={sub.selected ? 'font-semibold' : ''}>{sub.label}</span>
-            </button>
-          ))}
-        </div>,
-        document.body,
-      )}
+      {expanded &&
+        subPos &&
+        createPortal(
+          <div
+            {...(closing ? { inert: true, 'aria-hidden': true } : {})}
+            className={`ss-menu fixed z-[101] !w-auto min-w-[176px] max-h-64 overflow-y-auto ${closing ? 'animate-dropdown-out' : ''}`}
+            style={{ top: subPos.top, left: subPos.left }}
+            role="menu"
+            onMouseEnter={handleSubEnter}
+            onMouseLeave={handleSubLeave}
+          >
+            {item.items?.map((sub) => (
+              <button
+                type="button"
+                key={sub.key}
+                role="menuitemradio"
+                aria-checked={!!sub.selected}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  sub.onSelect();
+                  onClose();
+                }}
+              >
+                <span className="w-4 shrink-0 flex items-center justify-center">
+                  {sub.selected && <Check size={14} />}
+                </span>
+                <span className={sub.selected ? 'font-semibold' : ''}>{sub.label}</span>
+              </button>
+            ))}
+          </div>,
+          document.body,
+        )}
     </>
   );
 }
@@ -272,8 +314,8 @@ function SubmenuTrigger({
 /* ------------------------------------------------------------------ */
 
 interface TargetMenuProps {
-  currentTargets: string[] | null;  // null = All
-  isUniform?: boolean;              // for folders
+  currentTargets: string[] | null; // null = All
+  isUniform?: boolean; // for folders
   showTargets?: boolean;
   /** Menu item label. Defaults to "Available in...". */
   label?: string;
@@ -301,7 +343,12 @@ export default function TargetMenu({
 }: TargetMenuProps) {
   const t = useT();
   // The configured targets, not the known tools: a custom target is in no built-in list.
-  const { data } = useQuery({ queryKey: queryKeys.targets.all, queryFn: () => api.listTargets(), staleTime: staleTimes.targets, enabled: open });
+  const { data } = useQuery({
+    queryKey: queryKeys.targets.all,
+    queryFn: () => api.listTargets(),
+    staleTime: staleTimes.targets,
+    enabled: open,
+  });
 
   const targets = [...(data?.targets ?? [])].sort((a, b) => a.name.localeCompare(b.name));
   const isAllSelected = isUniform && (!currentTargets || currentTargets.length === 0);
@@ -322,18 +369,18 @@ export default function TargetMenu({
   ];
 
   const items: ContextMenuItem[] = flat
-    ? targetItems.map((sub) => ({ key: sub.key, label: sub.label, icon: sub.selected ? <Check size={14} /> : <span />, onSelect: sub.onSelect }))
-    : showTargets ? [{ key: 'set-target', label, icon: <Target size={14} />, items: targetItems }] : [];
+    ? targetItems.map((sub) => ({
+        key: sub.key,
+        label: sub.label,
+        icon: sub.selected ? <Check size={14} /> : <span />,
+        onSelect: sub.onSelect,
+      }))
+    : showTargets
+      ? [{ key: 'set-target', label, icon: <Target size={14} />, items: targetItems }]
+      : [];
   items.push(...(extraItems ?? []));
 
   if (items.length === 0) return null;
 
-  return (
-    <SkillContextMenu
-      items={items}
-      anchorPoint={anchorPoint}
-      open={open}
-      onClose={onClose}
-    />
-  );
+  return <SkillContextMenu items={items} anchorPoint={anchorPoint} open={open} onClose={onClose} />;
 }

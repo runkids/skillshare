@@ -13,9 +13,12 @@ interface RuleDetailCardProps {
 
 function sourceBadgeVariant(source: string): 'default' | 'accent' | 'info' {
   switch (source) {
-    case 'global': return 'accent';
-    case 'project': return 'info';
-    default: return 'default';
+    case 'global':
+      return 'accent';
+    case 'project':
+      return 'info';
+    default:
+      return 'default';
   }
 }
 
@@ -33,9 +36,7 @@ export default function RuleDetailCard({ rule, onTestRegex, onEditInYaml }: Rule
       <div className="flex items-center gap-2">
         <span className="text-xs text-pencil-light">Source</span>
         <Badge variant={sourceBadgeVariant(rule.source)}>{rule.source}</Badge>
-        {rule.source !== 'builtin' && (
-          <Badge variant="warning">Overridden by {rule.source}</Badge>
-        )}
+        {rule.source !== 'builtin' && <Badge variant="warning">Overridden by {rule.source}</Badge>}
       </div>
 
       {/* Disabled badge */}
