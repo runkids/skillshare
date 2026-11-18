@@ -15,6 +15,7 @@ skillshare project                          # Same as project list
 skillshare project list --json
 skillshare project show <project> --json
 skillshare project add <root> --target T [options]
+skillshare project add <root> --scan DIR --target T [options]
 skillshare project edit <project> [options]
 skillshare project sync <project> [--dry-run] [--json]
 skillshare project localize <project> [--dry-run] [--json]
@@ -36,6 +37,7 @@ skillshare project remove <project> [--shared] [--yes] [--dry-run] [--json]
 | `--skills-naming NAMING` | add, edit | `flat`, `standard`, `prefixed` 중 하나. 빈 값은 상속으로 돌아갑니다 |
 | `--skills-include P`, `--skills-exclude P` | add, edit | 여러 glob 패턴은 반복해서 지정합니다. 해당 목록을 교체하며, 빈 값은 목록을 지웁니다 |
 | `--agents-include P`, `--agents-exclude P` | add, edit | agent에 대해 같은 교체 규칙을 적용합니다. 필터에는 merge 또는 copy mode가 필요합니다 |
+| `--scan DIR` | add | 루트 안의 이 폴더 아래에 있는 각 Git checkout도 같은 설정으로 추가합니다. 여러 폴더는 반복해서 지정합니다. [워크스페이스의 checkout](#scan) 참고 |
 | `--machine-local` | add | `config.yaml`이 아니라 이 기기에만 저장합니다 |
 | `--shared` | add, remove | add: [`projects_storage`](#local-registrations)가 `machine-local`이어도 `config.yaml`에 저장합니다. remove: 이 기기가 재정의한 프로젝트의 `config.yaml` 사본도 함께 제거합니다 |
 | `--sync` | add, edit | 저장한 뒤 이 프로젝트의 skill과 agent를 동기화합니다. force는 꺼져 있습니다 |
@@ -63,6 +65,28 @@ skillshare project show shop-web --json
 
 skill이 꺼진 프로젝트는 global symlink mode를 포함해 skill 동기화 단계를 전혀 실행하지 않습니다. 요청되었거나 켜진 리소스 선택이 비어 있으면 탐색, 백업, target 쓰기 없이 성공합니다.
 
+### 워크스페이스의 모든 checkout 등록하기 {#scan}
+
+Codex 같은 일부 도구는 연 폴더의 Git 루트까지만 프로젝트 skills를 찾습니다. 워크스페이스 폴더 하나에 checkout이 여러 개 있으면, 워크스페이스에 sync한 skills가 그 checkout 안에서는 보이지 않습니다. `--scan`은 각 checkout을 같은 설정의 개별 프로젝트로 등록합니다:
+
+```bash
+skillshare project add ~/work/suite --scan . --scan .worktrees \
+  --target codex --skills-include 'team-*' --dry-run
+skillshare project add ~/work/suite --scan . --scan .worktrees \
+  --target codex --skills-include 'team-*' --sync
+```
+
+`--scan`에는 루트 안의 폴더를 지정합니다(`.`은 루트 자체). 그 폴더에서 checkout, 즉 `.git` 폴더나 연결된 worktree의 `.git` 파일이 있는 폴더를 찾습니다. checkout 안은 더 찾지 않습니다. 스캔 폴더 아래의 숨김 폴더, `node_modules`, 링크는 건너뛰므로 `.worktrees` 같은 숨김 폴더는 직접 지정하세요. 아직 없는 스캔 폴더나 읽을 수 없는 폴더는 경고와 함께 건너뜁니다.
+
+각 checkout은 일반 프로젝트 항목이 됩니다. 스캔 설정은 저장되지 않으며 `project edit`, `project remove`, `--machine-local`은 평소처럼 동작합니다. 스캔은 명령을 실행할 때만 하므로, 새 clone이나 worktree를 만든 뒤에는 다시 실행하세요. 추가만 합니다:
+
+- 같은 설정으로 등록된 폴더는 그대로 유지됩니다.
+- 다른 설정으로 등록된 폴더(루트 포함)는 건너뛰고 그대로 둡니다. 바꾸려면 `project edit`을 쓰세요.
+- 자체 `.skillshare/` 프로젝트 설정이 있는 checkout은 건너뜁니다.
+- 새 checkout은 같은 실행에서 한 번의 쓰기로 등록되므로, 스크립트에서 안전하게 다시 실행할 수 있습니다.
+
+checkout의 이름은 폴더 이름입니다. 다른 프로젝트나 같은 실행에서 찾은 다른 checkout이 그 이름을 쓰고 있으면, 루트 아래 경로로 이름을 짓습니다: `.worktrees/app-a`는 `worktrees-app-a`가 되고 `name`으로 저장되므로 이후 스캔에서도 유지됩니다. 루트 바로 아래의 checkout은 폴더 이름을 유지합니다. 만든 이름도 이미 쓰이고 있으면 그 checkout은 이유와 함께 건너뜁니다. `--name`으로 따로 추가하세요. `--sync`는 루트와 추가되거나 유지된 모든 checkout을 sync합니다.
+
 ### 필터 교체 또는 override 초기화 {#edit-settings}
 
 ```bash
@@ -72,7 +96,7 @@ skillshare project sync shop-web --dry-run --json
 skillshare project sync shop-web --json
 ```
 
-add와 edit은 쓰기 전에 유효한 전체 설정을 검증합니다. 편집은 프로젝트가 저장된 곳, 즉 `config.yaml` 또는 이 기기에 저장됩니다. `config.yaml`에서 YAML 앵커로 선언된 프로젝트를 편집하면 그 앵커의 별칭도 함께 바뀝니다. 변경 결과에는 영향을 받은 루트가 나열됩니다. 아무것도 바뀌지 않는 add나 edit은 `applied: false`와 `unchanged: true`를 반환하며, `--sync`는 그대로 수행합니다. 다른 설정으로 add를 반복하면 실패하고 `project edit`을 안내합니다. 사용자 지정 이름은 루트처럼 보이면 안 됩니다(예: `~name`, `./name`, `C:name`).
+add와 edit은 쓰기 전에 유효한 전체 설정을 검증합니다. 편집은 프로젝트가 저장된 곳, 즉 `config.yaml` 또는 이 기기에 저장됩니다. `config.yaml`에서 YAML 앵커로 선언된 프로젝트를 편집하면 그 앵커의 별칭도 함께 바뀝니다. 변경 결과에는 영향을 받은 루트가 나열됩니다. 아무것도 바뀌지 않는 add나 edit은 `applied: false`와 `unchanged: true`를 반환하며, `--sync`는 그대로 수행합니다. 다른 설정으로 add를 반복하면 실패하고 `project edit`을 안내합니다. `--scan`을 쓰면 그 폴더를 건너뜁니다. 사용자 지정 이름은 루트처럼 보이면 안 됩니다(예: `~name`, `./name`, `C:name`).
 
 ### 프로젝트 제거 {#remove}
 
@@ -97,6 +121,8 @@ CLI edit은 빠진 skill 경로를 같은 규칙으로 분리합니다. 프로�
 | show | `project` 객체 |
 | add, edit, remove, localize, share | `action`, `project`, `applied`, `affected`, `warnings`; 선택적으로 `sync`, `detach`, 또는 `remaining`(remove) |
 | sync | `action`, `project`, `sync`; 미리보기에는 `applied: false`도 포함 |
+
+`--scan`을 쓰면 `project`는 루트이고, add는 폴더마다 한 항목씩 담긴 `scan` 배열도 반환합니다: `root`, `path`(루트 기준 상대 경로, 루트 자체는 `.`), `name`, `result`(`added`, `kept`, `skipped`), 그리고 건너뛴 폴더에는 `skip`(`different`, `storage`, `removed`, `own-config`, `name-taken`, `bad-name`)과 `reason`. `--sync`를 쓰면 각 항목에 그 프로젝트의 `sync`와, 있다면 `error`도 포함됩니다.
 
 프로젝트 객체에는 `root`(저장된 표기), `path`(확장된 경로), `name`, `targets`, `skills`, `agents`, `groups`, `missing`, `hasOwnConfig`, `origin`(`shared` 또는 `local`), `originPath`(소유 파일), `sharedCopy`(`config.yaml`에도 선언된 로컬 프로젝트)가 포함됩니다. 생략되었거나 꺼진 리소스는 `null`입니다. 켜진 리소스는 해당 설정을 노출합니다. 텍스트 형식의 `project list`와 `project show`는 켜짐/꺼짐 상태를 보고합니다. sync 결과에는 `results`, `failed`, `warnings`, 그리고 탐색/필터 진단 정보가 포함됩니다.
 

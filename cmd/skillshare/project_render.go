@@ -122,24 +122,7 @@ func renderProjectResult(o projectOptions, r projectResult, err error, start tim
 		ui.Row(ui.MarkNone, "Registration", r.Registration, ui.RowWidth("Registration"))
 	}
 	if r.Sync != nil {
-		for _, unmatched := range r.Sync.Unmatched {
-			for _, pattern := range unmatched.Patterns {
-				ui.Warning("%s: %s", unmatched.Target, (ssync.UnmatchedInclude{Pattern: pattern, Suggestions: unmatched.Suggestions}).Warning())
-			}
-		}
-		var targets map[string]config.TargetConfig
-		var managed map[string]config.ManagedProject
-		if r.Expanded != nil {
-			targets = r.Expanded.Targets
-			managed = r.Expanded.Projects
-		}
-		printSyncFolderConflicts(r.Sync.FolderConflicts, r.Sync.PathOverlap, false, targets, managed)
-		for _, row := range r.Sync.Results {
-			ui.Row(ui.MarkOK, row.Target, fmt.Sprintf("%d linked, %d updated, %d skipped, %d pruned", len(row.Linked), len(row.Updated), len(row.Skipped), len(row.Pruned)), ui.RowWidth(row.Target))
-		}
-		for _, failure := range r.Sync.Failed {
-			ui.Row(ui.MarkFail, failure.Target, failure.Error, ui.RowWidth(failure.Target))
-		}
+		renderProjectSync(r.Sync, r.Expanded)
 	}
 	for _, warning := range r.Warnings {
 		ui.Warning("%s", warning)
@@ -159,6 +142,29 @@ func renderProjectResult(o projectOptions, r projectResult, err error, start tim
 	}
 	return err
 }
+
+// renderProjectSync prints one project's sync, as project sync does.
+func renderProjectSync(synced *ssync.ExecuteResult, expanded *config.Config) {
+	for _, unmatched := range synced.Unmatched {
+		for _, pattern := range unmatched.Patterns {
+			ui.Warning("%s: %s", unmatched.Target, (ssync.UnmatchedInclude{Pattern: pattern, Suggestions: unmatched.Suggestions}).Warning())
+		}
+	}
+	var targets map[string]config.TargetConfig
+	var managed map[string]config.ManagedProject
+	if expanded != nil {
+		targets = expanded.Targets
+		managed = expanded.Projects
+	}
+	printSyncFolderConflicts(synced.FolderConflicts, synced.PathOverlap, false, targets, managed)
+	for _, row := range synced.Results {
+		ui.Row(ui.MarkOK, row.Target, fmt.Sprintf("%d linked, %d updated, %d skipped, %d pruned", len(row.Linked), len(row.Updated), len(row.Skipped), len(row.Pruned)), ui.RowWidth(row.Target))
+	}
+	for _, failure := range synced.Failed {
+		ui.Row(ui.MarkFail, failure.Target, failure.Error, ui.RowWidth(failure.Target))
+	}
+}
+
 func renderProjectItem(item projects.Item) {
 	width := ui.RowWidth("Project", "Root", "Origin", "Origin file", "Targets", "Skills", "Agents")
 	ui.Row(ui.MarkNone, "Project", item.Name, width)

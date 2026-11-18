@@ -144,6 +144,7 @@ skillshare project remove shop-web --yes --json
 skillshare project add ~/work/scratch --target claude --machine-local --dry-run
 skillshare project localize shop-web --dry-run --json
 skillshare project share scratch --dry-run --json
+skillshare project add ~/work/suite --scan . --scan .worktrees --target codex --dry-run --json
 ```
 
 Always global (explicit `-g` accepted, `-p` rejected), even inside a project. Add requires
@@ -166,6 +167,16 @@ exit 1 does not undo the saved registration: inspect `sync.failed` and retry wit
 `project sync`. List JSON is `{ "projects": [] }`, show JSON wraps `project`, and
 mutation JSON includes `action`, `project`, `applied`, `affected`, and `warnings`.
 No-op edits report `applied: false, unchanged: true`.
+
+`--scan DIR` (add only, repeatable, relative to the root) also registers each Git checkout
+below DIR (`.git` folder or worktree `.git` file) as an ordinary project with the same
+settings. Hidden folders below DIR, `node_modules` and links are skipped; missing or
+unreadable folders are skipped with a warning. It only adds:
+registered folders (root included) are `kept` or, with different settings, `skipped`;
+checkouts with their own `.skillshare/` are `skipped`. A name clash names the checkout
+from its path (`.worktrees/app-a` → `worktrees-app-a`). JSON adds a `scan` array of
+`root`, `path` (`.` for the root), `name`, `result`, and for a skipped folder
+`skip` and `reason`; with `--sync`, each row's `sync` and `error`. Rerun it after a new clone or worktree.
 
 Removal asks for confirmation unless `--yes` or previewing; JSON removal requires
 `--yes` unless previewing. Whole-folder links are removed; merge links become local

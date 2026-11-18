@@ -176,19 +176,10 @@ func (s *Service) Put(root string, entry config.ManagedProject, opts PutOptions)
 	} else if storage == "" {
 		storage = cfg.NewProjectOrigin()
 	}
-	if storage != OriginShared && storage != OriginLocal {
-		return Result{}, fmt.Errorf("invalid project storage %q (valid: %s, %s)", storage, OriginShared, OriginLocal)
+	if err := checkStorage(storage); err != nil {
+		return Result{}, err
 	}
-	c, err := PrepareLayers(s.path, cfg, func(l *config.ProjectLayers) error {
-		if storage == OriginLocal {
-			l.SetLocal(root, entry)
-		} else {
-			// A re-added project is no longer hidden on this machine.
-			l.SetShared(root, entry)
-			l.ClearLocal(root)
-		}
-		return nil
-	})
+	c, err := layerEntries(s.path, cfg, map[string]config.ManagedProject{root: entry}, storage)
 	if err != nil {
 		return Result{}, err
 	}
@@ -211,6 +202,29 @@ func (s *Service) Put(root string, entry config.ManagedProject, opts PutOptions)
 	result.Item = &v
 	result.Expanded = c.Save.Expanded
 	return result, nil
+}
+
+func checkStorage(storage string) error {
+	if storage != OriginShared && storage != OriginLocal {
+		return fmt.Errorf("invalid project storage %q (valid: %s, %s)", storage, OriginShared, OriginLocal)
+	}
+	return nil
+}
+
+// layerEntries saves each entry in storage. An entry saved in config.yaml is
+// no longer hidden on this machine.
+func layerEntries(path string, cfg *config.Config, entries map[string]config.ManagedProject, storage string) (*Candidate, error) {
+	return PrepareLayers(path, cfg, func(l *config.ProjectLayers) error {
+		for root, entry := range entries {
+			if storage == OriginLocal {
+				l.SetLocal(root, entry)
+			} else {
+				l.SetShared(root, entry)
+				l.ClearLocal(root)
+			}
+		}
+		return nil
+	})
 }
 
 // detachDeparting compares paths, rather than target names, so renamed and

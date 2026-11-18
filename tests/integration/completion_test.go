@@ -47,6 +47,11 @@ func TestCompletion_ProjectLocalize_AllShells(t *testing.T) {
 		result.AssertOutputContains(t, "localize")
 		result.AssertOutputContains(t, "share")
 		result.AssertOutputContains(t, "machine-local")
+		scan := "--scan"
+		if shell == "fish" {
+			scan = "-l scan"
+		}
+		result.AssertOutputContains(t, scan)
 	}
 }
 

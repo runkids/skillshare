@@ -680,6 +680,14 @@
     "note": "Validate plugin source links"
   },
   {
+    "file": "internal/projects/scan.go",
+    "function": "ScanCheckouts",
+    "callee": "filepath.WalkDir",
+    "root": "scanRoot",
+    "reason": "project",
+    "note": "Find Git checkouts below a project folder for project add --scan"
+  },
+  {
     "file": "internal/resource/agent.go",
     "function": "(AgentKind).Discover",
     "callee": "filepath.Walk",

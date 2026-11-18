@@ -15,6 +15,7 @@ skillshare project                          # Same as project list
 skillshare project list --json
 skillshare project show <project> --json
 skillshare project add <root> --target T [options]
+skillshare project add <root> --scan DIR --target T [options]
 skillshare project edit <project> [options]
 skillshare project sync <project> [--dry-run] [--json]
 skillshare project localize <project> [--dry-run] [--json]
@@ -36,6 +37,7 @@ skillshare project remove <project> [--shared] [--yes] [--dry-run] [--json]
 | `--skills-naming NAMING` | add, edit | `flat`、`standard` 或 `prefixed`；空值表示继承 |
 | `--skills-include P`, `--skills-exclude P` | add, edit | 重复使用以指定多个 glob 模式；替换对应的列表；空值会清空列表 |
 | `--agents-include P`, `--agents-exclude P` | add, edit | Agent 使用相同的替换规则；过滤器需要 merge 或 copy 模式 |
+| `--scan DIR` | add | 同时添加根路径中此文件夹下的每个 Git checkout，设置相同；可重复指定多个文件夹。参见[工作区中的 checkout](#scan) |
 | `--machine-local` | add | 只保存在本机，不写入 `config.yaml` |
 | `--shared` | add, remove | add：即使 [`projects_storage`](#local-registrations) 为 `machine-local`，也保存到 `config.yaml`。remove：同时移除本机所覆盖项目在 `config.yaml` 中的副本 |
 | `--sync` | add, edit | 保存后同步该项目的 Skill 和 Agent；不启用 force |
@@ -63,6 +65,28 @@ skillshare project show shop-web --json
 
 禁用了 Skill 的项目永远不会执行 Skill 同步流程，全局 symlink 模式下也是如此。请求或启用的资源选择为空时，会直接成功，不进行发现、备份或 Target 写入。
 
+### 注册工作区中的每个 checkout {#scan}
+
+有些工具（例如 Codex）只会向上查找到所打开文件夹的 Git 根路径为止来寻找项目 skills。当一个工作区文件夹中有多个 checkout 时，同步到工作区的 skills 在这些 checkout 中看不到。`--scan` 会把每个 checkout 注册为各自的项目，设置相同：
+
+```bash
+skillshare project add ~/work/suite --scan . --scan .worktrees \
+  --target codex --skills-include 'team-*' --dry-run
+skillshare project add ~/work/suite --scan . --scan .worktrees \
+  --target codex --skills-include 'team-*' --sync
+```
+
+`--scan` 接受根路径内的文件夹（`.` 表示根路径本身），并在其中查找 checkout：含有 `.git` 文件夹，或含有链接 worktree 的 `.git` 文件的文件夹。找到 checkout 后不再向下搜索。扫描文件夹下的隐藏文件夹、`node_modules` 和链接都会跳过，所以 `.worktrees` 这类隐藏文件夹需要明确指定。尚不存在的扫描文件夹，或无法读取的文件夹，会跳过并产生警告。
+
+每个 checkout 都会成为普通的项目条目。不会保存任何扫描设置，`project edit`、`project remove` 和 `--machine-local` 照常工作。只有执行命令时才会扫描，所以新增 clone 或 worktree 后请再执行一次。它只会添加项目：
+
+- 已用相同设置注册的文件夹会保留。
+- 已用不同设置注册的文件夹（包括根路径）会跳过并保持原样；请用 `project edit` 修改。
+- 有自己 `.skillshare/` 项目配置的 checkout 会跳过。
+- 新的 checkout 会在同一次执行中一次写入注册，因此可以放心从脚本重复执行。
+
+checkout 以文件夹名称命名。如果其他项目或同一次找到的另一个 checkout 已使用该名称，就改用它在根路径下的路径命名：`.worktrees/app-a` 会变成 `worktrees-app-a`，并保存为 `name`，之后的扫描会沿用。直接位于根路径下的 checkout 保留文件夹名称。如果推导出的名称也已被使用，该 checkout 会跳过并说明原因；请用 `--name` 单独添加。`--sync` 会同步根路径以及每个添加或保留的 checkout。
+
 ### 替换过滤器或重置覆盖设置 {#edit-settings}
 
 ```bash
@@ -72,7 +96,7 @@ skillshare project sync shop-web --dry-run --json
 skillshare project sync shop-web --json
 ```
 
-add 和 edit 会在写入前校验完整的有效配置。编辑会保存在项目所在的位置：`config.yaml`，或仅本机项目所在的本机。在 `config.yaml` 中，编辑通过 YAML 锚点声明的项目，也会改变该锚点的别名。变更结果会列出受影响的根路径。没有任何变化的 add 或 edit 会返回 `applied: false` 和 `unchanged: true`，但仍会执行 `--sync`。用不同的设置重复执行 add 会失败，并提示改用 `project edit`。自定义名称不能看起来像根路径（例如 `~name`、`./name` 或 `C:name`）。
+add 和 edit 会在写入前校验完整的有效配置。编辑会保存在项目所在的位置：`config.yaml`，或仅本机项目所在的本机。在 `config.yaml` 中，编辑通过 YAML 锚点声明的项目，也会改变该锚点的别名。变更结果会列出受影响的根路径。没有任何变化的 add 或 edit 会返回 `applied: false` 和 `unchanged: true`，但仍会执行 `--sync`。用不同的设置重复执行 add 会失败，并提示改用 `project edit`；加上 `--scan` 时则会跳过该文件夹。自定义名称不能看起来像根路径（例如 `~name`、`./name` 或 `C:name`）。
 
 ### 移除项目 {#remove}
 
@@ -97,6 +121,8 @@ CLI edit 会按相同规则分离被移出的 Skill 路径。只要项目的 Ski
 | show | `project` 对象 |
 | add, edit, remove, localize, share | `action`、`project`、`applied`、`affected`、`warnings`；可选的 `sync`、`detach` 或 `remaining`（remove） |
 | sync | `action`、`project`、`sync`；预览还包含 `applied: false` |
+
+使用 `--scan` 时，`project` 是根路径，add 还会返回 `scan` 数组，每个文件夹一项：`root`、`path`（相对于根路径；根路径本身为 `.`）、`name`、`result`（`added`、`kept` 或 `skipped`），跳过的文件夹另有 `skip`（`different`、`storage`、`removed`、`own-config`、`name-taken` 或 `bad-name`）和 `reason`。加上 `--sync` 时，每项还包含该项目的 `sync` 和 `error`（如有）。
 
 项目对象包含 `root`（保存时的写法）、`path`（展开后的路径）、`name`、`targets`、`skills`、`agents`、`groups`、`missing`、`hasOwnConfig`、`origin`（`shared` 或 `local`）、`originPath`（所属文件）和 `sharedCopy`（`config.yaml` 中也声明了的本机项目）。省略或禁用的资源为 `null`。启用的资源会给出其设置。文本格式的 `project list` 和 `project show` 会报告开/关状态。sync 结果包含 `results`、`failed`、`warnings`，以及发现与过滤的诊断信息。
 

@@ -158,6 +158,7 @@ skillshare project list --json
 skillshare project localize ~/work/existing --dry-run
 skillshare project add ~/work/app --target claude,codex --skills-mode copy --dry-run
 skillshare project add ~/work/app --target claude,codex --skills-mode copy --sync
+skillshare project add ~/work/suite --scan . --scan .worktrees --target codex --dry-run
 skillshare project edit app --skills-include 'frontend-*'
 skillshare project sync app --json
 skillshare project remove app --dry-run --json
@@ -168,7 +169,9 @@ skillshare project remove app --dry-run --json
 `--machine-local` or `projects_storage: machine-local` (`--shared` overrides the setting);
 `localize` and `share` move one between the two. Removing a local copy of a `config.yaml`
 project keeps `config.yaml`'s version unless `--shared` is given. Edit filters replace lists. Removal detaches skills and keeps agent files;
-JSON removal requires `--yes` unless previewing. Read [targets.md](references/targets.md)
+JSON removal requires `--yes` unless previewing. `--scan DIR` also adds each Git checkout
+below DIR with the same settings and only adds; rerun it after a new clone or worktree.
+Read [targets.md](references/targets.md)
 for saved-then-sync failures, retries, and partial removal results.
 
 ### MCP settings

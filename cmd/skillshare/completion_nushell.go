@@ -77,6 +77,7 @@ export extern "skillshare project" [
     --skills-exclude: string
     --agents-include: string
     --agents-exclude: string
+    --scan: path
     --machine-local
     --shared
     --sync
