@@ -4,6 +4,7 @@ import { Check, ChevronDown, Ellipsis, Loader2, Package } from 'lucide-react';
 import { bindingStatus, bindingVersion, pluginsApi, syncAction, targetMap, type PluginInventory, type PluginRequest, type PluginTarget } from '../../api/plugins';
 import type { PluginUpdate } from '../../api/plugins';
 import AgentIcon from '../AgentIcon';
+import Reveal from '../Reveal';
 import Spinner from '../Spinner';
 import { agentReasons } from './agentReasons';
 import SourceHint from './SourceHint';
@@ -145,13 +146,13 @@ function Row({ name, pi, inventory, updates, checkFailures, busy, working, onTog
             </span>
           )}
           {selected.length}/{total}
-          <ChevronDown size={14} className={expanded ? 'rotate-180' : ''} />
+          <ChevronDown size={14} className={`transition-transform duration-200 ease-[cubic-bezier(.3,.7,.3,1)] motion-reduce:transition-none ${expanded ? 'rotate-180' : ''}`} />
         </button>
         <button type="button" className="ss-ib" aria-label={t('mcp.moreActions', { name })} onClick={(e) => onMenu(e, name)} disabled={busy}>
           {rowBusy ? <Loader2 size={16} className="animate-spin" /> : <Ellipsis size={16} />}
         </button>
       </div>
-      {expanded && (
+      <Reveal open={expanded} className="ss-rv">
         <div className="ss-r fold !min-h-0 flex-wrap gap-x-6 gap-y-3.5 !py-3.5">
           {bindings.map(([target, b]) => {
             const on = b.sync !== false;
@@ -183,7 +184,7 @@ function Row({ name, pi, inventory, updates, checkFailures, busy, working, onTog
           {found.error && <span className="text-xs text-ink-3">{pluginErrorMessage(found.error, t)}</span>}
           {blocked > 0 && <button type="button" className="ss-more" disabled={busy} onClick={() => onBlocked(name, source)}>{t('plugins.moreBlocked', { count: blocked })}</button>}
         </div>
-      )}
+      </Reveal>
     </>
   );
 }

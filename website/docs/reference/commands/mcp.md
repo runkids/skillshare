@@ -250,8 +250,8 @@ Skillshare owns that still sits on one line is reported as an `update` and writt
 laid out. Entries it does not own, and entries someone formatted by hand, keep their layout.
 
 The dashboard only offers destinations available in the current scope and host
-platform. Each server is one row, with the clients it goes to as chips under its name;
-the count button on the right opens the full client list for that server. Global-only clients cannot be selected in project mode.
+platform. Each server is one row; the count button on the right shows the logos of the clients it
+goes to and opens the full client list for that server. Global-only clients cannot be selected in project mode.
 The **Sync** box on the right lists the changes not yet written: ticking a client
 only edits the source. **Sync MCP** lists those changes and, after you confirm, writes
 only the MCP config files, keeping a backup of each. Under a line in the same box,
@@ -1445,8 +1445,8 @@ settings**. The info icons beside **Pi settings** and **Tool exposure** explain 
 a link beside **Pi settings** opens Pi's MCP documentation. The dialog flags
 `pi-mcp-adapter` fields in **Other Pi settings** before you save. **Tool exposure** stays
 editable while the Tools section has a setting; only `toolExposure` in **Other Pi
-settings** is refused then, because `tools` writes it. On the server row, the Pi chip
-shows the exposure in a few words, such as `through code` for `codemode`.
+settings** is refused then, because `tools` writes it. In a server's client list, the Pi
+toggle shows the exposure in a few words, such as `through code` for `codemode`.
 
 ### Upgrading Pi from 0.22 {#pi-migration}
 

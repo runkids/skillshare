@@ -245,7 +245,7 @@ JSON 条目会按照文件自身的缩进方式，逐字段单独一行写入。
 按分行格式写入。它不拥有的条目，以及由人工手动格式化的条目，会保留原有的格式。
 
 仪表盘只提供当前作用域和主机平台下可用的目标位置。每个 server 是
-一行，名称下方以 chip 显示它会写入的 client；右侧的计数按钮会打开该 server 的完整 client 列表。仅限 Global 的 client
+一行，右侧的计数按钮显示它会写入的 client 的 logo，并会打开该 server 的完整 client 列表。仅限 Global 的 client
 在 project mode 中无法被选中。右侧的 **Sync** 框列出了尚未写入的
 更改：勾选某个 client 只会编辑 source。**Sync MCP** 会列出这些更改，并在你确认后
 只写入 MCP 配置文件，同时为每个文件保留一份备份。同一个框中分隔线下方，
@@ -1273,7 +1273,7 @@ skillshare mcp edit docs --pi-options '{}' --no-tui
 **Pi 设置** 和 **工具暴露模式** 旁边的信息图标会解释它们，**Pi 设置** 旁边的链接
 会打开 Pi 的 MCP 文档。对话框会在你保存之前标出 **其他 Pi 设置** 中的
 `pi-mcp-adapter` 字段。工具区块有设置时，**工具暴露模式** 仍可编辑；此时只有
-**其他 Pi 设置** 中的 `toolExposure` 会被拒绝，因为它由 `tools` 写入。server 行上的 Pi 标签
+**其他 Pi 设置** 中的 `toolExposure` 会被拒绝，因为它由 `tools` 写入。在 server 的 client 列表中，Pi 的开关
 会用简短文字显示暴露模式，例如 `codemode` 显示为 `通过代码`。
 
 ### 从 0.22 升级 Pi {#pi-migration}
