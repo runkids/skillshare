@@ -1,3 +1,4 @@
+import { optimisticTargets } from '../lib/optimisticTargets';
 import { useResourceToggle } from '../hooks/useResourceToggle';
 import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
@@ -132,7 +133,6 @@ type MenuState =
   | { mode: 'skill'; skill: Skill; point: Point }
   | { mode: 'bulk'; names: string[]; point: Point }
   | { mode: 'add'; point: Point };
-type SkillsData = { resources: Skill[] };
 
 const EMPTY: Skill[] = [];
 // ponytail: "Show more" paging instead of virtualization; add a virtual list if 1000+ rows get slow.
@@ -623,22 +623,6 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
 
   const refreshAfterTargets = () => void invalidate(queryClient, 'skillSyncChanged');
 
-  /** Optimistic patch of the skills cache; returns the snapshot to roll back to. */
-  const patch = async (fn: (skills: Skill[]) => Skill[]) => {
-    await queryClient.cancelQueries({ queryKey: queryKeys.skills.all });
-    const previous = queryClient.getQueryData<SkillsData>(queryKeys.skills.all);
-    if (previous)
-      queryClient.setQueryData<SkillsData>(queryKeys.skills.all, {
-        ...previous,
-        resources: fn(previous.resources),
-      });
-    return { previous };
-  };
-  const rollback = (err: Error, _: unknown, ctx?: { previous?: SkillsData }) => {
-    if (ctx?.previous) queryClient.setQueryData(queryKeys.skills.all, ctx.previous);
-    toast(err.message, 'error');
-  };
-
   const { toggleOne, toggleMany } = useResourceToggle({
     onOne: ({ s, disable }) => {
       const kindLabel = isAgent ? 'Agent' : 'Skill';
@@ -681,12 +665,7 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
   const setTargets = useMutation({
     mutationFn: ({ name, target }: { name: string; target: string | null }) =>
       api.setSkillTargets(name, target),
-    onMutate: ({ name, target }) =>
-      patch((list) =>
-        list.map((x) =>
-          x.flatName === name ? { ...x, targets: target ? [target] : undefined } : x,
-        ),
-      ),
+    onMutate: ({ name, target }) => optimisticTargets(queryClient, kind, name, target),
     onSuccess: (_, { name, target }) =>
       toast(
         target
@@ -694,7 +673,10 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
           : t('resources.toast.limitRemoved', { name }),
         'success',
       ),
-    onError: rollback,
+    onError: (err, _, restoreTargets) => {
+      restoreTargets?.();
+      toast(err.message, 'error');
+    },
     onSettled: refreshAfterTargets,
   });
 

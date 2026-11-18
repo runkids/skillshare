@@ -1,3 +1,4 @@
+import { upgradeAndReconnect } from '../lib/upgradeWorkflow';
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -118,27 +119,16 @@ export default function DoctorPage() {
     setUpgrading(true);
     setUpgradeMessage(t('updateDialog.updating'));
     try {
-      const result = await api.upgradeApp();
-      if (result.devMode) {
+      const outcome = await upgradeAndReconnect(() =>
+        setUpgradeMessage(t('updateDialog.restarting')),
+      );
+      if (outcome === 'dev') {
         setUpgradeMessage(t('updateDialog.restartDev'));
         await Promise.all([refetch(), invalidate(queryClient, 'appUpgraded')]);
         setUpgrading(false);
         return;
       }
-      setUpgradeMessage(t('updateDialog.restarting'));
-      // The upgrade already cached the new version's UI; clearing it would force a re-download.
-      await api.restartApp({ clearCache: false });
-      // The server is coming back up; poll until it answers, then show the new build.
-      for (let i = 0; i < 40; i++) {
-        await new Promise((resolve) => setTimeout(resolve, 500));
-        try {
-          await api.health();
-          window.location.reload();
-          return;
-        } catch {
-          /* still restarting */
-        }
-      }
+      if (outcome === 'reloaded') return;
       setUpgradeMessage(t('updateDialog.restartManual'));
       setUpgrading(false);
     } catch (e) {

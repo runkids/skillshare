@@ -46,9 +46,8 @@ import {
   groupByFolder,
   groupInSync,
   HOOKS_CHANGED,
-  hooksGroups,
+  reviewSyncConfig,
   MCP_CHANGED,
-  mcpGroups,
   otherWarnings,
   resourceGroups,
   runSync,
@@ -216,19 +215,16 @@ export default function SyncPage() {
     skill: diff.data?.ignored_skills,
     agent: diff.data?.agent_ignored_skills,
   });
-  const mcpShown = parts.has('mcp') ? mcpGroups(plan) : [];
-  const hooksShown = parts.has('hooks') ? hooksGroups(hooksPlan) : [];
-  const groups: ChangeGroup[] = [
+  const config = reviewSyncConfig(
+    parts.has('mcp') ? plan : null,
+    parts.has('hooks') ? hooksPlan : null,
+  );
+  const resourceRows = [
     ...resources.groups,
     ...(parts.has('extra') ? extraGroups(extras.data?.extras ?? [], force) : []),
-    ...mcpShown,
-    ...hooksShown,
   ];
-  // A blocked plan applies nothing, so its rows are shown but not counted.
-  const count =
-    countChanges(groups) -
-    (plan?.blocked ? countChanges(mcpShown) : 0) -
-    (hooksPlan?.blocked ? countChanges(hooksShown) : 0);
+  const groups = [...resourceRows, ...config.mcpRows, ...config.hookRows];
+  const count = countChanges(resourceRows) + config.count;
   const edited = countEdited(groups);
   const total = tally(groups.flatMap((g) => g.rows).filter((r) => r.counts));
   const loading = diff.isPending || targets.isPending;
@@ -302,20 +298,7 @@ export default function SyncPage() {
                 ? 'agent'
                 : null,
         extras: parts.has('extra') && !!extras.data?.extras.length,
-        mcp:
-          parts.has('mcp') &&
-          plan &&
-          !plan.blocked &&
-          (plan.migrates || plan.changes.some((c) => c.action !== 'unchanged'))
-            ? plan
-            : null,
-        hooks:
-          parts.has('hooks') &&
-          hooksPlan &&
-          !hooksPlan.blocked &&
-          hooksPlan.changes.some((c) => c.action !== 'unchanged')
-            ? hooksPlan
-            : null,
+        ...config.run,
         force,
       });
       setOutcome(result ?? null);
@@ -592,7 +575,7 @@ export default function SyncPage() {
               <SyncError key={runError} error={runError} />
             </div>
           )}
-          {parts.has('mcp') && plan?.blocked && (
+          {config.mcpBlocked && (
             <div className="ss-note warn !items-center">
               <TriangleAlert size={16} />
               <span className="flex-1">{t('sync.mcpBlocked')}</span>
@@ -601,7 +584,7 @@ export default function SyncPage() {
               </Link>
             </div>
           )}
-          {parts.has('hooks') && hooksPlan?.blocked && (
+          {config.hooksBlocked && (
             <div className="ss-note warn !items-center">
               <TriangleAlert size={16} />
               <span className="flex-1">{t('sync.hooksBlocked')}</span>

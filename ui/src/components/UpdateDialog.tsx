@@ -1,3 +1,4 @@
+import { upgradeAndReconnect } from '../lib/upgradeWorkflow';
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { X, Copy, Check, CircleArrowUp } from 'lucide-react';
@@ -86,33 +87,14 @@ export default function UpdateDialog({
     }
   };
 
-  const waitForRestartThenReload = async () => {
-    await new Promise((resolve) => setTimeout(resolve, 800));
-    for (let i = 0; i < 40; i++) {
-      try {
-        await api.health();
-        window.location.reload();
-        return;
-      } catch {
-        await new Promise((resolve) => setTimeout(resolve, 500));
-      }
-    }
-    setStatus(
-      t(
-        'updateDialog.restartManual',
-        {},
-        'Updated. Restart with skillshare ui start if this page does not reconnect.',
-      ),
-    );
-    setUpdating(false);
-  };
-
   const handleUpdateNow = async () => {
     setUpdating(true);
     setStatus(t('updateDialog.updating', {}, 'Updating Skillshare…'));
     try {
-      const result = await api.upgradeApp();
-      if (result.devMode) {
+      const outcome = await upgradeAndReconnect(() =>
+        setStatus(t('updateDialog.restarting', {}, 'Restarting local UI server…')),
+      );
+      if (outcome === 'dev') {
         setStatus(t('updateDialog.restartDev', {}, 'DEV mode restart simulated.'));
         await new Promise((resolve) => setTimeout(resolve, 900));
         setUpdating(false);
@@ -120,10 +102,16 @@ export default function UpdateDialog({
         onDismiss?.();
         return;
       }
-      setStatus(t('updateDialog.restarting', {}, 'Restarting local UI server…'));
-      // The upgrade already cached the new version's UI; clearing it would force a re-download.
-      await api.restartApp({ clearCache: false });
-      void waitForRestartThenReload();
+      if (outcome === 'manual') {
+        setStatus(
+          t(
+            'updateDialog.restartManual',
+            {},
+            'Updated. Restart with skillshare ui start if this page does not reconnect.',
+          ),
+        );
+        setUpdating(false);
+      }
     } catch (err) {
       setStatus(upgradeErrorMessage(err, t));
       setUpdating(false);
