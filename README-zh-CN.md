@@ -299,21 +299,21 @@ make check  # format + lint + test
 
 ## 贡献者
 
-感谢每一位让 skillshare 变得更好的人。完整名单在[英文版 README](README.md#contributors)。
+[![贡献者](https://gitranks.com/badge/repo/runkids/skillshare/contributors-wall.svg)](https://gitranks.com/repo/runkids/skillshare)
+
+### 社区致谢
+
+感谢所有报告问题、提出建议和协助测试修复的朋友。 [英文版 README](README.md#community-thanks)。
 
 ---
 
 如果 skillshare 对你有帮助，欢迎给个 ⭐
 
+[![为 skillshare 点亮星标的开发者](https://gitranks.com/badge/repo/runkids/skillshare/starred-by-card.svg?scheme=night)](https://gitranks.com/repo/runkids/skillshare)
+
 ## Star History
 
-<a href="https://star-history.dera.page/runkids/skillshare">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://star-history.dera.page/svg?repos=runkids/skillshare&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://star-history.dera.page/svg?repos=runkids/skillshare" />
-   <img alt="Star History Chart" src="https://star-history.dera.page/svg?repos=runkids/skillshare" />
- </picture>
-</a>
+[![skillshare · Star History](https://gitranks.com/badge/repo/runkids/skillshare/star-history.svg)](https://gitranks.com/repo/runkids/skillshare)
 
 ---
 

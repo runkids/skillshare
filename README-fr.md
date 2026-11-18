@@ -300,21 +300,21 @@ make check  # format + lint + test
 
 ## Contributeurs
 
-Merci à toutes les personnes qui ont contribué à skillshare. La liste se trouve dans le [README en anglais](README.md#contributors).
+[![Contributeurs](https://gitranks.com/badge/repo/runkids/skillshare/contributors-wall.svg)](https://gitranks.com/repo/runkids/skillshare)
+
+### Remerciements à la communauté
+
+Merci pour vos signalements de bugs, vos suggestions et vos tests. [README en anglais](README.md#community-thanks).
 
 ---
 
 Si skillshare vous est utile, pensez à lui donner une ⭐
 
+[![Qui a donné une étoile à skillshare](https://gitranks.com/badge/repo/runkids/skillshare/starred-by-card.svg?scheme=night)](https://gitranks.com/repo/runkids/skillshare)
+
 ## Star History
 
-<a href="https://star-history.dera.page/runkids/skillshare">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://star-history.dera.page/svg?repos=runkids/skillshare&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://star-history.dera.page/svg?repos=runkids/skillshare" />
-   <img alt="Star History Chart" src="https://star-history.dera.page/svg?repos=runkids/skillshare" />
- </picture>
-</a>
+[![skillshare · Star History](https://gitranks.com/badge/repo/runkids/skillshare/star-history.svg)](https://gitranks.com/repo/runkids/skillshare)
 
 ---
 
