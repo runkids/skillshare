@@ -1,4 +1,4 @@
-import { apiFetch } from './client';
+import { http } from './http';
 
 /** Where an extension row comes from: a file in the extensions folder, a settings entry, a plugin, or a Skillshare hook. */
 export type OmpExtensionSource = 'native' | 'configured' | 'plugin' | 'hook';
@@ -61,13 +61,10 @@ export interface OmpExtensionsPlan {
 
 const base = (target: string) => `/targets/${encodeURIComponent(target)}/omp-extensions`;
 const post = (target: string, verb: string, changes: OmpExtensionChange[], revision: string) =>
-  apiFetch<OmpExtensionsPlan>(`${base(target)}/${verb}`, {
-    method: 'POST',
-    body: JSON.stringify({ changes, revision }),
-  });
+  http.post<OmpExtensionsPlan>(`${base(target)}/${verb}`, { changes, revision });
 
 export const ompExtensionsApi = {
-  get: (target: string) => apiFetch<OmpExtensionsView>(base(target)),
+  get: (target: string) => http.get<OmpExtensionsView>(base(target)),
   /** Writes nothing; `revision` is the view's. */
   preview: (target: string, changes: OmpExtensionChange[], revision: string) =>
     post(target, 'preview', changes, revision),

@@ -1,4 +1,4 @@
-import { apiFetch } from './http';
+import { http } from './http';
 import type {
   AgentignoreResponse,
   AvailableTarget,
@@ -7,7 +7,7 @@ import type {
 } from './types/config';
 
 export const configApi = {
-  getConfig: () => apiFetch<{ config: unknown; raw: string }>('/config'),
+  getConfig: () => http.get<{ config: unknown; raw: string }>('/config'),
   /** Settings the Settings page owns; the rest of config.yaml stays untouched. */
   patchConfig: (body: {
     mode?: string;
@@ -15,27 +15,11 @@ export const configApi = {
     backupMaxCount?: number;
     backupMaxSizeMB?: number;
     autoUpdateCheck?: boolean;
-  }) =>
-    apiFetch<{ mode: string; logMaxEntries: number | null }>('/config', {
-      method: 'PATCH',
-      body: JSON.stringify(body),
-    }),
-  putConfig: (raw: string) =>
-    apiFetch<ConfigSaveResponse>('/config', {
-      method: 'PUT',
-      body: JSON.stringify({ raw }),
-    }),
-  availableTargets: () => apiFetch<{ targets: AvailableTarget[] }>('/config/available-targets'),
-  getSkillignore: () => apiFetch<SkillignoreResponse>('/skillignore'),
-  putSkillignore: (raw: string) =>
-    apiFetch<{ success: boolean }>('/skillignore', {
-      method: 'PUT',
-      body: JSON.stringify({ raw }),
-    }),
-  getAgentignore: () => apiFetch<AgentignoreResponse>('/agentignore'),
-  putAgentignore: (raw: string) =>
-    apiFetch<{ success: boolean }>('/agentignore', {
-      method: 'PUT',
-      body: JSON.stringify({ raw }),
-    }),
+  }) => http.patch<{ mode: string; logMaxEntries: number | null }>('/config', body),
+  putConfig: (raw: string) => http.put<ConfigSaveResponse>('/config', { raw }),
+  availableTargets: () => http.get<{ targets: AvailableTarget[] }>('/config/available-targets'),
+  getSkillignore: () => http.get<SkillignoreResponse>('/skillignore'),
+  putSkillignore: (raw: string) => http.put<{ success: boolean }>('/skillignore', { raw }),
+  getAgentignore: () => http.get<AgentignoreResponse>('/agentignore'),
+  putAgentignore: (raw: string) => http.put<{ success: boolean }>('/agentignore', { raw }),
 };

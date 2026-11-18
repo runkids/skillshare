@@ -1,4 +1,4 @@
-import { apiFetch } from './http';
+import { http } from './http';
 import type { LogListResponse, LogStatsResponse } from './types/log';
 
 export const logApi = {
@@ -13,16 +13,15 @@ export const logApi = {
     if (filters?.cmd) params.set('cmd', filters.cmd);
     if (filters?.status) params.set('status', filters.status);
     if (filters?.since) params.set('since', filters.since);
-    return apiFetch<LogListResponse>(`/log?${params.toString()}`);
+    return http.get<LogListResponse>(`/log?${params.toString()}`);
   },
-  clearLog: (type?: string) =>
-    apiFetch<{ success: boolean }>(`/log?type=${type ?? 'ops'}`, { method: 'DELETE' }),
+  clearLog: (type?: string) => http.delete<{ success: boolean }>(`/log?type=${type ?? 'ops'}`),
   getLogStats: (type?: string, filters?: { cmd?: string; status?: string; since?: string }) => {
     const params = new URLSearchParams();
     params.set('type', type ?? 'ops');
     if (filters?.cmd) params.set('cmd', filters.cmd);
     if (filters?.status) params.set('status', filters.status);
     if (filters?.since) params.set('since', filters.since);
-    return apiFetch<LogStatsResponse>(`/log/stats?${params.toString()}`);
+    return http.get<LogStatsResponse>(`/log/stats?${params.toString()}`);
   },
 };

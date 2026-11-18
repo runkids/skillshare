@@ -21,7 +21,7 @@ Use when changing React components, pages, CSS, responsive layouts, interactions
 | Query keys | `ui/src/lib/queryKeys.ts` |
 | Which queries a mutation makes stale | named events in `ui/src/lib/queryEvents.ts`, called as `invalidate(queryClient, '<event>')` |
 | Queries shared across pages (overview, MCP, skills, targets, diff) | `ui/src/hooks/useSharedQueries.ts` |
-| API client | `ui/src/api/http.ts` handles transport; domain modules own endpoints and request sequences. `ui/src/api/client.ts` remains a compatibility facade. |
+| API client | Domain modules call `http.get/post/put/patch/delete` from `ui/src/api/http.ts`; pass JSON bodies as values, not serialized strings. Use `http.postRaw` only for already-serialized input. Streaming endpoints manage their own event lifecycle. `ui/src/api/client.ts` remains a compatibility facade. |
 | `?kind=` query strings | `kindQuery()` in `ui/src/api/http.ts` |
 | Translation strings | `ui/src/i18n/` |
 

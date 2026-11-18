@@ -1,4 +1,4 @@
-import { apiFetch, BASE, createSSEStream } from './http';
+import { http, BASE, createSSEStream } from './http';
 import type {
   DiffTarget,
   FolderConflict,
@@ -9,7 +9,7 @@ import type {
 
 export const syncApi = {
   getSyncMatrix: (target?: string) =>
-    apiFetch<{ entries: SyncMatrixEntry[] }>(
+    http.get<{ entries: SyncMatrixEntry[] }>(
       `/sync-matrix${target ? '?target=' + encodeURIComponent(target) : ''}`,
     ),
   previewSyncMatrix: (
@@ -19,24 +19,18 @@ export const syncApi = {
     agentInclude?: string[],
     agentExclude?: string[],
   ) =>
-    apiFetch<{ entries: SyncMatrixEntry[] }>('/sync-matrix/preview', {
-      method: 'POST',
-      body: JSON.stringify({
-        target,
-        include,
-        exclude,
-        ...(agentInclude && { agent_include: agentInclude }),
-        ...(agentExclude && { agent_exclude: agentExclude }),
-      }),
+    http.post<{ entries: SyncMatrixEntry[] }>('/sync-matrix/preview', {
+      target,
+      include,
+      exclude,
+      ...(agentInclude && { agent_include: agentInclude }),
+      ...(agentExclude && { agent_exclude: agentExclude }),
     }),
   /** `project` (a root under projects) limits the sync to that project's targets. */
   sync: (opts: { dryRun?: boolean; force?: boolean; kind?: 'skill' | 'agent'; project?: string }) =>
-    apiFetch<SyncResponse>('/sync', {
-      method: 'POST',
-      body: JSON.stringify(opts),
-    }),
+    http.post<SyncResponse>('/sync', opts),
   diff: (target?: string) =>
-    apiFetch<{ diffs: DiffTarget[]; folder_conflicts?: FolderConflict[] } & IgnoreSources>(
+    http.get<{ diffs: DiffTarget[]; folder_conflicts?: FolderConflict[] } & IgnoreSources>(
       `/diff${target ? '?target=' + encodeURIComponent(target) : ''}`,
     ),
   diffStream: (

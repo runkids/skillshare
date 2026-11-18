@@ -1,4 +1,4 @@
-import { apiFetch } from './http';
+import { http } from './http';
 import type {
   ConvertMethod,
   InstructionsChange,
@@ -16,11 +16,10 @@ import type {
 
 export const instructionsApi = {
   getTargetInstructions: (name: string) =>
-    apiFetch<TargetInstructions>(`/targets/${encodeURIComponent(name)}/instructions`),
+    http.get<TargetInstructions>(`/targets/${encodeURIComponent(name)}/instructions`),
   putTargetInstructions: (name: string, content: string) =>
-    apiFetch<{ success: boolean }>(`/targets/${encodeURIComponent(name)}/instructions`, {
-      method: 'PUT',
-      body: JSON.stringify({ content }),
+    http.put<{ success: boolean }>(`/targets/${encodeURIComponent(name)}/instructions`, {
+      content,
     }),
   convertTargetInstructions: (
     name: string,
@@ -32,123 +31,89 @@ export const instructionsApi = {
       apply: boolean;
     },
   ) =>
-    apiFetch<{ changes: InstructionsChange[] }>(
+    http.post<{ changes: InstructionsChange[] }>(
       `/targets/${encodeURIComponent(name)}/instructions/convert`,
-      {
-        method: 'POST',
-        body: JSON.stringify(body),
-      },
+      body,
     ),
   setTargetInstructionsSetup: (name: string, setup: TargetInstructionsSetup) =>
-    apiFetch<{ success: boolean }>(`/targets/${encodeURIComponent(name)}/instructions/setup`, {
-      method: 'PUT',
-      body: JSON.stringify(setup),
-    }),
+    http.put<{ success: boolean }>(
+      `/targets/${encodeURIComponent(name)}/instructions/setup`,
+      setup,
+    ),
   removeTargetInstructionsSetup: (name: string) =>
-    apiFetch<{ success: boolean }>(`/targets/${encodeURIComponent(name)}/instructions/setup`, {
-      method: 'DELETE',
-    }),
+    http.delete<{ success: boolean }>(`/targets/${encodeURIComponent(name)}/instructions/setup`),
   // A target's other files
   listTargetFiles: (name: string) =>
-    apiFetch<TargetFileList>(`/targets/${encodeURIComponent(name)}/files`),
+    http.get<TargetFileList>(`/targets/${encodeURIComponent(name)}/files`),
   getTargetFile: (name: string, path: string) =>
-    apiFetch<TargetFile & { content: string }>(
+    http.get<TargetFile & { content: string }>(
       `/targets/${encodeURIComponent(name)}/files/content?path=${encodeURIComponent(path)}`,
     ),
   putTargetFile: (name: string, path: string, content: string) =>
-    apiFetch<TargetFile & { content: string }>(
+    http.put<TargetFile & { content: string }>(
       `/targets/${encodeURIComponent(name)}/files/content?path=${encodeURIComponent(path)}`,
-      {
-        method: 'PUT',
-        body: JSON.stringify({ content }),
-      },
+      { content },
     ),
   addTargetFile: (name: string, path: string) =>
-    apiFetch<TargetFileList>(`/targets/${encodeURIComponent(name)}/files`, {
-      method: 'POST',
-      body: JSON.stringify({ path }),
-    }),
+    http.post<TargetFileList>(`/targets/${encodeURIComponent(name)}/files`, { path }),
   removeTargetFile: (name: string, path: string) =>
-    apiFetch<TargetFileList>(
+    http.delete<TargetFileList>(
       `/targets/${encodeURIComponent(name)}/files?path=${encodeURIComponent(path)}`,
-      { method: 'DELETE' },
     ),
   listSharedInstructions: () =>
-    apiFetch<{
+    http.get<{
       files: SharedInstructionsFile[];
       targets: SharedInstructionsTarget[];
       file_links: boolean;
     }>('/instructions'),
   createSharedInstructions: (body: { name: string; content?: string; from_target?: string }) =>
-    apiFetch<{ success: boolean; path: string }>('/instructions', {
-      method: 'POST',
-      body: JSON.stringify(body),
-    }),
+    http.post<{ success: boolean; path: string }>('/instructions', body),
   getSharedInstructionsContent: (name: string) =>
-    apiFetch<{ name: string; path: string; exists: boolean; content: string }>(
+    http.get<{ name: string; path: string; exists: boolean; content: string }>(
       `/instructions/${encodeURIComponent(name)}/content`,
     ),
   /** Saves the shared file; its copy targets are rewritten too (copies). */
   putSharedInstructionsContent: (name: string, content: string) =>
-    apiFetch<{ success: boolean; copies?: SharedCopyResult[] }>(
+    http.put<{ success: boolean; copies?: SharedCopyResult[] }>(
       `/instructions/${encodeURIComponent(name)}/content`,
-      {
-        method: 'PUT',
-        body: JSON.stringify({ content }),
-      },
+      { content },
     ),
   /** Sets exactly which shared files each target uses; [] restores their own files. */
   assignSharedInstructions: (targets: string[], extras: string[]) =>
-    apiFetch<{ success: boolean; errors: string[]; warnings?: InstructionsWarning[] }>(
+    http.post<{ success: boolean; errors: string[]; warnings?: InstructionsWarning[] }>(
       '/instructions/assign',
-      {
-        method: 'POST',
-        body: JSON.stringify({ targets, extras }),
-      },
+      { targets, extras },
     ),
   restoreSharedInstructions: (name: string, target: string) =>
-    apiFetch<{ success: boolean; errors: string[] }>(
+    http.post<{ success: boolean; errors: string[] }>(
       `/instructions/${encodeURIComponent(name)}/restore`,
-      {
-        method: 'POST',
-        body: JSON.stringify({ target }),
-      },
+      { target },
     ),
   setSharedInstructionsMode: (name: string, target: string, mode: string) =>
-    apiFetch<{ success: boolean; warnings?: InstructionsWarning[] }>(
+    http.put<{ success: boolean; warnings?: InstructionsWarning[] }>(
       `/instructions/${encodeURIComponent(name)}/targets/${encodeURIComponent(target)}/mode`,
-      {
-        method: 'PUT',
-        body: JSON.stringify({ mode }),
-      },
+      { mode },
     ),
   getSharedRestorePreview: (name: string, target: string) =>
-    apiFetch<SharedRestorePreview>(
+    http.get<SharedRestorePreview>(
       `/instructions/${encodeURIComponent(name)}/restore-preview?target=${encodeURIComponent(target)}`,
     ),
   addInstructionLocation: (name: string, body: { path: string; as?: string; mode?: string }) =>
-    apiFetch<{ success: boolean; warnings?: InstructionsWarning[] }>(
+    http.post<{ success: boolean; warnings?: InstructionsWarning[] }>(
       `/instructions/${encodeURIComponent(name)}/locations`,
-      {
-        method: 'POST',
-        body: JSON.stringify(body),
-      },
+      body,
     ),
   setInstructionLocationMode: (name: string, path: string, mode: string) =>
-    apiFetch<{ success: boolean; warnings?: InstructionsWarning[] }>(
+    http.put<{ success: boolean; warnings?: InstructionsWarning[] }>(
       `/instructions/${encodeURIComponent(name)}/locations/mode`,
-      {
-        method: 'PUT',
-        body: JSON.stringify({ path, mode }),
-      },
+      { path, mode },
     ),
   removeInstructionLocation: (name: string, path: string) =>
-    apiFetch<{ success: boolean; warnings?: InstructionsWarning[] }>(
+    http.delete<{ success: boolean; warnings?: InstructionsWarning[] }>(
       `/instructions/${encodeURIComponent(name)}/locations?path=${encodeURIComponent(path)}`,
-      { method: 'DELETE' },
     ),
   getLocationRestorePreview: (name: string, path: string) =>
-    apiFetch<SharedRestorePreview>(
+    http.get<SharedRestorePreview>(
       `/instructions/${encodeURIComponent(name)}/locations/restore-preview?path=${encodeURIComponent(path)}`,
     ),
   /** Settles a modified target, or a location when `on` has its `path`. */
@@ -157,19 +122,13 @@ export const instructionsApi = {
     on: { target: string } | { path: string },
     action: 'collect' | 'reapply',
   ) =>
-    apiFetch<{ success: boolean }>(`/instructions/${encodeURIComponent(name)}/resolve`, {
-      method: 'POST',
-      body: JSON.stringify({ ...on, action }),
+    http.post<{ success: boolean }>(`/instructions/${encodeURIComponent(name)}/resolve`, {
+      ...on,
+      action,
     }),
-  getProjectInstructions: () => apiFetch<ProjectInstructions>('/instructions/project'),
+  getProjectInstructions: () => http.get<ProjectInstructions>('/instructions/project'),
   putProjectInstructions: (content: string) =>
-    apiFetch<{ success: boolean }>('/instructions/project', {
-      method: 'PUT',
-      body: JSON.stringify({ content }),
-    }),
+    http.put<{ success: boolean }>('/instructions/project', { content }),
   addProjectInstructionsShim: (target: string) =>
-    apiFetch<{ success: boolean }>('/instructions/project/shim', {
-      method: 'POST',
-      body: JSON.stringify({ target }),
-    }),
+    http.post<{ success: boolean }>('/instructions/project/shim', { target }),
 };

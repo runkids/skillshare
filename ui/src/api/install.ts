@@ -1,4 +1,4 @@
-import { apiFetch, BASE, createSSEStream } from './http';
+import { http, BASE, createSSEStream } from './http';
 import type {
   BatchInstallResult,
   CheckResult,
@@ -15,31 +15,23 @@ import type {
 } from './types/install';
 
 export const installApi = {
-  hubIndex: () => apiFetch<HubIndex>('/hub/index'),
-  getHubConfig: () => apiFetch<HubConfigResponse>('/hub/saved'),
+  hubIndex: () => http.get<HubIndex>('/hub/index'),
+  getHubConfig: () => http.get<HubConfigResponse>('/hub/saved'),
   putHubConfig: (data: { hubs: HubSavedEntry[]; default: string }) =>
-    apiFetch<{ success: boolean }>('/hub/saved', {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    }),
+    http.put<{ success: boolean }>('/hub/saved', data),
   addHub: (hub: { label: string; url: string }) =>
-    apiFetch<{ success: boolean }>('/hub/saved', {
-      method: 'POST',
-      body: JSON.stringify(hub),
-    }),
+    http.post<{ success: boolean }>('/hub/saved', hub),
   removeHub: (label: string) =>
-    apiFetch<{ success: boolean }>(`/hub/saved/${encodeURIComponent(label)}`, {
-      method: 'DELETE',
-    }),
+    http.delete<{ success: boolean }>(`/hub/saved/${encodeURIComponent(label)}`),
   search: (q: string, limit = 20) =>
-    apiFetch<{ results: SearchResult[] }>(`/search?q=${encodeURIComponent(q)}&limit=${limit}`),
+    http.get<{ results: SearchResult[] }>(`/search?q=${encodeURIComponent(q)}&limit=${limit}`),
   searchHub: (q: string, hubURL: string) =>
-    apiFetch<{ results: SearchResult[] }>(
+    http.get<{ results: SearchResult[] }>(
       `/search?q=${encodeURIComponent(q)}&hub=${encodeURIComponent(hubURL)}`,
     ),
   preview: (source: string) =>
-    apiFetch<SkillPreview>(`/preview?source=${encodeURIComponent(source)}`),
-  check: () => apiFetch<CheckResult>('/check'),
+    http.get<SkillPreview>(`/preview?source=${encodeURIComponent(source)}`),
+  check: () => http.get<CheckResult>('/check'),
   checkStream: (
     onDiscovering: () => void,
     onStart: (total: number) => void,
@@ -59,10 +51,7 @@ export const installApi = {
       'Check stream failed',
     ),
   discover: (source: string, branch?: string) =>
-    apiFetch<DiscoverResult>('/discover', {
-      method: 'POST',
-      body: JSON.stringify({ source, branch }),
-    }),
+    http.post<DiscoverResult>('/discover', { source, branch }),
   install: (opts: {
     source: string;
     name?: string;
@@ -72,16 +61,11 @@ export const installApi = {
     into?: string;
     branch?: string;
     kind?: 'skill' | 'agent';
-  }) =>
-    apiFetch<InstallResult>('/install', {
-      method: 'POST',
-      body: JSON.stringify(opts),
-    }),
+  }) => http.post<InstallResult>('/install', opts),
   // Entries recorded in config but not on disk (bare `skillshare install`)
   missingConfigEntries: () =>
-    apiFetch<{ entries: ConfigEntry[]; file: string }>('/install/missing'),
-  installFromConfig: () =>
-    apiFetch<InstallFromConfigResult>('/install/from-config', { method: 'POST' }),
+    http.get<{ entries: ConfigEntry[]; file: string }>('/install/missing'),
+  installFromConfig: () => http.post<InstallFromConfigResult>('/install/from-config'),
   installBatch: (opts: {
     source: string;
     skills: DiscoveredSkill[];
@@ -91,9 +75,5 @@ export const installApi = {
     name?: string;
     branch?: string;
     kind?: 'skill' | 'agent';
-  }) =>
-    apiFetch<BatchInstallResult>('/install/batch', {
-      method: 'POST',
-      body: JSON.stringify(opts),
-    }),
+  }) => http.post<BatchInstallResult>('/install/batch', opts),
 };
