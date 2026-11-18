@@ -299,7 +299,7 @@ make check  # format + lint + test
 
 ## 기여자
 
-[![기여자](https://gitranks.com/badge/repo/runkids/skillshare/contributors-wall.svg)](https://gitranks.com/repo/runkids/skillshare)
+[GitHub에서 기여자 보기](https://github.com/runkids/skillshare/graphs/contributors)
 
 ### 커뮤니티에 보내는 감사
 
@@ -309,11 +309,15 @@ make check  # format + lint + test
 
 skillshare가 유용했다면 ⭐를 눌러 주세요
 
-[![skillshare에 스타를 보낸 개발자](https://gitranks.com/badge/repo/runkids/skillshare/starred-by-card.svg?scheme=night)](https://gitranks.com/repo/runkids/skillshare)
-
 ## Star History
 
-[![skillshare · Star History](https://gitranks.com/badge/repo/runkids/skillshare/star-history.svg)](https://gitranks.com/repo/runkids/skillshare)
+<a href="https://star-history.dera.page/runkids/skillshare">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://star-history.dera.page/svg?repos=runkids/skillshare&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://star-history.dera.page/svg?repos=runkids/skillshare" />
+   <img alt="Star History Chart" src="https://star-history.dera.page/svg?repos=runkids/skillshare" />
+ </picture>
+</a>
 
 ---
 

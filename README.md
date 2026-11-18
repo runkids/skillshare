@@ -301,7 +301,7 @@ make check  # format + lint + test
 
 ## Contributors
 
-[![Contributors](https://gitranks.com/badge/repo/runkids/skillshare/contributors-wall.svg)](https://gitranks.com/repo/runkids/skillshare)
+[View contributors on GitHub](https://github.com/runkids/skillshare/graphs/contributors)
 
 ### Community thanks
 
@@ -428,11 +428,15 @@ documentation, and maintenance.
 
 You can also help by giving skillshare a ⭐ on GitHub!
 
-[![Developers who starred skillshare](https://gitranks.com/badge/repo/runkids/skillshare/starred-by-card.svg?scheme=night)](https://gitranks.com/repo/runkids/skillshare)
-
 ## Star History
 
-[![skillshare · Star History](https://gitranks.com/badge/repo/runkids/skillshare/star-history.svg)](https://gitranks.com/repo/runkids/skillshare)
+<a href="https://star-history.dera.page/runkids/skillshare">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://star-history.dera.page/svg?repos=runkids/skillshare&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://star-history.dera.page/svg?repos=runkids/skillshare" />
+   <img alt="Star History Chart" src="https://star-history.dera.page/svg?repos=runkids/skillshare" />
+ </picture>
+</a>
 
 ---
 
