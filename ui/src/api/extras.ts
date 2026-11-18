@@ -1,16 +1,31 @@
 import { apiFetch } from './http';
-import type { ExtensionInfo, Extra, ExtraDiffResult, ExtraEditResult, ExtraFilterEntry, ExtrasSyncResult } from './types/extras';
+import type {
+  ExtensionInfo,
+  Extra,
+  ExtraDiffResult,
+  ExtraEditResult,
+  ExtraFilterEntry,
+  ExtrasSyncResult,
+} from './types/extras';
 
 export const extrasApi = {
   listExtras: () => apiFetch<{ extras: Extra[] }>('/extras'),
   diffExtras: (name?: string) =>
-    apiFetch<{ extras: ExtraDiffResult[] }>(`/extras/diff${name ? '?name=' + encodeURIComponent(name) : ''}`),
+    apiFetch<{ extras: ExtraDiffResult[] }>(
+      `/extras/diff${name ? '?name=' + encodeURIComponent(name) : ''}`,
+    ),
   createExtra: (data: {
     name: string;
     source?: string;
     folder?: string; // a folder in the shared extras folder; the server stores it as the source
     file?: string; // single-file extra: the file in the source folder
-    targets: Array<{ path: string; mode: string; flatten?: boolean; extension?: string; as?: string }>;
+    targets: Array<{
+      path: string;
+      mode: string;
+      flatten?: boolean;
+      extension?: string;
+      as?: string;
+    }>;
   }) =>
     apiFetch<{ success: boolean }>('/extras', {
       method: 'POST',
@@ -31,14 +46,19 @@ export const extrasApi = {
       method: 'POST',
       body: JSON.stringify({ name }),
     }),
-  openExtensionsDir: () =>
-    apiFetch<{ path: string }>('/extensions/open', { method: 'POST' }),
+  openExtensionsDir: () => apiFetch<{ path: string }>('/extensions/open', { method: 'POST' }),
   removeExtension: (name: string) =>
     apiFetch<{ success: boolean; name: string }>(`/extensions/${encodeURIComponent(name)}`, {
       method: 'DELETE',
     }),
   // extension: undefined = leave unchanged; '' = clear; name = set (forces copy mode)
-  setExtraMode: (name: string, target: string, mode: string, flatten?: boolean, extension?: string) =>
+  setExtraMode: (
+    name: string,
+    target: string,
+    mode: string,
+    flatten?: boolean,
+    extension?: string,
+  ) =>
     apiFetch<{ success: boolean }>(`/extras/${encodeURIComponent(name)}/mode`, {
       method: 'PATCH',
       body: JSON.stringify({
@@ -48,18 +68,36 @@ export const extrasApi = {
         ...(extension !== undefined && { extension }),
       }),
     }),
-  addExtraTarget: (name: string, target: { path: string; mode?: string; flatten?: boolean; as?: string }) =>
+  addExtraTarget: (
+    name: string,
+    target: { path: string; mode?: string; flatten?: boolean; as?: string },
+  ) =>
     apiFetch<{ success: boolean }>(`/extras/${encodeURIComponent(name)}/targets`, {
       method: 'POST',
       body: JSON.stringify(target),
     }),
   previewExtraFilter: (name: string, include: string[], exclude: string[]) =>
-    apiFetch<{ files: ExtraFilterEntry[]; unmatched: string[] | null }>(`/extras/${encodeURIComponent(name)}/preview`, {
-      method: 'POST',
-      body: JSON.stringify({ include, exclude }),
-    }),
+    apiFetch<{ files: ExtraFilterEntry[]; unmatched: string[] | null }>(
+      `/extras/${encodeURIComponent(name)}/preview`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ include, exclude }),
+      },
+    ),
   // A new path or file name also clears the old place and syncs.
-  editExtraTarget: (name: string, path: string, target: { path: string; mode: string; flatten: boolean; extension: string; as: string; include: string[]; exclude: string[] }) =>
+  editExtraTarget: (
+    name: string,
+    path: string,
+    target: {
+      path: string;
+      mode: string;
+      flatten: boolean;
+      extension: string;
+      as: string;
+      include: string[];
+      exclude: string[];
+    },
+  ) =>
     apiFetch<ExtraEditResult>(`/extras/${encodeURIComponent(name)}/targets`, {
       method: 'PUT',
       body: JSON.stringify({ path, target }),

@@ -77,14 +77,18 @@ export default function StructureTree({
   if (nodes.length === 0) {
     return (
       <div className="flex flex-col gap-2">
-        <span className="text-[12px] font-semibold text-ink-3">{t('config.panel.availableFields')}</span>
+        <span className="text-[12px] font-semibold text-ink-3">
+          {t('config.panel.availableFields')}
+        </span>
         <div className="flex flex-col gap-1">
-          {Object.entries(fieldDocs).filter(([key]) => !key.includes('.')).map(([key, doc]) => (
-            <div key={key} className="flex items-baseline gap-2 text-xs">
-              <code className="font-mono font-semibold">{key}</code>
-              <span className="truncate text-ink-3">{doc.description.split('.')[0]}</span>
-            </div>
-          ))}
+          {Object.entries(fieldDocs)
+            .filter(([key]) => !key.includes('.'))
+            .map(([key, doc]) => (
+              <div key={key} className="flex items-baseline gap-2 text-xs">
+                <code className="font-mono font-semibold">{key}</code>
+                <span className="truncate text-ink-3">{doc.description.split('.')[0]}</span>
+              </div>
+            ))}
         </div>
       </div>
     );
@@ -118,9 +122,13 @@ function TreeNodeItem({
       style={{ paddingLeft: `${node.depth * 14 + 8}px` }}
       className={`ss-nv !mb-0 !h-[30px] !gap-2 !pr-2 ${active ? 'on' : ''}`}
     >
-      {node.depth > 0 && <span className={`h-1 w-1 shrink-0 rounded-full ${active ? 'bg-current' : 'bg-ink-3'}`} />}
+      {node.depth > 0 && (
+        <span className={`h-1 w-1 shrink-0 rounded-full ${active ? 'bg-current' : 'bg-ink-3'}`} />
+      )}
       <span className="shrink-0 font-mono text-[13px] font-semibold">{node.key}</span>
-      {node.value && <span className="min-w-0 flex-1 truncate font-mono text-xs text-ink-3">: {node.value}</span>}
+      {node.value && (
+        <span className="min-w-0 flex-1 truncate font-mono text-xs text-ink-3">: {node.value}</span>
+      )}
       <span className="ml-auto shrink-0 font-mono text-xs text-ink-3">L:{node.line}</span>
     </button>
   );

@@ -5,7 +5,16 @@ import { I18nProvider } from '../../i18n';
 import { ProjectTargets } from './MCPProjectSettings';
 
 const renderTargets = (value: string[] | undefined, onChange = vi.fn()) => {
-  render(<I18nProvider><ProjectTargets value={value} defaults={['claude']} offered={['claude', 'opencode', 'pi']} onChange={onChange} /></I18nProvider>);
+  render(
+    <I18nProvider>
+      <ProjectTargets
+        value={value}
+        defaults={['claude']}
+        offered={['claude', 'opencode', 'pi']}
+        onChange={onChange}
+      />
+    </I18nProvider>,
+  );
   return onChange;
 };
 
@@ -29,7 +38,10 @@ describe('project targets', () => {
     const user = userEvent.setup();
     renderTargets(undefined, vi.fn().mockResolvedValue(false));
     await user.click(screen.getByRole('checkbox', { name: /OpenCode/ }));
-    expect(screen.getByRole('checkbox', { name: /Claude/ })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('checkbox', { name: /Claude/ })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
   });
 
   it('drops a list saved by the first tick even before it comes back', async () => {
@@ -37,7 +49,9 @@ describe('project targets', () => {
     const onChange = renderTargets(undefined, vi.fn().mockResolvedValue(true));
     await user.click(screen.getByRole('checkbox', { name: /OpenCode/ }));
     await user.click(screen.getByRole('button', { name: 'Back to global' }));
-    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Use global targets' }));
+    await user.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: 'Use global targets' }),
+    );
     expect(onChange).toHaveBeenLastCalledWith(undefined);
   });
 
@@ -52,7 +66,9 @@ describe('project targets', () => {
     const user = userEvent.setup();
     const onChange = renderTargets(['opencode', 'pi']);
     await user.click(screen.getByRole('button', { name: 'Back to global' }));
-    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Use global targets' }));
+    await user.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: 'Use global targets' }),
+    );
     expect(onChange).toHaveBeenCalledWith(undefined);
   });
 });

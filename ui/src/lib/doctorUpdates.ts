@@ -7,7 +7,9 @@ export function doctorWithUpdatePolicy(data: DoctorResponse, enabled: boolean): 
   return {
     ...data,
     ...doctorFromChecks(checks),
-    version: data.version ? { current: data.version.current, dev_mode: data.version.dev_mode, update_available: false } : undefined,
+    version: data.version
+      ? { current: data.version.current, dev_mode: data.version.dev_mode, update_available: false }
+      : undefined,
   };
 }
 

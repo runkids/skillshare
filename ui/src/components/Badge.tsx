@@ -5,9 +5,21 @@ interface BadgeProps {
   dot?: boolean;
 }
 
-const variants = { default: '', success: 'ok', warning: 'warn', danger: 'bad', info: 'inf', accent: 'warn' };
+const variants = {
+  default: '',
+  success: 'ok',
+  warning: 'warn',
+  danger: 'bad',
+  info: 'inf',
+  accent: 'warn',
+};
 
-export default function Badge({ children, variant = 'default', size = 'sm', dot = false }: BadgeProps) {
+export default function Badge({
+  children,
+  variant = 'default',
+  size = 'sm',
+  dot = false,
+}: BadgeProps) {
   return (
     <span className={`ss-tag ${variants[variant]} ${size === 'md' ? 'h-[22px] px-2 text-xs' : ''}`}>
       {dot && <span className="w-1.5 h-1.5 rounded-full bg-current" />}

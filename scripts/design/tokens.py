@@ -18,8 +18,8 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[2]
 CSS_PATH = "ui/src/components.css"
-LIGHT = ':root:not([data-theme="playful"])'
-DARK = ':root:not([data-theme="playful"]).dark'
+LIGHT = ":root:not([data-theme='playful'])"
+DARK = LIGHT + ".dark"
 
 # Every Clean color variable needs a usage note here, or the export fails.
 COLOR_USAGE = {
@@ -80,7 +80,7 @@ SHADOW_USAGE = {
 
 
 def block(css, selector):
-    match = re.search(r"^" + re.escape(selector) + r" \{", css, re.M)
+    match = re.search(r"^[ \t]*" + re.escape(selector) + r" \{", css, re.M)
     if not match:
         raise ValueError(f"{CSS_PATH}: no rule for {selector}")
     return css[match.start():css.index("}", match.start())]

@@ -13,7 +13,7 @@ interface PatternSummaryProps {
 
 function getMaxSeverity(rules: CompiledRule[]): string {
   for (const sev of SEVERITY_ORDER) {
-    if (rules.some(r => r.severity === sev)) return sev;
+    if (rules.some((r) => r.severity === sev)) return sev;
   }
   return 'INFO';
 }
@@ -24,7 +24,7 @@ export default function PatternSummary({
   onTogglePattern,
   isToggling,
 }: PatternSummaryProps) {
-  const enabledCount = rules.filter(r => r.enabled).length;
+  const enabledCount = rules.filter((r) => r.enabled).length;
   const disabledCount = rules.length - enabledCount;
   const maxSeverity = getMaxSeverity(rules);
 
@@ -59,7 +59,7 @@ export default function PatternSummary({
 
       {/* Rule list */}
       <div className="space-y-0">
-        {rules.map(rule => (
+        {rules.map((rule) => (
           <div key={rule.id} className="flex items-center gap-2 py-0.5">
             <span
               className={`w-2 h-2 rounded-full flex-shrink-0 ${

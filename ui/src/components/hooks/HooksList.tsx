@@ -21,10 +21,15 @@ interface Props {
  * Event names that differ only in case (SessionStart, sessionStart) are one line.
  */
 function summaryLines(entry: HookEntry, accounts: Record<string, string>) {
-  const rows = new Map<string, { event: string; matcher: string; command: string; agents: string[] }>();
+  const rows = new Map<
+    string,
+    { event: string; matcher: string; command: string; agents: string[] }
+  >();
   for (const agent of boundAgents(entry, accounts)) {
     const binding = entry.bindings[agent] ?? entry.bindings.factory;
-    const lines = isCodeAgent(agentOfKey(accounts, agent)) ? [{ event: keyLabel(accounts, agent), matcher: '', command: '' }] : bindingLines(binding);
+    const lines = isCodeAgent(agentOfKey(accounts, agent))
+      ? [{ event: keyLabel(accounts, agent), matcher: '', command: '' }]
+      : bindingLines(binding);
     for (const line of lines) {
       const key = `${line.event.toLowerCase()}\0${line.matcher}\0${line.command}`;
       const row = rows.get(key);
@@ -39,7 +44,14 @@ function summaryLines(entry: HookEntry, accounts: Record<string, string>) {
  * One card per hook: its state, what it runs and the targets it goes to. The per-target sync state
  * is on each icon; whether a target trusts and loads the hook is that target's own call.
  */
-export default function HooksList({ entries, plan, onToggle, onMenu, disabled = false, accounts = {} }: Props) {
+export default function HooksList({
+  entries,
+  plan,
+  onToggle,
+  onMenu,
+  disabled = false,
+  accounts = {},
+}: Props) {
   const t = useT();
   // The line under the pointer lights up its own targets in the header; the rest fade.
   const [hovered, setHovered] = useState<{ name: string; agents: string[] } | null>(null);
@@ -49,52 +61,115 @@ export default function HooksList({ entries, plan, onToggle, onMenu, disabled = 
         const agents = boundAgents(entry, accounts);
         const enabled = entry.enabled !== false;
         const states = agents.map((a) => syncState(plan, name, a));
-        const status = !enabled ? t('hooks.disabled')
-          : agents.length === 0 ? t('plugins.noAgentsYet')
-            : states.includes('conflict') ? t('hooks.status.conflict')
-              : states.includes('inactive') ? t('hooks.status.inactive')
-              : states.includes('pending') ? t('plugins.pending')
-                : t('hooks.sync.synced');
+        const status = !enabled
+          ? t('hooks.disabled')
+          : agents.length === 0
+            ? t('plugins.noAgentsYet')
+            : states.includes('conflict')
+              ? t('hooks.status.conflict')
+              : states.includes('inactive')
+                ? t('hooks.status.inactive')
+                : states.includes('pending')
+                  ? t('plugins.pending')
+                  : t('hooks.sync.synced');
         const lines = summaryLines(entry, accounts);
         // Each line names its targets unless every line runs on all of them.
         const perLine = lines.some((l) => l.agents.length < agents.length);
         return (
           <article key={name} aria-label={name} className="ss-box flex flex-col gap-2.5 !p-4">
             <div className="flex items-center gap-2.5">
-              <span title={name} className={`min-w-0 truncate font-mono font-semibold ${enabled ? '' : 'text-ink-3'}`}>{name}</span>
-              <span className={`ss-tag !font-sans ${states.includes('conflict') && enabled ? 'bad' : ''}`}>
-                {enabled && states.includes('pending') && !states.includes('conflict') && <span className="h-[5px] w-[5px] rounded-full bg-ink" aria-hidden="true" />}
+              <span
+                title={name}
+                className={`min-w-0 truncate font-mono font-semibold ${enabled ? '' : 'text-ink-3'}`}
+              >
+                {name}
+              </span>
+              <span
+                className={`ss-tag !font-sans ${states.includes('conflict') && enabled ? 'bad' : ''}`}
+              >
+                {enabled && states.includes('pending') && !states.includes('conflict') && (
+                  <span className="h-[5px] w-[5px] rounded-full bg-ink" aria-hidden="true" />
+                )}
                 {status}
               </span>
               <span className="flex-1" />
               <span className={`ss-stack ${enabled ? '' : 'opacity-45 grayscale'}`}>
                 {agents.map((a, i) => (
-                  <span key={a} title={`${keyLabel(accounts, a)} · ${t(`hooks.sync.${states[i]}`)}`} className={`ss-at transition-opacity ${hovered?.name === name && !hovered.agents.includes(a) ? 'opacity-25' : ''}`}>
+                  <span
+                    key={a}
+                    title={`${keyLabel(accounts, a)} · ${t(`hooks.sync.${states[i]}`)}`}
+                    className={`ss-at transition-opacity ${hovered?.name === name && !hovered.agents.includes(a) ? 'opacity-25' : ''}`}
+                  >
                     <AgentIcon target={agentOfKey(accounts, a)} size={14} />
-                    <span className="sr-only">{keyLabel(accounts, a)} · {t(`hooks.sync.${states[i]}`)}</span>
+                    <span className="sr-only">
+                      {keyLabel(accounts, a)} · {t(`hooks.sync.${states[i]}`)}
+                    </span>
                   </span>
                 ))}
               </span>
-              <button type="button" role="switch" aria-checked={enabled} aria-label={t('hooks.enableSwitch', { name })} className="grid h-7 shrink-0 place-items-center disabled:opacity-50" disabled={disabled} onClick={() => onToggle(name, !enabled)}>
-                <span className={`ss-sw ${enabled ? 'on' : ''}`}><i /></span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={enabled}
+                aria-label={t('hooks.enableSwitch', { name })}
+                className="grid h-7 shrink-0 place-items-center disabled:opacity-50"
+                disabled={disabled}
+                onClick={() => onToggle(name, !enabled)}
+              >
+                <span className={`ss-sw ${enabled ? 'on' : ''}`}>
+                  <i />
+                </span>
               </button>
-              <button type="button" className="ss-ib" aria-label={t('hooks.moreActions', { name })} onClick={(e) => onMenu(e, name)}>
+              <button
+                type="button"
+                className="ss-ib"
+                aria-label={t('hooks.moreActions', { name })}
+                onClick={(e) => onMenu(e, name)}
+              >
                 <Ellipsis size={16} />
               </button>
             </div>
-            {entry.description && <span className="text-[13px] text-ink-2">{entry.description}</span>}
+            {entry.description && (
+              <span className="text-[13px] text-ink-2">{entry.description}</span>
+            )}
             {lines.length > 0 && (
-              <div className={`flex flex-col gap-1 border-t border-line pt-2.5 font-mono text-[12.5px] ${enabled ? '' : 'text-ink-3'}`}>
+              <div
+                className={`flex flex-col gap-1 border-t border-line pt-2.5 font-mono text-[12.5px] ${enabled ? '' : 'text-ink-3'}`}
+              >
                 {lines.map((l) => (
                   <div
                     key={`${l.event}\0${l.matcher}\0${l.command}`}
                     className={`flex min-w-0 items-baseline gap-2 ${perLine ? '-mx-2 rounded-md px-2 hover:bg-sunken' : ''}`}
-                    onMouseEnter={perLine ? () => setHovered({ name, agents: l.agents }) : undefined}
+                    onMouseEnter={
+                      perLine ? () => setHovered({ name, agents: l.agents }) : undefined
+                    }
                     onMouseLeave={perLine ? () => setHovered(null) : undefined}
                   >
-                    <span className="w-[150px] shrink-0 truncate" title={l.matcher ? `${l.event} · ${l.matcher}` : l.event}>{l.event}{l.matcher && <span className="text-ink-2"> · {l.matcher}</span>}</span>
-                    {l.command ? <><span className="shrink-0 text-ink-3">→</span><span className="min-w-0 flex-1 truncate" title={l.command}>{l.command}</span></> : <span className="flex-1 font-sans text-xs text-ink-3">{t('hooks.summary.code')}</span>}
-                    {perLine && l.agents.map((a) => <span key={a} className="sr-only">{keyLabel(accounts, a)}</span>)}
+                    <span
+                      className="w-[150px] shrink-0 truncate"
+                      title={l.matcher ? `${l.event} · ${l.matcher}` : l.event}
+                    >
+                      {l.event}
+                      {l.matcher && <span className="text-ink-2"> · {l.matcher}</span>}
+                    </span>
+                    {l.command ? (
+                      <>
+                        <span className="shrink-0 text-ink-3">→</span>
+                        <span className="min-w-0 flex-1 truncate" title={l.command}>
+                          {l.command}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="flex-1 font-sans text-xs text-ink-3">
+                        {t('hooks.summary.code')}
+                      </span>
+                    )}
+                    {perLine &&
+                      l.agents.map((a) => (
+                        <span key={a} className="sr-only">
+                          {keyLabel(accounts, a)}
+                        </span>
+                      ))}
                   </div>
                 ))}
               </div>

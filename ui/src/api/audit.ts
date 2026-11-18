@@ -1,11 +1,18 @@
 import { apiFetch, BASE, createSSEStream, kindQuery } from './http';
-import type { AuditAllResponse, AuditPolicy, AuditRulesResponse, AuditSkillResponse, CompiledRulesResponse } from './types/audit';
+import type {
+  AuditAllResponse,
+  AuditPolicy,
+  AuditRulesResponse,
+  AuditSkillResponse,
+  CompiledRulesResponse,
+} from './types/audit';
 
 export const auditApi = {
-  auditAll: (kind?: 'skills' | 'agents') =>
-    apiFetch<AuditAllResponse>(`/audit${kindQuery(kind)}`),
+  auditAll: (kind?: 'skills' | 'agents') => apiFetch<AuditAllResponse>(`/audit${kindQuery(kind)}`),
   auditSkill: (name: string, kind?: 'skill' | 'agent') =>
-    apiFetch<AuditSkillResponse>(`/audit/${encodeURIComponent(name)}${kindQuery(kind === 'agent' ? kind : undefined)}`),
+    apiFetch<AuditSkillResponse>(
+      `/audit/${encodeURIComponent(name)}${kindQuery(kind === 'agent' ? kind : undefined)}`,
+    ),
   auditAllStream: (
     onStart: (total: number) => void,
     onProgress: (scanned: number) => void,
@@ -13,11 +20,16 @@ export const auditApi = {
     onError: (err: Error) => void,
     kind?: 'skills' | 'agents',
   ): EventSource =>
-    createSSEStream(BASE + `/audit/stream${kindQuery(kind)}`, {
-      start: (d) => onStart(d.total),
-      progress: (d) => onProgress(d.scanned),
-      done: onDone,
-    }, onError, 'Audit stream failed'),
+    createSSEStream(
+      BASE + `/audit/stream${kindQuery(kind)}`,
+      {
+        start: (d) => onStart(d.total),
+        progress: (d) => onProgress(d.scanned),
+        done: onDone,
+      },
+      onError,
+      'Audit stream failed',
+    ),
   getAuditRules: () => apiFetch<AuditRulesResponse>('/audit/rules'),
   putAuditRules: (raw: string) =>
     apiFetch<{ success: boolean }>('/audit/rules', {

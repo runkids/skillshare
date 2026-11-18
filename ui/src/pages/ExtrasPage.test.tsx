@@ -17,18 +17,61 @@ vi.mock('../api/client', async (load) => {
       ...actual.api,
       listExtras: vi.fn().mockResolvedValue({
         extras: [
-          { name: 'team-rules', file: 'AGENTS.md', source_dir: '/p/.skillshare/extras/team-rules', source_type: 'per-extra', file_count: 1, source_exists: true,
-            targets: [{ path: '.', mode: 'symlink', flatten: false, status: 'synced' }] },
-          { name: 'rules', source_dir: '/p/.skillshare/extras/rules', source_type: 'per-extra', file_count: 2, source_exists: true,
-            targets: [{ path: '.claude/rules', mode: 'merge', flatten: false, status: 'synced' }] },
-          { name: 'conventions', file: 'CONVENTIONS.md', source_dir: '/p/.skillshare/extras/conventions', source_type: 'per-extra', file_count: 1, source_exists: true,
-            targets: [{ path: '.cursor', mode: 'copy', flatten: false, as: 'rules.md', status: 'synced' }] },
-          { name: 'pi-prompt', file: 'system.md', source_dir: String.raw`C:\Users\me\prompts`, source_type: 'custom', file_count: 1, source_exists: true,
-            targets: [{ path: String.raw`C:\Users\me\.pi\agent`, mode: 'copy', flatten: false, as: 'APPEND_SYSTEM.md', status: 'synced' }] },
+          {
+            name: 'team-rules',
+            file: 'AGENTS.md',
+            source_dir: '/p/.skillshare/extras/team-rules',
+            source_type: 'per-extra',
+            file_count: 1,
+            source_exists: true,
+            targets: [{ path: '.', mode: 'symlink', flatten: false, status: 'synced' }],
+          },
+          {
+            name: 'rules',
+            source_dir: '/p/.skillshare/extras/rules',
+            source_type: 'per-extra',
+            file_count: 2,
+            source_exists: true,
+            targets: [{ path: '.claude/rules', mode: 'merge', flatten: false, status: 'synced' }],
+          },
+          {
+            name: 'conventions',
+            file: 'CONVENTIONS.md',
+            source_dir: '/p/.skillshare/extras/conventions',
+            source_type: 'per-extra',
+            file_count: 1,
+            source_exists: true,
+            targets: [
+              { path: '.cursor', mode: 'copy', flatten: false, as: 'rules.md', status: 'synced' },
+            ],
+          },
+          {
+            name: 'pi-prompt',
+            file: 'system.md',
+            source_dir: String.raw`C:\Users\me\prompts`,
+            source_type: 'custom',
+            file_count: 1,
+            source_exists: true,
+            targets: [
+              {
+                path: String.raw`C:\Users\me\.pi\agent`,
+                mode: 'copy',
+                flatten: false,
+                as: 'APPEND_SYSTEM.md',
+                status: 'synced',
+              },
+            ],
+          },
         ],
       }),
       createExtra: vi.fn().mockResolvedValue({ success: true }),
-      previewExtraFilter: vi.fn().mockResolvedValue({ files: [{ file: 'index.md', status: 'synced' }, { file: 'draft.md', status: 'synced' }], unmatched: null }),
+      previewExtraFilter: vi.fn().mockResolvedValue({
+        files: [
+          { file: 'index.md', status: 'synced' },
+          { file: 'draft.md', status: 'synced' },
+        ],
+        unmatched: null,
+      }),
       editExtraTarget: vi.fn().mockResolvedValue({ success: true }),
       editExtra: vi.fn().mockResolvedValue({ success: true }),
       listExtraExtensions: vi.fn().mockResolvedValue({ extensions: [] }),
@@ -38,11 +81,18 @@ vi.mock('../api/client', async (load) => {
   };
 });
 
-const renderPage = (url = '/extras') => render(
-  <QueryClientProvider client={new QueryClient()}>
-    <I18nProvider><ToastProvider><MemoryRouter initialEntries={[url]}><ExtrasPage /></MemoryRouter></ToastProvider></I18nProvider>
-  </QueryClientProvider>,
-);
+const renderPage = (url = '/extras') =>
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <I18nProvider>
+        <ToastProvider>
+          <MemoryRouter initialEntries={[url]}>
+            <ExtrasPage />
+          </MemoryRouter>
+        </ToastProvider>
+      </I18nProvider>
+    </QueryClientProvider>,
+  );
 
 describe('Extras page in a project', () => {
   it('creates a single-file extra with its file and target file name', async () => {
@@ -98,7 +148,13 @@ describe('Extras page in a project', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Save' }));
 
     expect(api.editExtraTarget).toHaveBeenCalledWith('rules', '.claude/rules', {
-      path: '.claude/rules', mode: 'merge', flatten: false, extension: '', as: '', include: [], exclude: ['draft.md'],
+      path: '.claude/rules',
+      mode: 'merge',
+      flatten: false,
+      extension: '',
+      as: '',
+      include: [],
+      exclude: ['draft.md'],
     });
   });
 
@@ -119,7 +175,11 @@ describe('Extras page in a project', () => {
     await user.click(screen.getByRole('option', { name: /^merge/ }));
     await user.click(within(dialog).getByRole('button', { name: 'Save' }));
 
-    expect(api.editExtraTarget).toHaveBeenLastCalledWith('rules', '.claude/rules', expect.objectContaining({ mode: 'merge', flatten: false }));
+    expect(api.editExtraTarget).toHaveBeenLastCalledWith(
+      'rules',
+      '.claude/rules',
+      expect.objectContaining({ mode: 'merge', flatten: false }),
+    );
   });
 
   it('renames an extra in Edit extra', async () => {
@@ -134,5 +194,4 @@ describe('Extras page in a project', () => {
 
     expect(api.editExtra).toHaveBeenCalledWith('rules', { name: 'docs' });
   });
-
 });

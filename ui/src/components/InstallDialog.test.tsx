@@ -30,12 +30,12 @@ function renderDialog(initialTab: 'search' | 'url', onClose: () => void = () => 
   return render(
     <MemoryRouter>
       <QueryClientProvider client={queryClient}>
-      <I18nProvider>
-        <ToastProvider>
-          <InstallDialog kind="skill" initialTab={initialTab} onClose={onClose} />
-        </ToastProvider>
-      </I18nProvider>
-    </QueryClientProvider>
+        <I18nProvider>
+          <ToastProvider>
+            <InstallDialog kind="skill" initialTab={initialTab} onClose={onClose} />
+          </ToastProvider>
+        </I18nProvider>
+      </QueryClientProvider>
     </MemoryRouter>,
   );
 }
@@ -48,8 +48,18 @@ describe('InstallDialog', () => {
   });
 
   it('installs only the skills left selected after discovery', async () => {
-    vi.mocked(api.discover).mockResolvedValue({ needsSelection: true, skills: [{ name: 'pdf', path: 'pdf' }, { name: 'docx', path: 'docx' }], agents: [] });
-    vi.mocked(api.installBatch).mockResolvedValue({ results: [{ name: 'docx', action: 'installed' }], summary: 'Installed 1' });
+    vi.mocked(api.discover).mockResolvedValue({
+      needsSelection: true,
+      skills: [
+        { name: 'pdf', path: 'pdf' },
+        { name: 'docx', path: 'docx' },
+      ],
+      agents: [],
+    });
+    vi.mocked(api.installBatch).mockResolvedValue({
+      results: [{ name: 'docx', action: 'installed' }],
+      summary: 'Installed 1',
+    });
     const user = userEvent.setup();
     renderDialog('url');
 
@@ -58,16 +68,38 @@ describe('InstallDialog', () => {
     await user.click(await screen.findByRole('checkbox', { name: 'pdf' }));
     await user.click(screen.getByRole('button', { name: /install 1 skill$/i }));
 
-    await waitFor(() => expect(api.installBatch).toHaveBeenCalledWith(
-      expect.objectContaining({ source: 'anthropics/skills', skills: [expect.objectContaining({ name: 'docx' })] }),
-    ));
+    await waitFor(() =>
+      expect(api.installBatch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          source: 'anthropics/skills',
+          skills: [expect.objectContaining({ name: 'docx' })],
+        }),
+      ),
+    );
   });
 
   it('leaves a skill unselected when it is installed under the source the server records for its host', async () => {
     vi.mocked(api.listSkills).mockResolvedValue({
-      resources: [{ name: 'pdf', kind: 'skill', flatName: 'pdf', relPath: 'pdf', sourcePath: '/s/pdf', isInRepo: false, source: 'https://gitlab.com/team/skills.git/pdf' }],
+      resources: [
+        {
+          name: 'pdf',
+          kind: 'skill',
+          flatName: 'pdf',
+          relPath: 'pdf',
+          sourcePath: '/s/pdf',
+          isInRepo: false,
+          source: 'https://gitlab.com/team/skills.git/pdf',
+        },
+      ],
     });
-    vi.mocked(api.discover).mockResolvedValue({ needsSelection: true, skills: [{ name: 'pdf', path: 'pdf' }, { name: 'docx', path: 'docx' }], agents: [] });
+    vi.mocked(api.discover).mockResolvedValue({
+      needsSelection: true,
+      skills: [
+        { name: 'pdf', path: 'pdf' },
+        { name: 'docx', path: 'docx' },
+      ],
+      agents: [],
+    });
     const user = userEvent.setup();
     renderDialog('url');
 
@@ -79,8 +111,15 @@ describe('InstallDialog', () => {
   });
 
   it('reports a kept skill as already installed, not as installed', async () => {
-    vi.mocked(api.discover).mockResolvedValue({ needsSelection: true, skills: [{ name: 'deploy', path: 'deploy' }], agents: [] });
-    vi.mocked(api.installBatch).mockResolvedValue({ results: [{ name: 'deploy', action: 'skipped' }], summary: 'Installed 0 of 1 skills' });
+    vi.mocked(api.discover).mockResolvedValue({
+      needsSelection: true,
+      skills: [{ name: 'deploy', path: 'deploy' }],
+      agents: [],
+    });
+    vi.mocked(api.installBatch).mockResolvedValue({
+      results: [{ name: 'deploy', action: 'skipped' }],
+      summary: 'Installed 0 of 1 skills',
+    });
     const onClose = vi.fn();
     const user = userEvent.setup();
     renderDialog('url', onClose);
@@ -94,16 +133,26 @@ describe('InstallDialog', () => {
   });
 
   it('force installs only the skill the audit blocked', async () => {
-    vi.mocked(api.discover).mockResolvedValue({ needsSelection: true, skills: [{ name: 'deploy', path: 'deploy' }], agents: [] });
+    vi.mocked(api.discover).mockResolvedValue({
+      needsSelection: true,
+      skills: [{ name: 'deploy', path: 'deploy' }],
+      agents: [],
+    });
     vi.mocked(api.installBatch)
       .mockResolvedValueOnce({
-        results: [{
-          name: 'deploy',
-          error: 'security audit failed — findings at/above HIGH detected:\n  HIGH: Downloads and runs a remote script (scripts/setup.sh:14)\n    "curl x | sh"\n\nUse --force to override',
-        }],
+        results: [
+          {
+            name: 'deploy',
+            error:
+              'security audit failed — findings at/above HIGH detected:\n  HIGH: Downloads and runs a remote script (scripts/setup.sh:14)\n    "curl x | sh"\n\nUse --force to override',
+          },
+        ],
         summary: '',
       })
-      .mockResolvedValueOnce({ results: [{ name: 'deploy', action: 'installed' }], summary: 'Installed 1' });
+      .mockResolvedValueOnce({
+        results: [{ name: 'deploy', action: 'installed' }],
+        summary: 'Installed 1',
+      });
     const user = userEvent.setup();
     renderDialog('url');
 
@@ -113,9 +162,14 @@ describe('InstallDialog', () => {
     expect(await screen.findByText('Downloads and runs a remote script')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /force install/i }));
 
-    await waitFor(() => expect(api.installBatch).toHaveBeenLastCalledWith(
-      expect.objectContaining({ force: true, skills: [expect.objectContaining({ name: 'deploy' })] }),
-    ));
+    await waitFor(() =>
+      expect(api.installBatch).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          force: true,
+          skills: [expect.objectContaining({ name: 'deploy' })],
+        }),
+      ),
+    );
   });
 
   it('reports an empty source instead of installing it when Find skills discovers nothing', async () => {
@@ -126,22 +180,43 @@ describe('InstallDialog', () => {
     await user.type(screen.getByLabelText(/git url/i), 'acme/notes');
     await user.click(screen.getByRole('button', { name: /find skills/i }));
 
-    expect(await screen.findByText('No skills or agents found in acme/notes. Nothing was installed.')).toBeInTheDocument();
+    expect(
+      await screen.findByText('No skills or agents found in acme/notes. Nothing was installed.'),
+    ).toBeInTheDocument();
     expect(api.install).not.toHaveBeenCalled();
   });
 
   it('installs just the skill a hub entry names', async () => {
-    vi.mocked(api.getHubConfig).mockResolvedValue({ hubs: [{ label: 'Acme', url: 'https://acme.dev/hub.json' }], default: 'Acme' });
+    vi.mocked(api.getHubConfig).mockResolvedValue({
+      hubs: [{ label: 'Acme', url: 'https://acme.dev/hub.json' }],
+      default: 'Acme',
+    });
     vi.mocked(api.searchHub).mockResolvedValue({
-      results: [{ name: 'pdf', description: 'Read PDFs', source: 'anthropics/skills', skill: 'pdf', stars: 0, owner: 'anthropics', repo: 'skills' }],
+      results: [
+        {
+          name: 'pdf',
+          description: 'Read PDFs',
+          source: 'anthropics/skills',
+          skill: 'pdf',
+          stars: 0,
+          owner: 'anthropics',
+          repo: 'skills',
+        },
+      ],
     });
     vi.mocked(api.discover).mockResolvedValue({
       needsSelection: true,
-      skills: [{ name: 'pdf', path: 'pdf' }, { name: 'docx', path: 'docx' }],
+      skills: [
+        { name: 'pdf', path: 'pdf' },
+        { name: 'docx', path: 'docx' },
+      ],
       agents: [],
       warnings: ['skipped git submodule "vendor/up"'],
     });
-    vi.mocked(api.installBatch).mockResolvedValue({ results: [{ name: 'pdf', action: 'installed' }], summary: 'Installed 1' });
+    vi.mocked(api.installBatch).mockResolvedValue({
+      results: [{ name: 'pdf', action: 'installed' }],
+      summary: 'Installed 1',
+    });
     const user = userEvent.setup();
     renderDialog('search');
 
@@ -149,20 +224,48 @@ describe('InstallDialog', () => {
     await user.type(screen.getByLabelText(/search skills/i), 'pdf{Enter}');
     await user.click(await screen.findByRole('button', { name: /^install$/i }));
 
-    await waitFor(() => expect(api.installBatch).toHaveBeenCalledWith(
-      expect.objectContaining({ source: 'anthropics/skills', skills: [expect.objectContaining({ name: 'pdf' })] }),
-    ));
+    await waitFor(() =>
+      expect(api.installBatch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          source: 'anthropics/skills',
+          skills: [expect.objectContaining({ name: 'pdf' })],
+        }),
+      ),
+    );
     expect(api.searchHub).toHaveBeenCalledWith('pdf', 'https://acme.dev/hub.json');
     expect(screen.getByText(/skipped git submodule "vendor\/up"/)).toBeInTheDocument();
   });
 
   it('shows a hub entry as installed when its skill is recorded under the source the server writes for its host', async () => {
     vi.mocked(api.listSkills).mockResolvedValue({
-      resources: [{ name: 'pdf', kind: 'skill', flatName: 'pdf', relPath: 'pdf', sourcePath: '/s/pdf', isInRepo: false, source: 'https://gitlab.com/team/skills.git/pdf' }],
+      resources: [
+        {
+          name: 'pdf',
+          kind: 'skill',
+          flatName: 'pdf',
+          relPath: 'pdf',
+          sourcePath: '/s/pdf',
+          isInRepo: false,
+          source: 'https://gitlab.com/team/skills.git/pdf',
+        },
+      ],
     });
-    vi.mocked(api.getHubConfig).mockResolvedValue({ hubs: [{ label: 'Acme', url: 'https://acme.dev/hub.json' }], default: 'Acme' });
+    vi.mocked(api.getHubConfig).mockResolvedValue({
+      hubs: [{ label: 'Acme', url: 'https://acme.dev/hub.json' }],
+      default: 'Acme',
+    });
     vi.mocked(api.searchHub).mockResolvedValue({
-      results: [{ name: 'pdf', description: 'Read PDFs', source: 'https://gitlab.com/team/skills', skill: 'pdf', stars: 0, owner: 'team', repo: 'skills' }],
+      results: [
+        {
+          name: 'pdf',
+          description: 'Read PDFs',
+          source: 'https://gitlab.com/team/skills',
+          skill: 'pdf',
+          stars: 0,
+          owner: 'team',
+          repo: 'skills',
+        },
+      ],
     });
     const user = userEvent.setup();
     renderDialog('search');
@@ -176,11 +279,22 @@ describe('InstallDialog', () => {
 
   it('sends the folder picked from the existing ones as `into`', async () => {
     vi.mocked(api.listSkills).mockResolvedValue({
-      resources: [{ name: 'demo', kind: 'skill', flatName: 'frontend__demo', relPath: 'frontend/demo', sourcePath: '/s/frontend/demo', isInRepo: false }],
+      resources: [
+        {
+          name: 'demo',
+          kind: 'skill',
+          flatName: 'frontend__demo',
+          relPath: 'frontend/demo',
+          sourcePath: '/s/frontend/demo',
+          isInRepo: false,
+        },
+      ],
     });
     // jsdom has no scrollIntoView, which the dropdown calls on its focused option.
     HTMLElement.prototype.scrollIntoView = vi.fn();
-    vi.mocked(api.install).mockResolvedValue({ skillName: 'team' } as Awaited<ReturnType<typeof api.install>>);
+    vi.mocked(api.install).mockResolvedValue({ skillName: 'team' } as Awaited<
+      ReturnType<typeof api.install>
+    >);
     const user = userEvent.setup();
     renderDialog('url');
 
@@ -191,14 +305,29 @@ describe('InstallDialog', () => {
     await user.click(await screen.findByRole('option', { name: /^frontend/ }));
     await user.click(screen.getByRole('button', { name: /install repo/i }));
 
-    await waitFor(() => expect(api.install).toHaveBeenCalledWith(expect.objectContaining({ source: 'acme/team-skills', into: 'frontend' })));
+    await waitFor(() =>
+      expect(api.install).toHaveBeenCalledWith(
+        expect.objectContaining({ source: 'acme/team-skills', into: 'frontend' }),
+      ),
+    );
   });
 
   it('makes a new folder in the picked folder through the new-folder step', async () => {
     vi.mocked(api.listSkills).mockResolvedValue({
-      resources: [{ name: 'demo', kind: 'skill', flatName: 'frontend__demo', relPath: 'frontend/demo', sourcePath: '/s/frontend/demo', isInRepo: false }],
+      resources: [
+        {
+          name: 'demo',
+          kind: 'skill',
+          flatName: 'frontend__demo',
+          relPath: 'frontend/demo',
+          sourcePath: '/s/frontend/demo',
+          isInRepo: false,
+        },
+      ],
     });
-    vi.mocked(api.install).mockResolvedValue({ skillName: 'team' } as Awaited<ReturnType<typeof api.install>>);
+    vi.mocked(api.install).mockResolvedValue({ skillName: 'team' } as Awaited<
+      ReturnType<typeof api.install>
+    >);
     HTMLElement.prototype.scrollIntoView = vi.fn();
     const user = userEvent.setup();
     renderDialog('url');
@@ -217,7 +346,11 @@ describe('InstallDialog', () => {
     await user.click(screen.getByRole('button', { name: /use this folder/i }));
     await user.click(screen.getByRole('button', { name: /install repo/i }));
 
-    await waitFor(() => expect(api.install).toHaveBeenCalledWith(expect.objectContaining({ into: 'frontend/office' })));
+    await waitFor(() =>
+      expect(api.install).toHaveBeenCalledWith(
+        expect.objectContaining({ into: 'frontend/office' }),
+      ),
+    );
   });
 
   it('keeps "Use this folder" disabled while the name is not a legal folder name', async () => {

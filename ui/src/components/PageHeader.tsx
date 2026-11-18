@@ -18,7 +18,15 @@ interface PageHeaderProps {
   mono?: boolean;
 }
 
-export default function PageHeader({ title, subtitle, actions, className = '', backTo, crumbs, mono }: PageHeaderProps) {
+export default function PageHeader({
+  title,
+  subtitle,
+  actions,
+  className = '',
+  backTo,
+  crumbs,
+  mono,
+}: PageHeaderProps) {
   const t = useT();
   return (
     <div className={`ss-pgh flex flex-col gap-3 ${className}`}>
@@ -34,9 +42,13 @@ export default function PageHeader({ title, subtitle, actions, className = '', b
             <Fragment key={i}>
               {i > 0 && <ChevronRight size={13} />}
               {c.to ? (
-                <Link to={c.to} className="hover:text-ink">{c.label}</Link>
+                <Link to={c.to} className="hover:text-ink">
+                  {c.label}
+                </Link>
               ) : c.onClick ? (
-                <button type="button" className="cursor-pointer hover:text-ink" onClick={c.onClick}>{c.label}</button>
+                <button type="button" className="cursor-pointer hover:text-ink" onClick={c.onClick}>
+                  {c.label}
+                </button>
               ) : (
                 <span aria-current="page">{c.label}</span>
               )}
@@ -46,7 +58,9 @@ export default function PageHeader({ title, subtitle, actions, className = '', b
       )}
       <div className="ss-ph">
         <div className="tt min-w-0">
-          <h1 className="ss-h1"><span className={mono ? 'm' : undefined}>{title}</span></h1>
+          <h1 className="ss-h1">
+            <span className={mono ? 'm' : undefined}>{title}</span>
+          </h1>
           {subtitle && <p>{subtitle}</p>}
         </div>
         {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}

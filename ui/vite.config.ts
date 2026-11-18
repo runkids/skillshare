@@ -1,14 +1,14 @@
 /// <reference types="vitest/config" />
 
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import tailwindcss from '@tailwindcss/vite'
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
 
 // The devcontainer runs the API on its own port to stay clear of other projects.
-const API = `http://localhost:${process.env.SKILLSHARE_API_PORT || 19420}`
+const API = `http://localhost:${process.env.SKILLSHARE_API_PORT || 19420}`;
 
 // SSE endpoints need explicit Accept header to prevent Vite proxy from buffering responses.
-const SSE_PROXY = { target: API, headers: { Accept: 'text/event-stream' } }
+const SSE_PROXY = { target: API, headers: { Accept: 'text/event-stream' } };
 
 export default defineConfig({
   base: './',
@@ -31,9 +31,7 @@ export default defineConfig({
     // changes when CHOKIDAR_USEPOLLING is set (the devcontainer sets it); the
     // host and CI keep faster native watching.
     watch:
-      process.env.CHOKIDAR_USEPOLLING === 'true'
-        ? { usePolling: true, interval: 300 }
-        : undefined,
+      process.env.CHOKIDAR_USEPOLLING === 'true' ? { usePolling: true, interval: 300 } : undefined,
     proxy: {
       '/api/audit/stream': SSE_PROXY,
       '/api/update/stream': SSE_PROXY,
@@ -82,4 +80,4 @@ export default defineConfig({
       },
     },
   },
-})
+});

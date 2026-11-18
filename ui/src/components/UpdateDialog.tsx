@@ -22,7 +22,10 @@ const mockData: VersionCheck = {
   skillUpdateAvailable: true,
 };
 
-export default function UpdateDialog({ manualData, onDismiss }: { manualData?: VersionCheck; onDismiss?: () => void } = {}) {
+export default function UpdateDialog({
+  manualData,
+  onDismiss,
+}: { manualData?: VersionCheck; onDismiss?: () => void } = {}) {
   const t = useT();
   const policy = useUpdatePolicy();
   const [open, setOpen] = useState(false);
@@ -41,14 +44,20 @@ export default function UpdateDialog({ manualData, onDismiss }: { manualData?: V
 
   const data = manualData ?? (isMockMode ? mockData : realData);
   // Dev builds always report a simulated update; stay quiet unless ?update-test asks for the flow.
-  const hasUpdate = (!!manualData || isMockMode || policy.data?.enabled === true) && (!!manualData || data?.autoCheckEnabled !== false) && (!!manualData || !data?.cliDevMode) && (data?.cliUpdateAvailable || data?.skillUpdateAvailable);
+  const hasUpdate =
+    (!!manualData || isMockMode || policy.data?.enabled === true) &&
+    (!!manualData || data?.autoCheckEnabled !== false) &&
+    (!!manualData || !data?.cliDevMode) &&
+    (data?.cliUpdateAvailable || data?.skillUpdateAvailable);
 
   useEffect(() => {
     if (!hasUpdate) return;
     if (!isMockMode && !manualData) {
       try {
         if (sessionStorage.getItem(DISMISSED_KEY)) return;
-      } catch { /* storage unavailable */ }
+      } catch {
+        /* storage unavailable */
+      }
     }
     setOpen(true);
   }, [hasUpdate, isMockMode, manualData]);
@@ -60,7 +69,9 @@ export default function UpdateDialog({ manualData, onDismiss }: { manualData?: V
     setOpen(false);
     onDismiss?.();
     if (manualData) return;
-    try { sessionStorage.setItem(DISMISSED_KEY, '1'); } catch {
+    try {
+      sessionStorage.setItem(DISMISSED_KEY, '1');
+    } catch {
       // Ignore storage access failures.
     }
   };
@@ -86,7 +97,13 @@ export default function UpdateDialog({ manualData, onDismiss }: { manualData?: V
         await new Promise((resolve) => setTimeout(resolve, 500));
       }
     }
-    setStatus(t('updateDialog.restartManual', {}, 'Updated. Restart with skillshare ui start if this page does not reconnect.'));
+    setStatus(
+      t(
+        'updateDialog.restartManual',
+        {},
+        'Updated. Restart with skillshare ui start if this page does not reconnect.',
+      ),
+    );
     setUpdating(false);
   };
 
@@ -114,10 +131,23 @@ export default function UpdateDialog({ manualData, onDismiss }: { manualData?: V
   };
 
   return (
-    <DialogShell open={open} onClose={dismiss} maxWidth="md" padding="none" preventClose={updating} ariaLabel={t('updateDialog.newVersion')}>
+    <DialogShell
+      open={open}
+      onClose={dismiss}
+      maxWidth="md"
+      padding="none"
+      preventClose={updating}
+      ariaLabel={t('updateDialog.newVersion')}
+    >
       <div className="dh">
         <h2 className="ss-h2">{t('updateDialog.newVersion')}</h2>
-        <button type="button" className="ss-ib" onClick={dismiss} aria-label={t('common.close')} disabled={updating}>
+        <button
+          type="button"
+          className="ss-ib"
+          onClick={dismiss}
+          aria-label={t('common.close')}
+          disabled={updating}
+        >
           <X size={16} />
         </button>
       </div>
@@ -126,13 +156,17 @@ export default function UpdateDialog({ manualData, onDismiss }: { manualData?: V
           {data.cliUpdateAvailable && (
             <>
               <dt>CLI</dt>
-              <dd className="font-mono">{data.cliVersion} → <b>{data.cliLatest}</b></dd>
+              <dd className="font-mono">
+                {data.cliVersion} → <b>{data.cliLatest}</b>
+              </dd>
             </>
           )}
           {data.skillUpdateAvailable && (
             <>
               <dt>Skill</dt>
-              <dd className="font-mono">{data.skillVersion} → <b>{data.skillLatest}</b></dd>
+              <dd className="font-mono">
+                {data.skillVersion} → <b>{data.skillLatest}</b>
+              </dd>
             </>
           )}
         </dl>
@@ -148,7 +182,9 @@ export default function UpdateDialog({ manualData, onDismiss }: { manualData?: V
           {nixNote && <p className="text-[13px] text-ink-2">{nixNote}</p>}
         </div>
         <p className="text-[13px] text-ink-2">{t('updateDialog.restartNote')}</p>
-        {status && <p className={`text-[13px] ${updating ? 'text-ink-2' : 'text-bad'}`}>{status}</p>}
+        {status && (
+          <p className={`text-[13px] ${updating ? 'text-ink-2' : 'text-bad'}`}>{status}</p>
+        )}
       </div>
       <div className="df">
         <Button variant="ghost" onClick={dismiss} disabled={updating}>

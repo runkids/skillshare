@@ -10,13 +10,13 @@ describe('computeLineDiff', () => {
 
   it('detects added lines', () => {
     const result = computeLineDiff('foo\n', 'foo\nbar\n');
-    expect(result.lines.some(l => l.type === 'add')).toBe(true);
+    expect(result.lines.some((l) => l.type === 'add')).toBe(true);
     expect(result.changeCount).toBeGreaterThan(0);
   });
 
   it('detects removed lines', () => {
     const result = computeLineDiff('foo\nbar\n', 'foo\n');
-    expect(result.lines.some(l => l.type === 'remove')).toBe(true);
+    expect(result.lines.some((l) => l.type === 'remove')).toBe(true);
   });
 
   it('detects changed lines', () => {

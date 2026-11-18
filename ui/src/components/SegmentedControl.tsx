@@ -22,7 +22,13 @@ interface SegmentedControlProps<T extends string> {
   className?: string;
 }
 
-export default function SegmentedControl<T extends string>({ value, onChange, options, colorFn, className = '' }: SegmentedControlProps<T>) {
+export default function SegmentedControl<T extends string>({
+  value,
+  onChange,
+  options,
+  colorFn,
+  className = '',
+}: SegmentedControlProps<T>) {
   return (
     <div ref={segSlide} className={`ss-seg flex-wrap ${className}`}>
       {options.map((opt) => {

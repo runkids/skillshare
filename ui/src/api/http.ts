@@ -45,28 +45,36 @@ function defaultErrorCode(status: number): string {
   }
 }
 
-export function parseApiErrorPayload(data: any, status: number, statusText: string): ParsedApiError {
+export function parseApiErrorPayload(
+  data: any,
+  status: number,
+  statusText: string,
+): ParsedApiError {
   const rawError = data?.error;
   if (rawError && typeof rawError === 'object') {
     const code = typeof rawError.code === 'string' ? rawError.code : defaultErrorCode(status);
-    const message = typeof rawError.message === 'string' ? rawError.message : statusText || 'Request failed';
-    const params = rawError.params && typeof rawError.params === 'object'
-      ? rawError.params as Record<string, unknown>
-      : undefined;
+    const message =
+      typeof rawError.message === 'string' ? rawError.message : statusText || 'Request failed';
+    const params =
+      rawError.params && typeof rawError.params === 'object'
+        ? (rawError.params as Record<string, unknown>)
+        : undefined;
     return { code, message, params };
   }
 
   const message = typeof rawError === 'string' ? rawError : statusText || 'Request failed';
-  const code = typeof data?.error_code === 'string'
-    ? data.error_code
-    : typeof data?.code === 'string'
-      ? data.code
-      : defaultErrorCode(status);
-  const params = data?.error_params && typeof data.error_params === 'object'
-    ? data.error_params as Record<string, unknown>
-    : data?.params && typeof data.params === 'object'
-      ? data.params as Record<string, unknown>
-      : undefined;
+  const code =
+    typeof data?.error_code === 'string'
+      ? data.error_code
+      : typeof data?.code === 'string'
+        ? data.code
+        : defaultErrorCode(status);
+  const params =
+    data?.error_params && typeof data.error_params === 'object'
+      ? (data.error_params as Record<string, unknown>)
+      : data?.params && typeof data.params === 'object'
+        ? (data.params as Record<string, unknown>)
+        : undefined;
   return { code, message, params };
 }
 
@@ -89,9 +97,13 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   }
   const text = await res.text();
   if (!text) {
-    throw new ApiError(res.status || 502, 'Empty response from server (request may have timed out)', {
-      code: 'empty_response',
-    });
+    throw new ApiError(
+      res.status || 502,
+      'Empty response from server (request may have timed out)',
+      {
+        code: 'empty_response',
+      },
+    );
   }
   let data: any;
   try {
@@ -145,7 +157,11 @@ export function createSSEStream(
     const data = (e as MessageEvent).data;
     let reason: unknown;
     if (typeof data === 'string') {
-      try { reason = JSON.parse(data)?.error; } catch { /* not JSON: use the fallback message */ }
+      try {
+        reason = JSON.parse(data)?.error;
+      } catch {
+        /* not JSON: use the fallback message */
+      }
     }
     onError(new Error(typeof reason === 'string' && reason ? reason : errorMessage));
   });

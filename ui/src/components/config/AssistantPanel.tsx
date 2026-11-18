@@ -61,11 +61,15 @@ export default function AssistantPanel({
     return (
       <div className="ss-box flex flex-col gap-3.5 !p-3.5">
         <div className="flex items-center justify-between gap-3">
-          <span className="text-[13px] font-semibold">{t(agents ? 'config.ignore.ignoredAgents' : 'config.ignore.ignoredSkills')}</span>
+          <span className="text-[13px] font-semibold">
+            {t(agents ? 'config.ignore.ignoredAgents' : 'config.ignore.ignoredSkills')}
+          </span>
           <span className="text-xs text-ink-3">{items.length}</span>
         </div>
         {items.length === 0 ? (
-          <p className="text-[13px] text-ink-3">{t(agents ? 'config.ignore.noneAgents' : 'config.ignore.noneSkills')}</p>
+          <p className="text-[13px] text-ink-3">
+            {t(agents ? 'config.ignore.noneAgents' : 'config.ignore.noneSkills')}
+          </p>
         ) : (
           <div className="ss-list !shadow-none max-h-[420px] overflow-y-auto">
             {items.map((item) => (
@@ -92,8 +96,11 @@ export default function AssistantPanel({
           <span className={`ss-st ${errorCount > 0 ? 'bad' : 'warn'}`}>
             {[
               errorCount > 0 && t(plural('config.panel.errors', errorCount), { count: errorCount }),
-              warningCount > 0 && t(plural('config.panel.warnings', warningCount), { count: warningCount }),
-            ].filter(Boolean).join(', ')}
+              warningCount > 0 &&
+                t(plural('config.panel.warnings', warningCount), { count: warningCount }),
+            ]
+              .filter(Boolean)
+              .join(', ')}
           </span>
         )}
         <span className="text-xs text-ink-3">
@@ -114,18 +121,39 @@ export default function AssistantPanel({
         </>
       ) : (
         <>
-          <div ref={segSlide} className="ss-seg w-full [&>*]:flex-1 [&>*]:justify-center [&>*]:!px-2" role="radiogroup" aria-label={t('settings.tab.files')}>
+          <div
+            ref={segSlide}
+            className="ss-seg w-full [&>*]:flex-1 [&>*]:justify-center [&>*]:!px-2"
+            role="radiogroup"
+            aria-label={t('settings.tab.files')}
+          >
             {VIEWS.map((v) => (
-              <button key={v} type="button" role="radio" aria-checked={view === v} className={view === v ? 'on' : ''} onClick={() => setView(v)}>
+              <button
+                key={v}
+                type="button"
+                role="radio"
+                aria-checked={view === v}
+                className={view === v ? 'on' : ''}
+                onClick={() => setView(v)}
+              >
                 {t(`config.panel.tab.${v}`)}
               </button>
             ))}
           </div>
           <div className="max-h-[420px] overflow-y-auto">
             {view === 'field' ? (
-              fieldPath ? <FieldDocs fieldPath={fieldPath} /> : <p className="text-[13px] text-ink-3">{t('config.panel.fieldHint')}</p>
+              fieldPath ? (
+                <FieldDocs fieldPath={fieldPath} />
+              ) : (
+                <p className="text-[13px] text-ink-3">{t('config.panel.fieldHint')}</p>
+              )
             ) : view === 'structure' ? (
-              <StructureTree source={source} cursorLine={cursorLine} parseError={false} onClickNode={jumpToLine} />
+              <StructureTree
+                source={source}
+                cursorLine={cursorLine}
+                parseError={false}
+                onClickNode={jumpToLine}
+              />
             ) : (
               <DiffPreview diff={diff} onClickLine={jumpToLine} onRevert={onRevert} />
             )}

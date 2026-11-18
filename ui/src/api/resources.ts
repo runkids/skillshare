@@ -1,32 +1,58 @@
 import { apiFetch, kindQuery } from './http';
-import type { BatchToggleResult, MoveRequest, MoveResult, BatchUninstallRequest, BatchUninstallResult, CollectResult, CollectScanResult, CreateSkillRequest, CreateSkillResponse, Overview, LinkedRepo, LocalFileChange, Skill, SkillFileContent, SourceLink, SourceLinkRequest, SourceLinkResult, TemplatesResponse } from './types/resources';
+import type {
+  BatchToggleResult,
+  MoveRequest,
+  MoveResult,
+  BatchUninstallRequest,
+  BatchUninstallResult,
+  CollectResult,
+  CollectScanResult,
+  CreateSkillRequest,
+  CreateSkillResponse,
+  Overview,
+  LinkedRepo,
+  LocalFileChange,
+  Skill,
+  SkillFileContent,
+  SourceLink,
+  SourceLinkRequest,
+  SourceLinkResult,
+  TemplatesResponse,
+} from './types/resources';
 
 export const resourcesApi = {
   createSourceLink: (body: SourceLinkRequest) =>
     apiFetch<SourceLinkResult>('/source-links', { method: 'POST', body: JSON.stringify(body) }),
   removeSourceLink: (name: string) =>
-    apiFetch<{ success: boolean; name: string; warning?: string }>(`/source-links/${encodeURIComponent(name)}`, { method: 'DELETE' }),
+    apiFetch<{ success: boolean; name: string; warning?: string }>(
+      `/source-links/${encodeURIComponent(name)}`,
+      { method: 'DELETE' },
+    ),
   getOverview: () => apiFetch<Overview>('/overview'),
   listSkills: (kind?: 'skill' | 'agent') =>
-    apiFetch<{ resources: Skill[]; sourceLinks?: SourceLink[]; sourceLinkWarnings?: string[]; linked_repos?: LinkedRepo[] }>(`/resources${kindQuery(kind)}`),
+    apiFetch<{
+      resources: Skill[];
+      sourceLinks?: SourceLink[];
+      sourceLinkWarnings?: string[];
+      linked_repos?: LinkedRepo[];
+    }>(`/resources${kindQuery(kind)}`),
   getResource: (name: string, kind?: 'skill' | 'agent') =>
     apiFetch<{ resource: Skill; skillMdContent: string; files: string[] }>(
-      `/resources/${encodeURIComponent(name)}${kindQuery(kind)}`
+      `/resources/${encodeURIComponent(name)}${kindQuery(kind)}`,
     ),
   deleteResource: (name: string, kind?: 'skill' | 'agent') =>
-    apiFetch<{ success: boolean }>(
-      `/resources/${encodeURIComponent(name)}${kindQuery(kind)}`,
-      { method: 'DELETE' }
-    ),
+    apiFetch<{ success: boolean }>(`/resources/${encodeURIComponent(name)}${kindQuery(kind)}`, {
+      method: 'DELETE',
+    }),
   disableResource: (name: string, kind?: 'skill' | 'agent') =>
     apiFetch<{ success: boolean; name: string; disabled: boolean }>(
       `/resources/${encodeURIComponent(name)}/disable${kindQuery(kind)}`,
-      { method: 'POST' }
+      { method: 'POST' },
     ),
   enableResource: (name: string, kind?: 'skill' | 'agent') =>
     apiFetch<{ success: boolean; name: string; disabled: boolean }>(
       `/resources/${encodeURIComponent(name)}/enable${kindQuery(kind)}`,
-      { method: 'POST' }
+      { method: 'POST' },
     ),
   batchUninstall: (opts: BatchUninstallRequest) =>
     apiFetch<BatchUninstallResult>('/uninstall/batch', {
@@ -72,7 +98,10 @@ export const resourcesApi = {
     }),
   // Repo uninstall
   deleteRepo: (name: string, force = false, recordOnly = false) =>
-    apiFetch<{ success: boolean; name: string; movedToTrash: boolean }>(`/repos/${encodeURIComponent(name)}${force ? '?force=true' : ''}${recordOnly ? `${force ? '&' : '?'}recordOnly=true` : ''}`, { method: 'DELETE' }),
+    apiFetch<{ success: boolean; name: string; movedToTrash: boolean }>(
+      `/repos/${encodeURIComponent(name)}${force ? '?force=true' : ''}${recordOnly ? `${force ? '&' : '?'}recordOnly=true` : ''}`,
+      { method: 'DELETE' },
+    ),
   // Skill file content
   getSkillFile: (skillName: string, filepath: string) =>
     apiFetch<SkillFileContent>(`/resources/${encodeURIComponent(skillName)}/files/${filepath}`),
@@ -100,16 +129,13 @@ export const resourcesApi = {
       },
     ),
   // Launch an external editor (VS Code / Cursor / $EDITOR) against the skill file.
-  openSkillInEditor: (
-    name: string,
-    opts?: { editor?: string; kind?: 'skill' | 'agent' }
-  ) =>
+  openSkillInEditor: (name: string, opts?: { editor?: string; kind?: 'skill' | 'agent' }) =>
     apiFetch<{ editor: string; path: string; pid: number }>(
       `/resources/${encodeURIComponent(name)}/open-in-editor${kindQuery(opts?.kind)}`,
       {
         method: 'POST',
         body: JSON.stringify({ editor: opts?.editor ?? 'auto' }),
-      }
+      },
     ),
   collectScan: (target?: string, kind?: 'skill' | 'agent') => {
     const params = new URLSearchParams();
@@ -118,7 +144,10 @@ export const resourcesApi = {
     const qs = params.toString();
     return apiFetch<CollectScanResult>(`/collect/scan${qs ? '?' + qs : ''}`);
   },
-  collect: (opts: { skills: { name: string; targetName: string; kind?: string }[]; force?: boolean }) =>
+  collect: (opts: {
+    skills: { name: string; targetName: string; kind?: string }[];
+    force?: boolean;
+  }) =>
     apiFetch<CollectResult>('/collect', {
       method: 'POST',
       body: JSON.stringify(opts),

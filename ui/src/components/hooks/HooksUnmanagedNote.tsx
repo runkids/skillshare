@@ -5,7 +5,13 @@ import Button from '../Button';
 import { hookLabel } from './hooksView';
 
 /** Hooks already in target files that Skillshare does not manage yet, one line per target. Hidden when there are none. */
-export default function HooksUnmanagedNote({ entries, onImport }: { entries: HookUnmanaged[]; onImport: () => void }) {
+export default function HooksUnmanagedNote({
+  entries,
+  onImport,
+}: {
+  entries: HookUnmanaged[];
+  onImport: () => void;
+}) {
   const t = useT();
   if (entries.length === 0) return null;
   // One target can hold hooks in several files; count them per target.
@@ -17,10 +23,17 @@ export default function HooksUnmanagedNote({ entries, onImport }: { entries: Hoo
       {[...counts].map(([target, count]) => (
         <span key={target} className="flex items-center gap-2 text-[13px] text-ink-2">
           <AgentIcon target={target} size={15} />
-          <span className="min-w-0 flex-1 [text-wrap:balance]">{t(plural('hooks.unmanaged', count), { count: String(count), target: hookLabel(target) })}</span>
+          <span className="min-w-0 flex-1 [text-wrap:balance]">
+            {t(plural('hooks.unmanaged', count), {
+              count: String(count),
+              target: hookLabel(target),
+            })}
+          </span>
         </span>
       ))}
-      <Button size="sm" variant="secondary" className="self-start" onClick={onImport}>{t('hooks.unmanaged.review')}</Button>
+      <Button size="sm" variant="secondary" className="self-start" onClick={onImport}>
+        {t('hooks.unmanaged.review')}
+      </Button>
     </div>
   );
 }

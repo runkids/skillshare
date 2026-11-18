@@ -7,16 +7,19 @@ import { useRouteReport } from '../useRouteReport';
 const wrapper = ({ children }: { children: ReactNode }) => (
   <MemoryRouter initialEntries={['/skills?kind=skill']}>{children}</MemoryRouter>
 );
-const useBoth = () => { useRouteReport(); return useNavigate(); };
+const useBoth = () => {
+  useRouteReport();
+  return useNavigate();
+};
 
 afterEach(() => vi.restoreAllMocks());
 
-it('posts the router path to the parent when embedded, on mount and on navigation', () => {
+it('posts the router path to the parent when embedded, on mount and on navigation', async () => {
   const post = vi.fn();
   vi.spyOn(window, 'parent', 'get').mockReturnValue({ postMessage: post } as unknown as Window);
   const { result } = renderHook(useBoth, { wrapper });
   expect(post).toHaveBeenLastCalledWith({ type: 'route-change', path: '/skills?kind=skill' }, '*');
-  act(() => result.current('/targets'));
+  await act(() => result.current('/targets'));
   expect(post).toHaveBeenLastCalledWith({ type: 'route-change', path: '/targets' }, '*');
 });
 

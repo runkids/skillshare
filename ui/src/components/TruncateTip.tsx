@@ -27,7 +27,10 @@ export default function TruncateTip() {
       hide();
       if (!el || el.hasAttribute('title') || el.scrollWidth <= el.clientWidth) return;
       current = el;
-      timer = setTimeout(() => setTip({ text: el.textContent ?? '', rect: el.getBoundingClientRect() }), DELAY);
+      timer = setTimeout(
+        () => setTip({ text: el.textContent ?? '', rect: el.getBoundingClientRect() }),
+        DELAY,
+      );
     };
     const out = (e: MouseEvent) => {
       if (!e.relatedTarget) hide();
@@ -58,7 +61,12 @@ export default function TruncateTip() {
 
   if (!tip) return null;
   return createPortal(
-    <div ref={ref} role="tooltip" className="ss-tip pointer-events-none fixed z-[9999] max-w-sm break-words animate-fade-in" style={{ left: 0, top: 0, visibility: 'hidden' }}>
+    <div
+      ref={ref}
+      role="tooltip"
+      className="ss-tip pointer-events-none fixed z-[9999] max-w-sm break-words animate-fade-in"
+      style={{ left: 0, top: 0, visibility: 'hidden' }}
+    >
       {tip.text}
     </div>,
     document.body,

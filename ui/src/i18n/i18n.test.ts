@@ -69,8 +69,15 @@ describe('i18n dictionaries', () => {
   });
 
   it('picks the singular form for exactly one and the other form for everything else', () => {
-    expect([0, 1, 2, undefined].map((count) => plural('sync.changes', count))).toEqual(['sync.changes.other', 'sync.changes.one', 'sync.changes.other', 'sync.changes.other']);
-    expect(translate('en', plural('sync.changes', 1), { count: 1 })).not.toBe(translate('en', plural('sync.changes', 2), { count: 1 }));
+    expect([0, 1, 2, undefined].map((count) => plural('sync.changes', count))).toEqual([
+      'sync.changes.other',
+      'sync.changes.one',
+      'sync.changes.other',
+      'sync.changes.other',
+    ]);
+    expect(translate('en', plural('sync.changes', 1), { count: 1 })).not.toBe(
+      translate('en', plural('sync.changes', 2), { count: 1 }),
+    );
   });
 
   it('falls back to English or the provided fallback', () => {
@@ -81,7 +88,8 @@ describe('i18n dictionaries', () => {
   it('localizes resource, extra, and Kilo project status copy', () => {
     expect(translate('zh-TW', 'resources.status.enabled')).toBe('已啟用');
     expect(translate('zh-TW', 'extras.status.synced')).toBe('已同步');
-    expect(translate('zh-TW', 'mcp.kilocodeProjectEnv', { name: 'mcp-test' }))
-      .toContain('Kilo Code MCP mcp-test：Kilo 不允許');
+    expect(translate('zh-TW', 'mcp.kilocodeProjectEnv', { name: 'mcp-test' })).toContain(
+      'Kilo Code MCP mcp-test：Kilo 不允許',
+    );
   });
 });

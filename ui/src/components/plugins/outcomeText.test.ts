@@ -18,19 +18,36 @@ describe('plugin outcome translations', () => {
   });
 
   it.each([
-    ['Native installation recorded. Reload the Agent and complete any required login or hook trust.', '已記錄原生安裝。請重新載入 Agent，並完成必要的登入或 hooks 信任確認。'],
+    [
+      'Native installation recorded. Reload the Agent and complete any required login or hook trust.',
+      '已記錄原生安裝。請重新載入 Agent，並完成必要的登入或 hooks 信任確認。',
+    ],
     ['Removed from Skillshare.', '已從 Skillshare 移除。'],
-    ['Native plugin removed; shared marketplaces are retained.', '已移除原生 plugin；共用 marketplace 會保留。'],
-    ['Removed from this target; plugin definition retained.', '已從這個工具移除；plugin 定義會保留。'],
-    ['Existing installation adopted without changing its enabled state.', '已納入既有安裝，未變更其啟用狀態。'],
-    ['Native operation completed, but recording its result failed; inspect status before retrying.', '原生操作已完成，但無法記錄結果；重試前請先檢查狀態。'],
+    [
+      'Native plugin removed; shared marketplaces are retained.',
+      '已移除原生 plugin；共用 marketplace 會保留。',
+    ],
+    [
+      'Removed from this target; plugin definition retained.',
+      '已從這個工具移除；plugin 定義會保留。',
+    ],
+    [
+      'Existing installation adopted without changing its enabled state.',
+      '已納入既有安裝，未變更其啟用狀態。',
+    ],
+    [
+      'Native operation completed, but recording its result failed; inspect status before retrying.',
+      '原生操作已完成，但無法記錄結果；重試前請先檢查狀態。',
+    ],
   ])('localizes the fixed message: %s', (message, expected) => {
     expect(outcomeMessage(t, message)).toBe(expected);
   });
 
   it('preserves unknown statuses and native error details', () => {
     expect(outcomeStatus(t, 'new-status')).toBe('new-status');
-    expect(outcomeMessage(t, 'Native authentication required')).toBe('Native authentication required');
+    expect(outcomeMessage(t, 'Native authentication required')).toBe(
+      'Native authentication required',
+    );
     expect(outcomeMessage(t, '')).toBe('');
   });
 });

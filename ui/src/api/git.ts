@@ -1,5 +1,12 @@
 import { apiFetch } from './http';
-import type { GitBranches, GitCheckoutResponse, GitPullResolution, GitStatus, PullResponse, PushResponse } from './types/git';
+import type {
+  GitBranches,
+  GitCheckoutResponse,
+  GitPullResolution,
+  GitStatus,
+  PullResponse,
+  PushResponse,
+} from './types/git';
 
 export const gitApi = {
   gitStatus: () => apiFetch<GitStatus>('/git/status'),
@@ -36,7 +43,12 @@ export const gitApi = {
       body: JSON.stringify(opts),
     }),
   /** force replaces local files with the remote when a first pull cannot merge (error code merge_failed). */
-  pull: (opts?: { dryRun?: boolean; force?: boolean; resolution?: GitPullResolution; alwaysSync?: boolean }) =>
+  pull: (opts?: {
+    dryRun?: boolean;
+    force?: boolean;
+    resolution?: GitPullResolution;
+    alwaysSync?: boolean;
+  }) =>
     apiFetch<PullResponse>('/pull', {
       method: 'POST',
       body: JSON.stringify(opts ?? {}),

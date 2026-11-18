@@ -2,10 +2,12 @@ import type { QueryClient } from '@tanstack/react-query';
 import type { AuditAllResponse } from '../api/client';
 import { queryKeys, staleTimes } from './queryKeys';
 
-type AuditCacheState = {
-  dataUpdatedAt: number;
-  isInvalidated?: boolean;
-} | undefined;
+type AuditCacheState =
+  | {
+      dataUpdatedAt: number;
+      isInvalidated?: boolean;
+    }
+  | undefined;
 
 export function isAuditCacheFresh(state: AuditCacheState): boolean {
   if (!state || state.dataUpdatedAt === 0) return false;

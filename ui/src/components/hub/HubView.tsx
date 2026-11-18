@@ -73,7 +73,10 @@ export default function HubView({ title, draftId, url, actions }: Props) {
   }, [draftId, draft.data, hosted.data]);
 
   const { data: skillsData } = useSkillsQuery();
-  const installed = useMemo(() => new Set((skillsData?.resources ?? []).map((r) => r.name)), [skillsData]);
+  const installed = useMemo(
+    () => new Set((skillsData?.resources ?? []).map((r) => r.name)),
+    [skillsData],
+  );
 
   /** Every tag the hub actually uses, so the dropdown never offers a dead option. */
   const tags = useMemo(() => {
@@ -85,7 +88,9 @@ export default function HubView({ title, draftId, url, actions }: Props) {
   const shown = (results ?? []).filter(
     (r) =>
       (!tag || (r.tags ?? []).includes(tag)) &&
-      `${r.name} ${r.description} ${(r.tags ?? []).join(' ')}`.toLowerCase().includes(filter.toLowerCase()),
+      `${r.name} ${r.description} ${(r.tags ?? []).join(' ')}`
+        .toLowerCase()
+        .includes(filter.toLowerCase()),
   );
 
   return (
@@ -107,12 +112,20 @@ export default function HubView({ title, draftId, url, actions }: Props) {
                 prefix={t('hubs.browse.tag')}
                 value={tag}
                 onChange={setTag}
-                options={[{ value: '', label: t('hubs.browse.allTags') }, ...tags.map((v) => ({ value: v, label: v }))]}
+                options={[
+                  { value: '', label: t('hubs.browse.allTags') },
+                  ...tags.map((v) => ({ value: v, label: v })),
+                ]}
               />
             )}
             <span className="ss-inp sm !h-8 w-[220px]">
               <Search size={14} className="shrink-0 text-ink-3" />
-              <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={t('hubs.browse.filter')} aria-label={t('hubs.browse.filter')} />
+              <input
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                placeholder={t('hubs.browse.filter')}
+                aria-label={t('hubs.browse.filter')}
+              />
             </span>
             {/* The hosted list is cached for two minutes; this fetches it again now. */}
             {!draftId && (
@@ -145,7 +158,10 @@ export default function HubView({ title, draftId, url, actions }: Props) {
         </div>
       )}
       {results && shown.length === 0 && (
-        <EmptyState icon={Search} title={results.length === 0 ? t('hubBuilder.noEntries') : t('hubs.browse.noMatch')} />
+        <EmptyState
+          icon={Search}
+          title={results.length === 0 ? t('hubBuilder.noEntries') : t('hubs.browse.noMatch')}
+        />
       )}
       {shown.length > 0 && (
         <div className="ss-list">
@@ -160,15 +176,22 @@ export default function HubView({ title, draftId, url, actions }: Props) {
                 <span className="flex items-center gap-2">
                   <span className="nm m font-mono">{r.name}</span>
                   {(r.tags ?? []).slice(0, 3).map((name) => (
-                    <span key={name} className="ss-tag">{name}</span>
+                    <span key={name} className="ss-tag">
+                      {name}
+                    </span>
                   ))}
                 </span>
-                {r.description && <span className="truncate text-[13px] text-ink-2">{r.description}</span>}
+                {r.description && (
+                  <span className="truncate text-[13px] text-ink-2">{r.description}</span>
+                )}
                 <span className="truncate font-mono text-[11.5px] text-ink-3">{r.source}</span>
               </span>
               <span className="flex w-[120px] shrink-0 items-center">
                 {r.ref ? (
-                  <span className="ss-tag max-w-full"><Tag size={11} className="shrink-0" /><span className="truncate">{r.ref}</span></span>
+                  <span className="ss-tag max-w-full">
+                    <Tag size={11} className="shrink-0" />
+                    <span className="truncate">{r.ref}</span>
+                  </span>
                 ) : (
                   <span className="text-xs text-ink-3">{t('hubs.ref.default')}</span>
                 )}
@@ -179,7 +202,11 @@ export default function HubView({ title, draftId, url, actions }: Props) {
                 ) : installed.has(r.name) ? (
                   <span className="ss-st ok">{t('hubs.browse.installed')}</span>
                 ) : (
-                  <button type="button" className="ss-btn sm" onClick={() => setInstalling(r.source)}>
+                  <button
+                    type="button"
+                    className="ss-btn sm"
+                    onClick={() => setInstalling(r.source)}
+                  >
                     {t('hubs.browse.install')}
                   </button>
                 )}

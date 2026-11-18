@@ -6,16 +6,22 @@ import type { ValidationError } from './useYamlValidation';
 export type { ValidationError };
 
 const VALID_SEVERITIES = [
-  'CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO',
-  'CRIT', 'C', 'H', 'MED', 'M', 'L', 'I',
+  'CRITICAL',
+  'HIGH',
+  'MEDIUM',
+  'LOW',
+  'INFO',
+  'CRIT',
+  'C',
+  'H',
+  'MED',
+  'M',
+  'L',
+  'I',
 ];
 
 /** Find the line number of a field within a specific rule (by index) in the source */
-function findRuleFieldLine(
-  sourceLines: string[],
-  ruleIndex: number,
-  fieldName: string,
-): number {
+function findRuleFieldLine(sourceLines: string[], ruleIndex: number, fieldName: string): number {
   // Find the nth rule entry (lines starting with "  - ")
   let ruleCount = -1;
   let ruleStart = -1;
@@ -123,5 +129,5 @@ export function useAuditYamlValidation(source: string) {
     return () => clearTimeout(timerRef.current);
   }, [source]);
 
-  return { errors, hasErrors: errors.some(e => e.severity === 'error') };
+  return { errors, hasErrors: errors.some((e) => e.severity === 'error') };
 }

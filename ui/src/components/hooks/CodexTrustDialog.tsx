@@ -14,7 +14,16 @@ import Spinner from '../Spinner';
  */
 export default function CodexTrustDialog({ onClose }: { onClose: () => void }) {
   const t = useT();
-  const { data: plan, error: previewError, isPending } = useQuery({ queryKey: queryKeys.hooksCodexTrustPreview(), queryFn: hooksApi.previewCodexTrust, gcTime: 0, retry: false });
+  const {
+    data: plan,
+    error: previewError,
+    isPending,
+  } = useQuery({
+    queryKey: queryKeys.hooksCodexTrustPreview(),
+    queryFn: hooksApi.previewCodexTrust,
+    gcTime: 0,
+    retry: false,
+  });
   const [running, setRunning] = useState(false);
   const [error, setError] = useState('');
   const [trusted, setTrusted] = useState<number | null>(null);
@@ -26,7 +35,10 @@ export default function CodexTrustDialog({ onClose }: { onClose: () => void }) {
     setRunning(true);
     setError('');
     try {
-      setTrusted((await hooksApi.trustCodex(plan.revision)).hooks.filter((h) => h.action === 'trusted').length);
+      setTrusted(
+        (await hooksApi.trustCodex(plan.revision)).hooks.filter((h) => h.action === 'trusted')
+          .length,
+      );
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -35,7 +47,14 @@ export default function CodexTrustDialog({ onClose }: { onClose: () => void }) {
   };
   const done = trusted !== null;
   return (
-    <DialogShell open onClose={onClose} padding="none" maxWidth="2xl" preventClose={running} ariaLabel={t('hooks.codexTrust.title')}>
+    <DialogShell
+      open
+      onClose={onClose}
+      padding="none"
+      maxWidth="2xl"
+      preventClose={running}
+      ariaLabel={t('hooks.codexTrust.title')}
+    >
       <div className="dh">
         <div className="flex flex-col gap-1">
           <h2 className="ss-h2">{t('hooks.codexTrust.title')}</h2>
@@ -43,34 +62,83 @@ export default function CodexTrustDialog({ onClose }: { onClose: () => void }) {
         </div>
       </div>
       <div className="db">
-        {done ? <div className="ss-note inf"><CircleCheck size={16} /><span className="flex-1">{t(plural('hooks.codexTrust.done', trusted), { count: trusted })}</span></div>
-          : isPending ? <Spinner size="sm" />
-          : plan && (
+        {done ? (
+          <div className="ss-note inf">
+            <CircleCheck size={16} />
+            <span className="flex-1">
+              {t(plural('hooks.codexTrust.done', trusted), { count: trusted })}
+            </span>
+          </div>
+        ) : isPending ? (
+          <Spinner size="sm" />
+        ) : (
+          plan && (
             <div className="flex flex-col gap-3">
-              {plan.failed?.map((f) => <div key={f.target} className="ss-note warn"><AlertCircle size={16} /><span className="flex-1">{t('hooks.codexTrust.failed', { target: f.target, error: f.error })}</span></div>)}
-              {needed.length === 0 && <p className="text-[13px] text-ink-2">{t('hooks.codexTrust.none')}</p>}
+              {plan.failed?.map((f) => (
+                <div key={f.target} className="ss-note warn">
+                  <AlertCircle size={16} />
+                  <span className="flex-1">
+                    {t('hooks.codexTrust.failed', { target: f.target, error: f.error })}
+                  </span>
+                </div>
+              ))}
+              {needed.length === 0 && (
+                <p className="text-[13px] text-ink-2">{t('hooks.codexTrust.none')}</p>
+              )}
               {needed.map((h) => (
                 <div key={h.key} className="flex flex-col gap-1">
                   <span className="flex items-baseline gap-1.5 text-[13px]">
-                    <span className="min-w-0 break-all font-mono font-semibold text-ink">{h.entry}</span>
+                    <span className="min-w-0 break-all font-mono font-semibold text-ink">
+                      {h.entry}
+                    </span>
                     <span className="shrink-0 text-xs text-ink-2">{h.target}</span>
-                    {h.disabled && <span className="shrink-0 font-mono text-xs text-warn">{t('hooks.codexTrust.disabled')}</span>}
+                    {h.disabled && (
+                      <span className="shrink-0 font-mono text-xs text-warn">
+                        {t('hooks.codexTrust.disabled')}
+                      </span>
+                    )}
                   </span>
-                  <pre className="m-0 whitespace-pre-wrap break-all rounded-[10px] border border-line bg-sunken px-2.5 py-2 font-mono text-xs text-ink">{h.command}</pre>
+                  <pre className="m-0 whitespace-pre-wrap break-all rounded-[10px] border border-line bg-sunken px-2.5 py-2 font-mono text-xs text-ink">
+                    {h.command}
+                  </pre>
                 </div>
               ))}
-              {needed.some((h) => h.disabled) && <p className="text-xs leading-normal text-ink-2">{t('hooks.codexTrust.disabledNote')}</p>}
-              {unchanged > 0 && <p className="text-xs leading-normal text-ink-2">{t(plural('hooks.codexTrust.unchanged', unchanged), { count: unchanged })}</p>}
+              {needed.some((h) => h.disabled) && (
+                <p className="text-xs leading-normal text-ink-2">
+                  {t('hooks.codexTrust.disabledNote')}
+                </p>
+              )}
+              {unchanged > 0 && (
+                <p className="text-xs leading-normal text-ink-2">
+                  {t(plural('hooks.codexTrust.unchanged', unchanged), { count: unchanged })}
+                </p>
+              )}
             </div>
-          )}
-        {(previewError || error) && <div className="ss-note bad" role="alert"><AlertCircle size={16} /><span className="flex-1">{previewError?.message ?? error}</span></div>}
+          )
+        )}
+        {(previewError || error) && (
+          <div className="ss-note bad" role="alert">
+            <AlertCircle size={16} />
+            <span className="flex-1">{previewError?.message ?? error}</span>
+          </div>
+        )}
       </div>
       <div className="df">
-        {done || (plan && needed.length === 0) ? <Button variant="primary" onClick={onClose}>{t('syncPreview.closeButton')}</Button> : (
+        {done || (plan && needed.length === 0) ? (
+          <Button variant="primary" onClick={onClose}>
+            {t('syncPreview.closeButton')}
+          </Button>
+        ) : (
           <>
-            <Button variant="secondary" onClick={onClose} disabled={running}>{t('syncPreview.cancelButton')}</Button>
+            <Button variant="secondary" onClick={onClose} disabled={running}>
+              {t('syncPreview.cancelButton')}
+            </Button>
             {/* A refused write means the hooks moved: close and reopen for a fresh list rather than retry it. */}
-            {!error && <Button onClick={() => void trust()} loading={running} disabled={needed.length === 0}>{t('hooks.codexTrust.confirm')}</Button>}
+            {!error && (
+              <Button onClick={() => void trust()} loading={running} disabled={needed.length === 0}>
+                {t('hooks.codexTrust.confirm')}
+              </Button>
+            )}
           </>
         )}
       </div>

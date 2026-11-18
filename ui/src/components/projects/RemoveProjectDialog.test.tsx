@@ -5,16 +5,39 @@ import { I18nProvider } from '../../i18n';
 import RemoveProjectDialog from './RemoveProjectDialog';
 import type { ProjectRow } from './projectView';
 
-const project = { root: '~/work/docs', path: '/work/docs', name: 'docs', declared: true, origin: 'local', sharedCopy: true, targets: [], skills: null, agents: null, groups: [], missing: false, hasOwnConfig: false } as ProjectRow;
+const project = {
+  root: '~/work/docs',
+  path: '/work/docs',
+  name: 'docs',
+  declared: true,
+  origin: 'local',
+  sharedCopy: true,
+  targets: [],
+  skills: null,
+  agents: null,
+  groups: [],
+  missing: false,
+  hasOwnConfig: false,
+} as ProjectRow;
 
 const open = (p: ProjectRow) => {
   const onConfirm = vi.fn();
-  render(<I18nProvider><RemoveProjectDialog project={p} keeps={{ mcp: false, hooks: false }} loading={false} onCancel={() => {}} onConfirm={onConfirm} /></I18nProvider>);
+  render(
+    <I18nProvider>
+      <RemoveProjectDialog
+        project={p}
+        keeps={{ mcp: false, hooks: false }}
+        loading={false}
+        onCancel={() => {}}
+        onConfirm={onConfirm}
+      />
+    </I18nProvider>,
+  );
   return onConfirm;
 };
 
 describe('Remove project dialog', () => {
-  it('removes only this machine\'s copy unless config.yaml is also chosen', async () => {
+  it("removes only this machine's copy unless config.yaml is also chosen", async () => {
     const onConfirm = open(project);
     await userEvent.click(screen.getByRole('button', { name: 'Remove project' }));
     expect(onConfirm).toHaveBeenLastCalledWith(false);

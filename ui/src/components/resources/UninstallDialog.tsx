@@ -1,11 +1,27 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Bot, CircleCheck, CircleX, GitBranch, Puzzle, RefreshCw, Trash2, TriangleAlert } from 'lucide-react';
+import {
+  Bot,
+  CircleCheck,
+  CircleX,
+  GitBranch,
+  Puzzle,
+  RefreshCw,
+  Trash2,
+  TriangleAlert,
+} from 'lucide-react';
 import { api } from '../../api/client';
 import type { BatchUninstallItemResult, Skill } from '../../api/client';
 import { clearAuditCache } from '../../lib/auditCache';
 import { formatTrackedRepoName } from '../../lib/resourceNames';
-import { countLabel, descendantCount, outermost, parentPath, repoOf, sourceLinkOf } from '../../lib/resourceGrouping';
+import {
+  countLabel,
+  descendantCount,
+  outermost,
+  parentPath,
+  repoOf,
+  sourceLinkOf,
+} from '../../lib/resourceGrouping';
 import { useT } from '../../i18n';
 import Button from '../Button';
 import { Checkbox } from '../Checkbox';
@@ -14,7 +30,12 @@ import SyncPreviewModal from '../SyncPreviewModal';
 import { useToast } from '../Toast';
 import { invalidate } from '../../lib/queryEvents';
 
-export function UninstallDialog({ kind, selection, all, onClose }: {
+export function UninstallDialog({
+  kind,
+  selection,
+  all,
+  onClose,
+}: {
   kind: Skill['kind'];
   selection: Skill[];
   all: Skill[];
@@ -59,7 +80,12 @@ export function UninstallDialog({ kind, selection, all, onClose }: {
       }
       setResults(res.results);
     } catch (err) {
-      toast(t('batchUninstall.toast.uninstallFailed', { error: err instanceof Error ? err.message : String(err) }), 'error');
+      toast(
+        t('batchUninstall.toast.uninstallFailed', {
+          error: err instanceof Error ? err.message : String(err),
+        }),
+        'error',
+      );
     } finally {
       setRunning(false);
     }
@@ -71,20 +97,38 @@ export function UninstallDialog({ kind, selection, all, onClose }: {
   if (results) {
     const failed = results.filter((r) => !r.success);
     return (
-      <DialogShell open onClose={() => onClose(true)} maxWidth="lg" padding="none" ariaLabel={t('batchUninstall.results.partialResult')} preventClose={running}>
+      <DialogShell
+        open
+        onClose={() => onClose(true)}
+        maxWidth="lg"
+        padding="none"
+        ariaLabel={t('batchUninstall.results.partialResult')}
+        preventClose={running}
+      >
         <div className="dh">
           <div className="flex flex-col gap-1">
             <h2 className="ss-h2">{t('batchUninstall.results.partialResult')}</h2>
-            <p className="text-[13px] text-ink-2">{t('resources.uninstall.resultSummary', { removed: results.length - failed.length, failed: failed.length })}</p>
+            <p className="text-[13px] text-ink-2">
+              {t('resources.uninstall.resultSummary', {
+                removed: results.length - failed.length,
+                failed: failed.length,
+              })}
+            </p>
           </div>
         </div>
         <div className="db">
           <div className="ss-list !shadow-none">
             {results.map((r) => (
               <div key={r.name} className="ss-r !min-h-11">
-                {r.success ? <CircleCheck size={16} className="shrink-0 text-ok" /> : <CircleX size={16} className="shrink-0 text-bad" />}
+                {r.success ? (
+                  <CircleCheck size={16} className="shrink-0 text-ok" />
+                ) : (
+                  <CircleX size={16} className="shrink-0 text-bad" />
+                )}
                 <span className="nm m flex-1 truncate">{formatTrackedRepoName(r.name)}</span>
-                <span className={`text-[13px] ${r.success ? 'text-ink-2' : 'text-bad'}`}>{r.success ? t('resources.uninstall.movedToTrash') : r.error}</span>
+                <span className={`text-[13px] ${r.success ? 'text-ink-2' : 'text-bad'}`}>
+                  {r.success ? t('resources.uninstall.movedToTrash') : r.error}
+                </span>
               </div>
             ))}
           </div>
@@ -95,12 +139,24 @@ export function UninstallDialog({ kind, selection, all, onClose }: {
         </div>
         <div className="df">
           {!force && failed.length > 0 && (
-            <Button variant="ghost" loading={running} onClick={() => { setForce(true); run(failed.map((r) => r.name), true); }}>
+            <Button
+              variant="ghost"
+              loading={running}
+              onClick={() => {
+                setForce(true);
+                return run(
+                  failed.map((r) => r.name),
+                  true,
+                );
+              }}
+            >
               {t('resources.uninstall.retryForce')}
             </Button>
           )}
           <span className="flex-1" />
-          <Button variant="secondary" onClick={() => onClose(true)}>{t('batchUninstall.results.continueButton')}</Button>
+          <Button variant="secondary" onClick={() => onClose(true)}>
+            {t('batchUninstall.results.continueButton')}
+          </Button>
           <Button variant="primary" onClick={() => setSyncing(true)}>
             <RefreshCw size={15} />
             {t('syncPreview.syncNowButton')}
@@ -112,7 +168,14 @@ export function UninstallDialog({ kind, selection, all, onClose }: {
 
   const title = t('resources.uninstall.title', { what: countLabel(t, kind, removedCount) });
   return (
-    <DialogShell open onClose={() => onClose(false)} maxWidth="lg" padding="none" ariaLabel={title} preventClose={running}>
+    <DialogShell
+      open
+      onClose={() => onClose(false)}
+      maxWidth="lg"
+      padding="none"
+      ariaLabel={title}
+      preventClose={running}
+    >
       <div className="dh">
         <h2 className="ss-h2">{title}</h2>
       </div>
@@ -122,14 +185,24 @@ export function UninstallDialog({ kind, selection, all, onClose }: {
             <div key={repo} className="ss-r !min-h-[42px]">
               <GitBranch size={15} className="shrink-0 text-ink-2" />
               <span className="nm m flex-1 truncate">{formatTrackedRepoName(repo)}</span>
-              <span className="text-xs text-ink-3">{t('resources.uninstall.wholeRepo', { what: countLabel(t, 'skill', n) })}</span>
+              <span className="text-xs text-ink-3">
+                {t('resources.uninstall.wholeRepo', { what: countLabel(t, 'skill', n) })}
+              </span>
             </div>
           ))}
           {tops.map((s) => (
             <div key={s.flatName} className="ss-r !min-h-[42px]">
-              <span className={`ss-cat sm ${kind}`}>{kind === 'agent' ? <Bot size={14} /> : <Puzzle size={14} />}</span>
+              <span className={`ss-cat sm ${kind}`}>
+                {kind === 'agent' ? <Bot size={14} /> : <Puzzle size={14} />}
+              </span>
               <span className="nm m flex-1 truncate">{s.name}</span>
-              {inside.get(s.flatName)! > 0 && <span className="shrink-0 text-xs text-ink-3">{t('resources.uninstall.inside', { what: countLabel(t, kind, inside.get(s.flatName)!) })}</span>}
+              {inside.get(s.flatName)! > 0 && (
+                <span className="shrink-0 text-xs text-ink-3">
+                  {t('resources.uninstall.inside', {
+                    what: countLabel(t, kind, inside.get(s.flatName)!),
+                  })}
+                </span>
+              )}
               <span className="font-mono text-xs text-ink-3 truncate">{parentPath(s)}</span>
             </div>
           ))}
@@ -143,17 +216,28 @@ export function UninstallDialog({ kind, selection, all, onClose }: {
         {nestedCount > 0 && (
           <div className="ss-note warn">
             <TriangleAlert size={16} />
-            <div className="flex-1">{t('resources.uninstall.nestedNote', { what: countLabel(t, kind, nestedCount) })}</div>
+            <div className="flex-1">
+              {t('resources.uninstall.nestedNote', { what: countLabel(t, kind, nestedCount) })}
+            </div>
           </div>
         )}
         {repos.size > 0 && (
-          <Checkbox size="sm" label={t('batchUninstall.confirm.forceLabel')} checked={force} onChange={setForce} />
+          <Checkbox
+            size="sm"
+            label={t('batchUninstall.confirm.forceLabel')}
+            checked={force}
+            onChange={setForce}
+          />
         )}
-        {tops.some((s) => sourceLinkOf(s)) && <p className="text-[13px] text-ink-2">{t('resources.uninstall.linkedNote')}</p>}
+        {tops.some((s) => sourceLinkOf(s)) && (
+          <p className="text-[13px] text-ink-2">{t('resources.uninstall.linkedNote')}</p>
+        )}
         <p className="text-[13px] text-ink-2">{t('resources.uninstall.trashNote')}</p>
       </div>
       <div className="df">
-        <Button variant="ghost" onClick={() => onClose(false)} disabled={running}>{t('common.cancel')}</Button>
+        <Button variant="ghost" onClick={() => onClose(false)} disabled={running}>
+          {t('common.cancel')}
+        </Button>
         <Button variant="secondary" loading={running} onClick={() => run(names, force)}>
           <Trash2 size={15} />
           {t('resources.contextMenu.uninstall')}

@@ -10,26 +10,53 @@ import { ToastProvider } from '../Toast';
 import TargetFileTab from './TargetFileTab';
 
 vi.mock('../CodeEditor', () => ({
-  default: ({ value, onChange, ariaLabel }: { value: string; onChange: (v: string) => void; ariaLabel: string }) => <textarea aria-label={ariaLabel} value={value} onChange={(e) => onChange(e.target.value)} />,
+  default: ({
+    value,
+    onChange,
+    ariaLabel,
+  }: {
+    value: string;
+    onChange: (v: string) => void;
+    ariaLabel: string;
+  }) => (
+    <textarea aria-label={ariaLabel} value={value} onChange={(e) => onChange(e.target.value)} />
+  ),
 }));
 vi.mock('../../api/client', async (load) => {
   const actual = await load<typeof import('../../api/client')>();
   return { ...actual, api: { ...actual.api, getTargetFile: vi.fn(), removeTargetFile: vi.fn() } };
 });
 
-const file = (path: string, extra: Partial<TargetFile> = {}) => ({ path, abs: `/home/me/.pi/agent/${path}`, builtin: true, exists: true, size: 5, content: 'hello', ...extra });
+const file = (path: string, extra: Partial<TargetFile> = {}) => ({
+  path,
+  abs: `/home/me/.pi/agent/${path}`,
+  builtin: true,
+  exists: true,
+  size: 5,
+  content: 'hello',
+  ...extra,
+});
 
 // A data router, as the app uses: the editor guards unsaved edits with useBlocker.
 const renderTab = (data: ReturnType<typeof file>) => {
   vi.mocked(api.getTargetFile).mockResolvedValue(data);
-  const router = createMemoryRouter([{
-    path: '*',
-    element: (
-      <QueryClientProvider client={new QueryClient()}>
-        <I18nProvider><ToastProvider><TargetFileTab target="pi" path={data.path} project={false} /></ToastProvider></I18nProvider>
-      </QueryClientProvider>
-    ),
-  }], { initialEntries: [`/targets/pi?tab=file&path=${encodeURIComponent(data.path)}`] });
+  const router = createMemoryRouter(
+    [
+      {
+        path: '*',
+        element: (
+          <QueryClientProvider client={new QueryClient()}>
+            <I18nProvider>
+              <ToastProvider>
+                <TargetFileTab target="pi" path={data.path} project={false} />
+              </ToastProvider>
+            </I18nProvider>
+          </QueryClientProvider>
+        ),
+      },
+    ],
+    { initialEntries: [`/targets/pi?tab=file&path=${encodeURIComponent(data.path)}`] },
+  );
   render(<RouterProvider router={router} />);
   return router;
 };
@@ -38,7 +65,12 @@ describe('Target file tab', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('removes a file the user added after asking, then opens the instruction tab', async () => {
-    vi.mocked(api.removeTargetFile).mockResolvedValue({ target: 'pi', project: false, root: '/home/me/.pi/agent', files: [] });
+    vi.mocked(api.removeTargetFile).mockResolvedValue({
+      target: 'pi',
+      project: false,
+      root: '/home/me/.pi/agent',
+      files: [],
+    });
     const user = userEvent.setup();
     const router = renderTab(file('SYSTEM.md', { builtin: false }));
     await user.click(await screen.findByRole('button', { name: 'Remove from tabs' }));
@@ -51,6 +83,9 @@ describe('Target file tab', () => {
 
   it('shares a file through a new single-file extra for its folder', async () => {
     renderTab(file('APPEND_SYSTEM.md'));
-    expect(await screen.findByRole('link', { name: /Share with Extras/ })).toHaveAttribute('href', '/extras?add=file&target=~%2F.pi%2Fagent&file=APPEND_SYSTEM.md');
+    expect(await screen.findByRole('link', { name: /Share with Extras/ })).toHaveAttribute(
+      'href',
+      '/extras?add=file&target=~%2F.pi%2Fagent&file=APPEND_SYSTEM.md',
+    );
   });
 });

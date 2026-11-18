@@ -9,7 +9,11 @@ interface RegexTesterProps {
 }
 
 /** Try a rule's regex against pasted lines before saving it. */
-export default function RegexTester({ pattern, excludePattern, onPatternChange }: RegexTesterProps) {
+export default function RegexTester({
+  pattern,
+  excludePattern,
+  onPatternChange,
+}: RegexTesterProps) {
   const t = useT();
   const [testInput, setTestInput] = useState('');
   const { matches, error, isGoSpecific } = useRegexTester(pattern, testInput, excludePattern);
@@ -41,24 +45,32 @@ export default function RegexTester({ pattern, excludePattern, onPatternChange }
         />
       </label>
 
-      {pattern && isGoSpecific && <span className="ss-st warn wrap">{t('auditRules.regex.goSpecific')}</span>}
+      {pattern && isGoSpecific && (
+        <span className="ss-st warn wrap">{t('auditRules.regex.goSpecific')}</span>
+      )}
       {pattern && !isGoSpecific && error && <span className="ss-st bad wrap">{error}</span>}
 
       {pattern && !isGoSpecific && !error && testInput && (
         <div className="ss-list !shadow-none">
           {matches.map((lm, i) => (
             <div key={i} className="ss-r !min-h-[30px] !px-2.5">
-              <span className={`ss-st ${lm.matched && !lm.excluded ? 'ok' : lm.matched ? 'warn' : 'off'}`}>
+              <span
+                className={`ss-st ${lm.matched && !lm.excluded ? 'ok' : lm.matched ? 'warn' : 'off'}`}
+              >
                 {lm.matched && !lm.excluded ? 'Match' : lm.matched ? 'Excluded' : 'No match'}
               </span>
               {lm.matched && !lm.excluded && lm.matchStart != null && lm.matchEnd != null ? (
                 <span className="min-w-0 flex-1 truncate font-mono text-[12.5px]">
                   {lm.content.slice(0, lm.matchStart)}
-                  <mark className="rounded-sm bg-ok-bg text-ok">{lm.content.slice(lm.matchStart, lm.matchEnd)}</mark>
+                  <mark className="rounded-sm bg-ok-bg text-ok">
+                    {lm.content.slice(lm.matchStart, lm.matchEnd)}
+                  </mark>
                   {lm.content.slice(lm.matchEnd)}
                 </span>
               ) : (
-                <span className="min-w-0 flex-1 truncate font-mono text-[12.5px] text-ink-3">{lm.content}</span>
+                <span className="min-w-0 flex-1 truncate font-mono text-[12.5px] text-ink-3">
+                  {lm.content}
+                </span>
               )}
             </div>
           ))}
@@ -69,7 +81,11 @@ export default function RegexTester({ pattern, excludePattern, onPatternChange }
         <div className="ss-kv">
           <span>Exclude</span>
           <code className="font-mono text-[12.5px] break-all">{excludePattern}</code>
-          <span>{t(plural('auditRules.regex.suppressed', excludedLines.length), { count: excludedLines.length })}</span>
+          <span>
+            {t(plural('auditRules.regex.suppressed', excludedLines.length), {
+              count: excludedLines.length,
+            })}
+          </span>
         </div>
       )}
     </div>

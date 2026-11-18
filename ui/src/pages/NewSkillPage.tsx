@@ -39,7 +39,10 @@ export default function NewSkillPage() {
   const { data: skillsData } = useSkillsQuery();
   const { data: overview } = useOverviewQuery();
 
-  const skills = useMemo(() => (skillsData?.resources ?? []).filter((r) => r.kind === 'skill'), [skillsData]);
+  const skills = useMemo(
+    () => (skillsData?.resources ?? []).filter((r) => r.kind === 'skill'),
+    [skillsData],
+  );
   // Folders that already hold local skills. Tracked repos are git clones, so new skills stay out of them
   const folders = useMemo(() => {
     const set = new Set<string>();
@@ -52,12 +55,17 @@ export default function NewSkillPage() {
   }, [skills]);
 
   const patterns = useMemo(
-    () => [...(templates?.patterns ?? [])].sort((a, b) => Number(b.name === 'none') - Number(a.name === 'none')),
+    () =>
+      [...(templates?.patterns ?? [])].sort(
+        (a, b) => Number(b.name === 'none') - Number(a.name === 'none'),
+      ),
     [templates],
   );
   const pattern = patterns.find((p) => p.name === patternName);
   const allDirs = useMemo(() => new Set(patterns.flatMap((p) => p.scaffoldDirs)), [patterns]);
-  const dirOptions = DIR_ORDER.filter((d) => (pattern?.scaffoldDirs.length ? pattern.scaffoldDirs : [...allDirs]).includes(d));
+  const dirOptions = DIR_ORDER.filter((d) =>
+    (pattern?.scaffoldDirs.length ? pattern.scaffoldDirs : [...allDirs]).includes(d),
+  );
 
   const relPath = into ? `${into}/${name}` : name;
   const nameError = !name
@@ -71,7 +79,13 @@ export default function NewSkillPage() {
   const canCreate = name !== '' && !nameError && !tooLong && !creating;
 
   // The preview comes from the server's own template, debounced while typing
-  const request = { name: name && !nameError ? name : 'my-skill', pattern: patternName, category: pattern?.name !== 'none' ? category : '', description, into };
+  const request = {
+    name: name && !nameError ? name : 'my-skill',
+    pattern: patternName,
+    category: pattern?.name !== 'none' ? category : '',
+    description,
+    into,
+  };
   const requestKey = JSON.stringify(request);
   const [previewRequest, setPreviewRequest] = useState(request);
   useEffect(() => {
@@ -101,10 +115,14 @@ export default function NewSkillPage() {
     if (!canCreate) return;
     setCreating(true);
     try {
-      const res = await api.createSkill({ ...request, name, scaffoldDirs: dirOptions.filter((d) => dirs.has(d)) });
+      const res = await api.createSkill({
+        ...request,
+        name,
+        scaffoldDirs: dirOptions.filter((d) => dirs.has(d)),
+      });
       void invalidate(queryClient, 'skillsChanged');
       toast(t('newSkill.toast.created', { name: res.skill.name }), 'success');
-      navigate(`/skills/${encodeURIComponent(res.skill.flatName)}`);
+      void navigate(`/skills/${encodeURIComponent(res.skill.flatName)}`);
     } catch (e) {
       toast((e as Error).message, 'error');
       setCreating(false);
@@ -124,7 +142,13 @@ export default function NewSkillPage() {
       />
 
       <div className="grid grid-cols-2 items-start gap-12">
-        <form className="flex min-w-0 flex-col gap-[22px]" onSubmit={(e) => { e.preventDefault(); void create(); }}>
+        <form
+          className="flex min-w-0 flex-col gap-[22px]"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void create();
+          }}
+        >
           <div className="ss-fld">
             <label htmlFor="new-skill-name">{t('newSkill.name.label')}</label>
             <span className="ss-inp">
@@ -138,7 +162,11 @@ export default function NewSkillPage() {
               />
             </span>
             <span className="hp">
-              {nameError ? <span className="text-bad">{nameError}</span> : name && <span className="text-ok">{t('newSkill.name.available')}</span>}{' '}
+              {nameError ? (
+                <span className="text-bad">{nameError}</span>
+              ) : (
+                name && <span className="text-ok">{t('newSkill.name.available')}</span>
+              )}{' '}
               {t('newSkill.name.hint')}
             </span>
           </div>
@@ -146,7 +174,9 @@ export default function NewSkillPage() {
           <div className="ss-fld">
             <label htmlFor="new-skill-description">
               {t('newSkill.description.label')}{' '}
-              <span className={`font-normal ${tooLong ? 'text-bad' : 'text-ink-3'}`}>· {description.length} / {MAX_DESCRIPTION}</span>
+              <span className={`font-normal ${tooLong ? 'text-bad' : 'text-ink-3'}`}>
+                · {description.length} / {MAX_DESCRIPTION}
+              </span>
             </label>
             <textarea
               id="new-skill-description"
@@ -158,8 +188,14 @@ export default function NewSkillPage() {
           </div>
 
           <div className="ss-fld">
-            <span id="new-skill-pattern" className="text-[13px] font-semibold">{t('newSkill.pattern.label')}</span>
-            <div role="radiogroup" aria-labelledby="new-skill-pattern" className="grid grid-cols-2 gap-2">
+            <span id="new-skill-pattern" className="text-[13px] font-semibold">
+              {t('newSkill.pattern.label')}
+            </span>
+            <div
+              role="radiogroup"
+              aria-labelledby="new-skill-pattern"
+              className="grid grid-cols-2 gap-2"
+            >
               {patterns.map((p) => (
                 <button
                   key={p.name}
@@ -171,8 +207,12 @@ export default function NewSkillPage() {
                 >
                   <span className={`ss-chk rad ${p.name === patternName ? 'on' : ''}`} />
                   <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                    <span className="font-semibold">{t(`newSkill.pattern.${p.name}.label`, {}, p.name)}</span>
-                    <span className="text-[13px] text-ink-2">{t(`newSkill.pattern.${p.name}.description`, {}, p.description)}</span>
+                    <span className="font-semibold">
+                      {t(`newSkill.pattern.${p.name}.label`, {}, p.name)}
+                    </span>
+                    <span className="text-[13px] text-ink-2">
+                      {t(`newSkill.pattern.${p.name}.description`, {}, p.description)}
+                    </span>
                   </span>
                 </button>
               ))}
@@ -187,7 +227,10 @@ export default function NewSkillPage() {
                 onChange={setCategory}
                 options={[
                   { value: '', label: t('newSkill.category.noCategory') },
-                  ...(templates?.categories ?? []).map((c) => ({ value: c.key, label: t(`newSkill.category.${c.key}.label`, {}, c.label) })),
+                  ...(templates?.categories ?? []).map((c) => ({
+                    value: c.key,
+                    label: t(`newSkill.category.${c.key}.label`, {}, c.label),
+                  })),
                 ]}
               />
             </div>
@@ -195,10 +238,18 @@ export default function NewSkillPage() {
 
           {dirOptions.length > 0 && (
             <div role="group" aria-labelledby="new-skill-dirs" className="flex flex-col gap-1.5">
-              <span id="new-skill-dirs" className="text-[13px] font-semibold">{t('newSkill.folders.label')}</span>
+              <span id="new-skill-dirs" className="text-[13px] font-semibold">
+                {t('newSkill.folders.label')}
+              </span>
               <div className="flex flex-wrap gap-[18px]">
                 {dirOptions.map((d) => (
-                  <Checkbox key={d} label={`${d}/`} checked={dirs.has(d)} onChange={() => toggleDir(d)} className="font-mono text-[13px]" />
+                  <Checkbox
+                    key={d}
+                    label={`${d}/`}
+                    checked={dirs.has(d)}
+                    onChange={() => toggleDir(d)}
+                    className="font-mono text-[13px]"
+                  />
                 ))}
               </div>
             </div>
@@ -209,21 +260,38 @@ export default function NewSkillPage() {
             <Select
               value={into}
               onChange={setInto}
-              options={[{ value: '', label: t('newSkill.folder.top', { dir: sourceDir }) }, ...folders.map((f) => ({ value: f, label: `${f}/` }))]}
+              options={[
+                { value: '', label: t('newSkill.folder.top', { dir: sourceDir }) },
+                ...folders.map((f) => ({ value: f, label: `${f}/` })),
+              ]}
             />
           </div>
 
           <div className="flex justify-end gap-2">
-            <Button variant="ghost" onClick={() => navigate('/skills')}>{t('common.cancel')}</Button>
-            <Button type="submit" variant="primary" loading={creating} disabled={!canCreate}>{t('newSkill.createSkill')}</Button>
+            <Button variant="ghost" onClick={() => navigate('/skills')}>
+              {t('common.cancel')}
+            </Button>
+            <Button type="submit" variant="primary" loading={creating} disabled={!canCreate}>
+              {t('newSkill.createSkill')}
+            </Button>
           </div>
         </form>
 
         {/* The preview stays in view while the form scrolls */}
         <div className="sticky top-6 flex min-w-0 flex-col">
-          <div className="ss-sec"><h2 className="ss-h2">{t('newSkill.preview.title')}</h2></div>
-          <CodeView content={preview?.content ?? ''} lang="md" className="max-h-[calc(100vh-134px)] min-h-[330px]" />
-          {preview && <p className="mt-2.5 truncate font-mono text-[13px] text-ink-3" title={preview.path}>{preview.path}</p>}
+          <div className="ss-sec">
+            <h2 className="ss-h2">{t('newSkill.preview.title')}</h2>
+          </div>
+          <CodeView
+            content={preview?.content ?? ''}
+            lang="md"
+            className="max-h-[calc(100vh-134px)] min-h-[330px]"
+          />
+          {preview && (
+            <p className="mt-2.5 truncate font-mono text-[13px] text-ink-3" title={preview.path}>
+              {preview.path}
+            </p>
+          )}
         </div>
       </div>
     </div>

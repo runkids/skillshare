@@ -15,4 +15,3 @@ export interface UpdateStreamSummary {
   errors: number;
   skipped: number;
 }
-

@@ -14,7 +14,10 @@ interface FieldDocsProps {
  *  "extras.name.targets.path.mode" → "extras.targets.mode" (hit)
  *  "targets.universal" → "targets" (hit)
  */
-function lookupFieldDoc(fieldPath: string | null, docsMap: Record<string, FieldDoc>): FieldDoc | null {
+function lookupFieldDoc(
+  fieldPath: string | null,
+  docsMap: Record<string, FieldDoc>,
+): FieldDoc | null {
   if (!fieldPath) return null;
 
   // MCP server names and env/header names are user-defined, even when they
@@ -23,9 +26,14 @@ function lookupFieldDoc(fieldPath: string | null, docsMap: Record<string, FieldD
     const parts = fieldPath.slice('mcp.servers.'.length).split('.');
     const field = parts[1];
     if (!field) return docsMap['mcp.servers'] ?? null;
-    const suffix = (field === 'env' || field === 'headers')
-      ? (parts.length > 3 ? '.fromEnv' : '')
-      : (parts[2] === 'fromEnv' ? '.fromEnv' : '');
+    const suffix =
+      field === 'env' || field === 'headers'
+        ? parts.length > 3
+          ? '.fromEnv'
+          : ''
+        : parts[2] === 'fromEnv'
+          ? '.fromEnv'
+          : '';
     return docsMap[`mcp.servers.${field}${suffix}`] ?? null;
   }
 
@@ -101,7 +109,9 @@ export default function FieldDocs({ fieldPath, docs }: FieldDocsProps) {
         )}
       </dl>
       <div className="flex flex-col gap-1.5">
-        <span className="text-[12px] font-semibold text-ink-3">{t('config.panel.fieldExample')}</span>
+        <span className="text-[12px] font-semibold text-ink-3">
+          {t('config.panel.fieldExample')}
+        </span>
         <pre className="ss-code !whitespace-pre-wrap break-all !px-3 !py-2.5">{doc.example}</pre>
       </div>
     </div>

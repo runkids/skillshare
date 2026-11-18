@@ -33,7 +33,7 @@ export function ProjectTargets({ value, defaults, offered, onChange, disabled }:
   }
   const own = value !== undefined || picking;
   // Inheriting, the global targets show ticked, and the first change starts the project's own list from them.
-  const selected = sent ?? (own ? value ?? [] : defaults);
+  const selected = sent ?? (own ? (value ?? []) : defaults);
   const pick = (target: string, on: boolean) => {
     const next = mcpTargets.filter((x) => (x === target ? on : selected.includes(x)));
     setPicking(true);
@@ -52,14 +52,38 @@ export function ProjectTargets({ value, defaults, offered, onChange, disabled }:
     if (ownList?.length) return setAsking(true);
     setPicking(false);
     setSent(null);
-    if (ownList !== undefined) onChange(undefined);
+    if (ownList !== undefined) return onChange(undefined);
   };
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap gap-x-6 gap-y-3.5"><TargetToggles offered={offered} selected={selected} onToggle={pick} disabled={disabled} /></div>
-      {own && <Button variant="link" className="min-h-6 self-end !text-xs" onClick={inherit} disabled={disabled}>{t('mcp.projects.backToGlobal')}</Button>}
-      <ConfirmDialog open={asking} title={t('mcp.projects.inheritTitle')} message={t('mcp.projects.inheritMessage', { targets: (ownList ?? []).map(targetLabel).join(', ') })} confirmText={t('mcp.projects.inheritConfirm')} onCancel={() => setAsking(false)} onConfirm={() => { setAsking(false); setPicking(false); setSent(null); onChange(undefined); }} />
+      <div className="flex flex-wrap gap-x-6 gap-y-3.5">
+        <TargetToggles offered={offered} selected={selected} onToggle={pick} disabled={disabled} />
+      </div>
+      {own && (
+        <Button
+          variant="link"
+          className="min-h-6 self-end !text-xs"
+          onClick={inherit}
+          disabled={disabled}
+        >
+          {t('mcp.projects.backToGlobal')}
+        </Button>
+      )}
+      <ConfirmDialog
+        open={asking}
+        title={t('mcp.projects.inheritTitle')}
+        message={t('mcp.projects.inheritMessage', {
+          targets: (ownList ?? []).map(targetLabel).join(', '),
+        })}
+        confirmText={t('mcp.projects.inheritConfirm')}
+        onCancel={() => setAsking(false)}
+        onConfirm={() => {
+          setAsking(false);
+          setPicking(false);
+          setSent(null);
+          return onChange(undefined);
+        }}
+      />
     </div>
   );
 }
-

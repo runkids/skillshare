@@ -7,23 +7,57 @@ import InstructionsEditorDialog from './InstructionsEditorDialog';
 import { ApiError } from '../../api/client';
 
 vi.mock('../CodeEditor', () => ({
-  default: ({ value, onChange, ariaLabel }: { value: string; onChange: (v: string) => void; ariaLabel: string }) => <textarea aria-label={ariaLabel} value={value} onChange={(e) => onChange(e.target.value)} />,
+  default: ({
+    value,
+    onChange,
+    ariaLabel,
+  }: {
+    value: string;
+    onChange: (v: string) => void;
+    ariaLabel: string;
+  }) => (
+    <textarea aria-label={ariaLabel} value={value} onChange={(e) => onChange(e.target.value)} />
+  ),
 }));
 
 const renderDialog = (onSave = vi.fn().mockResolvedValue(undefined), onClose = () => {}) => {
   render(
-    <I18nProvider><ToastProvider>
-      <InstructionsEditorDialog title="personal" path="/h/personal/AGENTS.md" content={'# Rules\n'} onSave={onSave} onClose={onClose} />
-    </ToastProvider></I18nProvider>,
+    <I18nProvider>
+      <ToastProvider>
+        <InstructionsEditorDialog
+          title="personal"
+          path="/h/personal/AGENTS.md"
+          content={'# Rules\n'}
+          onSave={onSave}
+          onClose={onClose}
+        />
+      </ToastProvider>
+    </I18nProvider>,
   );
   return onSave;
 };
 
 describe('Instructions editor dialog', () => {
   it('preserves a memory draft after conflict and requires confirmation even for the save shortcut', async () => {
-    const onSave = vi.fn().mockRejectedValueOnce(new ApiError(409, 'Changed outside', { code: 'memory_conflict' })).mockResolvedValue(undefined);
+    const onSave = vi
+      .fn()
+      .mockRejectedValueOnce(new ApiError(409, 'Changed outside', { code: 'memory_conflict' }))
+      .mockResolvedValue(undefined);
     const onReadLatest = vi.fn().mockResolvedValue('# Latest external version');
-    render(<I18nProvider><ToastProvider><InstructionsEditorDialog title="note.md" path="/memory/note.md" content={'# Original\n'} onSave={onSave} onReadLatest={onReadLatest} onClose={() => {}} /></ToastProvider></I18nProvider>);
+    render(
+      <I18nProvider>
+        <ToastProvider>
+          <InstructionsEditorDialog
+            title="note.md"
+            path="/memory/note.md"
+            content={'# Original\n'}
+            onSave={onSave}
+            onReadLatest={onReadLatest}
+            onClose={() => {}}
+          />
+        </ToastProvider>
+      </I18nProvider>,
+    );
     const user = userEvent.setup();
     const input = screen.getByRole('textbox', { name: 'note.md' });
     await user.type(input, 'my draft');
@@ -48,5 +82,4 @@ describe('Instructions editor dialog', () => {
 
     expect(screen.getByRole('dialog', { name: 'Unsaved Changes' })).toBeInTheDocument();
   });
-
 });

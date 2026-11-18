@@ -44,9 +44,12 @@ describe('resolveFieldPath', () => {
     expect(resolveFieldPath(sampleLines, 5)).toBe('targets.claude.include');
   });
 
-  it.each(['__pycache__/', '.git/', '*.tmp', '"quoted path/"', 'https://example.com'])('resolves ignore item %s', (value) => {
-    expect(resolveFieldPath(['ignore:', '  - .DS_Store', `  - ${value}`], 2)).toBe('ignore');
-  });
+  it.each(['__pycache__/', '.git/', '*.tmp', '"quoted path/"', 'https://example.com'])(
+    'resolves ignore item %s',
+    (value) => {
+      expect(resolveFieldPath(['ignore:', '  - .DS_Store', `  - ${value}`], 2)).toBe('ignore');
+    },
+  );
 
   it('supports sequences without extra indentation', () => {
     expect(resolveFieldPath(['ignore:', '- .git/', '- __pycache__/'], 2)).toBe('ignore');
@@ -54,11 +57,11 @@ describe('resolveFieldPath', () => {
 
   // YAML list items with keys: "- name: rules"
   const extrasLines = [
-    'extras:',              // 0
-    '  - name: rules',     // 1
-    '    targets:',         // 2
-    '      - path: ~/.x',  // 3
-    '        mode: merge',  // 4
+    'extras:', // 0
+    '  - name: rules', // 1
+    '    targets:', // 2
+    '      - path: ~/.x', // 3
+    '        mode: merge', // 4
   ];
 
   it('resolves list item key under extras', () => {

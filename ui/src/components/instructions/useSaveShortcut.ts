@@ -16,7 +16,11 @@ const topDialog = () => {
  * Only the editor in front saves: a page editor while no dialog is open, an
  * editor in a dialog (scope: an element inside it) while its dialog is on top.
  */
-export function useSaveShortcut(save: () => void, enabled = true, scope?: RefObject<HTMLElement | null>) {
+export function useSaveShortcut(
+  save: () => void,
+  enabled = true,
+  scope?: RefObject<HTMLElement | null>,
+) {
   const saveRef = useRef(save);
   useLayoutEffect(() => {
     saveRef.current = save;

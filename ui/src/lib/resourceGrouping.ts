@@ -10,7 +10,13 @@ export type SortType = 'name-asc' | 'name-desc' | 'newest' | 'oldest';
 
 export const SOURCE_ORDER: SourceType[] = ['tracked', 'github', 'remote', 'local'];
 // Source names stay in English, like the CLI.
-export const SOURCE_LABEL: Record<SourceFilter, string> = { all: 'All', tracked: 'Tracked', github: 'GitHub', remote: 'Remote', local: 'Local' };
+export const SOURCE_LABEL: Record<SourceFilter, string> = {
+  all: 'All',
+  tracked: 'Tracked',
+  github: 'GitHub',
+  remote: 'Remote',
+  local: 'Local',
+};
 
 /** "1 skill" / "3 agents". These keys are named by kind, not `.one`/`.other`, so `plural` does not fit them. */
 export function countLabel(t: ReturnType<typeof useT>, kind: Skill['kind'], count: number): string {
@@ -22,7 +28,10 @@ export function countLabel(t: ReturnType<typeof useT>, kind: Skill['kind'], coun
  * Reads the sync matrix — the same source the Targets column renders — so a
  * filter result always matches the icons the rows show.
  */
-export function syncedByTarget(items: Skill[], matrix: SyncMatrixEntry[]): Map<string, Set<string>> {
+export function syncedByTarget(
+  items: Skill[],
+  matrix: SyncMatrixEntry[],
+): Map<string, Set<string>> {
   const names = new Set(items.map((s) => s.flatName));
   const byTarget = new Map<string, Set<string>>();
   for (const e of matrix) {
@@ -35,19 +44,28 @@ export function syncedByTarget(items: Skill[], matrix: SyncMatrixEntry[]): Map<s
 }
 
 /** The project a target name belongs to, or '' for a global target. */
-export const projectOf = (name: string) => (name.includes('@') ? name.slice(0, name.lastIndexOf('@')) : '');
+export const projectOf = (name: string) =>
+  name.includes('@') ? name.slice(0, name.lastIndexOf('@')) : '';
 
 /**
  * Where one item goes, from its matrix entries: the targets that get it, the projects it could
  * sync to, and why it reaches no target: `off` when every target has skills switched off,
  * `filtered` when filters or its own targets field keep it out.
  */
-export function targetReach(entries: SyncMatrixEntry[]): { synced: string[]; reachable: string[]; none: 'off' | 'filtered' | null } {
-  const synced = entries.filter(receivesSkill).map((e) => e.target).sort();
+export function targetReach(entries: SyncMatrixEntry[]): {
+  synced: string[];
+  reachable: string[];
+  none: 'off' | 'filtered' | null;
+} {
+  const synced = entries
+    .filter(receivesSkill)
+    .map((e) => e.target)
+    .sort();
   // 'na' without the symlink reason is a target with skills off: nothing can sync there.
   const open = entries.filter((e) => e.status !== 'na' || receivesSkill(e));
   const reachable = [...new Set(open.map((e) => projectOf(e.target)).filter(Boolean))].sort();
-  const none = synced.length > 0 || entries.length === 0 ? null : open.length === 0 ? 'off' : 'filtered';
+  const none =
+    synced.length > 0 || entries.length === 0 ? null : open.length === 0 ? 'off' : 'filtered';
   return { synced, reachable, none };
 }
 
@@ -72,7 +90,8 @@ function sortGroup(s: Skill): string {
 }
 
 export function sortSkills(skills: Skill[], sortType: SortType): Skill[] {
-  const byName = (a: Skill, b: Skill) => sortGroup(a).localeCompare(sortGroup(b)) || a.name.localeCompare(b.name);
+  const byName = (a: Skill, b: Skill) =>
+    sortGroup(a).localeCompare(sortGroup(b)) || a.name.localeCompare(b.name);
   const byDate = (dir: 1 | -1) => (a: Skill, b: Skill) => {
     if (!a.installedAt && !b.installedAt) return byName(a, b);
     if (!a.installedAt) return 1;
@@ -81,10 +100,16 @@ export function sortSkills(skills: Skill[], sortType: SortType): Skill[] {
   };
   const sorted = [...skills];
   switch (sortType) {
-    case 'name-asc': return sorted.sort(byName);
-    case 'name-desc': return sorted.sort((a, b) => sortGroup(a).localeCompare(sortGroup(b)) || b.name.localeCompare(a.name));
-    case 'newest': return sorted.sort(byDate(-1));
-    case 'oldest': return sorted.sort(byDate(1));
+    case 'name-asc':
+      return sorted.sort(byName);
+    case 'name-desc':
+      return sorted.sort(
+        (a, b) => sortGroup(a).localeCompare(sortGroup(b)) || b.name.localeCompare(a.name),
+      );
+    case 'newest':
+      return sorted.sort(byDate(-1));
+    case 'oldest':
+      return sorted.sort(byDate(1));
   }
 }
 
@@ -93,7 +118,9 @@ export function repoOf(s: Skill): string | undefined {
 }
 
 export function sourceLinkOf(s: Skill): SourceLink | undefined {
-  return s.kind === 'skill' && s.linkName && s.linkTarget ? { name: s.linkName, target: s.linkTarget } : undefined;
+  return s.kind === 'skill' && s.linkName && s.linkTarget
+    ? { name: s.linkName, target: s.linkTarget }
+    : undefined;
 }
 
 /** Parent folder shown under the name. Inside a repo group the repo prefix is already in the header. */
@@ -101,7 +128,7 @@ export function parentPath(s: Skill, inGroup = false): string {
   const i = s.relPath.lastIndexOf('/');
   if (i <= 0) return '';
   const dir = s.relPath.slice(0, i);
-  const repo = inGroup ? sourceLinkOf(s)?.name ?? repoOf(s) : undefined;
+  const repo = inGroup ? (sourceLinkOf(s)?.name ?? repoOf(s)) : undefined;
   if (repo) return dir === repo ? '' : dir.slice(repo.length + 1);
   return formatTrackedRepoName(dir);
 }
@@ -117,7 +144,13 @@ export function sourceName(s: Skill): string {
 
 /* -- Source groups -------------------------------- */
 
-export interface Group { key: string; source: SourceType; repo?: string; link?: SourceLink; items: Skill[] }
+export interface Group {
+  key: string;
+  source: SourceType;
+  repo?: string;
+  link?: SourceLink;
+  items: Skill[];
+}
 
 export function groupBySource(items: Skill[], links: SourceLink[] = []): Group[] {
   const groups = new Map<string, Group>();
@@ -125,7 +158,7 @@ export function groupBySource(items: Skill[], links: SourceLink[] = []): Group[]
     const source = resolveSource(s.type, s.isInRepo);
     const link = sourceLinkOf(s);
     const repo = repoOf(s);
-    const key = link ? `link:${link.name}` : repo ?? source;
+    const key = link ? `link:${link.name}` : (repo ?? source);
     if (!groups.has(key)) groups.set(key, { key, source, repo, link, items: [] });
     groups.get(key)!.items.push(s);
   }
@@ -135,12 +168,20 @@ export function groupBySource(items: Skill[], links: SourceLink[] = []): Group[]
     if (group) group.link = link;
     else groups.set(key, { key, source: 'local', link, items: [] });
   }
-  return [...groups.values()].sort((a, b) => SOURCE_ORDER.indexOf(a.source) - SOURCE_ORDER.indexOf(b.source) || a.key.localeCompare(b.key));
+  return [...groups.values()].sort(
+    (a, b) =>
+      SOURCE_ORDER.indexOf(a.source) - SOURCE_ORDER.indexOf(b.source) || a.key.localeCompare(b.key),
+  );
 }
 
 /* -- Folder groups -------------------------------- */
 
-export interface FolderGroup { key: string; repo: boolean; link?: SourceLink; items: Skill[] }
+export interface FolderGroup {
+  key: string;
+  repo: boolean;
+  link?: SourceLink;
+  items: Skill[];
+}
 
 /** Root first, then folder name A→Z; items keep the order they came in (the current sort). */
 export function groupByFolder(items: Skill[], links: SourceLink[] = []): FolderGroup[] {
@@ -156,16 +197,25 @@ export function groupByFolder(items: Skill[], links: SourceLink[] = []): FolderG
     if (group) group.link = link;
     else groups.set(link.name, { key: link.name, repo: false, link, items: [] });
   }
-  return [...groups.values()].sort((a, b) => formatTrackedRepoName(a.key).localeCompare(formatTrackedRepoName(b.key)));
+  return [...groups.values()].sort((a, b) =>
+    formatTrackedRepoName(a.key).localeCompare(formatTrackedRepoName(b.key)),
+  );
 }
 
 /** Cut groups down to the first `limit` items, preserving standalone empty groups. */
-export function limitGroups<G extends { items: Skill[] }>(groups: G[], limit: number, collapsed: (g: G) => boolean = () => false): G[] {
+export function limitGroups<G extends { items: Skill[] }>(
+  groups: G[],
+  limit: number,
+  collapsed: (g: G) => boolean = () => false,
+): G[] {
   const out: G[] = [];
   let left = limit;
   for (const g of groups) {
     // A collapsed group shows only its head, so its items cost nothing.
-    if (collapsed(g)) { out.push(g); continue; }
+    if (collapsed(g)) {
+      out.push(g);
+      continue;
+    }
     if (left <= 0 && g.items.length > 0) continue;
     out.push({ ...g, items: g.items.slice(0, left) });
     left -= g.items.length;
@@ -175,7 +225,10 @@ export function limitGroups<G extends { items: Skill[] }>(groups: G[], limit: nu
 
 /* -- Nested skills -------------------------------- */
 
-export interface Nest { roots: Skill[]; children: Map<string, Skill[]> }
+export interface Nest {
+  roots: Skill[];
+  children: Map<string, Skill[]>;
+}
 
 /** Puts each skill under the nearest skill in `items` whose folder holds it; both lists keep the order of `items`. */
 export function nestSkills(items: Skill[]): Nest {
@@ -184,8 +237,16 @@ export function nestSkills(items: Skill[]): Nest {
   const children = new Map<string, Skill[]>();
   for (const s of items) {
     let parent: Skill | undefined;
-    for (let i = s.relPath.lastIndexOf('/'); i > 0 && !parent; i = s.relPath.lastIndexOf('/', i - 1)) parent = byPath.get(s.relPath.slice(0, i));
-    if (!parent) { roots.push(s); continue; }
+    for (
+      let i = s.relPath.lastIndexOf('/');
+      i > 0 && !parent;
+      i = s.relPath.lastIndexOf('/', i - 1)
+    )
+      parent = byPath.get(s.relPath.slice(0, i));
+    if (!parent) {
+      roots.push(s);
+      continue;
+    }
     if (!children.has(parent.flatName)) children.set(parent.flatName, []);
     children.get(parent.flatName)!.push(s);
   }
@@ -207,13 +268,17 @@ export function outermost(list: Skill[], holders: Skill[] = list): Skill[] {
 export function withAncestors(matched: Skill[], all: Skill[]): Skill[] {
   const keep = new Set(matched.map((s) => s.relPath));
   for (const s of matched) {
-    for (let i = s.relPath.lastIndexOf('/'); i > 0; i = s.relPath.lastIndexOf('/', i - 1)) keep.add(s.relPath.slice(0, i));
+    for (let i = s.relPath.lastIndexOf('/'); i > 0; i = s.relPath.lastIndexOf('/', i - 1))
+      keep.add(s.relPath.slice(0, i));
   }
   return all.filter((s) => keep.has(s.relPath));
 }
 
 /** Splits target names into global tools and projects; `myapp@claude` is claude in the myapp project. */
-export function splitTargets(names: string[]): { global: string[]; projects: [string, string[]][] } {
+export function splitTargets(names: string[]): {
+  global: string[];
+  projects: [string, string[]][];
+} {
   const global: string[] = [];
   const projects = new Map<string, string[]>();
   for (const n of names) {

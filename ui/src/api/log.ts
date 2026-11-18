@@ -2,7 +2,11 @@ import { apiFetch } from './http';
 import type { LogListResponse, LogStatsResponse } from './types/log';
 
 export const logApi = {
-  listLog: (type?: string, limit?: number, filters?: { cmd?: string; status?: string; since?: string }) => {
+  listLog: (
+    type?: string,
+    limit?: number,
+    filters?: { cmd?: string; status?: string; since?: string },
+  ) => {
     const params = new URLSearchParams();
     params.set('type', type ?? 'ops');
     params.set('limit', String(limit ?? 100));

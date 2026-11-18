@@ -40,7 +40,12 @@ export default function Button({
       disabled={disabled || loading}
       {...props}
     >
-      {loading && (isLink ? <Spinner size="sm" className="text-current" /> : <span className="spin animate-spin" aria-hidden="true" />)}
+      {loading &&
+        (isLink ? (
+          <Spinner size="sm" className="text-current" />
+        ) : (
+          <span className="spin animate-spin" aria-hidden="true" />
+        ))}
       {children}
     </button>
   );

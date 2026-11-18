@@ -70,19 +70,27 @@ export default function ThemePopover() {
   // Focus the selected style on open
   useEffect(() => {
     if (!open || !panelRef.current) return;
-    (panelRef.current.querySelector('[role="radio"][aria-checked="true"]') as HTMLElement | null)?.focus();
+    (
+      panelRef.current.querySelector('[role="radio"][aria-checked="true"]') as HTMLElement | null
+    )?.focus();
   }, [open]);
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent, group: 'style' | 'mode') => {
-    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-    e.preventDefault();
-    const items = group === 'style' ? styles : modes;
-    const current = group === 'style' ? style : modePreference;
-    const idx = items.findIndex((i) => i.value === current);
-    const next = e.key === 'ArrowRight' ? items[(idx + 1) % items.length] : items[(idx - 1 + items.length) % items.length];
-    if (group === 'style') setStyle(next.value as Style);
-    else setModePreference(next.value as ModePreference);
-  }, [style, modePreference, setStyle, setModePreference]);
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent, group: 'style' | 'mode') => {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      e.preventDefault();
+      const items = group === 'style' ? styles : modes;
+      const current = group === 'style' ? style : modePreference;
+      const idx = items.findIndex((i) => i.value === current);
+      const next =
+        e.key === 'ArrowRight'
+          ? items[(idx + 1) % items.length]
+          : items[(idx - 1 + items.length) % items.length];
+      if (group === 'style') setStyle(next.value as Style);
+      else setModePreference(next.value as ModePreference);
+    },
+    [style, modePreference, setStyle, setModePreference],
+  );
 
   return (
     <div ref={containerRef} className="relative">
@@ -103,7 +111,8 @@ export default function ThemePopover() {
           ref={panelRef}
           role="dialog"
           aria-label={t('theme.settings')}
-          {...menu.exitProps} className={`ss-menu absolute left-0 bottom-full mb-3 z-50 origin-bottom-left !w-[264px] !p-3 gap-2 ${menu.motion}`}
+          {...menu.exitProps}
+          className={`ss-menu absolute left-0 bottom-full mb-3 z-50 origin-bottom-left !w-[264px] !p-3 gap-2 ${menu.motion}`}
         >
           <span className="text-xs font-semibold text-ink-3">{t('theme.style')}</span>
           <div role="radiogroup" aria-label={t('theme.style')} className="flex gap-1.5">
@@ -121,7 +130,9 @@ export default function ThemePopover() {
                   className={`flex-1 flex flex-col gap-1.5 p-1.5 rounded-[10px] border-2 cursor-pointer focus-visible:outline-2 focus-visible:outline-link ${on ? 'border-link' : 'border-transparent hover:bg-sunken'}`}
                 >
                   <StyleThumb value={s.value} />
-                  <span className={`flex items-center justify-between px-0.5 text-[13px] ${on ? 'font-semibold text-ink' : 'text-ink-2'}`}>
+                  <span
+                    className={`flex items-center justify-between px-0.5 text-[13px] ${on ? 'font-semibold text-ink' : 'text-ink-2'}`}
+                  >
                     {t(s.label)}
                     {on && <Check size={14} />}
                   </span>
@@ -130,7 +141,12 @@ export default function ThemePopover() {
             })}
           </div>
           <span className="text-xs font-semibold text-ink-3 mt-1">{t('theme.mode')}</span>
-          <div ref={segSlide} role="radiogroup" aria-label={t('theme.mode')} className="ss-seg !flex">
+          <div
+            ref={segSlide}
+            role="radiogroup"
+            aria-label={t('theme.mode')}
+            className="ss-seg !flex"
+          >
             {modes.map((m) => {
               const on = modePreference === m.value;
               const Icon = m.icon;

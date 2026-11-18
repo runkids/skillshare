@@ -4,7 +4,15 @@ import { buildTree, flattenTree, rangeIds, selectedSkills, treeLines } from './t
 
 const skill = (relPath: string, extra: Partial<Skill> = {}): Skill => {
   const name = relPath.split('/').pop()!;
-  return { name, kind: 'skill', flatName: relPath.replace(/\//g, '__'), relPath, sourcePath: '', isInRepo: relPath.startsWith('_'), ...extra };
+  return {
+    name,
+    kind: 'skill',
+    flatName: relPath.replace(/\//g, '__'),
+    relPath,
+    sourcePath: '',
+    isInRepo: relPath.startsWith('_'),
+    ...extra,
+  };
 };
 
 const SKILLS = [
@@ -17,21 +25,36 @@ const SKILLS = [
 ];
 
 const labels = (rows: ReturnType<typeof flattenTree>) =>
-  rows.map((r) => `${'  '.repeat(r.depth)}${r.type === 'folder' ? r.names.join(' / ') : r.skill.name}`);
+  rows.map(
+    (r) => `${'  '.repeat(r.depth)}${r.type === 'folder' ? r.names.join(' / ') : r.skill.name}`,
+  );
 
 describe('flattenTree', () => {
   it('gives a repo whose skill is its root SKILL.md its own repo row', () => {
-    const rows = flattenTree(buildTree([skill('org/_repo', { isInRepo: true, repoPath: 'org/_repo' })]), new Set(), false);
+    const rows = flattenTree(
+      buildTree([skill('org/_repo', { isInRepo: true, repoPath: 'org/_repo' })]),
+      new Set(),
+      false,
+    );
 
-    expect(rows.map((r) => (r.type === 'folder' ? [r.names.join(' / '), r.repo] : [r.skill.name]))).toEqual([['org', false], ['_repo', true], ['_repo']]);
+    expect(
+      rows.map((r) => (r.type === 'folder' ? [r.names.join(' / '), r.repo] : [r.skill.name])),
+    ).toEqual([['org', false], ['_repo', true], ['_repo']]);
   });
 
   it('marks a repo installed with --into as a repo root, not its parent folder', () => {
     const repo = { isInRepo: true, repoPath: 'org/_repo' };
     const rows = flattenTree(buildTree([skill('org/_repo/skills/x', repo)]), new Set(), false);
 
-    expect(rows.filter((r) => r.type === 'folder').map((r) => [r.names.join(' / '), r.type === 'folder' && r.repo]))
-      .toEqual([['org', false], ['_repo', true], ['skills', false]]);
+    expect(
+      rows
+        .filter((r) => r.type === 'folder')
+        .map((r) => [r.names.join(' / '), r.type === 'folder' && r.repo]),
+    ).toEqual([
+      ['org', false],
+      ['_repo', true],
+      ['skills', false],
+    ]);
   });
 
   it('merges chains of single-folder folders into one row, but never a tracked repo root', () => {
@@ -64,7 +87,13 @@ describe('rangeIds', () => {
   const rows = flattenTree(buildTree(SKILLS), new Set(), false);
 
   it('takes every visible row between the anchor and the target, in either direction', () => {
-    expect(rangeIds(rows, 's:local__two', 'f:_repo/skills')).toEqual(['f:_repo/skills', 's:_repo__skills__gamma', 'f:local', 's:local__one', 's:local__two']);
+    expect(rangeIds(rows, 's:local__two', 'f:_repo/skills')).toEqual([
+      'f:_repo/skills',
+      's:_repo__skills__gamma',
+      'f:local',
+      's:local__one',
+      's:local__two',
+    ]);
   });
 
   it('falls back to the clicked row without a visible anchor', () => {
@@ -83,7 +112,11 @@ describe('selectedSkills', () => {
 
 describe('treeLines', () => {
   it('runs a folder line past an open subfolder to its next child and ends it at the last one', () => {
-    const rows = flattenTree(buildTree([skill('a/b/one'), skill('a/b/two'), skill('a/three')]), new Set(), false);
+    const rows = flattenTree(
+      buildTree([skill('a/b/one'), skill('a/b/two'), skill('a/three')]),
+      new Set(),
+      false,
+    );
     expect(labels(rows)).toEqual(['a', '  b', '    one', '    two', '  three']);
     expect(treeLines(rows)).toEqual([
       { through: [], last: true },

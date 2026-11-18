@@ -3,7 +3,15 @@ import { conflictMarks, parseStatusLine } from './gitView';
 
 describe('parseStatusLine', () => {
   it('reads untracked, modified, deleted and renamed lines', () => {
-    expect([' M pdf/SKILL.md', 'M pdf/SKILL.md', '?? notes/SKILL.md', ' D old/SKILL.md', 'R  a.md -> b.md'].map(parseStatusLine)).toEqual([
+    expect(
+      [
+        ' M pdf/SKILL.md',
+        'M pdf/SKILL.md',
+        '?? notes/SKILL.md',
+        ' D old/SKILL.md',
+        'R  a.md -> b.md',
+      ].map(parseStatusLine),
+    ).toEqual([
       { path: 'pdf/SKILL.md', change: 'Changed' },
       { path: 'pdf/SKILL.md', change: 'Changed' },
       { path: 'notes/SKILL.md', change: 'New' },
@@ -15,7 +23,10 @@ describe('parseStatusLine', () => {
 
 describe('conflictMarks', () => {
   it('marks the lines only one version has', () => {
-    expect(conflictMarks('a\nversion: 1\nb\nc\n', 'a\nversion: 2\nb\nhooks\nc\n')).toEqual({ local: [2], remote: [2, 4] });
+    expect(conflictMarks('a\nversion: 1\nb\nc\n', 'a\nversion: 2\nb\nhooks\nc\n')).toEqual({
+      local: [2],
+      remote: [2, 4],
+    });
   });
 
   it('skips marking when the differing lines are too many to compare', () => {
