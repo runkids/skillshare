@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '../../api/client';
 import { mcpApi } from '../../api/mcp';
 import { hooksApi } from '../../api/hooks';
-import { removeProject } from './projectActions';
+import { removeProject, settingsLeft } from './projectActions';
 
 vi.mock('../../api/client', () => ({ api: { removeProject: vi.fn() } }));
 vi.mock('../../api/mcp', () => ({ mcpApi: { save: vi.fn() } }));
@@ -35,5 +35,19 @@ describe('project removal ownership', () => {
     vi.mocked(api.removeProject).mockResolvedValueOnce({ success: true, root: '~/work/app', origin: 'local', originPath: '' });
     expect(await removeProject({ declared: true, root: '~/work/app', path: '/work/app' }, { mcp: false, hooks: false }, true)).toBe(false);
     expect(api.removeProject).toHaveBeenLastCalledWith('~/work/app', true);
+  });
+});
+
+describe('settings a removal leaves in config.yaml', () => {
+  it('keeps the MCP and hook entries of a removed registration', () => {
+    expect(settingsLeft({ declared: true, origin: 'shared', sharedCopy: false }, { mcp: true, hooks: true }, false)).toBe('both');
+  });
+
+  it('keeps nothing for a leftover row, whose removal deletes them', () => {
+    expect(settingsLeft({ declared: false, origin: 'shared', sharedCopy: false }, { mcp: true, hooks: false }, false)).toBeNull();
+  });
+
+  it('leaves the project in place when only this machine\'s copy goes', () => {
+    expect(settingsLeft({ declared: true, origin: 'local', sharedCopy: true }, { mcp: true, hooks: false }, false)).toBeNull();
   });
 });
