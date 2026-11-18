@@ -254,7 +254,11 @@ export default function ProjectsPage() {
           defaultStorage={list.data.storage}
           storagePaths={list.data.storagePaths}
           existing={rows.filter((p) => p.declared).map((p) => p.path)}
-          onClose={() => setAdding(false)}
+          onClose={() => {
+            setAdding(false);
+            // A failure after the write (MCP or hooks) leaves the dialog open on saved projects.
+            void invalidate(queryClient, 'projectAdded');
+          }}
           onAdded={(root) => {
             setAdding(false);
             void invalidate(queryClient, 'projectAdded');
@@ -264,6 +268,11 @@ export default function ProjectsPage() {
               const added = fresh.projects.find((p) => p.root === root);
               if (added) void navigate(projectUrl(added.path));
             });
+          }}
+          onScanned={(count) => {
+            setAdding(false);
+            void invalidate(queryClient, 'projectAdded');
+            toast(t(plural('projects.scan.added', count), { count }), 'success');
           }}
         />
       )}

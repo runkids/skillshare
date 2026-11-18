@@ -37,6 +37,7 @@ complete -c skillshare -n '__fish_skillshare_using_command project' -l agents-mo
 complete -c skillshare -n '__fish_skillshare_using_command project' -l skills-naming -r -a 'flat standard prefixed'
 complete -c skillshare -n '__fish_skillshare_using_command project' -l skills-include -r
 complete -c skillshare -n '__fish_skillshare_using_command project' -l skills-exclude -r
+complete -c skillshare -n '__fish_skillshare_using_command project' -l scan -x -a '(__fish_complete_directories)' -d 'Also add Git checkouts below this folder'
 complete -c skillshare -n '__fish_skillshare_using_command project' -l machine-local -d 'Save a new project on this machine only'
 complete -c skillshare -n '__fish_skillshare_using_command project' -l shared -d 'Save in config.yaml, or also remove its copy'
 complete -c skillshare -n '__fish_skillshare_using_command project' -l agents-include -r

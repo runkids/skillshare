@@ -151,6 +151,9 @@ func runProject(o projectOptions) error {
 		} else if o.shared {
 			storage = projects.OriginShared
 		}
+		if _, scan := o.values["--scan"]; scan {
+			return runProjectScan(o, cfg, service, root, entry, storage, release, start)
+		}
 		if _, exists := cfg.Projects[root]; create && exists {
 			// Adding the same project again is a no-op, so scripts can rerun it.
 			if info, err := os.Stat(config.ExpandPath(root)); err != nil || !info.IsDir() {

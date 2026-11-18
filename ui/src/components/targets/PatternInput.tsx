@@ -8,11 +8,13 @@ export default function PatternInput({
   patterns,
   onChange,
   disabled,
+  placeholder,
 }: {
   id: string;
   patterns: string[];
   onChange: (patterns: string[]) => void;
   disabled?: boolean;
+  placeholder?: string;
 }) {
   const t = useT();
   const [draft, setDraft] = useState('');
@@ -51,7 +53,7 @@ export default function PatternInput({
           }
         }}
         onBlur={commit}
-        placeholder={t('targetDetail.addPattern')}
+        placeholder={placeholder ?? t('targetDetail.addPattern')}
         disabled={disabled}
       />
     </span>

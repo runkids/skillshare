@@ -417,6 +417,7 @@ _skillshare() {
                         '*--skills-exclude[Replace skills exclude filters]:pattern: ' \
                         '*--agents-include[Replace agents include filters]:pattern: ' \
                         '*--agents-exclude[Replace agents exclude filters]:pattern: ' \
+                        '*--scan[Also add Git checkouts below this folder]:folder:_directories' \
                         '--machine-local[Save a new project on this machine only]' \
                         '--shared[Save in config.yaml, or also remove its copy]' \
                         '--sync[Sync after add or edit]' \
