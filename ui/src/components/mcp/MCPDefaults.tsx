@@ -1,6 +1,7 @@
 import { useContext, useState } from 'react';
 import type { MCPSettings } from '../../api/mcp';
 import { useT } from '../../i18n';
+import Reveal from '../Reveal';
 import { TargetPill, TargetToggles } from './TargetPicker';
 import { MCPTargetOrder } from './targetOrder';
 
@@ -24,11 +25,11 @@ export default function MCPDefaults({ targets, offered, onSave }: Props) {
           <div className="l"><b>{t('mcp.targets')}</b><span>{t('mcp.defaults.targetsHint')}</span></div>
           <TargetPill selected={targets} text={`${targets.length}/${shown.length}`} expanded={open} label={t('mcp.defaults.chooseAgents')} onClick={() => setOpen(!open)} />
         </div>
-        {open && (
+        <Reveal open={open}>
           <div className="flex flex-wrap gap-x-6 gap-y-3.5 px-[18px] pb-4">
             <TargetToggles offered={shown} selected={targets} onToggle={(target, on) => onSave({ targets: order.filter((x) => (x === target ? on : targets.includes(x))) })} />
           </div>
-        )}
+        </Reveal>
       </div>
     </section>
   );

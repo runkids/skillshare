@@ -1,9 +1,9 @@
 import { Fragment, useState } from 'react';
 import { Ellipsis } from 'lucide-react';
 import { useT } from '../../i18n';
-import AgentIcon from '../AgentIcon';
+import Reveal from '../Reveal';
 import { mcpOffTargets } from '../../api/mcp';
-import { describeEndpoint, hasToolPolicy, targetLabel, toolSummary, writes, type MatrixRow } from './mcpView';
+import { describeEndpoint, hasToolPolicy, toolSummary, writes, type MatrixRow } from './mcpView';
 import { TargetPill, TargetToggles } from './TargetPicker';
 import type { MCPCheckFinding } from '../../api/mcpCheck';
 import MCPCheckFindings, { MCPCheckTag } from './MCPCheckFindings';
@@ -22,10 +22,8 @@ interface Props {
   problems?: Record<string, MCPCheckFinding[]>;
 }
 
-const CHIPS = 6;
-
 /**
- * One row per server. The agents it writes to are chips under its name, not columns:
+ * One row per server. The agents it writes to are logos on its pill and toggles under it, not columns:
  * the list grows downwards as more CLIs gain MCP support, so it never scrolls sideways.
  */
 export default function MCPServerList({ rows, targets, targetsOf, onToggle, onMenu, offTargets = mcpOffTargets, disabled = false, problems = {} }: Props) {
@@ -40,6 +38,9 @@ export default function MCPServerList({ rows, targets, targetsOf, onToggle, onMe
         const selected = row.server ? targetsOf(row.name).filter((x) => offered.includes(x)) : [];
         const expanded = open.includes(row.name);
         const http = Boolean(row.server?.url);
+        const exposure = String(row.server?.piOptions?.exposure ?? 'codemode');
+        // Pi's exposure mode in a few words; the full wording is in the title. A value Pi adds later shows as written.
+        const pi = { text: t(`mcp.piExposureShort.${exposure}`, undefined, exposure), title: t(`mcp.piExposure.${exposure}`, undefined, exposure) };
         const targetPill = <TargetPill selected={selected} text={`${selected.length}/${offered.length}`} expanded={expanded} label={t('mcp.chooseAgents', { name: row.name })} onClick={() => setOpen((prev) => (expanded ? prev.filter((x) => x !== row.name) : [...prev, row.name]))} />;
         return (
           <Fragment key={row.name}>
@@ -59,38 +60,21 @@ export default function MCPServerList({ rows, targets, targetsOf, onToggle, onMe
                   </button>
                 )}
               </span>
-              {!row.server || row.server.disabled ? (
+              {(!row.server || row.server.disabled) && (
                 <span className="flex min-w-0 items-center gap-2 text-xs text-ink-3">
                   <span className="truncate">{row.server ? t('mcp.offHere') : t('mcp.removedHint')}</span>
-                </span>
-              ) : selected.length > 0 && (
-                <span className="flex min-w-0 flex-wrap items-center gap-1.5">
-                  {selected.slice(0, CHIPS).map((target) => (
-                    <span key={target} className="inline-flex h-6 min-w-0 max-w-full items-center gap-1.5 whitespace-nowrap rounded-full bg-sunken pl-1.5 pr-2.5 text-xs text-ink">
-                      <AgentIcon target={target} size={14} />
-                      {targetLabel(target)}
-                      {target === 'pi' && <PiExposureLabel exposure={String(row.server?.piOptions?.exposure ?? 'codemode')} />}
-                    </span>
-                  ))}
-                  {selected.length > CHIPS && <span className="text-xs text-ink-3">+{selected.length - CHIPS}</span>}
                 </span>
               )}
             </div>
             {problems[row.name] && <MCPCheckFindings findings={problems[row.name]} />}
-            {expanded && row.server && (
+            <Reveal open={expanded && Boolean(row.server)} className="ss-rv">
               <div className="ss-r fold !min-h-0 flex-wrap gap-x-6 gap-y-3.5 !py-3.5">
-                <TargetToggles offered={offered} selected={selected} http={http} disabled={disabled} onToggle={(target, on) => onToggle(row.name, target, on)} />
+                <TargetToggles offered={offered} selected={selected} http={http} disabled={disabled} tags={selected.includes('pi') && !row.server?.disabled ? { pi } : undefined} onToggle={(target, on) => onToggle(row.name, target, on)} />
               </div>
-            )}
+            </Reveal>
           </Fragment>
         );
       })}
     </div>
   );
-}
-
-/** Pi's exposure mode in a few words; the full wording is in the title. A value Pi adds later shows as written. */
-function PiExposureLabel({ exposure }: { exposure: string }) {
-  const t = useT();
-  return <span className="text-ink-2" title={t(`mcp.piExposure.${exposure}`, undefined, exposure)}>· {t(`mcp.piExposureShort.${exposure}`, undefined, exposure)}</span>;
 }
