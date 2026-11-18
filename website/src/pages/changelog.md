@@ -11,17 +11,19 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ## [0.30.12] - 2026-11-18
 
-
 ### New Features
 
-* **project:** register every Git checkout in a workspace with --scan ([#958](https://github.com/runkids/skillshare/issues/958)) ([52744e2](https://github.com/runkids/skillshare/commit/52744e2f3448f527f404de1bc706a2185ce26971)), closes [#953](https://github.com/runkids/skillshare/issues/953)
-
+- **Register every Git checkout in a workspace with `--scan`** — some tools, such as Codex, look for project skills only up to the Git root of the folder you open, so skills synced to a workspace folder were not seen inside the checkouts and worktrees it holds. `skillshare project add <root> --scan DIR` now registers the root and each Git checkout found below the scan folders as ordinary project entries with the same settings, in one write. It only adds: a checkout already registered with the same settings is kept, and one with different settings, its own `.skillshare/`, or a name that is already used is skipped with the reason, so it is safe to rerun after a new clone. On a name clash the name comes from the path (`.worktrees/app-a` → `worktrees-app-a`) and is saved. A scan folder that is missing or cannot be read is skipped with a warning. In the dashboard, **Add project** has **Also add each checkout inside this folder**, and **Review** lists each folder as Added, Kept or Skipped before anything is written. See [`project`](https://skillshare.runkids.cc/docs/reference/commands/project#scan). Thanks to @amphetamlne for the request. Refs: #953, #958.
+  ```bash
+  skillshare project add ~/work/suite --scan . --scan .worktrees \
+    --target codex --skills-include 'team-*' --dry-run
+  ```
 
 ### Bug Fixes
 
-* **plugins:** make OMP removal previews deterministic ([#949](https://github.com/runkids/skillshare/issues/949)) ([ef07211](https://github.com/runkids/skillshare/commit/ef072113a9d30960614640daf9ff8a075c48ecae))
-* **projects:** say where a removed project's MCP and hook settings go ([#955](https://github.com/runkids/skillshare/issues/955)) ([f8d768a](https://github.com/runkids/skillshare/commit/f8d768a2568d9d3bab07c0b6e7cde02e46946f37))
-* **ui:** show each MCP server's Agents once and animate target pickers ([#952](https://github.com/runkids/skillshare/issues/952)) ([d0530b6](https://github.com/runkids/skillshare/commit/d0530b6599319825f602d1a3091aa92c4abd491d))
+- **Removing a project says where its MCP and hook settings went** — a removed project's `mcp.projects` and `hooks.projects` entries stay on purpose, but the CLI only warned that `mcp.projects` still contained the root, with no next step. The warning now names the settings and where to remove them, and the dashboard's remove dialog says they stay and that removing the leftover row deletes them. Refs: #955.
+- **MCP server rows show each Agent once** — rows drew the same Agent logos twice, in the count button and as chips under the name. Only the count button remains; opening it shows the toggles with each Agent's name. Target pickers on MCP and plugin rows fold open and closed and stay still under reduced motion, and a project's MCP **Targets** reads like the global defaults, with **Back to global** behind a confirm. Refs: #952.
+- **Removing an OMP plugin no longer fails its own preview** — with other OMP plugins registered, apply could reject the removal with "plugin state changed since preview", because their package files were read in a different order each time. Refs: #949.
 
 ## [0.30.11] - 2026-11-17
 
