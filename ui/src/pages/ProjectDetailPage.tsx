@@ -274,7 +274,7 @@ function ProjectEditor({ project, tools, mcp, hooks, hooksError }: { project: Pr
 
       <ProjectSyncDialog open={syncing} onClose={() => setSyncing(false)} project={project} targets={targets.data?.targets} />
 
-      {removing && <RemoveProjectDialog project={project} loading={busy} onCancel={() => setRemoving(false)} onConfirm={(alsoShared) => void remove(alsoShared)} />}
+      {removing && <RemoveProjectDialog project={project} keeps={{ mcp: Boolean(mcpEntry), hooks: Boolean(hooksEntry) }} loading={busy} onCancel={() => setRemoving(false)} onConfirm={(alsoShared) => void remove(alsoShared)} />}
     </div>
   );
 }

@@ -85,6 +85,8 @@ Removal deletes the project where it is saved. Removing a project from `config.y
 
 Removal detaches skills before removing the project. A whole-folder link is removed; merge-mode links become local copies while their source content exists; copy-mode files remain and their manifest is removed. A path still owned by a surviving enabled target is retained.
 
+Removal leaves the folder's entries under `mcp.projects` and `hooks.projects` in place and warns about each one. The dashboard's **Projects** page keeps listing the folder; remove it there again to delete those entries, or edit `config.yaml`.
+
 CLI edits detach dropped skill paths by the same rules. While a project's skills remain off, any CLI edit, including a rename or an agents-only edit, also detaches its remaining skill paths, even if skills were turned off earlier in the dashboard. Copy-back and surviving enabled-target ownership rules still apply. Dashboard saves never detach skills. Agent files remain in place. The preview and result list removed, copied-back, and retained paths.
 
 ## JSON and failures {#json-and-failures}

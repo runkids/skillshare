@@ -9,7 +9,7 @@ const project = { root: '~/work/docs', path: '/work/docs', name: 'docs', declare
 
 const open = (p: ProjectRow) => {
   const onConfirm = vi.fn();
-  render(<I18nProvider><RemoveProjectDialog project={p} loading={false} onCancel={() => {}} onConfirm={onConfirm} /></I18nProvider>);
+  render(<I18nProvider><RemoveProjectDialog project={p} keeps={{ mcp: false, hooks: false }} loading={false} onCancel={() => {}} onConfirm={onConfirm} /></I18nProvider>);
   return onConfirm;
 };
 

@@ -85,6 +85,8 @@ skillshare project remove shop-web --yes --json
 
 移除時會先分離 skills，再移除專案。整個資料夾的連結會被移除；merge 模式的連結在 source 內容仍存在時會變成本機副本；copy 模式的檔案會保留，只移除其 manifest。仍被某個存續且啟用的 target 擁有的路徑會被保留。
 
+移除不會動到該資料夾在 `mcp.projects` 和 `hooks.projects` 底下的設定，並會逐一提出警告。Dashboard 的 **Projects** 頁會繼續列出該資料夾；在那裡再移除一次即可刪除這些設定，或直接編輯 `config.yaml`。
+
 CLI edit 會依相同規則分離被移出的 skill 路徑。只要專案的 skills 仍停用，任何 CLI 編輯（包括改名或僅修改 Agent 設定）也會分離其殘留的 skill 路徑，即使先前是在 Dashboard 中停用也一樣。複製回本機及保留存續且啟用的 target 所擁有路徑的規則仍然適用。Dashboard 儲存不會分離 skills。Agent 檔案會原地保留。預覽與結果會列出被移除、複製回來以及被保留的路徑。
 
 ## JSON 與失敗處理 {#json-and-failures}

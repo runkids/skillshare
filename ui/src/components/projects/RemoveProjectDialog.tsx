@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import type { ProjectRow } from './projectView';
-import { hasSharedCopy } from './projectActions';
+import { hasSharedCopy, settingsLeft } from './projectActions';
 import ConfirmDialog from '../ConfirmDialog';
 import RadioOption from './RadioOption';
 import { useT } from '../../i18n';
 
 interface Props {
   project: ProjectRow;
+  /** The project also has entries under mcp.projects or hooks.projects. */
+  keeps: { mcp: boolean; hooks: boolean };
   loading: boolean;
   onCancel: () => void;
   /** `alsoShared`: config.yaml's copy goes too. */
@@ -14,11 +16,12 @@ interface Props {
 }
 
 /** Mount it only while open, so the choice starts at "this machine's copy" each time. */
-export default function RemoveProjectDialog({ project, loading, onCancel, onConfirm }: Props) {
+export default function RemoveProjectDialog({ project, keeps, loading, onCancel, onConfirm }: Props) {
   const t = useT();
   const [alsoShared, setAlsoShared] = useState(false);
   const twoCopies = hasSharedCopy(project);
-  const message = twoCopies ? (
+  const left = settingsLeft(project, keeps, alsoShared);
+  const body = twoCopies ? (
     <div className="flex flex-col gap-2">
       <p className="mb-1">{t('projects.removeBoth.message', { name: project.name })}</p>
       <div role="radiogroup" aria-label={t('projects.removeTitle', { name: project.name })} className="flex flex-col gap-2">
@@ -30,6 +33,7 @@ export default function RemoveProjectDialog({ project, loading, onCancel, onConf
   ) : (
     <p>{t(!project.declared ? 'projects.removeSharedMessage' : project.origin === 'shared' ? 'projects.removeConfigMessage' : 'projects.removeLocalMessage')}</p>
   );
+  const message = <>{body}{left && <p className="mt-2 text-[12.5px] text-ink-3">{t(`projects.removeKeeps.${left}`)}</p>}</>;
   return (
     <ConfirmDialog
       open

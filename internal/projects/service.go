@@ -343,22 +343,32 @@ func field(node *yaml.Node, key string) *yaml.Node {
 	}
 	return nil
 }
+
+// leftoverWarnings names the MCP and hook settings a removed project leaves behind.
+// They are separate lists that no project command edits, so each says where to remove them.
 func leftoverWarnings(cfg *config.Config, root string) []string {
 	normalizedRoot := filepath.Clean(config.ExpandPath(root))
-	sections := map[string]*yaml.Node{"hooks.projects": field(&cfg.Hooks, "projects")}
+	var mcpProjects *yaml.Node
 	if cfg.MCP != nil {
-		sections["mcp.projects"] = cfg.MCP.Projects
+		mcpProjects = cfg.MCP.Projects
+	}
+	sections := []struct {
+		name, what string
+		node       *yaml.Node
+	}{
+		{"mcp.projects", "MCP settings", mcpProjects},
+		{"hooks.projects", "Hook settings", field(&cfg.Hooks, "projects")},
 	}
 	var warnings []string
-	for _, name := range []string{"mcp.projects", "hooks.projects"} {
-		node := sections[name]
+	for _, section := range sections {
+		node := section.node
 		if node == nil {
 			continue
 		}
 		for i := 0; i+1 < len(node.Content); i += 2 {
 			key := node.Content[i].Value
 			if utils.PathsEqual(filepath.Clean(config.ExpandPath(key)), normalizedRoot) {
-				warnings = append(warnings, fmt.Sprintf("%s still contains root %s", name, key))
+				warnings = append(warnings, fmt.Sprintf("%s for %s stay in %s; remove them on the dashboard's Projects page or in config.yaml", section.what, key, section.name))
 			}
 		}
 	}

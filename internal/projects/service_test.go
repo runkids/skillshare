@@ -237,7 +237,7 @@ func TestServiceRemove_PreviewAndLeftoverRoots(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if calls != 2 || result.Registration != "kept" || len(result.Detach.Retained) != 2 || len(result.Warnings) != 2 || result.Warnings[0] != "mcp.projects still contains root "+mcpRoot || result.Warnings[1] != "hooks.projects still contains root "+hooksRoot {
+	if calls != 2 || result.Registration != "kept" || len(result.Detach.Retained) != 2 || len(result.Warnings) != 2 || result.Warnings[0] != "MCP settings for "+mcpRoot+" stay in mcp.projects; remove them on the dashboard's Projects page or in config.yaml" || result.Warnings[1] != "Hook settings for "+hooksRoot+" stay in hooks.projects; remove them on the dashboard's Projects page or in config.yaml" {
 		t.Fatalf("preview report: %+v", result)
 	}
 	if got, _ := os.ReadFile(path); !bytes.Equal(got, original) {

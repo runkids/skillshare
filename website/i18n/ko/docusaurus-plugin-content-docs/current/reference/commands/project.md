@@ -85,6 +85,8 @@ skillshare project remove shop-web --yes --json
 
 제거는 프로젝트를 지우기 전에 skill을 분리합니다. 폴더 전체 링크는 제거되고, merge mode 링크는 source 내용이 존재하는 동안 로컬 사본이 되며, copy mode 파일은 남기고 manifest만 제거합니다. 남아 있는 활성 target이 여전히 소유한 경로는 유지됩니다.
 
+제거해도 그 폴더의 `mcp.projects`와 `hooks.projects` 항목은 남으며, 각 항목에 대해 경고가 표시됩니다. 대시보드의 **Projects** 페이지에는 폴더가 계속 표시됩니다. 거기서 한 번 더 제거하면 이 항목들도 삭제되며, `config.yaml`을 직접 편집해도 됩니다.
+
 CLI edit은 빠진 skill 경로를 같은 규칙으로 분리합니다. 프로젝트의 skill이 꺼진 상태라면 이름 변경이나 agent 설정만 바꾸는 편집을 포함한 모든 CLI edit이 남은 skill 경로도 분리합니다. 앞서 대시보드에서 skill을 껐더라도 동일하며, 복사 복원과 남아 있는 활성 target의 경로 소유권 규칙은 그대로 적용됩니다. 대시보드 저장은 skill을 분리하지 않습니다. Agent 파일은 그대로 남습니다. 미리보기와 결과에는 제거, 복사 복원, 유지된 경로가 나열됩니다.
 
 ## JSON과 실패 처리 {#json-and-failures}
