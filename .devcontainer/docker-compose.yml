@@ -25,10 +25,12 @@ services:
       BITBUCKET_USERNAME: ${BITBUCKET_USERNAME:-}
       SKILLSHARE_GIT_TOKEN: ${SKILLSHARE_GIT_TOKEN:-}
     # Uncommon ports: 5173/8888/19420 clash with whatever else is running on the host.
+    # Publish on host loopback only: the dev servers are not hardened for the
+    # network. Inside the container they still bind 0.0.0.0, which publishing needs.
     ports:
-      - "45173:45173"
-      - "49420:49420"
-      - "48888:48888"
+      - "127.0.0.1:45173:45173"
+      - "127.0.0.1:49420:49420"
+      - "127.0.0.1:48888:48888"
     volumes:
       - ..:/workspace
       # Container-local node_modules (anonymous volumes) so platform-native
