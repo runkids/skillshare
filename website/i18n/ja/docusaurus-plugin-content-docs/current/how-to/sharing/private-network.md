@@ -41,7 +41,7 @@ skillshare init --remote you@mac-mini:skillshare.git
 skillshare push
 ```
 
-`you@mac-mini:skillshare.git` はそのユーザーのホームディレクトリからの相対パスです。フルパスを使った `ssh://you@mac-mini/home/you/skillshare.git` でも動作します。リポジトリを置いているマシンでは、代わりにローカルパス（`~/skillshare.git`）を指定できます。skillshare がすでに GitHub など別の remote で設定されている場合、`init` はそれを変更しません。切り替えるには `git -C ~/.config/skillshare remote set-url origin you@mac-mini:skillshare.git` を実行してから `skillshare push` します。
+`you@mac-mini:skillshare.git` はそのユーザーのホームディレクトリからの相対パスです。フルパスを使った `ssh://you@mac-mini/home/you/skillshare.git` でも動作します。リポジトリを置いているマシンでは、代わりにローカルパス（`~/skillshare.git`）を指定できます。skillshare がすでに GitHub など別の remote で設定されている場合、`init` はそれを変更しません。切り替えるには、`init` が表示するコマンド（例: `git -C ~/.config/skillshare/skills remote set-url origin you@mac-mini:skillshare.git`）を実行してから `skillshare push` します。
 
 新しい bare repository のデフォルトブランチは `master`（または `init.defaultBranch`）になりますが、最初のマシンが push したブランチとは限りません。他のマシンはデフォルトブランチから始めるため、push したブランチを指すように設定します。
 

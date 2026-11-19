@@ -41,7 +41,7 @@ skillshare init --remote you@mac-mini:skillshare.git
 skillshare push
 ```
 
-`you@mac-mini:skillshare.git` is relative to that user's home directory; `ssh://you@mac-mini/home/you/skillshare.git` with a full path works as well. On the machine that holds the repository, you can give the local path (`~/skillshare.git`) instead. If skillshare is already set up with another remote, such as GitHub, `init` leaves it alone; switch with `git -C ~/.config/skillshare remote set-url origin you@mac-mini:skillshare.git`, then `skillshare push`.
+`you@mac-mini:skillshare.git` is relative to that user's home directory; `ssh://you@mac-mini/home/you/skillshare.git` with a full path works as well. On the machine that holds the repository, you can give the local path (`~/skillshare.git`) instead. If skillshare is already set up with another remote, such as GitHub, `init` leaves it alone; switch with the command `init` prints, such as `git -C ~/.config/skillshare/skills remote set-url origin you@mac-mini:skillshare.git`, then `skillshare push`.
 
 A new bare repository names `master` (or your `init.defaultBranch`) as its default branch, which may not be the branch the first machine pushed. Other machines start from the default branch, so point it at the pushed one:
 

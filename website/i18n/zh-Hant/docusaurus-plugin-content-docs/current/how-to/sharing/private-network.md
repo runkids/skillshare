@@ -41,7 +41,7 @@ skillshare init --remote you@mac-mini:skillshare.git
 skillshare push
 ```
 
-`you@mac-mini:skillshare.git` 是相對於該使用者家目錄的路徑；使用完整路徑的 `ssh://you@mac-mini/home/you/skillshare.git` 也可以。在保存 repository 的那台機器上，可以改給本機路徑（`~/skillshare.git`）。如果 skillshare 已經設定了其他 remote（例如 GitHub），`init` 不會更動它；請用 `git -C ~/.config/skillshare remote set-url origin you@mac-mini:skillshare.git` 切換，再執行 `skillshare push`。
+`you@mac-mini:skillshare.git` 是相對於該使用者家目錄的路徑；使用完整路徑的 `ssh://you@mac-mini/home/you/skillshare.git` 也可以。在保存 repository 的那台機器上，可以改給本機路徑（`~/skillshare.git`）。如果 skillshare 已經設定了其他 remote（例如 GitHub），`init` 不會更動它；請用 `init` 印出的指令（例如 `git -C ~/.config/skillshare/skills remote set-url origin you@mac-mini:skillshare.git`）切換，再執行 `skillshare push`。
 
 新的 bare repository 會以 `master`（或你的 `init.defaultBranch`）作為預設分支，這不一定是第一台機器 push 的分支。其他機器會從預設分支開始，所以請把它指向被 push 的那個分支：
 

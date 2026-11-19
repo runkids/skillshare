@@ -41,7 +41,7 @@ skillshare init --remote you@mac-mini:skillshare.git
 skillshare push
 ```
 
-`you@mac-mini:skillshare.git`은 해당 사용자의 홈 디렉터리 기준 경로입니다. 전체 경로를 쓴 `ssh://you@mac-mini/home/you/skillshare.git`도 동작합니다. 저장소를 가진 머신에서는 대신 로컬 경로(`~/skillshare.git`)를 지정할 수 있습니다. skillshare가 이미 GitHub 같은 다른 Remote로 설정되어 있으면 `init`은 이를 건드리지 않습니다. `git -C ~/.config/skillshare remote set-url origin you@mac-mini:skillshare.git`로 바꾼 뒤 `skillshare push`를 실행하세요.
+`you@mac-mini:skillshare.git`은 해당 사용자의 홈 디렉터리 기준 경로입니다. 전체 경로를 쓴 `ssh://you@mac-mini/home/you/skillshare.git`도 동작합니다. 저장소를 가진 머신에서는 대신 로컬 경로(`~/skillshare.git`)를 지정할 수 있습니다. skillshare가 이미 GitHub 같은 다른 Remote로 설정되어 있으면 `init`은 이를 건드리지 않습니다. `init`이 출력하는 명령(예: `git -C ~/.config/skillshare/skills remote set-url origin you@mac-mini:skillshare.git`)으로 바꾼 뒤 `skillshare push`를 실행하세요.
 
 새 bare repository는 기본 브랜치를 `master`(또는 `init.defaultBranch`)로 지정하는데, 첫 번째 머신이 push한 브랜치와 다를 수 있습니다. 다른 머신은 기본 브랜치에서 시작하므로, push된 브랜치를 가리키도록 설정하세요:
 
