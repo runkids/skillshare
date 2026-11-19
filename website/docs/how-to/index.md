@@ -16,6 +16,7 @@ Practical guides for specific tasks and use cases.
 | Share skills with my team via a git repo | [Organization-Wide Skills](/docs/how-to/sharing/organization-sharing) |
 | Set up skills for a specific project | [Project Setup](/docs/how-to/sharing/project-setup) |
 | Sync skills across multiple machines | [Cross-Machine Sync](/docs/how-to/sharing/cross-machine-sync) |
+| Sync without GitHub, or manage another machine over SSH or Tailscale | [Machines on a Private Network](/docs/how-to/sharing/private-network) |
 | Browse and discover community skills | [Hub Index](/docs/how-to/sharing/hub-index) |
 | Secure my skill supply chain | [Securing Your Skills](/docs/how-to/advanced/security) |
 | Move from another tool or approach | [Migration](/docs/how-to/advanced/migration) |
@@ -42,6 +43,7 @@ Practical guides for specific tasks and use cases.
 | [Project Setup](/docs/how-to/sharing/project-setup) | Set up project-scoped skills for a repo |
 | [Organization-Wide Skills](/docs/how-to/sharing/organization-sharing) | Share skills across your organization |
 | [Cross-Machine Sync](/docs/how-to/sharing/cross-machine-sync) | Sync skills across computers |
+| [Machines on a Private Network](/docs/how-to/sharing/private-network) | No hosted Git, another machine's dashboard, skills over MCP |
 | [Hub Index](/docs/how-to/sharing/hub-index) | Browse and manage skill hubs |
 
 ### Advanced

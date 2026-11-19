@@ -210,6 +210,8 @@ skillshare를 Nix로 설치한 경우에도 엔드포인트는 내장된 skillsh
 
 ## 리버스 프록시 {#reverse-proxy}
 
+프록시 없이 SSH 또는 Tailscale 같은 사설 네트워크로 내 다른 머신의 대시보드를 열려면 [Machines on a Private Network](/docs/how-to/sharing/private-network)를 참고하세요.
+
 공유 서버에서 reverse proxy(예: 홈랩, 내부 도구 플랫폼) 뒤에 대시보드를 실행하는 경우, 브라우저로 여는 주소를 `--trusted-origin`으로 전달하고, `--base-path`를 사용하여 다른 서비스와 함께 하위 경로에서 서비스할 수 있습니다:
 
 ```bash

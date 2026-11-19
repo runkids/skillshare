@@ -72,6 +72,7 @@ skillshare push --pull
 
 - **登录时自动 Sync**：在你的 shell 配置文件（`.bashrc` / `.zshrc`）中添加 `skillshare pull && skillshare sync`
 - **冲突解决**：`pull` 会合并两台机器的 commit，并自动解决 `.metadata.json` 的冲突。如果两台机器编辑了同一个 Skill 文件，`pull` 会停止、撤销合并并列出该文件 — 请在 Source 目录中用 git 解决
+- **无需托管 Git**：把 repository 放在你自己的某台机器上并通过 SSH 访问，再用 `ssh <host> skillshare pull` 更新另一台机器。请参阅 [Machines on a Private Network](/docs/how-to/sharing/private-network)
 - **选择性 Sync**：在 `config.yaml` 中使用每个 Target 的 `include` / `exclude` 过滤器，控制哪些 Skill Sync 到每台机器
 - **Plugins、MCP 和 hooks**：这些都存储在 `config.yaml` 中，`push` / `pull` 永远不会带走。请参阅 [Plugins, MCP and Hooks](/docs/how-to/sharing/cross-machine-sync#plugins-mcp-hooks)
 
