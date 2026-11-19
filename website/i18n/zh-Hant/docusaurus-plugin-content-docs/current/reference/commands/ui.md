@@ -210,6 +210,8 @@ Web dashboard 在 `/api/` 上提供 REST API。所有端點皆回傳 JSON。
 
 ## Reverse Proxy {#reverse-proxy}
 
+若要在不使用 proxy 的情況下，透過 SSH 或 Tailscale 等私有網路開啟你另一台機器的 dashboard，請參考 [私有網路上的機器](/docs/how-to/sharing/private-network)。
+
 如果你在共用伺服器上、透過 reverse proxy 執行 dashboard（例如 homelab、內部工具平台），可用 `--trusted-origin` 傳入你在瀏覽器中開啟的位址，並使用 `--base-path` 讓它在子路徑下與其他服務並存：
 
 ```bash

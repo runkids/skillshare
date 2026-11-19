@@ -211,6 +211,8 @@ web dashboard 在 `/api/` 下暴露一个 REST API。所有端点都返回 JSON�
 
 ## 反向代理 {#reverse-proxy}
 
+如果想不经过代理，通过 SSH 或 Tailscale 等私有网络打开你另一台机器的 dashboard，请参阅 [Machines on a Private Network](/docs/how-to/sharing/private-network)。
+
 如果你在共享服务器（例如家庭实验室、内部工具平台）上运行 dashboard，并处于反向代理之后，可以用 `--trusted-origin` 传入你在浏览器中打开的地址，并用 `--base-path` 把它挂载在子路径下，与其他服务共存：
 
 ```bash

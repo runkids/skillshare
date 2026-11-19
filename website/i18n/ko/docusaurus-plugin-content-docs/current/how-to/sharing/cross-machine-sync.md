@@ -355,6 +355,8 @@ skillshare status
 skillshare init --remote git@github.com:you/private-skills.git
 ```
 
+호스팅 Git을 아예 쓰지 않으려면 내 머신 중 하나에 저장소를 두고 SSH로 접근하세요. [Machines on a Private Network](/docs/how-to/sharing/private-network)를 참고하세요.
+
 ---
 
 ## 팁
@@ -430,4 +432,5 @@ skillshare sync
 - [pull](/docs/reference/commands/pull) — Remote에서 pull
 - [install](/docs/reference/commands/install#install-from-config-no-arguments) — Config에서 설치
 - [Organization-Wide Skills](./organization-sharing.md) — 팀 공유
+- [Machines on a Private Network](/docs/how-to/sharing/private-network) — 호스팅 Git 없이 사용, 원격 대시보드, MCP로 Skill 제공
 - [init](/docs/reference/commands/init) — `--remote`로 init

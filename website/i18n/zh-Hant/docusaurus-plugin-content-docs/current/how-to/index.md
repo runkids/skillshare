@@ -16,6 +16,7 @@ sidebar_position: 1
 | 透過 git repo 與團隊分享 Skills | [組織範圍 Skills](/docs/how-to/sharing/organization-sharing) |
 | 為特定專案設定 Skills | [Project 設定](/docs/how-to/sharing/project-setup) |
 | 跨多台機器同步 Skills | [跨機器同步](/docs/how-to/sharing/cross-machine-sync) |
+| 不用 GitHub 同步，或透過 SSH 或 Tailscale 管理另一台機器 | [私有網路上的機器](/docs/how-to/sharing/private-network) |
 | 瀏覽並探索社群 Skills | [Hub 索引](/docs/how-to/sharing/hub-index) |
 | 保護我的 Skill 供應鏈安全 | [保護你的 Skills](/docs/how-to/advanced/security) |
 | 從其他工具或做法遷移 | [遷移](/docs/how-to/advanced/migration) |
@@ -42,6 +43,7 @@ sidebar_position: 1
 | [Project 設定](/docs/how-to/sharing/project-setup) | 為某個 repo 設定 Project 範圍的 Skills |
 | [組織範圍 Skills](/docs/how-to/sharing/organization-sharing) | 跨組織分享 Skills |
 | [跨機器同步](/docs/how-to/sharing/cross-machine-sync) | 跨電腦同步 Skills |
+| [私有網路上的機器](/docs/how-to/sharing/private-network) | 不使用代管 Git、另一台機器的 dashboard、透過 MCP 提供 skills |
 | [Hub 索引](/docs/how-to/sharing/hub-index) | 瀏覽並管理 Skill hubs |
 
 ### 進階

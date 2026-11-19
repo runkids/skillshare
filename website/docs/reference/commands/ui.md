@@ -210,6 +210,8 @@ If the auto-reload doesn't complete, the dialog tells you to run `skillshare ui 
 
 ## Reverse Proxy {#reverse-proxy}
 
+To open the dashboard of another of your machines over SSH or a private network such as Tailscale, without a proxy, see [Machines on a Private Network](/docs/how-to/sharing/private-network).
+
 If you run the dashboard on a shared server behind a reverse proxy (e.g., homelab, internal tools platform), pass the address you open in the browser with `--trusted-origin`, and use `--base-path` to serve it under a sub-path alongside other services:
 
 ```bash
