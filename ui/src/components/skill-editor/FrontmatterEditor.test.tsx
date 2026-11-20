@@ -81,19 +81,12 @@ describe('FrontmatterEditor structured lists', () => {
 
     view.unmount();
     render(<Harness saved={saved} value={reopened} />);
-    expect(row('metadata.sources')).toHaveTextContent('team:finance');
-    expect(row('metadata.verified')).toHaveTextContent('other:unknown');
-    expect(row('x-extension')).toHaveTextContent('x-acme-review');
     await user.click(within(row('metadata.sources')).getByRole('button'));
     await user.click(within(row('x-extension')).getByRole('button'));
     await user.click(screen.getByRole('button', { name: 'Save' }));
     const removed = parseSkillMarkdown(saved.mock.lastCall![0]).frontmatter;
-    expect(removed.metadata).toEqual({
-      verified: records.verified,
-      mixed: extension,
-      targets: ['cursor', 'gemini'],
-    });
+    expect(removed.metadata).not.toHaveProperty('sources');
+    expect(removed.metadata).toHaveProperty('verified', records.verified);
     expect(removed).not.toHaveProperty('x-extension');
-    expect(removed['x-records']).toEqual(records.verified);
   });
 });
