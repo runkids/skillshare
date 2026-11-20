@@ -179,6 +179,11 @@ func toggleFlowFlag(fm frontmatterLines, m *yaml.Node, key string) ([]string, bo
 		}
 		return -1
 	}
+	// The verification reader requires exact delimiters. Tell the user how to
+	// fix a block that the line editor found but that reader would not see.
+	if fm.open != 0 || !strictBlock.delim([]byte(fm.lines[fm.open])) || !strictBlock.delim([]byte(fm.lines[fm.end])) {
+		return nil, false, fmt.Errorf("flow frontmatter needs exact --- delimiters starting on line 1")
+	}
 	expected, err := ParseFrontmatterMap([]byte(fm.join(fm.lines)))
 	if err != nil {
 		return fail()

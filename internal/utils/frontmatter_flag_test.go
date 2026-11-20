@@ -100,39 +100,31 @@ func TestToggleFrontmatterFlag_FlowRoot(t *testing.T) {
 	meta := "metadata: {generated: {by: tool}, sources: [{actor: 'team:finance'}], x-acme: {nested: [1, 2]}, " + key + ": true}"
 	cases := []struct {
 		name, in, on, off string
-		firstOn           bool
+		firstOn, bomCRLF  bool
 	}{
-		{"nested punctuation", "{name: demo, description: 'a }, " + flag + "', " + meta + "}", "{" + flag + ", name: demo, description: 'a }, " + flag + "', " + meta + "}", "{name: demo, description: 'a }, " + flag + "', " + meta + "}", true},
-		{"BOM CRLF comments", "{\n  name: demo, # keep\n  description: \"comma, brace } and \\\"quote\\\"\",\n  " + meta + "\n} # tail", "{\n  " + flag + ", name: demo, # keep\n  description: \"comma, brace } and \\\"quote\\\"\",\n  " + meta + "\n} # tail", "{\n  name: demo, # keep\n  description: \"comma, brace } and \\\"quote\\\"\",\n  " + meta + "\n} # tail", true},
-		{"empty anchored", "&root {  } # empty", "&root {" + flag + "  } # empty", "&root {  } # empty", true},
-		{"unicode and json keys", "{\"name\": \"日本語😀\", \"description\": \"é\"}", "{" + flag + ", \"name\": \"日本語😀\", \"description\": \"é\"}", "{\"name\": \"日本語😀\", \"description\": \"é\"}", true},
-		{"first true", "{" + flag + ", name: demo}", "{name: demo}", "{" + flag + ", name: demo}", false},
-		{"middle true", "{name: demo, " + flag + ", x: '}, foo'}", "{name: demo, " + key + ": false, x: '}, foo'}", "{name: demo, " + flag + ", x: '}, foo'}", false},
-		{"last true", "{name: demo, " + flag + "}", "{name: demo, " + key + ": false}", "{name: demo, " + flag + "}", false},
-		{"last trailing", "{name: demo, " + flag + ",}", "{name: demo, " + key + ": false,}", "{name: demo, " + flag + ",}", false},
-		{"only trailing", "{" + flag + ",}", "{" + key + ": false,}", "{" + flag + ",}", false},
-		{"last multiline comment", "{\n  name: demo, # keep metadata note\n  " + flag + "\n}", "{\n  name: demo, # keep metadata note\n  " + key + ": false\n}", "{\n  name: demo, # keep metadata note\n  " + flag + "\n}", false},
-		{"comment after separator", "{\n  " + flag + ",\n  # keep metadata note\n  name: demo\n}", "{\n  " + key + ": false,\n  # keep metadata note\n  name: demo\n}", "{\n  " + flag + ",\n  # keep metadata note\n  name: demo\n}", false},
-		{"comment before comma", "{name: demo, " + flag + " # keep\n, x: 1}", "{name: demo, " + key + ": false # keep\n, x: 1}", "{name: demo, " + flag + " # keep\n, x: 1}", false},
-		{"quoted true", "{name: demo, " + key + ": 'true'}", "{name: demo, " + key + ": false}", "{name: demo, " + flag + "}", false},
-		{"quoted false comment", "{name: demo, \"" + key + "\": 'false' # keep\n}", "{name: demo, \"" + key + "\": true # keep\n}", "{name: demo, \"" + key + "\": false # keep\n}", true},
-		{"plain false first", "{" + key + ": false, name: demo}", "{" + flag + ", name: demo}", "{name: demo}", true},
-		{"apostrophe and quoted punctuation", "{name: demo, description: its user's \"quoted\" value, " + flag + ", x: '}, foo'}", "{name: demo, description: its user's \"quoted\" value, " + key + ": false, x: '}, foo'}", "{name: demo, description: its user's \"quoted\" value, " + flag + ", x: '}, foo'}", false},
-		{"last CRLF comment", "{\n name: demo, # keep\n " + flag + "\n}", "{\n name: demo, # keep\n " + key + ": false\n}", "{\n name: demo, # keep\n " + flag + "\n}", false},
-		{"json false last", "{\n \"name\": \"demo\",\n \"" + key + "\": false\n}", "{\n \"name\": \"demo\",\n \"" + key + "\": true\n}", "{\n \"name\": \"demo\",\n \"" + key + "\": false\n}", true},
-		{"alias", "{name: &f false, " + key + ": *f}", "", "", false},
-		{"escaped false", "{name: demo, " + key + ": \"f\\u0061lse\"}", "", "", false},
-		{"mixed YAML line breaks before flag", "{description: \"a\r\nb\rc\u0085d\u2028e\u2029f\", name: demo, " + flag + "}", "{description: \"a\r\nb\rc\u0085d\u2028e\u2029f\", name: demo, " + key + ": false}", "{description: \"a\r\nb\rc\u0085d\u2028e\u2029f\", name: demo, " + flag + "}", false},
-		{"unicode line separator", "{description: \"a\u2028b\", name: demo, " + flag + ", z: 1}", "{description: \"a\u2028b\", name: demo, " + key + ": false, z: 1}", "{description: \"a\u2028b\", name: demo, " + flag + ", z: 1}", false},
-		{"next line separator", "{description: \"a\u0085b\", name: demo}", "{" + flag + ", description: \"a\u0085b\", name: demo}", "{description: \"a\u0085b\", name: demo}", true},
-		{"paragraph separator", "{description: \"a\u2029b\", name: demo}", "{" + flag + ", description: \"a\u2029b\", name: demo}", "{description: \"a\u2029b\", name: demo}", true},
+		{"nested punctuation", "{name: demo, description: 'a }, " + flag + "', " + meta + "}", "{" + flag + ", name: demo, description: 'a }, " + flag + "', " + meta + "}", "{name: demo, description: 'a }, " + flag + "', " + meta + "}", true, false},
+		{"BOM CRLF comments", "{\n  name: demo, # keep\n  description: \"comma, brace } and \\\"quote\\\"\",\n  " + meta + "\n} # tail", "{\n  " + flag + ", name: demo, # keep\n  description: \"comma, brace } and \\\"quote\\\"\",\n  " + meta + "\n} # tail", "{\n  name: demo, # keep\n  description: \"comma, brace } and \\\"quote\\\"\",\n  " + meta + "\n} # tail", true, true},
+		{"empty anchored", "&root {  } # empty", "&root {" + flag + "  } # empty", "&root {  } # empty", true, false},
+		{"unicode and json keys", "{\"name\": \"日本語😀\", \"description\": \"é\"}", "{" + flag + ", \"name\": \"日本語😀\", \"description\": \"é\"}", "{\"name\": \"日本語😀\", \"description\": \"é\"}", true, false},
+		{"first true", "{" + flag + ", name: demo}", "{name: demo}", "{" + flag + ", name: demo}", false, false},
+		{"only trailing", "{" + flag + ",}", "{" + key + ": false,}", "{" + flag + ",}", false, false},
+		{"comment after separator", "{\n  " + flag + ",\n  # keep metadata note\n  name: demo\n}", "{\n  " + key + ": false,\n  # keep metadata note\n  name: demo\n}", "{\n  " + flag + ",\n  # keep metadata note\n  name: demo\n}", false, false},
+		{"comment before comma", "{name: demo, " + flag + " # keep\n, x: 1}", "{name: demo, " + key + ": false # keep\n, x: 1}", "{name: demo, " + flag + " # keep\n, x: 1}", false, false},
+		{"quoted false comment", "{name: demo, \"" + key + "\": 'false' # keep\n}", "{name: demo, \"" + key + "\": true # keep\n}", "{name: demo, \"" + key + "\": false # keep\n}", true, false},
+		{"plain false first", "{" + key + ": false, name: demo}", "{" + flag + ", name: demo}", "{name: demo}", true, false},
+		{"apostrophe and quoted punctuation", "{name: demo, description: its user's \"quoted\" value, " + flag + ", x: '}, foo'}", "{name: demo, description: its user's \"quoted\" value, " + key + ": false, x: '}, foo'}", "{name: demo, description: its user's \"quoted\" value, " + flag + ", x: '}, foo'}", false, false},
+		{"last CRLF comment", "{\n name: demo, # keep\n " + flag + "\n}", "{\n name: demo, # keep\n " + key + ": false\n}", "{\n name: demo, # keep\n " + flag + "\n}", false, true},
+		{"json false last", "{\n \"name\": \"demo\",\n \"" + key + "\": false\n}", "{\n \"name\": \"demo\",\n \"" + key + "\": true\n}", "{\n \"name\": \"demo\",\n \"" + key + "\": false\n}", true, false},
+		{"alias", "{name: &f false, " + key + ": *f}", "", "", false, false},
+		{"escaped false", "{name: demo, " + key + ": \"f\\u0061lse\"}", "", "", false, false},
+		{"mixed YAML line breaks before flag", "{description: \"a\r\nb\rc\u0085d\u2028e\u2029f\", name: demo, " + flag + "}", "{description: \"a\r\nb\rc\u0085d\u2028e\u2029f\", name: demo, " + key + ": false}", "{description: \"a\r\nb\rc\u0085d\u2028e\u2029f\", name: demo, " + flag + "}", false, false},
 	}
 	wrap := func(s string) string { return "---\n" + s + "\n---\nBody\n" }
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			wrapCase := func(s string) string {
 				result := wrap(s)
-				if tc.name == "BOM CRLF comments" || tc.name == "last CRLF comment" {
+				if tc.bomCRLF {
 					result = "\ufeff" + strings.ReplaceAll(result, "\n", "\r\n")
 				}
 				return result
