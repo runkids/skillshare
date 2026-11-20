@@ -1,4 +1,4 @@
-import { Document, isAlias, isMap, isScalar, isSeq, parse, parseDocument, Scalar } from 'yaml';
+import { Document, isScalar, isSeq, parse, Scalar } from 'yaml';
 
 export type FrontmatterScalar = string | number | boolean | null;
 export type FrontmatterNested = { [key: string]: FrontmatterValue };
@@ -164,11 +164,55 @@ export function serializeFrontmatter(
   originalYaml?: string,
 ): string {
   const doc = new Document();
+  let original: unknown;
+  if (originalYaml) {
+    try {
+      // YAML resolves aliases with a shared cache. BigInts stay transient;
+      // editor and JSON values remain ordinary JavaScript numbers.
+      original = parse(originalYaml, { intAsBigInt: true });
+    } catch {
+      // Malformed legacy headers continue through the ordinary serializer.
+    }
+  }
+  const seen = new WeakMap<object, unknown>();
+  const preserve = (value: FrontmatterValue, old: unknown): unknown => {
+    if (typeof old === 'bigint' && typeof value === 'number' && Object.is(value, Number(old))) {
+      return old;
+    }
+    if (!value || !old || typeof value !== 'object' || typeof old !== 'object') return value;
+    const cached = seen.get(value);
+    if (cached) return cached;
+    if (Array.isArray(value) && Array.isArray(old)) {
+      const result: unknown[] = [];
+      seen.set(value, result);
+      value.forEach((item, i) => result.push(preserve(item, old[i])));
+      return result;
+    }
+    if (!Array.isArray(value) && !Array.isArray(old)) {
+      const result: Record<string, unknown> = {};
+      const previous = old as Record<string, unknown>;
+      seen.set(value, result);
+      for (const key of Object.keys(value)) {
+        Object.defineProperty(result, key, {
+          value: preserve(value[key], previous[key]),
+          enumerable: true,
+          writable: true,
+          configurable: true,
+        });
+      }
+      return result;
+    }
+    return value;
+  };
+  const originals =
+    original && typeof original === 'object' && !Array.isArray(original)
+      ? (original as Record<string, unknown>)
+      : {};
   const keys = new Set([...(keyOrder ?? []), ...Object.keys(fm)]);
   for (const key of keys) {
     const value = fm[key];
     if (value == null || value === '' || (Array.isArray(value) && value.length === 0)) continue;
-    const node = doc.createNode(value);
+    const node = doc.createNode(preserve(value, originals[key]));
     // Prose stays readable without adding quote escapes to the source.
     if (
       key === 'description' &&
@@ -186,38 +230,6 @@ export function serializeFrontmatter(
       node.flow = value.every((v) => !/[,\s]/.test(String(v)));
     }
     doc.set(key, node);
-  }
-  if (originalYaml) {
-    const original = parseDocument(originalYaml, { intAsBigInt: true });
-    if (!original.errors.length && isMap(original.contents)) {
-      const originalValues = parseYaml(originalYaml);
-      const preserve = (
-        value: FrontmatterValue,
-        old: FrontmatterValue,
-        path: (string | number)[],
-      ) => {
-        if (value && old && typeof value === 'object' && typeof old === 'object') {
-          if (Array.isArray(value) && Array.isArray(old)) {
-            value.forEach((v, i) => preserve(v, old[i], [...path, i]));
-          } else if (!Array.isArray(value) && !Array.isArray(old)) {
-            for (const key of Object.keys(value)) preserve(value[key], old[key], [...path, key]);
-          }
-        } else if (Object.is(value, old)) {
-          const node = original.getIn(path, true);
-          const resolved = isAlias(node) ? node.resolve(original) : node;
-          if (isScalar(resolved)) {
-            const copy = resolved.clone() as Scalar;
-            if (isAlias(node)) delete copy.anchor;
-            doc.setIn(path, copy);
-          }
-        }
-      };
-      for (const key of Object.keys(fm)) {
-        const value = fm[key];
-        if (value == null || value === '' || (Array.isArray(value) && value.length === 0)) continue;
-        preserve(value, originalValues[key], [key]);
-      }
-    }
   }
   return `---\n${doc.toString({ lineWidth: 0, singleQuote: false, flowCollectionPadding: false })}---`;
 }

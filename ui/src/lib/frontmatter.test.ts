@@ -6,7 +6,7 @@ import { api, type Skill } from '../api/client';
 import { I18nProvider } from '../i18n';
 import { ToastProvider } from '../components/Toast';
 import SkillEditor from '../components/skill-editor/SkillEditor';
-import { parse as parseYaml } from 'yaml';
+import { Alias, parse as parseYaml } from 'yaml';
 import {
   parseSkillMarkdown,
   serializeFrontmatter,
@@ -208,6 +208,69 @@ describe('exact integers in edited headers', () => {
     );
     const exact = parseYaml(parseSkillMarkdown(saved).rawFrontmatter, { intAsBigInt: true });
     expect(exact.metadata.ids).toEqual([9007199254740993n, 9007199254740993n]);
+  });
+
+  it('resolves many scalar aliases without repeated uncached document scans', () => {
+    const entries = Array.from(
+      { length: 40 },
+      (_, i) => `    - id: &id${i} 9007199254740993\n      copy: *id${i}`,
+    ).join('\n');
+    const parsed = parseSkillMarkdown(
+      `---\nname: demo\nmetadata:\n  sources:\n${entries}\n---\nbody`,
+    );
+    const resolve = vi.spyOn(Alias.prototype, 'resolve');
+    try {
+      const saved = composeSkillMarkdown(
+        { ...parsed.frontmatter, description: 'edited' },
+        parsed.body,
+        undefined,
+        undefined,
+        parsed.bom,
+        parsed.rawFrontmatter,
+      );
+      expect(resolve.mock.calls.filter(([, context]) => context == null)).toHaveLength(0);
+      const exact = parseYaml(parseSkillMarkdown(saved).rawFrontmatter, { intAsBigInt: true });
+      expect(exact.metadata.sources).toHaveLength(40);
+      for (const entry of exact.metadata.sources) {
+        expect(entry.copy).toBe(9007199254740993n);
+      }
+    } finally {
+      resolve.mockRestore();
+    }
+  });
+
+  it('preserves later integers after a collection alias', () => {
+    const parsed = parseSkillMarkdown(
+      '---\nname: demo\nmetadata:\n  original: &event\n    id: 9007199254740993\n  copy: *event\n  later: 9007199254740995\n---\nbody',
+    );
+    const saved = composeSkillMarkdown(
+      { ...parsed.frontmatter, description: 'edited' },
+      parsed.body,
+      undefined,
+      undefined,
+      parsed.bom,
+      parsed.rawFrontmatter,
+    );
+    const exact = parseYaml(parseSkillMarkdown(saved).rawFrontmatter, { intAsBigInt: true });
+    expect(exact.metadata.copy.id).toBe(9007199254740993n);
+    expect(exact.metadata.later).toBe(9007199254740995n);
+  });
+
+  it('resolves repeated anchor names in document order', () => {
+    const parsed = parseSkillMarkdown(
+      '---\nname: demo\nmetadata:\n  first: &id 9007199254740993\n  firstCopy: *id\n  second: &id 9007199254740995\n  secondCopy: *id\n---\nbody',
+    );
+    const saved = composeSkillMarkdown(
+      { ...parsed.frontmatter, description: 'edited' },
+      parsed.body,
+      undefined,
+      undefined,
+      parsed.bom,
+      parsed.rawFrontmatter,
+    );
+    const exact = parseYaml(parseSkillMarkdown(saved).rawFrontmatter, { intAsBigInt: true });
+    expect(exact.metadata.firstCopy).toBe(9007199254740993n);
+    expect(exact.metadata.secondCopy).toBe(9007199254740995n);
   });
 
   it('retains untouched values through description, targets, deletion and body edits', () => {
