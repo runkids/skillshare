@@ -185,14 +185,8 @@ func toggleFlowFlag(fm frontmatterLines, m *yaml.Node, key string) ([]string, bo
 	}
 	text, inserted := fm.content, key+": true"
 	from, to, replacement, on := -1, -1, "", true
-	index := -1
-	for i := 0; i+1 < len(m.Content); i += 2 {
-		if m.Content[i].Value == key {
-			index = i
-			break
-		}
-	}
-	if index < 0 {
+	v := mappingValue(m, key)
+	if v == nil {
 		if len(m.Content) > 0 {
 			from, replacement = at(m.Content[0]), inserted+", "
 		} else if start := at(m); start >= 0 {
@@ -204,18 +198,19 @@ func toggleFlowFlag(fm frontmatterLines, m *yaml.Node, key string) ([]string, bo
 		to = from
 		expected[key] = true
 	} else {
-		start, v := at(m.Content[index]), m.Content[index+1]
+		start := at(m.Content[0])
+		first := m.Content[0].Value == key
 		if start < 0 {
 			return fail()
 		}
 		// Only the exact prefix inserted by this helper can be removed without
 		// locating separators or disturbing comments.
 		tail := text[start:]
-		if index == 0 && isTrueValue(v.Value) && strings.HasPrefix(tail, inserted+", ") {
+		if first && isTrueValue(v.Value) && strings.HasPrefix(tail, inserted+", ") {
 			from, to = start, start+len(inserted)+2
 			delete(expected, key)
 			on = false
-		} else if index == 0 && len(m.Content) == 2 && isTrueValue(v.Value) && strings.HasPrefix(tail, inserted) && !strings.HasPrefix(strings.TrimLeft(tail[len(inserted):], " \t\r\n"), ",") {
+		} else if first && len(m.Content) == 2 && isTrueValue(v.Value) && strings.HasPrefix(tail, inserted) && !strings.HasPrefix(strings.TrimLeft(tail[len(inserted):], " \t\r\n"), ",") {
 			from, to = start, start+len(inserted)
 			delete(expected, key)
 			on = false
