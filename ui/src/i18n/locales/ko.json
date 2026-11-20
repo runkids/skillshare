@@ -949,6 +949,7 @@
   "update.empty.title": "업데이트 가능한 skills 없음",
   "update.empty.agentsTitle": "업데이트 가능한 agents 없음",
   "update.empty.agentsDescription": "GitHub 또는 추적 중인 저장소에서 설치한 agents는 여기에서 업데이트할 수 있습니다.",
+  "update.header.checkSelected": "선택 항목 확인 ({count})",
   "update.header.updateSelected": "선택 항목 업데이트 ({count})",
   "update.status.blocked": "차단됨",
   "update.status.failed": "실패",

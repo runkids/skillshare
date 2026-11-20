@@ -871,6 +871,7 @@
   "update.empty.title": "No updatable skills",
   "update.empty.agentsTitle": "No updatable agents",
   "update.empty.agentsDescription": "Agents installed from GitHub or a tracked repo can be updated here.",
+  "update.header.checkSelected": "Check {count} selected",
   "update.header.updateSelected": "Update {count} selected",
   "update.status.blocked": "Blocked",
   "update.status.failed": "Failed",

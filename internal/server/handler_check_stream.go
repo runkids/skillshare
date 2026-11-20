@@ -3,6 +3,7 @@ package server
 import (
 	"net/http"
 	"path/filepath"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -19,6 +20,9 @@ import (
 //
 // "total" counts actual work units (repos + remote URL groups), NOT individual skills.
 // This ensures the progress bar advances evenly — one tick per network call.
+//
+// Query params: names (comma-separated) limits the check to those tracked repos
+// and skills; the events then cover only them.
 func (s *Server) handleCheckStream(w http.ResponseWriter, r *http.Request) {
 	safeSend, ok := initSSE(w)
 	if !ok {
@@ -38,9 +42,13 @@ func (s *Server) handleCheckStream(w http.ResponseWriter, r *http.Request) {
 	// Immediate feedback before the potentially slow discovery walk.
 	safeSend("discovering", map[string]string{"phase": "scanning source directory"})
 
+	only := checkNames(r)
 	repos, linked := dashboardRepos(sourceDir, walk)
+	if only != nil {
+		repos = slices.DeleteFunc(repos, func(repo string) bool { return !only[repo] })
+	}
 	// Group skills by remote (fast, local only).
-	plan := s.planSkillCheck(sourceDir, projectRoot, walk)
+	plan := s.planSkillCheck(sourceDir, projectRoot, walk, only)
 
 	// Total = repos + URL groups (the actual network-bound work units).
 	total := len(repos) + plan.Remotes()

@@ -949,6 +949,7 @@
   "update.empty.title": "没有可更新的 skill",
   "update.empty.agentsTitle": "没有可更新的 agent",
   "update.empty.agentsDescription": "从 GitHub 或追踪仓库安装的 agent 可在这里更新。",
+  "update.header.checkSelected": "检查所选（{count}）",
   "update.header.updateSelected": "更新所选（{count}）",
   "update.status.blocked": "已拦截",
   "update.status.failed": "失败",

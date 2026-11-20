@@ -949,6 +949,7 @@
   "update.empty.title": "هیچ اسکیل قابل به‌روزرسانی وجود ندارد",
   "update.empty.agentsTitle": "هیچ ایجنت قابل به‌روزرسانی وجود ندارد",
   "update.empty.agentsDescription": "ایجنت‌هایی که از GitHub یا یک مخزن ردیابی‌شده نصب شده‌اند را می‌توان اینجا به‌روزرسانی کرد.",
+  "update.header.checkSelected": "بررسی انتخاب‌شده‌ها ({count})",
   "update.header.updateSelected": "به‌روزرسانی انتخاب‌شده‌ها ({count})",
   "update.status.blocked": "مسدود شده",
   "update.status.failed": "ناموفق",
