@@ -569,6 +569,34 @@ func TestMetadataStore_MovePath(t *testing.T) {
 	}
 }
 
+func TestMetadataEntry_AgentLocallyModified(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "tutor.md")
+	if err := os.WriteFile(file, []byte("# v1\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	hash, err := computeSingleFileHash(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	installed := &MetadataEntry{FileHashes: map[string]string{"tutor.md": hash}}
+
+	if installed.AgentLocallyModified(file) {
+		t.Fatal("unchanged agent reported as modified")
+	}
+	if err := os.WriteFile(file, []byte("# mine\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if !installed.AgentLocallyModified(file) {
+		t.Fatal("edited agent not reported as modified")
+	}
+	if (&MetadataEntry{}).AgentLocallyModified(file) {
+		t.Fatal("agent without a recorded hash reported as modified")
+	}
+	if installed.AgentLocallyModified(filepath.Join(filepath.Dir(file), "missing", "tutor.md")) {
+		t.Fatal("missing agent file reported as modified")
+	}
+}
+
 func TestMetadataEntry_LocallyModified(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("# v1\n"), 0o644); err != nil {
