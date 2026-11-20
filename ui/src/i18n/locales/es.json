@@ -949,6 +949,7 @@
   "update.empty.title": "Sin skills actualizables",
   "update.empty.agentsTitle": "Sin agents actualizables",
   "update.empty.agentsDescription": "Los agents instalados desde GitHub o un repo rastreado se pueden actualizar aquí.",
+  "update.header.checkSelected": "Comprobar seleccionados ({count})",
   "update.header.updateSelected": "Actualizar seleccionados ({count})",
   "update.status.blocked": "Bloqueado",
   "update.status.failed": "Fallido",

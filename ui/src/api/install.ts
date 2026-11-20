@@ -38,9 +38,13 @@ export const installApi = {
     onProgress: (checked: number) => void,
     onDone: (data: CheckResult) => void,
     onError: (err: Error) => void,
+    /** Tracked repos and skills to check; every one of them when omitted. */
+    names?: string[],
   ): EventSource =>
     createSSEStream(
-      BASE + '/check/stream',
+      BASE +
+        '/check/stream' +
+        (names?.length ? `?${new URLSearchParams({ names: names.join(',') })}` : ''),
       {
         discovering: () => onDiscovering(),
         start: (d) => onStart(d.total),

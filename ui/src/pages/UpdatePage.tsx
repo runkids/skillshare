@@ -256,8 +256,9 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
           }
         }
 
-        // The backend returns one entry per repo directory (e.g. `_awesome-claude-agents`);
-        // copy it to every item in that repo.
+        // The backend returns one entry per skills repo directory (e.g. `_awesome-claude-agents`);
+        // copy it to every skill in that repo. An agents repo of the same name is a separate
+        // checkout, reported under `agents`.
         for (const repo of result.tracked_repos) {
           const repoStatus: CheckItemStatus =
             repo.status === 'behind'
@@ -268,7 +269,7 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
                   ? { status: 'error', message: repo.message, checkedAt }
                   : { status: 'up-to-date', message: repo.message, checkedAt };
           for (const item of updatable) {
-            if (repoOf(item) !== repo.name) continue;
+            if (item.kind !== 'skill' || repoOf(item) !== repo.name) continue;
             next.set(checkKey(item), repoStatus);
             pending.delete(checkKey(item));
           }
@@ -277,7 +278,9 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
         // Nested installs are reported by metadata relative path while the list shows the
         // basename; match every stable identifier so nested items don't stay checking.
         for (const skill of result.skills) {
-          const item = updatable.find((i) => !i.isInRepo && matchesCheckSkill(i, skill.name));
+          const item = updatable.find(
+            (i) => i.kind === 'skill' && !i.isInRepo && matchesCheckSkill(i, skill.name),
+          );
           if (!item) continue;
           next.set(checkKey(item), {
             status:
@@ -297,6 +300,26 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
           pending.delete(checkKey(item));
         }
 
+        for (const agent of result.agents ?? []) {
+          const item = updatable.find((i) => agentKey(i) === agent.name);
+          if (!item) continue;
+          const edited = agent.status === 'drifted' || agent.status === 'dirty';
+          next.set(checkKey(item), {
+            status:
+              agent.status === 'update_available'
+                ? 'update-available'
+                : edited
+                  ? 'dirty'
+                  : agent.status === 'error'
+                    ? 'error'
+                    : 'up-to-date',
+            // As for a modified skill, the translated label says it.
+            message: edited ? undefined : agent.message,
+            checkedAt,
+          });
+          pending.delete(checkKey(item));
+        }
+
         for (const name of pending) {
           if (next.get(name)?.status === 'checking') next.set(name, { status: 'error', checkedAt });
         }
@@ -306,37 +329,43 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
     [updatable, setStatuses, queryClient],
   );
 
-  const runCheck = useCallback(() => {
-    esRef.current?.close();
-    setChecking(true);
-    setPruned(0);
-    setRun(new Map());
-    setFinished(false);
-    setStatuses((prev) => {
-      const next = new Map(prev);
-      for (const item of updatable) next.set(checkKey(item), { status: 'checking' });
-      return next;
-    });
-    esRef.current = api.checkStream(
-      () => {},
-      () => {},
-      () => {},
-      (result) => {
-        applyCheckResult(result);
-        setChecking(false);
-      },
-      (err) => {
-        toast(err.message, 'error');
-        setStatuses((prev) => {
-          const next = new Map(prev);
-          const checkedAt = new Date().toISOString();
-          for (const item of updatable) next.set(checkKey(item), { status: 'error', checkedAt });
-          return next;
-        });
-        setChecking(false);
-      },
-    );
-  }, [updatable, applyCheckResult, setStatuses, toast]);
+  // Checks the given units, leaving every other result as it is; all of them when omitted.
+  const runCheck = useCallback(
+    (only?: UpdateUnit[]) => {
+      const items = only ? only.flatMap((u) => u.items) : updatable;
+      esRef.current?.close();
+      setChecking(true);
+      setPruned(0);
+      setRun(new Map());
+      setFinished(false);
+      setStatuses((prev) => {
+        const next = new Map(prev);
+        for (const item of items) next.set(checkKey(item), { status: 'checking' });
+        return next;
+      });
+      esRef.current = api.checkStream(
+        () => {},
+        () => {},
+        () => {},
+        (result) => {
+          applyCheckResult(result);
+          setChecking(false);
+        },
+        (err) => {
+          toast(err.message, 'error');
+          setStatuses((prev) => {
+            const next = new Map(prev);
+            const checkedAt = new Date().toISOString();
+            for (const item of items) next.set(checkKey(item), { status: 'error', checkedAt });
+            return next;
+          });
+          setChecking(false);
+        },
+        only?.map((u) => u.name),
+      );
+    },
+    [updatable, applyCheckResult, setStatuses, toast],
+  );
 
   /* -- Update -- */
 
@@ -604,7 +633,8 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
             <span className="ss-st warn" title={c.message}>
               {t('update.check.dirty')}
             </span>
-            {!unit.isRepo && unit.items[0] && (
+            {/* Local changes can be listed for skills only. */}
+            {kind === 'skill' && !unit.isRepo && unit.items[0] && (
               <RouterLink className="ss-btn sm" to={`${resourceHref(unit.items[0])}?changes=1`}>
                 {t('update.check.viewChanges')}
               </RouterLink>
@@ -810,10 +840,21 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
                 onChange={setForce}
                 disabled={busy}
               />
-              <Button variant="secondary" loading={checking} disabled={running} onClick={runCheck}>
+              <Button
+                variant="secondary"
+                loading={checking}
+                disabled={running}
+                onClick={() => runCheck()}
+              >
                 <RefreshCw size={15} />
                 {t(lastChecked ? 'update.tab.checkAgain' : 'update.tab.checkNow')}
               </Button>
+              {/* A check limited by names leaves agents out, so only skills can be checked by selection. */}
+              {kind === 'skill' && shown.length > 0 && (
+                <Button variant="secondary" disabled={busy} onClick={() => runCheck(shown)}>
+                  {t('update.header.checkSelected', { count: shown.length })}
+                </Button>
+              )}
               {shown.length > 0 && (
                 <Button
                   variant="secondary"
