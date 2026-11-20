@@ -1,7 +1,10 @@
 package utils
 
 import (
+	"fmt"
+	"maps"
 	"os"
+	"reflect"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -110,7 +113,7 @@ func splitFrontmatterAndBody(content []byte) (fmRaw, body []byte) {
 // Absent or false becomes "key: true"; true removes the line, so toggling twice hands back
 // the original file byte for byte — which keeps a tracked repo clean once the flag is off again.
 // It edits one line instead of round-tripping YAML: key order, comments, line endings and the
-// body are never touched.
+// body are never touched. In a flow root, other existing true flags become false in place.
 func ToggleFrontmatterFlag(filePath, key string) (bool, error) {
 	data, err := os.ReadFile(filePath)
 	if err != nil {
@@ -125,7 +128,12 @@ func ToggleFrontmatterFlag(filePath, key string) (bool, error) {
 	lines := fm.lines
 	on := true
 	i := fm.keyLine(key)
-	switch {
+	switch m := fm.mapping(); {
+	case m != nil && m.Style&yaml.FlowStyle != 0:
+		lines, on, err = toggleFlowFlag(fm, m, key)
+		if err != nil {
+			return false, err
+		}
 	case i < 0:
 		lines = append(lines[:fm.end], append([]string{flagLine}, lines[fm.end:]...)...)
 	case isTrueValue(lines[i][len(key)+1:]):
@@ -135,6 +143,90 @@ func ToggleFrontmatterFlag(filePath, key string) (bool, error) {
 		lines[i] = flagLine
 	}
 	return on, os.WriteFile(filePath, []byte(fm.join(lines)), 0644)
+}
+
+// toggleFlowFlag makes one bounded source edit and verifies its decoded result.
+func toggleFlowFlag(fm frontmatterLines, m *yaml.Node, key string) ([]string, bool, error) {
+	fail := func() ([]string, bool, error) { return nil, false, fmt.Errorf("cannot safely edit flow flag %q", key) }
+	header := strings.Join(fm.lines[fm.open+1:fm.end], "\n") + "\n"
+	if strings.ContainsAny(strings.ReplaceAll(header, "\r\n", "\n"), "\r\u0085\u2028\u2029") {
+		return fail()
+	}
+	at := func(n *yaml.Node) int {
+		i := fm.open + n.Line
+		if i < 0 || i >= fm.end || n.Column < 1 {
+			return -1
+		}
+		runes := []rune(fm.lines[i])
+		if n.Column-1 > len(runes) {
+			return -1
+		}
+		return len(strings.Join(fm.lines[:i], "\n")) + 1 + len(string(runes[:n.Column-1]))
+	}
+	expected, err := ParseFrontmatterMap([]byte(fm.join(fm.lines)))
+	if err != nil {
+		return fail()
+	}
+	expected = maps.Clone(expected)
+	text, inserted := fm.content, key+": true"
+	from, to, replacement, on := -1, -1, "", true
+	index := -1
+	for i := 0; i+1 < len(m.Content); i += 2 {
+		if m.Content[i].Value == key {
+			index = i
+			break
+		}
+	}
+	if index < 0 {
+		if len(m.Content) > 0 {
+			from, replacement = at(m.Content[0]), inserted+", "
+		} else if start := at(m); start >= 0 {
+			if brace := strings.IndexByte(text[start:], '{'); brace >= 0 {
+				from = start + brace + 1
+				replacement = inserted
+			}
+		}
+		to = from
+		expected[key] = true
+	} else {
+		start, v := at(m.Content[index]), m.Content[index+1]
+		if start < 0 {
+			return fail()
+		}
+		// Only the exact prefix inserted by this helper can be removed without
+		// locating separators or disturbing comments.
+		tail := text[start:]
+		if index == 0 && isTrueValue(v.Value) && strings.HasPrefix(tail, inserted+", ") {
+			from, to = start, start+len(inserted)+2
+			delete(expected, key)
+			on = false
+		} else if index == 0 && len(m.Content) == 2 && isTrueValue(v.Value) && strings.HasPrefix(tail, inserted) && !strings.HasPrefix(strings.TrimLeft(tail[len(inserted):], " \t\r\n"), ",") {
+			from, to = start, start+len(inserted)
+			delete(expected, key)
+			on = false
+		} else {
+			from = at(v)
+			to = from + len(v.Value)
+			if v.Style&(yaml.SingleQuotedStyle|yaml.DoubleQuotedStyle) != 0 {
+				to += 2
+			}
+			on = !isTrueValue(v.Value)
+			replacement = "false"
+			if on {
+				replacement = "true"
+			}
+			expected[key] = on
+		}
+	}
+	if from < 0 || to < from || to > len(text) {
+		return fail()
+	}
+	candidate := text[:from] + replacement + text[to:]
+	after, err := ParseFrontmatterMap([]byte(fm.bom + candidate))
+	if err != nil || !reflect.DeepEqual(after, expected) {
+		return fail()
+	}
+	return strings.Split(candidate, "\n"), on, nil
 }
 
 // SetFrontmatterValue sets a top-level frontmatter key to a plain scalar value,

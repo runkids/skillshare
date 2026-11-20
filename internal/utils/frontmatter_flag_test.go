@@ -3,6 +3,8 @@ package utils
 import (
 	"os"
 	"path/filepath"
+	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -89,5 +91,88 @@ func TestToggleFrontmatterFlag_TwiceIsIdentity(t *testing.T) {
 	got, _ := os.ReadFile(path)
 	if string(got) != orig {
 		t.Errorf("two toggles should restore the file\n got: %q\nwant: %q", got, orig)
+	}
+}
+
+func TestToggleFrontmatterFlag_FlowRoot(t *testing.T) {
+	const key = "disable-model-invocation"
+	flag := key + ": true"
+	meta := "metadata: {generated: {by: tool}, sources: [{actor: 'team:finance'}], x-acme: {nested: [1, 2]}, " + key + ": true}"
+	cases := []struct {
+		name, in, on, off string
+		firstOn           bool
+	}{
+		{"nested punctuation", "{name: demo, description: 'a }, " + flag + "', " + meta + "}", "{" + flag + ", name: demo, description: 'a }, " + flag + "', " + meta + "}", "{name: demo, description: 'a }, " + flag + "', " + meta + "}", true},
+		{"BOM CRLF comments", "{\n  name: demo, # keep\n  description: \"comma, brace } and \\\"quote\\\"\",\n  " + meta + "\n} # tail", "{\n  " + flag + ", name: demo, # keep\n  description: \"comma, brace } and \\\"quote\\\"\",\n  " + meta + "\n} # tail", "{\n  name: demo, # keep\n  description: \"comma, brace } and \\\"quote\\\"\",\n  " + meta + "\n} # tail", true},
+		{"empty anchored", "&root {  } # empty", "&root {" + flag + "  } # empty", "&root {  } # empty", true},
+		{"unicode and json keys", "{\"name\": \"日本語😀\", \"description\": \"é\"}", "{" + flag + ", \"name\": \"日本語😀\", \"description\": \"é\"}", "{\"name\": \"日本語😀\", \"description\": \"é\"}", true},
+		{"first true", "{" + flag + ", name: demo}", "{name: demo}", "{" + flag + ", name: demo}", false},
+		{"middle true", "{name: demo, " + flag + ", x: '}, foo'}", "{name: demo, " + key + ": false, x: '}, foo'}", "{name: demo, " + flag + ", x: '}, foo'}", false},
+		{"last true", "{name: demo, " + flag + "}", "{name: demo, " + key + ": false}", "{name: demo, " + flag + "}", false},
+		{"last trailing", "{name: demo, " + flag + ",}", "{name: demo, " + key + ": false,}", "{name: demo, " + flag + ",}", false},
+		{"only trailing", "{" + flag + ",}", "{" + key + ": false,}", "{" + flag + ",}", false},
+		{"last multiline comment", "{\n  name: demo, # keep metadata note\n  " + flag + "\n}", "{\n  name: demo, # keep metadata note\n  " + key + ": false\n}", "{\n  name: demo, # keep metadata note\n  " + flag + "\n}", false},
+		{"comment after separator", "{\n  " + flag + ",\n  # keep metadata note\n  name: demo\n}", "{\n  " + key + ": false,\n  # keep metadata note\n  name: demo\n}", "{\n  " + flag + ",\n  # keep metadata note\n  name: demo\n}", false},
+		{"comment before comma", "{name: demo, " + flag + " # keep\n, x: 1}", "{name: demo, " + key + ": false # keep\n, x: 1}", "{name: demo, " + flag + " # keep\n, x: 1}", false},
+		{"quoted true", "{name: demo, " + key + ": 'true'}", "{name: demo, " + key + ": false}", "{name: demo, " + flag + "}", false},
+		{"quoted false comment", "{name: demo, \"" + key + "\": 'false' # keep\n}", "{name: demo, \"" + key + "\": true # keep\n}", "{name: demo, \"" + key + "\": false # keep\n}", true},
+		{"plain false first", "{" + key + ": false, name: demo}", "{" + flag + ", name: demo}", "{name: demo}", true},
+		{"apostrophe and quoted punctuation", "{name: demo, description: its user's \"quoted\" value, " + flag + ", x: '}, foo'}", "{name: demo, description: its user's \"quoted\" value, " + key + ": false, x: '}, foo'}", "{name: demo, description: its user's \"quoted\" value, " + flag + ", x: '}, foo'}", false},
+		{"last CRLF comment", "{\n name: demo, # keep\n " + flag + "\n}", "{\n name: demo, # keep\n " + key + ": false\n}", "{\n name: demo, # keep\n " + flag + "\n}", false},
+		{"json false last", "{\n \"name\": \"demo\",\n \"" + key + "\": false\n}", "{\n \"name\": \"demo\",\n \"" + key + "\": true\n}", "{\n \"name\": \"demo\",\n \"" + key + "\": false\n}", true},
+		{"alias", "{name: &f false, " + key + ": *f}", "", "", false},
+		{"escaped false", "{name: demo, " + key + ": \"f\\u0061lse\"}", "", "", false},
+		{"unicode line separator", "{description: \"a\u2028b\", name: demo, " + flag + ", z: 1}", "", "", false},
+		{"next line separator", "{description: \"a\u0085b\", name: demo}", "", "", false},
+		{"paragraph separator", "{description: \"a\u2029b\", name: demo}", "", "", false},
+	}
+	wrap := func(s string) string { return "---\n" + s + "\n---\nBody\n" }
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			wrapCase := func(s string) string {
+				result := wrap(s)
+				if tc.name == "BOM CRLF comments" || tc.name == "last CRLF comment" {
+					result = "\ufeff" + strings.ReplaceAll(result, "\n", "\r\n")
+				}
+				return result
+			}
+			orig := wrapCase(tc.in)
+			path := filepath.Join(t.TempDir(), "SKILL.md")
+			if err := os.WriteFile(path, []byte(orig), 0644); err != nil {
+				t.Fatal(err)
+			}
+			before, err := ParseFrontmatterMap([]byte(orig))
+			if err != nil {
+				t.Fatal(err)
+			}
+			for n, want := range []string{tc.on, tc.off} {
+				on, err := ToggleFrontmatterFlag(path, key)
+				data, rerr := os.ReadFile(path)
+				if rerr != nil {
+					t.Fatal(rerr)
+				}
+				if want == "" {
+					if err == nil || string(data) != orig {
+						t.Fatalf("expected refusal, on=%v err=%v got=%q", on, err, data)
+					}
+					return
+				}
+				if err != nil || on != (tc.firstOn != (n == 1)) {
+					t.Fatalf("toggle %d: on=%v err=%v", n+1, on, err)
+				}
+				if string(data) != wrapCase(want) {
+					t.Fatalf("toggle %d: got %q want %q", n+1, data, wrapCase(want))
+				}
+				after, err := ParseFrontmatterMap(data)
+				if err != nil {
+					t.Fatal(err)
+				}
+				delete(after, key)
+				delete(before, key)
+				if !reflect.DeepEqual(after, before) {
+					t.Fatalf("other fields changed: %v -> %v", before, after)
+				}
+			}
+		})
 	}
 }
