@@ -548,7 +548,8 @@ export default function ResourceDetailPage() {
           message={
             <>
               {t('resourceDetail.modified.message', { name: resource.name })}
-              {modified && <LocalChanges relPath={resource.relPath} />}
+              {/* Local changes can be listed for skills only. */}
+              {modified && resource.kind === 'skill' && <LocalChanges relPath={resource.relPath} />}
             </>
           }
           confirmText={t('update.tab.force')}

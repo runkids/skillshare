@@ -391,6 +391,8 @@ skillshare update my-skill --force
 
 On the dashboard's **Updates** tab, the skill shows **Modified locally** and a **View changes** button that opens its changes on the skill's page; tick **Force overwrite local edits** before updating it, or use **Force Retry** on the skipped row. Updating it from the skill's own page shows the changes and asks before discarding them. `update <name> --dry-run` reports the skill as one it would skip. A modified skill that was also deleted upstream is kept until you add `--force`, even with `--prune`.
 
+An agent edited since install is protected on the dashboard as well. When a newer version would overwrite the edits, the update is skipped; use **Force Retry** on the skipped row, or update from the agent's own page, which asks before discarding them.
+
 ## After Updating
 
 Run `skillshare sync` to distribute changes to all targets:

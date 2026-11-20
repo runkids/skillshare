@@ -255,7 +255,13 @@ func (s *Server) handleSetSkillTargets(w http.ResponseWriter, r *http.Request) {
 			}
 
 			s.mu.Lock()
+			before, _ := utils.FileHashFormatted(d.SourcePath)
 			err := setSourceFrontmatterList(agentsSource, d.SourcePath, "targets", values, nil)
+			if err == nil {
+				if after, hashErr := utils.FileHashFormatted(d.SourcePath); hashErr == nil && s.agentsStore.CarryFileHash(agentMetaKey(d.RelPath), filepath.Base(d.RelPath), before, after) {
+					err = s.agentsStore.Save(agentsSource)
+				}
+			}
 			s.mu.Unlock()
 
 			if err != nil {

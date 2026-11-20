@@ -391,6 +391,8 @@ skillshare update my-skill --force
 
 ダッシュボードの **Updates** タブでは、その skill に **Modified locally** と、変更を skill のページで開く **View changes** ボタンが表示されます。更新する前に **Force overwrite local edits** にチェックを入れるか、スキップされた行の **Force Retry** を使います。skill 自身のページから更新する場合は、変更を表示したうえで、破棄する前に確認します。`update <name> --dry-run` は、その skill をスキップ対象として報告します。upstream で削除された modified の skill も、`--prune` を付けても `--force` を付けるまで保持されます。
 
+インストール後に編集した agent も、ダッシュボードでは同じように保護されます。新しいバージョンが編集内容を上書きする場合、更新はスキップされます。スキップされた行の **Force Retry** を使うか、agent 自身のページから更新してください。こちらは破棄する前に確認します。
+
 ## 更新後
 
 `skillshare sync` を実行して、すべての targets に変更を反映します。

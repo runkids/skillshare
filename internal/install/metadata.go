@@ -223,6 +223,21 @@ func (e *MetadataEntry) LocallyModified(dir string, follow ...*sourcewalk.Follow
 	return err != nil || !maps.Equal(hashes, e.FileHashes)
 }
 
+// AgentLocallyModified reports whether the agent at file differs from the hash
+// recorded for it at install or update time. An entry without a recorded hash
+// and a missing file are never reported; a file that cannot be hashed is, so
+// update does not overwrite it.
+func (e *MetadataEntry) AgentLocallyModified(file string) bool {
+	if e == nil || e.FileHashes[filepath.Base(file)] == "" {
+		return false
+	}
+	if _, err := os.Stat(file); err != nil {
+		return false
+	}
+	hash, err := utils.FileHashFormatted(file)
+	return err != nil || hash != e.FileHashes[filepath.Base(file)]
+}
+
 // MatchesDeclaration reports whether this plain-skill record still installs
 // what skill declares, so a moved copy of it can stand in for skill.
 func (e *MetadataEntry) MatchesDeclaration(skill SkillEntryDTO) bool {
