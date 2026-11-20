@@ -586,6 +586,8 @@ export default class Skillshare extends View {
         sections.push(...rows(single));
       } else sections.push(...rows(live));
       if (off.length) sections.push(this.groupHeader(t, "off", `OFF · ${off.length}`, t.muted, null), ...rows(off));
+      // Memory notes have no sync state, so they sit apart from the sync groups.
+      if (groups.notes.length) sections.push(this.groupHeader(t, "notes", `MEMORY NOTES · ${groups.notes.length}`, t.muted, null), ...rows(groups.notes));
       if (!listed.length) sections.push(div().px(18).py(14).child(note(t, progress.unknown.has(this.kind) ? "This inventory is not confirmed yet." : this.query ? "Nothing matches the filter." : `No ${KINDS.find(([k]) => k === this.kind)[1].toLowerCase()} here yet.`)));
       list = v_flex().pb(16).children(sections);
     }
@@ -929,7 +931,7 @@ export default class Skillshare extends View {
       const doc = d.plain ? monoBox(t, `doc-${this.file}`, d.body ?? "") : TextView.markdown(`doc-${this.file ?? it.key}`, d.body ?? "");
       // Only a skill with more than its SKILL.md gets a file list; otherwise the document has the width.
       body = [(d.files?.length ?? 0) > 1 ? div().id("files").w(196).h_full().flex_none().overflow_y_scrollbar().border_r(1).border_color(t.border)
-        .child(v_flex().py(10).gap(1).children(d.files.map(fileRow))) : null, scroll("pane", page([it.kind === "extras" && d.meta?.length ? card(d.meta) : null, doc]))];
+        .child(v_flex().py(10).gap(1).children(d.files.map(fileRow)).children(d.more ? [div().px(18).pt(6).text_size(S().label).text_color(t.muted).child("The first 40 files")] : [])) : null, scroll("pane", page([it.kind === "extras" && d.meta?.length ? card(d.meta) : null, doc]))];
     } else if (it.kind === "mcp") {
       body = [scroll("pane", page([d.server?.length ? card(d.server) : quietNote("skillshare's MCP source has no settings for this server on this machine."),
         quietNote("Secret values stay hidden. The preview shows names only.")]))];

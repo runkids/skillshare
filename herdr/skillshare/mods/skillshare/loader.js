@@ -111,11 +111,13 @@ export async function loadPreview(io, on, project, item, mcpPath) {
     // ending non-zero is not an error here.
     const r = await io.sh(READ_EXTRA, [item.dir], on), cut = r.stdout.indexOf("@@\n");
     if (cut < 0) return { error: `${item.dir} could not be read.` };
-    const files = r.stdout.slice(0, cut).split("\n").filter(Boolean), text = r.stdout.slice(cut + 3);
-    if (text && !files.includes("SKILL.md")) files.unshift("SKILL.md");
+    // READ_EXTRA lists one name past the 40 shown: more says the list goes on.
+    const listed = r.stdout.slice(0, cut).split("\n").filter(Boolean), text = r.stdout.slice(cut + 3);
+    const files = listed.slice(0, 40), more = listed.length > 40;
+    if (text && !files.includes("SKILL.md")) { files.unshift("SKILL.md"); files.length = Math.min(files.length, 40); }
     if (!files.length) return { error: `${item.dir} has no files to show.` };
-    if (files.includes("SKILL.md")) return { files, file: "SKILL.md", dir: item.dir, ...splitFrontmatter(text) };
-    return { files, file: files[0], dir: item.dir, ...(await loadFile(io, on, item.dir, files[0])) };
+    if (files.includes("SKILL.md")) return { files, more, file: "SKILL.md", dir: item.dir, ...splitFrontmatter(text) };
+    return { files, more, file: files[0], dir: item.dir, ...(await loadFile(io, on, item.dir, files[0])) };
   }
   const st = parseJSON((await io.run(["status", "--json", flag(item.scope)], at(on, project, item.scope))).stdout);
   const base = item.kind === "agents" ? st?.agents?.source : st?.source?.path;

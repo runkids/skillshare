@@ -236,7 +236,8 @@ export function targetList(raw, scope = "all", items = []) {
   }
   for (const i of items) {
     if (!(scope === "all" || i.scope === scope) || i.notice || !waitsForSync(i) || !["mcp", "plugins", "hooks", "extras"].includes(i.kind)) continue;
-    for (const r of previewTargets(i)) if (r.warn && by.has(r.name)) by.set(r.name, by.get(r.name) + 1);
+    // An extra can wait on two folders of one target; that target still waits on one resource.
+    for (const name of new Set(previewTargets(i).filter((r) => r.warn).map((r) => r.name))) if (by.has(name)) by.set(name, by.get(name) + 1);
   }
   return { known, scopes, list: [...by].map(([name, n]) => ({ name, n })).sort((a, b) => b.n - a.n || a.name.localeCompare(b.name)) };
 }
@@ -294,16 +295,15 @@ export function overviewAnswer({ loading, failed, error, moving, reading = [], i
 export function resourceProgress(raw, scope = "all") {
   const pending = new Set(), errors = [], unknown = new Set();
   let available = false, incomplete = false;
-  const kinds = { list: ["skills", "agents"], mcp: ["mcp"], plugins: ["plugins"], hooks: ["hooks"], extras: ["extras"], memory: ["extras"] };
+  // Memory notes are not counted, so the memory read holds no kind's count.
+  const kinds = { list: ["skills", "agents"], mcp: ["mcp"], plugins: ["plugins"], hooks: ["hooks"], extras: ["extras"], memory: [] };
   for (const [s, one] of Object.entries(raw)) {
     if (scope !== "all" && scope !== s) continue;
     available ||= Object.keys(kinds).some((key) => one[key] != null);
     // Memory notes never wait for a sync, so their read leaves sync states confirmed.
     for (const key of one.pending ?? []) { pending.add(key); incomplete ||= key !== "memory"; }
     for (const [key, message] of Object.entries(one.errors ?? {})) { errors.push(`${s} ${key}: ${message}`); incomplete ||= key !== "memory"; }
-    // A memory error marks the Extras count unknown only after notes have been read.
-    const failed = (key) => Boolean(one.errors?.[key]) && (key !== "memory" || one.memory != null);
-    for (const [key, names] of Object.entries(kinds)) if ((one.pending ?? []).includes(key) || failed(key)) for (const name of names) unknown.add(name);
+    for (const [key, names] of Object.entries(kinds)) if ((one.pending ?? []).includes(key) || one.errors?.[key]) for (const name of names) unknown.add(name);
   }
   return { pending: [...pending], errors, unknown, available, incomplete };
 }
@@ -414,7 +414,9 @@ export function buildItems(scope, raw) {
   }
   // An extra's target is named by the target whose skills folder shares its parent folder.
   // Relative project paths start from the project folder; the first target by name wins a shared folder.
-  const segments = (path) => String(path ?? "").toLowerCase().split(/[\\/]+/).filter((s) => s && s !== ".");
+  // Windows paths ignore case; POSIX ones keep it, where .Claude and .claude are different folders.
+  const windows = [raw.root, ...(raw.targetPaths ?? []).map((t) => t.path)].some((p) => /^[a-z]:|\\/i.test(String(p ?? "")));
+  const segments = (path) => (windows ? String(path ?? "").toLowerCase() : String(path ?? "")).split(/[\\/]+/).filter((s) => s && s !== ".");
   const root = raw.root ? segments(raw.root) : null;
   const homes = (raw.targetPaths ?? []).map((t) => ({ name: t.name, dir: segments(t.path).slice(0, -1) })).sort((a, b) => String(a.name).localeCompare(String(b.name)));
   const owner = (path) => {
@@ -438,14 +440,15 @@ export function buildItems(scope, raw) {
       file: e.file, dir: e.source_dir, rows, sourceMissing, src: gone ? "source missing" : `${e.file || plural(e.file_count ?? 0, "file")} · ${plural(rows.length, "target")}`,
       state: gone ? "broken" : rows.some((r) => r.warn) ? "sync" : "ok" });
   }
+  // A memory note is a file inside the memory extra: it has no sync state of its own and is not counted.
   for (const n of raw.memory?.notes ?? []) {
     items.push({ key: `${scope}:extras:memory/${n.path}`, kind: "extras", extra: "note", scope, name: n.path, label: n.path,
-      file: n.path, dir: raw.memory.root, rows: [], src: "memory note", state: "ok" });
+      file: n.path, dir: raw.memory.root, rows: [], src: "memory note", state: "note" });
   }
   if (raw.pending || raw.errors) {
     for (const item of items) {
-      const keys = item.kind === "skills" || item.kind === "agents" ? ["list", "diff", "status"] : item.kind === "extras" ? [item.extra === "note" ? "memory" : "extras"] : [item.kind];
-      if (!item.notice && item.state !== "off" && keys.some((key) => raw.pending?.includes(key) || raw.errors?.[key])) {
+      const keys = item.kind === "skills" || item.kind === "agents" ? ["list", "diff", "status"] : [item.kind];
+      if (!item.notice && item.state !== "off" && item.state !== "note" && keys.some((key) => raw.pending?.includes(key) || raw.errors?.[key])) {
         item.cachedState = item.state;
         item.state = "unknown";
       }
@@ -556,10 +559,11 @@ export const READ_SKILL = `cd "$1" 2>/dev/null || exit 3
 find . -type f -not -path './.git/*' | sed 's|^\\./||' | sort | head -40
 echo @@
 head -c 60000 SKILL.md 2>/dev/null`;
-// sh -c READ_EXTRA <name> <dir>: a folder extra's files as extras sync sees them, then as READ_SKILL.
+// sh -c READ_EXTRA <name> <dir>: a folder extra's files as extras sync sees them (41 at most, one
+// past the 40 shown, so a preview knows the list goes on), then as READ_SKILL.
 // DiscoverExtraFiles (internal/sync/extras.go) skips every .git folder and every .metadata.json.
 export const READ_EXTRA = `cd "$1" 2>/dev/null || exit 3
-find . -type d -name .git -prune -o -type f ! -name .metadata.json -print | sed 's|^\\./||' | sort | head -40
+find . -type d -name .git -prune -o -type f ! -name .metadata.json -print | sed 's|^\\./||' | sort | head -41
 echo @@
 head -c 60000 SKILL.md 2>/dev/null`;
 // sh -c READ_FILE <name> <path>: a file's first 60 kB.
@@ -621,7 +625,7 @@ export function filterItems(items, { scope, kind, query }) {
 
 export function groupItems(items) {
   const by = (s) => items.filter((i) => !i.notice && s.includes(i.state)).sort((a, b) => a.label.localeCompare(b.label));
-  return { update: by(["update"]), sync: by(["sync", "missing"]), ok: by(["ok", "off"]) };
+  return { update: by(["update"]), sync: by(["sync", "missing"]), ok: by(["ok", "off"]), notes: by(["note"]) };
 }
 
 // The repository a row came from: a tracked repo by name, a URL source by host/owner/repo
@@ -653,7 +657,7 @@ export function sourceGroups(items) {
 
 export function counts(items) {
   const c = { all: 0, project: 0, global: 0, skills: 0, agents: 0, mcp: 0, plugins: 0, hooks: 0, extras: 0 };
-  for (const i of items) { if (!i.notice) { c.all++; c[i.scope]++; c[i.kind]++; } }
+  for (const i of items) { if (!i.notice && i.state !== "note") { c.all++; c[i.scope]++; c[i.kind]++; } }
   return c;
 }
 

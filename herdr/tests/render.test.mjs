@@ -197,6 +197,21 @@ test("the preview of an extra whose source is missing says so in every tab, with
   assert.doesNotMatch(targets, /In sync with/);
 });
 
+test("memory notes are listed apart from the extras, without a sync state or a count", async () => {
+  const { view } = await panel();
+  view.kind = "extras";
+  view.raw = { global: { list: [], diff: { targets: [] }, targets: ["claude"], pending: ["memory"], errors: {},
+    extras: [{ name: "memory", source_dir: "/src/memory", source_exists: true, file_count: 2, targets: [] }],
+    memory: { root: "/src/memory", notes: [{ path: "INDEX.md" }, { path: "LEARNED.md" }] } } };
+  view.rebuild();
+  const library = label(view.renderLibrary({}, view.ctx));
+  assert.match(library, /Extras 1/);
+  assert.match(library, /IN SYNC · 1/);
+  assert.match(library, /MEMORY NOTES · 2/);
+  assert.match(library, /LEARNED\.md/);
+  assert.doesNotMatch(library, /sync status unknown/);
+});
+
 test("an extra's preview shows its frontmatter above the document, and highlights the file it shows", async () => {
   const { view } = await panel({ role: "preview" }, { TextView: { markdown: element },
     loadPreview: async () => ({ files: ["SKILL.md", "rules.md"], file: "rules.md", dir: "/src/rules", meta: [{ key: "paths", value: "src/**" }], body: "Body" }) });
