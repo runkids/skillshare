@@ -2,7 +2,7 @@
 
 ![The skillshare panel in Herdr: what needs a sync and a line to every target, everything installed, and every machine](panels.png)
 
-[skillshare](../../README.md) keeps your skills, agents, MCP servers, plugins and hooks in one
+[skillshare](../../README.md) keeps your skills, agents, MCP servers, plugins, hooks and extras in one
 source you control and syncs them to Claude Code, Codex, Gemini CLI and the other AI coding tools
 you use. This panel puts it beside your agents in [Herdr](https://herdr.dev):
 
@@ -107,10 +107,10 @@ Read ~/.config/herdr-app/AGENTS.md, then update only the installed skillshare mo
   as it is ready; a slow plugin inventory does not hold up other resources or the source's Git
   state. Refreshes keep existing rows visible.
   Pending or failed inventories show `…` instead of zero, and sync states remain unconfirmed until
-  the reads succeed; memory notes never wait for a sync, so their read is the exception: a failed
-  memory read leaves sync states confirmed. If the memory read fails before any notes have been
-  read, the Extras count is the extras already read; skillshare before 0.24 has no memory list. Read
-  errors stay visible beside the available data; the next refresh retries.
+  the reads succeed. Memory notes never wait for a sync and are not counted, so their read is the
+  exception: a pending or failed memory read leaves sync states and counts confirmed; skillshare
+  before 0.24 has no memory list. Read errors stay visible beside the available data; the next
+  refresh retries.
   `check` and `check agents` run every 10 minutes. Git state comes from `git status` in the
   source repository, because the CLI has no JSON for it.
 - The install dialog reads canonical names and repository-relative paths from
@@ -132,21 +132,23 @@ Read ~/.config/herdr-app/AGENTS.md, then update only the installed skillshare mo
 
 - A preview reads on the item's machine: a skill's file names (40 at most) and the first 60 kB of
   the file shown, an agent's `.md`, the MCP source file, an extra's file or a folder extra's file
-  names and one file, or a memory note. Env, header and bearer-token values are replaced before
+  names (40 at most, saying so when there are more) and one file, or a memory note. Env, header and bearer-token values are replaced before
   the dialog gets them, so it shows names only.
 - The map's target names come from `status --json` and `diff --json`. A target's count is what
   `diff` reports for skills and agents, plus each MCP server, plugin, hook or extra waiting on it.
   An extra's target is named by the target whose skills folder shares its parent folder; a
   project's relative extras paths start from the project folder, and when targets share a folder
-  the first by name names it.
+  the first by name names it. Windows paths match in any case; POSIX paths match only in the same
+  case.
 
 Overview lists only what needs you: what waits for a sync, what has an update, hook notices, extras
 whose source is missing, and machines that are behind once the Machines tab has read them. Library
 lists everything by kind, in Need a look, Needs sync, Update available, In sync and Off; disabled rows are always under Off.
-Extras lists each file or folder extra and each memory note; an extra waits for a sync while a
-target's status in `extras list` is not `synced`. A missing source is the exception: a sync can't
-fix it, so that extra is under Need a look as "source missing", and with nothing waiting Overview
-says how many extras need a look instead of "Everything is in sync".
+Extras lists each file or folder extra, then each memory note under Memory notes. A note has no
+sync state and is not counted; the memory folder is also listed as the `memory` extra, and that
+row is the one counted. An extra waits for a sync while a target's status in `extras list` is not `synced`. A missing source is the
+exception: a sync can't fix it, so that extra is under Need a look as "source missing", and with
+nothing waiting Overview says how many extras need a look instead of "Everything is in sync".
 For skills and agents, In sync switches between List and By source (the default), which folds
 rows from the same repository, or local ones, into collapsible groups. A source with one row stays
 a plain row, and a filter opens every group.

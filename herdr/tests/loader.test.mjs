@@ -180,6 +180,17 @@ test("an extra's preview reads its file, or a folder extra's files and the first
   assert.deepEqual([reads, chosen.file, chosen.meta, chosen.body], [[], "SKILL.md", [{ key: "name", value: "r" }], "Skill body\n"]);
 });
 
+test("a folder extra with more files than the preview lists says so", async () => {
+  // READ_EXTRA lists one name past the 40 shown, so the preview knows the list goes on.
+  const names = (n) => Array.from({ length: n }, (_, i) => `f${String(i).padStart(2, "0")}.md`).join("\n");
+  const read = async (n) => loadPreview(machine({ scripts: { [READ_EXTRA]: { code: 1, stdout: `${names(n)}\n@@\n` }, [READ_FILE]: { stdout: "x" } } }).io, null, null, { kind: "extras", extra: "folder", dir: "/src/rules" });
+  const long = await read(41), full = await read(40);
+  assert.deepEqual([long.files.length, long.more, full.files.length, Boolean(full.more)], [40, true, 40, false]);
+  // A SKILL.md past the cut is still shown first, and the list stays at 40.
+  const skill = await loadPreview(machine({ scripts: { [READ_EXTRA]: { stdout: `${names(41)}\n@@\nBody\n` } } }).io, null, null, { kind: "extras", extra: "folder", dir: "/src/rules" });
+  assert.deepEqual([skill.files.length, skill.files[0], skill.file, skill.more], [40, "SKILL.md", "SKILL.md", true]);
+});
+
 test("a missing extra source is said with nothing to retry; a target's no source alone still reads", async () => {
   const gone = await loadPreview(machine().io, null, null, { kind: "extras", extra: "file", dir: "/src/agents", file: "AGENTS.md", state: "broken", sourceMissing: true });
   assert.equal(gone.error, undefined);

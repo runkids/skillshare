@@ -61,7 +61,7 @@ test("hooks combine declarations and planned changes, including disabled entries
   assert.equal(by.conflict.reason, "claude: conflict · import it or explicitly replace it");
   assert.equal(by.clean.src, "claude");
   assert.equal(counts(items).hooks, 6);
-  assert.deepEqual(Object.values(groupItems(items)).map((g) => g.length), [0, 4, 2]);
+  assert.deepEqual(Object.values(groupItems(items)).map((g) => g.length), [0, 4, 2, 0]);
   assert.deepEqual(filterItems(items, { scope: "all", kind: "hooks", query: "codex" }).map((i) => i.name), ["pending", "removed"]);
 });
 
@@ -431,15 +431,18 @@ test("extras and memory notes are rows; a target that is not synced waits, named
   const items = buildItems("global", raw);
   // A missing source is neither in sync nor waiting: sync can't fix it, so it needs a look.
   assert.deepEqual(items.map((i) => [i.state, rowState(i, false), needsLook(i)]),
-    [["ok", "AGENTS.md · 1 target", false], ["sync", "changed", false], ["broken", "source missing", true], ["ok", "memory note", false]]);
+    [["ok", "AGENTS.md · 1 target", false], ["sync", "changed", false], ["broken", "source missing", true], ["note", "memory note", false]]);
   assert.deepEqual(previewTargets(items[0]), [{ name: "claude", warn: false, text: "import as CLAUDE.md" }]);
   assert.deepEqual(previewTargets(items[1]), [{ name: "opencode", warn: true, text: "drift · merge" }, { name: "/home/me/notes", warn: false, text: "copy" }]);
   assert.deepEqual(previewTargets(items[2]), [{ name: "claude", warn: false, text: "no source · merge" }]);
-  assert.equal(counts(items).extras, 4);
+  // A memory note is a file inside the memory extra, not a resource of its own: it is not counted.
+  assert.deepEqual([counts(items).extras, counts(items).all], [3, 3]);
   assert.deepEqual([waitsForSync(items[2]), items[2].state], [false, "broken"]);
-  assert.deepEqual(groupItems(items).ok.map((i) => i.name), ["agents", "INDEX.md"]);
+  assert.deepEqual([groupItems(items).ok.map((i) => i.name), groupItems(items).notes.map((i) => i.name)], [["agents"], ["INDEX.md"]]);
   assert.deepEqual(targetList({ global: raw }, "all", items).list, [{ name: "opencode", n: 1 }, { name: "claude", n: 0 }]);
-  assert.deepEqual(buildItems("global", { ...raw, pending: ["extras"] }).map((i) => i.state), ["unknown", "unknown", "unknown", "ok"]);
+  assert.deepEqual(buildItems("global", { ...raw, pending: ["extras"] }).map((i) => i.state), ["unknown", "unknown", "unknown", "note"]);
+  // A note has no sync state to lose while the memory read runs again or fails.
+  for (const read of [{ pending: ["memory"] }, { errors: { memory: "timed out" } }]) assert.equal(buildItems("global", { ...raw, ...read }).at(-1).state, "note");
 });
 
 test("an extra's target matches its target whether written relative, with other slashes, or in another case", () => {
@@ -463,6 +466,9 @@ test("an extra's target matches its target whether written relative, with other 
   // A Windows project folder, as Herdr reports it.
   const win = [{ name: "claude", path: "C:\\Work\\App\\.claude\\skills" }];
   assert.equal(name(extra(".claude/rules"), win, "C:\\Work\\App", "project"), "claude");
+  // On a POSIX machine, folders that differ only in case are different folders.
+  assert.equal(name(extra("/home/me/.claude/rules"), [{ name: "custom", path: "/home/me/.Claude/skills" }]), "/home/me/.claude/rules");
+  assert.equal(name(extra(".claude/rules"), [{ name: "custom", path: "/work/app/.Claude/skills" }], "/work/app", "project"), ".claude/rules");
   // The deepest shared folder wins: ~/.config/opencode over a target in ~/.config.
   const nested = [{ name: "opencode", path: "/home/me/.config/opencode/skills" }, { name: "other", path: "/home/me/.config/skills" }];
   assert.equal(name(extra("/home/me/.config/opencode/rules"), nested), "opencode");
@@ -477,6 +483,14 @@ test("targets that share a folder name an extra's target the same way whatever o
     assert.equal(previewTargets(items[0])[0].name, "codex");
     assert.deepEqual(targetList({ global: { targets: ["universal", "codex"] } }, "all", items).list, [{ name: "codex", n: 1 }, { name: "universal", n: 0 }]);
   }
+});
+
+test("an extra waiting on two folders of one target counts once on that target", () => {
+  const raw = { extras: [{ name: "rules", source_dir: "/src/rules", file_count: 1, targets: [
+    { path: "/home/me/.claude/rules", mode: "merge", status: "drift" }, { path: "/home/me/.claude/commands", mode: "merge", status: "not synced" }] }],
+  targetPaths: [{ name: "claude", path: "/home/me/.claude/skills" }] };
+  const items = buildItems("global", raw);
+  assert.deepEqual(targetList({ global: { targets: ["claude"] } }, "all", items).list, [{ name: "claude", n: 1 }]);
 });
 
 test("an extra whose source is gone needs a look even with no targets", () => {
@@ -501,13 +515,11 @@ test("memory notes never wait for a sync, so a failed memory read leaves sync st
   assert.deepEqual(memory.errors, ["global memory: unknown extras subcommand: memory"]);
   assert.equal(resourceProgress(one({ extras: "offline" })).incomplete, true);
   assert.equal(resourceProgress({ global: { extras: [], pending: ["memory"], errors: {} } }).incomplete, false);
-  // The Extras count is the extras that were read, not "…" for good; a memory read still running holds it.
+  // Notes are not counted, so the memory read never holds the Extras count; the extras read does.
   assert.equal(memory.unknown.has("extras"), false);
-  assert.equal(resourceProgress({ global: { extras: [], pending: ["memory"], errors: {} } }).unknown.has("extras"), true);
+  assert.equal(resourceProgress({ global: { extras: [], pending: ["memory"], errors: {} } }).unknown.has("extras"), false);
+  assert.equal(resourceProgress({ global: { extras: [], memory: { root: "/m", notes: [{ path: "a.md" }] }, pending: [], errors: { memory: "timed out" } } }).unknown.has("extras"), false);
   assert.equal(resourceProgress(one({ extras: "offline" })).unknown.has("extras"), true);
-  // Notes kept from an earlier read are not confirmed by a read that failed, so the count waits.
-  const stale = resourceProgress({ global: { extras: [], memory: { root: "/m", notes: [{ path: "a.md" }] }, pending: [], errors: { memory: "timed out" } } });
-  assert.deepEqual([stale.unknown.has("extras"), stale.incomplete], [true, false]);
 });
 
 // ---- Detached jobs (START, ALIVE) ----
