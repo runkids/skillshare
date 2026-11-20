@@ -5,7 +5,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { findProject, loadResources, loadMachine, loadLatestRelease, loadPreview, loadFile } from "../skillshare/mods/skillshare/loader.js";
-import { GIT_STATUS, READ_SKILL, READ_FILE, LATEST_RELEASE } from "../skillshare/mods/skillshare/model.js";
+import { GIT_STATUS, READ_SKILL, READ_EXTRA, READ_FILE, LATEST_RELEASE } from "../skillshare/mods/skillshare/model.js";
 
 // A fake machine answering by command: `jobs` and `runs` keyed by skillshare args joined by
 // spaces, `scripts` by script. `seen` records each call's options.
@@ -21,7 +21,7 @@ function machine({ jobs = {}, runs = {}, scripts = {} } = {}) {
     },
   };
 }
-const resources = (flag) => Object.fromEntries([["list --all", []], ["diff", {}], ["mcp list", {}], ["plugin list", {}], ["hooks list", {}]].map(([cmd, value]) => [`${cmd} --json ${flag}`, { stdout: JSON.stringify(value) }]));
+const resources = (flag) => Object.fromEntries([["list --all", []], ["diff", {}], ["mcp list", {}], ["plugin list", {}], ["hooks list", {}], ["extras list", []], ["extras memory list", { notes: [] }]].map(([cmd, value]) => [`${cmd} --json ${flag}`, { stdout: JSON.stringify(value) }]));
 const emptyStatus = { stdout: "{}" };
 
 test("the first folder skillshare treats as a project wins", (t) => {
@@ -94,7 +94,7 @@ test("global resources publish while the project's inventory is still reading", 
 test("each project resource runs in the project folder with its scope flag", async () => {
   const { io, seen } = machine({ jobs: { ...resources("-p"), ...resources("-g") } });
   await loadResources(io, "mini", "/work/app", false);
-  assert.equal(seen.length, 10);
+  assert.equal(seen.length, 14);
   for (const call of seen) {
     assert.equal(call.cwd, call.args.at(-1) === "-p" ? "/work/app" : null);
     assert.equal(call.on, "mini");
@@ -116,12 +116,15 @@ test("a machine card counts targets that take skills and the source's git state"
   assert.deepEqual([m.label, m.version, m.update, m.targets, m.git.behind], ["mini", "0.28.4", true, 1, 2]);
 });
 
-test("each scope's target names come from its own status", async () => {
-  const names = (...n) => ({ stdout: JSON.stringify({ targets: [...n.map((name) => ({ name })), { name: "off", skills_enabled: false }], agents: { targets: [{ name: n[0] }] } }) });
+test("each scope's target names and folders come from its own status", async () => {
+  const names = (...n) => ({ stdout: JSON.stringify({ targets: [...n.map((name) => ({ name, path: `/${name}/skills` })), { name: "off", skills_enabled: false }], agents: { targets: [{ name: n[0] }] } }) });
   const { io } = machine({ jobs: { ...resources("-p"), ...resources("-g") }, runs: { "status --json -g": names("claude", "codex"), "status --json -p": names("cursor") } });
   const { raw } = await loadResources(io, null, "/work/app", false);
   assert.deepEqual([raw.global.targets, raw.project.targets], [["claude", "codex", "off"], ["cursor", "off"]]);
   assert.deepEqual([raw.global.skillTargets, raw.global.agentTargets, raw.project.agentTargets], [["claude", "codex"], ["claude"], ["cursor"]]);
+  assert.deepEqual(raw.project.targetPaths, [{ name: "cursor", path: "/cursor/skills" }, { name: "off", path: undefined }]);
+  // A project's relative extras paths start from its folder.
+  assert.deepEqual([raw.project.root, raw.global.root], ["/work/app", null]);
 });
 
 test("a skill's preview has its files and its document without the frontmatter", async () => {
@@ -154,6 +157,35 @@ test("another file of a skill is Markdown only when its name says so", async () 
   const { io } = machine({ scripts: { [READ_FILE]: { stdout: "---\na: 1\n---\ntext" } } });
   assert.deepEqual(await loadFile(io, null, "/src/x", "notes.md"), { meta: [{ key: "a", value: "1" }], body: "text" });
   assert.deepEqual(await loadFile(io, null, "/src/x", "run.sh"), { meta: [], body: "---\na: 1\n---\ntext", plain: true });
+});
+
+test("an extra's preview reads its file, or a folder extra's files and the first of them", async () => {
+  // A folder extra is listed as extras sync sees it (READ_EXTRA), not as a skill (READ_SKILL).
+  const { io } = machine({ scripts: { [READ_EXTRA]: { code: 1, stdout: "a.md\nb.md\n@@\n" }, [READ_SKILL]: { code: 1, stdout: ".metadata.json\na.md\nb.md\n@@\n" }, [READ_FILE]: { stdout: "# Rules\n" } } });
+  const file = await loadPreview(io, null, null, { kind: "extras", extra: "file", dir: "/src/agents", file: "AGENTS.md" });
+  assert.deepEqual([file.files, file.file, file.dir, file.body], [["AGENTS.md"], "AGENTS.md", "/src/agents", "# Rules\n"]);
+  const folder = await loadPreview(io, null, null, { kind: "extras", extra: "folder", dir: "/src/rules" });
+  assert.deepEqual([folder.files, folder.file, folder.body], [["a.md", "b.md"], "a.md", "# Rules\n"]);
+  // An empty folder and one that can't be opened say which.
+  const empty = machine({ scripts: { [READ_EXTRA]: { code: 1, stdout: "@@\n" } } });
+  assert.match((await loadPreview(empty.io, null, null, { kind: "extras", extra: "folder", dir: "/src/empty" })).error, /has no files/);
+  const closed = machine({ scripts: { [READ_EXTRA]: { code: 3 } } });
+  assert.equal((await loadPreview(closed.io, null, null, { kind: "extras", extra: "folder", dir: "/src/x" })).error, "/src/x could not be read.");
+  // A folder's SKILL.md comes from READ_EXTRA's own read, so nothing is read twice.
+  const reads = [];
+  const skill = machine({ scripts: { [READ_EXTRA]: { stdout: "AGENTS.md\nSKILL.md\n@@\n---\nname: r\n---\nSkill body\n" } } });
+  const sh = skill.io.sh;
+  skill.io.sh = (script, args, on) => { if (script === READ_FILE) reads.push(args[0]); return sh(script, args, on); };
+  const chosen = await loadPreview(skill.io, null, null, { kind: "extras", extra: "folder", dir: "/src/rules" });
+  assert.deepEqual([reads, chosen.file, chosen.meta, chosen.body], [[], "SKILL.md", [{ key: "name", value: "r" }], "Skill body\n"]);
+});
+
+test("a missing extra source is said with nothing to retry; a target's no source alone still reads", async () => {
+  const gone = await loadPreview(machine().io, null, null, { kind: "extras", extra: "file", dir: "/src/agents", file: "AGENTS.md", state: "broken", sourceMissing: true });
+  assert.equal(gone.error, undefined);
+  assert.match(gone.gone, /\/src\/agents\/AGENTS\.md is missing/);
+  const { io } = machine({ scripts: { [READ_FILE]: { stdout: "# Rules\n" } } });
+  assert.equal((await loadPreview(io, null, null, { kind: "extras", extra: "file", dir: "/src/agents", file: "AGENTS.md", state: "broken", sourceMissing: false })).body, "# Rules\n");
 });
 
 test("a skill with more files than the list holds still offers SKILL.md", async () => {
