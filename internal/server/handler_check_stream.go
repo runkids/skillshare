@@ -16,13 +16,13 @@ import (
 //   - "discovering" → {"phase":"..."}                    immediately on connect
 //   - "start"       → {"total": N, "repos": R, "sources": S}  after discovery (N = work units)
 //   - "progress"    → {"checked": N}                     every 200ms
-//   - "done"        → {"tracked_repos":…,"skills":…}     final payload (same shape as GET /api/check)
+//   - "done"        → {"tracked_repos":…,"skills":…,"agents":…}  final payload (GET /api/check plus agents)
 //
 // "total" counts actual work units (repos + remote URL groups), NOT individual skills.
 // This ensures the progress bar advances evenly — one tick per network call.
 //
 // Query params: names (comma-separated) limits the check to those tracked repos
-// and skills; the events then cover only them.
+// and skills; the events then cover only them, and no agent is checked.
 func (s *Server) handleCheckStream(w http.ResponseWriter, r *http.Request) {
 	safeSend, ok := initSSE(w)
 	if !ok {
@@ -34,6 +34,7 @@ func (s *Server) handleCheckStream(w http.ResponseWriter, r *http.Request) {
 	// Snapshot config under RLock, then release before slow I/O.
 	s.mu.RLock()
 	sourceDir := s.skillsSource()
+	agentsDir := s.agentsSource()
 	projectRoot := s.projectRoot
 	walk := s.skillsWalk()
 	parseOpts := s.parseOpts()
@@ -49,13 +50,18 @@ func (s *Server) handleCheckStream(w http.ResponseWriter, r *http.Request) {
 	}
 	// Group skills by remote (fast, local only).
 	plan := s.planSkillCheck(sourceDir, projectRoot, walk, only)
+	// Names are tracked repos and skills, so only a full check covers agents.
+	var agents []check.AgentCheckResult
+	if only == nil {
+		agents = check.CheckAgents(agentsDir)
+	}
 
 	// Total = repos + URL groups (the actual network-bound work units).
-	total := len(repos) + plan.Remotes()
+	sources := plan.Remotes() + check.AgentRemotes(agents)
 	safeSend("start", map[string]any{
-		"total":   total,
+		"total":   len(repos) + sources,
 		"repos":   len(repos),
-		"sources": plan.Remotes(),
+		"sources": sources,
 	})
 
 	// Atomic counter + ticker for progress events
@@ -98,6 +104,11 @@ func (s *Server) handleCheckStream(w http.ResponseWriter, r *http.Request) {
 	// --- Phase 2: Check skills by remote (1 work unit per remote) ---
 	resolved, err := plan.Run(ctx, check.Options{ParseOptions: parseOpts, OnRemoteDone: func(int) { checked.Add(1) }})
 
+	// --- Phase 3: Check agents by remote (1 work unit per remote) ---
+	if err == nil {
+		check.EnrichAgentResultsWithRemote(agents, func() { checked.Add(1) }, parseOpts)
+	}
+
 	// Stop ticker
 	close(done)
 	wg.Wait()
@@ -113,5 +124,6 @@ func (s *Server) handleCheckStream(w http.ResponseWriter, r *http.Request) {
 		"tracked_repos": repoResults,
 		"linked_repos":  linked,
 		"skills":        dashboardSkillResults(resolved),
+		"agents":        dashboardAgentResults(agents),
 	})
 }

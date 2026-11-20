@@ -297,6 +297,26 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
           pending.delete(checkKey(item));
         }
 
+        for (const agent of result.agents ?? []) {
+          const item = updatable.find((i) => agentKey(i) === agent.name);
+          if (!item) continue;
+          const edited = agent.status === 'drifted' || agent.status === 'dirty';
+          next.set(checkKey(item), {
+            status:
+              agent.status === 'update_available'
+                ? 'update-available'
+                : edited
+                  ? 'dirty'
+                  : agent.status === 'error'
+                    ? 'error'
+                    : 'up-to-date',
+            // As for a modified skill, the translated label says it.
+            message: edited ? undefined : agent.message,
+            checkedAt,
+          });
+          pending.delete(checkKey(item));
+        }
+
         for (const name of pending) {
           if (next.get(name)?.status === 'checking') next.set(name, { status: 'error', checkedAt });
         }
@@ -610,7 +630,8 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
             <span className="ss-st warn" title={c.message}>
               {t('update.check.dirty')}
             </span>
-            {!unit.isRepo && unit.items[0] && (
+            {/* Local changes can be listed for skills only. */}
+            {kind === 'skill' && !unit.isRepo && unit.items[0] && (
               <RouterLink className="ss-btn sm" to={`${resourceHref(unit.items[0])}?changes=1`}>
                 {t('update.check.viewChanges')}
               </RouterLink>
@@ -825,7 +846,7 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
                 <RefreshCw size={15} />
                 {t(lastChecked ? 'update.tab.checkAgain' : 'update.tab.checkNow')}
               </Button>
-              {/* The check does not cover agents, so only skills can be checked by selection. */}
+              {/* A check limited by names leaves agents out, so only skills can be checked by selection. */}
               {kind === 'skill' && shown.length > 0 && (
                 <Button variant="secondary" disabled={busy} onClick={() => runCheck(shown)}>
                   {t('update.header.checkSelected', { count: shown.length })}

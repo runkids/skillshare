@@ -139,10 +139,10 @@ func checkOneAgent(store *install.MetadataStore, sourcePath, relPath string) Age
 	return result
 }
 
-// EnrichAgentResultsWithRemote checks agents that have RepoURL + Version
-// against the remote head of the branch they were installed from.
-// Each remote branch is probed once; every agent is compared with its own version.
-func EnrichAgentResultsWithRemote(results []AgentCheckResult, onDone func(), parseOpts install.ParseOptions) {
+// agentRemotes groups the agents that have RepoURL + Version by the remote
+// branch they were installed from: the branches in the order first seen, and
+// the indexes of each one's agents.
+func agentRemotes(results []AgentCheckResult) ([]remoteKey, map[remoteKey][]int) {
 	groups := make(map[remoteKey][]int)
 	var refs []remoteKey
 	for i, r := range results {
@@ -155,7 +155,21 @@ func EnrichAgentResultsWithRemote(results []AgentCheckResult, onDone func(), par
 		}
 		groups[ref] = append(groups[ref], i)
 	}
+	return refs, groups
+}
 
+// AgentRemotes counts the remote branches EnrichAgentResultsWithRemote probes
+// for results.
+func AgentRemotes(results []AgentCheckResult) int {
+	refs, _ := agentRemotes(results)
+	return len(refs)
+}
+
+// EnrichAgentResultsWithRemote checks agents that have RepoURL + Version
+// against the remote head of the branch they were installed from.
+// Each remote branch is probed once; every agent is compared with its own version.
+func EnrichAgentResultsWithRemote(results []AgentCheckResult, onDone func(), parseOpts install.ParseOptions) {
+	refs, groups := agentRemotes(results)
 	if len(refs) == 0 {
 		return
 	}

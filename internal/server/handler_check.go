@@ -84,6 +84,15 @@ func dashboardSkillResults(results []check.SkillResult) []skillCheckResult {
 	return out
 }
 
+// dashboardAgentResults converts agent statuses to the dashboard payload.
+func dashboardAgentResults(results []check.AgentCheckResult) []skillCheckResult {
+	out := make([]skillCheckResult, 0, len(results))
+	for _, r := range results {
+		out = append(out, skillCheckResult{Name: r.Name, Source: r.Source, Version: r.Version, Status: r.Status, Message: r.Message})
+	}
+	return out
+}
+
 // checkTrackedRepo checks one tracked repo with the same logic as the CLI:
 // auth-aware fetch and a reported dirty-check error.
 func checkTrackedRepo(name, repoPath string, parseOpts install.ParseOptions) repoCheckResult {
