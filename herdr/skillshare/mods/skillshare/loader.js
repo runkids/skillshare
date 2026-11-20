@@ -3,7 +3,7 @@
 // and the tests pass a fake machine.
 //   io.job(args, { on, cwd, script }): skillshare (or a script of ours) run detached;
 //   io.run(args, { on, cwd }): a short read; io.sh(script, args, on): one exec of a script.
-import { GIT_STATUS, PROJECT, READ_SKILL, READ_FILE, LATEST_RELEASE, releaseTag, parseJSON, failure, flag, parseGitStatus, driftFrom, targetDrift, splitFrontmatter, mcpServer } from "./model.js";
+import { GIT_STATUS, PROJECT, READ_SKILL, READ_EXTRA, READ_FILE, LATEST_RELEASE, releaseTag, parseJSON, failure, flag, parseGitStatus, driftFrom, targetDrift, splitFrontmatter, mcpServer } from "./model.js";
 
 const scopesOf = (project) => (project ? ["project", "global"] : ["global"]);
 const at = (on, project, scope) => ({ on, cwd: scope === "project" ? project : null });
@@ -106,9 +106,10 @@ export async function loadPreview(io, on, project, item, mcpPath) {
     // A missing source has nothing to read, and reading again won't change that.
     if (item.sourceMissing) return { gone: `${item.file ? `${item.dir}/${item.file}` : item.dir} is missing. Create it, or remove the extra.` };
     if (item.extra !== "folder") return { files: [item.file], file: item.file, dir: item.dir, ...(await loadFile(io, on, item.dir, item.file)) };
-    // A folder shows its SKILL.md, which READ_SKILL already read, else its first file. A folder
-    // holds no SKILL.md as a rule, so READ_SKILL ending non-zero is not an error here.
-    const r = await io.sh(READ_SKILL, [item.dir], on), cut = r.stdout.indexOf("@@\n");
+    // A folder lists only the files extras sync sends, and shows its SKILL.md, which READ_EXTRA
+    // already read, else its first file. A folder holds no SKILL.md as a rule, so READ_EXTRA
+    // ending non-zero is not an error here.
+    const r = await io.sh(READ_EXTRA, [item.dir], on), cut = r.stdout.indexOf("@@\n");
     if (cut < 0) return { error: `${item.dir} could not be read.` };
     const files = r.stdout.slice(0, cut).split("\n").filter(Boolean), text = r.stdout.slice(cut + 3);
     if (text && !files.includes("SKILL.md")) files.unshift("SKILL.md");

@@ -5,7 +5,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { findProject, loadResources, loadMachine, loadLatestRelease, loadPreview, loadFile } from "../skillshare/mods/skillshare/loader.js";
-import { GIT_STATUS, READ_SKILL, READ_FILE, LATEST_RELEASE } from "../skillshare/mods/skillshare/model.js";
+import { GIT_STATUS, READ_SKILL, READ_EXTRA, READ_FILE, LATEST_RELEASE } from "../skillshare/mods/skillshare/model.js";
 
 // A fake machine answering by command: `jobs` and `runs` keyed by skillshare args joined by
 // spaces, `scripts` by script. `seen` records each call's options.
@@ -160,19 +160,20 @@ test("another file of a skill is Markdown only when its name says so", async () 
 });
 
 test("an extra's preview reads its file, or a folder extra's files and the first of them", async () => {
-  const { io } = machine({ scripts: { [READ_SKILL]: { code: 1, stdout: "a.md\nb.md\n@@\n" }, [READ_FILE]: { stdout: "# Rules\n" } } });
+  // A folder extra is listed as extras sync sees it (READ_EXTRA), not as a skill (READ_SKILL).
+  const { io } = machine({ scripts: { [READ_EXTRA]: { code: 1, stdout: "a.md\nb.md\n@@\n" }, [READ_SKILL]: { code: 1, stdout: ".metadata.json\na.md\nb.md\n@@\n" }, [READ_FILE]: { stdout: "# Rules\n" } } });
   const file = await loadPreview(io, null, null, { kind: "extras", extra: "file", dir: "/src/agents", file: "AGENTS.md" });
   assert.deepEqual([file.files, file.file, file.dir, file.body], [["AGENTS.md"], "AGENTS.md", "/src/agents", "# Rules\n"]);
   const folder = await loadPreview(io, null, null, { kind: "extras", extra: "folder", dir: "/src/rules" });
   assert.deepEqual([folder.files, folder.file, folder.body], [["a.md", "b.md"], "a.md", "# Rules\n"]);
   // An empty folder and one that can't be opened say which.
-  const empty = machine({ scripts: { [READ_SKILL]: { code: 1, stdout: "@@\n" } } });
+  const empty = machine({ scripts: { [READ_EXTRA]: { code: 1, stdout: "@@\n" } } });
   assert.match((await loadPreview(empty.io, null, null, { kind: "extras", extra: "folder", dir: "/src/empty" })).error, /has no files/);
-  const closed = machine({ scripts: { [READ_SKILL]: { code: 3 } } });
+  const closed = machine({ scripts: { [READ_EXTRA]: { code: 3 } } });
   assert.equal((await loadPreview(closed.io, null, null, { kind: "extras", extra: "folder", dir: "/src/x" })).error, "/src/x could not be read.");
-  // A folder's SKILL.md comes from READ_SKILL's own read, so nothing is read twice.
+  // A folder's SKILL.md comes from READ_EXTRA's own read, so nothing is read twice.
   const reads = [];
-  const skill = machine({ scripts: { [READ_SKILL]: { stdout: "AGENTS.md\nSKILL.md\n@@\n---\nname: r\n---\nSkill body\n" } } });
+  const skill = machine({ scripts: { [READ_EXTRA]: { stdout: "AGENTS.md\nSKILL.md\n@@\n---\nname: r\n---\nSkill body\n" } } });
   const sh = skill.io.sh;
   skill.io.sh = (script, args, on) => { if (script === READ_FILE) reads.push(args[0]); return sh(script, args, on); };
   const chosen = await loadPreview(skill.io, null, null, { kind: "extras", extra: "folder", dir: "/src/rules" });

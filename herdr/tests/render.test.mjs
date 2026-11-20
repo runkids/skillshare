@@ -169,6 +169,18 @@ test("an extra whose source is missing needs a look on Overview and in Library, 
   assert.doesNotMatch(library, /IN SYNC|NEEDS SYNC/);
 });
 
+test("an extra whose source is missing stays on Overview while extras are read again, and when that read fails", async () => {
+  const { view } = await panel();
+  const extras = [{ name: "gone", source_dir: "/src/gone", file_count: 0, targets: [{ path: "/home/me/.claude/rules", mode: "merge", status: "no source" }] }];
+  for (const read of [{ pending: ["extras"], errors: {} }, { pending: [], errors: { extras: "extras list failed" } }]) {
+    view.raw = { global: { list: [], diff: { targets: [] }, targets: ["claude"], extras, ...read } };
+    view.rebuild();
+    const overview = label(view.renderOverview({}, view.ctx));
+    assert.match(overview, /SYNC STATUS UNCONFIRMED · 1/);
+    assert.match(overview, /gone/);
+  }
+});
+
 test("the preview of an extra whose source is missing says so in every tab, with nothing to retry", async () => {
   const { view } = await panel({ role: "preview" });
   const [item] = buildItems("global", { extras: [{ name: "gone", source_dir: "/src/gone", source_exists: false, file_count: 0, targets: [{ path: "/home/me/.claude/rules", mode: "merge", status: "no source" }] }] });

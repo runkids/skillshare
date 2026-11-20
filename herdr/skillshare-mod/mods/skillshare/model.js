@@ -556,6 +556,12 @@ export const READ_SKILL = `cd "$1" 2>/dev/null || exit 3
 find . -type f -not -path './.git/*' | sed 's|^\\./||' | sort | head -40
 echo @@
 head -c 60000 SKILL.md 2>/dev/null`;
+// sh -c READ_EXTRA <name> <dir>: a folder extra's files as extras sync sees them, then as READ_SKILL.
+// DiscoverExtraFiles (internal/sync/extras.go) skips every .git folder and every .metadata.json.
+export const READ_EXTRA = `cd "$1" 2>/dev/null || exit 3
+find . -type d -name .git -prune -o -type f ! -name .metadata.json -print | sed 's|^\\./||' | sort | head -40
+echo @@
+head -c 60000 SKILL.md 2>/dev/null`;
 // sh -c READ_FILE <name> <path>: a file's first 60 kB.
 export const READ_FILE = 'head -c 60000 "$1" 2>/dev/null';
 

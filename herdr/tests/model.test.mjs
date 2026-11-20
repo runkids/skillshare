@@ -4,7 +4,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync, rmSync, utimesSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { parseGitStatus, sourceLine, driftFrom, targetDrift, buildItems, hookArgs, counts, groupItems, filterItems, sourceGroups, cloneUrl, installResult, newerVersion, parseDiscover, parseAudit, parsePreview, diffSides, mergeMetadata, START, ALIVE, SWEEP, rowState, previewTargets, splitFrontmatter, mcpServer, targetList, mapLanes, needsBothWays, READ_SKILL, eligibleTargets, syncScopes, overviewAnswer, resourceProgress, remoteLine, waitingNames, releaseTag, panelUpdate, updateState, PANEL_UPDATE, toggleArgs, optimistic, shownRows, endedRequests, afterRead, afterChecks, DISCOVER, needsLook, waitsForSync } from "../skillshare/mods/skillshare/model.js";
+import { parseGitStatus, sourceLine, driftFrom, targetDrift, buildItems, hookArgs, counts, groupItems, filterItems, sourceGroups, cloneUrl, installResult, newerVersion, parseDiscover, parseAudit, parsePreview, diffSides, mergeMetadata, START, ALIVE, SWEEP, rowState, previewTargets, splitFrontmatter, mcpServer, targetList, mapLanes, needsBothWays, READ_SKILL, eligibleTargets, syncScopes, overviewAnswer, resourceProgress, remoteLine, waitingNames, releaseTag, panelUpdate, updateState, PANEL_UPDATE, toggleArgs, optimistic, shownRows, endedRequests, afterRead, afterChecks, DISCOVER, needsLook, waitsForSync, READ_EXTRA } from "../skillshare/mods/skillshare/model.js";
 import { VERSION } from "../skillshare/mods/skillshare/version.js";
 
 test("git status reads branch, ahead/behind and files", () => {
@@ -654,6 +654,16 @@ test("reading a skill lists its files, then SKILL.md, and fails on a missing fol
   writeFileSync(join(dir, "SKILL.md"), "---\nname: x\n---\nBody\n"); writeFileSync(join(dir, "refs", "a.md"), "a"); writeFileSync(join(dir, ".git", "HEAD"), "x");
   const read = (d) => spawnSync("sh", ["-c", READ_SKILL, "test", d], { encoding: "utf8" });
   assert.equal(read(dir).stdout, "SKILL.md\nrefs/a.md\n@@\n---\nname: x\n---\nBody\n");
+  assert.equal(read(join(dir, "none")).status, 3);
+});
+
+test("reading a folder extra leaves out what extras sync skips: every .git folder and every .metadata.json", (t) => {
+  const dir = mkdtempSync(join(tmpdir(), "ss-extra-"));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  for (const d of [".git", "sub", join("sub", ".git")]) mkdirSync(join(dir, d));
+  for (const f of ["a.md", ".metadata.json", join(".git", "HEAD"), join("sub", "b.md"), join("sub", ".metadata.json"), join("sub", ".git", "config")]) writeFileSync(join(dir, f), "x");
+  const read = (d) => spawnSync("sh", ["-c", READ_EXTRA, "test", d], { encoding: "utf8" });
+  assert.equal(read(dir).stdout, "a.md\nsub/b.md\n@@\n");
   assert.equal(read(join(dir, "none")).status, 3);
 });
 
