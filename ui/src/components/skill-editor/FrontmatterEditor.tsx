@@ -96,6 +96,11 @@ function splitList(text: string): string[] {
 const listText = (v: FrontmatterValue | undefined) =>
   Array.isArray(v) ? v.map(scalarText).filter(Boolean).join(', ') : scalarText(v);
 
+const isStructured = (v: FrontmatterValue | undefined) =>
+  v != null &&
+  typeof v === 'object' &&
+  (!Array.isArray(v) || v.some((item) => item != null && typeof item === 'object'));
+
 interface Props {
   frontmatter: Frontmatter;
   onChange: (next: Frontmatter) => void;
@@ -230,9 +235,7 @@ export default function FrontmatterEditor({ frontmatter, onChange, yaml, onYaml 
           {otherRoot.map((key) => (
             <Row key={key} name={key} onRemove={() => set(key, null)}>
               {/* Clearing the value keeps the key, so the row does not vanish while typing */}
-              {frontmatter[key] &&
-              typeof frontmatter[key] === 'object' &&
-              !Array.isArray(frontmatter[key]) ? (
+              {isStructured(frontmatter[key]) ? (
                 <CodeView content={JSON.stringify(frontmatter[key], null, 2)} lang="json" />
               ) : Array.isArray(frontmatter[key]) ? (
                 <ListInput
@@ -257,7 +260,7 @@ export default function FrontmatterEditor({ frontmatter, onChange, yaml, onYaml 
               hint={key === 'targets' ? t('frontmatterEditor.field.targets.hint') : undefined}
               onRemove={() => setMeta(key, undefined)}
             >
-              {meta[key] && typeof meta[key] === 'object' && !Array.isArray(meta[key]) ? (
+              {isStructured(meta[key]) ? (
                 <CodeView content={JSON.stringify(meta[key], null, 2)} lang="json" />
               ) : LIST_METADATA.has(key) || Array.isArray(meta[key]) ? (
                 <ListInput value={meta[key]} onChange={(v) => setMeta(key, v)} label={key} />
