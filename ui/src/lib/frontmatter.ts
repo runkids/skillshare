@@ -1,4 +1,4 @@
-import { Document, isMap, isScalar, isSeq, parse, parseDocument, Scalar } from 'yaml';
+import { Document, isAlias, isMap, isScalar, isSeq, parse, parseDocument, Scalar } from 'yaml';
 
 export type FrontmatterScalar = string | number | boolean | null;
 export type FrontmatterNested = { [key: string]: FrontmatterValue };
@@ -204,7 +204,12 @@ export function serializeFrontmatter(
           }
         } else if (Object.is(value, old)) {
           const node = original.getIn(path, true);
-          if (isScalar(node)) doc.setIn(path, node.clone());
+          const resolved = isAlias(node) ? node.resolve(original) : node;
+          if (isScalar(resolved)) {
+            const copy = resolved.clone() as Scalar;
+            if (isAlias(node)) delete copy.anchor;
+            doc.setIn(path, copy);
+          }
         }
       };
       for (const key of Object.keys(fm)) {

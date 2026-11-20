@@ -48,7 +48,7 @@ Do not run an unconfigured Prettier in `ui/` because it creates broad unrelated 
 
 The skill/agent editor uses `yaml` to read and write frontmatter, including escaped strings, block scalars and nested flow metadata. Description prose uses folded block style when needed; repeated edits preserve its value and nested metadata. Unedited frontmatter stays verbatim. The legacy parser remains a fallback for non-YAML headers. Nested object fields are shown as read-only JSON instead of editable `[object Object]` text.
 
-Dirty skill/agent frontmatter saves retain unchanged YAML scalar values from the original header, including integers beyond JavaScript's safe range; the form and JSON views still use ordinary JavaScript values.
+Dirty skill/agent frontmatter saves retain unchanged YAML scalar values from the original header, including integers beyond JavaScript's safe range; the form, JSON view and YAML preview use ordinary JavaScript values and may display rounded integers. Editing such a field can save the rounded value; the save confirmation diff shows the pending file content.
 
 The config editor's Beautify and Save actions organize top-level YAML sections: sources and default settings, targets, skills, agents, extras, MCP, plugins, hooks, other settings, ignore, and audit. Sections have blank lines between them; nested mappings and lists retain their order, and unknown keys remain in their original relative order at the end. Comments and anchors are preserved; the `yaml-language-server` schema directive stays at the top of the document, including when repairing a previously misplaced directive. If reordering would change an alias reference, the original section order is retained.
 

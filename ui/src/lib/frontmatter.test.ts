@@ -176,6 +176,40 @@ describe('exact integers in edited headers', () => {
     expect(exact.metadata.copy.id).toBe(9007199254740993n);
   });
 
+  it('retains scalar aliases in metadata siblings and source entries', () => {
+    const parsed = parseSkillMarkdown(
+      '---\nname: demo\nmetadata:\n  id: &id 9007199254740993\n  copy: *id\n  sources:\n    - resource: a.md\n      event: *id\n---\nbody',
+    );
+    const saved = composeSkillMarkdown(
+      { ...parsed.frontmatter, description: 'edited' },
+      parsed.body,
+      undefined,
+      undefined,
+      parsed.bom,
+      parsed.rawFrontmatter,
+    );
+    const exact = parseYaml(parseSkillMarkdown(saved).rawFrontmatter, { intAsBigInt: true });
+    expect(exact.metadata.id).toBe(9007199254740993n);
+    expect(exact.metadata.copy).toBe(9007199254740993n);
+    expect(exact.metadata.sources[0].event).toBe(9007199254740993n);
+  });
+
+  it('retains scalar aliases in sequences', () => {
+    const parsed = parseSkillMarkdown(
+      '---\nname: demo\nmetadata:\n  ids: [&id 9007199254740993, *id]\n---\nbody',
+    );
+    const saved = composeSkillMarkdown(
+      { ...parsed.frontmatter, description: 'edited' },
+      parsed.body,
+      undefined,
+      undefined,
+      parsed.bom,
+      parsed.rawFrontmatter,
+    );
+    const exact = parseYaml(parseSkillMarkdown(saved).rawFrontmatter, { intAsBigInt: true });
+    expect(exact.metadata.ids).toEqual([9007199254740993n, 9007199254740993n]);
+  });
+
   it('retains untouched values through description, targets, deletion and body edits', () => {
     const original =
       '---\nname: demo\ndescription: old\ntargets: [claude]\nmetadata:\n  x-acme-event-id: 9007199254740993\n  nested:\n    count: 9007199254740993\n    remove: yes\n  sources:\n    - resource: a.md\n      x-acme: 9007199254740993\n---\nbody';
