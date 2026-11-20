@@ -256,8 +256,9 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
           }
         }
 
-        // The backend returns one entry per repo directory (e.g. `_awesome-claude-agents`);
-        // copy it to every item in that repo.
+        // The backend returns one entry per skills repo directory (e.g. `_awesome-claude-agents`);
+        // copy it to every skill in that repo. An agents repo of the same name is a separate
+        // checkout, reported under `agents`.
         for (const repo of result.tracked_repos) {
           const repoStatus: CheckItemStatus =
             repo.status === 'behind'
@@ -268,7 +269,7 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
                   ? { status: 'error', message: repo.message, checkedAt }
                   : { status: 'up-to-date', message: repo.message, checkedAt };
           for (const item of updatable) {
-            if (repoOf(item) !== repo.name) continue;
+            if (item.kind !== 'skill' || repoOf(item) !== repo.name) continue;
             next.set(checkKey(item), repoStatus);
             pending.delete(checkKey(item));
           }
@@ -277,7 +278,9 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
         // Nested installs are reported by metadata relative path while the list shows the
         // basename; match every stable identifier so nested items don't stay checking.
         for (const skill of result.skills) {
-          const item = updatable.find((i) => !i.isInRepo && matchesCheckSkill(i, skill.name));
+          const item = updatable.find(
+            (i) => i.kind === 'skill' && !i.isInRepo && matchesCheckSkill(i, skill.name),
+          );
           if (!item) continue;
           next.set(checkKey(item), {
             status:
