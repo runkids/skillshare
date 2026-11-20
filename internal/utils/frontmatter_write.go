@@ -2,10 +2,10 @@ package utils
 
 import (
 	"fmt"
-	"maps"
 	"os"
 	"reflect"
 	"strings"
+	"unicode/utf8"
 
 	"gopkg.in/yaml.v3"
 )
@@ -148,26 +148,41 @@ func ToggleFrontmatterFlag(filePath, key string) (bool, error) {
 // toggleFlowFlag makes one bounded source edit and verifies its decoded result.
 func toggleFlowFlag(fm frontmatterLines, m *yaml.Node, key string) ([]string, bool, error) {
 	fail := func() ([]string, bool, error) { return nil, false, fmt.Errorf("cannot safely edit flow flag %q", key) }
-	header := strings.Join(fm.lines[fm.open+1:fm.end], "\n") + "\n"
-	if strings.ContainsAny(strings.ReplaceAll(header, "\r\n", "\n"), "\r\u0085\u2028\u2029") {
-		return fail()
-	}
+	// yaml.v3 counts CR, LF, CRLF, NEL, LS and PS as line breaks and
+	// columns as runes. fm.lines splits only LF, so scan the source directly.
 	at := func(n *yaml.Node) int {
-		i := fm.open + n.Line
-		if i < 0 || i >= fm.end || n.Column < 1 {
-			return -1
+		start := len(strings.Join(fm.lines[:fm.open+1], "\n")) + 1
+		end := len(strings.Join(fm.lines[:fm.end], "\n"))
+		line, column := 1, 1
+		for i := start; i <= end; {
+			if line == n.Line && column == n.Column {
+				return i
+			}
+			if i == end {
+				break
+			}
+			r, size := utf8.DecodeRuneInString(fm.content[i:end])
+			i += size
+			switch r {
+			case '\r':
+				if i < end && fm.content[i] == '\n' {
+					i++
+				}
+				line++
+				column = 1
+			case '\n', '\u0085', '\u2028', '\u2029':
+				line++
+				column = 1
+			default:
+				column++
+			}
 		}
-		runes := []rune(fm.lines[i])
-		if n.Column-1 > len(runes) {
-			return -1
-		}
-		return len(strings.Join(fm.lines[:i], "\n")) + 1 + len(string(runes[:n.Column-1]))
+		return -1
 	}
 	expected, err := ParseFrontmatterMap([]byte(fm.join(fm.lines)))
 	if err != nil {
 		return fail()
 	}
-	expected = maps.Clone(expected)
 	text, inserted := fm.content, key+": true"
 	from, to, replacement, on := -1, -1, "", true
 	index := -1

@@ -122,9 +122,10 @@ func TestToggleFrontmatterFlag_FlowRoot(t *testing.T) {
 		{"json false last", "{\n \"name\": \"demo\",\n \"" + key + "\": false\n}", "{\n \"name\": \"demo\",\n \"" + key + "\": true\n}", "{\n \"name\": \"demo\",\n \"" + key + "\": false\n}", true},
 		{"alias", "{name: &f false, " + key + ": *f}", "", "", false},
 		{"escaped false", "{name: demo, " + key + ": \"f\\u0061lse\"}", "", "", false},
-		{"unicode line separator", "{description: \"a\u2028b\", name: demo, " + flag + ", z: 1}", "", "", false},
-		{"next line separator", "{description: \"a\u0085b\", name: demo}", "", "", false},
-		{"paragraph separator", "{description: \"a\u2029b\", name: demo}", "", "", false},
+		{"mixed YAML line breaks before flag", "{description: \"a\r\nb\rc\u0085d\u2028e\u2029f\", name: demo, " + flag + "}", "{description: \"a\r\nb\rc\u0085d\u2028e\u2029f\", name: demo, " + key + ": false}", "{description: \"a\r\nb\rc\u0085d\u2028e\u2029f\", name: demo, " + flag + "}", false},
+		{"unicode line separator", "{description: \"a\u2028b\", name: demo, " + flag + ", z: 1}", "{description: \"a\u2028b\", name: demo, " + key + ": false, z: 1}", "{description: \"a\u2028b\", name: demo, " + flag + ", z: 1}", false},
+		{"next line separator", "{description: \"a\u0085b\", name: demo}", "{" + flag + ", description: \"a\u0085b\", name: demo}", "{description: \"a\u0085b\", name: demo}", true},
+		{"paragraph separator", "{description: \"a\u2029b\", name: demo}", "{" + flag + ", description: \"a\u2029b\", name: demo}", "{description: \"a\u2029b\", name: demo}", true},
 	}
 	wrap := func(s string) string { return "---\n" + s + "\n---\nBody\n" }
 	for _, tc := range cases {
