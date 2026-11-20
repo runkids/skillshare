@@ -181,6 +181,10 @@ describe('exact integers in edited headers', () => {
     const original =
       '---\nname: demo\ndescription: old\ntargets: [claude]\nmetadata:\n  x-acme-event-id: 9007199254740993\n  drop: 9007199254740993\n  changed: 9007199254740993\n  nested:\n    count: 9007199254740993\n  sources:\n    - resource: a.md\n      x-acme: 9007199254740993\n---\nbody';
     const first = parseSkillMarkdown(original);
+    expect(typeof (first.frontmatter.metadata as FrontmatterNested)['x-acme-event-id']).toBe(
+      'number',
+    );
+    expect(() => JSON.stringify(first.frontmatter)).not.toThrow();
     let content = composeSkillMarkdown(
       { ...first.frontmatter, description: 'new' },
       first.body,
@@ -297,6 +301,9 @@ it('saves exact integers through the SkillEditor form and body-only paths', asyn
     intAsBigInt: true,
   });
   expect(result.description).toBe('new description');
+  expect(result.targets).toBeUndefined();
+  expect(result.metadata.targets).toEqual(['claude']);
   expect(result.metadata['x-acme']).toBe(9007199254740993n);
+  expect(result.metadata.sources[0]['x-acme']).toBe(9007199254740993n);
   save.mockRestore();
 });
