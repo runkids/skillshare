@@ -123,6 +123,7 @@ export default function SkillEditor({ resource, docName, initialContent, onBack,
     undefined,
     fmDirty ? undefined : initial.rawFrontmatter,
     initial.bom,
+    initial.rawFrontmatter,
   );
 
   const save = async () => {

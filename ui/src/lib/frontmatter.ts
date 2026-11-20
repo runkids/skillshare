@@ -1,4 +1,4 @@
-import { Document, isScalar, isSeq, parse, Scalar } from 'yaml';
+import { Document, isMap, isScalar, isSeq, parse, parseDocument, Scalar } from 'yaml';
 
 export type FrontmatterScalar = string | number | boolean | null;
 export type FrontmatterNested = { [key: string]: FrontmatterValue };
@@ -158,7 +158,11 @@ function unquote(s: string): string | number | boolean {
   return s;
 }
 
-export function serializeFrontmatter(fm: Frontmatter, keyOrder?: string[]): string {
+export function serializeFrontmatter(
+  fm: Frontmatter,
+  keyOrder?: string[],
+  originalYaml?: string,
+): string {
   const doc = new Document();
   const keys = new Set([...(keyOrder ?? []), ...Object.keys(fm)]);
   for (const key of keys) {
@@ -183,6 +187,33 @@ export function serializeFrontmatter(fm: Frontmatter, keyOrder?: string[]): stri
     }
     doc.set(key, node);
   }
+  if (originalYaml) {
+    const original = parseDocument(originalYaml, { intAsBigInt: true });
+    if (!original.errors.length && isMap(original.contents)) {
+      const originalValues = parseYaml(originalYaml);
+      const preserve = (
+        value: FrontmatterValue,
+        old: FrontmatterValue,
+        path: (string | number)[],
+      ) => {
+        if (value && old && typeof value === 'object' && typeof old === 'object') {
+          if (Array.isArray(value) && Array.isArray(old)) {
+            value.forEach((v, i) => preserve(v, old[i], [...path, i]));
+          } else if (!Array.isArray(value) && !Array.isArray(old)) {
+            for (const key of Object.keys(value)) preserve(value[key], old[key], [...path, key]);
+          }
+        } else if (Object.is(value, old)) {
+          const node = original.getIn(path, true);
+          if (isScalar(node)) doc.setIn(path, node.clone());
+        }
+      };
+      for (const key of Object.keys(fm)) {
+        const value = fm[key];
+        if (value == null || value === '' || (Array.isArray(value) && value.length === 0)) continue;
+        preserve(value, originalValues[key], [key]);
+      }
+    }
+  }
   return `---\n${doc.toString({ lineWidth: 0, singleQuote: false, flowCollectionPadding: false })}---`;
 }
 
@@ -192,11 +223,14 @@ export function composeSkillMarkdown(
   keyOrder?: string[],
   rawFrontmatter?: string,
   bom = '',
+  originalYaml?: string,
 ): string {
   // Preserve original frontmatter text when it hasn't been edited,
   // avoiding spurious formatting changes (quote style, line wrapping).
   const fmText =
-    rawFrontmatter != null ? `---\n${rawFrontmatter}\n---` : serializeFrontmatter(fm, keyOrder);
+    rawFrontmatter != null
+      ? `---\n${rawFrontmatter}\n---`
+      : serializeFrontmatter(fm, keyOrder, originalYaml);
   const bodyText = body.startsWith('\n') ? body : '\n' + body;
   return `${bom}${fmText}${bodyText}`;
 }
