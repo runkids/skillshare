@@ -111,6 +111,8 @@ export interface CheckResult {
   linked_repos?: LinkedRepo[];
   tracked_repos: RepoCheckResult[];
   skills: SkillCheckResult[];
+  /** Only a full stream check reports agents, each by its path without `.md`. */
+  agents?: SkillCheckResult[];
 }
 
 // Hub saved config types
