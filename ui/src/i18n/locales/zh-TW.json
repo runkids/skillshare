@@ -949,6 +949,7 @@
   "update.empty.title": "沒有可更新的 skills",
   "update.empty.agentsTitle": "沒有可更新的 agents",
   "update.empty.agentsDescription": "從 GitHub 或追蹤中的 repo 安裝的 agents 可以在這裡更新。",
+  "update.header.checkSelected": "檢查已選取（{count}）",
   "update.header.updateSelected": "更新已選取（{count}）",
   "update.status.blocked": "已封鎖",
   "update.status.failed": "失敗",

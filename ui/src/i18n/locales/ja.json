@@ -949,6 +949,7 @@
   "update.empty.title": "更新可能なスキルがありません",
   "update.empty.agentsTitle": "更新可能なエージェントがありません",
   "update.empty.agentsDescription": "GitHub や追跡中のリポジトリからインストールしたエージェントはここで更新できます。",
+  "update.header.checkSelected": "選択した項目を確認（{count}）",
   "update.header.updateSelected": "選択した項目を更新（{count}）",
   "update.status.blocked": "ブロック済み",
   "update.status.failed": "失敗",

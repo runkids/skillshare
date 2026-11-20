@@ -137,3 +137,33 @@ func TestHandleCheckStream_EventSequence(t *testing.T) {
 		t.Errorf("skills:\n got %+v\nwant %+v", payload.Skills, want)
 	}
 }
+
+func TestHandleCheckStream_NamesLimitTheCheck(t *testing.T) {
+	s, src := newTestServer(t)
+	checktest.Seed(t, t.TempDir(), src)
+	addTrackedRepoWithBrokenIndex(t, src, "_team")
+	addTrackedRepoWithBrokenIndex(t, src, "_other")
+	s.reloadSkillsStore()
+
+	rr := httptest.NewRecorder()
+	s.handleCheckStream(rr, httptest.NewRequest(http.MethodGet, "/api/check/stream?names=_team,changed", nil))
+
+	blocks := strings.Split(strings.TrimSpace(rr.Body.String()), "\n\n")
+	if len(blocks) < 3 {
+		t.Fatalf("expected at least discovering, start and done, got %q", rr.Body.String())
+	}
+	if want := "event: start\ndata: " + `{"repos":1,"sources":1,"total":2}`; blocks[1] != want {
+		t.Errorf("second event = %q, want %q", blocks[1], want)
+	}
+	_, done, ok := strings.Cut(blocks[len(blocks)-1], "event: done\ndata: ")
+	if !ok {
+		t.Fatalf("last event = %q, want done", blocks[len(blocks)-1])
+	}
+	payload := decodeCheckPayload(t, done)
+	if len(payload.TrackedRepos) != 1 || payload.TrackedRepos[0].Name != "_team" {
+		t.Errorf("tracked repos = %+v, want only _team", payload.TrackedRepos)
+	}
+	if len(payload.Skills) != 1 || payload.Skills[0].Name != "changed" {
+		t.Errorf("skills = %+v, want only changed", payload.Skills)
+	}
+}

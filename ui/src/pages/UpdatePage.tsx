@@ -306,37 +306,43 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
     [updatable, setStatuses, queryClient],
   );
 
-  const runCheck = useCallback(() => {
-    esRef.current?.close();
-    setChecking(true);
-    setPruned(0);
-    setRun(new Map());
-    setFinished(false);
-    setStatuses((prev) => {
-      const next = new Map(prev);
-      for (const item of updatable) next.set(checkKey(item), { status: 'checking' });
-      return next;
-    });
-    esRef.current = api.checkStream(
-      () => {},
-      () => {},
-      () => {},
-      (result) => {
-        applyCheckResult(result);
-        setChecking(false);
-      },
-      (err) => {
-        toast(err.message, 'error');
-        setStatuses((prev) => {
-          const next = new Map(prev);
-          const checkedAt = new Date().toISOString();
-          for (const item of updatable) next.set(checkKey(item), { status: 'error', checkedAt });
-          return next;
-        });
-        setChecking(false);
-      },
-    );
-  }, [updatable, applyCheckResult, setStatuses, toast]);
+  // Checks the given units, leaving every other result as it is; all of them when omitted.
+  const runCheck = useCallback(
+    (only?: UpdateUnit[]) => {
+      const items = only ? only.flatMap((u) => u.items) : updatable;
+      esRef.current?.close();
+      setChecking(true);
+      setPruned(0);
+      setRun(new Map());
+      setFinished(false);
+      setStatuses((prev) => {
+        const next = new Map(prev);
+        for (const item of items) next.set(checkKey(item), { status: 'checking' });
+        return next;
+      });
+      esRef.current = api.checkStream(
+        () => {},
+        () => {},
+        () => {},
+        (result) => {
+          applyCheckResult(result);
+          setChecking(false);
+        },
+        (err) => {
+          toast(err.message, 'error');
+          setStatuses((prev) => {
+            const next = new Map(prev);
+            const checkedAt = new Date().toISOString();
+            for (const item of items) next.set(checkKey(item), { status: 'error', checkedAt });
+            return next;
+          });
+          setChecking(false);
+        },
+        only?.map((u) => u.name),
+      );
+    },
+    [updatable, applyCheckResult, setStatuses, toast],
+  );
 
   /* -- Update -- */
 
@@ -810,10 +816,21 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
                 onChange={setForce}
                 disabled={busy}
               />
-              <Button variant="secondary" loading={checking} disabled={running} onClick={runCheck}>
+              <Button
+                variant="secondary"
+                loading={checking}
+                disabled={running}
+                onClick={() => runCheck()}
+              >
                 <RefreshCw size={15} />
                 {t(lastChecked ? 'update.tab.checkAgain' : 'update.tab.checkNow')}
               </Button>
+              {/* The check does not cover agents, so only skills can be checked by selection. */}
+              {kind === 'skill' && shown.length > 0 && (
+                <Button variant="secondary" disabled={busy} onClick={() => runCheck(shown)}>
+                  {t('update.header.checkSelected', { count: shown.length })}
+                </Button>
+              )}
               {shown.length > 0 && (
                 <Button
                   variant="secondary"
