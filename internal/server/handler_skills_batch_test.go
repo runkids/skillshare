@@ -124,6 +124,47 @@ func TestSetTargets_KeepsLocalChangeStateOfRemoteSkill(t *testing.T) {
 	}
 }
 
+func TestHandleSetSkillTargets_KeepsLocalChangeStateOfRemoteAgent(t *testing.T) {
+	for _, edited := range []bool{false, true} {
+		t.Run(fmt.Sprintf("edited=%t", edited), func(t *testing.T) {
+			s, _ := newTestServer(t)
+			agentsDir := s.agentsSource()
+			if err := os.MkdirAll(agentsDir, 0755); err != nil {
+				t.Fatal(err)
+			}
+			file := filepath.Join(agentsDir, "tutor.md")
+			if err := os.WriteFile(file, []byte("---\nname: tutor\n---\n# Tutor\n"), 0644); err != nil {
+				t.Fatal(err)
+			}
+			hash, err := utils.FileHashFormatted(file)
+			if err != nil {
+				t.Fatal(err)
+			}
+			s.agentsStore = install.NewMetadataStore()
+			s.agentsStore.Set("tutor", &install.MetadataEntry{Source: "org/repo/agents/tutor.md", Kind: "agent", RepoURL: "https://github.com/org/repo.git", FileHashes: map[string]string{"tutor.md": hash}})
+			if err := s.agentsStore.Save(agentsDir); err != nil {
+				t.Fatal(err)
+			}
+			if edited {
+				if err := os.WriteFile(file, []byte("---\nname: tutor\n---\n# Mine\n"), 0644); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			rr := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodPatch, "/api/resources/tutor.md/targets", bytes.NewBufferString(`{"target":"claude"}`))
+			req.SetPathValue("name", "tutor.md")
+			s.handleSetSkillTargets(rr, req)
+			if rr.Code != http.StatusOK {
+				t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+			}
+			if got := s.agentsStore.GetByPath("tutor").AgentLocallyModified(file); got != edited {
+				t.Errorf("AgentLocallyModified = %t, want %t", got, edited)
+			}
+		})
+	}
+}
+
 func TestHandleBatchSetTargets_RemoveTargets(t *testing.T) {
 	s, src := newTestServer(t)
 	addSkillWithTargets(t, src, "skill-a", []string{"claude", "cursor"})

@@ -17,7 +17,7 @@ func TestComputeAgentTargetDiff_MissingInTarget(t *testing.T) {
 		{FlatName: "helper.md", AbsPath: "/src/helper.md", RelPath: "helper.md"},
 	}
 
-	items := computeAgentTargetDiff("claude", targetDir, config.ResourceTargetConfig{}, agents)
+	items := computeAgentTargetDiff("claude", targetDir, t.TempDir(), config.ResourceTargetConfig{}, agents)
 
 	if len(items) != 1 {
 		t.Fatalf("expected 1 item, got %d", len(items))
@@ -34,7 +34,7 @@ func TestComputeAgentTargetDiff_OrphanSymlink(t *testing.T) {
 	targetDir := t.TempDir()
 	os.Symlink("/nonexistent/old.md", filepath.Join(targetDir, "orphan.md"))
 
-	items := computeAgentTargetDiff("claude", targetDir, config.ResourceTargetConfig{}, nil)
+	items := computeAgentTargetDiff("claude", targetDir, t.TempDir(), config.ResourceTargetConfig{}, nil)
 
 	if len(items) != 1 {
 		t.Fatalf("expected 1 item, got %d", len(items))
@@ -48,7 +48,7 @@ func TestComputeAgentTargetDiff_LocalFile(t *testing.T) {
 	targetDir := t.TempDir()
 	os.WriteFile(filepath.Join(targetDir, "local.md"), []byte("# Local"), 0644)
 
-	items := computeAgentTargetDiff("claude", targetDir, config.ResourceTargetConfig{}, nil)
+	items := computeAgentTargetDiff("claude", targetDir, t.TempDir(), config.ResourceTargetConfig{}, nil)
 
 	if len(items) != 1 {
 		t.Fatalf("expected 1 item, got %d", len(items))
@@ -75,7 +75,7 @@ func TestComputeAgentTargetDiff_SymlinkPointsElsewhere(t *testing.T) {
 		{FlatName: "agent.md", AbsPath: srcFile, RelPath: "agent.md"},
 	}
 
-	items := computeAgentTargetDiff("claude", targetDir, config.ResourceTargetConfig{}, agents)
+	items := computeAgentTargetDiff("claude", targetDir, sourceDir, config.ResourceTargetConfig{}, agents)
 
 	if len(items) != 1 {
 		t.Fatalf("expected 1 item, got %d", len(items))
@@ -99,7 +99,7 @@ func TestComputeAgentTargetDiff_InSync(t *testing.T) {
 		{FlatName: "agent.md", AbsPath: srcFile, RelPath: "agent.md"},
 	}
 
-	items := computeAgentTargetDiff("claude", targetDir, config.ResourceTargetConfig{}, agents)
+	items := computeAgentTargetDiff("claude", targetDir, sourceDir, config.ResourceTargetConfig{}, agents)
 
 	if len(items) != 0 {
 		t.Fatalf("expected 0 items (in sync), got %d", len(items))
@@ -122,7 +122,7 @@ func extensionTargetFixture(t *testing.T) (targetDir string, agents []resource.D
 func TestComputeAgentTargetDiff_ExtensionOutputInSync(t *testing.T) {
 	targetDir, agents := extensionTargetFixture(t)
 
-	items := computeAgentTargetDiff("codex", targetDir, config.ResourceTargetConfig{Extension: "x"}, agents)
+	items := computeAgentTargetDiff("codex", targetDir, t.TempDir(), config.ResourceTargetConfig{Extension: "x"}, agents)
 
 	if len(items) != 0 {
 		t.Fatalf("expected 0 items (converted output in sync), got %+v", items)
@@ -133,7 +133,7 @@ func TestComputeAgentTargetDiff_ExtensionOutputOutdated(t *testing.T) {
 	targetDir, agents := extensionTargetFixture(t)
 	os.WriteFile(agents[0].AbsPath, []byte("# Reviewer v2"), 0644)
 
-	items := computeAgentTargetDiff("codex", targetDir, config.ResourceTargetConfig{Extension: "x"}, agents)
+	items := computeAgentTargetDiff("codex", targetDir, t.TempDir(), config.ResourceTargetConfig{Extension: "x"}, agents)
 
 	if len(items) != 1 || items[0].Action != "link" {
 		t.Fatalf("expected 1 link item, got %+v", items)
@@ -143,7 +143,7 @@ func TestComputeAgentTargetDiff_ExtensionOutputOutdated(t *testing.T) {
 func TestComputeAgentTargetDiff_ExtensionOrphanOutput(t *testing.T) {
 	targetDir, _ := extensionTargetFixture(t)
 
-	items := computeAgentTargetDiff("codex", targetDir, config.ResourceTargetConfig{Extension: "x"}, nil)
+	items := computeAgentTargetDiff("codex", targetDir, t.TempDir(), config.ResourceTargetConfig{Extension: "x"}, nil)
 
 	if len(items) != 1 || items[0].Action != "prune" || items[0].Skill != "reviewer.toml" {
 		t.Fatalf("expected prune of reviewer.toml, got %+v", items)
@@ -155,9 +155,31 @@ func TestComputeAgentTargetDiff_ExcludedAgentIsNotPending(t *testing.T) {
 		{FlatName: "helper.md", AbsPath: "/src/helper.md", RelPath: "helper.md"},
 	}
 
-	items := computeAgentTargetDiff("claude", t.TempDir(), config.ResourceTargetConfig{Exclude: []string{"helper*"}}, agents)
+	items := computeAgentTargetDiff("claude", t.TempDir(), t.TempDir(), config.ResourceTargetConfig{Exclude: []string{"helper*"}}, agents)
 
 	if len(items) != 0 {
 		t.Fatalf("expected 0 items for an excluded agent, got %+v", items)
+	}
+}
+
+// A live link to a file outside the source survives an agent sync, so the diff
+// must not count it as a removal.
+func TestComputeAgentTargetDiff_KeepsLiveLinkToAnotherLocation(t *testing.T) {
+	sourceDir, targetDir, other := t.TempDir(), t.TempDir(), t.TempDir()
+	theirs := filepath.Join(other, "theirs.md")
+	if err := os.WriteFile(theirs, []byte("# Theirs"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(theirs, filepath.Join(targetDir, "theirs.md")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if err := os.Symlink(filepath.Join(other, "gone.md"), filepath.Join(targetDir, "broken.md")); err != nil {
+		t.Fatal(err)
+	}
+
+	items := computeAgentTargetDiff("claude", targetDir, sourceDir, config.ResourceTargetConfig{}, nil)
+
+	if len(items) != 1 || items[0].Skill != "broken.md" || items[0].Action != "prune" {
+		t.Fatalf("items = %+v, want only the broken link pruned", items)
 	}
 }

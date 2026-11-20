@@ -180,6 +180,68 @@ func TestUpdateRegularSkill_LocallyModifiedIsSkippedWithoutForce(t *testing.T) {
 	}
 }
 
+// addEditedAgent installs agents/edited.md from a new local remote at version,
+// edits the installed file, and returns its path and the remote's commit.
+func addEditedAgent(t *testing.T, s *Server, version string) (file, head string) {
+	t.Helper()
+	remote := t.TempDir()
+	initGitRepo(t, remote)
+	if err := os.MkdirAll(filepath.Join(remote, "agents"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(remote, "agents", "edited.md"), []byte("# upstream\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	runGit(t, remote, "add", ".")
+	runGit(t, remote, "commit", "-m", "add edited")
+	head = strings.TrimSpace(string(runGit(t, remote, "rev-parse", "--short", "HEAD")))
+	if version == "" {
+		version = head
+	}
+
+	agentsDir := s.agentsSource()
+	if err := os.MkdirAll(agentsDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	file = filepath.Join(agentsDir, "edited.md")
+	if err := os.WriteFile(file, []byte("# my edit\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	s.agentsStore = install.NewMetadataStore()
+	s.agentsStore.Set("edited", &install.MetadataEntry{
+		Source:     "file://" + remote + "//agents/edited.md",
+		Kind:       "agent",
+		RepoURL:    "file://" + remote,
+		Subdir:     "agents/edited.md",
+		Version:    version,
+		FileHashes: map[string]string{"edited.md": "sha256:original"},
+	})
+	return file, head
+}
+
+func TestUpdateAgent_LocallyModifiedIsSkippedWithoutForce(t *testing.T) {
+	s, _ := newTestServer(t)
+	file, _ := addEditedAgent(t, s, "outdated")
+
+	result := s.updateAgent("edited", false, true)
+	if result.Action != "skipped" || !strings.Contains(result.Message, "(try force update)") {
+		t.Fatalf("got %q: %s, want skipped with a force hint", result.Action, result.Message)
+	}
+	if got, _ := os.ReadFile(file); string(got) != "# my edit\n" {
+		t.Errorf("the local edit was overwritten: %q", got)
+	}
+}
+
+// Force has nothing to apply at the installed version, so it is not offered.
+func TestUpdateAgent_LocallyModifiedAtTheRemoteVersionIsUpToDate(t *testing.T) {
+	s, _ := newTestServer(t)
+	addEditedAgent(t, s, "")
+
+	if result := s.updateAgent("edited", false, true); result.Action != "up-to-date" {
+		t.Fatalf("got %q: %s, want up-to-date", result.Action, result.Message)
+	}
+}
+
 func TestUpdateSingle_RegularSkillPriority(t *testing.T) {
 	s, src := newTestServer(t)
 

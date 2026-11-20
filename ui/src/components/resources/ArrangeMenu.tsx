@@ -64,7 +64,10 @@ export default function ArrangeMenu({ group, sort, display }: ArrangeMenuProps) 
             role="menuitemradio"
             aria-checked={on}
             className={on ? 'text-ink' : 'text-ink-2'}
-            onClick={() => { s.onChange(o.value); setOpen(false); }}
+            onClick={() => {
+              s.onChange(o.value);
+              setOpen(false);
+            }}
           >
             <span className="flex-1">{o.label}</span>
             {on && <Check size={14} />}
@@ -88,16 +91,30 @@ export default function ArrangeMenu({ group, sort, display }: ArrangeMenuProps) 
         <ArrowDownUp size={16} />
       </button>
       {menu.shown && (
-        <div role="menu" aria-label={label} {...menu.exitProps} className={`ss-menu absolute right-0 top-full mt-1 z-50 !w-[200px] origin-top-right ${menu.motion}`}>
+        <div
+          role="menu"
+          aria-label={label}
+          {...menu.exitProps}
+          className={`ss-menu absolute right-0 top-full mt-1 z-50 !w-[200px] origin-top-right ${menu.motion}`}
+        >
           {group && section(group)}
           {group && <hr />}
           {section(sort)}
           {display && (
             <>
               <hr />
-              <span className="px-[9px] pt-1.5 pb-1 text-xs font-semibold text-ink-3">{display.label}</span>
+              <span className="px-[9px] pt-1.5 pb-1 text-xs font-semibold text-ink-3">
+                {display.label}
+              </span>
               {display.options.map((o) => (
-                <button key={o.label} type="button" role="menuitemcheckbox" aria-checked={o.checked} className="text-ink" onClick={o.onChange}>
+                <button
+                  key={o.label}
+                  type="button"
+                  role="menuitemcheckbox"
+                  aria-checked={o.checked}
+                  className="text-ink"
+                  onClick={o.onChange}
+                >
                   <span className="flex-1">{o.label}</span>
                   {o.checked && <Check size={14} />}
                 </button>

@@ -43,6 +43,13 @@ type AgentTargetResult struct {
 	SyncErr  error // sync or transform failure
 }
 
+// PrunesAgentLink reports whether an agent sync in mode removes the orphan link
+// at path. Only merge mode prunes links; copy mode removes the copies it
+// tracks and leaves every link alone.
+func PrunesAgentLink(mode, path, sourceDir string) bool {
+	return EffectiveMode(mode) == "merge" && PrunableLink(path, sourceDir)
+}
+
 // RunAgentSync filters agents for each target, syncs or transforms them into
 // the target's agents path, and prunes orphans left by earlier syncs.
 func RunAgentSync(targets []AgentTarget, agents []resource.DiscoveredResource, opts AgentRunOptions) []AgentTargetResult {

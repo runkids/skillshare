@@ -136,13 +136,192 @@ func TestNativeEdit_StaleFileIsRefused(t *testing.T) {
 	}
 }
 
-func TestNativeEdit_RefusesFileAndBlockTargets(t *testing.T) {
-	for _, target := range []string{"pi", "copilot", "antigravity"} {
-		e := newEnv(t)
-		_, err := e.service.PreviewNativeEdits([]NativeEdit{{Target: target, Before: map[string]any{"x": []any{map[string]any{}}}}})
-		if err == nil || !strings.Contains(err.Error(), "cannot be edited in place") {
-			t.Fatalf("%s hooks must be refused: %v", target, err)
+func TestNativeEdit_RefusesCodeTargets(t *testing.T) {
+	e := newEnv(t)
+	_, err := e.service.PreviewNativeEdits([]NativeEdit{{Target: "pi", Before: map[string]any{"x": []any{map[string]any{}}}}})
+	if err == nil || !strings.Contains(err.Error(), "cannot be edited in place") {
+		t.Fatalf("pi hooks must be refused: %v", err)
+	}
+}
+
+// restore undoes an edit from its only backup.
+func restore(t *testing.T, s *Service, r *Result) {
+	t.Helper()
+	p, err := s.PreviewRestore(r.BackupIDs[0])
+	must(t, err)
+	_, err = s.Restore(r.BackupIDs[0], p.Revision)
+	must(t, err)
+}
+
+// sourceEdit imports one Antigravity block or Copilot file and edits it, removing it when after is empty.
+func sourceEdit(t *testing.T, e *env, target, name, source, after string) *Result {
+	t.Helper()
+	c := importOne(t, e.service, target, name)
+	if !c.Editable || c.Source != source {
+		t.Fatalf("want an editable hook read from %s: %+v", source, c)
+	}
+	edit := NativeEdit{Target: target, Source: c.Source, Before: c.Entry.Bindings[target].Events}
+	if after != "" {
+		must(t, json.Unmarshal([]byte(after), &edit.After))
+	}
+	return nativeEdit(t, e.service, edit)
+}
+
+func TestNativeEdit_RewritesAnAntigravityBlock(t *testing.T) {
+	e := newEnv(t)
+	path := filepath.Join(e.home, ".gemini", "config", "hooks.json")
+	write(t, path, agyNative)
+	r := sourceEdit(t, e, "antigravity", "mine", "mine", `{"Stop":[{"command":"echo edited"}]}`)
+	got := read(t, path)
+	if !strings.Contains(got, `"mine"`) || !strings.Contains(got, "echo edited") || strings.Contains(got, "echo mine") || !strings.Contains(got, "./lint.sh") {
+		t.Fatalf("only the mine block may change:\n%s", got)
+	}
+	restore(t, e.service, r)
+	if got := read(t, path); !strings.Contains(got, "echo mine") || strings.Contains(got, "echo edited") {
+		t.Fatalf("restore must bring the block back as it was:\n%s", got)
+	}
+}
+
+func TestNativeEdit_KeepsADisabledAntigravityBlockDisabled(t *testing.T) {
+	e := newEnv(t)
+	path := filepath.Join(e.home, ".gemini", "config", "hooks.json")
+	write(t, path, agyNative)
+	sourceEdit(t, e, "antigravity", "off", "off", `{"Stop":[{"command":"echo still off"}]}`)
+	var doc map[string]map[string]any
+	must(t, json.Unmarshal([]byte(read(t, path)), &doc))
+	if doc["off"]["enabled"] != false {
+		t.Fatalf("the edit must keep enabled false: %+v", doc["off"])
+	}
+}
+
+func TestNativeEdit_RemovesAnAntigravityBlockAndRestoresIt(t *testing.T) {
+	e := newEnv(t)
+	path := filepath.Join(e.home, ".gemini", "config", "hooks.json")
+	write(t, path, agyNative)
+	r := sourceEdit(t, e, "antigravity", "mine", "mine", "")
+	if got := read(t, path); strings.Contains(got, `"mine"`) || !strings.Contains(got, `"lint"`) || !strings.Contains(got, `"off"`) {
+		t.Fatalf("only the mine block may go:\n%s", got)
+	}
+	restore(t, e.service, r)
+	if got := read(t, path); !strings.Contains(got, "echo mine") {
+		t.Fatalf("restore must bring the block back:\n%s", got)
+	}
+}
+
+func TestNativeEdit_StaleAntigravityBlockIsRefused(t *testing.T) {
+	e := newEnv(t)
+	path := filepath.Join(e.home, ".gemini", "config", "hooks.json")
+	write(t, path, agyNative)
+	c := importOne(t, e.service, "antigravity", "mine")
+	write(t, path, strings.Replace(agyNative, "echo mine", "echo changed", 1))
+	_, err := e.service.PreviewNativeEdits([]NativeEdit{{Target: "antigravity", Source: c.Source, Before: c.Entry.Bindings["antigravity"].Events}})
+	if !errors.Is(err, ErrStaleRevision) {
+		t.Fatalf("want ErrStaleRevision, got %v", err)
+	}
+}
+
+const copilotTeam = "{\n  \"version\": 1,\n  \"hooks\": {\n    \"sessionStart\": [\n      {\n        \"type\": \"command\",\n        \"bash\": \"echo hi\"\n      }\n    ]\n  }\n}\n"
+
+func TestNativeEdit_RewritesACopilotHooksFile(t *testing.T) {
+	e := newEnv(t)
+	path := filepath.Join(e.home, ".copilot", "hooks", "team.json")
+	write(t, path, copilotTeam)
+	r := sourceEdit(t, e, "copilot", "team", "team.json", `{"sessionStart":[{"type":"command","bash":"echo edited"}]}`)
+	if got, want := read(t, path), strings.Replace(copilotTeam, "echo hi", "echo edited", 1); got != want {
+		t.Fatalf("only the hooks may change, in the file's layout:\n%s", got)
+	}
+	restore(t, e.service, r)
+	if got := read(t, path); got != copilotTeam {
+		t.Fatalf("restore must bring the file back as it was:\n%s", got)
+	}
+}
+
+func TestNativeEdit_RemovesACopilotHooksFileAndRestoresIt(t *testing.T) {
+	e := newEnv(t)
+	path := filepath.Join(e.home, ".copilot", "hooks", "team.json")
+	write(t, path, copilotTeam)
+	r := sourceEdit(t, e, "copilot", "team", "team.json", "")
+	if exists(path) {
+		t.Fatal("removing the hook must delete its file")
+	}
+	restore(t, e.service, r)
+	if got := read(t, path); got != copilotTeam {
+		t.Fatalf("restore must bring the file back:\n%s", got)
+	}
+}
+
+func TestNativeEdit_StaleCopilotFileIsRefused(t *testing.T) {
+	e := newEnv(t)
+	path := filepath.Join(e.home, ".copilot", "hooks", "team.json")
+	write(t, path, copilotTeam)
+	c := importOne(t, e.service, "copilot", "team")
+	edits := []NativeEdit{{Target: "copilot", Source: c.Source, Before: c.Entry.Bindings["copilot"].Events}}
+	p, err := e.service.PreviewNativeEdits(edits)
+	must(t, err)
+	write(t, path, strings.Replace(copilotTeam, "echo hi", "echo changed", 1))
+	if _, err := e.service.ApplyNativeEdits(edits, p.Revision); !errors.Is(err, ErrStaleRevision) {
+		t.Fatalf("want ErrStaleRevision, got %v", err)
+	}
+}
+
+// The block's own name, not the hook name it is offered under, finds it.
+func TestNativeEdit_RemovesAnAntigravityBlockWithAnInvalidName(t *testing.T) {
+	e := newEnv(t)
+	path := filepath.Join(e.home, ".gemini", "config", "hooks.json")
+	write(t, path, `{"my hook":{"Stop":[{"command":"echo spaced"}]},"mine":{"Stop":[{"command":"echo mine"}]}}`)
+	sourceEdit(t, e, "antigravity", "my-hook", "my hook", "")
+	if got := read(t, path); strings.Contains(got, "my hook") || !strings.Contains(got, "echo mine") {
+		t.Fatalf("only the spaced block may go:\n%s", got)
+	}
+}
+
+func TestNativeEdit_EditsAntigravityAndCopilotInAProject(t *testing.T) {
+	e := newEnv(t)
+	root := t.TempDir()
+	p := e.project(root)
+	agy := filepath.Join(root, ".agents", "hooks.json")
+	team := filepath.Join(root, ".github", "hooks", "team.json")
+	write(t, agy, agyNative)
+	write(t, team, copilotTeam)
+	var edits []NativeEdit
+	for _, c := range []Candidate{importOne(t, p, "antigravity", "mine"), importOne(t, p, "copilot", "team")} {
+		for target, b := range c.Entry.Bindings {
+			edits = append(edits, NativeEdit{Target: target, Source: c.Source, Before: b.Events})
 		}
+	}
+	nativeEdit(t, p, edits...)
+	if strings.Contains(read(t, agy), `"mine"`) || exists(team) {
+		t.Fatal("both project hooks must be removed")
+	}
+}
+
+func TestImport_ACopilotFileWithoutHooksIsNotEditable(t *testing.T) {
+	e := newEnv(t)
+	write(t, filepath.Join(e.home, ".copilot", "hooks", "team.json"), `{"version":1,"hooks":{}}`)
+	if c := importOne(t, e.service, "copilot", "team"); c.Editable {
+		t.Fatalf("a file without hooks has nothing to edit: %+v", c)
+	}
+}
+
+// encoding/json matches "Hooks" to the hooks field, so the file lists; the edit must refuse it, not crash.
+func TestNativeEdit_RefusesACopilotFileWithoutAHooksKey(t *testing.T) {
+	e := newEnv(t)
+	write(t, filepath.Join(e.home, ".copilot", "hooks", "team.json"), strings.Replace(copilotTeam, `"hooks"`, `"Hooks"`, 1))
+	c := importOne(t, e.service, "copilot", "team")
+	after := map[string]any{"sessionStart": []any{map[string]any{"type": "command", "bash": "echo edited"}}}
+	_, err := e.service.PreviewNativeEdits([]NativeEdit{{Target: "copilot", Source: c.Source, Before: c.Entry.Bindings["copilot"].Events, After: after}})
+	if err == nil {
+		t.Fatal("a file without a hooks key must be refused")
+	}
+}
+
+func TestNativeEdit_RefusesACopilotPathOutsideItsHooksFolder(t *testing.T) {
+	e := newEnv(t)
+	write(t, filepath.Join(e.home, ".copilot", "config.json"), `{"version":1,"hooks":{}}`)
+	before := map[string]any{"sessionStart": []any{map[string]any{"type": "command", "bash": "echo hi"}}}
+	_, err := e.service.PreviewNativeEdits([]NativeEdit{{Target: "copilot", Source: "../config.json", Before: before}})
+	if err == nil || !strings.Contains(err.Error(), "invalid Copilot hooks file") {
+		t.Fatalf("a source outside the hooks folder must be refused: %v", err)
 	}
 }
 

@@ -22,6 +22,9 @@ skillshare hooks enable check --sync
 skillshare hooks sync --dry-run --json
 skillshare hooks sync
 skillshare hooks sync check --replace --dry-run
+skillshare hooks sync --trust -g
+skillshare hooks sync --trust --yes -g
+skillshare hooks sync --trust --yes --json -g
 skillshare sync hooks --dry-run --json
 skillshare sync hooks
 skillshare hooks remove check --sync
@@ -30,7 +33,7 @@ skillshare hooks restore BACKUP_ID --dry-run
 skillshare hooks restore BACKUP_ID
 ```
 
-没有子命令时列出 entries。`add`／`edit` 从 `--file` 读取 Entry JSON 或 YAML；导入不指定名称时列出候选项（每个 Agent event 或文件各一项），指定名称才保存。保存导入即原地接管读到的注册：下次同步直接 adopt，无需 `--replace`；未导入的 event 保持不受管理。导入只读取配置或代码，不执行。新增、编辑、导入、启用、停用与移除默认只保存来源，加上 `--sync` 才同步。同步与恢复会重新预览。Dashboard 的「目标里的 hook」对话框打开时不会预先勾选任何 hook，要导入的自己勾选；它也能直接修改或移除 Agent 配置文件里还没导入的 hook（限以 event 存在同一个配置文件的 Agent：Claude、Codex、Gemini、Cursor、Qwen，以及 Droid 的 `hooks.json`；整个文件或具名区块的 hook 要先导入）。写入前会显示文件差异并备份，该 hook 保持不受管理。
+没有子命令时列出 entries。`add`／`edit` 从 `--file` 读取 Entry JSON 或 YAML；导入不指定名称时列出候选项（每个 Agent event 或文件各一项），指定名称才保存。保存导入即原地接管读到的注册：下次同步直接 adopt，无需 `--replace`；未导入的 event 保持不受管理。导入只读取配置或代码，不执行。新增、编辑、导入、启用、停用与移除默认只保存来源，加上 `--sync` 才同步。同步与恢复会重新预览。Dashboard 的「目标里的 hook」对话框打开时不会预先勾选任何 hook，要导入的自己勾选；它也能直接修改或移除 Agent 配置文件里还没导入的 hook（hook 是配置的 Agent 都可以：存在同一个配置文件的 event（Claude、Codex、Gemini、Cursor、Qwen，以及 Droid 的 `hooks.json`）、Antigravity 的具名区块，或 Copilot 的 hook 文件，移除时会删除该文件；代码形式的 hook（Pi、Oh My Pi、Amp、OpenCode）要先导入）。写入前会显示文件差异并备份，该 hook 保持不受管理。
 
 | Option | Meaning |
 |---|---|
@@ -39,6 +42,8 @@ skillshare hooks restore BACKUP_ID
 | `--sync` | 保存并同步 |
 | `--keep-files` | 配合 `remove` 使用：停止管理该 hook，并让它的原生条目保持原样。不能与 `--sync` 同时使用。参见[下文](#stop-managing-a-hook) |
 | `--replace` | 明确替换已有来源 entry 或该 entry 冲突的原生输出 |
+| `--trust` | 仅用于全局模式的 `hooks sync`：同时为 Skillshare 管理的 hooks 记录 Codex 信任。见 [Codex 信任](#codex-trust) |
+| `--yes`, `-y` | 与 `--trust` 一起使用：跳过询问并信任列出的 hooks。见 [Codex 信任](#codex-trust) |
 | `--dry-run, -n` | 仅预览，不保存或写入 |
 | `--json` | 结构化输出 |
 | `--revision ID` | 要求匹配指定预览 revision |
@@ -180,7 +185,42 @@ command 脚本写入 `<config_dir>/hooks/skillshare/NAME/`。账号仅用于 glo
 
 如果 target 已移除、目录移动或账号目录不存在，已管理的输出及其所有权记录会保留，并显示警告。恢复 target 或目录即可继续管理。要释放某个条目暂存的所有权而不修改文件，请先预览再执行 `skillshare hooks sync NAME --replace -g`。移除 target 时若 binding 仍使用该名称会显示警告；下次 hooks 同步前也要移除这些 binding。
 
-用 `skillshare hooks import --from codex-2 -g --json` 从账号导入。控制台显示 **codex-2 (Codex)**，并使用 Codex 的事件与编辑器。每个 Codex 目录都需要在 `/hooks` 中单独审核和信任变更的 hooks；同步不会修改信任或执行 hooks。
+用 `skillshare hooks import --from codex-2 -g --json` 从账号导入。控制台显示 **codex-2 (Codex)**，并使用 Codex 的事件与编辑器。每个 Codex 目录都需要在 `/hooks` 中单独审核和信任变更的 hooks；除非传入 `--trust`，同步不会修改信任或执行 hooks。
+
+### Codex 信任 {#codex-trust}
+
+Codex 只运行已信任的用户级 hook，并把信任记录在同一目录的 `config.toml` 中：`hooks.state."<hooks.json>:<event>:<group>:<handler>".trusted_hash`。键是 hook 的位置，因此 Skillshare 新增或移动的 hook 一开始都未被信任，`codex exec` 会跳过它。
+
+```bash
+skillshare hooks sync --trust -g
+skillshare hooks sync --trust --yes -g
+skillshare hooks sync --trust --yes --json -g
+```
+
+`--trust` 先像普通同步一样写入 hook 文件。然后它在 Skillshare 管理的每个 Codex 目录（包括账号目录）中，向 Codex 询问 Skillshare 拥有的 hooks 里哪些需要信任。它通过 `codex app-server` 获取每个 hook 的 hash，与 `/hooks` 审核使用相同的调用，因此 `codex` 必须在 `PATH` 上。Skillshare 自己不计算 hash。
+
+已经信任的 hook 会报告为 `unchanged`，无需回答。如果 hook 是新的，或在信任之后 command 发生了变化，命令会列出这些 hooks 及其 command，并只询问一次。没有需要信任的 hook 时不会询问。
+
+```
+Codex trust
+  stop  needs trust  codex  /home/me/.codex/hooks.json:stop:1:0
+  /usr/local/bin/notify-done
+
+? Trust 1 hook in Codex?  Yes  No
+```
+
+确认之后：
+
+```
+Codex trust
+✓ stop  trusted  codex  /home/me/.codex/hooks.json:stop:1:0
+```
+
+`--yes`（`-y`）跳过询问。Codex 的审核存在的原因，是让人在 command 运行之前看到它。没有终端且没有 `--yes` 时，不会信任任何 hook：命令会列出这些 hooks，并以提到 `--yes` 的错误退出。`--json` 同样不会询问：没有 `--yes` 时，它把这些 hooks 输出为 `needed`，并以非零状态退出，不输出错误文字。`--yes` 只能与 `--trust` 一起使用。`--json` 输出包含 `codexTrust` 列表。每一项有 `target`、`entry`、`key`、`command`、`action`（`needed`、`trusted` 或 `unchanged`），为 true 时还有 `disabled`。
+
+只写入 `trusted_hash`，而且只会新增。你在 Codex 中停用的 hook 保持停用并会被报告。`enabled`、`config.toml` 的其余部分以及不属于 Skillshare 的 hooks 都不会改动。hook 移动或删除后，旧条目仍留在 `config.toml` 中。它只匹配该位置上 event、matcher 和 handler 都相同的 hook，因此不会让另一个 hook 变成已信任。
+
+`codex` 不在 `PATH` 上或 Codex 失败时，hook 文件仍会写入，命令以 "hook files were written, but Codex trust was not recorded" 失败。有多个 Codex home 时，Codex 无法列出或写入失败的 home 不会中止其他 home：错误会列出已记录和未记录的 home。不带 `--trust` 的 `hooks sync` 不会启动 Codex，也不会改变信任。`--trust` 只能用于全局模式；`sync hooks`、`hooks list` 和项目模式会拒绝它。Dashboard 的 Hooks 页面（global scope）有相同的操作：它列出需要信任的 hooks 及其 command，只有在你于对话框中确认后才记录信任。
 
 ## Git hooks {#git-hooks}
 
@@ -228,7 +268,7 @@ global 配置的 `hooks.projects` 将绝对项目路径映射到相同 Entry 格
 
 备份恢复原生输出并保留后续无关改动，不改写来源定义。使用“设置 → 备份 → Hooks”或 `hooks restore` 先预览再恢复。
 
-**已同步**只表示 Skillshare 已写入配置。请按 Agent 原生流程重启／重新加载；信任、启用 hooks 和代码兼容性由 Agent 控制。管理操作不执行 hook command，也不自动改变原生信任。
+**已同步**只表示 Skillshare 已写入配置。请按 Agent 原生流程重启／重新加载；信任、启用 hooks 和代码兼容性由 Agent 控制。管理操作不执行 hook command，也不自动改变原生信任；只有在你要求时，[`--trust`](#codex-trust) 才会记录 Codex 信任。
 
 
 ### OpenCode v2 目录包

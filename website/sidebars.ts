@@ -59,6 +59,7 @@ const sidebars: SidebarsConfig = {
             'how-to/sharing/project-setup',
             'how-to/sharing/organization-sharing',
             'how-to/sharing/cross-machine-sync',
+            'how-to/sharing/private-network',
             'how-to/sharing/hub-index',
           ],
         },

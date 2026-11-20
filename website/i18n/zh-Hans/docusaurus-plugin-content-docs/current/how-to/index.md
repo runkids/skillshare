@@ -16,6 +16,7 @@ sidebar_position: 1
 | 透过 git 仓库与团队共享 Skill | [Organization-Wide Skills](/docs/how-to/sharing/organization-sharing) |
 | 为特定项目设置 Skill | [Project Setup](/docs/how-to/sharing/project-setup) |
 | 在多台机器间同步 Skill | [Cross-Machine Sync](/docs/how-to/sharing/cross-machine-sync) |
+| 不使用 GitHub 同步，或通过 SSH 或 Tailscale 管理另一台机器 | [Machines on a Private Network](/docs/how-to/sharing/private-network) |
 | 浏览与发掘社区 Skill | [Hub Index](/docs/how-to/sharing/hub-index) |
 | 保护我的 Skill 供应链安全 | [Securing Your Skills](/docs/how-to/advanced/security) |
 | 从其他工具或方案迁移 | [Migration](/docs/how-to/advanced/migration) |
@@ -42,6 +43,7 @@ sidebar_position: 1
 | [Project Setup](/docs/how-to/sharing/project-setup) | 为仓库设置 Project mode 的 Skill |
 | [Organization-Wide Skills](/docs/how-to/sharing/organization-sharing) | 在整个组织内共享 Skill |
 | [Cross-Machine Sync](/docs/how-to/sharing/cross-machine-sync) | 在多台计算机间同步 Skill |
+| [Machines on a Private Network](/docs/how-to/sharing/private-network) | 无需托管 Git、另一台机器的 dashboard、通过 MCP 提供 skill |
 | [Hub Index](/docs/how-to/sharing/hub-index) | 浏览与管理 Skill hub |
 
 ### 进阶主题

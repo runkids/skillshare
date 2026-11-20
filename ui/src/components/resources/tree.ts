@@ -4,9 +4,9 @@ import { repoOf, sourceLinkOf } from '../../lib/resourceGrouping';
 /* Pure helpers behind the Skills page tree view: folder tree, visible rows, selection. */
 
 export interface TargetSummary {
-  display: string;      // "claude" | "claude, cursor" | "4 targets"
-  targets: string[];    // sorted union
-  isUniform: boolean;   // every skill has the same target set
+  display: string; // "claude" | "claude, cursor" | "4 targets"
+  targets: string[]; // sorted union
+  isUniform: boolean; // every skill has the same target set
 }
 
 export interface FolderNode {
@@ -14,9 +14,9 @@ export interface FolderNode {
   path: string;
   children: Map<string, FolderNode>;
   skills: Skill[];
-  count: number;        // skills in this folder and every subfolder
+  count: number; // skills in this folder and every subfolder
   link?: SourceLink;
-  repo?: boolean;       // tracked repo root: _team, or org/_team when installed with --into
+  repo?: boolean; // tracked repo root: _team, or org/_team when installed with --into
 }
 
 /**
@@ -25,7 +25,15 @@ export interface FolderNode {
  * chain and `node` is its deepest folder, whose path is the row's id and collapse key.
  */
 export type TreeRow =
-  | { type: 'folder'; id: string; node: FolderNode; names: string[]; depth: number; collapsed: boolean; repo: boolean }
+  | {
+      type: 'folder';
+      id: string;
+      node: FolderNode;
+      names: string[];
+      depth: number;
+      collapsed: boolean;
+      repo: boolean;
+    }
   | { type: 'item'; id: string; skill: Skill; depth: number };
 
 const ALL_TARGETS: TargetSummary = { display: '', targets: [], isUniform: true };
@@ -43,10 +51,16 @@ export function summarize(skills: Skill[]): TargetSummary {
   const sets = skills.map((s) => [...normalizeTargets(s.targets)].sort());
   if (sets.length === 0) return ALL_TARGETS;
   const first = sets[0];
-  const isUniform = sets.every((x) => x.length === first.length && x.every((v, i) => v === first[i]));
+  const isUniform = sets.every(
+    (x) => x.length === first.length && x.every((v, i) => v === first[i]),
+  );
   const union = [...new Set(sets.flat())].sort();
   const shown = isUniform ? first : union;
-  return { display: shown.length > 3 ? `${shown.length} targets` : shown.join(', '), targets: shown, isUniform };
+  return {
+    display: shown.length > 3 ? `${shown.length} targets` : shown.join(', '),
+    targets: shown,
+    isUniform,
+  };
 }
 
 /** A tracked repo root, as marked by buildTree from its skills' repo paths. */
@@ -62,7 +76,8 @@ export function buildTree(skills: Skill[], links: SourceLink[] = []): FolderNode
     const slash = skill.relPath.lastIndexOf('/');
     let node = root;
     // A repo's root SKILL.md sits in the repo's own folder, so the repo gets its row.
-    const parent = skill.relPath === repo ? repo : slash > 0 ? skill.relPath.slice(0, slash) : link?.name;
+    const parent =
+      skill.relPath === repo ? repo : slash > 0 ? skill.relPath.slice(0, slash) : link?.name;
     if (parent) {
       for (const seg of parent.split('/')) {
         if (!node.children.has(seg)) {
@@ -79,7 +94,15 @@ export function buildTree(skills: Skill[], links: SourceLink[] = []): FolderNode
   for (const link of links) {
     const node = root.children.get(link.name);
     if (node) node.link = link;
-    else root.children.set(link.name, { name: link.name, path: link.name, children: new Map(), skills: [], count: 0, link });
+    else
+      root.children.set(link.name, {
+        name: link.name,
+        path: link.name,
+        children: new Map(),
+        skills: [],
+        count: 0,
+        link,
+      });
   }
   const finish = (node: FolderNode): number => {
     node.count = node.skills.length;
@@ -90,9 +113,14 @@ export function buildTree(skills: Skill[], links: SourceLink[] = []): FolderNode
   return root;
 }
 
-const sortedChildren = (node: FolderNode) => [...node.children.values()].sort((a, b) => a.name.localeCompare(b.name));
+const sortedChildren = (node: FolderNode) =>
+  [...node.children.values()].sort((a, b) => a.name.localeCompare(b.name));
 
-export function flattenTree(root: FolderNode, collapsed: ReadonlySet<string>, expandAll: boolean): TreeRow[] {
+export function flattenTree(
+  root: FolderNode,
+  collapsed: ReadonlySet<string>,
+  expandAll: boolean,
+): TreeRow[] {
   const rows: TreeRow[] = [];
   const walk = (node: FolderNode, depth: number) => {
     for (const child of sortedChildren(node)) {
@@ -107,10 +135,19 @@ export function flattenTree(root: FolderNode, collapsed: ReadonlySet<string>, ex
         names.push(deepest.name);
       }
       const isCollapsed = !expandAll && collapsed.has(deepest.path);
-      rows.push({ type: 'folder', id: folderId(deepest.path), node: deepest, names, depth, collapsed: isCollapsed, repo });
+      rows.push({
+        type: 'folder',
+        id: folderId(deepest.path),
+        node: deepest,
+        names,
+        depth,
+        collapsed: isCollapsed,
+        repo,
+      });
       if (!isCollapsed) walk(deepest, depth + 1);
     }
-    for (const skill of node.skills) rows.push({ type: 'item', id: skillId(skill.flatName), skill, depth });
+    for (const skill of node.skills)
+      rows.push({ type: 'item', id: skillId(skill.flatName), skill, depth });
   };
   walk(root, 0);
   return rows;
@@ -140,7 +177,10 @@ export function treeLines(rows: TreeRow[]): { through: number[]; last: boolean }
   const out: { through: number[]; last: boolean }[] = [];
   for (let i = rows.length - 1; i >= 0; i--) {
     const d = rows[i].depth;
-    out[i] = { through: Array.from({ length: Math.max(d - 1, 0) }, (_, g) => g).filter((g) => below[g + 1]), last: !below[d] };
+    out[i] = {
+      through: Array.from({ length: Math.max(d - 1, 0) }, (_, g) => g).filter((g) => below[g + 1]),
+      last: !below[d],
+    };
     below[d] = true;
     below.length = d + 1;
   }
@@ -156,11 +196,19 @@ export function rangeIds(rows: TreeRow[], anchor: string | null, id: string): st
 }
 
 /** The skills a selection stands for: a folder means everything under it. No duplicates, first-seen order. */
-export function selectedSkills(root: FolderNode, selection: ReadonlySet<string>, byName: ReadonlyMap<string, Skill>): Skill[] {
+export function selectedSkills(
+  root: FolderNode,
+  selection: ReadonlySet<string>,
+  byName: ReadonlyMap<string, Skill>,
+): Skill[] {
   const out = new Map<string, Skill>();
   for (const id of selection) {
     const found = id.startsWith('f:') ? findFolder(root, id.slice(2)) : undefined;
-    const list = found ? skillsUnder(found) : id.startsWith('s:') ? [byName.get(id.slice(2))].filter((s): s is Skill => !!s) : [];
+    const list = found
+      ? skillsUnder(found)
+      : id.startsWith('s:')
+        ? [byName.get(id.slice(2))].filter((s): s is Skill => !!s)
+        : [];
     for (const s of list) out.set(s.flatName, s);
   }
   return [...out.values()];

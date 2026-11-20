@@ -1,12 +1,21 @@
 import type { SyncMatrixEntry, Target } from '../api/client';
 
-export type FilterPatch = { include?: string[]; exclude?: string[]; agent_include?: string[]; agent_exclude?: string[] };
+export type FilterPatch = {
+  include?: string[];
+  exclude?: string[];
+  agent_include?: string[];
+  agent_exclude?: string[];
+};
 
 /** filepath.Match on a trimmed pattern. Flat names have no slashes, so `*` never needs to stop at one. */
 function matches(pattern: string, name: string): boolean {
   const p = pattern.trim();
   if (!/[*?[]/.test(p)) return p === name;
-  const source = p.replace(/[.+^${}()|\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.').replace(/\[!/g, '[^');
+  const source = p
+    .replace(/[.+^${}()|\\]/g, '\\$&')
+    .replace(/\*/g, '.*')
+    .replace(/\?/g, '.')
+    .replace(/\[!/g, '[^');
   try {
     return new RegExp(`^${source}$`).test(name);
   } catch {
@@ -19,7 +28,12 @@ function matches(pattern: string, name: string): boolean {
  * Null when only editing something the user wrote can change it: a glob pattern that also
  * matches other resources, the resource's own targets field, or a symlink-mode target.
  */
-export function targetFilterPatch(entry: SyncMatrixEntry, target: Target, kind: 'skill' | 'agent', flatName: string): FilterPatch | null {
+export function targetFilterPatch(
+  entry: SyncMatrixEntry,
+  target: Target,
+  kind: 'skill' | 'agent',
+  flatName: string,
+): FilterPatch | null {
   const agent = kind === 'agent';
   // Sync matches agent patterns without the .md extension.
   const name = agent ? flatName.replace(/\.md$/, '') : flatName;

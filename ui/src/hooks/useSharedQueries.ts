@@ -10,7 +10,12 @@ type Options<T> = Omit<UseQueryOptions<T>, 'queryKey' | 'queryFn'>;
 type Data<F extends (...args: never[]) => Promise<unknown>> = Awaited<ReturnType<F>>;
 
 export const useOverviewQuery = (options?: Options<Data<typeof api.getOverview>>) =>
-  useQuery({ queryKey: queryKeys.overview, queryFn: () => api.getOverview(), staleTime: staleTimes.overview, ...options });
+  useQuery({
+    queryKey: queryKeys.overview,
+    queryFn: () => api.getOverview(),
+    staleTime: staleTimes.overview,
+    ...options,
+  });
 
 // No default staleTime: pages disagree (the sidebar, Sync, and Add target use
 // staleTimes.extras; the rest refetch on mount), so each passes its own.
@@ -21,15 +26,35 @@ export const useHooksQuery = (options?: Options<Data<typeof hooksApi.list>>) =>
   useQuery({ queryKey: queryKeys.hooks, queryFn: () => hooksApi.list(), ...options });
 
 export const useSkillsQuery = (options?: Options<Data<typeof api.listSkills>>) =>
-  useQuery({ queryKey: queryKeys.skills.all, queryFn: () => api.listSkills(), staleTime: staleTimes.skills, ...options });
+  useQuery({
+    queryKey: queryKeys.skills.all,
+    queryFn: ({ signal }) => api.listSkills(undefined, signal),
+    staleTime: staleTimes.skills,
+    ...options,
+  });
 
 export const useAvailableTargetsQuery = (options?: Options<Data<typeof api.availableTargets>>) =>
-  useQuery({ queryKey: queryKeys.targets.available, queryFn: () => api.availableTargets(), staleTime: staleTimes.targets, ...options });
+  useQuery({
+    queryKey: queryKeys.targets.available,
+    queryFn: () => api.availableTargets(),
+    staleTime: staleTimes.targets,
+    ...options,
+  });
 
 /** Own and project targets together. */
 export const useSyncedTargetsQuery = (options?: Options<Data<typeof api.listTargets>>) =>
-  useQuery({ queryKey: queryKeys.targets.synced, queryFn: () => api.listTargets('all'), staleTime: staleTimes.targets, ...options });
+  useQuery({
+    queryKey: queryKeys.targets.synced,
+    queryFn: () => api.listTargets('all'),
+    staleTime: staleTimes.targets,
+    ...options,
+  });
 
 /** Pending sync changes across all targets. */
 export const useDiffQuery = (options?: Options<Data<typeof api.diff>>) =>
-  useQuery({ queryKey: queryKeys.diff(), queryFn: () => api.diff(), staleTime: staleTimes.diff, ...options });
+  useQuery({
+    queryKey: queryKeys.diff(),
+    queryFn: () => api.diff(),
+    staleTime: staleTimes.diff,
+    ...options,
+  });

@@ -38,7 +38,7 @@ type updateResultItem struct {
 	Kind           string `json:"kind,omitempty"`
 }
 
-// locallyModifiedMessage is the reason a skill edited since install is skipped;
+// locallyModifiedMessage is the reason a skill or agent edited since install is skipped;
 // the dashboard offers Force Retry on its "(try force update)" hint.
 const locallyModifiedMessage = "has local changes since install (try force update)"
 
@@ -276,6 +276,11 @@ func (s *Server) updateAgent(name string, force, skipAudit bool) updateResultIte
 			Action:  "error",
 			Message: fmt.Sprintf("agent path %q not found in repository", entry.Subdir),
 		}
+	}
+
+	// Checked only once there is a new version to write over the local edits.
+	if !force && entry.AgentLocallyModified(localAgent.SourcePath) {
+		return updateResultItem{Name: metaKey, Kind: "agent", Action: "skipped", Message: locallyModifiedMessage}
 	}
 
 	destDir := agentsSource

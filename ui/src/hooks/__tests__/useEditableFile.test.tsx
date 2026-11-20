@@ -8,20 +8,33 @@ import { useEditableFile } from '../useEditableFile';
 type Data = { raw?: string } | undefined;
 
 const wrapper = ({ children }: { children: ReactNode }) => (
-  <I18nProvider><ToastProvider>{children}</ToastProvider></I18nProvider>
+  <I18nProvider>
+    <ToastProvider>{children}</ToastProvider>
+  </I18nProvider>
 );
 
-function renderFile(data: Data, save: (value: string) => Promise<string | void> = async () => {}, skipEmpty = false) {
-  return renderHook(({ data }: { data: Data }) => useEditableFile(data, { save, skipEmpty }), { wrapper, initialProps: { data } });
+function renderFile(
+  data: Data,
+  save: (value: string) => Promise<string | void> = async () => {},
+  skipEmpty = false,
+) {
+  return renderHook(({ data }: { data: Data }) => useEditableFile(data, { save, skipEmpty }), {
+    wrapper,
+    initialProps: { data },
+  });
 }
 
 describe('useEditableFile', () => {
   it('is dirty only while the edit differs from the fetched text', () => {
     const { result } = renderFile({ raw: 'a' });
 
-    act(() => { result.current.change('b'); });
+    act(() => {
+      result.current.change('b');
+    });
     const edited = result.current.dirty;
-    act(() => { result.current.change('a'); });
+    act(() => {
+      result.current.change('a');
+    });
 
     expect([edited, result.current.dirty]).toEqual([true, false]);
   });
@@ -29,10 +42,11 @@ describe('useEditableFile', () => {
   it('keeps the edit dirty and toasts when the save fails', async () => {
     const { result } = renderFile({ raw: 'a' }, vi.fn().mockRejectedValue(new Error('disk full')));
 
-    act(() => { result.current.change('b'); });
+    act(() => {
+      result.current.change('b');
+    });
     await act(() => result.current.save());
 
     expect([result.current.dirty, screen.queryByText('disk full') !== null]).toEqual([true, true]);
   });
-
 });

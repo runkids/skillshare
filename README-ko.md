@@ -14,7 +14,7 @@
   <a href="https://github.com/runkids/skillshare/releases"><img src="https://img.shields.io/github/v/release/runkids/skillshare" alt="Release"></a>
   <a href="https://github.com/runkids/skillshare/releases"><img src="https://img.shields.io/github/downloads/runkids/skillshare/total" alt="Downloads"></a>
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-blue" alt="Platform">
-  <a href="https://deepwiki.com/runkids/skillshare"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
+  <a href="https://deepwiki.com/runkids/skillshare"><img src="https://img.shields.io/badge/Ask-DeepWiki-blue" alt="Ask DeepWiki"></a>
 </p>
 
 <p align="center">
@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **최신 버전**: v0.30.9 — hook을 가져오지 않고도 수정하거나 삭제하세요. 대시보드의 hook 가져오기 대화상자가 이제 Agent를 하나씩 보여 주며, 설정 파일에 있는 hook을 그 자리에서 변경할 수 있습니다. 파일에 쓰기 전에 diff를 확인할 수 있고, 백업으로 되돌릴 수 있습니다. hook은 관리되지 않는 상태로 남습니다. [hooks 레퍼런스 →](https://skillshare.runkids.cc/ko/docs/reference/commands/hooks) · [변경 기록 →](https://skillshare.runkids.cc/changelog)
+> **최신 버전**: v0.30.11 — 대시보드에서 Pi 패키지를 공유하세요. Plugins 페이지의 「공유」는 이제 플러그인 다음에 Pi가 npm에서 설치한 패키지도 나열하고, `skillshare plugin add npm:<package> --target pi -g --no-tui`처럼 모두 추가하는 명령 하나를 복사합니다. 「대상에 있는 hook」 대화상자는 Antigravity와 Copilot hook도 가져오지 않고 편집하거나 제거할 수 있습니다. [플러그인 가이드 →](https://skillshare.runkids.cc/ko/docs/how-to/daily-tasks/sharing-plugins) · [변경 기록 →](https://skillshare.runkids.cc/changelog)
 
 ## skillshare를 쓰는 이유
 
@@ -299,7 +299,11 @@ make check  # format + lint + test
 
 ## 기여자
 
-skillshare를 함께 만들어 주신 모든 분께 감사드립니다. 전체 명단은 [영문 README](README.md#contributors)에 있습니다.
+[GitHub에서 기여자 보기](https://github.com/runkids/skillshare/graphs/contributors)
+
+### 커뮤니티에 보내는 감사
+
+버그를 제보하고 개선을 제안하고 수정 사항을 테스트해 주신 모든 분께 감사드립니다. [영문 README](README.md#community-thanks)에 있습니다.
 
 ---
 

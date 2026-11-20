@@ -28,9 +28,10 @@ export default function TrashPage({ kind }: { kind: Skill['kind'] }) {
     staleTime: staleTimes.trash,
   });
   const items = useMemo(
-    () => (data?.items ?? [])
-      .filter((i) => (i.kind ?? 'skill') === kind)
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
+    () =>
+      (data?.items ?? [])
+        .filter((i) => (i.kind ?? 'skill') === kind)
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
     [data, kind],
   );
 
@@ -74,7 +75,10 @@ export default function TrashPage({ kind }: { kind: Skill['kind'] }) {
     setEmptying(true);
     try {
       const res = await api.emptyTrash(kind);
-      toast(t('trash.toast.emptied', { count: res.removed, s: res.removed !== 1 ? 's' : '' }), 'success');
+      toast(
+        t('trash.toast.emptied', { count: res.removed, s: res.removed !== 1 ? 's' : '' }),
+        'success',
+      );
       refresh();
     } catch (e) {
       toast((e as Error).message, 'error');
@@ -110,8 +114,14 @@ export default function TrashPage({ kind }: { kind: Skill['kind'] }) {
         {items.length === 0 ? (
           <EmptyState
             icon={Trash2}
-            title={t(kind === 'agent' ? 'trash.emptyState.agents.title' : 'trash.emptyState.skills.title')}
-            description={t(kind === 'agent' ? 'trash.emptyState.agents.description' : 'trash.emptyState.skills.description')}
+            title={t(
+              kind === 'agent' ? 'trash.emptyState.agents.title' : 'trash.emptyState.skills.title',
+            )}
+            description={t(
+              kind === 'agent'
+                ? 'trash.emptyState.agents.description'
+                : 'trash.emptyState.skills.description',
+            )}
           />
         ) : (
           <div className="ss-list">
@@ -126,12 +136,26 @@ export default function TrashPage({ kind }: { kind: Skill['kind'] }) {
               const left = timeLeft(item.date, locale);
               return (
                 <div key={itemKey(item)} className="ss-r">
-                  <span className={`ss-cat sm ${kind}`}>{kind === 'agent' ? <Bot size={14} /> : <Puzzle size={14} />}</span>
+                  <span className={`ss-cat sm ${kind}`}>
+                    {kind === 'agent' ? <Bot size={14} /> : <Puzzle size={14} />}
+                  </span>
                   <span className="nm m flex-1 truncate">{item.name}</span>
-                  <span className="w-[130px] text-[13px] text-ink-2">{formatRelativeTime(item.date, locale)}</span>
-                  <span className={`w-[130px] text-[13px] ${left.soon ? 'text-warn' : 'text-ink-2'}`}>{left.text}</span>
+                  <span className="w-[130px] text-[13px] text-ink-2">
+                    {formatRelativeTime(item.date, locale)}
+                  </span>
+                  <span
+                    className={`w-[130px] text-[13px] ${left.soon ? 'text-warn' : 'text-ink-2'}`}
+                  >
+                    {left.text}
+                  </span>
                   <span className="w-[132px] flex items-center justify-end gap-1">
-                    <Button variant="secondary" size="sm" loading={restoring === itemKey(item)} disabled={restoring !== null} onClick={() => restore(item)}>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      loading={restoring === itemKey(item)}
+                      disabled={restoring !== null}
+                      onClick={() => restore(item)}
+                    >
                       <Undo2 size={14} />
                       {t('trash.actions.restore')}
                     </Button>
@@ -165,7 +189,10 @@ export default function TrashPage({ kind }: { kind: Skill['kind'] }) {
       <ConfirmDialog
         open={emptyOpen}
         title={t('trash.confirm.empty.title')}
-        message={t('trash.confirm.empty.message', { count: items.length, s: items.length !== 1 ? 's' : '' })}
+        message={t('trash.confirm.empty.message', {
+          count: items.length,
+          s: items.length !== 1 ? 's' : '',
+        })}
         confirmText={t('trash.confirm.empty.confirmText')}
         variant="danger"
         loading={emptying}

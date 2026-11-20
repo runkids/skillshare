@@ -1,12 +1,41 @@
+import { scalarText } from '../lib/scalarText';
 import { useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
 import type { Components } from 'react-markdown';
 import {
-  ArrowDown, ChevronDown, ChevronRight, CircleArrowUp, CircleCheck, Copy, Ellipsis, ExternalLink, File, FileCode2, FileText, Folder,
-  FolderInput, FolderOpen, Github, Globe, Pencil, Power, RefreshCw, ShieldAlert, ShieldCheck, Trash2, TriangleAlert, X,
+  ArrowDown,
+  ChevronDown,
+  ChevronRight,
+  CircleArrowUp,
+  CircleCheck,
+  Copy,
+  Ellipsis,
+  ExternalLink,
+  File,
+  FileCode2,
+  FileText,
+  Folder,
+  FolderInput,
+  FolderOpen,
+  Github,
+  Globe,
+  Pencil,
+  Power,
+  RefreshCw,
+  ShieldAlert,
+  ShieldCheck,
+  Trash2,
+  TriangleAlert,
+  X,
 } from 'lucide-react';
-import { api, type AuditResult, type DiffTarget, type Skill, type SyncMatrixEntry } from '../api/client';
+import {
+  api,
+  type AuditResult,
+  type DiffTarget,
+  type Skill,
+  type SyncMatrixEntry,
+} from '../api/client';
 import { gitRefs } from '../api/hubDrafts';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { clearAuditCache } from '../lib/auditCache';
@@ -49,7 +78,12 @@ type Tab = 'doc' | 'files' | 'audit';
 
 const SEV_RANK: Record<string, number> = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3, INFO: 4 };
 
-const str = (v: unknown) => (v == null ? '' : Array.isArray(v) ? v.join(', ') : String(v).trim());
+const str = (v: unknown) =>
+  v == null
+    ? ''
+    : Array.isArray(v)
+      ? v.map(scalarText).filter(Boolean).join(', ')
+      : scalarText(v).trim();
 const words = (s: string) => s.split(/\s+/).filter(Boolean).length;
 
 export default function ResourceDetailPage() {
@@ -60,11 +94,12 @@ export default function ResourceDetailPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const t = useT();
-  const requestedKind = pathname.startsWith('/agents/') || searchParams.get('kind') === 'agent'
-    ? 'agent'
-    : searchParams.get('kind') === 'skill'
-      ? 'skill'
-      : undefined;
+  const requestedKind =
+    pathname.startsWith('/agents/') || searchParams.get('kind') === 'agent'
+      ? 'agent'
+      : searchParams.get('kind') === 'skill'
+        ? 'skill'
+        : undefined;
   const { data, isPending, error } = useQuery({
     queryKey: queryKeys.skills.detailOfKind(name!, requestedKind),
     queryFn: () => api.getResource(name!, requestedKind),
@@ -114,42 +149,57 @@ export default function ResourceDetailPage() {
     <MoveDialog
       skills={[moving]}
       all={allSkills.data?.resources ?? [moving]}
-      onMoved={(results) => { movedTo.current = results.find((r) => r.success && r.flatName)?.flatName ?? null; }}
+      onMoved={(results) => {
+        movedTo.current = results.find((r) => r.success && r.flatName)?.flatName ?? null;
+      }}
       onClose={() => {
         const flatName = movedTo.current;
         movedTo.current = null;
         setMoving(null);
-        if (flatName) navigate(resourceHref({ flatName, kind: moving.kind }), { replace: true });
+        if (flatName)
+          void navigate(resourceHref({ flatName, kind: moving.kind }), { replace: true });
       }}
     />
   );
-  if (isPending) return <><SkillDetailSkeleton />{moveDialog}</>;
+  if (isPending)
+    return (
+      <>
+        <SkillDetailSkeleton />
+        {moveDialog}
+      </>
+    );
   if (error || !data) {
     return (
       <>
         <div className="ss-note bad">
           <TriangleAlert size={16} />
-          <div className="flex-1"><b>{t('resourceDetail.error.failedToLoad')}</b> {error?.message}</div>
+          <div className="flex-1">
+            <b>{t('resourceDetail.error.failedToLoad')}</b> {error?.message}
+          </div>
         </div>
         {moveDialog}
       </>
     );
   }
 
-  const { resource, skillMdContent = '' } = data;
+  const { resource, skillMdContent } = data;
   const files = data.files ?? [];
   const isAgent = resource.kind === 'agent';
   const listPath = isAgent ? '/agents' : '/skills';
   const { frontmatter, body } = parseSkillMarkdown(skillMdContent);
   const docName = isAgent ? resource.relPath.split('/').pop()! : 'SKILL.md';
-  const unit = updateUnits(allSkills.data?.resources ?? [resource], resource.kind, allSkills.data?.linked_repos)
-    .find((u) => u.items.some((i) => i.flatName === resource.flatName));
+  const unit = updateUnits(
+    allSkills.data?.resources ?? [resource],
+    resource.kind,
+    allSkills.data?.linked_repos,
+  ).find((u) => u.items.some((i) => i.flatName === resource.flatName));
   const check = statuses.get(checkKey(resource)) ?? { status: 'unchecked' as const };
   const updateAvailable = hasUpdate(check);
   const audit = auditQuery.data?.result;
 
   const requestedTab = searchParams.get('tab');
-  const tab: Tab = requestedTab === 'audit' ? 'audit' : requestedTab === 'files' && !isAgent ? 'files' : 'doc';
+  const tab: Tab =
+    requestedTab === 'audit' ? 'audit' : requestedTab === 'files' && !isAgent ? 'files' : 'doc';
   const tabSearch = (next: Tab, extra: Record<string, string | number> = {}) => {
     const p = new URLSearchParams();
     const k = searchParams.get('kind');
@@ -179,16 +229,25 @@ export default function ResourceDetailPage() {
       const target = repoOf(resource) ?? (isAgent ? resource.flatName : resource.relPath);
       const res = await api.update({ name: target, kind: resource.kind, skipAudit, force, branch });
       const item = res.results[0];
-      const retryable = item?.action === 'blocked' || (item?.action === 'skipped' && isForceRetryable(item.message));
+      const retryable =
+        item?.action === 'blocked' ||
+        (item?.action === 'skipped' && isForceRetryable(item.message));
       if (!retryable) setSwitchTo(null);
       if (item?.action === 'updated') {
         setBlocked(null);
         const auditInfo = item.auditRiskLabel
           ? ` · Security: ${item.auditRiskLabel.toUpperCase()}${item.auditRiskScore ? ` (${item.auditRiskScore}/100)` : ''}`
           : '';
-        toast(branch
-          ? t('resourceDetail.toast.switchedBranch', { name: resource.name, branch, auditInfo })
-          : t('resourceDetail.toast.updated', { name: resource.name, message: item.message ?? '', auditInfo }), 'success');
+        toast(
+          branch
+            ? t('resourceDetail.toast.switchedBranch', { name: resource.name, branch, auditInfo })
+            : t('resourceDetail.toast.updated', {
+                name: resource.name,
+                message: item.message ?? '',
+                auditInfo,
+              }),
+          'success',
+        );
         markUpToDate();
         clearAuditCache(queryClient);
         await (branch ? invalidate(queryClient, 'skillBranchSwitched') : refreshResource());
@@ -217,7 +276,12 @@ export default function ResourceDetailPage() {
     try {
       if (resource.disabled) await api.enableResource(resource.flatName, resource.kind);
       else await api.disableResource(resource.flatName, resource.kind);
-      toast(t(resource.disabled ? 'resourceDetail.toast.enabled' : 'resourceDetail.toast.disabled', { name: resource.name }), 'success');
+      toast(
+        t(resource.disabled ? 'resourceDetail.toast.enabled' : 'resourceDetail.toast.disabled', {
+          name: resource.name,
+        }),
+        'success',
+      );
       await invalidate(queryClient, 'skillsToggled');
     } catch (e) {
       toast((e as Error).message, 'error');
@@ -243,8 +307,11 @@ export default function ResourceDetailPage() {
         initialContent={skillMdContent}
         onBack={() => setEditing(false)}
         onSaved={async (next) => {
-          queryClient.setQueryData(queryKeys.skills.detailOfKind(name!, requestedKind), (prev: unknown) =>
-            prev && typeof prev === 'object' ? { ...prev, skillMdContent: next } : prev);
+          queryClient.setQueryData(
+            queryKeys.skills.detailOfKind(name!, requestedKind),
+            (prev: unknown) =>
+              prev && typeof prev === 'object' ? { ...prev, skillMdContent: next } : prev,
+          );
           await invalidate(queryClient, 'skillEdited', name!);
           setEditing(false);
         }}
@@ -253,22 +320,47 @@ export default function ResourceDetailPage() {
   }
 
   const menuItems: ContextMenuItem[] = [
-    { key: 'open', label: t('resourceDetail.actions.openInEditor'), icon: <FolderOpen size={14} />, onSelect: openInEditor },
+    {
+      key: 'open',
+      label: t('resourceDetail.actions.openInEditor'),
+      icon: <FolderOpen size={14} />,
+      onSelect: openInEditor,
+    },
     ...(unit && !updateAvailable && !updating
-      ? [{ key: 'update', label: t('resourceDetail.actions.update'), icon: <CircleArrowUp size={14} />, onSelect: () => runUpdate(false) }]
+      ? [
+          {
+            key: 'update',
+            label: t('resourceDetail.actions.update'),
+            icon: <CircleArrowUp size={14} />,
+            onSelect: () => runUpdate(false),
+          },
+        ]
       : []),
     {
       key: 'toggle',
-      label: t(resource.disabled ? 'resourceDetail.actions.enable' : 'resourceDetail.actions.disable'),
+      label: t(
+        resource.disabled ? 'resourceDetail.actions.enable' : 'resourceDetail.actions.disable',
+      ),
       icon: resource.disabled ? <CircleCheck size={14} /> : <Power size={14} />,
       onSelect: toggleDisabled,
     },
     ...(canMove(resource)
-      ? [{ key: 'move', label: t('move.menu.skill'), icon: <FolderInput size={14} />, onSelect: () => setMoving(resource) }]
+      ? [
+          {
+            key: 'move',
+            label: t('move.menu.skill'),
+            icon: <FolderInput size={14} />,
+            onSelect: () => setMoving(resource),
+          },
+        ]
       : []),
     {
       key: 'uninstall',
-      label: t(resource.isInRepo && !isAgent && !sourceLinkOf(resource) ? 'resourceDetail.actions.uninstallRepo' : 'resourceDetail.actions.uninstall'),
+      label: t(
+        resource.isInRepo && !isAgent && !sourceLinkOf(resource)
+          ? 'resourceDetail.actions.uninstallRepo'
+          : 'resourceDetail.actions.uninstall',
+      ),
       icon: <Trash2 size={14} />,
       danger: true,
       onSelect: () => setUninstalling(true),
@@ -276,7 +368,8 @@ export default function ResourceDetailPage() {
   ];
 
   const resolveSkillRef = (ref: string) =>
-    skillMaps.byName.get(ref) ?? skillMaps.byFlat.get(`${resource.flatName}__${ref.replace(/\//g, '__')}`);
+    skillMaps.byName.get(ref) ??
+    skillMaps.byFlat.get(`${resource.flatName}__${ref.replace(/\//g, '__')}`);
 
   const md: Components = {
     a: ({ href, id, children }) => {
@@ -286,22 +379,34 @@ export default function ResourceDetailPage() {
         const file = files.find((f) => f === href || f.endsWith('/' + href));
         if (file && !isAgent) return <Link to={tabSearch('files', { file })}>{children}</Link>;
       }
-      if (href?.startsWith('#')) return <a href={href} id={id}>{children}</a>;
-      return <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>;
+      if (href?.startsWith('#'))
+        return (
+          <a href={href} id={id}>
+            {children}
+          </a>
+        );
+      return (
+        <a href={href} target="_blank" rel="noopener noreferrer">
+          {children}
+        </a>
+      );
     },
   };
 
   const findingCount = audit?.findings.filter((f) => !f.acknowledged).length ?? 0;
   const tabs = (
     <nav className="ss-tabs" aria-label={t('resourceDetail.tabs.label')}>
-      <Link to={tabSearch('doc')} className={tab === 'doc' ? 'on' : ''}>{docName}</Link>
+      <Link to={tabSearch('doc')} className={tab === 'doc' ? 'on' : ''}>
+        {docName}
+      </Link>
       {!isAgent && (
         <Link to={tabSearch('files')} className={tab === 'files' ? 'on' : ''}>
           {t('resourceDetail.tabs.files')} <span className="ss-cnt">{files.length}</span>
         </Link>
       )}
       <Link to={tabSearch('audit')} className={tab === 'audit' ? 'on' : ''}>
-        {t('resourceDetail.tabs.audit')} {findingCount > 0 && <span className="ss-cnt">{findingCount}</span>}
+        {t('resourceDetail.tabs.audit')}{' '}
+        {findingCount > 0 && <span className="ss-cnt">{findingCount}</span>}
       </Link>
     </nav>
   );
@@ -310,128 +415,182 @@ export default function ResourceDetailPage() {
 
   return (
     <>
-    <div className="animate-page-in">
-      <PageHeader
-        crumbs={[{ label: t(isAgent ? 'layout.nav.agents' : 'layout.nav.skills'), to: listPath }, { label: resource.name }]}
-        title={resource.name}
-        mono
-        subtitle={description && <span className="block max-w-[640px] truncate">{description}</span>}
-        actions={
-          <>
-            <button type="button" className="ss-ib" aria-label={t('resourceDetail.actions.more')} onClick={(e) => {
-              const r = e.currentTarget.getBoundingClientRect();
-              setMenu({ x: r.left, y: r.bottom + 4 });
-            }}>
-              <Ellipsis size={16} />
-            </button>
-            <Button variant="secondary" onClick={() => setEditing(true)}>
-              <Pencil size={15} />
-              {t('resourceDetail.actions.edit')}
-            </Button>
-            {/* Also shown while an update started from the menu runs, so it has visible progress */}
-            {unit && (updateAvailable || updating) && (
-              <Button variant="primary" loading={updating} onClick={() => runUpdate(false)}>
-                {!updating && <CircleArrowUp size={15} />}
-                {t('resourceDetail.actions.update')}
+      <div className="animate-page-in">
+        <PageHeader
+          crumbs={[
+            { label: t(isAgent ? 'layout.nav.agents' : 'layout.nav.skills'), to: listPath },
+            { label: resource.name },
+          ]}
+          title={resource.name}
+          mono
+          subtitle={
+            description && <span className="block max-w-[640px] truncate">{description}</span>
+          }
+          actions={
+            <>
+              <button
+                type="button"
+                className="ss-ib"
+                aria-label={t('resourceDetail.actions.more')}
+                onClick={(e) => {
+                  const r = e.currentTarget.getBoundingClientRect();
+                  setMenu({ x: r.left, y: r.bottom + 4 });
+                }}
+              >
+                <Ellipsis size={16} />
+              </button>
+              <Button variant="secondary" onClick={() => setEditing(true)}>
+                <Pencil size={15} />
+                {t('resourceDetail.actions.edit')}
               </Button>
-            )}
-          </>
-        }
-      />
+              {/* Also shown while an update started from the menu runs, so it has visible progress */}
+              {unit && (updateAvailable || updating) && (
+                <Button variant="primary" loading={updating} onClick={() => runUpdate(false)}>
+                  {!updating && <CircleArrowUp size={15} />}
+                  {t('resourceDetail.actions.update')}
+                </Button>
+              )}
+            </>
+          }
+        />
 
-      {resource.disabled && (
-        <div className="ss-note warn mb-5">
-          <Power size={16} />
-          <div className="flex-1">{t(isAgent ? 'resourceDetail.disabled.agent' : 'resourceDetail.disabled.skill')}</div>
-          <Button variant="secondary" size="sm" loading={toggling} onClick={toggleDisabled}>{t('resourceDetail.actions.enable')}</Button>
-        </div>
-      )}
-
-      {tab === 'doc' ? (
-        <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-[minmax(0,1fr)_330px]">
-          <div className="flex min-w-0 flex-col gap-[18px]">
-            <div className="ss-tabbar">
-              {tabs}
-              {skillMdContent.trim() && <ViewToggle raw={raw} onChange={setRaw} />}
+        {resource.disabled && (
+          <div className="ss-note warn mb-5">
+            <Power size={16} />
+            <div className="flex-1">
+              {t(isAgent ? 'resourceDetail.disabled.agent' : 'resourceDetail.disabled.skill')}
             </div>
-            {!skillMdContent.trim() ? (
-              <div className="ss-box !px-[30px] !py-[26px] text-ink-3">{t('resourceDetail.noContent')}</div>
-            ) : raw ? (
-              // Markdown wraps, so the page scrolls instead of a nested box
-              <CodeView content={skillMdContent} lang="md" className="min-h-[330px]" />
-            ) : (
-              <div className="ss-box !px-[30px] !py-[26px]">
-                <MarkdownView size="lg" components={md}>{body.trim() ? body : skillMdContent}</MarkdownView>
+            <Button variant="secondary" size="sm" loading={toggling} onClick={toggleDisabled}>
+              {t('resourceDetail.actions.enable')}
+            </Button>
+          </div>
+        )}
+
+        {tab === 'doc' ? (
+          <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-[minmax(0,1fr)_330px]">
+            <div className="flex min-w-0 flex-col gap-[18px]">
+              <div className="ss-tabbar">
+                {tabs}
+                {skillMdContent.trim() && <ViewToggle raw={raw} onChange={setRaw} />}
               </div>
+              {!skillMdContent.trim() ? (
+                <div className="ss-box !px-[30px] !py-[26px] text-ink-3">
+                  {t('resourceDetail.noContent')}
+                </div>
+              ) : raw ? (
+                // Markdown wraps, so the page scrolls instead of a nested box
+                <CodeView content={skillMdContent} lang="md" className="min-h-[330px]" />
+              ) : (
+                <div className="ss-box !px-[30px] !py-[26px]">
+                  <MarkdownView size="lg" components={md}>
+                    {body.trim() ? body : skillMdContent}
+                  </MarkdownView>
+                </div>
+              )}
+            </div>
+            {/* Stays in view while a long SKILL.md scrolls; scrolls on its own when the targets outgrow
+              the viewport. Padded by what it is pulled out by, so the scroll box does not clip shadows */}
+            <div className="sticky top-6 -mb-2 -mr-2 flex max-h-[calc(100vh-3rem)] flex-col gap-7 overflow-y-auto pb-2 pr-2">
+              <MetaBox
+                resource={resource}
+                frontmatter={frontmatter}
+                body={body}
+                fileCount={files.length}
+                check={check}
+                audit={audit}
+                auditPending={auditQuery.isPending}
+                auditHref={tabSearch('audit')}
+                branchBusy={updating}
+                onBranch={setBranchTo}
+              />
+              {!resource.disabled && <TargetsSection resource={resource} />}
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-5">
+            {tabs}
+            {tab === 'files' ? (
+              <FilesTab
+                resource={resource}
+                files={files}
+                skillMd={skillMdContent}
+                tabSearch={tabSearch}
+                components={md}
+                raw={raw}
+                onRaw={setRaw}
+              />
+            ) : (
+              <AuditTab query={auditQuery} files={files} tabSearch={tabSearch} />
             )}
           </div>
-          {/* Stays in view while a long SKILL.md scrolls; scrolls on its own when the targets outgrow
-              the viewport. Padded by what it is pulled out by, so the scroll box does not clip shadows */}
-          <div className="sticky top-6 -mb-2 -mr-2 flex max-h-[calc(100vh-3rem)] flex-col gap-7 overflow-y-auto pb-2 pr-2">
-            <MetaBox
-              resource={resource}
-              frontmatter={frontmatter}
-              body={body}
-              fileCount={files.length}
-              check={check}
-              audit={audit}
-              auditPending={auditQuery.isPending}
-              auditHref={tabSearch('audit')}
-              branchBusy={updating}
-              onBranch={setBranchTo}
-            />
-            {!resource.disabled && <TargetsSection resource={resource} />}
-          </div>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-5">
-          {tabs}
-          {tab === 'files'
-            ? <FilesTab resource={resource} files={files} skillMd={skillMdContent} tabSearch={tabSearch} components={md} raw={raw} onRaw={setRaw} />
-            : <AuditTab query={auditQuery} files={files} tabSearch={tabSearch} />}
-        </div>
-      )}
+        )}
 
-      <SkillContextMenu open={!!menu} anchorPoint={menu ?? undefined} items={menuItems} onClose={() => setMenu(null)} />
-      {uninstalling && (
-        <UninstallDialog
-          kind={resource.kind}
-          selection={[resource]}
-          all={allSkills.data?.resources ?? [resource]}
-          onClose={(removed) => {
-            setUninstalling(false);
-            if (removed) navigate(listPath);
+        <SkillContextMenu
+          open={!!menu}
+          anchorPoint={menu ?? undefined}
+          items={menuItems}
+          onClose={() => setMenu(null)}
+        />
+        {uninstalling && (
+          <UninstallDialog
+            kind={resource.kind}
+            selection={[resource]}
+            all={allSkills.data?.resources ?? [resource]}
+            onClose={(removed) => {
+              setUninstalling(false);
+              if (removed) void navigate(listPath);
+            }}
+          />
+        )}
+        <ConfirmDialog
+          open={modified}
+          title={t('update.check.dirty')}
+          message={
+            <>
+              {t('resourceDetail.modified.message', { name: resource.name })}
+              {/* Local changes can be listed for skills only. */}
+              {modified && resource.kind === 'skill' && <LocalChanges relPath={resource.relPath} />}
+            </>
+          }
+          confirmText={t('update.tab.force')}
+          variant="danger"
+          wide
+          loading={updating}
+          onConfirm={() => runUpdate(false, true).then(() => setModified(false))}
+          onCancel={() => {
+            setModified(false);
+            setSwitchTo(null);
           }}
         />
-      )}
-      <ConfirmDialog
-        open={modified}
-        title={t('update.check.dirty')}
-        message={<>{t('resourceDetail.modified.message', { name: resource.name })}{modified && <LocalChanges relPath={resource.relPath} />}</>}
-        confirmText={t('update.tab.force')}
-        variant="danger"
-        wide
-        loading={updating}
-        onConfirm={() => runUpdate(false, true).then(() => setModified(false))}
-        onCancel={() => { setModified(false); setSwitchTo(null); }}
-      />
-      <ConfirmDialog
-        open={branchTo !== null}
-        title={t('resourceDetail.branch.title')}
-        message={t('resourceDetail.branch.message', { name: resource.name, branch: branchTo ?? '' })}
-        confirmText={t('resourceDetail.branch.confirm')}
-        loading={updating}
-        onConfirm={() => {
-          const branch = branchTo!;
-          setSwitchTo(branch);
-          void runUpdate(false, false, branch).then(() => setBranchTo(null));
-        }}
-        onCancel={() => setBranchTo(null)}
-      />
-      {blocked !== null && (
-        <BlockedDialog name={resource.name} message={blocked} loading={updating} onSkip={() => runUpdate(true)} onClose={() => { setBlocked(null); setSwitchTo(null); }} />
-      )}
-    </div>
+        <ConfirmDialog
+          open={branchTo !== null}
+          title={t('resourceDetail.branch.title')}
+          message={t('resourceDetail.branch.message', {
+            name: resource.name,
+            branch: branchTo ?? '',
+          })}
+          confirmText={t('resourceDetail.branch.confirm')}
+          loading={updating}
+          onConfirm={() => {
+            const branch = branchTo!;
+            setSwitchTo(branch);
+            void runUpdate(false, false, branch).then(() => setBranchTo(null));
+          }}
+          onCancel={() => setBranchTo(null)}
+        />
+        {blocked !== null && (
+          <BlockedDialog
+            name={resource.name}
+            message={blocked}
+            loading={updating}
+            onSkip={() => runUpdate(true)}
+            onClose={() => {
+              setBlocked(null);
+              setSwitchTo(null);
+            }}
+          />
+        )}
+      </div>
       {moveDialog}
     </>
   );
@@ -440,7 +599,15 @@ export default function ResourceDetailPage() {
 /* -- Sidebar -------------------------------------- */
 
 /** Picks the branch to reinstall a skill from; the branches are listed once someone reaches for it. */
-function BranchPicker({ resource, busy, onPick }: { resource: Skill; busy: boolean; onPick: (branch: string) => void }) {
+function BranchPicker({
+  resource,
+  busy,
+  onPick,
+}: {
+  resource: Skill;
+  busy: boolean;
+  onPick: (branch: string) => void;
+}) {
   const t = useT();
   const source = resource.source ?? '';
   const [wanted, setWanted] = useState(false);
@@ -466,12 +633,25 @@ function BranchPicker({ resource, busy, onPick }: { resource: Skill; busy: boole
         options={refOptions(t, refs.data && { ...refs.data, tags: [] }, current, refs.isFetching)}
         disabled={busy}
       />
-      {refs.isError && <span className="mt-1 block text-xs text-bad">{(refs.error as Error).message}</span>}
+      {refs.isError && (
+        <span className="mt-1 block text-xs text-bad">{(refs.error as Error).message}</span>
+      )}
     </div>
   );
 }
 
-function MetaBox({ resource, frontmatter, body, fileCount, check, audit, auditPending, auditHref, branchBusy, onBranch }: {
+function MetaBox({
+  resource,
+  frontmatter,
+  body,
+  fileCount,
+  check,
+  audit,
+  auditPending,
+  auditHref,
+  branchBusy,
+  onBranch,
+}: {
   resource: Skill;
   frontmatter: Record<string, unknown>;
   body: string;
@@ -488,70 +668,147 @@ function MetaBox({ resource, frontmatter, body, fileCount, check, audit, auditPe
   const isAgent = resource.kind === 'agent';
   const remote = parseRemoteURL(resource.repoUrl ?? resource.source);
   const compact = new Intl.NumberFormat(locale, { notation: 'compact', maximumFractionDigits: 1 });
-  const always = Math.round((str(frontmatter.description).length + str(frontmatter.when_to_use).length) / 4);
+  const always = Math.round(
+    (str(frontmatter.description).length + str(frontmatter.when_to_use).length) / 4,
+  );
   const onDemand = Math.round(body.trim().length / 4);
   const lineCount = body.trim() ? body.trim().split(/\r?\n/).length : 0;
   const behind = check.status === 'behind';
-  const updateNote = behind || check.status === 'update-available'
-    ? (behind && check.behind ? t('update.check.behind', { count: check.behind }) : t('update.check.updateAvailable'))
-    : '';
+  const updateNote =
+    behind || check.status === 'update-available'
+      ? behind && check.behind
+        ? t('update.check.behind', { count: check.behind })
+        : t('update.check.updateAvailable')
+      : '';
   const findings = audit?.findings.filter((f) => !f.acknowledged).length ?? 0;
   const accepted = (audit?.findings.length ?? 0) - findings;
 
   const rows: [string, React.ReactNode][] = [];
-  if (isAgent && str(frontmatter.model)) rows.push([t('resourceDetail.meta.model'), <span className="font-mono">{str(frontmatter.model)}</span>]);
-  if (isAgent && str(frontmatter.tools)) rows.push([t('resourceDetail.meta.tools'), <span className="font-mono">{str(frontmatter.tools)}</span>]);
+  const addRow = (label: string, value: React.ReactNode) => rows.push([label, value]);
+  if (isAgent && str(frontmatter.model))
+    addRow(
+      t('resourceDetail.meta.model'),
+      <span className="font-mono">{str(frontmatter.model)}</span>,
+    );
+  if (isAgent && str(frontmatter.tools))
+    addRow(
+      t('resourceDetail.meta.tools'),
+      <span className="font-mono">{str(frontmatter.tools)}</span>,
+    );
   if (!isAgent && String(frontmatter['disable-model-invocation']).toLowerCase() === 'true') {
-    rows.push([t('frontmatterEditor.group.invocation'), <span className="ss-tag" title={t('frontmatterEditor.field.disableModelInvocation.hint')}>manual only</span>]);
+    addRow(
+      t('frontmatterEditor.group.invocation'),
+      <span className="ss-tag" title={t('frontmatterEditor.field.disableModelInvocation.hint')}>
+        manual only
+      </span>,
+    );
   }
-  rows.push([
+  addRow(
     t('resourceDetail.metadata.source'),
     remote ? (
-      <a href={remote.webURL ?? undefined} target="_blank" rel="noopener noreferrer" className="inline-flex max-w-full items-center gap-1.5 hover:underline">
-        {remote.platform === 'github' ? <Github size={14} className="shrink-0" /> : <Globe size={14} className="shrink-0" />}
+      <a
+        href={remote.webURL ?? undefined}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex max-w-full items-center gap-1.5 hover:underline"
+      >
+        {remote.platform === 'github' ? (
+          <Github size={14} className="shrink-0" />
+        ) : (
+          <Globe size={14} className="shrink-0" />
+        )}
         <span className="truncate font-mono">{remote.ownerRepo}</span>
         <ExternalLink size={12} className="shrink-0 text-ink-3" />
       </a>
-    ) : resource.source ? <span className="block truncate font-mono">{resource.source}</span> : t('resourceDetail.meta.local'),
-  ]);
+    ) : resource.source ? (
+      <span className="block truncate font-mono">{resource.source}</span>
+    ) : (
+      t('resourceDetail.meta.local')
+    ),
+  );
   // A tracked repo changes branch on the Git Sync page; other remote skills reinstall from the branch picked here.
   if (!isAgent && remote && resource.source && !resource.isInRepo) {
-    rows.push([t('resourceDetail.meta.branch'), <BranchPicker resource={resource} busy={branchBusy} onPick={onBranch} />]);
+    addRow(
+      t('resourceDetail.meta.branch'),
+      <BranchPicker resource={resource} busy={branchBusy} onPick={onBranch} />,
+    );
   }
   if (resource.source || resource.isInRepo) {
-    rows.push([
+    addRow(
       t('resourceDetail.meta.tracked'),
       resource.isInRepo
-        ? (resource.branch ? t('resourceDetail.meta.trackedBranch', { branch: resource.branch }) : t('resourceDetail.meta.yes'))
+        ? resource.branch
+          ? t('resourceDetail.meta.trackedBranch', { branch: resource.branch })
+          : t('resourceDetail.meta.yes')
         : t('resourceDetail.meta.no'),
-    ]);
+    );
   }
   if (resource.version || updateNote) {
-    rows.push([
+    addRow(
       t('resourceDetail.metadata.version'),
-      <>{resource.version && <span className="font-mono">{resource.version}</span>}{updateNote && <span className="text-warn">{resource.version && ' · '}{updateNote}</span>}</>,
-    ]);
+      <>
+        {resource.version && <span className="font-mono">{resource.version}</span>}
+        {updateNote && (
+          <span className="text-warn">
+            {resource.version && ' · '}
+            {updateNote}
+          </span>
+        )}
+      </>,
+    );
   }
-  if (resource.installedAt) rows.push([t('resourceDetail.metadata.installed'), formatDateTime(resource.installedAt, locale, { dateStyle: 'medium' })]);
-  if (str(frontmatter.license)) rows.push([t('resourceDetail.manifest.license'), str(frontmatter.license)]);
-  rows.push([t('resourceDetail.metadata.path'), <span className="block truncate font-mono">{resource.relPath}</span>]);
+  if (resource.installedAt)
+    addRow(
+      t('resourceDetail.metadata.installed'),
+      formatDateTime(resource.installedAt, locale, { dateStyle: 'medium' }),
+    );
+  if (str(frontmatter.license))
+    addRow(t('resourceDetail.manifest.license'), str(frontmatter.license));
+  addRow(
+    t('resourceDetail.metadata.path'),
+    <span className="block truncate font-mono">{resource.relPath}</span>,
+  );
   if (!isAgent) {
-    rows.push([t('resourceDetail.meta.size'), [
-      t(fileCount === 1 ? 'resourceDetail.meta.file' : 'resourceDetail.meta.files', { count: fileCount }),
-      t(lineCount === 1 ? 'resourceDetail.meta.line' : 'resourceDetail.meta.lines', { count: compact.format(lineCount) }),
-      t(plural('resourceDetail.meta.words', words(body)), { count: compact.format(words(body)) }),
-    ].join(' · ')]);
+    addRow(
+      t('resourceDetail.meta.size'),
+      [
+        t(fileCount === 1 ? 'resourceDetail.meta.file' : 'resourceDetail.meta.files', {
+          count: fileCount,
+        }),
+        t(lineCount === 1 ? 'resourceDetail.meta.line' : 'resourceDetail.meta.lines', {
+          count: compact.format(lineCount),
+        }),
+        t(plural('resourceDetail.meta.words', words(body)), { count: compact.format(words(body)) }),
+      ].join(' · '),
+    );
   }
-  rows.push([t('resourceDetail.meta.context'), t('resourceDetail.meta.contextValue', { always: compact.format(always), onDemand: compact.format(onDemand) })]);
-  rows.push([
+  addRow(
+    t('resourceDetail.meta.context'),
+    t('resourceDetail.meta.contextValue', {
+      always: compact.format(always),
+      onDemand: compact.format(onDemand),
+    }),
+  );
+  addRow(
     t('resourceDetail.tabs.audit'),
-    auditPending ? <span className="ss-st off">{t('resourceDetail.security.scanning')}</span> : audit ? (
-      <Link to={auditHref} className={`ss-st hover:underline ${findings === 0 ? 'ok' : audit.isBlocked ? 'bad' : 'warn'}`}>
-        {findings === 0 ? t('resourceDetail.audit.noFindings') : t(findings === 1 ? 'resourceDetail.audit.finding' : 'resourceDetail.audit.findings', { count: findings })}
+    auditPending ? (
+      <span className="ss-st off">{t('resourceDetail.security.scanning')}</span>
+    ) : audit ? (
+      <Link
+        to={auditHref}
+        className={`ss-st hover:underline ${findings === 0 ? 'ok' : audit.isBlocked ? 'bad' : 'warn'}`}
+      >
+        {findings === 0
+          ? t('resourceDetail.audit.noFindings')
+          : t(findings === 1 ? 'resourceDetail.audit.finding' : 'resourceDetail.audit.findings', {
+              count: findings,
+            })}
         {accepted > 0 && ` · ${t(plural('audit.acceptedTag', accepted), { count: accepted })}`}
       </Link>
-    ) : <span className="ss-st off">—</span>,
-  ]);
+    ) : (
+      <span className="ss-st off">—</span>
+    ),
+  );
 
   return (
     <div className="ss-box">
@@ -572,27 +829,37 @@ function TargetsSection({ resource }: { resource: Skill }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const isAgent = resource.kind === 'agent';
-  const targetsQuery = useQuery({ queryKey: queryKeys.targets.all, queryFn: () => api.listTargets(), staleTime: staleTimes.targets });
+  const targetsQuery = useQuery({
+    queryKey: queryKeys.targets.all,
+    queryFn: () => api.listTargets(),
+    staleTime: staleTimes.targets,
+  });
   const { getSkillTargets, isLoading } = useSyncMatrix();
   const diffQuery = useDiffQuery({ enabled: !isAgent });
   const [pending, setPending] = useState<string | null>(null);
 
-  const targets = [...(targetsQuery.data?.targets ?? [])].sort((a, b) => a.name.localeCompare(b.name));
+  const targets = [...(targetsQuery.data?.targets ?? [])].sort((a, b) =>
+    a.name.localeCompare(b.name),
+  );
   if (targets.length === 0 || isLoading) return null;
 
   const entries = new Map(
-    getSkillTargets(resource.flatName).filter((e) => (e.kind ?? 'skill') === resource.kind).map((e) => [e.target, e]),
+    getSkillTargets(resource.flatName)
+      .filter((e) => (e.kind ?? 'skill') === resource.kind)
+      .map((e) => [e.target, e]),
   );
   const rows = targets.map((target) => {
     const entry = entries.get(target.name);
-    const action = diffQuery.data?.diffs.find((d) => d.target === target.name)?.items
-      .find((i) => i.skill === resource.flatName && (i.kind ?? 'skill') === 'skill')?.action;
+    const action = diffQuery.data?.diffs
+      .find((d) => d.target === target.name)
+      ?.items.find((i) => i.skill === resource.flatName && (i.kind ?? 'skill') === 'skill')?.action;
     return { target, entry, action, on: !!entry && receivesSkill(entry) };
   });
   const supported = rows.filter((r) => r.entry);
 
   const toggle = async (row: (typeof rows)[number]) => {
-    const patch = row.entry && targetFilterPatch(row.entry, row.target, resource.kind, resource.flatName);
+    const patch =
+      row.entry && targetFilterPatch(row.entry, row.target, resource.kind, resource.flatName);
     if (!patch) return;
     setPending(row.target.name);
     try {
@@ -609,8 +876,10 @@ function TargetsSection({ resource }: { resource: Skill }) {
     const { entry, action } = row;
     switch (entry?.status) {
       case 'synced':
-        if (action === 'skip') return <span className="text-bad">{t('resourceDetail.targets.conflict')}</span>;
-        if (action === 'link' || action === 'update') return <span className="text-warn">{t('resourceDetail.targets.notSynced')}</span>;
+        if (action === 'skip')
+          return <span className="text-bad">{t('resourceDetail.targets.conflict')}</span>;
+        if (action === 'link' || action === 'update')
+          return <span className="text-warn">{t('resourceDetail.targets.notSynced')}</span>;
         return !isAgent && diffQuery.data ? t('resourceDetail.targets.linked') : null;
       case 'excluded':
         return t('resourceDetail.targets.excludedBy', { pattern: entry.reason });
@@ -632,16 +901,25 @@ function TargetsSection({ resource }: { resource: Skill }) {
     <section>
       <div className="ss-sec">
         <h2>{t('resourceDetail.targets.title')}</h2>
-        <span className="ss-cnt">{t('resourceDetail.targets.count', { on: supported.filter((r) => r.on).length, total: supported.length })}</span>
+        <span className="ss-cnt">
+          {t('resourceDetail.targets.count', {
+            on: supported.filter((r) => r.on).length,
+            total: supported.length,
+          })}
+        </span>
       </div>
       <div className="ss-list">
         {rows.map((row) => {
           if (!row.entry) {
             return (
               <div key={row.target.name} className="ss-r !min-h-11 opacity-55">
-                <span className="ss-at"><AgentIcon target={row.target.name} /></span>
+                <span className="ss-at">
+                  <AgentIcon target={row.target.name} />
+                </span>
                 <span className="min-w-0 flex-1 truncate">{row.target.name}</span>
-                <span className="text-xs text-ink-3">{t('resourceDetail.targets.noAgentSupport')}</span>
+                <span className="text-xs text-ink-3">
+                  {t('resourceDetail.targets.noAgentSupport')}
+                </span>
               </div>
             );
           }
@@ -649,7 +927,9 @@ function TargetsSection({ resource }: { resource: Skill }) {
           const text = label(row);
           return (
             <div key={row.target.name} className="ss-r !min-h-[50px]">
-              <span className="ss-at"><AgentIcon target={row.target.name} /></span>
+              <span className="ss-at">
+                <AgentIcon target={row.target.name} />
+              </span>
               <div className="flex min-w-0 flex-1 flex-col gap-px">
                 <span className="truncate font-semibold">{row.target.name}</span>
                 {text && <span className="text-xs text-ink-3">{text}</span>}
@@ -669,29 +949,61 @@ function TargetsSection({ resource }: { resource: Skill }) {
           );
         })}
       </div>
-      <p className="mt-2.5 text-[13px] text-ink-3">{t(isAgent ? 'resourceDetail.targets.footnoteAgent' : 'resourceDetail.targets.footnote')}</p>
-      <ProjectsList resource={resource} diffs={diffQuery.data?.diffs} statusText={(entry, action) => label({ entry, action })} />
+      <p className="mt-2.5 text-[13px] text-ink-3">
+        {t(isAgent ? 'resourceDetail.targets.footnoteAgent' : 'resourceDetail.targets.footnote')}
+      </p>
+      <ProjectsList
+        resource={resource}
+        diffs={diffQuery.data?.diffs}
+        statusText={(entry, action) => label({ entry, action })}
+      />
     </section>
   );
 }
 
 /** Project targets, one row per project. Their filters are set per project, so each row links to its page instead of toggling. */
-export function ProjectsList({ resource, diffs, statusText }: {
+export function ProjectsList({
+  resource,
+  diffs,
+  statusText,
+}: {
   resource: Skill;
   diffs: DiffTarget[] | undefined;
   statusText: (entry: SyncMatrixEntry, action: string | undefined) => React.ReactNode;
 }) {
   const t = useT();
   const { getSkillTargets } = useSyncMatrix();
-  const { data } = useQuery({ queryKey: queryKeys.targets.projects, queryFn: () => api.listTargets('projects'), staleTime: staleTimes.targets });
-  const entries = new Map(getSkillTargets(resource.flatName).filter((e) => (e.kind ?? 'skill') === resource.kind).map((e) => [e.target, e]));
-  const byProject = new Map<string, { name: string; path: string; rows: { target: string; entry: SyncMatrixEntry; action?: string }[] }>();
+  const { data } = useQuery({
+    queryKey: queryKeys.targets.projects,
+    queryFn: () => api.listTargets('projects'),
+    staleTime: staleTimes.targets,
+  });
+  const entries = new Map(
+    getSkillTargets(resource.flatName)
+      .filter((e) => (e.kind ?? 'skill') === resource.kind)
+      .map((e) => [e.target, e]),
+  );
+  const byProject = new Map<
+    string,
+    {
+      name: string;
+      path: string;
+      rows: { target: string; entry: SyncMatrixEntry; action?: string }[];
+    }
+  >();
   for (const target of data?.targets ?? []) {
     const entry = entries.get(target.name);
     if (!entry || !target.project) continue;
-    const action = diffs?.find((d) => d.target === target.name)?.items
-      .find((i) => i.skill === resource.flatName && (i.kind ?? 'skill') === resource.kind)?.action;
-    const project = byProject.get(target.project) ?? { name: target.name.slice(0, target.name.lastIndexOf('@')), path: target.project, rows: [] };
+    const action = diffs
+      ?.find((d) => d.target === target.name)
+      ?.items.find(
+        (i) => i.skill === resource.flatName && (i.kind ?? 'skill') === resource.kind,
+      )?.action;
+    const project = byProject.get(target.project) ?? {
+      name: target.name.slice(0, target.name.lastIndexOf('@')),
+      path: target.project,
+      rows: [],
+    };
     project.rows.push({ target: target.name, entry, action });
     byProject.set(target.project, project);
   }
@@ -703,18 +1015,37 @@ export function ProjectsList({ resource, diffs, statusText }: {
     <>
       <div className="ss-sec mt-6">
         <h2>{t('resourceDetail.projects.title')}</h2>
-        <span className="ss-cnt">{t('resourceDetail.targets.count', { on: projects.filter(on).length, total: projects.length })}</span>
+        <span className="ss-cnt">
+          {t('resourceDetail.targets.count', {
+            on: projects.filter(on).length,
+            total: projects.length,
+          })}
+        </span>
       </div>
       <div className="ss-list">
         {projects.map((p) => {
           // One status per project: the first target that needs attention, else the first one.
           const shown = p.rows.find((r) => r.entry.status !== 'synced' || r.action) ?? p.rows[0];
           return (
-            <Link key={p.path} to={projectUrl(p.path, resource.kind === 'agent' ? 'agents' : undefined)} className="ss-r !min-h-[50px] hover:bg-sunken">
-              <span className="ss-stack shrink-0">{p.rows.map((r) => <span key={r.target} className="ss-at" title={r.target}><AgentIcon target={r.target} size={14} /></span>)}</span>
+            <Link
+              key={p.path}
+              to={projectUrl(p.path, resource.kind === 'agent' ? 'agents' : undefined)}
+              className="ss-r !min-h-[50px] hover:bg-sunken"
+            >
+              <span className="ss-stack shrink-0">
+                {p.rows.map((r) => (
+                  <span key={r.target} className="ss-at" title={r.target}>
+                    <AgentIcon target={r.target} size={14} />
+                  </span>
+                ))}
+              </span>
               <div className="flex min-w-0 flex-1 flex-col gap-px">
                 <span className="truncate font-semibold">{p.name}</span>
-                <span className="text-xs text-ink-3">{shown.entry.status === 'not_included' ? t('resourceDetail.projects.notIncluded') : statusText(shown.entry, shown.action)}</span>
+                <span className="text-xs text-ink-3">
+                  {shown.entry.status === 'not_included'
+                    ? t('resourceDetail.projects.notIncluded')
+                    : statusText(shown.entry, shown.action)}
+                </span>
               </div>
               <ChevronRight size={16} className="shrink-0 text-ink-3" />
             </Link>
@@ -728,7 +1059,15 @@ export function ProjectsList({ resource, diffs, statusText }: {
 
 /* -- Files ---------------------------------------- */
 
-function FilesTab({ resource, files, skillMd, tabSearch, components, raw, onRaw }: {
+function FilesTab({
+  resource,
+  files,
+  skillMd,
+  tabSearch,
+  components,
+  raw,
+  onRaw,
+}: {
   resource: Skill;
   files: string[];
   skillMd: string;
@@ -760,7 +1099,7 @@ function FilesTab({ resource, files, skillMd, tabSearch, components, raw, onRaw 
   const showRaw = !markdown || raw || line > 0;
   const setView = (next: boolean) => {
     onRaw(next);
-    if (!next && line > 0) navigate(tabSearch('files', { file: selected }), { replace: true });
+    if (!next && line > 0) void navigate(tabSearch('files', { file: selected }), { replace: true });
   };
 
   const tree = fileTree(sorted);
@@ -774,7 +1113,13 @@ function FilesTab({ resource, files, skillMd, tabSearch, components, raw, onRaw 
     <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
       <div className="flex flex-col gap-0.5">
         {tree.map((row) => {
-          const Icon = row.folder ? Folder : row.label.endsWith('.md') ? FileText : CODE_EXT.test(row.label) ? FileCode2 : File;
+          const Icon = row.folder
+            ? Folder
+            : row.label.endsWith('.md')
+              ? FileText
+              : CODE_EXT.test(row.label)
+                ? FileCode2
+                : File;
           const inner = (
             <>
               <Icon size={15} className="shrink-0" />
@@ -782,12 +1127,26 @@ function FilesTab({ resource, files, skillMd, tabSearch, components, raw, onRaw 
             </>
           );
           const style = { paddingLeft: 10 + row.depth * 20 };
-          return row.folder
-            ? <div key={row.path} className="ss-nv" style={style}>{inner}</div>
-            : <Link key={row.path} to={tabSearch('files', { file: row.path })} replace className={`ss-nv ${row.path === selected ? 'on' : ''}`} style={style}>{inner}</Link>;
+          return row.folder ? (
+            <div key={row.path} className="ss-nv" style={style}>
+              {inner}
+            </div>
+          ) : (
+            <Link
+              key={row.path}
+              to={tabSearch('files', { file: row.path })}
+              replace
+              className={`ss-nv ${row.path === selected ? 'on' : ''}`}
+              style={style}
+            >
+              {inner}
+            </Link>
+          );
         })}
         <p className="ml-2.5 mt-3 text-xs text-ink-3">
-          {t(sorted.length === 1 ? 'resourceDetail.meta.file' : 'resourceDetail.meta.files', { count: sorted.length })}
+          {t(sorted.length === 1 ? 'resourceDetail.meta.file' : 'resourceDetail.meta.files', {
+            count: sorted.length,
+          })}
         </p>
       </div>
       {/* The viewer stays in view while a long file list scrolls the page. The height leaves room
@@ -804,16 +1163,26 @@ function FilesTab({ resource, files, skillMd, tabSearch, components, raw, onRaw 
           </div>
         </div>
         {fileQuery.error ? (
-          <div className="ss-note bad"><TriangleAlert size={16} /><div className="flex-1">{fileQuery.error.message}</div></div>
+          <div className="ss-note bad">
+            <TriangleAlert size={16} />
+            <div className="flex-1">{fileQuery.error.message}</div>
+          </div>
         ) : content === undefined ? (
-          <div className="ss-code grid min-h-0 flex-1 place-items-center"><Spinner /></div>
+          <div className="ss-code grid min-h-0 flex-1 place-items-center">
+            <Spinner />
+          </div>
         ) : content.includes('\u0000') ? (
-          <div className="ss-note"><File size={16} /><div className="flex-1">{t('resourceDetail.files.binary')}</div></div>
+          <div className="ss-note">
+            <File size={16} />
+            <div className="flex-1">{t('resourceDetail.files.binary')}</div>
+          </div>
         ) : showRaw ? (
           <CodeView content={content} lang={selected} line={line} className="min-h-0 flex-1" />
         ) : (
           <div className="ss-box min-h-0 flex-1 overflow-auto !shadow-none !px-7 !py-6">
-            <MarkdownView size="lg" components={components}>{content}</MarkdownView>
+            <MarkdownView size="lg" components={components}>
+              {content}
+            </MarkdownView>
           </div>
         )}
       </div>
@@ -823,7 +1192,11 @@ function FilesTab({ resource, files, skillMd, tabSearch, components, raw, onRaw 
 
 /* -- Audit ---------------------------------------- */
 
-function AuditTab({ query, files, tabSearch }: {
+function AuditTab({
+  query,
+  files,
+  tabSearch,
+}: {
   query: UseQueryResult<{ result: AuditResult }>;
   files: string[];
   tabSearch: (tab: Tab, extra?: Record<string, string | number>) => string;
@@ -835,16 +1208,29 @@ function AuditTab({ query, files, tabSearch }: {
   const [rescanning, setRescanning] = useState(false);
   const [showAccepted, setShowAccepted] = useState(false);
 
-  if (query.isPending) return <div className="grid min-h-40 place-items-center"><Spinner /></div>;
+  if (query.isPending)
+    return (
+      <div className="grid min-h-40 place-items-center">
+        <Spinner />
+      </div>
+    );
   if (query.error) {
-    return <div className="ss-note bad"><TriangleAlert size={16} /><div className="flex-1">{query.error.message}</div></div>;
+    return (
+      <div className="ss-note bad">
+        <TriangleAlert size={16} />
+        <div className="flex-1">{query.error.message}</div>
+      </div>
+    );
   }
 
   const { findings, threshold, isBlocked } = query.data.result;
   const rescanNow = async () => {
     setRescanning(true);
     // A scan usually takes milliseconds and returns the same result, so hold the spinner and report the outcome
-    const [res] = await Promise.all([query.refetch(), new Promise((r) => window.setTimeout(r, 600))]);
+    const [res] = await Promise.all([
+      query.refetch(),
+      new Promise((r) => window.setTimeout(r, 600)),
+    ]);
     setRescanning(false);
     if (res.error) {
       toast(res.error.message, 'error');
@@ -861,24 +1247,40 @@ function AuditTab({ query, files, tabSearch }: {
       {t('resourceDetail.audit.scanAgain')}
     </Button>
   );
-  const scanned = t('resourceDetail.audit.scanned', { time: formatRelativeTime(query.dataUpdatedAt, locale), threshold });
+  const scanned = t('resourceDetail.audit.scanned', {
+    time: formatRelativeTime(query.dataUpdatedAt, locale),
+    threshold,
+  });
 
   if (findings.length === 0) {
-    return <EmptyState icon={ShieldCheck} title={t('resourceDetail.audit.noFindings')} description={scanned} action={rescan} />;
+    return (
+      <EmptyState
+        icon={ShieldCheck}
+        title={t('resourceDetail.audit.noFindings')}
+        description={scanned}
+        action={rescan}
+      />
+    );
   }
 
   // Findings accepted earlier with --force no longer block, so they wait behind their own expander.
   const bySeverity = [...findings].sort((a, b) => SEV_RANK[a.severity] - SEV_RANK[b.severity]);
   const openCount = bySeverity.filter((f) => !f.acknowledged).length;
-  const sorted = [...bySeverity.filter((f) => !f.acknowledged), ...bySeverity.filter((f) => f.acknowledged)];
+  const sorted = [
+    ...bySeverity.filter((f) => !f.acknowledged),
+    ...bySeverity.filter((f) => f.acknowledged),
+  ];
   const accepted = sorted.length - openCount;
   // At or above the block threshold starts open; toggling flips that default
-  const defaultOpen = (i: number) => !sorted[i].acknowledged && (i === 0 || SEV_RANK[sorted[i].severity] <= (SEV_RANK[threshold.toUpperCase()] ?? -1));
-  const flip = (i: number) => setToggled((prev) => {
-    const next = new Set(prev);
-    if (!next.delete(i)) next.add(i);
-    return next;
-  });
+  const defaultOpen = (i: number) =>
+    !sorted[i].acknowledged &&
+    (i === 0 || SEV_RANK[sorted[i].severity] <= (SEV_RANK[threshold.toUpperCase()] ?? -1));
+  const flip = (i: number) =>
+    setToggled((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(i)) next.add(i);
+      return next;
+    });
 
   return (
     <>
@@ -892,25 +1294,60 @@ function AuditTab({ query, files, tabSearch }: {
       {!isBlocked && accepted > 0 && (
         <div className="ss-note ok">
           <ShieldCheck size={16} />
-          <div className="flex-1">{t(plural('resourceDetail.audit.acceptedNote', accepted), { count: accepted, threshold })}</div>
+          <div className="flex-1">
+            {t(plural('resourceDetail.audit.acceptedNote', accepted), {
+              count: accepted,
+              threshold,
+            })}
+          </div>
         </div>
       )}
       <div className="ss-list">
         {sorted.map((f, i) => {
           const open = defaultOpen(i) !== toggled.has(i);
-          const where = [f.file && (f.line ? `${f.file}:${f.line}` : f.file), f.ruleId && t('resourceDetail.audit.rule', { id: f.ruleId })].filter(Boolean).join(' · ');
+          const where = [
+            f.file && (f.line ? `${f.file}:${f.line}` : f.file),
+            f.ruleId && t('resourceDetail.audit.rule', { id: f.ruleId }),
+          ]
+            .filter(Boolean)
+            .join(' · ');
           const expander = i === openCount && (
-            <button key="accepted" type="button" className="ss-r w-full cursor-pointer gap-2 text-left text-[13px] font-semibold text-ok" aria-expanded={showAccepted} onClick={() => setShowAccepted((v) => !v)}>
-              {showAccepted ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronRight size={14} aria-hidden="true" />}
-              {showAccepted ? t('resourceDetail.audit.hideAccepted') : t(plural('resourceDetail.audit.showAccepted', accepted), { count: accepted })}
+            <button
+              key="accepted"
+              type="button"
+              className="ss-r w-full cursor-pointer gap-2 text-left text-[13px] font-semibold text-ok"
+              aria-expanded={showAccepted}
+              onClick={() => setShowAccepted((v) => !v)}
+            >
+              {showAccepted ? (
+                <ChevronDown size={14} aria-hidden="true" />
+              ) : (
+                <ChevronRight size={14} aria-hidden="true" />
+              )}
+              {showAccepted
+                ? t('resourceDetail.audit.hideAccepted')
+                : t(plural('resourceDetail.audit.showAccepted', accepted), { count: accepted })}
             </button>
           );
           if (f.acknowledged && !showAccepted) return expander;
-          return [expander, (
-            <div key={i} className={`ss-r !items-start !py-3.5 ${f.acknowledged ? 'bg-sunken/40' : ''}`}>
-              <button type="button" aria-expanded={open} className={`flex min-w-0 flex-1 cursor-pointer items-start gap-3 text-left ${f.acknowledged ? 'opacity-75' : ''}`} onClick={() => flip(i)}>
+          return [
+            expander,
+            <div
+              key={i}
+              className={`ss-r !items-start !py-3.5 ${f.acknowledged ? 'bg-sunken/40' : ''}`}
+            >
+              <button
+                type="button"
+                aria-expanded={open}
+                className={`flex min-w-0 flex-1 cursor-pointer items-start gap-3 text-left ${f.acknowledged ? 'opacity-75' : ''}`}
+                onClick={() => flip(i)}
+              >
                 <span className="w-[74px] shrink-0 pt-px">
-                  <span className={`ss-sev ${f.acknowledged ? '!bg-sunken !text-ink-3 line-through' : SEV[f.severity]}`}>{f.severity}</span>
+                  <span
+                    className={`ss-sev ${f.acknowledged ? '!bg-sunken !text-ink-3 line-through' : SEV[f.severity]}`}
+                  >
+                    {f.severity}
+                  </span>
                 </span>
                 <span className="flex min-w-0 flex-1 flex-col gap-2">
                   <span className="font-semibold">{f.message}</span>
@@ -937,12 +1374,15 @@ function AuditTab({ query, files, tabSearch }: {
                 {!open && <ChevronDown size={16} className="mt-0.5 shrink-0 text-ink-3" />}
               </button>
               {open && files.includes(f.file) && (
-                <Link to={tabSearch('files', { file: f.file, ...(f.line ? { line: f.line } : {}) })} className="ss-btn sm">
+                <Link
+                  to={tabSearch('files', { file: f.file, ...(f.line ? { line: f.line } : {}) })}
+                  className="ss-btn sm"
+                >
                   {t('resourceDetail.audit.openFile')}
                 </Link>
               )}
-            </div>
-          )];
+            </div>,
+          ];
         })}
       </div>
       <div className="flex items-center gap-3">
@@ -955,7 +1395,13 @@ function AuditTab({ query, files, tabSearch }: {
 
 /* -- Dialogs -------------------------------------- */
 
-function BlockedDialog({ name, message, loading, onSkip, onClose }: {
+function BlockedDialog({
+  name,
+  message,
+  loading,
+  onSkip,
+  onClose,
+}: {
   name: string;
   message: string;
   loading: boolean;
@@ -967,29 +1413,56 @@ function BlockedDialog({ name, message, loading, onSkip, onClose }: {
   const threshold = thresholdOf(message);
   const title = t('resourceDetail.blocked.title');
   return (
-    <DialogShell open onClose={onClose} padding="none" className="!max-w-[560px]" ariaLabel={title} preventClose={loading}>
+    <DialogShell
+      open
+      onClose={onClose}
+      padding="none"
+      className="!max-w-[560px]"
+      ariaLabel={title}
+      preventClose={loading}
+    >
       <div className="dh">
         <div className="flex flex-col gap-1">
           <h2 className="ss-h2">{title}</h2>
           <p className="font-mono text-[13px] text-ink-2">{name}</p>
         </div>
-        <button type="button" className="ss-ib" aria-label={t('common.close')} onClick={onClose} disabled={loading}><X size={16} /></button>
+        <button
+          type="button"
+          className="ss-ib"
+          aria-label={t('common.close')}
+          onClick={onClose}
+          disabled={loading}
+        >
+          <X size={16} />
+        </button>
       </div>
       <div className="db">
         <div className="ss-note bad">
           <TriangleAlert size={16} />
           <div className="flex-1">
             <b>{t('resourceDetail.blocked.notApplied')}</b>{' '}
-            {threshold ? t('resourceDetail.blocked.reason', { threshold }) : t('resourceDetail.blocked.reasonNoThreshold')}
+            {threshold
+              ? t('resourceDetail.blocked.reason', { threshold })
+              : t('resourceDetail.blocked.reasonNoThreshold')}
           </div>
         </div>
-        {findings.length > 0 && <FindingList findings={findings} header={t('resourceDetail.blocked.findings')} showName={false} />}
+        {findings.length > 0 && (
+          <FindingList
+            findings={findings}
+            header={t('resourceDetail.blocked.findings')}
+            showName={false}
+          />
+        )}
         <p className="text-[13px] text-ink-2">{t('resourceDetail.blocked.skipPrompt')}</p>
       </div>
       <div className="df">
-        <Button variant="danger" loading={loading} onClick={onSkip}>{t('resourceDetail.blocked.skipAuditAndUpdate')}</Button>
+        <Button variant="danger" loading={loading} onClick={onSkip}>
+          {t('resourceDetail.blocked.skipAuditAndUpdate')}
+        </Button>
         <span className="flex-1" />
-        <Button variant="primary" onClick={onClose} disabled={loading}>{t('resourceDetail.blocked.keep')}</Button>
+        <Button variant="primary" onClick={onClose} disabled={loading}>
+          {t('resourceDetail.blocked.keep')}
+        </Button>
       </div>
     </DialogShell>
   );
@@ -998,19 +1471,50 @@ function BlockedDialog({ name, message, loading, onSkip, onClose }: {
 /** What a remote skill changed since install, each file diffed against the installed version. */
 function LocalChanges({ relPath }: { relPath: string }) {
   const t = useT();
-  const { data, error, isPending } = useQuery({ queryKey: queryKeys.skills.localChanges(relPath), queryFn: () => api.getLocalChanges(relPath), staleTime: 0 });
-  if (isPending) return <div className="flex justify-center py-6"><Spinner /></div>;
-  if (error) return <div className="ss-note bad mt-3">{t('resourceDetail.modified.loadFailed', { message: (error as Error).message })}</div>;
-  const status = { modified: t('resourceDetail.modified.status.modified'), added: t('resourceDetail.modified.status.added'), deleted: t('resourceDetail.modified.status.deleted') };
+  const { data, error, isPending } = useQuery({
+    queryKey: queryKeys.skills.localChanges(relPath),
+    queryFn: () => api.getLocalChanges(relPath),
+    staleTime: 0,
+  });
+  if (isPending)
+    return (
+      <div className="flex justify-center py-6">
+        <Spinner />
+      </div>
+    );
+  if (error)
+    return (
+      <div className="ss-note bad mt-3">
+        {t('resourceDetail.modified.loadFailed', { message: (error as Error).message })}
+      </div>
+    );
+  const status = {
+    modified: t('resourceDetail.modified.status.modified'),
+    added: t('resourceDetail.modified.status.added'),
+    deleted: t('resourceDetail.modified.status.deleted'),
+  };
   return (
     <div className="mt-3 flex flex-col gap-3">
       {data.files.map((f) => (
         <div key={f.path}>
-          <p className="mb-1 font-mono text-[12.5px]">{f.path} <span className="text-ink-2">· {status[f.status]}</span></p>
-          <pre className="ss-code !max-h-[40vh] !overflow-auto !whitespace-pre-wrap" style={{ overflowWrap: 'anywhere' }}>
-            {f.diff.replace(/\n$/, '').split('\n').map((l, i) => (
-              <span key={i} className={l.startsWith('+ ') ? 'add' : l.startsWith('- ') ? 'del' : 'block'}>{l || ' '}</span>
-            ))}
+          <p className="mb-1 font-mono text-[12.5px]">
+            {f.path} <span className="text-ink-2">· {status[f.status]}</span>
+          </p>
+          <pre
+            className="ss-code !max-h-[40vh] !overflow-auto !whitespace-pre-wrap"
+            style={{ overflowWrap: 'anywhere' }}
+          >
+            {f.diff
+              .replace(/\n$/, '')
+              .split('\n')
+              .map((l, i) => (
+                <span
+                  key={i}
+                  className={l.startsWith('+ ') ? 'add' : l.startsWith('- ') ? 'del' : 'block'}
+                >
+                  {l || ' '}
+                </span>
+              ))}
           </pre>
         </div>
       ))}

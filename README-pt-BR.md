@@ -14,7 +14,7 @@
   <a href="https://github.com/runkids/skillshare/releases"><img src="https://img.shields.io/github/v/release/runkids/skillshare" alt="Release"></a>
   <a href="https://github.com/runkids/skillshare/releases"><img src="https://img.shields.io/github/downloads/runkids/skillshare/total" alt="Downloads"></a>
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-blue" alt="Platform">
-  <a href="https://deepwiki.com/runkids/skillshare"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
+  <a href="https://deepwiki.com/runkids/skillshare"><img src="https://img.shields.io/badge/Ask-DeepWiki-blue" alt="Ask DeepWiki"></a>
 </p>
 
 <p align="center">
@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **Versão mais recente**: v0.30.9 — Edite ou remova um hook sem importá-lo: o diálogo de importação de hooks do dashboard agora mostra um Agent por vez e pode alterar um hook diretamente no arquivo de configurações dele. Você vê o diff do arquivo antes de qualquer gravação, e um backup permite restaurá-lo. O hook continua não gerenciado. [Referência de hooks →](https://skillshare.runkids.cc/docs/reference/commands/hooks) · [Todas as versões →](https://github.com/runkids/skillshare/releases)
+> **Versão mais recente**: v0.30.11 — Compartilhe seus pacotes do Pi pelo dashboard: **Compartilhar** na página Plugins agora lista, depois dos seus plugins, os pacotes npm que o Pi instalou e copia um comando que adiciona todos, como `skillshare plugin add npm:<package> --target pi -g --no-tui`. O diálogo **Hooks nos destinos** também pode editar ou remover hooks do Antigravity e do Copilot sem importá-los. [Guia de plugins →](https://skillshare.runkids.cc/docs/how-to/daily-tasks/sharing-plugins) · [Todas as versões →](https://github.com/runkids/skillshare/releases)
 
 ## Por que skillshare
 
@@ -300,7 +300,11 @@ make check  # format + lint + test
 
 ## Colaboradores
 
-Obrigado a todas as pessoas que ajudaram a construir o skillshare. A lista está no [README em inglês](README.md#contributors).
+[Ver colaboradores no GitHub](https://github.com/runkids/skillshare/graphs/contributors)
+
+### Agradecimentos à comunidade
+
+Obrigado por relatar problemas, sugerir melhorias e testar correções. [README em inglês](README.md#community-thanks).
 
 ---
 

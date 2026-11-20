@@ -1,4 +1,4 @@
-import { apiFetch } from './client';
+import { http } from './http';
 
 /** Where an extension row comes from: a file in the extensions folder, a settings entry, a plugin, or a Skillshare hook. */
 export type OmpExtensionSource = 'native' | 'configured' | 'plugin' | 'hook';
@@ -45,7 +45,10 @@ export interface OmpExtensionsView {
   rows: OmpExtensionRow[];
 }
 
-export interface OmpExtensionChange { key: string; enabled: boolean }
+export interface OmpExtensionChange {
+  key: string;
+  enabled: boolean;
+}
 
 /** The preview's `revision` is a plan token; apply sends it back, so only that reviewed plan is written. */
 export interface OmpExtensionsPlan {
@@ -58,15 +61,18 @@ export interface OmpExtensionsPlan {
 
 const base = (target: string) => `/targets/${encodeURIComponent(target)}/omp-extensions`;
 const post = (target: string, verb: string, changes: OmpExtensionChange[], revision: string) =>
-  apiFetch<OmpExtensionsPlan>(`${base(target)}/${verb}`, { method: 'POST', body: JSON.stringify({ changes, revision }) });
+  http.post<OmpExtensionsPlan>(`${base(target)}/${verb}`, { changes, revision });
 
 export const ompExtensionsApi = {
-  get: (target: string) => apiFetch<OmpExtensionsView>(base(target)),
+  get: (target: string) => http.get<OmpExtensionsView>(base(target)),
   /** Writes nothing; `revision` is the view's. */
-  preview: (target: string, changes: OmpExtensionChange[], revision: string) => post(target, 'preview', changes, revision),
+  preview: (target: string, changes: OmpExtensionChange[], revision: string) =>
+    post(target, 'preview', changes, revision),
   /** `revision` is the previewed plan's. */
-  apply: (target: string, changes: OmpExtensionChange[], revision: string) => post(target, 'apply', changes, revision),
+  apply: (target: string, changes: OmpExtensionChange[], revision: string) =>
+    post(target, 'apply', changes, revision),
 };
 
 /** A target whose Agent is Oh My Pi: omp itself or an omp account. A project's omp has its tab on the project page. */
-export const isOmpTarget = (t: { name: string; agent?: string }) => t.name === 'omp' || t.agent === 'omp';
+export const isOmpTarget = (t: { name: string; agent?: string }) =>
+  t.name === 'omp' || t.agent === 'omp';

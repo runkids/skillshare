@@ -1,6 +1,15 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowDownToLine, Bot, CircleCheck, CircleMinus, CircleX, Puzzle, RefreshCw, X } from 'lucide-react';
+import {
+  ArrowDownToLine,
+  Bot,
+  CircleCheck,
+  CircleMinus,
+  CircleX,
+  Puzzle,
+  RefreshCw,
+  X,
+} from 'lucide-react';
 import { api, type LocalSkillInfo } from '../api/client';
 import { queryKeys } from '../lib/queryKeys';
 import { formatSize } from '../lib/format';
@@ -20,13 +29,24 @@ type Kind = 'skill' | 'agent';
 type Outcome = { item: LocalSkillInfo; outcome: 'pulled' | 'skipped' | 'failed'; error?: string };
 
 const keyOf = (i: LocalSkillInfo) => `${i.targetName}/${i.kind ?? 'skill'}/${i.name}`;
-const displayName = (i: LocalSkillInfo) => (i.kind === 'agent' ? formatAgentDisplayName(i.name) : i.name);
+const displayName = (i: LocalSkillInfo) =>
+  i.kind === 'agent' ? formatAgentDisplayName(i.name) : i.name;
 const KindMark = ({ kind }: { kind?: string }) => (
-  <span className={`ss-cat sm ${kind === 'agent' ? 'agent' : 'skill'}`}>{kind === 'agent' ? <Bot size={14} /> : <Puzzle size={14} />}</span>
+  <span className={`ss-cat sm ${kind === 'agent' ? 'agent' : 'skill'}`}>
+    {kind === 'agent' ? <Bot size={14} /> : <Puzzle size={14} />}
+  </span>
 );
 
 /** Moves skills and agents created inside targets into the source. Without `target` it scans every target. */
-export default function CollectDialog({ target, kind, onClose }: { target?: string; kind?: Kind; onClose: () => void }) {
+export default function CollectDialog({
+  target,
+  kind,
+  onClose,
+}: {
+  target?: string;
+  kind?: Kind;
+  onClose: () => void;
+}) {
   const t = useT();
   const queryClient = useQueryClient();
   const [scope, setScope] = useState<Kind | 'both'>(kind ?? 'both');
@@ -42,7 +62,10 @@ export default function CollectDialog({ target, kind, onClose }: { target?: stri
     staleTime: 0,
   });
   const source = useSkillsQuery();
-  const taken = useMemo(() => new Set((source.data?.resources ?? []).map((r) => `${r.kind}/${r.relPath}`)), [source.data]);
+  const taken = useMemo(
+    () => new Set((source.data?.resources ?? []).map((r) => `${r.kind}/${r.relPath}`)),
+    [source.data],
+  );
   const conflict = (i: LocalSkillInfo) => taken.has(`${i.kind ?? 'skill'}/${i.name}`);
 
   const groups = (scan.data?.targets ?? []).filter((g) => g.skills.length > 0);
@@ -64,12 +87,22 @@ export default function CollectDialog({ target, kind, onClose }: { target?: stri
     const outcomes: Outcome[] = [];
     try {
       // A name the source already has is only collected with force, which replaces the source copy.
-      for (const [group, force] of [[chosenItems.filter((i) => !conflict(i)), false], [chosenItems.filter(conflict), true]] as const) {
+      for (const [group, force] of [
+        [chosenItems.filter((i) => !conflict(i)), false],
+        [chosenItems.filter(conflict), true],
+      ] as const) {
         if (!group.length) continue;
-        const res = await api.collect({ skills: group.map((i) => ({ name: i.name, targetName: i.targetName, kind: i.kind })), force });
+        const res = await api.collect({
+          skills: group.map((i) => ({ name: i.name, targetName: i.targetName, kind: i.kind })),
+          force,
+        });
         for (const item of group) {
           const failure = res.failed?.[item.name];
-          outcomes.push(failure ? { item, outcome: 'failed', error: failure } : { item, outcome: res.pulled?.includes(item.name) ? 'pulled' : 'skipped' });
+          outcomes.push(
+            failure
+              ? { item, outcome: 'failed', error: failure }
+              : { item, outcome: res.pulled?.includes(item.name) ? 'pulled' : 'skipped' },
+          );
         }
       }
       setResults(outcomes);
@@ -88,23 +121,52 @@ export default function CollectDialog({ target, kind, onClose }: { target?: stri
     const count = (o: Outcome['outcome']) => results.filter((r) => r.outcome === o).length;
     const pulled = count('pulled');
     return (
-      <DialogShell open onClose={onClose} padding="none" ariaLabel={t('collectDialog.results')} className="!max-w-[560px]">
+      <DialogShell
+        open
+        onClose={onClose}
+        padding="none"
+        ariaLabel={t('collectDialog.results')}
+        className="!max-w-[560px]"
+      >
         <div className="dh">
           <div className="flex flex-col gap-1">
             <h2 className="ss-h2">{t('collectDialog.results')}</h2>
-            <p className="text-[13px] text-ink-2">{t('collectDialog.resultsSummary', { pulled, skipped: count('skipped'), failed: count('failed') })}</p>
+            <p className="text-[13px] text-ink-2">
+              {t('collectDialog.resultsSummary', {
+                pulled,
+                skipped: count('skipped'),
+                failed: count('failed'),
+              })}
+            </p>
           </div>
-          <button type="button" className="ss-ib" aria-label={t('common.close')} onClick={onClose}><X size={16} /></button>
+          <button type="button" className="ss-ib" aria-label={t('common.close')} onClick={onClose}>
+            <X size={16} />
+          </button>
         </div>
         <div className="db">
           <div className="ss-list !shadow-none">
             {results.map(({ item, outcome, error: why }) => (
               <div key={keyOf(item)} className="ss-r !min-h-11">
-                {outcome === 'pulled' ? <CircleCheck size={16} className="shrink-0 text-ok" /> : outcome === 'skipped' ? <CircleMinus size={16} className="shrink-0 text-ink-3" /> : <CircleX size={16} className="shrink-0 text-bad" />}
+                {outcome === 'pulled' ? (
+                  <CircleCheck size={16} className="shrink-0 text-ok" />
+                ) : outcome === 'skipped' ? (
+                  <CircleMinus size={16} className="shrink-0 text-ink-3" />
+                ) : (
+                  <CircleX size={16} className="shrink-0 text-bad" />
+                )}
                 <KindMark kind={item.kind} />
-                <span className="min-w-0 flex-1 truncate font-mono text-[13px] font-semibold">{displayName(item)}</span>
-                <span className={`min-w-0 truncate text-[13px] ${outcome === 'failed' ? 'text-bad' : 'text-ink-2'}`} title={why}>
-                  {outcome === 'pulled' ? t('collectDialog.pulled') : outcome === 'skipped' ? t('collectDialog.skipped') : t('collectDialog.failed', { error: why ?? '' })}
+                <span className="min-w-0 flex-1 truncate font-mono text-[13px] font-semibold">
+                  {displayName(item)}
+                </span>
+                <span
+                  className={`min-w-0 truncate text-[13px] ${outcome === 'failed' ? 'text-bad' : 'text-ink-2'}`}
+                  title={why}
+                >
+                  {outcome === 'pulled'
+                    ? t('collectDialog.pulled')
+                    : outcome === 'skipped'
+                      ? t('collectDialog.skipped')
+                      : t('collectDialog.failed', { error: why ?? '' })}
                 </span>
               </div>
             ))}
@@ -112,22 +174,46 @@ export default function CollectDialog({ target, kind, onClose }: { target?: stri
           {pulled > 0 && <p className="text-[13px] text-ink-2">{t('collectDialog.pulledHint')}</p>}
         </div>
         <div className="df">
-          <Button variant="ghost" onClick={onClose}>{t('common.close')}</Button>
-          {pulled > 0 && <Button variant="primary" onClick={() => setSyncing(true)}><RefreshCw size={15} />{t('syncPreview.syncNowButton')}</Button>}
+          <Button variant="ghost" onClick={onClose}>
+            {t('common.close')}
+          </Button>
+          {pulled > 0 && (
+            <Button variant="primary" onClick={() => setSyncing(true)}>
+              <RefreshCw size={15} />
+              {t('syncPreview.syncNowButton')}
+            </Button>
+          )}
         </div>
       </DialogShell>
     );
   }
 
-  const title = target ? t('collectDialog.titleFrom', { name: target }) : t('collectDialog.titleAll');
+  const title = target
+    ? t('collectDialog.titleFrom', { name: target })
+    : t('collectDialog.titleAll');
   return (
-    <DialogShell open onClose={onClose} padding="none" preventClose={busy} ariaLabel={title} className="!max-w-[620px]">
+    <DialogShell
+      open
+      onClose={onClose}
+      padding="none"
+      preventClose={busy}
+      ariaLabel={title}
+      className="!max-w-[620px]"
+    >
       <div className="dh">
         <div className="flex flex-col gap-1">
           <h2 className="ss-h2">{title}</h2>
           <p className="text-[13px] text-ink-2">{t(`collectDialog.subtitle.${kind ?? 'all'}`)}</p>
         </div>
-        <button type="button" className="ss-ib" aria-label={t('common.close')} onClick={onClose} disabled={busy}><X size={16} /></button>
+        <button
+          type="button"
+          className="ss-ib"
+          aria-label={t('common.close')}
+          onClick={onClose}
+          disabled={busy}
+        >
+          <X size={16} />
+        </button>
       </div>
       <div className="db">
         {!kind && (
@@ -135,22 +221,44 @@ export default function CollectDialog({ target, kind, onClose }: { target?: stri
             <span className="text-[13px] text-ink-2">{t('collectDialog.lookFor')}</span>
             <SegmentedControl
               value={scope}
-              onChange={(v) => { setScope(v); setPicked(null); }}
-              options={[{ value: 'skill', label: 'Skills' }, { value: 'agent', label: 'Agents' }, { value: 'both', label: t('collectDialog.both') }]}
+              onChange={(v) => {
+                setScope(v);
+                setPicked(null);
+              }}
+              options={[
+                { value: 'skill', label: 'Skills' },
+                { value: 'agent', label: 'Agents' },
+                { value: 'both', label: t('collectDialog.both') },
+              ]}
             />
             <span className="flex-1" />
-            <Button variant="secondary" size="sm" onClick={() => void scan.refetch()} loading={scan.isFetching} disabled={busy}>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => void scan.refetch()}
+              loading={scan.isFetching}
+              disabled={busy}
+            >
               {!scan.isFetching && <RefreshCw size={14} />}
               {t('collectDialog.scanAgain')}
             </Button>
           </div>
         )}
         {scan.isPending ? (
-          <div className="flex items-center gap-2 text-[13px] text-ink-2"><Spinner size="sm" />{t('collectDialog.scanning')}</div>
+          <div className="flex items-center gap-2 text-[13px] text-ink-2">
+            <Spinner size="sm" />
+            {t('collectDialog.scanning')}
+          </div>
         ) : scan.error ? (
-          <div className="ss-note bad"><span className="flex-1">{scan.error.message}</span></div>
+          <div className="ss-note bad">
+            <span className="flex-1">{scan.error.message}</span>
+          </div>
         ) : items.length === 0 ? (
-          <div className="ss-note inf"><span className="flex-1">{t(target ? 'collectDialog.emptyTarget' : 'collectDialog.emptyAll')}</span></div>
+          <div className="ss-note inf">
+            <span className="flex-1">
+              {t(target ? 'collectDialog.emptyTarget' : 'collectDialog.emptyAll')}
+            </span>
+          </div>
         ) : (
           <div className="ss-list max-h-[360px] overflow-y-auto !shadow-none">
             <div className="ss-lh !px-4">
@@ -162,7 +270,9 @@ export default function CollectDialog({ target, kind, onClose }: { target?: stri
                 disabled={busy}
               />
               <span className="flex-1" />
-              <span>{t('collectDialog.selected', { selected: chosenItems.length, total: items.length })}</span>
+              <span>
+                {t('collectDialog.selected', { selected: chosenItems.length, total: items.length })}
+              </span>
             </div>
             {groups.map((g) => (
               <div key={g.targetName} className="contents">
@@ -170,7 +280,9 @@ export default function CollectDialog({ target, kind, onClose }: { target?: stri
                   <div className="ss-gh">
                     <AgentIcon target={g.targetName} size={18} />
                     <span className="font-semibold">{g.targetName}</span>
-                    <span className="text-ink-3">{t('collectDialog.groupCount', { count: g.skills.length })}</span>
+                    <span className="text-ink-3">
+                      {t('collectDialog.groupCount', { count: g.skills.length })}
+                    </span>
                   </div>
                 )}
                 {g.skills.map((item) => {
@@ -179,11 +291,26 @@ export default function CollectDialog({ target, kind, onClose }: { target?: stri
                   const clash = conflict(item);
                   return (
                     <div key={key} className={`ss-r !min-h-11 ${on ? 'sel' : ''}`}>
-                      <Checkbox label={displayName(item)} hideLabel checked={on} onChange={() => toggle(key)} disabled={busy} />
+                      <Checkbox
+                        label={displayName(item)}
+                        hideLabel
+                        checked={on}
+                        onChange={() => toggle(key)}
+                        disabled={busy}
+                      />
                       <KindMark kind={item.kind} />
-                      <span className="w-[180px] shrink-0 truncate font-mono text-[13px] font-semibold" title={displayName(item)}>{displayName(item)}</span>
-                      <span className={`min-w-0 flex-1 truncate text-[13px] ${clash && on ? 'text-warn' : 'text-ink-2'}`}>
-                        {clash ? t(on ? 'collectDialog.replaces' : 'collectDialog.exists') : formatSize(item.size)}
+                      <span
+                        className="w-[180px] shrink-0 truncate font-mono text-[13px] font-semibold"
+                        title={displayName(item)}
+                      >
+                        {displayName(item)}
+                      </span>
+                      <span
+                        className={`min-w-0 flex-1 truncate text-[13px] ${clash && on ? 'text-warn' : 'text-ink-2'}`}
+                      >
+                        {clash
+                          ? t(on ? 'collectDialog.replaces' : 'collectDialog.exists')
+                          : formatSize(item.size)}
                       </span>
                     </div>
                   );
@@ -192,14 +319,24 @@ export default function CollectDialog({ target, kind, onClose }: { target?: stri
             ))}
           </div>
         )}
-        {error && <div className="ss-note bad"><span className="flex-1">{error}</span></div>}
-        {items.length > 0 && <p className="text-[13px] leading-relaxed text-ink-2">{t('collectDialog.hint')}</p>}
+        {error && (
+          <div className="ss-note bad">
+            <span className="flex-1">{error}</span>
+          </div>
+        )}
+        {items.length > 0 && (
+          <p className="text-[13px] leading-relaxed text-ink-2">{t('collectDialog.hint')}</p>
+        )}
       </div>
       <div className="df">
-        <Button variant="ghost" onClick={onClose} disabled={busy}>{t('common.cancel')}</Button>
+        <Button variant="ghost" onClick={onClose} disabled={busy}>
+          {t('common.cancel')}
+        </Button>
         <Button variant="primary" onClick={run} loading={busy} disabled={chosenItems.length === 0}>
           {!busy && <ArrowDownToLine size={15} />}
-          {t(plural(`collectDialog.run.${noun}`, chosenItems.length), { count: chosenItems.length })}
+          {t(plural(`collectDialog.run.${noun}`, chosenItems.length), {
+            count: chosenItems.length,
+          })}
         </Button>
       </div>
     </DialogShell>

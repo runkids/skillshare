@@ -14,7 +14,7 @@
   <a href="https://github.com/runkids/skillshare/releases"><img src="https://img.shields.io/github/v/release/runkids/skillshare" alt="Release"></a>
   <a href="https://github.com/runkids/skillshare/releases"><img src="https://img.shields.io/github/downloads/runkids/skillshare/total" alt="Downloads"></a>
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-blue" alt="Platform">
-  <a href="https://deepwiki.com/runkids/skillshare"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
+  <a href="https://deepwiki.com/runkids/skillshare"><img src="https://img.shields.io/badge/Ask-DeepWiki-blue" alt="Ask DeepWiki"></a>
 </p>
 
 <p align="center">
@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **最新バージョン**：v0.30.9 — フックをインポートせずに編集・削除できます。ダッシュボードのフックインポートダイアログは Agent を 1 つずつ表示し、設定ファイル内のフックをその場で変更できるようになりました。書き込み前にファイルの差分を確認でき、バックアップから元に戻せます。フックは未管理のままです。 [hooks リファレンス →](https://skillshare.runkids.cc/ja/docs/reference/commands/hooks) · [変更履歴 →](https://skillshare.runkids.cc/changelog)
+> **最新バージョン**：v0.30.11 — ダッシュボードから Pi パッケージを共有できます。Plugins ページの「共有」は、プラグインに続けて Pi が npm からインストールしたパッケージも一覧表示し、`skillshare plugin add npm:<package> --target pi -g --no-tui` のようにすべてを追加するコマンドを 1 つコピーします。「ターゲット内の hook」ダイアログでは、Antigravity と Copilot の hook もインポートせずに編集・削除できます。 [プラグインガイド →](https://skillshare.runkids.cc/ja/docs/how-to/daily-tasks/sharing-plugins) · [変更履歴 →](https://skillshare.runkids.cc/changelog)
 
 ## skillshare を使う理由
 
@@ -299,7 +299,11 @@ make check  # format + lint + test
 
 ## コントリビューター
 
-skillshare を支えてくださったすべての方に感謝します。一覧は[英語版 README](README.md#contributors) にあります。
+[GitHub でコントリビューターを見る](https://github.com/runkids/skillshare/graphs/contributors)
+
+### コミュニティへの感謝
+
+不具合の報告や改善の提案、修正の検証にご協力くださった皆さんに感謝します。 [英語版 README](README.md#community-thanks) にあります。
 
 ---
 

@@ -77,6 +77,7 @@ export extern "skillshare project" [
     --skills-exclude: string
     --agents-include: string
     --agents-exclude: string
+    --scan: path
     --machine-local
     --shared
     --sync
@@ -153,6 +154,8 @@ export extern "skillshare hooks" [
     --sync
     --replace
     --keep-files # remove: leave Agent entries as they are
+    --trust # sync: record Codex trust
+    --yes(-y) # sync --trust: record trust without asking
     --dry-run(-n)
     --json
     --project(-p)

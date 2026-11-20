@@ -10,7 +10,7 @@ import (
 	ssync "skillshare/internal/sync"
 )
 
-var projectValueFlags = []string{"--target", "--name", "--skills-mode", "--skills-naming", "--skills-include", "--skills-exclude", "--agents-mode", "--agents-include", "--agents-exclude"}
+var projectValueFlags = []string{"--target", "--name", "--skills-mode", "--skills-naming", "--skills-include", "--skills-exclude", "--agents-mode", "--agents-include", "--agents-exclude", "--scan"}
 
 type projectOptions struct {
 	action, token           string
@@ -167,6 +167,9 @@ func parseProjectArgs(args []string) (projectOptions, error) {
 	if want == 2 {
 		o.token = operands[1]
 	}
+	if _, scan := o.values["--scan"]; scan && o.action != "add" {
+		return o, fmt.Errorf("--scan requires project add")
+	}
 	if o.action != "add" && o.action != "edit" && (len(o.values) > 0 || len(o.toggles) > 0 || o.sync) {
 		return o, fmt.Errorf("settings and --sync require project add or edit")
 	}
@@ -210,10 +213,10 @@ func parseProjectArgs(args []string) (projectOptions, error) {
 func printProjectHelp() {
 	printHelp("skillshare project [list|show|add|edit|sync|remove|localize|share] [project] [options]", "Manage the project folders the global config syncs to. A project is saved in config.yaml unless it is kept on this machine only. No project config is changed.",
 		helpGroup{title: "Commands", rows: []helpRow{
-			{"list", "List registered projects (default)"}, {"show <project>", "Show one project by name or root"}, {"add <root> --target T", "Add an existing project folder"}, {"edit <project>", "Change only the specified settings, where they are saved"}, {"localize <project>", "Keep a copy on this machine only; config.yaml stays"}, {"share <project>", "Move a machine-only project into config.yaml"}, {"sync <project>", "Sync skills and agents to this project"}, {"remove <project>", "Detach skills and remove the project; agents stay"},
+			{"list", "List registered projects (default)"}, {"show <project>", "Show one project by name or root"}, {"add <root> --target T", "Add an existing project folder"}, {"add <root> --scan DIR --target T", "Also add each Git checkout below DIR, with the same settings"}, {"edit <project>", "Change only the specified settings, where they are saved"}, {"localize <project>", "Keep a copy on this machine only; config.yaml stays"}, {"share <project>", "Move a machine-only project into config.yaml"}, {"sync <project>", "Sync skills and agents to this project"}, {"remove <project>", "Detach skills and remove the project; agents stay"},
 		}},
 		helpGroup{title: "Options", rows: []helpRow{
-			{"--target T", "Replace targets; repeat or use a comma list"}, {"--name N", "Set name; --name= restores the basename"}, {"--skills, --no-skills", "Turn skills on (add default) or off"}, {"--agents, --no-agents", "Turn agents on or off (add default)"}, {"--skills-mode, --agents-mode MODE", "merge, symlink or copy; empty inherits"}, {"--skills-naming NAMING", "flat, standard or prefixed; empty inherits"}, {"--skills-include, --skills-exclude P", "Replace filter list; repeat; empty clears"}, {"--agents-include, --agents-exclude P", "Replace filter list; repeat; empty clears"}, {"--machine-local", "Add: save on this machine only, not in config.yaml"}, {"--shared", "Add: save in config.yaml despite projects_storage; remove: also remove config.yaml's copy"}, {"--sync", "Sync after add/edit; force is off"}, {"-n, --dry-run", "Preview without writing or prompting"}, {"--yes", "Skip the remove or share confirmation (remove --json requires it)"}, {"--json", "Output JSON"}, {"-g, --global", "Use the global config (always)"},
+			{"--target T", "Replace targets; repeat or use a comma list"}, {"--name N", "Set name; --name= restores the basename"}, {"--skills, --no-skills", "Turn skills on (add default) or off"}, {"--agents, --no-agents", "Turn agents on or off (add default)"}, {"--skills-mode, --agents-mode MODE", "merge, symlink or copy; empty inherits"}, {"--skills-naming NAMING", "flat, standard or prefixed; empty inherits"}, {"--skills-include, --skills-exclude P", "Replace filter list; repeat; empty clears"}, {"--agents-include, --agents-exclude P", "Replace filter list; repeat; empty clears"}, {"--machine-local", "Add: save on this machine only, not in config.yaml"}, {"--shared", "Add: save in config.yaml despite projects_storage; remove: also remove config.yaml's copy"}, {"--scan DIR", "Add: also add Git checkouts below this folder of root; repeat; registered ones stay as they are"}, {"--sync", "Sync after add/edit; force is off"}, {"-n, --dry-run", "Preview without writing or prompting"}, {"--yes", "Skip the remove or share confirmation (remove --json requires it)"}, {"--json", "Output JSON"}, {"-g, --global", "Use the global config (always)"},
 		}},
 	)
 }

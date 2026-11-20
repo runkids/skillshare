@@ -11,7 +11,9 @@ function AgentStack({ targets, label }: { targets: string[]; label: (target: str
     <span className="ss-stack shrink-0">
       {targets.map((target) => (
         <Tooltip key={target} side="top" content={label(target)}>
-          <span className="ss-at" role="img" tabIndex={0} aria-label={label(target)}>{target ? <AgentIcon target={target} size={13} /> : <Package size={13} />}</span>
+          <span className="ss-at" role="img" tabIndex={0} aria-label={label(target)}>
+            {target ? <AgentIcon target={target} size={13} /> : <Package size={13} />}
+          </span>
         </Tooltip>
       ))}
     </span>
@@ -19,11 +21,30 @@ function AgentStack({ targets, label }: { targets: string[]; label: (target: str
 }
 
 /** One plugin and the Agents a change or outcome applies to, with a status on the right and an optional note below. */
-export function PluginRunLine({ name, targets, label, right, note, className = '' }: { name: string; targets: string[]; label: (target: string) => string; right: ReactNode; note?: string; className?: string }) {
+export function PluginRunLine({
+  name,
+  targets,
+  label,
+  right,
+  note,
+  className = '',
+}: {
+  name: string;
+  targets: string[];
+  label: (target: string) => string;
+  right: ReactNode;
+  note?: string;
+  className?: string;
+}) {
   return (
     <div className={`flex flex-col gap-1 ${className}`}>
       <div className="flex min-h-7 items-center gap-2">
-        <span className="min-w-0 flex-1 truncate font-mono text-[12.5px] font-semibold" title={name}>{name}</span>
+        <span
+          className="min-w-0 flex-1 truncate font-mono text-[12.5px] font-semibold"
+          title={name}
+        >
+          {name}
+        </span>
         <AgentStack targets={targets} label={label} />
         {right}
       </div>
@@ -38,22 +59,37 @@ export function PluginRunLine({ name, targets, label, right, note, className = '
  * Its rows carry no logos: which Agents a plugin left alone tells nothing, and they crowd out the rows that need a look.
  * `expanded` is for when they are the whole answer: one row per Agent, with its logo, and nothing to fold.
  */
-export function UnchangedRuns({ runs, isPi, versions, expanded }: { runs: PluginRun[]; isPi: (name: string) => boolean; versions?: boolean; expanded?: { label: (target: string) => string } }) {
+export function UnchangedRuns({
+  runs,
+  isPi,
+  versions,
+  expanded,
+}: {
+  runs: PluginRun[];
+  isPi: (name: string) => boolean;
+  versions?: boolean;
+  expanded?: { label: (target: string) => string };
+}) {
   const t = useT();
   const [open, setOpen] = useState(false);
   if (runs.length === 0) return null;
-  if (expanded) return (
-    <div className="ss-list">
-      {runs.map((r) => (
-        <div key={`${r.name}:${r.target}`} className="ss-r min-h-10 py-1.5">
-          <span className="ss-at"><AgentIcon target={r.target} size={17} /></span>
-          <span className="nm font-mono">{r.name}</span>
-          <span className="text-[13px] text-ink-2">{expanded.label(r.target)}</span>
-          {versions && r.version && <span className="ml-auto font-mono text-xs text-ink-3">{r.version}</span>}
-        </div>
-      ))}
-    </div>
-  );
+  if (expanded)
+    return (
+      <div className="ss-list">
+        {runs.map((r) => (
+          <div key={`${r.name}:${r.target}`} className="ss-r min-h-10 py-1.5">
+            <span className="ss-at">
+              <AgentIcon target={r.target} size={17} />
+            </span>
+            <span className="nm font-mono">{r.name}</span>
+            <span className="text-[13px] text-ink-2">{expanded.label(r.target)}</span>
+            {versions && r.version && (
+              <span className="ml-auto font-mono text-xs text-ink-3">{r.version}</span>
+            )}
+          </div>
+        ))}
+      </div>
+    );
   const groups = byPlugin(runs, (r) => r.version ?? '');
   const parts = [
     { key: 'plugins', title: t('plugins.title'), rows: groups.filter((g) => !isPi(g.name)) },
@@ -61,21 +97,39 @@ export function UnchangedRuns({ runs, isPi, versions, expanded }: { runs: Plugin
   ].filter((part) => part.rows.length > 0);
   return (
     <div className="flex flex-col">
-      <button type="button" aria-expanded={open} className="flex min-h-8 items-center gap-1.5 text-left text-xs font-semibold text-ink-3" onClick={() => setOpen(!open)}>
-        <span>{t('plugins.outcome.unchanged')} · {runs.length}</span>
+      <button
+        type="button"
+        aria-expanded={open}
+        className="flex min-h-8 items-center gap-1.5 text-left text-xs font-semibold text-ink-3"
+        onClick={() => setOpen(!open)}
+      >
+        <span>
+          {t('plugins.outcome.unchanged')} · {runs.length}
+        </span>
         <ChevronDown size={14} className={`ml-auto shrink-0 ${open ? 'rotate-180' : ''}`} />
       </button>
-      {open && parts.map((part) => (
-        <div key={part.key} className="flex flex-col pt-2">
-          <div className="pb-1 text-[11px] font-semibold text-ink-3">{part.title}</div>
-          {part.rows.map((g) => (
-            <div key={`${g.name}:${g.version ?? ''}`} className="flex min-h-9 items-center gap-2 [border-top:var(--sep)]">
-              <span className="min-w-0 flex-1 truncate font-mono text-[12.5px] font-semibold" title={g.name}>{g.name}</span>
-              {versions && g.version && <span className="shrink-0 font-mono text-xs text-ink-3">{g.version}</span>}
-            </div>
-          ))}
-        </div>
-      ))}
+      {open &&
+        parts.map((part) => (
+          <div key={part.key} className="flex flex-col pt-2">
+            <div className="pb-1 text-[11px] font-semibold text-ink-3">{part.title}</div>
+            {part.rows.map((g) => (
+              <div
+                key={`${g.name}:${g.version ?? ''}`}
+                className="flex min-h-9 items-center gap-2 [border-top:var(--sep)]"
+              >
+                <span
+                  className="min-w-0 flex-1 truncate font-mono text-[12.5px] font-semibold"
+                  title={g.name}
+                >
+                  {g.name}
+                </span>
+                {versions && g.version && (
+                  <span className="shrink-0 font-mono text-xs text-ink-3">{g.version}</span>
+                )}
+              </div>
+            ))}
+          </div>
+        ))}
     </div>
   );
 }

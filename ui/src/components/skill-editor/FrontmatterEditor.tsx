@@ -1,6 +1,11 @@
+import { scalarText } from '../../lib/scalarText';
 import { useEffect, useState, type ReactNode } from 'react';
 import { ChevronDown, Plus, X } from 'lucide-react';
-import { serializeFrontmatter, type Frontmatter, type FrontmatterValue } from '../../lib/frontmatter';
+import {
+  serializeFrontmatter,
+  type Frontmatter,
+  type FrontmatterValue,
+} from '../../lib/frontmatter';
 import { useT } from '../../i18n';
 import Button from '../Button';
 import CodeView from '../CodeView';
@@ -27,12 +32,29 @@ const FIELDS: FieldDef[] = [
   { key: 'when_to_use', group: 'identity', type: 'multiline', hint: 'whenToUse' },
   { key: 'argument-hint', group: 'invocation', type: 'text', hint: 'argumentHint' },
   { key: 'paths', group: 'invocation', type: 'list', hint: 'paths' },
-  { key: 'disable-model-invocation', group: 'invocation', type: 'bool', hint: 'disableModelInvocation' },
+  {
+    key: 'disable-model-invocation',
+    group: 'invocation',
+    type: 'bool',
+    hint: 'disableModelInvocation',
+  },
   { key: 'user-invocable', group: 'invocation', type: 'bool', hint: 'userInvocable' },
   { key: 'allowed-tools', group: 'execution', type: 'list', hint: 'allowedTools' },
   { key: 'context', group: 'execution', type: 'enum', options: ['', 'fork'], hint: 'context' },
-  { key: 'agent', group: 'execution', type: 'text', hint: 'agent', showWhen: { key: 'context', value: 'fork' } },
-  { key: 'shell', group: 'execution', type: 'enum', options: ['', 'bash', 'powershell'], hint: 'shell' },
+  {
+    key: 'agent',
+    group: 'execution',
+    type: 'text',
+    hint: 'agent',
+    showWhen: { key: 'context', value: 'fork' },
+  },
+  {
+    key: 'shell',
+    group: 'execution',
+    type: 'enum',
+    options: ['', 'bash', 'powershell'],
+    hint: 'shell',
+  },
 ];
 const KNOWN = new Set(FIELDS.map((f) => f.key));
 const GROUPS: Group[] = ['identity', 'invocation', 'execution'];
@@ -40,7 +62,9 @@ const LIST_METADATA = new Set(['targets']);
 
 function readMetadata(fm: Frontmatter): Record<string, FrontmatterValue> {
   const raw = fm.metadata;
-  return raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, FrontmatterValue>) : {};
+  return raw && typeof raw === 'object' && !Array.isArray(raw)
+    ? (raw as Record<string, FrontmatterValue>)
+    : {};
 }
 
 function withMetadata(fm: Frontmatter, meta: Record<string, FrontmatterValue>): Frontmatter {
@@ -69,7 +93,8 @@ function splitList(text: string): string[] {
   return out.map((s) => s.trim()).filter(Boolean);
 }
 
-const listText = (v: FrontmatterValue | undefined) => (Array.isArray(v) ? v.join(', ') : v == null ? '' : String(v));
+const listText = (v: FrontmatterValue | undefined) =>
+  Array.isArray(v) ? v.map(scalarText).filter(Boolean).join(', ') : scalarText(v);
 
 interface Props {
   frontmatter: Frontmatter;
@@ -81,7 +106,9 @@ interface Props {
 export default function FrontmatterEditor({ frontmatter, onChange, yaml, onYaml }: Props) {
   const t = useT();
   // Rows stay on screen while their value is cleared; only the remove button hides them
-  const [shown, setShown] = useState(() => new Set(Object.keys(frontmatter).filter((k) => KNOWN.has(k))));
+  const [shown, setShown] = useState(
+    () => new Set(Object.keys(frontmatter).filter((k) => KNOWN.has(k))),
+  );
   const [addingMeta, setAddingMeta] = useState(false);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const meta = readMetadata(frontmatter);
@@ -89,7 +116,8 @@ export default function FrontmatterEditor({ frontmatter, onChange, yaml, onYaml 
 
   const set = (key: string, value: FrontmatterValue) => {
     const next = { ...frontmatter };
-    if (value == null || value === '' || (Array.isArray(value) && value.length === 0)) delete next[key];
+    if (value == null || value === '' || (Array.isArray(value) && value.length === 0))
+      delete next[key];
     else next[key] = value;
     onChange(next);
   };
@@ -108,16 +136,27 @@ export default function FrontmatterEditor({ frontmatter, onChange, yaml, onYaml 
     set(key, null);
   };
 
-  const visible = (f: FieldDef) => shown.has(f.key) && (!f.showWhen || frontmatter[f.showWhen.key] === f.showWhen.value);
-  const unset = FIELDS.filter((f) => !shown.has(f.key) && (!f.showWhen || frontmatter[f.showWhen.key] === f.showWhen.value));
-  const budget = String(frontmatter.description ?? '').length + String(frontmatter.when_to_use ?? '').length;
+  const visible = (f: FieldDef) =>
+    shown.has(f.key) && (!f.showWhen || frontmatter[f.showWhen.key] === f.showWhen.value);
+  const unset = FIELDS.filter(
+    (f) => !shown.has(f.key) && (!f.showWhen || frontmatter[f.showWhen.key] === f.showWhen.value),
+  );
+  const budget =
+    scalarText(frontmatter.description).length + scalarText(frontmatter.when_to_use).length;
 
   const control = (f: FieldDef) => {
     const value = frontmatter[f.key];
     switch (f.type) {
       case 'bool':
         return (
-          <button type="button" role="switch" aria-checked={value === true} aria-label={f.key} className={`ss-sw mt-[7px] ${value === true ? 'on' : ''}`} onClick={() => set(f.key, value === true ? false : true)}>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={value === true}
+            aria-label={f.key}
+            className={`ss-sw mt-[7px] ${value === true ? 'on' : ''}`}
+            onClick={() => set(f.key, value === true ? false : true)}
+          >
             <i />
           </button>
         );
@@ -125,9 +164,12 @@ export default function FrontmatterEditor({ frontmatter, onChange, yaml, onYaml 
         return (
           <SegmentedControl
             className="w-fit"
-            value={String(value ?? '')}
+            value={scalarText(value)}
             onChange={(v) => set(f.key, v)}
-            options={f.options!.map((o) => ({ value: o, label: o || t('frontmatterEditor.default') }))}
+            options={f.options!.map((o) => ({
+              value: o,
+              label: o || t('frontmatterEditor.default'),
+            }))}
           />
         );
       case 'list':
@@ -137,12 +179,19 @@ export default function FrontmatterEditor({ frontmatter, onChange, yaml, onYaml 
           <textarea
             aria-label={f.key}
             className="ss-inp area max-h-[420px] w-full resize-y outline-none !min-h-[140px] [field-sizing:content]"
-            value={String(value ?? '')}
+            value={scalarText(value)}
             onChange={(e) => set(f.key, e.target.value)}
           />
         );
       default:
-        return <input aria-label={f.key} className="ss-inp w-full font-mono outline-none" value={String(value ?? '')} onChange={(e) => set(f.key, e.target.value)} />;
+        return (
+          <input
+            aria-label={f.key}
+            className="ss-inp w-full font-mono outline-none"
+            value={scalarText(value)}
+            onChange={(e) => set(f.key, e.target.value)}
+          />
+        );
     }
   };
 
@@ -169,7 +218,9 @@ export default function FrontmatterEditor({ frontmatter, onChange, yaml, onYaml 
         return (
           <FieldGroup key={g} label={t(`frontmatterEditor.group.${g}`)}>
             {fields.map((f) => (
-              <Row key={f.key} name={f.key} hint={hintFor(f)} onRemove={() => hide(f.key)}>{control(f)}</Row>
+              <Row key={f.key} name={f.key} hint={hintFor(f)} onRemove={() => hide(f.key)}>
+                {control(f)}
+              </Row>
             ))}
           </FieldGroup>
         );
@@ -179,20 +230,45 @@ export default function FrontmatterEditor({ frontmatter, onChange, yaml, onYaml 
           {otherRoot.map((key) => (
             <Row key={key} name={key} onRemove={() => set(key, null)}>
               {/* Clearing the value keeps the key, so the row does not vanish while typing */}
-              {frontmatter[key] && typeof frontmatter[key] === 'object' && !Array.isArray(frontmatter[key])
-                ? <CodeView content={JSON.stringify(frontmatter[key], null, 2)} lang="json" />
-                : Array.isArray(frontmatter[key])
-                ? <ListInput value={frontmatter[key]} onChange={(v) => onChange({ ...frontmatter, [key]: v })} label={key} />
-                : <input aria-label={key} className="ss-inp w-full font-mono outline-none" value={listText(frontmatter[key])} onChange={(e) => onChange({ ...frontmatter, [key]: e.target.value })} />}
+              {frontmatter[key] &&
+              typeof frontmatter[key] === 'object' &&
+              !Array.isArray(frontmatter[key]) ? (
+                <CodeView content={JSON.stringify(frontmatter[key], null, 2)} lang="json" />
+              ) : Array.isArray(frontmatter[key]) ? (
+                <ListInput
+                  value={frontmatter[key]}
+                  onChange={(v) => onChange({ ...frontmatter, [key]: v })}
+                  label={key}
+                />
+              ) : (
+                <input
+                  aria-label={key}
+                  className="ss-inp w-full font-mono outline-none"
+                  value={listText(frontmatter[key])}
+                  onChange={(e) => onChange({ ...frontmatter, [key]: e.target.value })}
+                />
+              )}
             </Row>
           ))}
           {Object.keys(meta).map((key) => (
-            <Row key={key} name={`metadata.${key}`} hint={key === 'targets' ? t('frontmatterEditor.field.targets.hint') : undefined} onRemove={() => setMeta(key, undefined)}>
-              {meta[key] && typeof meta[key] === 'object' && !Array.isArray(meta[key])
-                ? <CodeView content={JSON.stringify(meta[key], null, 2)} lang="json" />
-                : LIST_METADATA.has(key) || Array.isArray(meta[key])
-                ? <ListInput value={meta[key]} onChange={(v) => setMeta(key, v)} label={key} />
-                : <input aria-label={key} className="ss-inp w-full font-mono outline-none" value={listText(meta[key])} onChange={(e) => setMeta(key, e.target.value)} />}
+            <Row
+              key={key}
+              name={`metadata.${key}`}
+              hint={key === 'targets' ? t('frontmatterEditor.field.targets.hint') : undefined}
+              onRemove={() => setMeta(key, undefined)}
+            >
+              {meta[key] && typeof meta[key] === 'object' && !Array.isArray(meta[key]) ? (
+                <CodeView content={JSON.stringify(meta[key], null, 2)} lang="json" />
+              ) : LIST_METADATA.has(key) || Array.isArray(meta[key]) ? (
+                <ListInput value={meta[key]} onChange={(v) => setMeta(key, v)} label={key} />
+              ) : (
+                <input
+                  aria-label={key}
+                  className="ss-inp w-full font-mono outline-none"
+                  value={listText(meta[key])}
+                  onChange={(e) => setMeta(key, e.target.value)}
+                />
+              )}
             </Row>
           ))}
           {addingMeta && (
@@ -207,10 +283,20 @@ export default function FrontmatterEditor({ frontmatter, onChange, yaml, onYaml 
                   if (key && !(key in meta)) setMeta(key, LIST_METADATA.has(key) ? [] : '');
                   setAddingMeta(false);
                 }}
-                onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') e.currentTarget.blur();
+                }}
               />
-              <span className="pt-[9px] text-xs text-ink-3">{t('frontmatterEditor.metadataKeyHint')}</span>
-              <button type="button" className="ss-ib" aria-label={t('frontmatterEditor.removeField')} onMouseDown={(e) => e.preventDefault()} onClick={() => setAddingMeta(false)}>
+              <span className="pt-[9px] text-xs text-ink-3">
+                {t('frontmatterEditor.metadataKeyHint')}
+              </span>
+              <button
+                type="button"
+                className="ss-ib"
+                aria-label={t('frontmatterEditor.removeField')}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => setAddingMeta(false)}
+              >
                 <X size={15} />
               </button>
             </div>
@@ -218,23 +304,40 @@ export default function FrontmatterEditor({ frontmatter, onChange, yaml, onYaml 
         </FieldGroup>
       )}
       <div className="flex min-w-0 items-center gap-3">
-        <Button variant="secondary" size="sm" onClick={(e) => {
-          const r = e.currentTarget.getBoundingClientRect();
-          setMenu({ x: r.left, y: r.bottom + 4 });
-        }}>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={(e) => {
+            const r = e.currentTarget.getBoundingClientRect();
+            setMenu({ x: r.left, y: r.bottom + 4 });
+          }}
+        >
           <Plus size={14} />
           {t('frontmatterEditor.add')}
           <ChevronDown size={14} />
         </Button>
-        {unset.length > 0 && <span className="truncate text-xs text-ink-3">{unset.map((f) => f.key).join(' · ')}</span>}
+        {unset.length > 0 && (
+          <span className="truncate text-xs text-ink-3">{unset.map((f) => f.key).join(' · ')}</span>
+        )}
       </div>
       <SkillContextMenu
         open={!!menu}
         anchorPoint={menu ?? undefined}
         onClose={() => setMenu(null)}
         items={[
-          ...unset.map((f) => ({ key: f.key, label: f.key, mono: true, description: t(`frontmatterEditor.field.${f.hint}.hint`), onSelect: () => setShown((prev) => new Set(prev).add(f.key)) })),
-          { key: '__metadata', label: t('frontmatterEditor.customMetadata'), icon: <Plus size={14} />, onSelect: () => setAddingMeta(true) },
+          ...unset.map((f) => ({
+            key: f.key,
+            label: f.key,
+            mono: true,
+            description: t(`frontmatterEditor.field.${f.hint}.hint`),
+            onSelect: () => setShown((prev) => new Set(prev).add(f.key)),
+          })),
+          {
+            key: '__metadata',
+            label: t('frontmatterEditor.customMetadata'),
+            icon: <Plus size={14} />,
+            onSelect: () => setAddingMeta(true),
+          },
         ]}
       />
     </div>
@@ -249,7 +352,10 @@ function Header({ yaml, onYaml }: { yaml: boolean; onYaml: (yaml: boolean) => vo
       <SegmentedControl
         value={yaml ? 'yaml' : 'fields'}
         onChange={(v) => onYaml(v === 'yaml')}
-        options={[{ value: 'fields', label: t('frontmatterEditor.viewFields') }, { value: 'yaml', label: t('frontmatterEditor.viewYaml') }]}
+        options={[
+          { value: 'fields', label: t('frontmatterEditor.viewFields') },
+          { value: 'yaml', label: t('frontmatterEditor.viewYaml') },
+        ]}
       />
     </div>
   );
@@ -267,7 +373,17 @@ function FieldGroup({ label, children }: { label: string; children: ReactNode })
   );
 }
 
-function Row({ name, hint, onRemove, children }: { name: string; hint?: string; onRemove: () => void; children: ReactNode }) {
+function Row({
+  name,
+  hint,
+  onRemove,
+  children,
+}: {
+  name: string;
+  hint?: string;
+  onRemove: () => void;
+  children: ReactNode;
+}) {
   const t = useT();
   return (
     <div className="grid grid-cols-[150px_minmax(0,1fr)_30px] items-start gap-3">
@@ -276,7 +392,12 @@ function Row({ name, hint, onRemove, children }: { name: string; hint?: string; 
         {children}
         {hint && <span className="hp">{hint}</span>}
       </div>
-      <button type="button" className="ss-ib" aria-label={t('frontmatterEditor.removeField')} onClick={onRemove}>
+      <button
+        type="button"
+        className="ss-ib"
+        aria-label={t('frontmatterEditor.removeField')}
+        onClick={onRemove}
+      >
         <X size={15} />
       </button>
     </div>
@@ -284,7 +405,15 @@ function Row({ name, hint, onRemove, children }: { name: string; hint?: string; 
 }
 
 /** Keeps the typed text while focused so a trailing comma survives until the next entry. */
-function ListInput({ value, onChange, label }: { value: FrontmatterValue | undefined; onChange: (v: string[]) => void; label: string }) {
+function ListInput({
+  value,
+  onChange,
+  label,
+}: {
+  value: FrontmatterValue | undefined;
+  onChange: (v: string[]) => void;
+  label: string;
+}) {
   const [text, setText] = useState(() => listText(value));
   const [focused, setFocused] = useState(false);
   useEffect(() => {

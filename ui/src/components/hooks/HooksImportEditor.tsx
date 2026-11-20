@@ -31,20 +31,39 @@ interface Props {
 }
 
 /** Edits a hook in place of the list. Nothing is written here: the result becomes a pending change of the import dialog. */
-export default function HooksImportEditor({ agent, label, title, path, footerHost, events, original, onCancel, onDone, onRemove }: Props) {
+export default function HooksImportEditor({
+  agent,
+  label,
+  title,
+  path,
+  footerHost,
+  events,
+  original,
+  onCancel,
+  onDone,
+  onRemove,
+}: Props) {
   const t = useT();
-  const { data: catalog } = useQuery({ queryKey: queryKeys.hooksCatalog, queryFn: () => hooksApi.catalog(), staleTime: Infinity });
+  const { data: catalog } = useQuery({
+    queryKey: queryKeys.hooksCatalog,
+    queryFn: () => hooksApi.catalog(),
+    staleTime: Infinity,
+  });
   const [draft, setDraft] = useState(() => bindingToDraft(agent, { events }));
   const [tabsHost, setTabsHost] = useState<HTMLElement | null>(null);
   const check = checkBinding(agent, draft);
   const done = () => {
     const edited = draftToBinding(agent, draft).events ?? {};
     // The editor may write the same hook in another shape, so compare against the original taken through it too.
-    const untouched = draftToBinding(agent, bindingToDraft(agent, { events: original })).events ?? {};
+    const untouched =
+      draftToBinding(agent, bindingToDraft(agent, { events: original })).events ?? {};
     onDone(sameEvents(edited, untouched) || sameEvents(edited, original) ? null : edited);
   };
   return (
-    <section aria-label={title} className="ss-list flex min-h-0 min-w-0 flex-1 animate-[ss-fade-in_.15s_ease-out] flex-col">
+    <section
+      aria-label={title}
+      className="ss-list flex min-h-0 min-w-0 flex-1 animate-[ss-fade-in_.15s_ease-out] flex-col"
+    >
       <div className="flex h-[50px] shrink-0 items-center gap-2 pl-2.5 pr-3">
         <IconButton icon={<ArrowLeft size={16} />} label={t('common.back')} onClick={onCancel} />
         <span className="min-w-0 flex-1 truncate">
@@ -54,17 +73,37 @@ export default function HooksImportEditor({ agent, label, title, path, footerHos
         <span ref={setTabsHost} className="shrink-0" />
       </div>
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-        <HookBindingEditor cards tabsHost={tabsHost} agent={agent} name={title} draft={draft} check={check} onChange={setDraft} disabled={false} catalog={catalog} />
+        <HookBindingEditor
+          cards
+          tabsHost={tabsHost}
+          agent={agent}
+          name={title}
+          draft={draft}
+          check={check}
+          onChange={setDraft}
+          disabled={false}
+          catalog={catalog}
+        />
       </div>
-      {footerHost && createPortal(
-        <>
-          <Button variant="ghost" className="!text-bad" onClick={onRemove}><Trash2 size={15} />{t('hooks.importRemoveHook')}</Button>
-          <span className="min-w-0 flex-1 truncate text-[13px] text-ink-3">{t('hooks.importEditNote', { path: path ? shortenHome(path) : label })}</span>
-          <Button variant="ghost" onClick={onCancel}>{t('common.cancel')}</Button>
-          <Button variant="primary" disabled={bindingInvalid(check)} onClick={done}>{t('hooks.importDone')}</Button>
-        </>,
-        footerHost,
-      )}
+      {footerHost &&
+        createPortal(
+          <>
+            <Button variant="ghost" className="!text-bad" onClick={onRemove}>
+              <Trash2 size={15} />
+              {t('hooks.importRemoveHook')}
+            </Button>
+            <span className="min-w-0 flex-1 truncate text-[13px] text-ink-3">
+              {t('hooks.importEditNote', { path: path ? shortenHome(path) : label })}
+            </span>
+            <Button variant="ghost" onClick={onCancel}>
+              {t('common.cancel')}
+            </Button>
+            <Button variant="primary" disabled={bindingInvalid(check)} onClick={done}>
+              {t('hooks.importDone')}
+            </Button>
+          </>,
+          footerHost,
+        )}
     </section>
   );
 }

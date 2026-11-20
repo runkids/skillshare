@@ -35,9 +35,7 @@ function validateEnum(
 }
 
 /** Pure validation function (testable without React) */
-export function validateYaml(
-  source: string,
-): ValidationError[] {
+export function validateYaml(source: string): ValidationError[] {
   if (!source.trim()) return [];
 
   const errors: ValidationError[] = [];
@@ -60,7 +58,14 @@ export function validateYaml(
   // Validate top-level mode (and legacy sync_mode alias)
   validateEnum(errors, sourceLines, parsed.mode, 'mode', VALID_SYNC_MODES, 'mode');
   validateEnum(errors, sourceLines, parsed.sync_mode, 'sync_mode', VALID_SYNC_MODES, 'sync_mode');
-  validateEnum(errors, sourceLines, parsed.target_naming, 'target_naming', VALID_TARGET_NAMINGS, 'target_naming');
+  validateEnum(
+    errors,
+    sourceLines,
+    parsed.target_naming,
+    'target_naming',
+    VALID_TARGET_NAMINGS,
+    'target_naming',
+  );
   validateEnum(errors, sourceLines, parsed.git_root, 'git_root', VALID_GIT_ROOTS, 'git_root');
 
   // Validate per-target mode
@@ -70,24 +75,72 @@ export function validateYaml(
         if (!entry || typeof entry !== 'object') continue;
         const targetName = typeof entry.name === 'string' ? entry.name : 'target';
         if ('mode' in entry) {
-          validateEnum(errors, sourceLines, (entry as Record<string, unknown>).mode, 'mode', VALID_SYNC_MODES, `mode for target "${targetName}"`, targetName);
+          validateEnum(
+            errors,
+            sourceLines,
+            (entry as Record<string, unknown>).mode,
+            'mode',
+            VALID_SYNC_MODES,
+            `mode for target "${targetName}"`,
+            targetName,
+          );
         }
         const skills = (entry as Record<string, unknown>).skills;
         if (skills && typeof skills === 'object') {
-          validateEnum(errors, sourceLines, (skills as Record<string, unknown>).mode, 'mode', VALID_SYNC_MODES, `skills.mode for target "${targetName}"`, targetName);
-          validateEnum(errors, sourceLines, (skills as Record<string, unknown>).target_naming, 'target_naming', VALID_TARGET_NAMINGS, `target_naming for target "${targetName}"`, targetName);
+          validateEnum(
+            errors,
+            sourceLines,
+            (skills as Record<string, unknown>).mode,
+            'mode',
+            VALID_SYNC_MODES,
+            `skills.mode for target "${targetName}"`,
+            targetName,
+          );
+          validateEnum(
+            errors,
+            sourceLines,
+            (skills as Record<string, unknown>).target_naming,
+            'target_naming',
+            VALID_TARGET_NAMINGS,
+            `target_naming for target "${targetName}"`,
+            targetName,
+          );
         }
       }
     } else {
       for (const [name, cfg] of Object.entries(parsed.targets)) {
         if (!cfg || typeof cfg !== 'object') continue;
         if ('mode' in cfg) {
-          validateEnum(errors, sourceLines, (cfg as Record<string, unknown>).mode, 'mode', VALID_SYNC_MODES, `mode for target "${name}"`, name);
+          validateEnum(
+            errors,
+            sourceLines,
+            (cfg as Record<string, unknown>).mode,
+            'mode',
+            VALID_SYNC_MODES,
+            `mode for target "${name}"`,
+            name,
+          );
         }
         const skills = (cfg as Record<string, unknown>).skills;
         if (skills && typeof skills === 'object') {
-          validateEnum(errors, sourceLines, (skills as Record<string, unknown>).mode, 'mode', VALID_SYNC_MODES, `skills.mode for target "${name}"`, name);
-          validateEnum(errors, sourceLines, (skills as Record<string, unknown>).target_naming, 'target_naming', VALID_TARGET_NAMINGS, `target_naming for target "${name}"`, name);
+          validateEnum(
+            errors,
+            sourceLines,
+            (skills as Record<string, unknown>).mode,
+            'mode',
+            VALID_SYNC_MODES,
+            `skills.mode for target "${name}"`,
+            name,
+          );
+          validateEnum(
+            errors,
+            sourceLines,
+            (skills as Record<string, unknown>).target_naming,
+            'target_naming',
+            VALID_TARGET_NAMINGS,
+            `target_naming for target "${name}"`,
+            name,
+          );
         }
       }
     }
@@ -111,9 +164,33 @@ export function validateYaml(
 
   // Validate audit config
   if (parsed.audit && typeof parsed.audit === 'object') {
-    validateEnum(errors, sourceLines, parsed.audit.block_threshold, 'block_threshold', VALID_BLOCK_THRESHOLDS, 'block_threshold', 'audit');
-    validateEnum(errors, sourceLines, parsed.audit.profile, 'profile', VALID_AUDIT_PROFILES, 'audit profile', 'audit');
-    validateEnum(errors, sourceLines, parsed.audit.dedupe_mode, 'dedupe_mode', VALID_DEDUPE_MODES, 'dedupe_mode', 'audit');
+    validateEnum(
+      errors,
+      sourceLines,
+      parsed.audit.block_threshold,
+      'block_threshold',
+      VALID_BLOCK_THRESHOLDS,
+      'block_threshold',
+      'audit',
+    );
+    validateEnum(
+      errors,
+      sourceLines,
+      parsed.audit.profile,
+      'profile',
+      VALID_AUDIT_PROFILES,
+      'audit profile',
+      'audit',
+    );
+    validateEnum(
+      errors,
+      sourceLines,
+      parsed.audit.dedupe_mode,
+      'dedupe_mode',
+      VALID_DEDUPE_MODES,
+      'dedupe_mode',
+      'audit',
+    );
   }
 
   return errors;
@@ -149,5 +226,5 @@ export function useYamlValidation(source: string) {
     return () => clearTimeout(timerRef.current);
   }, [validate]);
 
-  return { errors, hasErrors: errors.some(e => e.severity === 'error') };
+  return { errors, hasErrors: errors.some((e) => e.severity === 'error') };
 }

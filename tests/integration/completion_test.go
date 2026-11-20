@@ -47,6 +47,11 @@ func TestCompletion_ProjectLocalize_AllShells(t *testing.T) {
 		result.AssertOutputContains(t, "localize")
 		result.AssertOutputContains(t, "share")
 		result.AssertOutputContains(t, "machine-local")
+		scan := "--scan"
+		if shell == "fish" {
+			scan = "-l scan"
+		}
+		result.AssertOutputContains(t, scan)
 	}
 }
 
@@ -287,16 +292,17 @@ func TestCompletion_Hooks_AllShells(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
-	for shell, subcommands := range map[string]string{
-		"bash":       "add disable edit enable import list remove restore sync",
-		"zsh":        "(add disable edit enable import list remove restore sync)",
-		"fish":       "-a 'add disable edit enable import list remove restore sync'",
-		"powershell": "@{ Name = 'sync'; Desc = 'Hooks sync' }",
-		"nushell":    "[add disable edit enable import list remove restore sync]",
+	for shell, want := range map[string][2]string{
+		"bash":       {"add disable edit enable import list remove restore sync", "--keep-files --trust --yes -y"},
+		"zsh":        {"(add disable edit enable import list remove restore sync)", "'(-y --yes)'{-y,--yes}'[sync --trust: record trust without asking]'"},
+		"fish":       {"-a 'add disable edit enable import list remove restore sync'", "-s y -l yes -d 'sync --trust: record trust without asking'"},
+		"powershell": {"@{ Name = 'sync'; Desc = 'Hooks sync' }", "'--keep-files', '--trust', '--yes', '-y'"},
+		"nushell":    {"[add disable edit enable import list remove restore sync]", "--yes(-y) # sync --trust: record trust without asking"},
 	} {
 		result := sb.RunCLI("completion", shell)
 		result.AssertSuccess(t)
-		result.AssertOutputContains(t, subcommands)
+		result.AssertOutputContains(t, want[0])
+		result.AssertOutputContains(t, want[1])
 	}
 }
 

@@ -391,6 +391,8 @@ skillshare update my-skill --force
 
 在 dashboard 的 **Updates** 分頁中，該 skill 顯示為 **Modified locally**，並有 **View changes** 按鈕，可於該 skill 的頁面查看變更；更新前請勾選 **Force overwrite local edits**，或對被略過的列使用 **Force Retry**。從該 skill 自己的頁面更新時，會顯示這些變更，並在捨棄前詢問。`update <name> --dry-run` 會將該 skill 回報為將被略過。若一個 modified 的 skill 同時已在 upstream 被刪除，即使使用 `--prune`，在你加上 `--force` 之前也會保留它。
 
+安裝後編輯過的 agent 在 dashboard 上也受到同樣的保護。當新版本會覆寫這些編輯時，更新會被略過；請對被略過的列使用 **Force Retry**，或從該 agent 自己的頁面更新，它會在捨棄前詢問。
+
 ## 更新後
 
 執行 `skillshare sync` 將變更分發到所有 targets：

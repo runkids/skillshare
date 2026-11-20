@@ -180,3 +180,28 @@ func TestDiffListsLinkFromAnotherToolAsOverride(t *testing.T) {
 		}
 	}
 }
+
+// In merge mode sync prunes a link whose skill left the source, so diff lists
+// it. A live link to another location is kept, so diff says nothing about it.
+func TestDiffListsOrphanLinkThatSyncPrunes(t *testing.T) {
+	source, target, other := t.TempDir(), t.TempDir(), t.TempDir()
+	if err := os.Symlink(filepath.Join(source, "removed"), filepath.Join(target, "removed")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if err := os.Symlink(other, filepath.Join(target, "theirs")); err != nil {
+		t.Fatal(err)
+	}
+	if err := sync.WriteManifest(target, &sync.Manifest{Managed: map[string]string{"removed": "symlink"}}); err != nil {
+		t.Fatal(err)
+	}
+
+	var r targetDiffResult
+	collectMergeDiff(&r, target, source, map[string]bool{}, map[string]string{}, nil)
+
+	if len(r.items) != 1 || r.items[0].name != "removed" || r.items[0].action != "remove" || !r.items[0].isSync || r.syncCount != 1 {
+		t.Fatalf("items = %+v syncCount = %d, want only the orphan link listed as a sync change", r.items, r.syncCount)
+	}
+	if cats := categorizeItems(r.items); len(cats) != 1 || cats[0].kind != "orphan" {
+		t.Errorf("want one orphan category, got %+v", cats)
+	}
+}

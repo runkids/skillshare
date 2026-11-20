@@ -28,5 +28,9 @@ const config: Record<SourceType, { label: string; variant: 'default' | 'info' }>
 export default function SourceBadge({ type, isInRepo, size = 'sm' }: SourceBadgeProps) {
   const source = resolveSource(type, isInRepo);
   const { label, variant } = config[source];
-  return <Badge variant={variant} size={size}>{label}</Badge>;
+  return (
+    <Badge variant={variant} size={size}>
+      {label}
+    </Badge>
+  );
 }

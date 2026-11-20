@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -198,7 +199,9 @@ func (s *Service) ompRemovalPlan(b Binding, cacheRoot string) (*ompRemoval, erro
 			return nil, fmt.Errorf("OMP runtime name cannot be verified without its manifest or link")
 		}
 	}
-	for id, raw := range plugins {
+	// Sorted: p.files feeds the revision that apply compares with its preview.
+	for _, id := range slices.Sorted(maps.Keys(plugins)) {
+		raw := plugins[id]
 		if id == b.ID {
 			continue // This entry was validated before choosing the cache.
 		}

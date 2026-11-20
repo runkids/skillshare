@@ -355,6 +355,8 @@ skillshare status
 skillshare init --remote git@github.com:you/private-skills.git
 ```
 
+ホスト型 Git を使わない場合は、リポジトリを自分のマシンの 1 台に置き、SSH 経由で接続します。[プライベートネットワーク上のマシン](/docs/how-to/sharing/private-network) を参照してください。
+
 ---
 
 ## ヒント
@@ -436,4 +438,5 @@ skillshare sync
 - [pull](/docs/reference/commands/pull) — remote からの Pull
 - [install](/docs/reference/commands/install#install-from-config-no-arguments) — config からのインストール
 - [組織全体の Skill](./organization-sharing.md) — チーム共有
+- [プライベートネットワーク上のマシン](/docs/how-to/sharing/private-network) — ホスト型 Git なし、リモートのダッシュボード、MCP で提供する Skill
 - [init](/docs/reference/commands/init) — `--remote` での Init

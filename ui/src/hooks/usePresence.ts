@@ -13,7 +13,11 @@ export function usePresence(open: boolean, ms: number) {
     return () => clearTimeout(id);
   }, [open, ms]);
   const closing = shown && !open;
-  return { shown, closing, exitProps: closing ? ({ inert: true, 'aria-hidden': true } as const) : {} };
+  return {
+    shown,
+    closing,
+    exitProps: closing ? ({ inert: true, 'aria-hidden': true } as const) : {},
+  };
 }
 
 /** A menu: grows in with `.animate-dropdown-in`, fades out over `.animate-dropdown-out`'s 0.12s. */

@@ -14,7 +14,7 @@
   <a href="https://github.com/runkids/skillshare/releases"><img src="https://img.shields.io/github/v/release/runkids/skillshare" alt="Release"></a>
   <a href="https://github.com/runkids/skillshare/releases"><img src="https://img.shields.io/github/downloads/runkids/skillshare/total" alt="Downloads"></a>
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-blue" alt="Platform">
-  <a href="https://deepwiki.com/runkids/skillshare"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
+  <a href="https://deepwiki.com/runkids/skillshare"><img src="https://img.shields.io/badge/Ask-DeepWiki-blue" alt="Ask DeepWiki"></a>
 </p>
 
 <p align="center">
@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **最新版本**：v0.30.9 — 无需导入即可编辑或移除 hook：dashboard 的 hooks 导入对话框现在一次显示一个 Agent，并可直接修改其设置文件中的 hook。写入前会先显示文件 diff，并留有可还原的备份。该 hook 仍保持未托管。 [hooks 参考 →](https://skillshare.runkids.cc/zh-Hans/docs/reference/commands/hooks) · [更新记录 →](https://skillshare.runkids.cc/changelog)
+> **最新版本**：v0.30.11 — 从 dashboard 分享你的 Pi 包：Plugins 页面的「分享」现在会在 plugin 之后列出 Pi 从 npm 安装的包，并复制一条把它们全部加入的命令，例如 `skillshare plugin add npm:<package> --target pi -g --no-tui`。「目标里的 hook」对话框也能直接修改或移除 Antigravity 和 Copilot 的 hook，不需要先导入。 [plugin 指南 →](https://skillshare.runkids.cc/zh-Hans/docs/how-to/daily-tasks/sharing-plugins) · [更新记录 →](https://skillshare.runkids.cc/changelog)
 
 ## 为什么用 skillshare
 
@@ -299,7 +299,11 @@ make check  # format + lint + test
 
 ## 贡献者
 
-感谢每一位让 skillshare 变得更好的人。完整名单在[英文版 README](README.md#contributors)。
+[在 GitHub 上查看贡献者](https://github.com/runkids/skillshare/graphs/contributors)
+
+### 社区致谢
+
+感谢所有报告问题、提出建议和协助测试修复的朋友。 [英文版 README](README.md#community-thanks)。
 
 ---
 

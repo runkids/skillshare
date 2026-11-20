@@ -6,14 +6,28 @@ export type HookEvents = Record<string, unknown>;
 export type NativeChange = { remove: true } | { events: HookEvents };
 
 /** A candidate as the dialog shows it: where it was read from and whether saving takes over its native registrations. */
-export interface ImportRow { id: string; target: string; candidate: HookCandidate; adopt: boolean }
+export interface ImportRow {
+  id: string;
+  target: string;
+  candidate: HookCandidate;
+  adopt: boolean;
+}
 
-export const rowEvents = (row: ImportRow): HookEvents => row.candidate.entry.bindings[row.target]?.events ?? {};
+export const rowEvents = (row: ImportRow): HookEvents =>
+  row.candidate.entry.bindings[row.target]?.events ?? {};
 
 /** The event of a one-event candidate; a named block or a whole file goes by its own name. */
 export const rowTitle = (row: ImportRow) => {
+  // Two Copilot files can read as one hook name (team.json, skillshare-team.json); the file tells them apart.
+  if (row.target === 'copilot') return row.candidate.source ?? row.candidate.name;
   const events = Object.keys(rowEvents(row));
   return events.length === 1 && row.target !== 'antigravity' ? events[0] : row.candidate.name;
+};
+
+/** The file an edit writes: a Copilot hook is its own file in the hooks folder, the rest share the target's file. */
+export const rowPath = (row: ImportRow, path: string | undefined) => {
+  if (!path || row.target !== 'copilot' || !row.candidate.source) return path;
+  return `${path}${path.includes('\\') ? '\\' : '/'}${row.candidate.source}`;
 };
 
 const SCRIPT = /(?:"?\$\{?\w+\}?"?|~|\.{1,2})?(?:\/[\w.@+-]+)+\.\w+/g;
@@ -22,32 +36,69 @@ const SCRIPT = /(?:"?\$\{?\w+\}?"?|~|\.{1,2})?(?:\/[\w.@+-]+)+\.\w+/g;
 export function commandSummary(command: string) {
   const scripts = command.match(SCRIPT);
   if (scripts) return scripts[scripts.length - 1].replace(/"/g, '');
-  return command.split('\n').map((l) => l.trim()).find(Boolean) ?? '';
+  return (
+    command
+      .split('\n')
+      .map((l) => l.trim())
+      .find(Boolean) ?? ''
+  );
 }
 
 const stable = (v: unknown): unknown =>
-  Array.isArray(v) ? v.map(stable)
-    : v && typeof v === 'object' ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, stable((v as Record<string, unknown>)[k])]))
+  Array.isArray(v)
+    ? v.map(stable)
+    : v && typeof v === 'object'
+      ? Object.fromEntries(
+          Object.keys(v)
+            .sort()
+            .map((k) => [k, stable((v as Record<string, unknown>)[k])]),
+        )
       : v;
 
 /** Equal event maps, whatever order their keys are written in. */
-export const sameEvents = (a: HookEvents | undefined, b: HookEvents | undefined) => JSON.stringify(stable(a ?? {})) === JSON.stringify(stable(b ?? {}));
+export const sameEvents = (a: HookEvents | undefined, b: HookEvents | undefined) =>
+  JSON.stringify(stable(a ?? {})) === JSON.stringify(stable(b ?? {}));
 
 /** The edits to send: each changed hook's events as read, and what replaces them. */
-export function nativeEdits(rows: { target: string; root?: string; before: HookEvents; change: NativeChange }[]): HookNativeEdit[] {
-  return rows.map(({ target, root, before, change }) => ({ target, ...(root && { root }), before, ...('events' in change && { after: change.events }) }));
+export function nativeEdits(
+  rows: {
+    target: string;
+    root?: string;
+    source?: string;
+    before: HookEvents;
+    change: NativeChange;
+  }[],
+): HookNativeEdit[] {
+  return rows.map(({ target, root, source, before, change }) => ({
+    target,
+    ...(root && { root }),
+    ...(source && { source }),
+    before,
+    ...('events' in change && { after: change.events }),
+  }));
 }
 
 /** One line on what an edit changed, as a translation key: a single matcher or command when that is all, else just "edited". */
-export function describeChange(before: HookEvents, after: HookEvents): { key: string; params?: Record<string, string> } {
+export function describeChange(
+  before: HookEvents,
+  after: HookEvents,
+): { key: string; params?: Record<string, string> } {
   const was = bindingLines({ events: before });
   const now = bindingLines({ events: after });
-  const changed = was.length === now.length ? [...now.keys()].filter((i) => JSON.stringify(was[i]) !== JSON.stringify(now[i])) : [];
+  const changed =
+    was.length === now.length
+      ? [...now.keys()].filter((i) => JSON.stringify(was[i]) !== JSON.stringify(now[i]))
+      : [];
   if (changed.length === 1) {
     const [i] = changed;
     const [a, b] = [was[i], now[i]];
-    if (a.event === b.event && a.command === b.command) return { key: 'hooks.importChange.matcher', params: { from: a.matcher || '*', to: b.matcher || '*' } };
-    if (a.event === b.event && a.matcher === b.matcher) return { key: 'hooks.importChange.command', params: { n: String(i + 1) } };
+    if (a.event === b.event && a.command === b.command)
+      return {
+        key: 'hooks.importChange.matcher',
+        params: { from: a.matcher || '*', to: b.matcher || '*' },
+      };
+    if (a.event === b.event && a.matcher === b.matcher)
+      return { key: 'hooks.importChange.command', params: { n: String(i + 1) } };
   }
   return { key: 'hooks.importChange.edited' };
 }
@@ -63,7 +114,10 @@ function statements(command: string): string[] | null {
   let current = '';
   let quote = '';
   let depth = 0;
-  const end = () => { if (current.trim()) out.push(current.trim()); current = ''; };
+  const end = () => {
+    if (current.trim()) out.push(current.trim());
+    current = '';
+  };
   for (let i = 0; i < command.length; i++) {
     const c = command[i];
     const next = command[i + 1];
@@ -80,11 +134,19 @@ function statements(command: string): string[] | null {
       continue;
     }
     if (c === '$' && (next === "'" || next === '"')) return null;
-    if (c === '"' || c === "'") { quote = c; current += c; continue; }
+    if (c === '"' || c === "'") {
+      quote = c;
+      current += c;
+      continue;
+    }
     if (c === '#') return null;
     if (c === '(' || (c === '{' && command[i - 1] === '$')) depth++;
-    if (c === ')' || (c === '}' && depth > 0 && !/\s/.test(command[i - 1] ?? ' '))) depth = Math.max(0, depth - 1);
-    if (depth === 0 && c === '\n') { end(); continue; }
+    if (c === ')' || (c === '}' && depth > 0 && !/\s/.test(command[i - 1] ?? ' ')))
+      depth = Math.max(0, depth - 1);
+    if (depth === 0 && c === '\n') {
+      end();
+      continue;
+    }
     if (depth === 0 && c === ';' && next === ';') {
       if (command[i + 2] === '&') return null;
       current += ';;';
@@ -96,7 +158,12 @@ function statements(command: string): string[] | null {
       end();
       continue;
     }
-    if (depth === 0 && (c === '&' || c === '|') && next === c) { current += c + c; i++; end(); continue; }
+    if (depth === 0 && (c === '&' || c === '|') && next === c) {
+      current += c + c;
+      i++;
+      end();
+      continue;
+    }
     current += c;
   }
   if (quote) return null;
@@ -122,7 +189,11 @@ export function formatCommand(command: string) {
   };
   for (let s of parts) {
     for (let opener = OPENER.exec(s); opener; opener = OPENER.exec(s)) {
-      if (opener[1] === 'else') { level--; push('else'); } else if (lines.length > 0 && !continued) lines[lines.length - 1] += `; ${opener[1]}`; else push(opener[1]);
+      if (opener[1] === 'else') {
+        level--;
+        push('else');
+      } else if (lines.length > 0 && !continued) lines[lines.length - 1] += `; ${opener[1]}`;
+      else push(opener[1]);
       level++;
       s = opener[2];
     }

@@ -549,6 +549,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("PUT /api/projects", s.requireGlobalProjects(s.handleSaveProject))
 	s.mux.HandleFunc("DELETE /api/projects", s.requireGlobalProjects(s.handleRemoveProject))
 	s.mux.HandleFunc("POST /api/projects/convert", s.requireGlobalProjects(s.handleConvertProject))
+	s.mux.HandleFunc("POST /api/projects/scan", s.requireGlobalProjects(s.handleScanProjects))
 
 	// Sync matrix
 	s.mux.HandleFunc("GET /api/sync-matrix", s.handleSyncMatrix)
@@ -657,6 +658,8 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("POST /api/hooks/native", s.requireLocalHooks(s.handleHooksNativeApply))
 	s.mux.HandleFunc("POST /api/hooks/native/preview", s.requireLocalHooks(s.handleHooksNativePreview))
 	s.mux.HandleFunc("POST /api/hooks/restore", s.requireLocalHooks(s.handleHooksRestore))
+	s.mux.HandleFunc("POST /api/hooks/codex-trust/preview", s.requireLocalHooks(s.handleHooksCodexTrustPreview))
+	s.mux.HandleFunc("POST /api/hooks/codex-trust", s.requireLocalHooks(s.handleHooksCodexTrust))
 	s.mux.HandleFunc("GET /api/hooks/catalog", s.requireLocalHooks(s.handleHooksCatalog))
 	s.mux.HandleFunc("GET /api/extras", s.handleExtras)
 	s.mux.HandleFunc("GET /api/extras/memory/notes", s.handleMemoryNotes)

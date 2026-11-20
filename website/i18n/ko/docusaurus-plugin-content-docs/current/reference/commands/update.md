@@ -391,6 +391,8 @@ skillshare update my-skill --force
 
 대시보드의 **Updates** 탭에서는 해당 skill이 **Modified locally**로 표시되고, 변경 사항을 skill 페이지에서 열어 보는 **View changes** 버튼이 나타납니다. 업데이트하기 전에 **Force overwrite local edits**를 선택하거나, 건너뛴 행의 **Force Retry**를 사용하세요. skill 자체 페이지에서 업데이트하면 변경 사항을 보여 주고 버리기 전에 확인을 요청합니다. `update <name> --dry-run`은 이 skill을 건너뛸 대상으로 보고합니다. upstream에서도 삭제된 modified skill은 `--prune`을 사용해도 `--force`를 추가하기 전까지 유지됩니다.
 
+설치 후 편집한 agent도 대시보드에서 같은 방식으로 보호됩니다. 새 버전이 편집 내용을 덮어쓰게 되는 경우 업데이트를 건너뜁니다. 건너뛴 행의 **Force Retry**를 사용하거나 agent 자체 페이지에서 업데이트하세요. 이 페이지는 버리기 전에 확인을 요청합니다.
+
 ## 업데이트 후
 
 모든 target에 변경 사항을 배포하려면 `skillshare sync`를 실행하세요:

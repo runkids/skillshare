@@ -14,7 +14,7 @@
   <a href="https://github.com/runkids/skillshare/releases"><img src="https://img.shields.io/github/v/release/runkids/skillshare" alt="Release"></a>
   <a href="https://github.com/runkids/skillshare/releases"><img src="https://img.shields.io/github/downloads/runkids/skillshare/total" alt="Downloads"></a>
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-blue" alt="Platform">
-  <a href="https://deepwiki.com/runkids/skillshare"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
+  <a href="https://deepwiki.com/runkids/skillshare"><img src="https://img.shields.io/badge/Ask-DeepWiki-blue" alt="Ask DeepWiki"></a>
 </p>
 
 <p align="center">
@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **Dernière version** : v0.30.9 — Modifiez ou supprimez un hook sans l’importer : la boîte de dialogue d’import des hooks du tableau de bord affiche désormais un Agent à la fois et peut modifier un hook directement dans son fichier de paramètres. Vous voyez le diff du fichier avant toute écriture, et une sauvegarde permet de le restaurer. Le hook reste non géré. [Référence des hooks →](https://skillshare.runkids.cc/docs/reference/commands/hooks) · [Toutes les versions →](https://github.com/runkids/skillshare/releases)
+> **Dernière version** : v0.30.11 — Partagez vos paquets Pi depuis le tableau de bord : **Partager** sur la page Plugins liste désormais, après vos plugins, les paquets npm installés par Pi et copie une commande qui les ajoute tous, par exemple `skillshare plugin add npm:<package> --target pi -g --no-tui`. La boîte de dialogue **Hooks dans les cibles** peut aussi modifier ou supprimer les hooks Antigravity et Copilot sans les importer. [Guide des plugins →](https://skillshare.runkids.cc/docs/how-to/daily-tasks/sharing-plugins) · [Toutes les versions →](https://github.com/runkids/skillshare/releases)
 
 ## Pourquoi skillshare
 
@@ -300,7 +300,11 @@ make check  # format + lint + test
 
 ## Contributeurs
 
-Merci à toutes les personnes qui ont contribué à skillshare. La liste se trouve dans le [README en anglais](README.md#contributors).
+[Voir les contributeurs sur GitHub](https://github.com/runkids/skillshare/graphs/contributors)
+
+### Remerciements à la communauté
+
+Merci pour vos signalements de bugs, vos suggestions et vos tests. [README en anglais](README.md#community-thanks).
 
 ---
 

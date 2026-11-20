@@ -144,6 +144,7 @@ skillshare project remove shop-web --yes --json
 skillshare project add ~/work/scratch --target claude --machine-local --dry-run
 skillshare project localize shop-web --dry-run --json
 skillshare project share scratch --dry-run --json
+skillshare project add ~/work/suite --scan . --scan .worktrees --target codex --dry-run --json
 ```
 
 Always global (explicit `-g` accepted, `-p` rejected), even inside a project. Add requires
@@ -166,6 +167,16 @@ exit 1 does not undo the saved registration: inspect `sync.failed` and retry wit
 `project sync`. List JSON is `{ "projects": [] }`, show JSON wraps `project`, and
 mutation JSON includes `action`, `project`, `applied`, `affected`, and `warnings`.
 No-op edits report `applied: false, unchanged: true`.
+
+`--scan DIR` (add only, repeatable, relative to the root) also registers each Git checkout
+below DIR (`.git` folder or worktree `.git` file) as an ordinary project with the same
+settings. Hidden folders below DIR, `node_modules` and links are skipped; missing or
+unreadable folders are skipped with a warning. It only adds:
+registered folders (root included) are `kept` or, with different settings, `skipped`;
+checkouts with their own `.skillshare/` are `skipped`. A name clash names the checkout
+from its path (`.worktrees/app-a` → `worktrees-app-a`). JSON adds a `scan` array of
+`root`, `path` (`.` for the root), `name`, `result`, and for a skipped folder
+`skip` and `reason`; with `--sync`, each row's `sync` and `error`. Rerun it after a new clone or worktree.
 
 Removal asks for confirmation unless `--yes` or previewing; JSON removal requires
 `--yes` unless previewing. Whole-folder links are removed; merge links become local
@@ -265,6 +276,6 @@ lock and reload after acquisition; other config writers remain outside it.
 
 ## Where projects are saved
 
-A project is saved in `config.yaml` (`origin: shared`, default) or in this machine's registry (`origin: local`). `project add --machine-local` saves on this machine only; `projects_storage: machine-local` in `config.yaml` makes that the default, and `add --shared` overrides it. Edits and removals stay where the project is saved; removing a `config.yaml` project removes it for every machine using that file. A local entry replaces the whole `config.yaml` entry at a normalized root (`sharedCopy: true` in JSON); removing it deletes only the local copy, the `config.yaml` version applies again (`remaining` in JSON), and `remove --shared` deletes both. `localize` copies a `config.yaml` project to this machine without detach, sync, or `config.yaml` changes. `share` moves a local project into `config.yaml` and deletes the local copy; when `config.yaml` has different settings it asks, and needs `--yes` with `--json`. Both repeat as noops. Exclusions saved by v0.29.0 stay until the project is added again. JSON adds `origin` and `originPath`. All project commands skip startup maintenance. Storage: `$XDG_STATE_HOME/skillshare/projects/<identity>.yaml`, otherwise `~/.local/state/skillshare/projects` on Unix or `%LOCALAPPDATA%\skillshare\state\projects` on Windows. Identity follows the resolved config destination, so config symlink aliases share state. Moving the destination starts fresh. Reads create nothing; invalid state fails closed. Duplicate names at distinct roots and duplicate normalized roots in one layer fail.
+A project is saved in `config.yaml` (`origin: shared`, default) or in this machine's registry (`origin: local`). `project add --machine-local` saves on this machine only; `projects_storage: machine-local` in `config.yaml` makes that the default, and `add --shared` overrides it. Edits and removals stay where the project is saved; removing a `config.yaml` project removes it for every machine using that file. A local entry replaces the whole `config.yaml` entry at a normalized root (`sharedCopy: true` in JSON); removing it deletes only the local copy, the `config.yaml` version applies again (`remaining` in JSON), and `remove --shared` deletes both. Removal keeps the folder's `mcp.projects` and `hooks.projects` entries and warns for each; delete them on the dashboard's Projects page or in `config.yaml`. `localize` copies a `config.yaml` project to this machine without detach, sync, or `config.yaml` changes. `share` moves a local project into `config.yaml` and deletes the local copy; when `config.yaml` has different settings it asks, and needs `--yes` with `--json`. Both repeat as noops. Exclusions saved by v0.29.0 stay until the project is added again. JSON adds `origin` and `originPath`. All project commands skip startup maintenance. Storage: `$XDG_STATE_HOME/skillshare/projects/<identity>.yaml`, otherwise `~/.local/state/skillshare/projects` on Unix or `%LOCALAPPDATA%\skillshare\state\projects` on Windows. Identity follows the resolved config destination, so config symlink aliases share state. Moving the destination starts fresh. Reads create nothing; invalid state fails closed. Duplicate names at distinct roots and duplicate normalized roots in one layer fail.
 
 The dashboard Convert action writes `config.yaml` and refuses locally hidden or overridden roots. Raw editor submissions are validated with the local overlay. Project mutations lock and reload; candidates reject changed shared/local snapshots before detach or write. General shared writers do not use this concurrency guard.

@@ -2,21 +2,67 @@ import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { pluginsApi } from '../../api/plugins';
 import { ApiError } from '../../api/client';
-import type { PluginCheckEvent, PluginInventory, PluginPlan, PluginUpdateEvent } from '../../api/plugins';
-import { changedRuns, failureText, importPackageNames, importRequest, piPackageTest, reviewChanges, syncTodo, updatesFound, updatedTargets, updatesLeft, updatesPending, usePluginsFlow, versionMoves } from './pluginsFlow';
+import type {
+  PluginCheckEvent,
+  PluginInventory,
+  PluginPlan,
+  PluginUpdateEvent,
+} from '../../api/plugins';
+import {
+  changedRuns,
+  failureText,
+  importPackageNames,
+  importRequest,
+  piPackageTest,
+  reviewChanges,
+  syncTodo,
+  updatesFound,
+  updatedTargets,
+  updatesLeft,
+  updatesPending,
+  usePluginsFlow,
+  versionMoves,
+} from './pluginsFlow';
 
-vi.mock('../../api/plugins', async (importOriginal) => ({ ...await importOriginal<typeof import('../../api/plugins')>(), pluginsApi: { preview: vi.fn(), check: vi.fn(), apply: vi.fn(), update: vi.fn(), stopUpdate: vi.fn() } }));
+vi.mock('../../api/plugins', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../api/plugins')>()),
+  pluginsApi: {
+    preview: vi.fn(),
+    check: vi.fn(),
+    apply: vi.fn(),
+    update: vi.fn(),
+    stopUpdate: vi.fn(),
+  },
+}));
 
 const t = (key: string) => key;
-const plan = (revision: string, ...changes: Partial<PluginPlan['changes'][number]>[]): PluginPlan =>
-  ({ revision, blocked: false, changes: changes.map((c) => ({ name: 'demo', target: 'codex', id: 'demo@market', action: 'selection', ...c })) });
+const plan = (
+  revision: string,
+  ...changes: Partial<PluginPlan['changes'][number]>[]
+): PluginPlan => ({
+  revision,
+  blocked: false,
+  changes: changes.map((c) => ({
+    name: 'demo',
+    target: 'codex',
+    id: 'demo@market',
+    action: 'selection',
+    ...c,
+  })),
+});
 const ok = { result: { results: [] }, failure: '' };
 /** The server's check stream: each plugin's answer, in the order given. */
-const checks = (...events: PluginCheckEvent[]) => vi.mocked(pluginsApi.check).mockImplementationOnce(async (on) => { events.forEach(on); });
+const checks = (...events: PluginCheckEvent[]) =>
+  vi.mocked(pluginsApi.check).mockImplementationOnce(async (on) => {
+    events.forEach(on);
+  });
 /** The server's stream for a batch: each plugin starts, then ends with the given result. */
 const streams = (...ends: Omit<Extract<PluginUpdateEvent, { event: 'result' }>, 'event'>[]) =>
   vi.mocked(pluginsApi.update).mockImplementation(async (_items, on) => {
-    for (const end of ends) { on({ event: 'start', name: end.name }); on({ event: 'result', ...end }); }
+    for (const end of ends) {
+      on({ event: 'start', name: end.name });
+      on({ event: 'result', ...end });
+    }
     on({ event: 'done', failure: '' });
   });
 
@@ -56,7 +102,11 @@ describe('plugins flow', () => {
 
   it('names the control that started a preview while it runs, and is idle after', async () => {
     let finish!: (p: PluginPlan) => void;
-    vi.mocked(pluginsApi.preview).mockReturnValue(new Promise((resolve) => { finish = resolve; }));
+    vi.mocked(pluginsApi.preview).mockReturnValue(
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+    );
     const { now } = flow();
     act(() => now().begin({ action: 'check' }, 'check'));
     expect([now().busy, now().working]).toEqual([true, 'check']);
@@ -67,7 +117,9 @@ describe('plugins flow', () => {
   it('keeps a failed preview as the failure, opens no review and rethrows for the dialog that asked', async () => {
     vi.mocked(pluginsApi.preview).mockRejectedValue(new Error('source not found'));
     const { now, onPreviewed } = flow();
-    await act(async () => { await expect(now().preview({ action: 'add' })).rejects.toThrow('source not found'); });
+    await act(async () => {
+      await expect(now().preview({ action: 'add' })).rejects.toThrow('source not found');
+    });
     expect(now().failure).toBe('source not found');
     expect(now().review).toBeNull();
     expect(onPreviewed).not.toHaveBeenCalled();
@@ -75,24 +127,39 @@ describe('plugins flow', () => {
   });
 
   it('localizes a keyed import preview failure without accepting the import', async () => {
-    const error = new ApiError(400, 'Native plugin does not match the declaration recipe', { code: 'plugins.error.importRecipeMismatch' });
+    const error = new ApiError(400, 'Native plugin does not match the declaration recipe', {
+      code: 'plugins.error.importRecipeMismatch',
+    });
     vi.mocked(pluginsApi.preview).mockRejectedValueOnce(error);
     const { now } = flow();
-    await act(async () => { await expect(now().preview({ action: 'import', from: 'pi', plugin: 'npm:wrong' })).rejects.toBe(error); });
+    await act(async () => {
+      await expect(
+        now().preview({ action: 'import', from: 'pi', plugin: 'npm:wrong' }),
+      ).rejects.toBe(error);
+    });
     expect(now().failure).toBe('plugins.error.importRecipeMismatch');
     expect(now().review).toBeNull();
     expect(pluginsApi.apply).not.toHaveBeenCalled();
   });
 
   it('localizes a batch import preview failure and still applies the next reviewed import', async () => {
-    vi.mocked(pluginsApi.preview).mockRejectedValueOnce(new ApiError(400, 'Remote recipe has no plugin identity', { code: 'plugins.error.importRecipeIdentityRequired' }));
+    vi.mocked(pluginsApi.preview).mockRejectedValueOnce(
+      new ApiError(400, 'Remote recipe has no plugin identity', {
+        code: 'plugins.error.importRecipeIdentityRequired',
+      }),
+    );
     const { now } = flow();
-    await act(() => now().importMany([
-      { action: 'import', from: 'pi', plugin: 'npm:unknown' },
-      { action: 'import', from: 'pi', plugin: 'npm:known' },
-    ]));
+    await act(() =>
+      now().importMany([
+        { action: 'import', from: 'pi', plugin: 'npm:unknown' },
+        { action: 'import', from: 'pi', plugin: 'npm:known' },
+      ]),
+    );
     expect(now().failure).toBe('npm:unknown: plugins.error.importRecipeIdentityRequired');
-    expect(pluginsApi.apply).toHaveBeenCalledExactlyOnceWith({ action: 'import', from: 'pi', plugin: 'npm:known' }, 'reviewed');
+    expect(pluginsApi.apply).toHaveBeenCalledExactlyOnceWith(
+      { action: 'import', from: 'pi', plugin: 'npm:known' },
+      'reviewed',
+    );
   });
 
   it('keeps the review open and refreshes when apply is refused', async () => {
@@ -106,7 +173,19 @@ describe('plugins flow', () => {
   });
 
   it('shows the outcomes of an apply and its failure, and clears both with the next preview', async () => {
-    vi.mocked(pluginsApi.apply).mockResolvedValue({ result: { results: [{ name: 'demo', target: 'codex', status: 'failed', message: 'Native authentication required' }] }, failure: 'One target failed' });
+    vi.mocked(pluginsApi.apply).mockResolvedValue({
+      result: {
+        results: [
+          {
+            name: 'demo',
+            target: 'codex',
+            status: 'failed',
+            message: 'Native authentication required',
+          },
+        ],
+      },
+      failure: 'One target failed',
+    });
     const { now } = flow();
     await act(() => now().preview({ action: 'sync' }));
     await act(() => now().apply());
@@ -117,51 +196,148 @@ describe('plugins flow', () => {
   });
 
   it('remembers what a check found, opens no review, and takes an Agent off once its batch update is applied', async () => {
-    const observed = { id: '/owned/driver', source: 'https://fixture.invalid/driver.git', sourceRef: 'main', plugin: 'driver', entry: 'entry.js', version: '1.1.0', commit: 'abc', digest: 'reviewed-digest' };
+    const observed = {
+      id: '/owned/driver',
+      source: 'https://fixture.invalid/driver.git',
+      sourceRef: 'main',
+      plugin: 'driver',
+      entry: 'entry.js',
+      version: '1.1.0',
+      commit: 'abc',
+      digest: 'reviewed-digest',
+    };
     const found = { name: 'driver', target: 'pi', binding: observed };
     checks({ name: 'driver', plan: plan('r', { ...found, action: 'update-available' }) });
-    streams({ name: 'driver', plan: plan('r2', { ...found, action: 'update' }), result: { results: [{ name: 'driver', target: 'pi', status: 'installed' }] }, failure: '', stale: false });
+    streams({
+      name: 'driver',
+      plan: plan('r2', { ...found, action: 'update' }),
+      result: { results: [{ name: 'driver', target: 'pi', status: 'installed' }] },
+      failure: '',
+      stale: false,
+    });
     const { now, onPreviewed } = flow();
     await act(() => now().check());
     expect(now().updates).toEqual({ driver: { pi: observed } });
     expect(now().review).toBeNull();
     expect(onPreviewed).not.toHaveBeenCalled();
     await act(() => now().updateMany([{ name: 'driver', targets: ['pi'] }]));
-    expect(vi.mocked(pluginsApi.update).mock.calls[0][0]).toEqual([{ name: 'driver', targets: ['pi'], seen: { pi: observed } }]);
+    expect(vi.mocked(pluginsApi.update).mock.calls[0][0]).toEqual([
+      { name: 'driver', targets: ['pi'], seen: { pi: observed } },
+    ]);
     expect(now().updates).toEqual({ driver: {} });
-    expect(now().batch).toEqual([{ name: 'driver', targets: ['pi'], status: 'done', versions: { moves: [{ target: 'pi', from: undefined, to: '1.1.0', fromCommit: undefined, toCommit: 'abc' }], shared: true } }]);
+    expect(now().batch).toEqual([
+      {
+        name: 'driver',
+        targets: ['pi'],
+        status: 'done',
+        versions: {
+          moves: [
+            { target: 'pi', from: undefined, to: '1.1.0', fromCommit: undefined, toCommit: 'abc' },
+          ],
+          shared: true,
+        },
+      },
+    ]);
   });
 
   it('lists what is still to update only where the Agent can be updated from here, and drops an Agent an update took off', () => {
-    const inventory = { packages: { tail: { bindings: { pi: { id: 'npm:tail' }, omp: { id: 'tail' } } }, guard: { bindings: { omp: { id: 'guard' } } }, driver: { bindings: {} } }, hosts: [], targetDefinitions: [{ target: 'pi', label: 'Pi', project: false, operations: ['check', 'update'] }, { target: 'omp', label: 'OMP', project: false, operations: ['check'] }] };
-    const updates = { tail: { pi: { version: '2.1.0' }, omp: { version: '2.1.0' } }, guard: { omp: { version: '1.0.0' } }, driver: {} };
+    const inventory = {
+      packages: {
+        tail: { bindings: { pi: { id: 'npm:tail' }, omp: { id: 'tail' } } },
+        guard: { bindings: { omp: { id: 'guard' } } },
+        driver: { bindings: {} },
+      },
+      hosts: [],
+      targetDefinitions: [
+        { target: 'pi', label: 'Pi', project: false, operations: ['check', 'update'] },
+        { target: 'omp', label: 'OMP', project: false, operations: ['check'] },
+      ],
+    };
+    const updates = {
+      tail: { pi: { version: '2.1.0' }, omp: { version: '2.1.0' } },
+      guard: { omp: { version: '1.0.0' } },
+      driver: {},
+    };
     expect(updatesPending(updates, inventory)).toEqual([{ name: 'tail', targets: ['pi'] }]);
   });
 
   it('puts a retried plugin back to waiting where it is, and keeps going after a plugin fails in a batch', async () => {
     const u = plan('u', { action: 'update' });
     streams(
-      { name: 'demo', plan: u, result: { results: [{ name: 'demo', target: 'codex', status: 'failed', message: 'timeout' }] }, failure: 'demo: timeout', stale: false },
+      {
+        name: 'demo',
+        plan: u,
+        result: {
+          results: [{ name: 'demo', target: 'codex', status: 'failed', message: 'timeout' }],
+        },
+        failure: 'demo: timeout',
+        stale: false,
+      },
       { name: 'other', plan: u, ...ok, stale: false },
     );
     const { now, refresh } = flow();
-    await act(() => now().updateMany([{ name: 'demo', targets: ['codex'] }, { name: 'other', targets: ['codex'] }]));
-    expect(now().batch).toEqual([{ name: 'demo', targets: ['codex'], status: 'failed', note: 'timeout', failed: ['codex'] }, { name: 'other', targets: ['codex'], status: 'done', note: undefined }]);
+    await act(() =>
+      now().updateMany([
+        { name: 'demo', targets: ['codex'] },
+        { name: 'other', targets: ['codex'] },
+      ]),
+    );
+    expect(now().batch).toEqual([
+      { name: 'demo', targets: ['codex'], status: 'failed', note: 'timeout', failed: ['codex'] },
+      { name: 'other', targets: ['codex'], status: 'done', note: undefined },
+    ]);
     expect(refresh).toHaveBeenCalledTimes(1);
     streams({ name: 'demo', plan: u, ...ok, stale: false });
     await act(() => now().updateMany([{ name: 'demo', targets: ['codex'] }]));
-    expect(now().batch).toEqual([{ name: 'demo', targets: ['codex'], status: 'done', note: undefined, failed: undefined }, { name: 'other', targets: ['codex'], status: 'done', note: undefined }]);
+    expect(now().batch).toEqual([
+      { name: 'demo', targets: ['codex'], status: 'done', note: undefined, failed: undefined },
+      { name: 'other', targets: ['codex'], status: 'done', note: undefined },
+    ]);
   });
 
   it('counts the Agents that updated in a plugin where another was skipped', () => {
-    expect(updatedTargets({ name: 'tail', targets: ['pi', 'codex'], status: 'skipped', failed: ['codex'] })).toEqual(['pi']);
+    expect(
+      updatedTargets({
+        name: 'tail',
+        targets: ['pi', 'codex'],
+        status: 'skipped',
+        failed: ['codex'],
+      }),
+    ).toEqual(['pi']);
   });
 
   it('shares one version move only when every Agent makes the same one', () => {
-    const inventory = { targetDefinitions: [], hosts: [], packages: { tail: { bindings: { pi: { id: 'a', version: '1.0.0' }, codex: { id: 'b', version: '1.0.0' }, claude: { id: 'c', version: '0.9.0' } } } } };
-    expect(versionMoves(inventory, 'tail', [{ target: 'pi', version: '1.1.0' }, { target: 'codex', version: '1.1.0' }]).shared).toBe(true);
-    expect(versionMoves(inventory, 'tail', [{ target: 'pi', version: '1.1.0' }, { target: 'claude', version: '1.1.0' }]).moves.map((m) => m.from)).toEqual(['1.0.0', '0.9.0']);
-    expect(versionMoves(inventory, 'tail', [{ target: 'pi', version: '1.1.0' }, { target: 'claude', version: '1.1.0' }]).shared).toBe(false);
+    const inventory = {
+      targetDefinitions: [],
+      hosts: [],
+      packages: {
+        tail: {
+          bindings: {
+            pi: { id: 'a', version: '1.0.0' },
+            codex: { id: 'b', version: '1.0.0' },
+            claude: { id: 'c', version: '0.9.0' },
+          },
+        },
+      },
+    };
+    expect(
+      versionMoves(inventory, 'tail', [
+        { target: 'pi', version: '1.1.0' },
+        { target: 'codex', version: '1.1.0' },
+      ]).shared,
+    ).toBe(true);
+    expect(
+      versionMoves(inventory, 'tail', [
+        { target: 'pi', version: '1.1.0' },
+        { target: 'claude', version: '1.1.0' },
+      ]).moves.map((m) => m.from),
+    ).toEqual(['1.0.0', '0.9.0']);
+    expect(
+      versionMoves(inventory, 'tail', [
+        { target: 'pi', version: '1.1.0' },
+        { target: 'claude', version: '1.1.0' },
+      ]).shared,
+    ).toBe(false);
   });
 
   it('marks each plugin as the check answers for it, and says why one could not be checked', async () => {
@@ -169,20 +345,52 @@ describe('plugins flow', () => {
     checks(
       { name: 'driver', plan: plan('a', { ...found, action: 'update-available' }) },
       { name: 'tail', plan: null, error: 'git timed out', error_code: 'plugins.error.timeout' },
-      { name: 'guard', plan: { ...plan('b', { name: 'guard', action: 'blocked', messageKey: 'plugins.note.accountChanged' }), blocked: true } },
+      {
+        name: 'guard',
+        plan: {
+          ...plan('b', {
+            name: 'guard',
+            action: 'blocked',
+            messageKey: 'plugins.note.accountChanged',
+          }),
+          blocked: true,
+        },
+      },
     );
-    const inventory = { hosts: [], targetDefinitions: [], packages: { driver: { bindings: {} }, tail: { bindings: {} }, guard: { bindings: {} } } };
-    const { result } = renderHook(() => usePluginsFlow({ t, inventory, refresh: vi.fn(), onPreviewed: vi.fn() }));
+    const inventory = {
+      hosts: [],
+      targetDefinitions: [],
+      packages: { driver: { bindings: {} }, tail: { bindings: {} }, guard: { bindings: {} } },
+    };
+    const { result } = renderHook(() =>
+      usePluginsFlow({ t, inventory, refresh: vi.fn(), onPreviewed: vi.fn() }),
+    );
     await act(() => result.current.check(true));
-    expect(result.current.updates).toEqual({ driver: { pi: { version: '1.1.0', id: 'npm:driver' } } });
-    expect(result.current.checkFailures).toEqual({ tail: 'plugins.error.timeout', guard: 'plugins.note.accountChanged' });
+    expect(result.current.updates).toEqual({
+      driver: { pi: { version: '1.1.0', id: 'npm:driver' } },
+    });
+    expect(result.current.checkFailures).toEqual({
+      tail: 'plugins.error.timeout',
+      guard: 'plugins.note.accountChanged',
+    });
     expect(result.current.checkProgress).toEqual({ done: 3, total: 3 });
   });
 
   it('keeps what the last check found for plugins a broken-off check never answered for', async () => {
-    const found = (name: string) => ({ name, target: 'pi', action: 'update-available', binding: { id: `npm:${name}`, version: '2.0.0' } });
-    checks({ name: 'driver', plan: plan('a', found('driver')) }, { name: 'tail', plan: plan('b', found('tail')) });
-    vi.mocked(pluginsApi.check).mockImplementationOnce(async (on) => { on({ name: 'driver', plan: plan('c', { name: 'driver', action: 'noop' }) }); throw new Error('stream closed'); });
+    const found = (name: string) => ({
+      name,
+      target: 'pi',
+      action: 'update-available',
+      binding: { id: `npm:${name}`, version: '2.0.0' },
+    });
+    checks(
+      { name: 'driver', plan: plan('a', found('driver')) },
+      { name: 'tail', plan: plan('b', found('tail')) },
+    );
+    vi.mocked(pluginsApi.check).mockImplementationOnce(async (on) => {
+      on({ name: 'driver', plan: plan('c', { name: 'driver', action: 'noop' }) });
+      throw new Error('stream closed');
+    });
     const { now } = flow();
     await act(() => now().check());
     await act(() => now().check());
@@ -190,23 +398,60 @@ describe('plugins flow', () => {
   });
 
   it('keeps an update the last check found on an Agent this check could not reach', async () => {
-    const found = (target: string) => ({ name: 'driver', target, action: 'update-available', binding: { id: 'driver@m', version: '2.0.0' } });
-    checks({ name: 'driver', plan: plan('a', found('claude'), found('claude-work')) }, { name: 'tail', plan: plan('b', { ...found('pi'), name: 'tail' }) });
+    const found = (target: string) => ({
+      name: 'driver',
+      target,
+      action: 'update-available',
+      binding: { id: 'driver@m', version: '2.0.0' },
+    });
     checks(
-      { name: 'driver', plan: { ...plan('c', { name: 'driver', target: 'claude', action: 'noop' }, { name: 'driver', target: 'claude-work', action: 'blocked', messageKey: 'plugins.error.timeout' }), blocked: true } },
+      { name: 'driver', plan: plan('a', found('claude'), found('claude-work')) },
+      { name: 'tail', plan: plan('b', { ...found('pi'), name: 'tail' }) },
+    );
+    checks(
+      {
+        name: 'driver',
+        plan: {
+          ...plan(
+            'c',
+            { name: 'driver', target: 'claude', action: 'noop' },
+            {
+              name: 'driver',
+              target: 'claude-work',
+              action: 'blocked',
+              messageKey: 'plugins.error.timeout',
+            },
+          ),
+          blocked: true,
+        },
+      },
       { name: 'tail', plan: null, error: 'pi timed out', error_code: 'plugins.error.timeout' },
     );
     const { now } = flow();
     await act(() => now().check());
     await act(() => now().check());
-    expect(now().updates).toEqual({ driver: { 'claude-work': expect.anything() }, tail: { pi: expect.anything() } });
+    expect(now().updates).toEqual({
+      driver: { 'claude-work': expect.anything() },
+      tail: { pi: expect.anything() },
+    });
   });
 
-  const offered = (p: PluginPlan | null) => (p?.changes ?? []).filter((c) => c.action === 'update-available').map((c) => `${c.name}:${c.target}`);
+  const offered = (p: PluginPlan | null) =>
+    (p?.changes ?? [])
+      .filter((c) => c.action === 'update-available')
+      .map((c) => `${c.name}:${c.target}`);
 
   it('offers in the update dialog an update a broken-off check found', async () => {
     vi.mocked(pluginsApi.check).mockImplementationOnce(async (on) => {
-      on({ name: 'driver', plan: plan('a', { name: 'driver', target: 'claude', action: 'update-available', binding: { id: 'driver@m', version: '2.0.0' } }) });
+      on({
+        name: 'driver',
+        plan: plan('a', {
+          name: 'driver',
+          target: 'claude',
+          action: 'update-available',
+          binding: { id: 'driver@m', version: '2.0.0' },
+        }),
+      });
       throw new Error('stream closed');
     });
     const { now } = flow();
@@ -215,9 +460,29 @@ describe('plugins flow', () => {
   });
 
   it('offers in the update dialog an update kept for an Agent the check could not reach', async () => {
-    const found = (target: string) => ({ name: 'driver', target, action: 'update-available', binding: { id: 'driver@m', version: '2.0.0' } });
+    const found = (target: string) => ({
+      name: 'driver',
+      target,
+      action: 'update-available',
+      binding: { id: 'driver@m', version: '2.0.0' },
+    });
     checks({ name: 'driver', plan: plan('a', found('claude'), found('claude-work')) });
-    checks({ name: 'driver', plan: { ...plan('b', { name: 'driver', target: 'claude', action: 'noop' }, { name: 'driver', target: 'claude-work', action: 'blocked', messageKey: 'plugins.error.timeout' }), blocked: true } });
+    checks({
+      name: 'driver',
+      plan: {
+        ...plan(
+          'b',
+          { name: 'driver', target: 'claude', action: 'noop' },
+          {
+            name: 'driver',
+            target: 'claude-work',
+            action: 'blocked',
+            messageKey: 'plugins.error.timeout',
+          },
+        ),
+        blocked: true,
+      },
+    });
     const { now } = flow();
     await act(() => now().check());
     await act(() => now().check());
@@ -232,20 +497,49 @@ describe('plugins flow', () => {
   });
 
   it('drops a pending update for an Agent unticked since the check', () => {
-    const inventory = { hosts: [], targetDefinitions: [{ target: 'pi', label: 'Pi', project: false, operations: ['update'] }, { target: 'codex', label: 'Codex', project: false, operations: ['update'] }], packages: { tail: { bindings: { pi: { id: 'npm:tail' }, codex: { id: 'tail@m', sync: false } } } } };
-    expect(updatesPending({ tail: { pi: { version: '2' }, codex: { version: '2' } } }, inventory)).toEqual([{ name: 'tail', targets: ['pi'] }]);
+    const inventory = {
+      hosts: [],
+      targetDefinitions: [
+        { target: 'pi', label: 'Pi', project: false, operations: ['update'] },
+        { target: 'codex', label: 'Codex', project: false, operations: ['update'] },
+      ],
+      packages: {
+        tail: { bindings: { pi: { id: 'npm:tail' }, codex: { id: 'tail@m', sync: false } } },
+      },
+    };
+    expect(
+      updatesPending({ tail: { pi: { version: '2' }, codex: { version: '2' } } }, inventory),
+    ).toEqual([{ name: 'tail', targets: ['pi'] }]);
   });
 
   it('drops a pending update whose plugin or Agent binding is gone', () => {
-    const inventory = { packages: { kept: { bindings: { pi: { id: 'npm:kept' } } } }, hosts: [], targetDefinitions: [{ target: 'pi', label: 'Pi', project: false, operations: ['update'] }, { target: 'codex', label: 'Codex', project: false, operations: ['update'] }] };
-    const updates = { kept: { pi: { version: '2' }, codex: { version: '2' } }, removed: { pi: { version: '2' } } };
+    const inventory = {
+      packages: { kept: { bindings: { pi: { id: 'npm:kept' } } } },
+      hosts: [],
+      targetDefinitions: [
+        { target: 'pi', label: 'Pi', project: false, operations: ['update'] },
+        { target: 'codex', label: 'Codex', project: false, operations: ['update'] },
+      ],
+    };
+    const updates = {
+      kept: { pi: { version: '2' }, codex: { version: '2' } },
+      removed: { pi: { version: '2' } },
+    };
     expect(updatesPending(updates, inventory)).toEqual([{ name: 'kept', targets: ['pi'] }]);
   });
 
   it('keeps a plugin whose update came back skipped on the list, as not updated', async () => {
     const found = { name: 'driver', target: 'pi', binding: { id: 'npm:driver', version: '1.1.0' } };
     checks({ name: 'driver', plan: plan('r', { ...found, action: 'update-available' }) });
-    streams({ name: 'driver', plan: plan('u', { ...found, action: 'update' }), result: { results: [{ name: 'driver', target: 'pi', status: 'skipped', message: 'marketplace gone' }] }, failure: '', stale: false });
+    streams({
+      name: 'driver',
+      plan: plan('u', { ...found, action: 'update' }),
+      result: {
+        results: [{ name: 'driver', target: 'pi', status: 'skipped', message: 'marketplace gone' }],
+      },
+      failure: '',
+      stale: false,
+    });
     const { now } = flow();
     await act(() => now().check());
     await act(() => now().updateMany([{ name: 'driver', targets: ['pi'] }]));
@@ -254,14 +548,32 @@ describe('plugins flow', () => {
   });
 
   it('leaves no note when skipped Agents carry no message', async () => {
-    streams({ name: 'driver', plan: plan('u', { name: 'driver', target: 'pi', action: 'update' }), result: { results: [{ name: 'driver', target: 'pi', status: 'skipped' }, { name: 'driver', target: 'codex', status: 'skipped' }] }, failure: '', stale: false });
+    streams({
+      name: 'driver',
+      plan: plan('u', { name: 'driver', target: 'pi', action: 'update' }),
+      result: {
+        results: [
+          { name: 'driver', target: 'pi', status: 'skipped' },
+          { name: 'driver', target: 'codex', status: 'skipped' },
+        ],
+      },
+      failure: '',
+      stale: false,
+    });
     const { now } = flow();
     await act(() => now().updateMany([{ name: 'driver', targets: ['pi', 'codex'] }]));
     expect(now().batch?.[0].note).toBeUndefined();
   });
 
   it('falls back to the blocked label when blocked Agents carry no message', async () => {
-    const blocked = { ...plan('u', { name: 'driver', target: 'pi', action: 'blocked' }, { name: 'driver', target: 'codex', action: 'blocked' }), blocked: true };
+    const blocked = {
+      ...plan(
+        'u',
+        { name: 'driver', target: 'pi', action: 'blocked' },
+        { name: 'driver', target: 'codex', action: 'blocked' },
+      ),
+      blocked: true,
+    };
     streams({ name: 'driver', plan: blocked, result: { results: [] }, failure: '', stale: false });
     const { now } = flow();
     await act(() => now().updateMany([{ name: 'driver', targets: ['pi', 'codex'] }]));
@@ -269,18 +581,45 @@ describe('plugins flow', () => {
   });
 
   it('keeps retained-import guidance in the completed batch', async () => {
-    const note = { name: 'demo', target: 'codex', guidance: true, messageKey: 'plugins.note.importRecipeChanged' };
-    streams({ name: 'demo', plan: plan('u', { ...note, action: 'noop' }), result: { results: [{ ...note, status: 'unchanged' }] }, failure: '', stale: false });
+    const note = {
+      name: 'demo',
+      target: 'codex',
+      guidance: true,
+      messageKey: 'plugins.note.importRecipeChanged',
+    };
+    streams({
+      name: 'demo',
+      plan: plan('u', { ...note, action: 'noop' }),
+      result: { results: [{ ...note, status: 'unchanged' }] },
+      failure: '',
+      stale: false,
+    });
     const { now } = flow();
     await act(() => now().updateMany([{ name: 'demo', targets: ['codex'] }]));
-    expect(now().batch?.[0]).toMatchObject({ status: 'done', note: 'plugins.note.importRecipeChanged' });
+    expect(now().batch?.[0]).toMatchObject({
+      status: 'done',
+      note: 'plugins.note.importRecipeChanged',
+    });
   });
 
-
   it('drops a plugin whose source moved since the check and checks again, showing why that check failed', async () => {
-    checks({ name: 'driver', plan: plan('r', { name: 'driver', target: 'pi', action: 'update-available', binding: { id: 'npm:driver', version: '1.1.0' } }) });
+    checks({
+      name: 'driver',
+      plan: plan('r', {
+        name: 'driver',
+        target: 'pi',
+        action: 'update-available',
+        binding: { id: 'npm:driver', version: '1.1.0' },
+      }),
+    });
     vi.mocked(pluginsApi.check).mockRejectedValueOnce(new Error('offline'));
-    streams({ name: 'driver', plan: plan('u'), result: null, failure: 'source changed since the check; check again', stale: true });
+    streams({
+      name: 'driver',
+      plan: plan('u'),
+      result: null,
+      failure: 'source changed since the check; check again',
+      stale: true,
+    });
     const { now } = flow();
     await act(() => now().check());
     await act(() => now().updateMany([{ name: 'driver', targets: ['pi'] }]));
@@ -289,46 +628,104 @@ describe('plugins flow', () => {
   });
 
   it('fails a plugin a broken stream never finished, with why and its Agents to retry', async () => {
-    vi.mocked(pluginsApi.update).mockImplementation(async (_items, on) => { on({ event: 'start', name: 'demo' }); throw new Error('stream closed'); });
+    vi.mocked(pluginsApi.update).mockImplementation(async (_items, on) => {
+      on({ event: 'start', name: 'demo' });
+      throw new Error('stream closed');
+    });
     const { now } = flow();
-    await act(() => now().updateMany([{ name: 'demo', targets: ['codex'] }, { name: 'other', targets: ['codex'] }]));
-    expect(now().batch?.map(({ status, note, failed }) => ({ status, note, failed }))).toEqual([{ status: 'failed', note: 'stream closed', failed: ['codex'] }, { status: 'failed', note: 'stream closed', failed: ['codex'] }]);
+    await act(() =>
+      now().updateMany([
+        { name: 'demo', targets: ['codex'] },
+        { name: 'other', targets: ['codex'] },
+      ]),
+    );
+    expect(now().batch?.map(({ status, note, failed }) => ({ status, note, failed }))).toEqual([
+      { status: 'failed', note: 'stream closed', failed: ['codex'] },
+      { status: 'failed', note: 'stream closed', failed: ['codex'] },
+    ]);
   });
 
   it('skips a plugin a stopped batch never started', async () => {
     streams({ name: 'demo', plan: plan('u', { action: 'update' }), ...ok, stale: false });
     const { now } = flow();
-    await act(() => now().updateMany([{ name: 'demo', targets: ['codex'] }, { name: 'other', targets: ['codex'] }]));
+    await act(() =>
+      now().updateMany([
+        { name: 'demo', targets: ['codex'] },
+        { name: 'other', targets: ['codex'] },
+      ]),
+    );
     expect(now().batch?.map((i) => i.status)).toEqual(['done', 'skipped']);
   });
 
   it('keeps the failed Agents when a retry of them fails again, so the next retry still sends only those', async () => {
     const u = plan('u', { action: 'update' }, { action: 'update', target: 'pi' });
-    const codexFails = { result: { results: [{ name: 'demo', target: 'codex', status: 'failed', message: 'timeout' }] }, failure: 'demo: timeout' };
-    streams({ name: 'demo', plan: u, result: { results: [...codexFails.result.results, { name: 'demo', target: 'pi', status: 'installed' }] }, failure: 'demo: timeout', stale: false });
+    const codexFails = {
+      result: {
+        results: [{ name: 'demo', target: 'codex', status: 'failed', message: 'timeout' }],
+      },
+      failure: 'demo: timeout',
+    };
+    streams({
+      name: 'demo',
+      plan: u,
+      result: {
+        results: [
+          ...codexFails.result.results,
+          { name: 'demo', target: 'pi', status: 'installed' },
+        ],
+      },
+      failure: 'demo: timeout',
+      stale: false,
+    });
     const { now } = flow();
     await act(() => now().updateMany([{ name: 'demo', targets: ['codex', 'pi'] }]));
     streams({ name: 'demo', plan: u, ...codexFails, stale: false });
     await act(() => now().updateMany([{ name: 'demo', targets: ['codex'] }]));
-    expect(now().batch?.[0]).toMatchObject({ status: 'failed', targets: ['codex', 'pi'], failed: ['codex'] });
+    expect(now().batch?.[0]).toMatchObject({
+      status: 'failed',
+      targets: ['codex', 'pi'],
+      failed: ['codex'],
+    });
   });
 
   it('names the Agents that failed when the others updated, so a retry sends only those', async () => {
-    streams({ name: 'demo', plan: plan('u', { action: 'update' }, { action: 'update', target: 'pi' }), result: { results: [{ name: 'demo', target: 'codex', status: 'failed', message: 'timeout' }, { name: 'demo', target: 'pi', status: 'installed' }] }, failure: 'demo: timeout', stale: false });
+    streams({
+      name: 'demo',
+      plan: plan('u', { action: 'update' }, { action: 'update', target: 'pi' }),
+      result: {
+        results: [
+          { name: 'demo', target: 'codex', status: 'failed', message: 'timeout' },
+          { name: 'demo', target: 'pi', status: 'installed' },
+        ],
+      },
+      failure: 'demo: timeout',
+      stale: false,
+    });
     const { now } = flow();
     await act(() => now().updateMany([{ name: 'demo', targets: ['codex', 'pi'] }]));
     expect(now().batch?.[0]).toMatchObject({ status: 'failed', failed: ['codex'] });
   });
 
-  it('previews and applies a tick in one step, with that preview\'s revision and no review', async () => {
+  it("previews and applies a tick in one step, with that preview's revision and no review", async () => {
     const { now, refresh } = flow();
     await act(() => now().selectTarget('demo', 'codex', false));
-    expect(pluginsApi.preview).toHaveBeenCalledWith({ action: 'disable', name: 'demo', targets: ['codex'] });
-    expect(pluginsApi.apply).toHaveBeenCalledWith({ action: 'disable', name: 'demo', targets: ['codex'] }, 'reviewed');
+    expect(pluginsApi.preview).toHaveBeenCalledWith({
+      action: 'disable',
+      name: 'demo',
+      targets: ['codex'],
+    });
+    expect(pluginsApi.apply).toHaveBeenCalledWith(
+      { action: 'disable', name: 'demo', targets: ['codex'] },
+      'reviewed',
+    );
     expect(now().review).toBeNull();
     expect(refresh).toHaveBeenCalledTimes(1);
     await act(() => now().selectTarget('demo', 'codex', true));
-    expect(pluginsApi.preview).toHaveBeenLastCalledWith({ action: 'enable', name: 'demo', targets: ['codex'] });
+    expect(pluginsApi.preview).toHaveBeenLastCalledWith({
+      action: 'enable',
+      name: 'demo',
+      targets: ['codex'],
+    });
   });
 
   it('does not apply a tick whose preview failed', async () => {
@@ -342,21 +739,57 @@ describe('plugins flow', () => {
 });
 
 describe('plugins flow rules', () => {
-  const keyed = { status: 'failed', message: 'claude command failed', messageKey: 'plugins.error.commandFailed' };
+  const keyed = {
+    status: 'failed',
+    message: 'claude command failed',
+    messageKey: 'plugins.error.commandFailed',
+  };
 
   it('translates a keyed failure once, however many targets share it', () => {
-    expect(failureText(t, { result: { results: [{ name: 'a', target: 'claude', ...keyed }, { name: 'b', target: 'claude', ...keyed }] }, failure: 'claude command failed\nclaude command failed' })).toBe('plugins.error.commandFailed');
+    expect(
+      failureText(t, {
+        result: {
+          results: [
+            { name: 'a', target: 'claude', ...keyed },
+            { name: 'b', target: 'claude', ...keyed },
+          ],
+        },
+        failure: 'claude command failed\nclaude command failed',
+      }),
+    ).toBe('plugins.error.commandFailed');
   });
   it('keeps every distinct failure, keyed or not', () => {
-    expect(failureText(t, { result: { results: [{ name: 'a', target: 'claude', ...keyed }, { name: 'b', target: 'codex', status: 'failed', message: 'Native authentication required' }] }, failure: 'joined' })).toBe('plugins.error.commandFailed Native authentication required');
+    expect(
+      failureText(t, {
+        result: {
+          results: [
+            { name: 'a', target: 'claude', ...keyed },
+            {
+              name: 'b',
+              target: 'codex',
+              status: 'failed',
+              message: 'Native authentication required',
+            },
+          ],
+        },
+        failure: 'joined',
+      }),
+    ).toBe('plugins.error.commandFailed Native authentication required');
   });
-  it('shows the server\'s failure as sent when no outcome failed, and none when it reports none', () => {
+  it("shows the server's failure as sent when no outcome failed, and none when it reports none", () => {
     expect(failureText(t, { result: null, failure: 'preview is stale' })).toBe('preview is stale');
-    expect(failureText(t, { result: { results: [{ name: 'a', target: 'claude', ...keyed }] }, failure: '' })).toBe('');
+    expect(
+      failureText(t, {
+        result: { results: [{ name: 'a', target: 'claude', ...keyed }] },
+        failure: '',
+      }),
+    ).toBe('');
   });
 
-  it('finds an update without a new version as version \'\'', () => {
-    expect(updatesFound(plan('r', { action: 'update-available' }, { name: 'other', action: 'noop' }))).toEqual({ demo: { codex: { version: '', commit: undefined } } });
+  it("finds an update without a new version as version ''", () => {
+    expect(
+      updatesFound(plan('r', { action: 'update-available' }, { name: 'other', action: 'noop' })),
+    ).toEqual({ demo: { codex: { version: '', commit: undefined } } });
   });
 
   const pending = { demo: { codex: { version: '1.1.0' }, claude: { version: '1.1.0' } } };
@@ -365,34 +798,72 @@ describe('plugins flow rules', () => {
     for (const action of ['noop', 'update', 'install']) {
       const status = action === 'noop' ? 'unchanged' : 'installed';
       const reviewed = plan('r', { action }, { target: 'claude', action: 'update' });
-      const response = { result: { results: [{ name: 'demo', target: 'codex', status }, { name: 'demo', target: 'claude', status: 'failed' }] }, failure: 'native failure' };
-      expect(updatesLeft(pending, reviewed, response)).toEqual({ demo: { claude: { version: '1.1.0' } } });
+      const response = {
+        result: {
+          results: [
+            { name: 'demo', target: 'codex', status },
+            { name: 'demo', target: 'claude', status: 'failed' },
+          ],
+        },
+        failure: 'native failure',
+      };
+      expect(updatesLeft(pending, reviewed, response)).toEqual({
+        demo: { claude: { version: '1.1.0' } },
+      });
     }
     const replacing = plan('r', { action: 'remove' }, { action: 'install' });
     for (const tail of ['failed', 'not run', 'installed']) {
       const results = [{ name: 'demo', target: 'codex', status: 'removed' }];
       if (tail !== 'not run') results.push({ name: 'demo', target: 'codex', status: tail });
       const expected = tail === 'installed' ? { demo: { claude: { version: '1.1.0' } } } : pending;
-      expect.soft(updatesLeft(pending, replacing, { result: { results }, failure: tail === 'installed' ? '' : 'native failure' }), tail).toEqual(expected);
+      expect
+        .soft(
+          updatesLeft(pending, replacing, {
+            result: { results },
+            failure: tail === 'installed' ? '' : 'native failure',
+          }),
+          tail,
+        )
+        .toEqual(expected);
     }
   });
   it('keeps an Agent whose update was skipped', () => {
-    expect(updatesLeft(pending, updating, { result: { results: [{ name: 'demo', target: 'codex', status: 'skipped' }] }, failure: '' })).toEqual(pending);
+    expect(
+      updatesLeft(pending, updating, {
+        result: { results: [{ name: 'demo', target: 'codex', status: 'skipped' }] },
+        failure: '',
+      }),
+    ).toEqual(pending);
   });
   it('keeps every Agent when the apply stopped before any ran', () => {
-    expect(updatesLeft(pending, updating, { result: null, failure: 'preview is stale' })).toEqual(pending);
+    expect(updatesLeft(pending, updating, { result: null, failure: 'preview is stale' })).toEqual(
+      pending,
+    );
   });
 
   const inventory: PluginInventory = {
-    targetDefinitions: [{ target: 'omo', label: 'omo', project: false, operations: ['add', 'sync'], npm: true }, { target: 'codex', label: 'Codex', project: false, operations: ['add', 'sync'] }],
+    targetDefinitions: [
+      { target: 'omo', label: 'omo', project: false, operations: ['add', 'sync'], npm: true },
+      { target: 'codex', label: 'Codex', project: false, operations: ['add', 'sync'] },
+    ],
     packages: {
       demo: { bindings: { codex: { id: 'demo@market', sync: false } } },
       driver: { bindings: { omo: { id: 'npm:@scope/driver' } } },
       // Skillshare installs this one from its source, even though only a Pi target has it.
-      powers: { source: 'owner/powers', bindings: { omo: { id: 'local:/state/powers/content', source: 'owner/powers' } } },
+      powers: {
+        source: 'owner/powers',
+        bindings: { omo: { id: 'local:/state/powers/content', source: 'owner/powers' } },
+      },
       unbound: { bindings: {} },
     },
-    hosts: [{ target: 'codex', version: '0.154', status: 'ready', installed: [{ id: 'demo@market', version: '2.0.0', enabled: true }] }],
+    hosts: [
+      {
+        target: 'codex',
+        version: '0.154',
+        status: 'ready',
+        installed: [{ id: 'demo@market', version: '2.0.0', enabled: true }],
+      },
+    ],
   };
 
   it('lists what Sync would do when a tick differs from what the Agent has', () => {
@@ -400,12 +871,30 @@ describe('plugins flow rules', () => {
     expect(syncTodo(undefined)).toEqual([]);
   });
   it('calls a package Pi installs itself, bound only to Pi targets, a Pi package', () => {
-    expect(['demo', 'driver', 'powers', 'unbound', 'gone'].filter(piPackageTest(inventory))).toEqual(['driver']);
+    expect(
+      ['demo', 'driver', 'powers', 'unbound', 'gone'].filter(piPackageTest(inventory)),
+    ).toEqual(['driver']);
   });
   it('splits a preview into what it changes and what it leaves alone, with the version each has', () => {
-    const { active, idle } = reviewChanges(plan('r', { action: 'update' }, { action: 'noop' }, { name: 'driver', target: 'omo', action: 'noop', binding: { id: 'npm:@scope/driver', version: '3.0.0' } }), inventory);
+    const { active, idle } = reviewChanges(
+      plan(
+        'r',
+        { action: 'update' },
+        { action: 'noop' },
+        {
+          name: 'driver',
+          target: 'omo',
+          action: 'noop',
+          binding: { id: 'npm:@scope/driver', version: '3.0.0' },
+        },
+      ),
+      inventory,
+    );
     expect(active.map((c) => c.action)).toEqual(['update']);
-    expect(idle).toEqual([{ name: 'demo', target: 'codex', version: '2.0.0' }, { name: 'driver', target: 'omo', version: '3.0.0' }]);
+    expect(idle).toEqual([
+      { name: 'demo', target: 'codex', version: '2.0.0' },
+      { name: 'driver', target: 'omo', version: '3.0.0' },
+    ]);
   });
   it('puts failed outcomes first, joins Agents that ended the same way and drops the unchanged', () => {
     const runs = changedRuns(t, [
@@ -414,39 +903,78 @@ describe('plugins flow rules', () => {
       { name: 'demo', target: 'codex', status: 'installed' },
       { name: 'bad', target: 'codex', status: 'failed', message: 'Native authentication required' },
     ]);
-    expect(runs.map((r) => [r.name, r.status, r.targets, r.note])).toEqual([['bad', 'failed', ['codex'], 'Native authentication required'], ['demo', 'installed', ['claude', 'codex'], '']]);
+    expect(runs.map((r) => [r.name, r.status, r.targets, r.note])).toEqual([
+      ['bad', 'failed', ['codex'], 'Native authentication required'],
+      ['demo', 'installed', ['claude', 'codex'], ''],
+    ]);
   });
 });
 
 it('keeps the chosen declaration name in single and batch import requests', () => {
-  const inventory: PluginInventory = { hosts: [], packages: {
-    bar: { bindings: { pi: { id: '', imported: true } } },
-    other: { bindings: { pi: { id: '', imported: true } } },
-    managed: { bindings: { pi: { id: 'npm:managed' } } },
-  } };
+  const inventory: PluginInventory = {
+    hosts: [],
+    packages: {
+      bar: { bindings: { pi: { id: '', imported: true } } },
+      other: { bindings: { pi: { id: '', imported: true } } },
+      managed: { bindings: { pi: { id: 'npm:managed' } } },
+    },
+  };
   expect(importPackageNames(inventory, 'pi')).toEqual(['bar', 'other']);
-  expect(importRequest('pi', 'npm:foo', 'bar')).toEqual({ action: 'import', from: 'pi', plugin: 'npm:foo', name: 'bar' });
-  expect(importRequest('pi', 'npm:new', '')).toEqual({ action: 'import', from: 'pi', plugin: 'npm:new' });
+  expect(importRequest('pi', 'npm:foo', 'bar')).toEqual({
+    action: 'import',
+    from: 'pi',
+    plugin: 'npm:foo',
+    name: 'bar',
+  });
+  expect(importRequest('pi', 'npm:new', '')).toEqual({
+    action: 'import',
+    from: 'pi',
+    plugin: 'npm:new',
+  });
   expect(importPackageNames(inventory, 'claude')).toEqual([]);
 });
 
 it('leaves the declaration name unset unless explicitly selected', () => {
- expect(importRequest('claude', 'a@m')).toEqual({action: 'import', from: 'claude', plugin: 'a@m'});
- expect(importRequest('claude', 'b@m')).toEqual({action: 'import', from: 'claude', plugin: 'b@m'});
+  expect(importRequest('claude', 'a@m')).toEqual({
+    action: 'import',
+    from: 'claude',
+    plugin: 'a@m',
+  });
+  expect(importRequest('claude', 'b@m')).toEqual({
+    action: 'import',
+    from: 'claude',
+    plugin: 'b@m',
+  });
 });
 
 it('keeps unchanged recipe guidance visible in preview and completed outcomes', () => {
- const note = {name: 'demo', target: 'codex', guidance: true, message: 'Shared recipe moved; plugin unimport then sync.', messageKey: 'plugins.note.importRecipeChanged'};
- const preview = reviewChanges(plan('r', {...note, action: 'noop'}));
- expect(preview.active).toHaveLength(1);
- expect(preview.idle).toHaveLength(0);
- expect(changedRuns(t, [{...note, status: 'unchanged'}])).toMatchObject([{name: 'demo', status: 'unchanged', note: 'plugins.note.importRecipeChanged'}]);
+  const note = {
+    name: 'demo',
+    target: 'codex',
+    guidance: true,
+    message: 'Shared recipe moved; plugin unimport then sync.',
+    messageKey: 'plugins.note.importRecipeChanged',
+  };
+  const preview = reviewChanges(plan('r', { ...note, action: 'noop' }));
+  expect(preview.active).toHaveLength(1);
+  expect(preview.idle).toHaveLength(0);
+  expect(changedRuns(t, [{ ...note, status: 'unchanged' }])).toMatchObject([
+    { name: 'demo', status: 'unchanged', note: 'plugins.note.importRecipeChanged' },
+  ]);
 });
 
-it.each([undefined, false])('folds an incidental noop message away without guidance: %s', (guidance) => {
- const note = {name: 'demo', target: 'omp', guidance, message: 'Removes this scope registration.'};
- const preview = reviewChanges(plan('r', {...note, action: 'noop'}));
- expect(preview.active).toEqual([]);
- expect(preview.idle).toEqual([{name: 'demo', target: 'omp'}]);
- expect(changedRuns(t, [{...note, status: 'unchanged'}])).toEqual([]);
-});
+it.each([undefined, false])(
+  'folds an incidental noop message away without guidance: %s',
+  (guidance) => {
+    const note = {
+      name: 'demo',
+      target: 'omp',
+      guidance,
+      message: 'Removes this scope registration.',
+    };
+    const preview = reviewChanges(plan('r', { ...note, action: 'noop' }));
+    expect(preview.active).toEqual([]);
+    expect(preview.idle).toEqual([{ name: 'demo', target: 'omp' }]);
+    expect(changedRuns(t, [{ ...note, status: 'unchanged' }])).toEqual([]);
+  },
+);

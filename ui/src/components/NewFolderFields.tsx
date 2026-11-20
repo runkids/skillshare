@@ -22,13 +22,29 @@ interface NewFolderFieldsProps {
 }
 
 /** The new-folder step of the folder picker: where, what name, and the path and link names that come out. */
-export default function NewFolderFields({ kind, folders, rootCount, disabledPaths, parent, name, skill, onParent, onName, onSubmit }: NewFolderFieldsProps) {
+export default function NewFolderFields({
+  kind,
+  folders,
+  rootCount,
+  disabledPaths,
+  parent,
+  name,
+  skill,
+  onParent,
+  onName,
+  onSubmit,
+}: NewFolderFieldsProps) {
   const t = useT();
   const path = newFolderPath(parent, name);
   const invalid = name !== '' && path === null;
   return (
     <div className="flex flex-col gap-[18px]">
-      <Select label={t('folderPicker.inside')} value={parent} onChange={onParent} options={folderOptions(t, kind, folders, rootCount, disabledPaths)} />
+      <Select
+        label={t('folderPicker.inside')}
+        value={parent}
+        onChange={onParent}
+        options={folderOptions(t, kind, folders, rootCount, disabledPaths)}
+      />
       <div className="flex flex-col gap-1.5">
         <Input
           autoFocus
@@ -41,16 +57,24 @@ export default function NewFolderFields({ kind, folders, rootCount, disabledPath
           aria-invalid={invalid}
           aria-describedby="folder-name-rule"
         />
-        <span id="folder-name-rule" className={`text-xs ${invalid ? 'text-bad' : 'text-ink-3'}`}>{t('folderPicker.nameRule')}</span>
+        <span id="folder-name-rule" className={`text-xs ${invalid ? 'text-bad' : 'text-ink-3'}`}>
+          {t('folderPicker.nameRule')}
+        </span>
       </div>
       <div className="ss-list !shadow-none">
         <div className="ss-r text-xs font-semibold text-ink-3">{t('folderPicker.result')}</div>
         <div className="ss-r">
-          <span className="w-[88px] shrink-0 text-[13px] text-ink-2">{t('folderPicker.resultFolder')}</span>
-          <span className="min-w-0 truncate font-mono text-[13px] font-semibold">{path ?? '—'}</span>
+          <span className="w-[88px] shrink-0 text-[13px] text-ink-2">
+            {t('folderPicker.resultFolder')}
+          </span>
+          <span className="min-w-0 truncate font-mono text-[13px] font-semibold">
+            {path ?? '—'}
+          </span>
         </div>
         <div className="ss-r">
-          <span className="w-[88px] shrink-0 text-[13px] text-ink-2">{t('folderPicker.resultLink')}</span>
+          <span className="w-[88px] shrink-0 text-[13px] text-ink-2">
+            {t('folderPicker.resultLink')}
+          </span>
           <span className="min-w-0 truncate font-mono text-[13px]">
             {path ? linkPrefix(path) : '—'}
             {path && (skill ?? <span className="text-ink-3">&lt;skill&gt;</span>)}

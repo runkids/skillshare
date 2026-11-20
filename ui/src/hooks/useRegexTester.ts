@@ -40,7 +40,11 @@ export function computeRegexMatches(
   if (!pattern) return { matches: [], error: null, isGoSpecific: false };
 
   if (GO_ONLY_RE.test(pattern)) {
-    return { matches: [], error: 'Go-specific regex syntax — cannot test in browser', isGoSpecific: true };
+    return {
+      matches: [],
+      error: 'Go-specific regex syntax — cannot test in browser',
+      isGoSpecific: true,
+    };
   }
 
   let re: RegExp;
@@ -59,7 +63,11 @@ export function computeRegexMatches(
     } else {
       // Check if it looks like Go inline flags we can't convert
       if (/^\(\?[a-zA-Z]+\)/.test(pattern)) {
-        return { matches: [], error: 'Go-specific regex syntax — cannot test in browser', isGoSpecific: true };
+        return {
+          matches: [],
+          error: 'Go-specific regex syntax — cannot test in browser',
+          isGoSpecific: true,
+        };
       }
       return { matches: [], error: 'Invalid regex', isGoSpecific: false };
     }
@@ -67,7 +75,11 @@ export function computeRegexMatches(
 
   let excludeRe: RegExp | null = null;
   if (excludePattern) {
-    try { excludeRe = new RegExp(excludePattern); } catch { /* ignore */ }
+    try {
+      excludeRe = new RegExp(excludePattern);
+    } catch {
+      /* ignore */
+    }
   }
 
   const lines = testInput.split('\n');
@@ -76,8 +88,11 @@ export function computeRegexMatches(
     if (!match) return { line: i + 1, content, matched: false, excluded: false };
     const excluded = excludeRe ? excludeRe.test(content) : false;
     return {
-      line: i + 1, content, matched: true,
-      matchStart: match.index, matchEnd: match.index + match[0].length,
+      line: i + 1,
+      content,
+      matched: true,
+      matchStart: match.index,
+      matchEnd: match.index + match[0].length,
       excluded,
     };
   });
@@ -86,7 +101,11 @@ export function computeRegexMatches(
 }
 
 export function useRegexTester(pattern: string, testInput: string, excludePattern?: string) {
-  const [result, setResult] = useState<RegexMatchResult>({ matches: [], error: null, isGoSpecific: false });
+  const [result, setResult] = useState<RegexMatchResult>({
+    matches: [],
+    error: null,
+    isGoSpecific: false,
+  });
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {

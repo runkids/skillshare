@@ -3,13 +3,20 @@ import type { AuditFinding } from '../api/client';
 import { auditSourceLinkNote, displayAuditFindings } from './auditDisplay';
 
 const levels: AuditFinding['severity'][] = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'];
-const findings = levels.map((severity) => ({ severity, pattern: severity, message: severity, file: 'SKILL.md', line: 1, snippet: '' }));
+const findings = levels.map((severity) => ({
+  severity,
+  pattern: severity,
+  message: severity,
+  file: 'SKILL.md',
+  line: 1,
+  snippet: '',
+}));
 
 it('selects inclusive floors and exact severities without changing full findings', () => {
   const original = structuredClone(findings);
   for (const [i, severity] of levels.entries()) {
-   expect(displayAuditFindings(findings, severity, true)).toEqual(findings.slice(0, i + 1));
-   expect(displayAuditFindings(findings, severity, false)).toEqual([findings[i]]);
+    expect(displayAuditFindings(findings, severity, true)).toEqual(findings.slice(0, i + 1));
+    expect(displayAuditFindings(findings, severity, false)).toEqual([findings[i]]);
   }
   expect(findings).toEqual(original);
 });
@@ -27,7 +34,13 @@ it('handles all-hidden and empty findings', () => {
 });
 
 it('words a scan by whether a source link could not be read', () => {
-  expect(auditSourceLinkNote({ warnings: ['a', 'b'], incomplete: true })).toEqual({ key: 'audit.sourceLinksIncomplete.other', count: 2 });
-  expect(auditSourceLinkNote({ warnings: ['a'] })).toEqual({ key: 'audit.sourceLinks.one', count: 1 });
+  expect(auditSourceLinkNote({ warnings: ['a', 'b'], incomplete: true })).toEqual({
+    key: 'audit.sourceLinksIncomplete.other',
+    count: 2,
+  });
+  expect(auditSourceLinkNote({ warnings: ['a'] })).toEqual({
+    key: 'audit.sourceLinks.one',
+    count: 1,
+  });
   expect(auditSourceLinkNote({})).toBeNull();
 });

@@ -34,12 +34,34 @@ interface FolderPickerProps {
 }
 
 /** Pick the source root or an existing folder; "New folder…" hands over to the caller's new-folder step. */
-export default function FolderPicker({ label, kind, value, onChange, folders, rootCount, disabledPaths, onNewFolder, placeholder, caption, hint }: FolderPickerProps) {
+export default function FolderPicker({
+  label,
+  kind,
+  value,
+  onChange,
+  folders,
+  rootCount,
+  disabledPaths,
+  onNewFolder,
+  placeholder,
+  caption,
+  hint,
+}: FolderPickerProps) {
   const t = useT();
   const isNew = value !== null && value !== '' && !folders.some((f) => f.path === value);
   const options: SelectOption[] = [
     ...folderOptions(t, kind, folders, rootCount, disabledPaths),
-    ...(isNew ? [{ value: value!, label: value!, mono: true, icon: <Folder size={14} />, trailing: t('folderPicker.newTag') }] : []),
+    ...(isNew
+      ? [
+          {
+            value: value!,
+            label: value!,
+            mono: true,
+            icon: <Folder size={14} />,
+            trailing: t('folderPicker.newTag'),
+          },
+        ]
+      : []),
     { value: NEW, label: t('folderPicker.new'), icon: <FolderPlus size={14} />, separated: true },
   ];
   return (
@@ -49,7 +71,7 @@ export default function FolderPicker({ label, kind, value, onChange, folders, ro
         value={value ?? NONE}
         placeholder={placeholder}
         options={options}
-        onChange={(v) => (v === NEW ? onNewFolder(isNew ? '' : value ?? '') : onChange(v))}
+        onChange={(v) => (v === NEW ? onNewFolder(isNew ? '' : (value ?? '')) : onChange(v))}
       />
       {caption && <span className="hp">{caption}</span>}
       {hint && <span className="hp font-mono">{hint}</span>}

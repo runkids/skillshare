@@ -309,7 +309,7 @@ skillshare sync  # Will prune orphaned symlinks
 
 If the line says `behind an unavailable source link, kept until it is back` instead, the skill lives behind a [followed source link](../targets/configuration.md#follow_source_links) whose target is away. Nothing to prune: mount the drive or restore the checkout and run `skillshare sync`.
 
-If the line says `broken link skillshare did not create, kept` instead, the link points outside the source and the manifest does not record it, so another tool or you made it. `sync` keeps it, and the `broken_symlinks` check is `warning` instead of `error` in `doctor --json`. Delete the link yourself if it is stale.
+If the line says `broken link skillshare did not create, kept` instead, the link points outside the source and the manifest does not record it, so another tool or you made it. `sync` keeps it, and the `broken_symlinks` check is `warning` instead of `error` in `doctor --json`. Delete the link yourself if it is stale. A broken link under a name the manifest does record is reported as a broken symlink once no skill in the source uses that name, because `sync` prunes it.
 
 ### "Skills without SKILL.md"
 

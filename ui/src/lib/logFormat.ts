@@ -1,3 +1,4 @@
+import { scalarText } from './scalarText';
 import type { LogEntry } from '../api/client';
 
 /* Shared by the Log page and the Dashboard's recent list. */
@@ -17,7 +18,7 @@ function asString(v: unknown): string | undefined {
     return s.length > 0 ? s : undefined;
   }
   if (v == null) return undefined;
-  return String(v);
+  return scalarText(v) || undefined;
 }
 
 function asStringArray(v: unknown): string[] {
@@ -73,7 +74,15 @@ function formatAuditDetail(args: Record<string, any>): string {
   const low = asInt(args.low) ?? 0;
   const info = asInt(args.info) ?? 0;
   // Severity names stay English everywhere in the product, so this phrase needs no translation.
-  const findings = ([['critical', critical], ['high', high], ['medium', medium], ['low', low], ['info', info]] as const)
+  const findings = (
+    [
+      ['critical', critical],
+      ['high', high],
+      ['medium', medium],
+      ['low', low],
+      ['info', info],
+    ] as const
+  )
     .filter(([, n]) => n > 0)
     .map(([name, n]) => `${n} ${name}`);
   if (findings.length > 0) parts.push(findings.join(', '));

@@ -27,7 +27,12 @@ export function conflictMarks(local: string, remote: string) {
   let head = 0;
   while (head < a.length && head < b.length && a[head] === b[head]) head++;
   let tail = 0;
-  while (tail < a.length - head && tail < b.length - head && a[a.length - 1 - tail] === b[b.length - 1 - tail]) tail++;
+  while (
+    tail < a.length - head &&
+    tail < b.length - head &&
+    a[a.length - 1 - tail] === b[b.length - 1 - tail]
+  )
+    tail++;
   const midA = a.slice(head, a.length - tail);
   const midB = b.slice(head, b.length - tail);
   if (midA.length * midB.length > MAX_DIFF_CELLS) return undefined;

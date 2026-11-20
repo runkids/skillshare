@@ -211,8 +211,8 @@ JSON 項目會依照檔案本身的縮排，一行寫入一個欄位。若 Skill
 仍然寫在同一行，會回報為 `update` 並重新排版寫入。它不擁有的項目，
 以及有人手動格式化過的項目，會保留原有排版。
 
-Dashboard 只會提供目前 scope 與主機平台可用的目的地。每個 server 各佔一列，名稱下方以 chips
-顯示它會寫入的 clients；右側的計數按鈕會開啟該 server 的完整 client 清單。僅限 Global 的 clients 在 project mode 中無法選擇。
+Dashboard 只會提供目前 scope 與主機平台可用的目的地。每個 server 各佔一列，右側的計數按鈕
+顯示它會寫入的 clients 的 logo，並會開啟該 server 的完整 client 清單。僅限 Global 的 clients 在 project mode 中無法選擇。
 右側的 **Sync** 框會列出尚未寫入的變更：勾選某個 client 只會編輯 source。
 **Sync MCP** 會列出這些變更，確認後只寫入 MCP 設定檔，並為每個檔案保留備份。
 同一個框中分隔線下方，有 server 時會出現 **檢查**，可[檢查這些 servers](#check-servers-before-an-agent-starts-them)；
@@ -1246,7 +1246,7 @@ skillshare mcp edit docs --pi-options '{}' --no-tui
 **Pi 設定** 與 **工具曝光模式** 旁的資訊圖示會說明它們，**Pi 設定** 旁的連結則會開啟
 Pi 的 MCP 文件。對話框會在你儲存前標出 **其他 Pi 設定** 中的 `pi-mcp-adapter` 欄位。
 工具區塊有設定時，**工具曝光模式** 仍可編輯；此時只有 **其他 Pi 設定** 中的 `toolExposure`
-會被拒絕，因為它由 `tools` 寫入。Server 列上的 Pi 標籤會以簡短文字顯示曝光模式，例如
+會被拒絕，因為它由 `tools` 寫入。在 server 的 client 清單中，Pi 的切換開關會以簡短文字顯示曝光模式，例如
 `codemode` 顯示為 `透過程式碼`。
 
 ### 從 0.22 升級 Pi {#pi-migration}

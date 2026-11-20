@@ -22,6 +22,9 @@ skillshare hooks enable check --sync
 skillshare hooks sync --dry-run --json
 skillshare hooks sync
 skillshare hooks sync check --replace --dry-run
+skillshare hooks sync --trust -g
+skillshare hooks sync --trust --yes -g
+skillshare hooks sync --trust --yes --json -g
 skillshare sync hooks --dry-run --json
 skillshare sync hooks
 skillshare hooks remove check --sync
@@ -30,7 +33,7 @@ skillshare hooks restore BACKUP_ID --dry-run
 skillshare hooks restore BACKUP_ID
 ```
 
-サブコマンドなしでは entries を一覧表示します。`add`／`edit` は `--file` の Entry JSON/YAML を読み込みます。インポートで名前を省略すると候補（Agent の event またはファイルごとに 1 件）を表示し、名前を指定すると保存します。インポートを保存すると、読み取った登録をその場で引き継ぎます。次回の同期は `--replace` なしで adopt し、インポートしなかった event は管理外のままです。設定とコードを読むだけで実行しません。追加、編集、インポート、有効化、無効化、削除はソースのみを保存し、`--sync` で同期します。同期と復元は適用前に再プレビューします。Dashboard の「ターゲット内の hook」ダイアログは何も選択していない状態で開き、インポートする hook にチェックを入れます。インポートしていない hook を Agent の設定ファイル内で直接編集・削除することもできます（hooks を 1 つの設定ファイルの event として持つ Agent のみ：Claude、Codex、Gemini、Cursor、Qwen、および Droid の `hooks.json`。ファイル単位や名前付きブロックの hook は先にインポートが必要です）。書き込み前にファイルの差分を表示してバックアップを取り、hook は管理外のままです。
+サブコマンドなしでは entries を一覧表示します。`add`／`edit` は `--file` の Entry JSON/YAML を読み込みます。インポートで名前を省略すると候補（Agent の event またはファイルごとに 1 件）を表示し、名前を指定すると保存します。インポートを保存すると、読み取った登録をその場で引き継ぎます。次回の同期は `--replace` なしで adopt し、インポートしなかった event は管理外のままです。設定とコードを読むだけで実行しません。追加、編集、インポート、有効化、無効化、削除はソースのみを保存し、`--sync` で同期します。同期と復元は適用前に再プレビューします。Dashboard の「ターゲット内の hook」ダイアログは何も選択していない状態で開き、インポートする hook にチェックを入れます。インポートしていない hook を Agent の設定ファイル内で直接編集・削除することもできます（hook が設定である Agent すべて：1 つの設定ファイルの event（Claude、Codex、Gemini、Cursor、Qwen、および Droid の `hooks.json`）、Antigravity の名前付きブロック、Copilot の hook ファイル。Copilot の hook を削除するとそのファイルを削除します。コードの hook（Pi、Oh My Pi、Amp、OpenCode）は先にインポートが必要です）。書き込み前にファイルの差分を表示してバックアップを取り、hook は管理外のままです。
 
 | Option | Meaning |
 |---|---|
@@ -39,6 +42,8 @@ skillshare hooks restore BACKUP_ID
 | `--sync` | 保存して同期 |
 | `--keep-files` | `remove` と併用: hook の管理をやめ、ネイティブのエントリはそのまま残す。`--sync` とは併用できない。[下記](#stop-managing-a-hook)を参照 |
 | `--replace` | 既存ソース entry またはその entry の競合出力を明示的に置換 |
+| `--trust` | グローバルモードの `hooks sync` のみ：Skillshare が管理する hooks の Codex 信頼も記録。[Codex の信頼](#codex-trust)を参照 |
+| `--yes`, `-y` | `--trust` と併用：確認を省略し、一覧の hooks を信頼。[Codex の信頼](#codex-trust)を参照 |
 | `--dry-run, -n` | 書き込まずプレビュー |
 | `--json` | 構造化出力 |
 | `--revision ID` | 指定プレビュー revision との一致を要求 |
@@ -182,7 +187,42 @@ command のスクリプトは `<config_dir>/hooks/skillshare/NAME/` に入りま
 
 target が削除された、ホームが移動した、またはアカウントのホームが存在しない場合、所有出力とその記録をそのまま残し、警告します。target やディレクトリを戻せば管理を再開できます。ファイルを変えずに特定エントリの保留中の所有記録を解放するには、`skillshare hooks sync NAME --replace -g` をプレビューして実行します。target の削除時に binding がまだその名前を使っていれば警告します。次の hooks 同期前に binding も外してください。
 
-`skillshare hooks import --from codex-2 -g --json` でアカウントからインポートできます。ダッシュボードには **codex-2 (Codex)** と表示され、Codex の event とエディターを使います。Codex の各ホームで変更された hooks を `/hooks` から確認し、信頼する必要があります。同期は信頼を変更せず、hooks を実行しません。
+`skillshare hooks import --from codex-2 -g --json` でアカウントからインポートできます。ダッシュボードには **codex-2 (Codex)** と表示され、Codex の event とエディターを使います。Codex の各ホームで変更された hooks を `/hooks` から確認し、信頼する必要があります。`--trust` を指定しない限り、同期は信頼を変更せず、hooks を実行しません。
+
+### Codex の信頼 {#codex-trust}
+
+Codex は信頼済みのユーザーレベル hook だけを実行し、その信頼を同じホームの `config.toml` に `hooks.state."<hooks.json>:<event>:<group>:<handler>".trusted_hash` として保存します。キーは hook の位置なので、Skillshare が追加または移動した hook は未信頼から始まり、`codex exec` はそれをスキップします。
+
+```bash
+skillshare hooks sync --trust -g
+skillshare hooks sync --trust --yes -g
+skillshare hooks sync --trust --yes --json -g
+```
+
+`--trust` はまず通常の同期と同じように hook ファイルを書き込みます。次に、Skillshare が管理するすべての Codex ホーム（アカウントのホームを含む）で、Skillshare が所有する hooks のうち信頼が必要なものを Codex に問い合わせます。各 hook の hash は `/hooks` の確認画面と同じ呼び出しで `codex app-server` から取得するため、`codex` が `PATH` 上に必要です。Skillshare 自身は hash を計算しません。
+
+すでに信頼済みの hook は `unchanged` と報告され、回答は不要です。hook が新しい場合、または信頼した後に command が変わった場合は、該当する hooks を command とともに一覧表示し、1 回だけ確認します。信頼が必要な hook がなければ確認しません。
+
+```
+Codex trust
+  stop  needs trust  codex  /home/me/.codex/hooks.json:stop:1:0
+  /usr/local/bin/notify-done
+
+? Trust 1 hook in Codex?  Yes  No
+```
+
+確認後：
+
+```
+Codex trust
+✓ stop  trusted  codex  /home/me/.codex/hooks.json:stop:1:0
+```
+
+`--yes`（`-y`）は確認を省略します。Codex の確認は、実行前に人が command を目にするためにあります。端末がない場合に `--yes` がなければ、何も信頼せず、hooks を一覧表示して `--yes` を示すエラーで終了します。`--json` も確認を行いません。`--yes` がなければ hooks を `needed` として出力し、エラー文なしで非ゼロ終了します。`--yes` は `--trust` と併用する場合のみ有効です。`--json` の出力には `codexTrust` のリストがあります。各項目は `target`、`entry`、`key`、`command`、`action`（`needed`、`trusted`、`unchanged`）を持ち、無効の場合は `disabled` も持ちます。
+
+書き込むのは `trusted_hash` だけで、追加のみです。Codex で無効にした hook は無効のまま報告されます。`enabled`、`config.toml` のその他の部分、Skillshare が所有しない hooks には触れません。hook が移動または削除されると、古いエントリは `config.toml` に残ります。このエントリは、その位置で event、matcher、handler が同じ hook にしか一致しないため、別の hook を信頼することはありません。
+
+`codex` が `PATH` にない場合や Codex が失敗した場合も hook ファイルは書き込まれ、コマンドは "hook files were written, but Codex trust was not recorded" で失敗します。Codex home が複数ある場合、Codex が一覧できない home や書き込みに失敗した home があっても他の home の記録は続行され、エラーには記録できた home とできなかった home が示されます。`--trust` なしの `hooks sync` は Codex を起動せず、信頼も変更しません。`--trust` はグローバルモードのみで、`sync hooks`、`hooks list`、プロジェクトモードでは拒否されます。Dashboard の Hooks ページ（global scope）にも同じ操作があり、信頼が必要な hooks を command とともに一覧表示し、ダイアログで確認した後にのみ信頼を記録します。
 
 ## Git hooks {#git-hooks}
 
@@ -236,7 +276,7 @@ global 設定の `hooks.projects` は絶対プロジェクトパスを同じ Ent
 
 バックアップは後から加わった無関係な変更を保持してネイティブ出力を復元し、ソース定義は変更しません。**Settings → Backups → Hooks** または `hooks restore` でプレビューして復元します。
 
-**Synced** は Skillshare が設定を書いた状態です。Agent の手順に従って再起動／再読み込みしてください。信頼、hooks の有効化、コード互換性は Agent が制御します。管理時に hook command を実行したり、ネイティブ信頼を自動変更したりしません。
+**Synced** は Skillshare が設定を書いた状態です。Agent の手順に従って再起動／再読み込みしてください。信頼、hooks の有効化、コード互換性は Agent が制御します。管理時に hook command を実行したり、ネイティブ信頼を自動変更したりしません。Codex の信頼を記録するのは、指定したときの [`--trust`](#codex-trust) だけです。
 
 
 ### OpenCode v2 ディレクトリパッケージ

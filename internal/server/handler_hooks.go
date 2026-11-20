@@ -225,6 +225,59 @@ func (s *Server) handleHooksNativeApply(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, result)
 }
 
+type hooksTrustRequest struct {
+	Revision string `json:"revision"`
+}
+
+// handleHooksCodexTrustPreview lists the Codex hooks Skillshare owns and which need trust.
+func (s *Server) handleHooksCodexTrustPreview(w http.ResponseWriter, r *http.Request) {
+	if s.IsProjectMode() {
+		writeError(w, http.StatusBadRequest, "Codex trust is recorded in global Codex homes only")
+		return
+	}
+	// Codex can be slow to answer, so the server lock is held only to read the config.
+	s.mu.RLock()
+	service := s.hooksService()
+	s.mu.RUnlock()
+	plan, err := service.PreviewCodexTrust()
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeJSON(w, plan)
+}
+
+// handleHooksCodexTrust records trust for the hooks a preview listed, after the
+// dashboard's confirmation; the revision ties the write to what was shown.
+func (s *Server) handleHooksCodexTrust(w http.ResponseWriter, r *http.Request) {
+	var body hooksTrustRequest
+	if !decodeHooksRequest(w, r, &body) {
+		return
+	}
+	if s.IsProjectMode() {
+		writeError(w, http.StatusBadRequest, "Codex trust is recorded in global Codex homes only")
+		return
+	}
+	if body.Revision == "" {
+		writeError(w, http.StatusBadRequest, "review the Codex hooks before trusting them")
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	start := time.Now()
+	plan, err := s.hooksService().TrustCodex(body.Revision)
+	s.writeOpsLog("hooks trust", opStatus(err), start, map[string]any{"scope": "ui"}, "")
+	if err != nil {
+		status := http.StatusBadRequest
+		if errors.Is(err, hooks.ErrStaleRevision) {
+			status = http.StatusConflict
+		}
+		writeError(w, status, err.Error())
+		return
+	}
+	writeJSON(w, plan)
+}
+
 func (s *Server) handleHooksImport(w http.ResponseWriter, r *http.Request) {
 	var body hooks.ImportRequest
 	if !decodeHooksRequest(w, r, &body) {

@@ -30,6 +30,9 @@ skillshare hooks enable check --sync
 skillshare hooks sync --dry-run --json
 skillshare hooks sync
 skillshare hooks sync check --replace --dry-run
+skillshare hooks sync --trust -g
+skillshare hooks sync --trust --yes -g
+skillshare hooks sync --trust --yes --json -g
 skillshare sync hooks --dry-run --json
 skillshare sync hooks
 skillshare hooks remove check --sync
@@ -47,12 +50,12 @@ code and never runs it.
 
 The dashboard's **Hooks in targets** dialog opens with no hook selected; tick the ones to
 import. It can also edit or remove a hook in its Agent's
-settings file without importing it. This works for Agents that keep hooks as
-events in one settings file (Claude, Codex, Gemini, Cursor, Qwen, and Droid's
-`hooks.json`); hooks
-that are a whole file or a named block must be imported first. The dialog shows
-the file diff before anything is written and backs the file up; the hook stays
-unmanaged.
+settings file without importing it. This works for every Agent whose hooks are
+configuration: events in one settings file (Claude, Codex, Gemini, Cursor, Qwen,
+and Droid's `hooks.json`), an Antigravity named block, or a Copilot hooks file,
+where removing the hook deletes that file. Hooks that are code (Pi, Oh My Pi,
+Amp, OpenCode) must be imported first. The dialog shows the file diff before
+anything is written and backs the file up; the hook stays unmanaged.
 
 Add, edit, import, enable, disable and remove save source only unless `--sync`
 is supplied. Sync and restore always preview again before applying.
@@ -68,6 +71,8 @@ not one transaction.
 | `--sync` | Save and synchronize the mutation |
 | `--keep-files` | With `remove`: stop managing the hook and leave its native entries as they are. Not with `--sync`. See [below](#stop-managing-a-hook) |
 | `--replace` | Explicitly replace an existing source entry or conflicting native output for that entry |
+| `--trust` | With `hooks sync` in global mode: also record Codex trust for the hooks Skillshare owns. See [Codex trust](#codex-trust) |
+| `--yes`, `-y` | With `--trust`: skip the question and trust the listed hooks. See [Codex trust](#codex-trust) |
 | `--dry-run`, `-n` | Preview without saving or writing native configuration |
 | `--json` | Structured output |
 | `--revision ID` | Require the matching preview revision |
@@ -288,7 +293,45 @@ bindings still name it; remove those bindings too before the next hooks sync.
 Import from an account with `skillshare hooks import --from codex-2 -g --json`.
 The dashboard labels it **codex-2 (Codex)** and uses Codex's events and editor.
 Each Codex home needs its own review and trust of changed hooks in `/hooks`;
-sync never changes trust or executes a hook.
+sync never changes trust or executes a hook unless you pass `--trust`.
+
+### Codex trust {#codex-trust}
+
+Codex runs a user-level hook only after it is trusted, and keeps that trust in
+the same home's `config.toml` as `hooks.state."<hooks.json>:<event>:<group>:<handler>".trusted_hash`.
+The key is the hook's position, so a hook Skillshare adds or moves starts
+untrusted, and `codex exec` skips it.
+
+```bash
+skillshare hooks sync --trust -g
+skillshare hooks sync --trust --yes -g
+skillshare hooks sync --trust --yes --json -g
+```
+
+`--trust` first writes the hook files as a normal sync does. Then it asks Codex which of the hooks Skillshare owns need trust, in every Codex home it manages, account homes included. It gets each hook's hash from `codex app-server`, the same calls the `/hooks` review uses, so `codex` must be on `PATH`. Skillshare never computes the hash.
+
+Hooks that are already trusted are reported as `unchanged` and need no answer. If a hook is new, or its command changed since it was trusted, the command lists those hooks with their commands and asks once. If nothing needs trust, it does not ask.
+
+```
+Codex trust
+  stop  needs trust  codex  /home/me/.codex/hooks.json:stop:1:0
+  /usr/local/bin/notify-done
+
+? Trust 1 hook in Codex?  Yes  No
+```
+
+After you confirm:
+
+```
+Codex trust
+✓ stop  trusted  codex  /home/me/.codex/hooks.json:stop:1:0
+```
+
+`--yes` (`-y`) skips the question. Codex's review exists so that a person sees the command before it runs. Without a terminal and without `--yes`, nothing is trusted: the command lists the hooks and exits with an error that names `--yes`. `--json` never asks either: without `--yes` it reports the hooks as `needed` and exits non-zero, with no error text. `--yes` is only valid with `--trust`. The `--json` output has a `codexTrust` list. Each item has `target`, `entry`, `key`, `command`, `action` (`needed`, `trusted` or `unchanged`), and `disabled` when true.
+
+Only `trusted_hash` is written, and only ever added. A hook you disabled in Codex stays disabled and is reported. `enabled`, the rest of `config.toml` and hooks Skillshare does not own are left alone. When a hook moves or is removed, its old entry stays in `config.toml`. It matches only a hook with the same event, matcher and handler at that position, so it cannot trust a different hook.
+
+If `codex` is not on `PATH` or Codex fails, the hook files are still written and the command fails with "hook files were written, but Codex trust was not recorded". With several Codex homes, a home that Codex cannot list, or whose write fails, does not stop the others: the error names the homes that were recorded and the ones that were not. Plain `hooks sync` never starts Codex and never changes trust. `--trust` works in global mode only; `sync hooks`, `hooks list` and project mode reject it. The dashboard's Hooks page (global scope) has the same action: it lists the hooks that need trust with their commands and records trust only after you confirm in the dialog.
 
 ## Git hooks
 
@@ -422,7 +465,8 @@ not replace your source definition. Use **Settings → Backups → Hooks** or
 **Synced** describes configuration written by Skillshare. Restart or reload the
 Agent as its native workflow requires; native trust, enabling hooks and code
 compatibility remain controlled by that Agent. Skillshare never executes hook
-commands during management or changes native trust automatically.
+commands during management or changes native trust automatically; only
+[`--trust`](#codex-trust) records Codex trust, when you ask for it.
 
 ### OpenCode v2 directory packages
 

@@ -140,6 +140,8 @@ _skillshare() {
                         '--sync[Sync after saving]' \
                         '--replace[Replace an existing entry]' \
                         '--keep-files[remove: leave Agent entries as they are]' \
+                        '--trust[sync: record Codex trust]' \
+                        '(-y --yes)'{-y,--yes}'[sync --trust: record trust without asking]' \
                         '--revision[Preview revision]:revision:' \
                         '--dry-run[Preview changes]' \
                         '-n[Preview changes]' \
@@ -415,6 +417,7 @@ _skillshare() {
                         '*--skills-exclude[Replace skills exclude filters]:pattern: ' \
                         '*--agents-include[Replace agents include filters]:pattern: ' \
                         '*--agents-exclude[Replace agents exclude filters]:pattern: ' \
+                        '*--scan[Also add Git checkouts below this folder]:folder:_directories' \
                         '--machine-local[Save a new project on this machine only]' \
                         '--shared[Save in config.yaml, or also remove its copy]' \
                         '--sync[Sync after add or edit]' \

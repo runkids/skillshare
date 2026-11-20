@@ -2,7 +2,8 @@ import type { InvalidateQueryFilters, QueryClient, QueryKey } from '@tanstack/re
 
 import { queryKeys as k } from './queryKeys';
 
-const keys = (...list: QueryKey[]): InvalidateQueryFilters[] => list.map((queryKey) => ({ queryKey }));
+const keys = (...list: QueryKey[]): InvalidateQueryFilters[] =>
+  list.map((queryKey) => ({ queryKey }));
 
 /** Everything that shows a target's config or its effect. */
 const targets = [k.targets.all, k.projects, k.config, k.overview, k.diff(), k.syncMatrix()];
@@ -31,8 +32,10 @@ const events = {
   skillTargetFilterChanged: () => keys(k.targets.all, k.syncMatrixAll, k.diffAll),
   sourceLinked: () => keys(...sourceLinks),
   sourceUnlinked: () => keys(...sourceLinks, k.trash, k.missingConfigEntries),
-  collected: (target?: string) => keys(k.skills.all, k.overview, k.targets.all, k.diff(), k.syncMatrix(), k.collectScan(target)),
-  configInstalled: () => keys(k.missingConfigEntries, k.skills.all, k.overview, k.syncMatrixAll, k.diff()),
+  collected: (target?: string) =>
+    keys(k.skills.all, k.overview, k.targets.all, k.diff(), k.syncMatrix(), k.collectScan(target)),
+  configInstalled: () =>
+    keys(k.missingConfigEntries, k.skills.all, k.overview, k.syncMatrixAll, k.diff()),
 
   // Targets, projects and sync
   targetsChanged: () => keys(...targets, k.instructions.all),
@@ -40,13 +43,31 @@ const events = {
   syncRan: () => keys(...targets, k.extrasDiff(), k.extras, k.mcp, k.hooks, k.logAll),
   projectSynced: () => keys(...targets, k.mcp, k.hooks, k.logAll),
   projectChanged: () => keys(...targets, k.mcp, k.hooks),
-  projectAdded: () => keys(...targets, k.mcp),
+  projectAdded: () => keys(...targets, k.mcp, k.hooks),
   targetFilesChanged: (target: string) => keys(k.targetFiles.list(target)),
   // Only the list: the removed file's content query is still mounted and would fetch again.
-  targetFileRemoved: (target: string): InvalidateQueryFilters[] => [{ queryKey: k.targetFiles.list(target), exact: true }],
+  targetFileRemoved: (target: string): InvalidateQueryFilters[] => [
+    { queryKey: k.targetFiles.list(target), exact: true },
+  ],
 
   // Config
-  configSaved: () => keys(k.updatePolicy, k.versionCheck, k.config, k.mcp, k.overview, k.targets.all, k.skills.all, k.extras, k.extrasDiff(), k.diff(), k.syncMatrix(), k.doctor, k.instructions.all, k.memory.all),
+  configSaved: () =>
+    keys(
+      k.updatePolicy,
+      k.versionCheck,
+      k.config,
+      k.mcp,
+      k.overview,
+      k.targets.all,
+      k.skills.all,
+      k.extras,
+      k.extrasDiff(),
+      k.diff(),
+      k.syncMatrix(),
+      k.doctor,
+      k.instructions.all,
+      k.memory.all,
+    ),
   updatePolicyChanged: () => keys(k.versionCheck, k.doctor),
   settingsSaved: () => keys(k.updatePolicy, k.config, k.versionCheck, k.doctor),
   skillignoreSaved: () => keys(k.skillignore, ...ignoreFile),
@@ -56,7 +77,8 @@ const events = {
 
   // Extras, instructions and memory
   extrasChanged: () => keys(k.extras, k.extrasDiff(), k.config, k.overview, k.memory.all),
-  instructionsChanged: () => keys(k.instructions.all, k.extras, k.extrasDiff(), k.config, k.memory.all),
+  instructionsChanged: () =>
+    keys(k.instructions.all, k.extras, k.extrasDiff(), k.config, k.memory.all),
   managedFilesChanged: () => keys(k.fileBackups.all, k.instructions.all, k.memory.all),
   memoryNotesChanged: () => keys(k.memory.all, k.extras, k.fileBackups.all),
   memoryRefreshed: () => keys(k.memory.all),
@@ -80,7 +102,8 @@ const events = {
   backupRestored: () => keys(k.backups, k.targets.all),
   logsCleared: () => keys(k.logAll, k.logStatsAll),
   gitFetched: () => keys(k.gitStatus),
-  gitChanged: () => keys(k.gitStatus, k.gitBranches, k.skills.all, k.overview, k.config, k.targets.all, k.diff()),
+  gitChanged: () =>
+    keys(k.gitStatus, k.gitBranches, k.skills.all, k.overview, k.config, k.targets.all, k.diff()),
   // Root scope can change any of the source resources shown elsewhere.
   sourceDiscarded: (): InvalidateQueryFilters[] => [{}],
   appUpgraded: () => keys(k.versionCheck),
@@ -93,7 +116,11 @@ const events = {
 export type QueryEvent = keyof typeof events;
 
 /** Mark what `event` made stale and refetch the queries on screen. Resolves when those refetches finish. */
-export function invalidate<E extends QueryEvent>(queryClient: QueryClient, event: E, ...args: Parameters<(typeof events)[E]>) {
+export function invalidate<E extends QueryEvent>(
+  queryClient: QueryClient,
+  event: E,
+  ...args: Parameters<(typeof events)[E]>
+) {
   const filters = (events[event] as (...a: unknown[]) => InvalidateQueryFilters[])(...args);
   return Promise.all(filters.map((f) => queryClient.invalidateQueries(f)));
 }

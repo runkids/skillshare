@@ -39,9 +39,17 @@ export function Checkbox({
         className="sr-only ss-chk-input"
       />
       <span className={`ss-chk ${checked || indeterminate ? 'on' : ''}`}>
-        {indeterminate ? <Minus size={12} strokeWidth={3} /> : checked ? <Check size={12} strokeWidth={3} /> : null}
+        {indeterminate ? (
+          <Minus size={12} strokeWidth={3} />
+        ) : checked ? (
+          <Check size={12} strokeWidth={3} />
+        ) : null}
       </span>
-      <span className={hideLabel ? 'sr-only' : `${size === 'sm' ? 'text-[13px]' : 'text-sm'} text-ink`}>{label}</span>
+      <span
+        className={hideLabel ? 'sr-only' : `${size === 'sm' ? 'text-[13px]' : 'text-sm'} text-ink`}
+      >
+        {label}
+      </span>
     </label>
   );
 }

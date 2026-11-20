@@ -3,7 +3,10 @@ package hooks
 import (
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"strings"
+
+	"github.com/tailscale/hujson"
 )
 
 // NativeEdit rewrites or removes hooks no Skillshare config manages, in the target's
@@ -13,17 +16,19 @@ type NativeEdit struct {
 	Target string `json:"target"`
 	// Root edits a hooks.projects root's native file instead of the current scope's.
 	Root string `json:"root,omitempty"`
+	// Source names the Antigravity block or Copilot file, as Candidate.Source does.
+	Source string `json:"source,omitempty"`
 	// Before holds the unmanaged registrations as Import listed them, keyed by event.
 	Before map[string]any `json:"before"`
 	// After replaces them; empty removes them.
 	After map[string]any `json:"after,omitempty"`
 }
 
-// nativeEditable reports the Agents whose unmanaged hooks are elements of one event
-// map, which is what NativeEdit can address.
+// nativeEditable reports the Agents whose unmanaged hooks are configuration, not code:
+// elements of one event map, an Antigravity block, or a Copilot hooks file.
 func nativeEditable(agent string) bool {
 	def, ok := targetDef(agent)
-	return ok && def.Kind == KindCommand && agent != "copilot" && agent != "antigravity"
+	return ok && def.Kind == KindCommand
 }
 
 type nativeEditFile struct {
@@ -78,6 +83,27 @@ func (s *Service) PreviewNativeEdits(edits []NativeEdit) (*Plan, error) {
 		if err != nil {
 			return nil, err
 		}
+		if len(e.Before) == 0 {
+			return nil, fmt.Errorf("%s: no hooks named to change", e.Target)
+		}
+		if len(e.After) > 0 {
+			if err := validateEvents(agent, e.After); err != nil {
+				return nil, err
+			}
+		}
+		action := "update"
+		if len(e.After) == 0 {
+			action = "remove"
+		}
+		if agent == "copilot" {
+			f, err := s.copilotEdit(target, root, path, e, state)
+			if err != nil {
+				return nil, err
+			}
+			p.files = append(p.files, f)
+			p.Changes = append(p.Changes, Change{Target: target, Path: f.path, Root: root, Name: e.Source, Action: action})
+			continue
+		}
 		file := files[path]
 		if file == nil {
 			if file, err = s.nativeEditFile(target, agent, root, path, state); err != nil {
@@ -86,11 +112,8 @@ func (s *Service) PreviewNativeEdits(edits []NativeEdit) (*Plan, error) {
 			files[path] = file
 			p.files = append(p.files, file.plan)
 		}
-		if len(e.Before) == 0 {
-			return nil, fmt.Errorf("%s: no hooks named to change", e.Target)
-		}
-		if len(e.After) > 0 {
-			if err := validateEvents(agent, e.After); err != nil {
+		if agent == "antigravity" {
+			if e, err = file.blockEdit(e); err != nil {
 				return nil, err
 			}
 		}
@@ -133,20 +156,18 @@ func (s *Service) PreviewNativeEdits(edits []NativeEdit) (*Plan, error) {
 				file.plan.ops = append(file.plan.ops, elementOp{Event: event, Index: -1, Value: item})
 			}
 		}
-		action := "update"
-		if len(e.After) == 0 {
-			action = "remove"
-		}
 		p.Changes = append(p.Changes, Change{Target: target, Path: path, Root: root, Name: strings.Join(sortedKeys(e.Before), ", "), Action: action})
 	}
 	proposal, _ := json.Marshal(edits)
 	revision := digest(source.bytes) + digest(stateBytes) + digest(proposal)
 	for _, f := range p.files {
-		after, _, err := files[f.path].doc.edit(f.ops, nil, false)
-		if err != nil {
-			return nil, fmt.Errorf("%s: %w", f.path, err)
+		if file := files[f.path]; file != nil {
+			after, _, err := file.doc.edit(f.ops, nil, false)
+			if err != nil {
+				return nil, fmt.Errorf("%s: %w", f.path, err)
+			}
+			f.after = after
 		}
-		f.after = after
 		revision += digest([]byte(f.path + "\x00" + f.section))
 	}
 	p.Revision = digest([]byte(revision))
@@ -221,6 +242,83 @@ func (f *nativeEditFile) find(event string, item any) (int, error) {
 		}
 	}
 	return 0, fmt.Errorf("the %s hooks changed since they were read: %w", event, ErrStaleRevision)
+}
+
+// blockEdit turns an edit of an Antigravity block's events into an edit of the block,
+// which the file holds as the only element of an event named after it. A disabled
+// block stays disabled.
+func (f *nativeEditFile) blockEdit(e NativeEdit) (NativeEdit, error) {
+	stale := fmt.Errorf("hook %q changed since it was read: %w", e.Source, ErrStaleRevision)
+	items := f.doc.events[e.Source]
+	if len(items) == 0 {
+		return e, stale
+	}
+	block := items[0].(map[string]any)
+	if elementHash(blockEvents(block)) != elementHash(e.Before) {
+		return e, stale
+	}
+	out := NativeEdit{Target: e.Target, Root: e.Root, Before: map[string]any{e.Source: []any{block}}}
+	if len(e.After) > 0 {
+		after := map[string]any{}
+		for key, value := range e.After {
+			after[key] = value
+		}
+		if enabled, ok := block["enabled"]; ok {
+			after["enabled"] = enabled
+		}
+		out.After = map[string]any{e.Source: []any{after}}
+	}
+	return out, nil
+}
+
+// copilotEdit plans rewriting the hooks of one Copilot hooks file no Skillshare config
+// owns, or deleting the file. The rest of the file keeps its bytes.
+func (s *Service) copilotEdit(target, root, dir string, e NativeEdit, state ledger) (*filePlan, error) {
+	if e.Source != filepath.Base(e.Source) || filepath.Ext(e.Source) != ".json" {
+		return nil, fmt.Errorf("invalid Copilot hooks file %q", e.Source)
+	}
+	path := filepath.Join(dir, e.Source)
+	base, err := s.base(target, root)
+	if err != nil {
+		return nil, err
+	}
+	if err := checkPath(base, path); err != nil {
+		return nil, err
+	}
+	if _, owned := state.Records[fileKey(path)]; owned {
+		return nil, fmt.Errorf("%s is managed by Skillshare; edit that hook instead", path)
+	}
+	data, exists, mode, err := safeRead(path)
+	if err != nil {
+		return nil, err
+	}
+	if hooks, err := copilotHooks(path, data); !exists || err != nil || elementHash(hooks) != elementHash(e.Before) {
+		return nil, fmt.Errorf("%s changed since it was read: %w", path, ErrStaleRevision)
+	}
+	f := &filePlan{path: path, target: target, agent: "copilot", root: root, base: base, kind: kindFile, before: data, exists: true, mode: mode, section: digest(data)}
+	if len(e.After) == 0 {
+		f.remove = true
+		return f, nil
+	}
+	v, err := hujson.Parse(data)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", path, err)
+	}
+	obj := v.Value.(*hujson.Object)
+	m := member(obj, "hooks")
+	if m == nil {
+		return nil, fmt.Errorf("%s has no hooks key; Copilot does not load it", path)
+	}
+	value, err := formatted(e.After, detectIndent(obj), 1)
+	if err != nil {
+		return nil, err
+	}
+	keepKeyOrder(&value, m.Value)
+	value.BeforeExtra = m.Value.BeforeExtra
+	m.Value = value
+	f.write = v.Pack()
+	f.after = f.write
+	return f, nil
 }
 
 // ApplyNativeEdits writes previewed edits, with a backup per file.

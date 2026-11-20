@@ -1,9 +1,30 @@
 import { isCollection, isMap, isNode, isScalar, parseDocument, visit } from 'yaml';
 
 const CONFIG_SECTIONS = [
-  'sources', 'source', 'agents_source', 'extras_source', 'git_root', 'mode', 'target_naming',
-  'targets', 'skills', 'agents', 'extras', 'mcp', 'plugins', 'hooks',
-  'updates', 'projects', 'hub', 'log', 'context_budget', 'tui', 'gitlab_hosts', 'azure_hosts', 'ignore', 'audit',
+  'sources',
+  'source',
+  'agents_source',
+  'extras_source',
+  'git_root',
+  'mode',
+  'target_naming',
+  'targets',
+  'skills',
+  'agents',
+  'extras',
+  'mcp',
+  'plugins',
+  'hooks',
+  'updates',
+  'projects',
+  'hub',
+  'log',
+  'context_budget',
+  'tui',
+  'gitlab_hosts',
+  'azure_hosts',
+  'ignore',
+  'audit',
 ];
 
 /**
@@ -12,7 +33,10 @@ const CONFIG_SECTIONS = [
  * together with everything inside it, so a one-line `{a: {b: [...]}}` becomes readable while short
  * lists like `[claude, codex]` under block keys stay as written.
  */
-export function formatYaml(source: string, { expandNested = false, organizeConfig = false } = {}): string {
+export function formatYaml(
+  source: string,
+  { expandNested = false, organizeConfig = false } = {},
+): string {
   const doc = parseDocument(source);
   if (doc.errors.length) throw new Error(doc.errors[0].message);
   if (organizeConfig && isMap(doc.contents)) {
@@ -61,7 +85,9 @@ export function formatYaml(source: string, { expandNested = false, organizeConfi
     visit(doc, {
       Collection(_, node, path) {
         if (!node.flow || node.items.length === 0) return;
-        const nested = node.items.some((item) => filled(item) || filled((item as { value?: unknown }).value));
+        const nested = node.items.some(
+          (item) => filled(item) || filled((item as { value?: unknown }).value),
+        );
         if (nested || path.some((ancestor) => expanded.has(ancestor))) {
           node.flow = false;
           expanded.add(node);

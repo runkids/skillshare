@@ -1,14 +1,30 @@
 import type { ReactNode } from 'react';
 import { classHighlighter, highlightCode } from '@lezer/highlight';
-import { javascriptLanguage, jsxLanguage, tsxLanguage, typescriptLanguage } from '@codemirror/lang-javascript';
+import {
+  javascriptLanguage,
+  jsxLanguage,
+  tsxLanguage,
+  typescriptLanguage,
+} from '@codemirror/lang-javascript';
 import { jsonLanguage } from '@codemirror/lang-json';
 import { pythonLanguage } from '@codemirror/lang-python';
 import { yamlLanguage } from '@codemirror/lang-yaml';
 
 const PARSERS: Record<string, typeof jsonLanguage.parser> = {
-  js: javascriptLanguage.parser, mjs: javascriptLanguage.parser, cjs: javascriptLanguage.parser, javascript: javascriptLanguage.parser,
-  jsx: jsxLanguage.parser, ts: typescriptLanguage.parser, typescript: typescriptLanguage.parser, tsx: tsxLanguage.parser,
-  json: jsonLanguage.parser, jsonc: jsonLanguage.parser, py: pythonLanguage.parser, python: pythonLanguage.parser, yaml: yamlLanguage.parser, yml: yamlLanguage.parser,
+  js: javascriptLanguage.parser,
+  mjs: javascriptLanguage.parser,
+  cjs: javascriptLanguage.parser,
+  javascript: javascriptLanguage.parser,
+  jsx: jsxLanguage.parser,
+  ts: typescriptLanguage.parser,
+  typescript: typescriptLanguage.parser,
+  tsx: tsxLanguage.parser,
+  json: jsonLanguage.parser,
+  jsonc: jsonLanguage.parser,
+  py: pythonLanguage.parser,
+  python: pythonLanguage.parser,
+  yaml: yamlLanguage.parser,
+  yml: yamlLanguage.parser,
 };
 
 const MARKDOWN = new Set(['md', 'markdown', 'mdx']);
@@ -37,7 +53,15 @@ export function highlightLines(code: string, lang = ''): ReactNode[] {
     classHighlighter,
     (text, classes) => {
       const line = lines[lines.length - 1];
-      line.push(classes ? <span key={line.length} className={classes}>{text}</span> : text);
+      line.push(
+        classes ? (
+          <span key={line.length} className={classes}>
+            {text}
+          </span>
+        ) : (
+          text
+        ),
+      );
     },
     () => lines.push([]),
   );
@@ -81,10 +105,20 @@ function markdownLines(lines: string[]): ReactNode[] {
 function markdownLine(line: string): ReactNode {
   if (/^\s{0,3}#{1,6}\s/.test(line)) return <span className="tok-heading">{line}</span>;
   if (/^\s*>/.test(line)) return <span className="tok-quote">{line}</span>;
-  if (/^\s*(-{3,}|\*{3,}|_{3,}|\|?(\s*:?-+:?\s*\|)+\s*:?-*:?\s*)$/.test(line)) return <span className="tok-meta">{line}</span>;
+  if (/^\s*(-{3,}|\*{3,}|_{3,}|\|?(\s*:?-+:?\s*\|)+\s*:?-*:?\s*)$/.test(line))
+    return <span className="tok-meta">{line}</span>;
   const list = line.match(/^(\s*)([-*+]|\d+[.)])(\s+(?:\[[ xX]\]\s+)?)(.*)$/);
   if (list) {
-    return <>{list[1]}<span className="tok-list">{list[2]}{list[3]}</span>{inline(list[4])}</>;
+    return (
+      <>
+        {list[1]}
+        <span className="tok-list">
+          {list[2]}
+          {list[3]}
+        </span>
+        {inline(list[4])}
+      </>
+    );
   }
   return inline(line);
 }
@@ -96,11 +130,20 @@ function inline(text: string): ReactNode {
   if (parts.length === 1) return text;
   return parts.map((p, i) => {
     if (i % 2 === 0) return p;
-    const cls = p === '|' ? 'tok-punctuation'
-      : p.startsWith('`') ? 'tok-string'
-        : p.startsWith('**') ? 'tok-strong'
-          : p.startsWith('[') ? 'tok-link'
-            : 'tok-arg';
-    return <span key={i} className={cls}>{p}</span>;
+    const cls =
+      p === '|'
+        ? 'tok-punctuation'
+        : p.startsWith('`')
+          ? 'tok-string'
+          : p.startsWith('**')
+            ? 'tok-strong'
+            : p.startsWith('[')
+              ? 'tok-link'
+              : 'tok-arg';
+    return (
+      <span key={i} className={cls}>
+        {p}
+      </span>
+    );
   });
 }

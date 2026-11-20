@@ -840,8 +840,6 @@ func PruneOrphanLinksWithSkills(opts PruneOptions) (*PruneResult, error) {
 		return nil, fmt.Errorf("failed to read target directory: %w", err)
 	}
 
-	absSource, _ := filepath.Abs(sourcePath)
-
 	for _, entry := range entries {
 		name := entry.Name()
 
@@ -870,50 +868,18 @@ func PruneOrphanLinksWithSkills(opts PruneOptions) (*PruneResult, error) {
 		_, inManifest := manifest.Managed[name]
 
 		if utils.IsSymlinkOrJunction(entryPath) {
-			absLink, err := utils.ResolveLinkTarget(entryPath)
-			if err != nil {
-				result.Warnings = append(result.Warnings,
-					fmt.Sprintf("%s: unable to resolve link target, kept", name))
-				continue
-			}
-
-			targetExists := false
-			if _, err := os.Stat(absLink); err == nil {
-				targetExists = true
-			}
-
-			if linksIntoSource(entryPath, absSource) {
-				if !targetExists {
-					shouldRemove = true
-					reason = "broken symlink to source"
-				} else if inManifest || force {
-					shouldRemove = true
-					reason = "orphan symlink to source"
-				} else {
-					// A live link into the source that skillshare never created is the
-					// user's own wiring. Keep it, like the directory branch below.
-					result.LocalDirs = append(result.LocalDirs, name)
-					continue
-				}
-			} else if !targetExists {
-				// External symlink whose target no longer exists (e.g. after data migration).
-				// Remove it only if skillshare made it: a broken link another tool or the
-				// user made is theirs to clean up.
-				if inManifest || force {
-					shouldRemove = true
-					reason = "broken external symlink"
-				} else {
-					result.Warnings = append(result.Warnings,
-						fmt.Sprintf("%s: broken link to %s that skillshare did not create, kept (delete it yourself, or sync with --force)", name, absLink))
-					continue
-				}
-			} else if force {
-				// Valid external symlink, but force mode requested
+			verdict := OrphanLink(entryPath, sourcePath, inManifest, force)
+			switch {
+			case verdict.RemoveReason != "":
 				shouldRemove = true
-				reason = "external symlink (force)"
-			} else {
-				result.Warnings = append(result.Warnings,
-					fmt.Sprintf("%s: symlink to external location (%s), kept", name, absLink))
+				reason = verdict.RemoveReason
+			case verdict.KeptWarning != "":
+				result.Warnings = append(result.Warnings, name+": "+verdict.KeptWarning)
+				continue
+			default:
+				// Keep it, like the directory branch below.
+				result.LocalDirs = append(result.LocalDirs, name)
+				continue
 			}
 		} else if info.IsDir() {
 			// Check manifest first (most reliable)

@@ -11,7 +11,7 @@ export function highlightArgs(children: ReactNode): ReactNode {
   if (typeof children === 'string') return highlightArgsInString(children);
   if (Array.isArray(children)) {
     return children.map((c, i) =>
-      typeof c === 'string' ? <span key={i}>{highlightArgsInString(c)}</span> : c
+      typeof c === 'string' ? <span key={i}>{highlightArgsInString(c)}</span> : c,
     );
   }
   return children;
@@ -27,6 +27,6 @@ function highlightArgsInString(s: string): ReactNode {
       </span>
     ) : (
       p
-    )
+    ),
   );
 }

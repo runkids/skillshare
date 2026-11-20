@@ -140,13 +140,43 @@ export default function AgentIcon({ target, size = 16 }: { target: string; size?
   // universal is the cross-client ~/.agents/skills convention: the Agent Skills hexagon in a
   // multi-color gradient so the shared path stands apart from single-vendor marks.
   if (target === 'universal') {
-    return <span aria-hidden="true" className="inline-block shrink-0 bg-linear-135/oklch from-[#dc4538] via-[#f0b840] to-[#5cc98a] [clip-path:polygon(50%_2%,92%_26%,92%_74%,50%_98%,8%_74%,8%_26%)]" style={{ width: size, height: size }} />;
+    return (
+      <span
+        aria-hidden="true"
+        className="inline-block shrink-0 bg-linear-135/oklch from-[#dc4538] via-[#f0b840] to-[#5cc98a] [clip-path:polygon(50%_2%,92%_26%,92%_74%,50%_98%,8%_74%,8%_26%)]"
+        style={{ width: size, height: size }}
+      />
+    );
   }
-  if (colored[target]) return <img src={colored[target]} alt="" aria-hidden="true" width={size} height={size} className="shrink-0" />;
+  if (colored[target])
+    return (
+      <img
+        src={colored[target]}
+        alt=""
+        aria-hidden="true"
+        width={size}
+        height={size}
+        className="shrink-0"
+      />
+    );
   const src = mono[target];
   if (!src) {
-    return <span aria-hidden="true" className="inline-flex items-center justify-center shrink-0 rounded-[var(--radius-sm)] bg-muted/60 font-bold uppercase text-pencil-light" style={{ width: size, height: size, fontSize: size * 0.55 }}>{target[0]}</span>;
+    return (
+      <span
+        aria-hidden="true"
+        className="inline-flex items-center justify-center shrink-0 rounded-[var(--radius-sm)] bg-muted/60 font-bold uppercase text-pencil-light"
+        style={{ width: size, height: size, fontSize: size * 0.55 }}
+      >
+        {target[0]}
+      </span>
+    );
   }
   const mask = `url("${src}") center / contain no-repeat`;
-  return <span aria-hidden="true" className="inline-block shrink-0 bg-current" style={{ width: size, height: size, mask, WebkitMask: mask }} />;
+  return (
+    <span
+      aria-hidden="true"
+      className="inline-block shrink-0 bg-current"
+      style={{ width: size, height: size, mask, WebkitMask: mask }}
+    />
+  );
 }

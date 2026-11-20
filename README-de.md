@@ -14,7 +14,7 @@
   <a href="https://github.com/runkids/skillshare/releases"><img src="https://img.shields.io/github/v/release/runkids/skillshare" alt="Release"></a>
   <a href="https://github.com/runkids/skillshare/releases"><img src="https://img.shields.io/github/downloads/runkids/skillshare/total" alt="Downloads"></a>
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-blue" alt="Platform">
-  <a href="https://deepwiki.com/runkids/skillshare"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
+  <a href="https://deepwiki.com/runkids/skillshare"><img src="https://img.shields.io/badge/Ask-DeepWiki-blue" alt="Ask DeepWiki"></a>
 </p>
 
 <p align="center">
@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **Neueste Version**: v0.30.9 — Hooks bearbeiten oder entfernen, ohne sie zu importieren: Der Import-Dialog für Hooks im Dashboard zeigt jetzt einen Agent nach dem anderen und kann einen Hook direkt in dessen Einstellungsdatei ändern. Du siehst den Datei-Diff, bevor etwas geschrieben wird, und ein Backup stellt die Datei wieder her. Der Hook bleibt unverwaltet. [hooks-Referenz →](https://skillshare.runkids.cc/docs/reference/commands/hooks) · [Alle Releases →](https://github.com/runkids/skillshare/releases)
+> **Neueste Version**: v0.30.11 — Pi-Pakete aus dem Dashboard teilen: **Teilen** auf der Plugins-Seite listet jetzt nach deinen Plugins auch die npm-Pakete auf, die Pi installiert hat, und kopiert einen Befehl, der alle hinzufügt, etwa `skillshare plugin add npm:<package> --target pi -g --no-tui`. Der Dialog **Hooks in Zielen** kann außerdem Antigravity- und Copilot-Hooks bearbeiten oder entfernen, ohne sie zu importieren. [Plugins-Anleitung →](https://skillshare.runkids.cc/docs/how-to/daily-tasks/sharing-plugins) · [Alle Releases →](https://github.com/runkids/skillshare/releases)
 
 ## Warum skillshare
 
@@ -300,7 +300,11 @@ make check  # format + lint + test
 
 ## Mitwirkende
 
-Danke an alle, die skillshare mitgestaltet haben. Die Liste findest du in der [englischen README](README.md#contributors).
+[Mitwirkende auf GitHub ansehen](https://github.com/runkids/skillshare/graphs/contributors)
+
+### Dank an die Community
+
+Danke für eure Fehlerberichte, Verbesserungsvorschläge und eure Hilfe beim Testen. [englischen README](README.md#community-thanks).
 
 ---
 

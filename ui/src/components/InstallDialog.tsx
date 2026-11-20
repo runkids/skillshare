@@ -22,9 +22,23 @@ import {
   Star,
   X,
 } from 'lucide-react';
-import { api, ApiError, type DiscoverResult, type DiscoveredSkill, type HubSavedEntry, type SearchResult } from '../api/client';
+import {
+  api,
+  ApiError,
+  type DiscoverResult,
+  type DiscoveredSkill,
+  type HubSavedEntry,
+  type SearchResult,
+} from '../api/client';
 import { clearAuditCache } from '../lib/auditCache';
-import { isAuditBlock, parseFindings, statusNote, thresholdOf, type Finding, type StatusNote } from '../lib/auditMessage';
+import {
+  isAuditBlock,
+  parseFindings,
+  statusNote,
+  thresholdOf,
+  type Finding,
+  type StatusNote,
+} from '../lib/auditMessage';
 import { parseSkillMarkdown } from '../lib/frontmatter';
 import { parseSkillsAddCommand, requestedSkills } from '../lib/skillsAddCommand';
 import type { SkillsAddCommand } from '../lib/skillsAddCommand';
@@ -53,8 +67,19 @@ type Tab = 'search' | 'url';
 type View = 'preview' | 'kind' | 'blocked' | 'warnings' | 'folder';
 type InstallOpts = Parameters<typeof api.install>[0];
 type BatchOpts = Parameters<typeof api.installBatch>[0];
-type Blocked = { source: string; names: string[]; threshold: string; findings: Finding[]; retry: InstallOpts | BatchOpts };
-type KindChoice = { source: string; skills: number; agents: number; onContinue: (kind: Kind) => void };
+type Blocked = {
+  source: string;
+  names: string[];
+  threshold: string;
+  findings: Finding[];
+  retry: InstallOpts | BatchOpts;
+};
+type KindChoice = {
+  source: string;
+  skills: number;
+  agents: number;
+  onContinue: (kind: Kind) => void;
+};
 
 const GITHUB = 'github';
 const COMMUNITY_HUB: HubSavedEntry = {
@@ -83,12 +108,14 @@ function isGitSource(s: string) {
   return v.includes('/') || v.startsWith('git@') || v.includes('://');
 }
 
-const sameURL = (a: string, b: string) => a.trim().replace(/\/+$/, '') === b.trim().replace(/\/+$/, '');
+const sameURL = (a: string, b: string) =>
+  a.trim().replace(/\/+$/, '') === b.trim().replace(/\/+$/, '');
 
 function sourceKey(source: string): string {
   const value = source.trim().replace(/\/+$/, '');
-  const github = value.match(/^(?:(?:https?:\/\/)?(?:www\.)?github\.com\/|git@github\.com:)(.+)$/i)?.[1]
-    ?? (/^[^/:.]+\/[^/]+/.test(value) ? value : null);
+  const github =
+    value.match(/^(?:(?:https?:\/\/)?(?:www\.)?github\.com\/|git@github\.com:)(.+)$/i)?.[1] ??
+    (/^[^/:.]+\/[^/]+/.test(value) ? value : null);
   return github ? `github:${github.replace(/\.git(?=\/|$)/i, '').toLowerCase()}` : value;
 }
 
@@ -102,16 +129,31 @@ function discoveredSources(source: string, path: string): string[] {
 }
 
 function mergeHubs(hubs: HubSavedEntry[]): HubSavedEntry[] {
-  return [COMMUNITY_HUB, ...hubs.filter((h) => !sameURL(h.url, COMMUNITY_HUB.url)).map((h) => ({ label: h.label, url: h.url }))];
+  return [
+    COMMUNITY_HUB,
+    ...hubs
+      .filter((h) => !sameURL(h.url, COMMUNITY_HUB.url))
+      .map((h) => ({ label: h.label, url: h.url })),
+  ];
 }
 
 function readCount(params: Record<string, unknown> | undefined, key: string): number {
   const raw = params?.[key];
-  const n = typeof raw === 'number' ? raw : parseInt(String(raw ?? ''), 10);
+  const n = typeof raw === 'number' ? raw : typeof raw === 'string' ? parseInt(raw, 10) : 0;
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
-export default function InstallDialog({ kind, initialTab, initialSource, onClose }: { kind: Kind; initialTab: Tab; initialSource?: string; onClose: () => void }) {
+export default function InstallDialog({
+  kind,
+  initialTab,
+  initialSource,
+  onClose,
+}: {
+  kind: Kind;
+  initialTab: Tab;
+  initialSource?: string;
+  onClose: () => void;
+}) {
   const t = useT();
   const { locale } = useI18n();
   const { toast } = useToast();
@@ -155,17 +197,35 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
 
   const { data: skillsData } = useSkillsQuery();
   // `useSkillsQuery` returns skills and agents together; agents install under their own source.
-  const ofKind = useMemo(() => (skillsData?.resources ?? []).filter((r) => r.kind === kind), [skillsData, kind]);
+  const ofKind = useMemo(
+    () => (skillsData?.resources ?? []).filter((r) => r.kind === kind),
+    [skillsData, kind],
+  );
   const folders = useMemo(() => existingFolders(ofKind), [ofKind]);
-  const installedKeys = useMemo(() => new Set((skillsData?.resources ?? []).filter((r) => r.source).map((r) => `${r.kind}:${sourceKey(r.source!)}`)), [skillsData]);
+  const installedKeys = useMemo(
+    () =>
+      new Set(
+        (skillsData?.resources ?? [])
+          .filter((r) => r.source)
+          .map((r) => `${r.kind}:${sourceKey(r.source!)}`),
+      ),
+    [skillsData],
+  );
   const isInstalled = (k: Kind, source: string) => installedKeys.has(`${k}:${sourceKey(source)}`);
-  const isDiscoveredInstalled = (from: string, item: DiscoveredSkill) => discoveredSources(from, item.path).some((s) => isInstalled(item.kind ?? 'skill', s));
+  const isDiscoveredInstalled = (from: string, item: DiscoveredSkill) =>
+    discoveredSources(from, item.path).some((s) => isInstalled(item.kind ?? 'skill', s));
   const isInstalledResult = (result: SearchResult) => {
     if (!result.skill) return isInstalled(kind, result.source);
     const source = sourceKey(result.source);
     // "/" also covers the "//" join; see discoveredSources.
-    return (skillsData?.resources ?? []).some((item) => item.kind === kind && item.name === result.skill && item.source
-      && (sourceKey(item.source) === source || ['/', '.git/'].some((join) => sourceKey(item.source!).startsWith(source + join))));
+    return (skillsData?.resources ?? []).some(
+      (item) =>
+        item.kind === kind &&
+        item.name === result.skill &&
+        item.source &&
+        (sourceKey(item.source) === source ||
+          ['/', '.git/'].some((join) => sourceKey(item.source!).startsWith(source + join))),
+    );
   };
 
   const { data: hubConfig } = useQuery({
@@ -174,11 +234,22 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
     enabled: !isAgent,
   });
   const hubs = useMemo(() => mergeHubs(hubConfig?.hubs ?? []), [hubConfig]);
-  const defaultIn = hubs.find((h) => hubConfig?.default && h.label.toLowerCase() === hubConfig.default.toLowerCase())?.url ?? GITHUB;
-  const searchIn = pickedIn && (pickedIn === GITHUB || hubs.some((h) => h.url === pickedIn)) ? pickedIn : defaultIn;
+  const defaultIn =
+    hubs.find(
+      (h) => hubConfig?.default && h.label.toLowerCase() === hubConfig.default.toLowerCase(),
+    )?.url ?? GITHUB;
+  const searchIn =
+    pickedIn && (pickedIn === GITHUB || hubs.some((h) => h.url === pickedIn))
+      ? pickedIn
+      : defaultIn;
   const hubName = hubs.find((h) => h.url === searchIn)?.label;
 
-  const { data: preview, error: previewError, isFetching: previewLoading, refetch: refetchPreview } = useQuery({
+  const {
+    data: preview,
+    error: previewError,
+    isFetching: previewLoading,
+    refetch: refetchPreview,
+  } = useQuery({
     queryKey: queryKeys.preview(previewing?.source ?? ''),
     queryFn: () => api.preview(previewing!.source),
     enabled: previewing !== null,
@@ -187,8 +258,10 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
   });
 
   // These keys are not named `.one`/`.other`, so `plural` does not fit them.
-  const countLabel = (k: Kind, n: number) => t(`resources.count.${k}${n === 1 ? '' : 's'}`, { count: n });
-  const findingsLabel = (n: number) => t(n === 1 ? 'install.finding' : 'install.findings', { count: n });
+  const countLabel = (k: Kind, n: number) =>
+    t(`resources.count.${k}${n === 1 ? '' : 's'}`, { count: n });
+  const findingsLabel = (n: number) =>
+    t(n === 1 ? 'install.finding' : 'install.findings', { count: n });
   const noteText = (n: StatusNote) => {
     switch (n.key) {
       case 'forced':
@@ -209,7 +282,9 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
   const picked = found?.items.filter((i) => selected.has(i.path)) ?? [];
   // For the folder caption and the new-folder step's link names; null when the source does not say.
   // --name renames the one skill that is installed, so it wins; several picks name no single skill.
-  const skillName = name.trim() || (found ? (picked.length === 1 ? picked[0].name : null) : skillNameFromSource(src));
+  const skillName =
+    name.trim() ||
+    (found ? (picked.length === 1 ? picked[0].name : null) : skillNameFromSource(src));
   const newFolder = useNewFolderStep({
     kind,
     folders,
@@ -242,7 +317,10 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
 
   const finish = (warningLines: string[]) => {
     refresh();
-    const list = parseFindings(warningLines.flatMap((w) => w.split('\n')), true);
+    const list = parseFindings(
+      warningLines.flatMap((w) => w.split('\n')),
+      true,
+    );
     if (list.length > 0) {
       setWarnings(list);
       setView('warnings');
@@ -262,7 +340,10 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
   const runSingle = async (opts: InstallOpts) => {
     try {
       const res = await api.install(opts);
-      toast(t('install.toast.installed', { label: res.skillName ?? res.repoName ?? opts.source }), 'success');
+      toast(
+        t('install.toast.installed', { label: res.skillName ?? res.repoName ?? opts.source }),
+        'success',
+      );
       finish(res.warnings ?? []);
     } catch (e) {
       if (e instanceof ApiError && e.code === TRACK_KIND_AMBIGUOUS) {
@@ -299,7 +380,9 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
     for (const item of res.results) {
       if (item.error && isAuditBlock(item.error)) {
         threshold = threshold || thresholdOf(item.error);
-        findings.push(...parseFindings(item.error.split('\n'), false).map((f) => ({ ...f, name: item.name })));
+        findings.push(
+          ...parseFindings(item.error.split('\n'), false).map((f) => ({ ...f, name: item.name })),
+        );
         const skill = opts.skills.find((s) => s.name === item.name);
         if (skill) blockedItems.push(skill);
       } else if (item.action === 'skipped' || item.error?.startsWith('already exists')) {
@@ -312,12 +395,23 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
       }
       for (const w of item.warnings ?? []) warningLines.push(`${item.name}: ${w}`);
     }
-    if (existing.length > 0) toast(t('install.toast.exists', { count: existing.length, names: existing.join(', ') }), 'warning');
-    if (errors.length > 0) toast(t('common.nFailed', { count: errors.length, details: errors.join('; ') }), 'error');
+    if (existing.length > 0)
+      toast(
+        t('install.toast.exists', { count: existing.length, names: existing.join(', ') }),
+        'warning',
+      );
+    if (errors.length > 0)
+      toast(t('common.nFailed', { count: errors.length, details: errors.join('; ') }), 'error');
     if (ok > 0) toast(res.summary, blockedItems.length > 0 ? 'warning' : 'success');
     if (blockedItems.length > 0) {
       if (ok > 0) refresh();
-      setBlocked({ source: opts.source, names: blockedItems.map((s) => s.name), threshold, findings, retry: { ...opts, skills: blockedItems } });
+      setBlocked({
+        source: opts.source,
+        names: blockedItems.map((s) => s.name),
+        threshold,
+        findings,
+        retry: { ...opts, skills: blockedItems },
+      });
       setView('blocked');
     } else if (ok > 0) {
       finish(warningLines);
@@ -325,7 +419,11 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
   };
 
   const forceInstall = (b: Blocked) =>
-    withBusy('force', () => ('skills' in b.retry ? runBatch({ ...b.retry, force: true }) : runSingle({ ...b.retry, force: true })));
+    withBusy('force', () =>
+      'skills' in b.retry
+        ? runBatch({ ...b.retry, force: true })
+        : runSingle({ ...b.retry, force: true }),
+    );
 
   const toastWarnings = (d: DiscoverResult) => {
     for (const w of d.warnings ?? []) toast(w, 'warning');
@@ -334,18 +432,29 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
   const applyDiscovery = (from: string, d: DiscoverResult) => {
     toastWarnings(d);
     const skills = d.skills.map((s) => ({ ...s, kind: 'skill' as const }));
-    const agents = (d.agents ?? []).map((a) => ({ name: a.name, path: a.path, kind: 'agent' as const }));
+    const agents = (d.agents ?? []).map((a) => ({
+      name: a.name,
+      path: a.path,
+      kind: 'agent' as const,
+    }));
     const show = (items: DiscoveredSkill[]) => {
       setSource(from);
       setFound({ source: from, items });
-      const preselected = requestedSkills(wanted, from, items) ?? items.filter((i) => !isDiscoveredInstalled(from, i));
+      const preselected =
+        requestedSkills(wanted, from, items) ??
+        items.filter((i) => !isDiscoveredInstalled(from, i));
       setSelected(new Set(preselected.map((i) => i.path)));
       setFilter('');
       setTab('url');
       setView(null);
     };
     if (skills.length > 0 && agents.length > 0) {
-      askKind({ source: from, skills: skills.length, agents: agents.length, onContinue: (k) => show(k === 'agent' ? agents : skills) });
+      askKind({
+        source: from,
+        skills: skills.length,
+        agents: agents.length,
+        onContinue: (k) => show(k === 'agent' ? agents : skills),
+      });
     } else if (skills.length + agents.length > 0) {
       show(skills.length > 0 ? skills : agents);
     } else {
@@ -384,7 +493,9 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
         }),
       );
     } else {
-      void withBusy('primary', async () => applyDiscovery(src, await api.discover(src, opts.branch)));
+      void withBusy('primary', async () =>
+        applyDiscovery(src, await api.discover(src, opts.branch)),
+      );
     }
   };
 
@@ -419,7 +530,10 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
     });
 
   const saveHubs = async (list: HubSavedEntry[], defaultLabel: string) => {
-    const next = { hubs: list.filter((h) => !h.builtIn).map(({ label, url }) => ({ label, url })), default: defaultLabel };
+    const next = {
+      hubs: list.filter((h) => !h.builtIn).map(({ label, url }) => ({ label, url })),
+      default: defaultLabel,
+    };
     await api.putHubConfig(next);
     queryClient.setQueryData(queryKeys.hubConfig, next);
   };
@@ -440,7 +554,14 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
   const tabs = !isAgent && (
     <div className="ss-tabs" role="tablist">
       {(['url', 'search'] as const).map((k) => (
-        <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>
+        <button
+          key={k}
+          type="button"
+          role="tab"
+          aria-selected={tab === k}
+          className={tab === k ? 'on' : ''}
+          onClick={() => setTab(k)}
+        >
           {t(k === 'search' ? 'install.tab.search' : 'install.tab.url')}
         </button>
       ))}
@@ -464,17 +585,38 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
     body = (
       <>
         <div className="flex items-center gap-3.5">
-          <span className="ss-cat skill"><Puzzle size={17} /></span>
+          <span className="ss-cat skill">
+            <Puzzle size={17} />
+          </span>
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
             <span className="flex items-center gap-2.5">
-              <span className="truncate font-mono text-[15px] font-semibold">{preview?.name || p.name}</span>
-              {stars > 0 && <span className="flex items-center gap-1 text-xs text-ink-3"><Star size={13} />{compact.format(stars)}</span>}
+              <span className="truncate font-mono text-[15px] font-semibold">
+                {preview?.name || p.name}
+              </span>
+              {stars > 0 && (
+                <span className="flex items-center gap-1 text-xs text-ink-3">
+                  <Star size={13} />
+                  {compact.format(stars)}
+                </span>
+              )}
             </span>
             <span className="flex min-w-0 items-center gap-1.5 text-[13px] text-ink-2">
-              {searchIn === GITHUB ? <Github size={13} className="shrink-0" /> : <Library size={13} className="shrink-0" />}
-              <span className="truncate font-mono">{searchIn !== GITHUB && hubName ? `${hubName} · ${p.source}` : p.source}</span>
+              {searchIn === GITHUB ? (
+                <Github size={13} className="shrink-0" />
+              ) : (
+                <Library size={13} className="shrink-0" />
+              )}
+              <span className="truncate font-mono">
+                {searchIn !== GITHUB && hubName ? `${hubName} · ${p.source}` : p.source}
+              </span>
               {searchIn === GITHUB && p.owner && p.repo && (
-                <a href={`https://github.com/${p.owner}/${p.repo}`} target="_blank" rel="noreferrer" className="shrink-0 text-ink-3" aria-label={`${p.owner}/${p.repo}`}>
+                <a
+                  href={`https://github.com/${p.owner}/${p.repo}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="shrink-0 text-ink-3"
+                  aria-label={`${p.owner}/${p.repo}`}
+                >
                   <ExternalLink size={12} />
                 </a>
               )}
@@ -483,7 +625,9 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
           {md && <ViewToggle raw={rawPreview} onChange={setRawPreview} />}
         </div>
         {previewLoading ? (
-          <div className="ss-box !shadow-none flex justify-center py-10"><Spinner /></div>
+          <div className="ss-box !shadow-none flex justify-center py-10">
+            <Spinner />
+          </div>
         ) : md ? (
           rawPreview ? (
             <CodeView content={preview?.content ?? ''} lang="md" className="max-h-[300px]" />
@@ -495,15 +639,40 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
         ) : (
           <div className={`ss-note ${failed ? 'bad' : 'inf'}`}>
             {failed ? <CircleX size={16} /> : <Info size={16} />}
-            <div className="flex-1">{failed ? previewError.message : t('install.preview.fallback')}</div>
-            {previewError && <Button variant="secondary" size="sm" onClick={() => refetchPreview()}>{t('install.preview.retry')}</Button>}
+            <div className="flex-1">
+              {failed ? previewError.message : t('install.preview.fallback')}
+            </div>
+            {previewError && (
+              <Button variant="secondary" size="sm" onClick={() => refetchPreview()}>
+                {t('install.preview.retry')}
+              </Button>
+            )}
           </div>
         )}
         <dl className="ss-kv">
-          {!md && p.description && (<><dt>{t('install.preview.description')}</dt><dd>{p.description}</dd></>)}
-          {preview?.license && (<><dt>{t('install.preview.license')}</dt><dd>{preview.license}</dd></>)}
+          {!md && p.description && (
+            <>
+              <dt>{t('install.preview.description')}</dt>
+              <dd>{p.description}</dd>
+            </>
+          )}
+          {preview?.license && (
+            <>
+              <dt>{t('install.preview.license')}</dt>
+              <dd>{preview.license}</dd>
+            </>
+          )}
           {tags && tags.length > 0 && (
-            <><dt>{t('install.preview.tags')}</dt><dd className="flex flex-wrap gap-1">{tags.map((x) => <span key={x} className="ss-tag">{x}</span>)}</dd></>
+            <>
+              <dt>{t('install.preview.tags')}</dt>
+              <dd className="flex flex-wrap gap-1">
+                {tags.map((x) => (
+                  <span key={x} className="ss-tag">
+                    {x}
+                  </span>
+                ))}
+              </dd>
+            </>
           )}
           <dt>{t('install.preview.audit')}</dt>
           <dd className="font-normal text-ink-2">{t('install.preview.auditHint')}</dd>
@@ -512,12 +681,19 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
     );
     foot = (
       <>
-        <Button variant="ghost" onClick={() => setView(null)} disabled={locked}>{t('install.preview.back')}</Button>
+        <Button variant="ghost" onClick={() => setView(null)} disabled={locked}>
+          {t('install.preview.back')}
+        </Button>
         <span className="flex-1" />
         {isInstalledResult(p) ? (
           <span className="ss-st ok text-ok">Installed</span>
         ) : (
-          <Button variant="primary" loading={busy === `row:${p.source}`} disabled={locked || previewLoading || failed} onClick={() => installResult(p)}>
+          <Button
+            variant="primary"
+            loading={busy === `row:${p.source}`}
+            disabled={locked || previewLoading || failed}
+            onClick={() => installResult(p)}
+          >
             {busy !== `row:${p.source}` && <Download size={15} />}
             {t('install.row.install')}
           </Button>
@@ -531,11 +707,22 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
       <>
         <div role="radiogroup" aria-label={title} className="flex flex-col gap-2">
           {(['skill', 'agent'] as const).map((k) => (
-            <button key={k} type="button" role="radio" aria-checked={kindPick === k} className={`ss-pick text-left ${kindPick === k ? 'on' : ''}`} onClick={() => setKindPick(k)}>
+            <button
+              key={k}
+              type="button"
+              role="radio"
+              aria-checked={kindPick === k}
+              className={`ss-pick text-left ${kindPick === k ? 'on' : ''}`}
+              onClick={() => setKindPick(k)}
+            >
               <span className={`ss-chk rad ${kindPick === k ? 'on' : ''}`} />
               <span className="flex flex-1 flex-col gap-0.5">
-                <span className="font-semibold">{t(k === 'agent' ? 'install.kind.agents' : 'install.kind.skills')}</span>
-                <span className="text-[13px] text-ink-2">{countLabel(k, k === 'agent' ? kindChoice.agents : kindChoice.skills)}</span>
+                <span className="font-semibold">
+                  {t(k === 'agent' ? 'install.kind.agents' : 'install.kind.skills')}
+                </span>
+                <span className="text-[13px] text-ink-2">
+                  {countLabel(k, k === 'agent' ? kindChoice.agents : kindChoice.skills)}
+                </span>
               </span>
             </button>
           ))}
@@ -545,8 +732,16 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
     );
     foot = (
       <>
-        <Button variant="ghost" onClick={() => setView(null)} disabled={locked}>{t('common.cancel')}</Button>
-        <Button variant="primary" loading={busy === 'primary'} onClick={() => kindChoice.onContinue(kindPick)}>{t('install.kind.continue')}</Button>
+        <Button variant="ghost" onClick={() => setView(null)} disabled={locked}>
+          {t('common.cancel')}
+        </Button>
+        <Button
+          variant="primary"
+          loading={busy === 'primary'}
+          onClick={() => kindChoice.onContinue(kindPick)}
+        >
+          {t('install.kind.continue')}
+        </Button>
       </>
     );
   } else if (view === 'blocked' && blocked) {
@@ -557,19 +752,32 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
         <div className="ss-note bad">
           <ShieldAlert size={16} />
           <div className="flex-1">
-            <b>{blocked.names.length === 1 ? t('install.blocked.one', { name: blocked.names[0] }) : t('install.blocked.many', { names: blocked.names.join(', ') })}</b>
-            {blocked.threshold && ` ${t('install.blocked.threshold', { threshold: blocked.threshold })}`}
+            <b>
+              {blocked.names.length === 1
+                ? t('install.blocked.one', { name: blocked.names[0] })
+                : t('install.blocked.many', { names: blocked.names.join(', ') })}
+            </b>
+            {blocked.threshold &&
+              ` ${t('install.blocked.threshold', { threshold: blocked.threshold })}`}
           </div>
         </div>
-        <FindingList findings={blocked.findings} showName={blocked.names.length > 1} header={findingsLabel(blocked.findings.length)} />
+        <FindingList
+          findings={blocked.findings}
+          showName={blocked.names.length > 1}
+          header={findingsLabel(blocked.findings.length)}
+        />
         <p className="text-[13px] text-ink-2">{t('install.blocked.forceHint')}</p>
       </>
     );
     foot = (
       <>
-        <Button variant="danger" loading={busy === 'force'} onClick={() => forceInstall(blocked)}>{t('install.blocked.force')}</Button>
+        <Button variant="danger" loading={busy === 'force'} onClick={() => forceInstall(blocked)}>
+          {t('install.blocked.force')}
+        </Button>
         <span className="flex-1" />
-        <Button variant="primary" onClick={() => setView(null)} disabled={locked}>{t('common.cancel')}</Button>
+        <Button variant="primary" onClick={() => setView(null)} disabled={locked}>
+          {t('common.cancel')}
+        </Button>
       </>
     );
   } else if (view === 'folder') {
@@ -592,7 +800,9 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
               {[...notes].map(([name, texts]) => (
                 <li key={name} className="flex flex-col">
                   {name && <b className="font-mono">{name}</b>}
-                  {texts.map((text, i) => <span key={i}>{text}</span>)}
+                  {texts.map((text, i) => (
+                    <span key={i}>{text}</span>
+                  ))}
                 </li>
               ))}
             </ul>
@@ -606,19 +816,28 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
         )}
       </>
     );
-    foot = <Button variant="primary" onClick={() => (tab === 'url' ? onClose() : setView(null))}>{t('install.done')}</Button>;
+    foot = (
+      <Button variant="primary" onClick={() => (tab === 'url' ? onClose() : setView(null))}>
+        {t('install.done')}
+      </Button>
+    );
   } else if (tab === 'search') {
     const visible = tag ? (results ?? []).filter((r) => r.tags?.includes(tag)) : (results ?? []);
     const hasTags = visible.some((r) => (r.tags?.length ?? 0) > 0);
     let content: ReactNode;
     if (searchError) {
       content = searchError.includes('requires authentication') ? (
-        <div className="ss-note inf"><KeyRound size={16} /><div className="flex-1">{t('install.search.tokenNeeded')}</div></div>
+        <div className="ss-note inf">
+          <KeyRound size={16} />
+          <div className="flex-1">{t('install.search.tokenNeeded')}</div>
+        </div>
       ) : (
         <div className="ss-note bad">
           <CircleX size={16} />
           <div className="flex-1">
-            {searchIn !== GITHUB && <b>{t('install.search.hubFailed', { hub: hubName ?? searchIn })} </b>}
+            {searchIn !== GITHUB && (
+              <b>{t('install.search.hubFailed', { hub: hubName ?? searchIn })} </b>
+            )}
             {searchError}
           </div>
         </div>
@@ -628,15 +847,32 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
         <EmptyState
           icon={Search}
           title={t('install.search.startTitle')}
-          description={t(searchIn === GITHUB ? 'install.search.startGithub' : 'install.search.startHub')}
-          action={searchIn === GITHUB ? (
-            <>
-              <Button variant="secondary" disabled={busy !== null} onClick={() => search('')}>{t('install.search.browsePopular')}</Button>
-              <Button variant="ghost" disabled={busy !== null} onClick={() => { pickIn(COMMUNITY_HUB.url); void search('', COMMUNITY_HUB.url); }}>{t('install.search.browseAll')}</Button>
-            </>
-          ) : (
-            <Button variant="secondary" disabled={busy !== null} onClick={() => search('')}>{t('install.search.browseAll')}</Button>
+          description={t(
+            searchIn === GITHUB ? 'install.search.startGithub' : 'install.search.startHub',
           )}
+          action={
+            searchIn === GITHUB ? (
+              <>
+                <Button variant="secondary" disabled={busy !== null} onClick={() => search('')}>
+                  {t('install.search.browsePopular')}
+                </Button>
+                <Button
+                  variant="ghost"
+                  disabled={busy !== null}
+                  onClick={() => {
+                    pickIn(COMMUNITY_HUB.url);
+                    void search('', COMMUNITY_HUB.url);
+                  }}
+                >
+                  {t('install.search.browseAll')}
+                </Button>
+              </>
+            ) : (
+              <Button variant="secondary" disabled={busy !== null} onClick={() => search('')}>
+                {t('install.search.browseAll')}
+              </Button>
+            )
+          }
         />
       );
     } else if (visible.length === 0) {
@@ -644,7 +880,9 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
         <EmptyState
           icon={Search}
           title={t('install.search.noResults')}
-          description={t(searchIn === GITHUB ? 'install.search.noResultsGithub' : 'install.search.noResultsHub')}
+          description={t(
+            searchIn === GITHUB ? 'install.search.noResultsGithub' : 'install.search.noResultsHub',
+          )}
         />
       );
     } else {
@@ -655,27 +893,64 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
             <div className="min-h-0 overflow-y-auto">
               {visible.slice(0, shown).map((r) => (
                 <div key={`${r.source}#${r.skill ?? r.name}`} className="ss-r">
-                  <span className="ss-cat sm skill"><Puzzle size={14} /></span>
-                  <button type="button" className="flex min-w-0 flex-1 flex-col gap-px text-left" onClick={() => { setPreviewing(r); setView('preview'); }}>
+                  <span className="ss-cat sm skill">
+                    <Puzzle size={14} />
+                  </span>
+                  <button
+                    type="button"
+                    className="flex min-w-0 flex-1 flex-col gap-px text-left"
+                    onClick={() => {
+                      setPreviewing(r);
+                      setView('preview');
+                    }}
+                  >
                     <span className="flex min-w-0 items-baseline gap-2">
                       <span className="nm m truncate">{r.name}</span>
-                      {r.owner && r.repo && <span className="truncate font-mono text-xs text-ink-3">{r.owner}/{r.repo}</span>}
+                      {r.owner && r.repo && (
+                        <span className="truncate font-mono text-xs text-ink-3">
+                          {r.owner}/{r.repo}
+                        </span>
+                      )}
                     </span>
-                    {r.description && <span className="truncate text-[13px] text-ink-2">{r.description}</span>}
+                    {r.description && (
+                      <span className="truncate text-[13px] text-ink-2">{r.description}</span>
+                    )}
                   </button>
                   {r.tags && r.tags.length > 0 && (
                     <span className="flex shrink-0 gap-1">
                       {r.tags.slice(0, 2).map((x) => (
-                        <button key={x} type="button" className={`ss-tag ${tag === x ? 'inf' : ''}`} aria-pressed={tag === x} onClick={() => { setTag(tag === x ? null : x); setShown(STEP); }}>{x}</button>
+                        <button
+                          key={x}
+                          type="button"
+                          className={`ss-tag ${tag === x ? 'inf' : ''}`}
+                          aria-pressed={tag === x}
+                          onClick={() => {
+                            setTag(tag === x ? null : x);
+                            setShown(STEP);
+                          }}
+                        >
+                          {x}
+                        </button>
                       ))}
                     </span>
                   )}
-                  {r.stars > 0 && <span className="flex w-14 shrink-0 items-center gap-1 text-xs text-ink-3"><Star size={13} />{compact.format(r.stars)}</span>}
+                  {r.stars > 0 && (
+                    <span className="flex w-14 shrink-0 items-center gap-1 text-xs text-ink-3">
+                      <Star size={13} />
+                      {compact.format(r.stars)}
+                    </span>
+                  )}
                   <span className="flex w-[76px] shrink-0 justify-end">
                     {isInstalledResult(r) ? (
                       <span className="ss-st ok text-ok">Installed</span>
                     ) : (
-                      <Button variant="secondary" size="sm" loading={busy === `row:${r.source}`} disabled={locked} onClick={() => installResult(r)}>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        loading={busy === `row:${r.source}`}
+                        disabled={locked}
+                        onClick={() => installResult(r)}
+                      >
                         {t('install.row.install')}
                       </Button>
                     )}
@@ -686,14 +961,30 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
           </div>
           <div className="flex items-center justify-between gap-3">
             <span className="flex items-center gap-1 text-[13px] text-ink-3">
-              {t('install.search.range', { from: 1, to: Math.min(shown, visible.length), total: visible.length })}
+              {t('install.search.range', {
+                from: 1,
+                to: Math.min(shown, visible.length),
+                total: visible.length,
+              })}
               {tag ? (
-                <button type="button" className="ss-tag inf" aria-label={t('install.search.clearTag')} onClick={() => setTag(null)}>{tag}<X size={11} /></button>
+                <button
+                  type="button"
+                  className="ss-tag inf"
+                  aria-label={t('install.search.clearTag')}
+                  onClick={() => setTag(null)}
+                >
+                  {tag}
+                  <X size={11} />
+                </button>
               ) : (
                 hasTags && <span>· {t('install.search.tagHint')}</span>
               )}
             </span>
-            {shown < visible.length && <Button variant="ghost" size="sm" onClick={() => setShown(shown + STEP)}>{t('resources.showMore')}</Button>}
+            {shown < visible.length && (
+              <Button variant="ghost" size="sm" onClick={() => setShown(shown + STEP)}>
+                {t('resources.showMore')}
+              </Button>
+            )}
           </div>
         </>
       );
@@ -720,9 +1011,18 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
             prefix={t('install.search.in')}
             value={searchIn}
             onChange={pickIn}
-            options={[{ value: GITHUB, label: 'GitHub' }, ...hubs.map((h) => ({ value: h.url, label: h.label }))]}
+            options={[
+              { value: GITHUB, label: 'GitHub' },
+              ...hubs.map((h) => ({ value: h.url, label: h.label })),
+            ]}
           />
-          <Link to="/hubs" className="ss-ib" title={t('install.search.manageHubs')} aria-label={t('install.search.manageHubs')} onClick={onClose}>
+          <Link
+            to="/hubs"
+            className="ss-ib"
+            title={t('install.search.manageHubs')}
+            aria-label={t('install.search.manageHubs')}
+            onClick={onClose}
+          >
             <Settings2 size={16} />
           </Link>
         </div>
@@ -731,14 +1031,21 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
     );
     foot = (
       <>
-        <span className="flex flex-1 items-center gap-2 text-[13px] text-ink-2"><ShieldCheck size={15} className="shrink-0" />{t('install.audited')}</span>
-        <Button variant="primary" onClick={onClose} disabled={locked}>{t('install.done')}</Button>
+        <span className="flex flex-1 items-center gap-2 text-[13px] text-ink-2">
+          <ShieldCheck size={15} className="shrink-0" />
+          {t('install.audited')}
+        </span>
+        <Button variant="primary" onClick={onClose} disabled={locked}>
+          {t('install.done')}
+        </Button>
       </>
     );
   } else {
     const agents = found?.items[0]?.kind === 'agent';
     const f = filter.trim().toLowerCase();
-    const filtered = (found?.items ?? []).filter((i) => !f || i.name.toLowerCase().includes(f) || i.description?.toLowerCase().includes(f));
+    const filtered = (found?.items ?? []).filter(
+      (i) => !f || i.name.toLowerCase().includes(f) || i.description?.toLowerCase().includes(f),
+    );
     const allSelected = found !== null && selected.size === found.items.length;
     const toggle = (path: string) => {
       const next = new Set(selected);
@@ -789,18 +1096,37 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
             <div className="mb-2 flex items-center justify-between gap-3">
               <span className="flex items-center gap-3">
                 <span className="text-[13px] font-semibold">
-                  {t('install.url.found', { items: countLabel(agents ? 'agent' : 'skill', found.items.length) })}
+                  {t('install.url.found', {
+                    items: countLabel(agents ? 'agent' : 'skill', found.items.length),
+                  })}
                 </span>
-                <button type="button" className="ss-more" onClick={() => setSelected(allSelected ? new Set() : new Set(found.items.map((i) => i.path)))}>
+                <button
+                  type="button"
+                  className="ss-more"
+                  onClick={() =>
+                    setSelected(allSelected ? new Set() : new Set(found.items.map((i) => i.path)))
+                  }
+                >
                   {t(allSelected ? 'install.url.deselectAll' : 'install.url.selectAll')}
                 </button>
               </span>
               <span className="flex items-center gap-3">
-                <span className="text-[13px] text-ink-2">{t('install.url.selected', { count })}</span>
+                <span className="text-[13px] text-ink-2">
+                  {t('install.url.selected', { count })}
+                </span>
                 {found.items.length > FOUND_PREVIEW && (
                   <label className="ss-inp !h-[30px] w-[180px]">
                     <Search size={14} className="shrink-0 text-ink-3" />
-                    <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={t(agents ? 'install.url.filterAgents' : 'install.url.filterSkills')} aria-label={t(agents ? 'install.url.filterAgents' : 'install.url.filterSkills')} />
+                    <input
+                      value={filter}
+                      onChange={(e) => setFilter(e.target.value)}
+                      placeholder={t(
+                        agents ? 'install.url.filterAgents' : 'install.url.filterSkills',
+                      )}
+                      aria-label={t(
+                        agents ? 'install.url.filterAgents' : 'install.url.filterSkills',
+                      )}
+                    />
                   </label>
                 )}
               </span>
@@ -808,7 +1134,9 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
             {agents !== isAgent && (
               <div className="ss-note inf mb-2.5">
                 <Info size={16} />
-                <div className="flex-1">{t(agents ? 'install.url.onlyAgents' : 'install.url.onlySkills')}</div>
+                <div className="flex-1">
+                  {t(agents ? 'install.url.onlyAgents' : 'install.url.onlySkills')}
+                </div>
               </div>
             )}
             {/* Rows scroll inside the list frame, so the dialog keeps its height */}
@@ -818,12 +1146,23 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
                   <div
                     key={item.path}
                     className={`ss-r !min-h-11 cursor-pointer ${selected.has(item.path) ? 'sel' : ''}`}
-                    onClick={(e) => { if (!(e.target as HTMLElement).closest('label')) toggle(item.path); }}
+                    onClick={(e) => {
+                      if (!(e.target as HTMLElement).closest('label')) toggle(item.path);
+                    }}
                   >
-                    <Checkbox label={item.name} hideLabel checked={selected.has(item.path)} onChange={() => toggle(item.path)} />
+                    <Checkbox
+                      label={item.name}
+                      hideLabel
+                      checked={selected.has(item.path)}
+                      onChange={() => toggle(item.path)}
+                    />
                     <span className="nm m w-[170px] shrink-0 truncate">{item.name}</span>
-                    <span className="min-w-0 flex-1 truncate text-[13px] text-ink-2">{item.description}</span>
-                    {isDiscoveredInstalled(found.source, item) && <span className="ss-st ok shrink-0 text-ok">Installed</span>}
+                    <span className="min-w-0 flex-1 truncate text-[13px] text-ink-2">
+                      {item.description}
+                    </span>
+                    {isDiscoveredInstalled(found.source, item) && (
+                      <span className="ss-st ok shrink-0 text-ok">Installed</span>
+                    )}
                   </div>
                 ))}
               </div>
@@ -833,17 +1172,31 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
 
         {canTrack && (
           <div className="flex items-start gap-3.5">
-            <button type="button" role="switch" aria-checked={track} aria-labelledby={`${ids}track`} className={`ss-sw mt-0.5 ${track ? 'on' : ''}`} onClick={() => setTrack(!track)}>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={track}
+              aria-labelledby={`${ids}track`}
+              className={`ss-sw mt-0.5 ${track ? 'on' : ''}`}
+              onClick={() => setTrack(!track)}
+            >
               <i />
             </button>
             <div className="flex flex-1 flex-col gap-0.5">
-              <span id={`${ids}track`} className="font-semibold">{t('install.url.track')}</span>
+              <span id={`${ids}track`} className="font-semibold">
+                {t('install.url.track')}
+              </span>
               <span className="text-[13px] text-ink-2">{t('install.url.trackHint')}</span>
             </div>
           </div>
         )}
 
-        <button type="button" className="ss-disc self-start" aria-expanded={advanced} onClick={() => setAdvanced(!advanced)}>
+        <button
+          type="button"
+          className="ss-disc self-start"
+          aria-expanded={advanced}
+          onClick={() => setAdvanced(!advanced)}
+        >
           {advanced ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
           {t('install.url.advanced')}
         </button>
@@ -865,25 +1218,64 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
             />
             <div className="grid grid-cols-2 gap-3.5">
               {canTrack && (
-                <Field label={t('install.url.branch')} hint="--branch" icon={<GitBranch size={15} className="shrink-0 text-ink-3" />}>
-                  <input value={branch} onChange={(e) => { setBranch(e.target.value); setFound(null); setNothing(null); }} placeholder="main" />
+                <Field
+                  label={t('install.url.branch')}
+                  hint="--branch"
+                  icon={<GitBranch size={15} className="shrink-0 text-ink-3" />}
+                >
+                  <input
+                    value={branch}
+                    onChange={(e) => {
+                      setBranch(e.target.value);
+                      setFound(null);
+                      setNothing(null);
+                    }}
+                    placeholder="main"
+                  />
                 </Field>
               )}
-              <Field label={t('install.url.name')} hint={`--name · ${t('install.url.nameHint')}`} disabled={tracking || (found !== null && count !== 1)}>
-                <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('install.url.namePlaceholder')} disabled={tracking || (found !== null && count !== 1)} />
+              <Field
+                label={t('install.url.name')}
+                hint={`--name · ${t('install.url.nameHint')}`}
+                disabled={tracking || (found !== null && count !== 1)}
+              >
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder={t('install.url.namePlaceholder')}
+                  disabled={tracking || (found !== null && count !== 1)}
+                />
               </Field>
             </div>
-            <Option label={t('install.url.force')} hint={t('install.url.forceHint')} checked={force} onChange={setForce} />
-            <Option label={t('install.url.skipAudit')} hint={t('install.url.skipAuditHint')} checked={skipAudit} onChange={setSkipAudit} />
+            <Option
+              label={t('install.url.force')}
+              hint={t('install.url.forceHint')}
+              checked={force}
+              onChange={setForce}
+            />
+            <Option
+              label={t('install.url.skipAudit')}
+              hint={t('install.url.skipAuditHint')}
+              checked={skipAudit}
+              onChange={setSkipAudit}
+            />
           </div>
         )}
       </>
     );
     foot = (
       <>
-        <Button variant="ghost" onClick={onClose} disabled={locked}>{t('common.cancel')}</Button>
-        <Button variant="primary" loading={busy === 'primary'} disabled={!src || locked || (found !== null && !tracking && count === 0)} onClick={primary}>
-          {busy !== 'primary' && (found || tracking ? <Download size={15} /> : <Search size={15} />)}
+        <Button variant="ghost" onClick={onClose} disabled={locked}>
+          {t('common.cancel')}
+        </Button>
+        <Button
+          variant="primary"
+          loading={busy === 'primary'}
+          disabled={!src || locked || (found !== null && !tracking && count === 0)}
+          onClick={primary}
+        >
+          {busy !== 'primary' &&
+            (found || tracking ? <Download size={15} /> : <Search size={15} />)}
           {primaryLabel}
         </Button>
       </>
@@ -894,10 +1286,26 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
   const step = view === 'folder' ? 'folder' : 'main';
   const stepMotion = newFolder.motion;
   return (
-    <DialogShell open onClose={onBack ?? onClose} padding="none" preventClose={locked} ariaLabel={title} className={WIDTH[view ?? tab]}>
-      <div key={`dh-${step}`} className={`dh ${stepMotion.className}`} onAnimationEnd={stepMotion.onAnimationEnd}>
+    <DialogShell
+      open
+      onClose={onBack ?? onClose}
+      padding="none"
+      preventClose={locked}
+      ariaLabel={title}
+      className={WIDTH[view ?? tab]}
+    >
+      <div
+        key={`dh-${step}`}
+        className={`dh ${stepMotion.className}`}
+        onAnimationEnd={stepMotion.onAnimationEnd}
+      >
         {onBack && (
-          <button type="button" className="ss-ib" aria-label={t('folderPicker.backAria')} onClick={onBack}>
+          <button
+            type="button"
+            className="ss-ib"
+            aria-label={t('folderPicker.backAria')}
+            onClick={onBack}
+          >
             <ArrowLeft size={18} />
           </button>
         )}
@@ -905,12 +1313,30 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
           <h2 className="ss-h2">{title}</h2>
           {sub && <p className="text-[13px] text-ink-2">{sub}</p>}
         </div>
-        <button type="button" className="ss-ib" aria-label={t('common.close')} onClick={onClose} disabled={locked}>
+        <button
+          type="button"
+          className="ss-ib"
+          aria-label={t('common.close')}
+          onClick={onClose}
+          disabled={locked}
+        >
           <X size={18} />
         </button>
       </div>
-      <div key={`db-${step}`} className={`db min-h-0 flex-1 overflow-y-auto ${stepMotion.className}`} onAnimationEnd={stepMotion.onAnimationEnd}>{body}</div>
-      <div key={`df-${step}`} className={`df ${stepMotion.className}`} onAnimationEnd={stepMotion.onAnimationEnd}>{foot}</div>
+      <div
+        key={`db-${step}`}
+        className={`db min-h-0 flex-1 overflow-y-auto ${stepMotion.className}`}
+        onAnimationEnd={stepMotion.onAnimationEnd}
+      >
+        {body}
+      </div>
+      <div
+        key={`df-${step}`}
+        className={`df ${stepMotion.className}`}
+        onAnimationEnd={stepMotion.onAnimationEnd}
+      >
+        {foot}
+      </div>
     </DialogShell>
   );
 }
@@ -920,32 +1346,74 @@ function InstallsTo({ folder, skill }: { folder: string; skill: string | null })
   const t = useT();
   const name = skill ?? '<skill>';
   // t() fills the sentence; the markers let the two names be set apart without splitting translations.
-  const parts = t('folderPicker.caption', { path: '\u241Fp', link: '\u241Fl' }).split(/(\u241F[pl])/);
+  const parts = t('folderPicker.caption', { path: '\u241Fp', link: '\u241Fl' }).split(
+    /(\u241F[pl])/,
+  );
   return (
     <>
-      {parts.map((part, i) => (
-        part === '\u241Fp' ? <code key={i} className="font-mono">{folder ? `${folder}/${name}` : name}</code>
-          : part === '\u241Fl' ? <code key={i} className="font-mono">{linkPrefix(folder)}{name}</code>
-          : part
-      ))}
+      {parts.map((part, i) =>
+        part === '\u241Fp' ? (
+          <code key={i} className="font-mono">
+            {folder ? `${folder}/${name}` : name}
+          </code>
+        ) : part === '\u241Fl' ? (
+          <code key={i} className="font-mono">
+            {linkPrefix(folder)}
+            {name}
+          </code>
+        ) : (
+          part
+        ),
+      )}
     </>
   );
 }
 
-function Field({ label, hint, icon, disabled, children }: { label: string; hint: string; icon?: ReactNode; disabled?: boolean; children: ReactNode }) {
+function Field({
+  label,
+  hint,
+  icon,
+  disabled,
+  children,
+}: {
+  label: string;
+  hint: string;
+  icon?: ReactNode;
+  disabled?: boolean;
+  children: ReactNode;
+}) {
   return (
     <label className={`ss-fld min-w-0 ${disabled ? 'opacity-50' : ''}`}>
       <span className="text-[13px] font-semibold">{label}</span>
-      <span className="ss-inp">{icon}{children}</span>
+      <span className="ss-inp">
+        {icon}
+        {children}
+      </span>
       <span className="hp font-mono">{hint}</span>
     </label>
   );
 }
 
-function Option({ label, hint, checked, onChange }: { label: string; hint: string; checked: boolean; onChange: (v: boolean) => void }) {
+function Option({
+  label,
+  hint,
+  checked,
+  onChange,
+}: {
+  label: string;
+  hint: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
   return (
     <span className="flex items-center gap-2">
-      <Checkbox label={label} size="sm" className="font-semibold" checked={checked} onChange={onChange} />
+      <Checkbox
+        label={label}
+        size="sm"
+        className="font-semibold"
+        checked={checked}
+        onChange={onChange}
+      />
       <span className="text-[13px] text-ink-2">{hint}</span>
     </span>
   );

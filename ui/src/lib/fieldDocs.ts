@@ -6,132 +6,287 @@ export interface FieldDoc {
 }
 
 export const fieldDocs: Record<string, FieldDoc> = {
-  plugins: { description: 'Complete native plugins managed by Skillshare. Use the Plugins page or plugin commands to add or import packages.', type: 'object', example: 'plugins:\n  packages: {}' },
-  'plugins.packages': { description: 'Named plugin packages. Each package has native bindings for its receiving tools.', type: 'object', example: 'packages:\n  review:\n    bindings:\n      claude:\n        id: review@team' },
-  'plugins.packages.bindings': { description: 'Native plugin identities per target (see plugin target capabilities). Plugin contents stay together.', type: 'object', example: 'bindings:\n  claude:\n    id: review@team\n    sync: true' },
-  'plugins.packages.bindings.id': { description: 'Native identifier: marketplace ID, local plugin name, package source, or file URL. Import existing installations instead of guessing this identifier.', type: 'string', example: 'id: review@team' },
-  'plugins.packages.bindings.sync': { description: 'Whether to sync this plugin to the target. False schedules removal on the next sync while retaining its definition. Does not change native enable settings.', type: 'boolean', example: 'sync: false' },
-  'plugins.packages.bindings.source': { description: 'Original directory or HTTPS Git repository used to acquire the complete package. Omitted for imported native installations.', type: 'string', example: 'source: https://github.com/example/plugins.git' },
-  'plugins.packages.bindings.source_ref': { description: 'Git branch, tag or commit selected when acquiring the source.', type: 'string', example: 'source_ref: v1.0.0' },
-  'plugins.packages.bindings.commit': { description: 'Resolved Git commit of the reviewed source snapshot. Managed by Skillshare.', type: 'string', example: 'commit: <git-sha>' },
-  'plugins.packages.bindings.entry': { description: 'Reviewed OpenCode JavaScript or TypeScript entry, relative to the package root.', type: 'string', example: 'entry: dist/index.js' },
-  'plugins.packages.bindings.plugin': { description: 'Selected plugin name within the source marketplace.', type: 'string', example: 'plugin: review' },
-  'plugins.packages.bindings.digest': { description: 'Recorded source content digest. Changed source content must be reviewed through plugin update.', type: 'string', example: 'digest: <sha256>' },
-  'plugins.packages.bindings.version': { description: 'Version declared by the source manifest or imported native installation; not proof of runtime activation.', type: 'string', example: 'version: 1.0.0' },
-  'plugins.packages.bindings.pending': { description: 'An unfinished native operation. Sync retries it; do not edit this field to bypass verification.', type: 'string', example: 'pending: install' },
-  'plugins.packages.bindings.components': { description: 'Component kinds observed in the source manifest and package tree. This inventory does not prove runtime activation.', type: 'string[]', example: 'components: [skills, mcpServers]' },
+  plugins: {
+    description:
+      'Complete native plugins managed by Skillshare. Use the Plugins page or plugin commands to add or import packages.',
+    type: 'object',
+    example: 'plugins:\n  packages: {}',
+  },
+  'plugins.packages': {
+    description: 'Named plugin packages. Each package has native bindings for its receiving tools.',
+    type: 'object',
+    example: 'packages:\n  review:\n    bindings:\n      claude:\n        id: review@team',
+  },
+  'plugins.packages.bindings': {
+    description:
+      'Native plugin identities per target (see plugin target capabilities). Plugin contents stay together.',
+    type: 'object',
+    example: 'bindings:\n  claude:\n    id: review@team\n    sync: true',
+  },
+  'plugins.packages.bindings.id': {
+    description:
+      'Native identifier: marketplace ID, local plugin name, package source, or file URL. Import existing installations instead of guessing this identifier.',
+    type: 'string',
+    example: 'id: review@team',
+  },
+  'plugins.packages.bindings.sync': {
+    description:
+      'Whether to sync this plugin to the target. False schedules removal on the next sync while retaining its definition. Does not change native enable settings.',
+    type: 'boolean',
+    example: 'sync: false',
+  },
+  'plugins.packages.bindings.source': {
+    description:
+      'Original directory or HTTPS Git repository used to acquire the complete package. Omitted for imported native installations.',
+    type: 'string',
+    example: 'source: https://github.com/example/plugins.git',
+  },
+  'plugins.packages.bindings.source_ref': {
+    description: 'Git branch, tag or commit selected when acquiring the source.',
+    type: 'string',
+    example: 'source_ref: v1.0.0',
+  },
+  'plugins.packages.bindings.commit': {
+    description: 'Resolved Git commit of the reviewed source snapshot. Managed by Skillshare.',
+    type: 'string',
+    example: 'commit: <git-sha>',
+  },
+  'plugins.packages.bindings.entry': {
+    description: 'Reviewed OpenCode JavaScript or TypeScript entry, relative to the package root.',
+    type: 'string',
+    example: 'entry: dist/index.js',
+  },
+  'plugins.packages.bindings.plugin': {
+    description: 'Selected plugin name within the source marketplace.',
+    type: 'string',
+    example: 'plugin: review',
+  },
+  'plugins.packages.bindings.digest': {
+    description:
+      'Recorded source content digest. Changed source content must be reviewed through plugin update.',
+    type: 'string',
+    example: 'digest: <sha256>',
+  },
+  'plugins.packages.bindings.version': {
+    description:
+      'Version declared by the source manifest or imported native installation; not proof of runtime activation.',
+    type: 'string',
+    example: 'version: 1.0.0',
+  },
+  'plugins.packages.bindings.pending': {
+    description:
+      'An unfinished native operation. Sync retries it; do not edit this field to bypass verification.',
+    type: 'string',
+    example: 'pending: install',
+  },
+  'plugins.packages.bindings.components': {
+    description:
+      'Component kinds observed in the source manifest and package tree. This inventory does not prove runtime activation.',
+    type: 'string[]',
+    example: 'components: [skills, mcpServers]',
+  },
   'sources.mcp': {
-    description: 'Optional MCP YAML file, relative to config.yaml or an absolute path. Its root contains servers. Use this instead of inline mcp.servers; do not define both.',
-    type: 'string', example: 'sources:\n  mcp: ./mcp.yaml',
+    description:
+      'Optional MCP YAML file, relative to config.yaml or an absolute path. Its root contains servers. Use this instead of inline mcp.servers; do not define both.',
+    type: 'string',
+    example: 'sources:\n  mcp: ./mcp.yaml',
   },
   mcp: {
-    description: 'MCP connection settings. Define servers here, or use sources.mcp for a separate file. Skillshare writes client configuration files; it does not run servers.',
-    type: 'object', example: 'mcp:\n  servers:\n    docs:\n      url: https://example.com/mcp\n      targets: [claude]',
+    description:
+      'MCP connection settings. Define servers here, or use sources.mcp for a separate file. Skillshare writes client configuration files; it does not run servers.',
+    type: 'object',
+    example:
+      'mcp:\n  servers:\n    docs:\n      url: https://example.com/mcp\n      targets: [claude]',
   },
   hooks: {
-    description: 'Agent hooks that Skillshare writes into each Agent\'s own hook configuration. It does not run them; each Agent decides whether to trust and load them.',
-    type: 'object', example: 'hooks:\n  entries:\n    guard:\n      bindings:\n        claude:\n          events: {}',
+    description:
+      "Agent hooks that Skillshare writes into each Agent's own hook configuration. It does not run them; each Agent decides whether to trust and load them.",
+    type: 'object',
+    example:
+      'hooks:\n  entries:\n    guard:\n      bindings:\n        claude:\n          events: {}',
   },
   'hooks.entries': {
-    description: 'Named hooks. Names are your own labels; each hook lists what it writes for every Agent under bindings.',
-    type: 'object', example: 'entries:\n  guard:\n    bindings: {}',
+    description:
+      'Named hooks. Names are your own labels; each hook lists what it writes for every Agent under bindings.',
+    type: 'object',
+    example: 'entries:\n  guard:\n    bindings: {}',
   },
-  'hooks.entries.description': { description: 'Optional note shown on the hook card.', type: 'string', example: 'description: Block pushes to main' },
-  'hooks.entries.enabled': { description: 'Defaults to true. A disabled hook keeps its definition and is removed from the Agents at the next sync.', type: 'boolean', example: 'enabled: false' },
-  'hooks.entries.bindings': { description: 'What each Agent receives, keyed by Agent name. Written in that Agent\'s own format without translation.', type: 'object', example: 'bindings:\n  claude:\n    events: {}' },
-  'hooks.entries.bindings.events': { description: 'The Agent\'s own event map, such as SessionStart or Stop, copied into its hook file as written.', type: 'object', example: 'events:\n  Stop:\n    - command: echo done' },
-  'hooks.entries.bindings.code': { description: 'For Agents whose hooks are code (Pi, Amp, OpenCode): one TypeScript or JavaScript extension or plugin. For a whole OpenCode v2 directory, use package instead.', type: 'string', example: 'code: |\n  export default function (pi) {}' },
-  'hooks.entries.bindings.codeFile': { description: 'Instead of code: a path, relative to this config\'s folder, whose contents are used as the code. Read every time the config is read.', type: 'string', example: 'codeFile: hooks/lint.pi.ts' },
-  'hooks.entries.bindings.package': { description: 'OpenCode v2 only, instead of code: a whole plugin directory as relative filename → UTF-8 contents, including package.json. Dependencies are kept as declared and never installed.', type: 'object', example: 'package:\n  package.json: |\n    {"name": "guard", "exports": "./index.ts"}\n  index.ts: |\n    export default {}' },
-  'hooks.entries.bindings.files': { description: 'Script files the hook calls, written to <Agent config dir>/hooks/skillshare/<hook>/. A value is the contents or {from: path}, a path relative to this config\'s folder.', type: 'object', example: 'files:\n  check.sh:\n    from: hooks/check.sh' },
-  'hooks.projects': { description: 'Hooks for other projects, keyed by project path, so one sync from the global config reaches each project.', type: 'object', example: 'projects:\n  /work/app:\n    entries: {}' },
+  'hooks.entries.description': {
+    description: 'Optional note shown on the hook card.',
+    type: 'string',
+    example: 'description: Block pushes to main',
+  },
+  'hooks.entries.enabled': {
+    description:
+      'Defaults to true. A disabled hook keeps its definition and is removed from the Agents at the next sync.',
+    type: 'boolean',
+    example: 'enabled: false',
+  },
+  'hooks.entries.bindings': {
+    description:
+      "What each Agent receives, keyed by Agent name. Written in that Agent's own format without translation.",
+    type: 'object',
+    example: 'bindings:\n  claude:\n    events: {}',
+  },
+  'hooks.entries.bindings.events': {
+    description:
+      "The Agent's own event map, such as SessionStart or Stop, copied into its hook file as written.",
+    type: 'object',
+    example: 'events:\n  Stop:\n    - command: echo done',
+  },
+  'hooks.entries.bindings.code': {
+    description:
+      'For Agents whose hooks are code (Pi, Amp, OpenCode): one TypeScript or JavaScript extension or plugin. For a whole OpenCode v2 directory, use package instead.',
+    type: 'string',
+    example: 'code: |\n  export default function (pi) {}',
+  },
+  'hooks.entries.bindings.codeFile': {
+    description:
+      "Instead of code: a path, relative to this config's folder, whose contents are used as the code. Read every time the config is read.",
+    type: 'string',
+    example: 'codeFile: hooks/lint.pi.ts',
+  },
+  'hooks.entries.bindings.package': {
+    description:
+      'OpenCode v2 only, instead of code: a whole plugin directory as relative filename → UTF-8 contents, including package.json. Dependencies are kept as declared and never installed.',
+    type: 'object',
+    example:
+      'package:\n  package.json: |\n    {"name": "guard", "exports": "./index.ts"}\n  index.ts: |\n    export default {}',
+  },
+  'hooks.entries.bindings.files': {
+    description:
+      "Script files the hook calls, written to <Agent config dir>/hooks/skillshare/<hook>/. A value is the contents or {from: path}, a path relative to this config's folder.",
+    type: 'object',
+    example: 'files:\n  check.sh:\n    from: hooks/check.sh',
+  },
+  'hooks.projects': {
+    description:
+      'Hooks for other projects, keyed by project path, so one sync from the global config reaches each project.',
+    type: 'object',
+    example: 'projects:\n  /work/app:\n    entries: {}',
+  },
   'mcp.targets': {
     description: 'Default MCP clients. Individual servers can override this list.',
-    type: 'string[]', example: 'targets: [claude, codex, cursor, vscode, opencode, grok, antigravity]',
+    type: 'string[]',
+    example: 'targets: [claude, codex, cursor, vscode, opencode, grok, antigravity]',
   },
   'mcp.servers': {
-    description: 'Named MCP connections. Names such as docs are your own labels, not built-in services. Each connection needs a command or a URL.',
-    type: 'object', example: 'servers:\n  docs:\n    url: https://example.com/mcp',
+    description:
+      'Named MCP connections. Names such as docs are your own labels, not built-in services. Each connection needs a command or a URL.',
+    type: 'object',
+    example: 'servers:\n  docs:\n    url: https://example.com/mcp',
   },
   'mcp.servers.command': {
-    description: 'Executable launched locally by the client for stdio. Use command or url, never both.',
-    type: 'string', example: 'command: my-mcp-server',
+    description:
+      'Executable launched locally by the client for stdio. Use command or url, never both.',
+    type: 'string',
+    example: 'command: my-mcp-server',
   },
   'mcp.servers.args': {
     description: 'Arguments passed to the local command, one list item per argument.',
-    type: 'string[]', example: 'args: [--directory, /workspace]',
+    type: 'string[]',
+    example: 'args: [--directory, /workspace]',
   },
   'mcp.servers.url': {
-    description: 'HTTP or HTTPS MCP endpoint. The client connects to this service. Do not put credentials in the URL.',
-    type: 'string', example: 'url: https://example.com/mcp',
+    description:
+      'HTTP or HTTPS MCP endpoint. The client connects to this service. Do not put credentials in the URL.',
+    type: 'string',
+    example: 'url: https://example.com/mcp',
   },
-  'mcp.servers.disabled': { description: 'Project mode only. Turns off a server that the Agent\'s own global config defines, by writing only the switch; for opencode it also writes the global server\'s type and executable name or URL origin, because OpenCode 2 ignores a bare switch. Use it alone with targets. Works with claude, opencode and kilocode.', type: 'boolean', allowedValues: ['true'], example: 'disabled: true' },
+  'mcp.servers.disabled': {
+    description:
+      "Project mode only. Turns off a server that the Agent's own global config defines, by writing only the switch; for opencode it also writes the global server's type and executable name or URL origin, because OpenCode 2 ignores a bare switch. Use it alone with targets. Works with claude, opencode and kilocode.",
+    type: 'boolean',
+    allowedValues: ['true'],
+    example: 'disabled: true',
+  },
   'mcp.servers.transport': {
     description: 'Optional transport. Inferred from command (stdio) or url (streamable-http).',
-    type: 'string', allowedValues: ['stdio', 'streamable-http'], example: 'transport: stdio',
+    type: 'string',
+    allowedValues: ['stdio', 'streamable-http'],
+    example: 'transport: stdio',
   },
   'mcp.servers.targets': {
-    description: 'Clients receiving this connection; overrides mcp.targets. An explicit list must not be empty.',
-    type: 'string[]', example: 'targets: [claude, codex]',
+    description:
+      'Clients receiving this connection; overrides mcp.targets. An explicit list must not be empty.',
+    type: 'string[]',
+    example: 'targets: [claude, codex]',
   },
   'mcp.servers.env': {
-    description: 'Environment variables for the local command. Use fromEnv for secrets, rather than storing their values.',
-    type: 'object', example: 'env:\n  API_TOKEN:\n    fromEnv: API_TOKEN',
+    description:
+      'Environment variables for the local command. Use fromEnv for secrets, rather than storing their values.',
+    type: 'object',
+    example: 'env:\n  API_TOKEN:\n    fromEnv: API_TOKEN',
   },
   'mcp.servers.env.fromEnv': {
-    description: 'Name of an environment variable available to the client. Skillshare stores a reference and does not read its secret value.',
-    type: 'string', example: 'fromEnv: API_TOKEN',
+    description:
+      'Name of an environment variable available to the client. Skillshare stores a reference and does not read its secret value.',
+    type: 'string',
+    example: 'fromEnv: API_TOKEN',
   },
   'mcp.servers.headers': {
-    description: 'HTTP request headers. Values can be literals or environment references; sensitive values require fromEnv.',
-    type: 'object', example: 'headers:\n  X-API-Key:\n    fromEnv: API_KEY',
+    description:
+      'HTTP request headers. Values can be literals or environment references; sensitive values require fromEnv.',
+    type: 'object',
+    example: 'headers:\n  X-API-Key:\n    fromEnv: API_KEY',
   },
   'mcp.servers.headers.fromEnv': {
     description: 'Environment variable supplying this HTTP header when the client connects.',
-    type: 'string', example: 'fromEnv: API_KEY',
+    type: 'string',
+    example: 'fromEnv: API_KEY',
   },
   'mcp.servers.bearerToken': {
-    description: 'Bearer authentication using an environment variable reference. Keep the token itself outside this file.',
-    type: 'object', example: 'bearerToken:\n  fromEnv: MCP_TOKEN',
+    description:
+      'Bearer authentication using an environment variable reference. Keep the token itself outside this file.',
+    type: 'object',
+    example: 'bearerToken:\n  fromEnv: MCP_TOKEN',
   },
   'mcp.servers.bearerToken.fromEnv': {
     description: 'Environment variable containing the bearer token, available to the client.',
-    type: 'string', example: 'fromEnv: MCP_TOKEN',
+    type: 'string',
+    example: 'fromEnv: MCP_TOKEN',
   },
   // --- Top-level ---
   sync_mode: {
-    description: 'Alias for "mode". Controls how skills are synced from source to target directories.',
+    description:
+      'Alias for "mode". Controls how skills are synced from source to target directories.',
     type: 'string',
     allowedValues: ['merge', 'symlink', 'copy'],
     example: 'sync_mode: merge',
   },
   source: {
-    description: 'Path to the skill source directory. This is the single source of truth for all skills.',
+    description:
+      'Path to the skill source directory. This is the single source of truth for all skills.',
     type: 'string',
     example: 'source: ~/.config/skillshare/skills',
   },
   extras_source: {
-    description: 'Default extras source directory. Individual extras can override this with their own source.',
+    description:
+      'Default extras source directory. Individual extras can override this with their own source.',
     type: 'string',
     example: 'extras_source: ~/.config/skillshare/extras',
   },
   sources: {
-    description: 'Custom source paths. skills, agents, and extras select directories; mcp selects an optional YAML file instead of inline mcp.servers. Directory defaults are .skillshare/<type>/ in project mode and <base>/<type>/ in global mode (or the legacy source fields).',
+    description:
+      'Custom source paths. skills, agents, and extras select directories; mcp selects an optional YAML file instead of inline mcp.servers. Directory defaults are .skillshare/<type>/ in project mode and <base>/<type>/ in global mode (or the legacy source fields).',
     type: 'object',
     example: 'sources:\n  skills: ./docs/skills\n  agents: ./docs/agents\n  extras: ./docs/extras',
   },
   'sources.skills': {
-    description: 'Custom skills source directory. Relative paths resolve from the project root (project mode); absolute paths and ~ are supported (both modes). Project mode default: .skillshare/skills/. Global mode default: <base>/skills/ (or the legacy `source` field). Project-mode sync rejects configs where this aliases or nests with a target path.',
+    description:
+      'Custom skills source directory. Relative paths resolve from the project root (project mode); absolute paths and ~ are supported (both modes). Project mode default: .skillshare/skills/. Global mode default: <base>/skills/ (or the legacy `source` field). Project-mode sync rejects configs where this aliases or nests with a target path.',
     type: 'string',
     example: 'sources:\n  skills: ./docs/skills',
   },
   'sources.agents': {
-    description: 'Custom agents source directory. Relative paths resolve from the project root (project mode). Project mode default: .skillshare/agents/. Global mode default: <base>/agents/ (or the legacy `agents_source` field).',
+    description:
+      'Custom agents source directory. Relative paths resolve from the project root (project mode). Project mode default: .skillshare/agents/. Global mode default: <base>/agents/ (or the legacy `agents_source` field).',
     type: 'string',
     example: 'sources:\n  agents: ./docs/agents',
   },
   'sources.extras': {
-    description: 'Custom extras source directory. Relative paths resolve from the project root (project mode). Project mode default: .skillshare/extras/. Global mode default: the `extras` sibling of the skills source (or the legacy `extras_source` field).',
+    description:
+      'Custom extras source directory. Relative paths resolve from the project root (project mode). Project mode default: .skillshare/extras/. Global mode default: the `extras` sibling of the skills source (or the legacy `extras_source` field).',
     type: 'string',
     example: 'sources:\n  extras: ./docs/extras',
   },
@@ -142,13 +297,15 @@ export const fieldDocs: Record<string, FieldDoc> = {
     example: 'mode: merge',
   },
   target_naming: {
-    description: 'Default target entry naming strategy for merge/copy sync. "flat" keeps flattened parent directory prefixes; "standard" uses the SKILL.md name and enforces the Agent Skills naming rules; "prefixed" (copy mode only) is standard plus the tracked repo name in front, "<repo>-<name>", for folder and name: in the copy.',
+    description:
+      'Default target entry naming strategy for merge/copy sync. "flat" keeps flattened parent directory prefixes; "standard" uses the SKILL.md name and enforces the Agent Skills naming rules; "prefixed" (copy mode only) is standard plus the tracked repo name in front, "<repo>-<name>", for folder and name: in the copy.',
     type: 'string',
     allowedValues: ['flat', 'standard', 'prefixed'],
     example: 'target_naming: standard',
   },
   git_root: {
-    description: 'Directory that "skillshare commit/push/pull" version-controls. "skills" (default) tracks only the skills source; "agents" and "extras" track those sources; "root" tracks the whole skillshare base directory (skills, agents, and extras together, excluding config.yaml). Changing this does NOT move an existing repository — re-run "skillshare init" or move .git yourself.',
+    description:
+      'Directory that "skillshare commit/push/pull" version-controls. "skills" (default) tracks only the skills source; "agents" and "extras" track those sources; "root" tracks the whole skillshare base directory (skills, agents, and extras together, excluding config.yaml). Changing this does NOT move an existing repository — re-run "skillshare init" or move .git yourself.',
     type: 'string',
     allowedValues: ['skills', 'agents', 'extras', 'root'],
     example: 'git_root: root',
@@ -176,76 +333,93 @@ export const fieldDocs: Record<string, FieldDoc> = {
 
   // --- Targets ---
   targets: {
-    description: 'Map of target AI tools to configure. Each target uses skills: and agents: sub-keys for per-resource-kind configuration.',
+    description:
+      'Map of target AI tools to configure. Each target uses skills: and agents: sub-keys for per-resource-kind configuration.',
     type: 'object',
-    example: 'targets:\n  claude:\n    skills:\n      mode: merge\n      include: ["team-*"]\n  cursor:\n    skills:\n      mode: symlink',
+    example:
+      'targets:\n  claude:\n    skills:\n      mode: merge\n      include: ["team-*"]\n  cursor:\n    skills:\n      mode: symlink',
   },
   'targets.name': {
-    description: 'Target name. Use a built-in name (e.g., claude, cursor, codex) for automatic path resolution, or any custom name with an explicit path under skills:.',
+    description:
+      'Target name. Use a built-in name (e.g., claude, cursor, codex) for automatic path resolution, or any custom name with an explicit path under skills:.',
     type: 'string',
     example: '- name: claude\n  skills:\n    mode: merge',
   },
   'targets.skills': {
-    description: 'Skills-specific target configuration. Controls path, sync mode, and include/exclude filters for skills.',
+    description:
+      'Skills-specific target configuration. Controls path, sync mode, and include/exclude filters for skills.',
     type: 'object',
-    example: 'skills:\n  path: ~/.claude/skills\n  mode: merge\n  include: ["team-*"]\n  exclude: ["wip-*"]',
+    example:
+      'skills:\n  path: ~/.claude/skills\n  mode: merge\n  include: ["team-*"]\n  exclude: ["wip-*"]',
   },
   'targets.skills.path': {
-    description: 'Override the target skills directory path. If omitted, the built-in default for this target is used.',
+    description:
+      'Override the target skills directory path. If omitted, the built-in default for this target is used.',
     type: 'string',
     example: 'path: ~/.claude/skills',
   },
   'targets.skills.mode': {
-    description: 'Sync mode for skills in this target. If omitted, inherits the top-level mode (defaults to merge).',
+    description:
+      'Sync mode for skills in this target. If omitted, inherits the top-level mode (defaults to merge).',
     type: 'string',
     allowedValues: ['merge', 'symlink', 'copy'],
     example: 'mode: symlink',
   },
   'targets.skills.target_naming': {
-    description: 'Target entry naming strategy for skills in this target. If omitted, inherits the top-level target_naming. "flat" and "standard" are ignored in symlink mode; "prefixed" requires copy mode.',
+    description:
+      'Target entry naming strategy for skills in this target. If omitted, inherits the top-level target_naming. "flat" and "standard" are ignored in symlink mode; "prefixed" requires copy mode.',
     type: 'string',
     allowedValues: ['flat', 'standard', 'prefixed'],
     example: 'target_naming: standard',
   },
   'targets.skills.include': {
-    description: 'Glob patterns — only matching skills are synced to this target (merge and copy modes).',
+    description:
+      'Glob patterns — only matching skills are synced to this target (merge and copy modes).',
     type: 'string[]',
     example: 'include: ["team-*", "shared-*"]',
   },
   'targets.skills.exclude': {
-    description: 'Glob patterns — matching skills are excluded from sync to this target (merge and copy modes).',
+    description:
+      'Glob patterns — matching skills are excluded from sync to this target (merge and copy modes).',
     type: 'string[]',
     example: 'exclude: ["draft-*", "wip-*"]',
   },
   'targets.agents': {
-    description: 'Agents-specific target configuration. Controls path, sync mode, and include/exclude filters for agents.',
+    description:
+      'Agents-specific target configuration. Controls path, sync mode, and include/exclude filters for agents.',
     type: 'object',
-    example: 'agents:\n  path: ~/.claude/agents\n  mode: merge\n  include: ["tutor-*"]\n  exclude: ["draft-*"]',
+    example:
+      'agents:\n  path: ~/.claude/agents\n  mode: merge\n  include: ["tutor-*"]\n  exclude: ["draft-*"]',
   },
   'targets.agents.path': {
-    description: 'Override the target agents directory path. If omitted, the built-in default for this target is used.',
+    description:
+      'Override the target agents directory path. If omitted, the built-in default for this target is used.',
     type: 'string',
     example: 'path: ~/.claude/agents',
   },
   'targets.agents.mode': {
-    description: 'Sync mode for agents in this target. If omitted, inherits the top-level mode (defaults to merge).',
+    description:
+      'Sync mode for agents in this target. If omitted, inherits the top-level mode (defaults to merge).',
     type: 'string',
     allowedValues: ['merge', 'symlink', 'copy'],
     example: 'mode: merge',
   },
   'targets.agents.target_naming': {
-    description: 'Target entry naming strategy for agents in this target. If omitted, inherits the top-level target_naming. Ignored in symlink mode.',
+    description:
+      'Target entry naming strategy for agents in this target. If omitted, inherits the top-level target_naming. Ignored in symlink mode.',
     type: 'string',
     allowedValues: ['flat', 'standard'],
     example: 'target_naming: standard',
   },
   'targets.agents.include': {
-    description: 'Glob patterns — only matching agents are synced to this target (merge and copy modes).',
+    description:
+      'Glob patterns — only matching agents are synced to this target (merge and copy modes).',
     type: 'string[]',
     example: 'include: ["tutor-*", "team-*"]',
   },
   'targets.agents.exclude': {
-    description: 'Glob patterns — matching agents are excluded from sync to this target (merge and copy modes).',
+    description:
+      'Glob patterns — matching agents are excluded from sync to this target (merge and copy modes).',
     type: 'string[]',
     example: 'exclude: ["draft-*", "wip-*"]',
   },
@@ -274,9 +448,11 @@ export const fieldDocs: Record<string, FieldDoc> = {
 
   // --- Extras ---
   extras: {
-    description: 'List of extra file bundles to sync alongside skills. Each extra has a name, source, and target list.',
+    description:
+      'List of extra file bundles to sync alongside skills. Each extra has a name, source, and target list.',
     type: 'ExtraConfig[]',
-    example: 'extras:\n  - name: prompts\n    source: ~/prompts\n    targets:\n      - path: ~/.claude\n        mode: merge',
+    example:
+      'extras:\n  - name: prompts\n    source: ~/prompts\n    targets:\n      - path: ~/.claude\n        mode: merge',
   },
   'extras.name': {
     description: 'Unique name for this extra bundle.',
@@ -305,7 +481,8 @@ export const fieldDocs: Record<string, FieldDoc> = {
     example: 'mode: merge',
   },
   'extras.targets.flatten': {
-    description: 'When true, files from subdirectories are synced directly into the target root. Cannot be used with symlink mode.',
+    description:
+      'When true, files from subdirectories are synced directly into the target root. Cannot be used with symlink mode.',
     type: 'boolean',
     example: 'flatten: true',
   },
@@ -317,7 +494,8 @@ export const fieldDocs: Record<string, FieldDoc> = {
     example: 'audit:\n  block_threshold: HIGH\n  profile: strict',
   },
   'audit.block_threshold': {
-    description: 'Minimum severity to block installation. Skills with findings at or above this level are blocked.',
+    description:
+      'Minimum severity to block installation. Skills with findings at or above this level are blocked.',
     type: 'string',
     allowedValues: ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'],
     example: 'block_threshold: HIGH',
@@ -359,7 +537,8 @@ export const fieldDocs: Record<string, FieldDoc> = {
 
   // --- Backup ---
   backup: {
-    description: 'Retention limits for target folder backups. Backups older than 30 days are always removed.',
+    description:
+      'Retention limits for target folder backups. Backups older than 30 days are always removed.',
     type: 'object',
     example: 'backup:\n  max_count: 20\n  max_size_mb: 1000',
   },
@@ -369,7 +548,8 @@ export const fieldDocs: Record<string, FieldDoc> = {
     example: 'max_count: 10',
   },
   'backup.max_size_mb': {
-    description: 'Most total size of backups in MB. 0 for unlimited. The newest backup is always kept.',
+    description:
+      'Most total size of backups in MB. 0 for unlimited. The newest backup is always kept.',
     type: 'number',
     example: 'max_size_mb: 500',
   },

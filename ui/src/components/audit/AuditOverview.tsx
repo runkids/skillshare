@@ -12,7 +12,7 @@ export default function AuditOverview({ stats, compiledRules }: AuditOverviewPro
   // Count per severity from compiledRules
   const severityCounts = compiledRules
     ? SEVERITY_ORDER.reduce<Record<string, number>>((acc, sev) => {
-        acc[sev] = compiledRules.filter(r => r.severity === sev).length;
+        acc[sev] = compiledRules.filter((r) => r.severity === sev).length;
         return acc;
       }, {})
     : null;
@@ -22,7 +22,9 @@ export default function AuditOverview({ stats, compiledRules }: AuditOverviewPro
       {/* Header */}
       <div className="flex items-center gap-1.5">
         <ShieldCheck size={13} strokeWidth={2} className="text-pencil-light" />
-        <span className="text-xs uppercase tracking-wider text-pencil-light font-medium">Overview</span>
+        <span className="text-xs uppercase tracking-wider text-pencil-light font-medium">
+          Overview
+        </span>
       </div>
 
       <div className="border-t border-dashed border-pencil-light/30" />
@@ -61,7 +63,7 @@ export default function AuditOverview({ stats, compiledRules }: AuditOverviewPro
           <div className="border-t border-dashed border-pencil-light/30" />
 
           <div className="space-y-1.5">
-            {SEVERITY_ORDER.filter(sev => severityCounts[sev] > 0).map(sev => (
+            {SEVERITY_ORDER.filter((sev) => severityCounts[sev] > 0).map((sev) => (
               <div key={sev} className="flex items-center gap-2">
                 <span
                   className="w-1.5 h-1.5 rounded-full flex-shrink-0"

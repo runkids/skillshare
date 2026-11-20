@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"path/filepath"
+	"strings"
 
 	"skillshare/internal/check"
 	"skillshare/internal/install"
@@ -27,12 +28,32 @@ type skillCheckResult struct {
 	Message     string `json:"message,omitempty"`
 }
 
+// checkNames reads the names query param (comma-separated): the tracked repos
+// and skills a check is limited to. Without it, nil: everything is checked.
+func checkNames(r *http.Request) map[string]bool {
+	param := r.URL.Query().Get("names")
+	if param == "" {
+		return nil
+	}
+	only := map[string]bool{}
+	for name := range strings.SplitSeq(param, ",") {
+		if name = strings.TrimSpace(name); name != "" {
+			only[name] = true
+		}
+	}
+	return only
+}
+
 // planSkillCheck plans the update check of every installed skill outside a
-// followed checkout. It takes s.mu.RLock, so the caller must not hold s.mu.
-func (s *Server) planSkillCheck(sourceDir, projectRoot string, walk sourcewalk.Options) *check.Resolution {
+// followed checkout, or of those in only when it is not nil. It takes
+// s.mu.RLock, so the caller must not hold s.mu.
+func (s *Server) planSkillCheck(sourceDir, projectRoot string, walk sourcewalk.Options, only map[string]bool) *check.Resolution {
 	names, _ := install.GetUpdatableSkills(sourceDir)
 	var skills []check.Skill
 	for _, name := range names {
+		if only != nil && !only[name] {
+			continue
+		}
 		if followedCheckout(filepath.Join(sourceDir, name), walk.Follow) != "" {
 			continue
 		}
@@ -63,6 +84,15 @@ func dashboardSkillResults(results []check.SkillResult) []skillCheckResult {
 	return out
 }
 
+// dashboardAgentResults converts agent statuses to the dashboard payload.
+func dashboardAgentResults(results []check.AgentCheckResult) []skillCheckResult {
+	out := make([]skillCheckResult, 0, len(results))
+	for _, r := range results {
+		out = append(out, skillCheckResult{Name: r.Name, Source: r.Source, Version: r.Version, Status: r.Status, Message: r.Message})
+	}
+	return out
+}
+
 // checkTrackedRepo checks one tracked repo with the same logic as the CLI:
 // auth-aware fetch and a reported dirty-check error.
 func checkTrackedRepo(name, repoPath string, parseOpts install.ParseOptions) repoCheckResult {
@@ -80,7 +110,7 @@ func (s *Server) handleCheck(w http.ResponseWriter, r *http.Request) {
 	s.mu.RUnlock()
 
 	repos, linked := dashboardRepos(sourceDir, walk)
-	plan := s.planSkillCheck(sourceDir, projectRoot, walk)
+	plan := s.planSkillCheck(sourceDir, projectRoot, walk, nil)
 
 	var repoResults []repoCheckResult
 	for _, repo := range repos {

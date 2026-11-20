@@ -1,7 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import type { Skill } from '../api/client';
 import { folderOptions } from './folderOptions';
-import { canMove, existingFolders, isValidFolderName, isValidIntoPath, linkPrefix, newFolderPath, canMoveFolder, planFolder, skillNameFromSource } from './moveFolders';
+import {
+  canMove,
+  existingFolders,
+  isValidFolderName,
+  isValidIntoPath,
+  linkPrefix,
+  newFolderPath,
+  canMoveFolder,
+  planFolder,
+  skillNameFromSource,
+} from './moveFolders';
 
 const paths = (resources: Skill[]) => existingFolders(resources).map((f) => f.path);
 
@@ -44,7 +54,10 @@ describe('existingFolders', () => {
 
   it('counts the skills under each folder, subfolders included', () => {
     const found = existingFolders([skill('a/one'), skill('a/b/two'), skill('a/b/three')]);
-    expect(found).toEqual([{ path: 'a', count: 3 }, { path: 'a/b', count: 2 }]);
+    expect(found).toEqual([
+      { path: 'a', count: 3 },
+      { path: 'a/b', count: 2 },
+    ]);
   });
 
   it('takes agent folders from agent file paths', () => {
@@ -57,10 +70,18 @@ describe('isValidIntoPath', () => {
     expect(isValidIntoPath('frontend/forms_v2')).toBe(true);
   });
 
-  it.each(['', '/abs', 'a//b', 'a/../b', '.', '_hidden', 'has space', 'Agents', 'a'.repeat(65), `${'ab/'.repeat(86)}x`])(
-    'rejects %j',
-    (path) => expect(isValidIntoPath(path)).toBe(false),
-  );
+  it.each([
+    '',
+    '/abs',
+    'a//b',
+    'a/../b',
+    '.',
+    '_hidden',
+    'has space',
+    'Agents',
+    'a'.repeat(65),
+    `${'ab/'.repeat(86)}x`,
+  ])('rejects %j', (path) => expect(isValidIntoPath(path)).toBe(false));
 });
 
 describe('newFolderPath', () => {
@@ -72,13 +93,21 @@ describe('newFolderPath', () => {
     expect(newFolderPath('', 'office')).toBe('office');
   });
 
-  it.each(['', '_office', '.office', 'a/b', 'has space', 'agents'])('rejects the name %j', (name) => {
-    expect(newFolderPath('archive', name)).toBeNull();
-    expect(isValidFolderName(name)).toBe(false);
-  });
+  it.each(['', '_office', '.office', 'a/b', 'has space', 'agents'])(
+    'rejects the name %j',
+    (name) => {
+      expect(newFolderPath('archive', name)).toBeNull();
+      expect(isValidFolderName(name)).toBe(false);
+    },
+  );
 
   it('rejects a path that grows past the limit', () => {
-    expect(newFolderPath('a'.repeat(60) + '/' + 'b'.repeat(60) + '/' + 'c'.repeat(60) + '/' + 'd'.repeat(60), 'e'.repeat(30))).toBeNull();
+    expect(
+      newFolderPath(
+        'a'.repeat(60) + '/' + 'b'.repeat(60) + '/' + 'c'.repeat(60) + '/' + 'd'.repeat(60),
+        'e'.repeat(30),
+      ),
+    ).toBeNull();
   });
 });
 
@@ -101,23 +130,33 @@ describe('skillNameFromSource', () => {
     ['/abs/path/my-skill/', 'my-skill'],
   ])('reads %s', (source, name) => expect(skillNameFromSource(source)).toBe(name));
 
-  it.each(['anthropics/skills', 'https://github.com/anthropics/skills', 'git@github.com:a/b', 'github.com/o/r/tree/main/x'])(
-    'finds no skill in %s',
-    (source) => expect(skillNameFromSource(source)).toBeNull(),
-  );
+  it.each([
+    'anthropics/skills',
+    'https://github.com/anthropics/skills',
+    'git@github.com:a/b',
+    'github.com/o/r/tree/main/x',
+  ])('finds no skill in %s', (source) => expect(skillNameFromSource(source)).toBeNull());
 });
 
 describe('folderOptions', () => {
   const t = ((key: string) => key) as Parameters<typeof folderOptions>[0];
-  const folders = [{ path: 'a', count: 2 }, { path: 'a/b', count: 1 }, { path: 'ab', count: 1 }];
+  const folders = [
+    { path: 'a', count: 2 },
+    { path: 'a/b', count: 1 },
+    { path: 'ab', count: 1 },
+  ];
 
   it('blocks a disabled folder and the folders below it, not a sibling that shares the prefix', () => {
-    const blocked = folderOptions(t, 'skill', folders, 4, ['a']).filter((o) => o.disabled).map((o) => o.value);
+    const blocked = folderOptions(t, 'skill', folders, 4, ['a'])
+      .filter((o) => o.disabled)
+      .map((o) => o.value);
     expect(blocked).toEqual(['a', 'a/b']);
   });
 
   it('blocks only the root when the root is disabled', () => {
-    const blocked = folderOptions(t, 'skill', folders, 4, ['']).filter((o) => o.disabled).map((o) => o.value);
+    const blocked = folderOptions(t, 'skill', folders, 4, [''])
+      .filter((o) => o.disabled)
+      .map((o) => o.value);
     expect(blocked).toEqual(['']);
   });
 });
@@ -130,7 +169,10 @@ describe('canMove', () => {
   it.each([
     ['an agent', skill('a/x.md', { kind: 'agent' })],
     ['a skill in a tracked repo', skill('_team/demo', { isInRepo: true, repoPath: '_team' })],
-    ['a skill below a followed link', skill('mine/demo', { linkName: 'mine', linkTarget: '/elsewhere' })],
+    [
+      'a skill below a followed link',
+      skill('mine/demo', { linkName: 'mine', linkTarget: '/elsewhere' }),
+    ],
   ])('refuses %s', (_, s) => expect(canMove(s)).toBe(false));
 });
 

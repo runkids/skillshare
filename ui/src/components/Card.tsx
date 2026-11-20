@@ -31,7 +31,16 @@ export default function Card({
   return (
     <div
       onClick={onClick}
-      onKeyDown={interactive ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick!(); } } : undefined}
+      onKeyDown={
+        interactive
+          ? (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onClick!();
+              }
+            }
+          : undefined
+      }
       role={interactive ? 'button' : undefined}
       tabIndex={interactive ? 0 : undefined}
       className={`ss-box relative ${paddingClasses[padding]} ${overflow ? '' : 'overflow-hidden'} ${variant === 'outlined' ? 'bg-transparent shadow-none' : ''} ${hover ? 'cursor-pointer transition-transform hover:-translate-y-px' : ''} ${className}`}

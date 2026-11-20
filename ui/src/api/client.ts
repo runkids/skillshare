@@ -46,12 +46,8 @@ export const api = {
   ...gitApi,
 
   // Aliases go through `api` so tests that replace it still intercept them.
-  getSkill: (name: string, kind?: 'skill' | 'agent') =>
-    api.getResource(name, kind),
-  deleteSkill: (name: string, kind?: 'skill' | 'agent') =>
-    api.deleteResource(name, kind),
-  disableSkill: (name: string, kind?: 'skill' | 'agent') =>
-    api.disableResource(name, kind),
-  enableSkill: (name: string, kind?: 'skill' | 'agent') =>
-    api.enableResource(name, kind),
+  getSkill: (name: string, kind?: 'skill' | 'agent') => api.getResource(name, kind),
+  deleteSkill: (name: string, kind?: 'skill' | 'agent') => api.deleteResource(name, kind),
+  disableSkill: (name: string, kind?: 'skill' | 'agent') => api.disableResource(name, kind),
+  enableSkill: (name: string, kind?: 'skill' | 'agent') => api.enableResource(name, kind),
 };

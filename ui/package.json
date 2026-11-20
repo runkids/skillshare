@@ -1,12 +1,16 @@
 {
   "name": "ui",
-  "private": true,
   "version": "0.0.0",
+  "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
-    "lint": "eslint .",
+    "build": "pnpm typecheck && vite build",
+    "typecheck": "tsrs -b",
+    "lint": "oxlint .",
+    "lint:typed": "oxlint --type-aware .",
+    "format": "oxfmt --write",
+    "format:check": "oxfmt --check",
     "preview": "vite preview",
     "test": "vitest run"
   },
@@ -39,7 +43,6 @@
     "yaml": "^2.8.2"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.1",
     "@tanstack/react-query-devtools": "^5.91.3",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
@@ -48,14 +51,11 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.1",
-    "eslint": "^9.39.1",
-    "eslint-plugin-react-hooks": "^7.0.1",
-    "eslint-plugin-react-refresh": "^0.4.24",
-    "globals": "^16.5.0",
     "jsdom": "^28.1.0",
-    "typescript": "~6.0.3",
-    "typescript-eslint": "^8.70.0",
-    "vite": "^8.3.1",
+    "oxfmt": "^0.79.0",
+    "oxlint": "^1.94.0",
+    "tsrs": "0.25.0-ts7.1.0-beta",
+    "vite": "^8.3.8",
     "vitest": "^4.1.0"
   }
 }

@@ -18,16 +18,27 @@ export default function ProjectTools({ tools, common, selected, onChange, disabl
   const t = useT();
   const names = tools.map((x) => x.name);
   // The tools on this machine come first; the search box finds the rest.
-  const ordered = [...names.filter((x) => common.includes(x)), ...names.filter((x) => !common.includes(x))];
+  const ordered = [
+    ...names.filter((x) => common.includes(x)),
+    ...names.filter((x) => !common.includes(x)),
+  ];
   return (
     <Select
       ariaLabel={t('projects.targets')}
       values={selected}
       onChangeValues={(next) => onChange(names.filter((x) => next.includes(x)))}
       placeholder={t('projects.tools.choose')}
-      options={ordered.map((name) => ({ value: name, label: targetLabel(name), icon: <AgentIcon target={name} size={13} /> }))}
+      options={ordered.map((name) => ({
+        value: name,
+        label: targetLabel(name),
+        icon: <AgentIcon target={name} size={13} />,
+      }))}
       disabled={disabled}
-      search={{ placeholder: t('projects.tools.search'), empty: t('projects.tools.noMatch'), clear: t('resources.search.clear') }}
+      search={{
+        placeholder: t('projects.tools.search'),
+        empty: t('projects.tools.noMatch'),
+        clear: t('resources.search.clear'),
+      }}
     />
   );
 }

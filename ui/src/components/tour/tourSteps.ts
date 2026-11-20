@@ -12,7 +12,12 @@ export interface TourStep {
 // Every step reads its title and description from `tour.steps.<id>` in the locale files.
 // Anchors live on controls that are always rendered, not on lists that disappear when empty:
 // a missing target makes the step time out and skip itself.
-const step = (id: string, page: string, placement: Placement): TourStep => ({ id, page, placement, targetSelector: `[data-tour='${id}']` });
+const step = (id: string, page: string, placement: Placement): TourStep => ({
+  id,
+  page,
+  placement,
+  targetSelector: `[data-tour='${id}']`,
+});
 
 // Steps that also have an `emptyDescription` for a fresh install
 const HAS_EMPTY_COPY = new Set(['skills-view', 'extras-list']);
@@ -38,9 +43,15 @@ interface BuildStepsOptions {
   isMobile?: boolean;
 }
 
-export function buildSteps({ isProjectMode, skillCount, isMobile = false }: BuildStepsOptions): TourStep[] {
+export function buildSteps({
+  isProjectMode,
+  skillCount,
+  isMobile = false,
+}: BuildStepsOptions): TourStep[] {
   // A project keeps its skills in its own repository, so there is no Git Sync page.
-  let steps = ALL_STEPS.filter((s) => !(isProjectMode && s.id === 'git-actions') && !(isMobile && s.id === 'shortcuts-btn'));
+  let steps = ALL_STEPS.filter(
+    (s) => !(isProjectMode && s.id === 'git-actions') && !(isMobile && s.id === 'shortcuts-btn'),
+  );
   if (skillCount === 0) {
     steps = steps.map((s) => (HAS_EMPTY_COPY.has(s.id) ? { ...s, empty: true } : s));
   }

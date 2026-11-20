@@ -14,7 +14,7 @@
   <a href="https://github.com/runkids/skillshare/releases"><img src="https://img.shields.io/github/v/release/runkids/skillshare" alt="Release"></a>
   <a href="https://github.com/runkids/skillshare/releases"><img src="https://img.shields.io/github/downloads/runkids/skillshare/total" alt="Downloads"></a>
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-blue" alt="Platform">
-  <a href="https://deepwiki.com/runkids/skillshare"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
+  <a href="https://deepwiki.com/runkids/skillshare"><img src="https://img.shields.io/badge/Ask-DeepWiki-blue" alt="Ask DeepWiki"></a>
   <a href="https://ko-fi.com/williehung"><img src="https://img.shields.io/badge/Support-skillshare-FF5E5B?logo=kofi&logoColor=white" alt="Support skillshare on Ko-fi"></a>
 </p>
 
@@ -48,7 +48,7 @@
 </p>
 
 > [!NOTE]
-> **Latest**: v0.30.9 — Edit or remove a hook without importing it: the dashboard's hooks import dialog now shows one Agent at a time and can change a hook in its settings file in place. You see the file diff before anything is written, and a backup restores the file. The hook stays unmanaged. [hooks reference →](https://skillshare.runkids.cc/docs/reference/commands/hooks) · [All releases →](https://github.com/runkids/skillshare/releases)
+> **Latest**: v0.30.11 — Share your Pi packages from the dashboard: **Share** on the Plugins page now lists the npm packages Pi installed, after your plugins, and copies one command that adds them all, such as `skillshare plugin add npm:<package> --target pi -g --no-tui`. The **Hooks in targets** dialog can also edit or remove Antigravity and Copilot hooks without importing them. [Plugins guide →](https://skillshare.runkids.cc/docs/how-to/daily-tasks/sharing-plugins) · [All releases →](https://github.com/runkids/skillshare/releases)
 
 ## Why skillshare
 
@@ -301,7 +301,11 @@ make check  # format + lint + test
 
 ## Contributors
 
-Thanks to everyone who helped shape skillshare.
+[View contributors on GitHub](https://github.com/runkids/skillshare/graphs/contributors)
+
+### Community thanks
+
+Thank you to everyone who has reported a bug, suggested an improvement, or helped test a fix.
 
 <a href="https://github.com/leeeezx"><img src="https://github.com/leeeezx.png" width="50" style="border-radius:50%" alt="leeeezx"></a>
 <a href="https://github.com/Vergil333"><img src="https://github.com/Vergil333.png" width="50" style="border-radius:50%" alt="Vergil333"></a>
@@ -408,6 +412,7 @@ Thanks to everyone who helped shape skillshare.
 <a href="https://github.com/ErykJakubik"><img src="https://github.com/ErykJakubik.png" width="50" style="border-radius:50%" alt="ErykJakubik"></a>
 <a href="https://github.com/maciejniec"><img src="https://github.com/maciejniec.png" width="50" style="border-radius:50%" alt="maciejniec"></a>
 <a href="https://github.com/jani-nieminen-framehaus"><img src="https://github.com/jani-nieminen-framehaus.png" width="50" style="border-radius:50%" alt="jani-nieminen-framehaus"></a>
+<a href="https://github.com/endgame302"><img src="https://github.com/endgame302.png" width="50" style="border-radius:50%" alt="endgame302"></a>
 
 ---
 

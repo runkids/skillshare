@@ -172,7 +172,7 @@ func TestDoctorBrokenLinksUseSourceDestination(t *testing.T) {
 					t.Fatal(err)
 				}
 				result := &doctorResult{}
-				output := captureStdout(t, func() { checkBrokenSymlinks(cfg, walk.Follow, result) })
+				output := captureStdout(t, func() { checkBrokenSymlinks(cfg, walk.Follow, result, nil, false) })
 				expectedErrors := 0
 				if broken {
 					expectedErrors = 1
@@ -207,11 +207,42 @@ func TestCheckBrokenSymlinksSeparatesLinksSkillshareDidNotCreate(t *testing.T) {
 	cfg := &config.Config{Source: source, Targets: map[string]config.TargetConfig{"test": {Skills: &config.ResourceTargetConfig{Path: target}}}}
 	result := &doctorResult{}
 
-	output := captureStdout(t, func() { checkBrokenSymlinks(cfg, cfg.SkillsWalk().Follow, result) })
+	output := captureStdout(t, func() { checkBrokenSymlinks(cfg, cfg.SkillsWalk().Follow, result, nil, false) })
 
 	if result.errors != 1 || result.warnings != 1 ||
 		!strings.Contains(output, "1 broken symlink: ours") ||
 		!strings.Contains(output, "1 broken link skillshare did not create, kept: theirs") {
 		t.Fatalf("misclassified broken links: %q %+v", output, result)
+	}
+}
+
+// Sync prunes a broken link under a name the manifest records once no skill
+// maps to that name, also when the record is a copy. Doctor must send the user
+// to sync for it, and keep calling the link on a current skill's name theirs.
+func TestCheckBrokenSymlinksFollowsWhatSyncPrunes(t *testing.T) {
+	for _, mode := range []string{"merge", "copy"} {
+		t.Run(mode, func(t *testing.T) {
+			source, target := t.TempDir(), t.TempDir()
+			gone := filepath.Join(t.TempDir(), "gone")
+			for _, name := range []string{"removed", "current"} {
+				if err := os.Symlink(filepath.Join(gone, name), filepath.Join(target, name)); err != nil {
+					t.Skipf("symlinks unavailable: %v", err)
+				}
+			}
+			if err := sync.WriteManifest(target, &sync.Manifest{Managed: map[string]string{"removed": "abc123", "current": "abc123"}}); err != nil {
+				t.Fatal(err)
+			}
+			cfg := &config.Config{Source: source, Targets: map[string]config.TargetConfig{"test": {Skills: &config.ResourceTargetConfig{Path: target, Mode: mode}}}}
+			discovered := []sync.DiscoveredSkill{{SourcePath: filepath.Join(source, "current"), RelPath: "current", FlatName: "current"}}
+			result := &doctorResult{}
+
+			output := captureStdout(t, func() { checkBrokenSymlinks(cfg, cfg.SkillsWalk().Follow, result, discovered, true) })
+
+			if result.errors != 1 || result.warnings != 1 ||
+				!strings.Contains(output, "1 broken symlink: removed") ||
+				!strings.Contains(output, "1 broken link skillshare did not create, kept: current") {
+				t.Fatalf("misclassified broken links: %q %+v", output, result)
+			}
+		})
 	}
 }

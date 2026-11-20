@@ -37,6 +37,7 @@ complete -c skillshare -n '__fish_skillshare_using_command project' -l agents-mo
 complete -c skillshare -n '__fish_skillshare_using_command project' -l skills-naming -r -a 'flat standard prefixed'
 complete -c skillshare -n '__fish_skillshare_using_command project' -l skills-include -r
 complete -c skillshare -n '__fish_skillshare_using_command project' -l skills-exclude -r
+complete -c skillshare -n '__fish_skillshare_using_command project' -l scan -x -a '(__fish_complete_directories)' -d 'Also add Git checkouts below this folder'
 complete -c skillshare -n '__fish_skillshare_using_command project' -l machine-local -d 'Save a new project on this machine only'
 complete -c skillshare -n '__fish_skillshare_using_command project' -l shared -d 'Save in config.yaml, or also remove its copy'
 complete -c skillshare -n '__fish_skillshare_using_command project' -l agents-include -r
@@ -111,6 +112,8 @@ complete -c skillshare -n '__fish_skillshare_using_command hooks' -l from -r -d 
 complete -c skillshare -n '__fish_skillshare_using_command hooks' -l sync -d 'Sync after saving'
 complete -c skillshare -n '__fish_skillshare_using_command hooks' -l replace -d 'Replace an existing entry'
 complete -c skillshare -n '__fish_skillshare_using_command hooks' -l keep-files -d 'remove: leave Agent entries as they are'
+complete -c skillshare -n '__fish_skillshare_using_command hooks' -l trust -d 'sync: record Codex trust'
+complete -c skillshare -n '__fish_skillshare_using_command hooks' -s y -l yes -d 'sync --trust: record trust without asking'
 complete -c skillshare -n '__fish_skillshare_using_command hooks' -l revision -r -d 'Preview revision'
 complete -c skillshare -n '__fish_skillshare_using_command hooks' -s n -l dry-run -d 'Preview changes'
 complete -c skillshare -n '__fish_skillshare_using_command hooks' -l json -d 'JSON output'

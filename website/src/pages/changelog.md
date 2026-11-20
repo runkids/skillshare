@@ -9,6 +9,57 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
+## [0.30.12] - 2026-11-18
+
+### New Features
+
+- **Register every Git checkout in a workspace with `--scan`** — some tools, such as Codex, look for project skills only up to the Git root of the folder you open, so skills synced to a workspace folder were not seen inside the checkouts and worktrees it holds. `skillshare project add <root> --scan DIR` now registers the root and each Git checkout found below the scan folders as ordinary project entries with the same settings, in one write. It only adds: a checkout already registered with the same settings is kept, and one with different settings, its own `.skillshare/`, or a name that is already used is skipped with the reason, so it is safe to rerun after a new clone. On a name clash the name comes from the path (`.worktrees/app-a` → `worktrees-app-a`) and is saved. A scan folder that is missing or cannot be read is skipped with a warning. In the dashboard, **Add project** has **Also add each checkout inside this folder**, and **Review** lists each folder as Added, Kept or Skipped before anything is written. See [`project`](https://skillshare.runkids.cc/docs/reference/commands/project#scan). Thanks to @amphetamlne for the request. Refs: #953, #958.
+  ```bash
+  skillshare project add ~/work/suite --scan . --scan .worktrees \
+    --target codex --skills-include 'team-*' --dry-run
+  ```
+
+### Bug Fixes
+
+- **Removing a project says where its MCP and hook settings went** — a removed project's `mcp.projects` and `hooks.projects` entries stay on purpose, but the CLI only warned that `mcp.projects` still contained the root, with no next step. The warning now names the settings and where to remove them, and the dashboard's remove dialog says they stay and that removing the leftover row deletes them. Refs: #955.
+- **MCP server rows show each Agent once** — rows drew the same Agent logos twice, in the count button and as chips under the name. Only the count button remains; opening it shows the toggles with each Agent's name. Target pickers on MCP and plugin rows fold open and closed and stay still under reduced motion, and a project's MCP **Targets** reads like the global defaults, with **Back to global** behind a confirm. Refs: #952.
+- **Removing an OMP plugin no longer fails its own preview** — with other OMP plugins registered, apply could reject the removal with "plugin state changed since preview", because their package files were read in a different order each time. Refs: #949.
+
+## [0.30.11] - 2026-11-17
+
+### New Features
+
+- **Share npm Pi packages from the dashboard** — **Share** on the Plugins page listed only the plugins added from an HTTPS Git source, so a Pi setup made of npm packages could not be passed on. The dialog now lists the Pi packages that Pi installed from npm after the plugins, under their own heading, and adds them to the copied command. Pi downloads an npm package itself, so each add names the built-in `pi` target and installs the package right away. With **Ask where to install each one** ticked, the command leaves out `--target pi` and `--no-tui` and asks which Pi targets to use. Plugins come first in the copied line, so a machine without Pi still adds every plugin before the first Pi package stops it. Pi packages from Git or a local path are not listed. See [Manage plugins across tools](https://skillshare.runkids.cc/docs/how-to/daily-tasks/sharing-plugins). Refs: #947.
+  ```bash
+  skillshare plugin add npm:pi-subagents --target pi -g --no-tui
+  ```
+- **Edit and remove Antigravity and Copilot hooks without importing them** — the dashboard's **Hooks in targets** dialog could change or remove a hook in place only for Agents that keep hooks as events of one settings file (Claude, Codex, Gemini, Cursor, Qwen, Droid). Antigravity and Copilot hooks had to be imported first. An Antigravity edit now replaces or removes the whole named block, and a disabled block stays disabled. A Copilot edit rewrites only the file's `hooks` key, and removing the hook deletes its file; Copilot rows show the file name, and the dialog says when a file will be deleted. Both keep the preview diff, the check that the file has not changed since it was read, and the backup, and the hook stays unmanaged. Hooks that are code (Pi, Oh My Pi, Amp, OpenCode) still need importing. Refs: #948.
+
+### Bug Fixes
+
+- **The dashboard page keeps its width when the scrollbar comes and goes** — whenever a page stopped needing to scroll (a short tab, a filtered list) or a dialog opened, the scrollbar vanished and the whole page grew 8px wider, then shrank again. The page now uses the system scrollbar, which takes no width where scrollbars overlay the content; on macOS it hides when idle. Scrolling areas inside the page keep the styled scrollbar. Refs: #945.
+- **Custom targets appear in "Available in..." and "Set targets"** — the skill target menus listed only the built-in tools, so a target with a custom name could not be picked from the dashboard, and the order changed between openings. The menus now list the configured targets, sorted by name. Refs: #945.
+
+## [0.30.10] - 2026-11-17
+
+### New Features
+
+- **Trust the Codex hooks skillshare writes** — Codex runs a user-level hook only after it is trusted, and only `/hooks` in its TUI recorded that. Every hook skillshare added or moved started untrusted, and `codex exec` skipped it without a word. `skillshare hooks sync --trust -g` now asks Codex which of skillshare's hooks are new or changed, in every Codex home it manages (account homes such as `codex-2` included), lists them with their full commands and records trust once you confirm. `--yes` (`-y`) skips the question for scripts; without a terminal and without `--yes`, nothing is trusted and the command fails. `--json` never asks, and reports each hook in a `codexTrust` list as `trusted`, `unchanged` or `needed`. Only `trusted_hash` in `config.toml` changes: a hook that is disabled in Codex is reported, not switched on, and hooks skillshare does not own are never touched. A home Codex cannot list is named in the error while the other homes are still trusted. In the dashboard, the Hooks page has a **Trust Codex hooks** button in global scope once nothing is waiting to be synced; its dialog shows each command and records trust only after you confirm. Global mode only, and `codex` must be on `PATH`; project-level and plugin hooks are not covered. See [`hooks`](https://skillshare.runkids.cc/docs/reference/commands/hooks#codex-trust). Thanks to @salmonumbrella for the request and the implementation. Refs: #828, #829.
+  ```bash
+  skillshare hooks sync --trust -g          # lists the commands, asks once
+  skillshare hooks sync --trust --yes -g    # no question, for scripts
+  ```
+
+### Bug Fixes
+
+- **`sync` and `init` leave alone what skillshare did not create** — on Windows, `init` followed by `sync` deleted entries in a tool's skills folder that skillshare never made, with no backup, and re-pointed another tool's junction. The manifest of what skillshare created now decides. Orphan cleanup keeps a folder whose name only looks like skillshare's flat naming (`team__shared`, `_drafts`) and a broken link that the manifest does not record, and warns about them. Merge sync re-points a same-name link only when skillshare made it or it already points into the source; otherwise the entry is reported as kept local. `sync --force` still removes or replaces these. During `init`, a folder identical to the source is moved to the trash under `replaced-by-init/` instead of being deleted. `doctor` reports such entries as kept, and a broken link that `sync` will remove as broken. Thanks to @endgame302 for the report and the fix. Refs: #914.
+- **`diff` lists what `sync` removes** — the agent diff, in the CLI and the dashboard, listed every link no agent maps to as a removal, although agent sync prunes a link only in merge mode and only when it is broken or points into the source; a live link to another location was listed forever. The CLI diff also listed no orphan links for merge-mode skills, so a skill removed from the source showed nothing until `sync` pruned its link. Both now list exactly the links `sync` removes. Refs: #939, #940, #942.
+- **`init` names the agent files it kept** — when a tool already had a file under an agent's name, the first sync kept it and `init` still said "Synced", while the tool went on loading its own file. `init` now prints a line per tool that names the kept files and the command that replaces them (`skillshare sync agents --force`). In symlink mode it says the whole agents folder was kept. Refs: #938, #943.
+- **`sync agents --force` takes over an agent file that already matches** — where agents are copied instead of linked (Windows without Developer Mode), a file a tool already had with the same content as the source was kept and never tracked, even with `--force`, so later changes to the source did not reach it. With `--force` the file is now recorded as skillshare's and later syncs update it. Without `--force` nothing changes. Refs: #944.
+- **Updating skills from the dashboard fetches each repository once** — the Updates tab cloned the repository once per skill and reinstalled every one, so 31 skills from 8 repositories took over a minute where `skillshare update --all` takes 16 seconds, and unchanged skills were reported as updated. Skills are now grouped by repository and branch, as the CLI does, and a skill that already matches upstream is shown and counted as up to date. Refs: #931.
+- **One progress indicator while an update runs** — an update showed a spinner in the status card, a progress bar, a spinner on the active row and a moving line under it at once, and the bar disappeared before it reached the end. There is now one bar that shows work before the first item finishes and completes before it fades; the active row is marked by a light sweep over its status text. Backup, install from config, the plugin update dialog and pending Doctor checks follow the same rule. Refs: #932.
+- **The hooks dialog for targets opens with nothing selected** — the dialog where a hook is edited or removed in its target file opened with every hook ticked, so removing one could import the rest by accident. It now opens with nothing selected, and its entry points are named **Hooks in targets** and **Not managed yet** instead of "Import". The review step lists each hook once, shows a count per action on each file and opens a diff on request. When the OpenCode CLI is missing, the dashboard says the command was not found and what to do, instead of showing the raw error. Refs: #935.
+
 ## [0.30.9] - 2026-11-16
 
 ### New Features

@@ -4,32 +4,62 @@ import type { HookCatalog } from './hookCatalog';
 import { emptyBinding, newRow } from './hooksView';
 
 const catalog: HookCatalog = {
-  claude: { timeoutUnit: 'seconds', events: [
-    { name: 'PreToolUse', description: 'Before a tool runs', matcher: true },
-    { name: 'Stop', description: 'When the main agent finishes', matcher: false },
-    { name: 'Notification', description: 'When a notification is sent', matcher: true },
-  ] },
-  gemini: { timeoutUnit: 'milliseconds', events: [
-    { name: 'BeforeTool', description: 'Before a tool runs', matcher: true },
-    { name: 'AfterAgent', description: 'After the agent replies', matcher: false },
-  ] },
-  cursor: { timeoutUnit: 'seconds', events: [{ name: 'stop', description: 'When the agent stops', matcher: false }] },
+  claude: {
+    timeoutUnit: 'seconds',
+    events: [
+      { name: 'PreToolUse', description: 'Before a tool runs', matcher: true },
+      { name: 'Stop', description: 'When the main agent finishes', matcher: false },
+      { name: 'Notification', description: 'When a notification is sent', matcher: true },
+    ],
+  },
+  gemini: {
+    timeoutUnit: 'milliseconds',
+    events: [
+      { name: 'BeforeTool', description: 'Before a tool runs', matcher: true },
+      { name: 'AfterAgent', description: 'After the agent replies', matcher: false },
+    ],
+  },
+  cursor: {
+    timeoutUnit: 'seconds',
+    events: [{ name: 'stop', description: 'When the agent stops', matcher: false }],
+  },
 };
 
 const claudeDraft = (...rows: [string, string, string, string][]) => ({
   ...emptyBinding('claude'),
-  rows: rows.map(([event, matcher, command, timeout]) => ({ ...newRow('claude', event), matcher, command, timeout })),
+  rows: rows.map(([event, matcher, command, timeout]) => ({
+    ...newRow('claude', event),
+    matcher,
+    command,
+    timeout,
+  })),
 });
 
 describe('copyDraft', () => {
   it("maps each event to the target's own name and converts the timeout unit", () => {
-    const { draft, notes } = copyDraft(catalog, 'claude', 'gemini', claudeDraft(['PreToolUse', 'Bash', './guard.sh', '10'], ['Stop', '', './done.sh', '']));
-    expect(draft.rows.map((r) => [r.event, r.matcher, r.command, r.timeout])).toEqual([['BeforeTool', 'Bash', './guard.sh', '10000'], ['AfterAgent', '', './done.sh', '']]);
-    expect(notes).toEqual([{ from: 'PreToolUse', to: 'BeforeTool', kind: 'closest' }, { from: 'Stop', to: 'AfterAgent', kind: 'closest' }]);
+    const { draft, notes } = copyDraft(
+      catalog,
+      'claude',
+      'gemini',
+      claudeDraft(['PreToolUse', 'Bash', './guard.sh', '10'], ['Stop', '', './done.sh', '']),
+    );
+    expect(draft.rows.map((r) => [r.event, r.matcher, r.command, r.timeout])).toEqual([
+      ['BeforeTool', 'Bash', './guard.sh', '10000'],
+      ['AfterAgent', '', './done.sh', ''],
+    ]);
+    expect(notes).toEqual([
+      { from: 'PreToolUse', to: 'BeforeTool', kind: 'closest' },
+      { from: 'Stop', to: 'AfterAgent', kind: 'closest' },
+    ]);
   });
 
   it('leaves an event the target has nothing close to empty and says so', () => {
-    const { draft, notes } = copyDraft(catalog, 'claude', 'cursor', claudeDraft(['Notification', '', './ping.sh', '']));
+    const { draft, notes } = copyDraft(
+      catalog,
+      'claude',
+      'cursor',
+      claudeDraft(['Notification', '', './ping.sh', '']),
+    );
     expect(draft.rows[0]).toMatchObject({ event: '', command: './ping.sh' });
     expect(notes).toEqual([{ from: 'Notification', to: '', kind: 'none' }]);
   });
@@ -45,20 +75,38 @@ describe('lintNative', () => {
 
   it('flags an event the target does not document and suggests the closest one', () => {
     expect(lintNative('{ "Stopp": [] }', 'claude', catalog)).toEqual([
-      expect.objectContaining({ severity: 'warning', key: 'hooks.lint.unknownEventSuggest', params: { event: 'Stopp', suggestion: 'Stop' } }),
+      expect.objectContaining({
+        severity: 'warning',
+        key: 'hooks.lint.unknownEventSuggest',
+        params: { event: 'Stopp', suggestion: 'Stop' },
+      }),
     ]);
   });
 
   it('flags a timeout that is not a number', () => {
-    expect(lintNative('{ "Stop": [{ "hooks": [{ "type": "command", "command": "x", "timeout": "30" }] }] }', 'claude', catalog)).toEqual([
-      expect.objectContaining({ severity: 'error', key: 'hooks.lint.timeoutType', params: { unit: 'seconds' } }),
+    expect(
+      lintNative(
+        '{ "Stop": [{ "hooks": [{ "type": "command", "command": "x", "timeout": "30" }] }] }',
+        'claude',
+        catalog,
+      ),
+    ).toEqual([
+      expect.objectContaining({
+        severity: 'error',
+        key: 'hooks.lint.timeoutType',
+        params: { unit: 'seconds' },
+      }),
     ]);
   });
 });
 
 describe('eventLabels', () => {
   it('lists added, updated and removed events in that order', () => {
-    expect(eventLabels({ events: { added: ['Stop'], updated: ['PostToolUse'], removed: ['PreToolUse'] } })).toEqual(['+ Stop', '~ PostToolUse', '− PreToolUse']);
+    expect(
+      eventLabels({
+        events: { added: ['Stop'], updated: ['PostToolUse'], removed: ['PreToolUse'] },
+      }),
+    ).toEqual(['+ Stop', '~ PostToolUse', '− PreToolUse']);
   });
 });
 
@@ -69,24 +117,43 @@ describe('diffLines', () => {
 
   it('shows a line that only gained a trailing comma as removed and added, removals first', () => {
     expect(diffLines('{\n  "A": []\n}', '{\n  "A": [],\n  "B": []\n}')).toEqual([
-      { op: ' ', text: '{' }, { op: '-', text: '  "A": []' }, { op: '+', text: '  "A": [],' }, { op: '+', text: '  "B": []' }, { op: ' ', text: '}' },
+      { op: ' ', text: '{' },
+      { op: '-', text: '  "A": []' },
+      { op: '+', text: '  "A": [],' },
+      { op: '+', text: '  "B": []' },
+      { op: ' ', text: '}' },
     ]);
   });
 
   it('shows a line that only lost a trailing comma as removed and added', () => {
-    expect(diffLines('[\n  1,\n  2\n]', '[\n  1\n]').map((l) => `${l.op}${l.text}`)).toEqual([' [', '-  1,', '-  2', '+  1', ' ]']);
+    expect(diffLines('[\n  1,\n  2\n]', '[\n  1\n]').map((l) => `${l.op}${l.text}`)).toEqual([
+      ' [',
+      '-  1,',
+      '-  2',
+      '+  1',
+      ' ]',
+    ]);
   });
 
   it('adds an event after the last one as a comma pair plus the new lines, closing brackets untouched', () => {
     const before = '{\n  "hooks": {\n    "A": [\n      {}\n    ]\n  }\n}';
-    const after = '{\n  "hooks": {\n    "A": [\n      {}\n    ],\n    "B": [\n      {}\n    ]\n  }\n}';
-    expect(diffLines(before, after).filter((l) => l.op !== ' ').map((l) => `${l.op}${l.text}`)).toEqual(['-    ]', '+    ],', '+    "B": [', '+      {}', '+    ]']);
+    const after =
+      '{\n  "hooks": {\n    "A": [\n      {}\n    ],\n    "B": [\n      {}\n    ]\n  }\n}';
+    expect(
+      diffLines(before, after)
+        .filter((l) => l.op !== ' ')
+        .map((l) => `${l.op}${l.text}`),
+    ).toEqual(['-    ]', '+    ],', '+    "B": [', '+      {}', '+    ]']);
   });
 
   it('keeps unrelated lines aligned when a comma changes', () => {
     const before = '{\n  "A": [],\n  "B": [],\n  "C": []\n}';
     const after = '{\n  "A": [],\n  "B": [],\n  "C": [],\n  "D": []\n}';
-    expect(diffLines(before, after).filter((l) => l.op !== ' ').map((l) => `${l.op}${l.text}`)).toEqual(['-  "C": []', '+  "C": [],', '+  "D": []']);
+    expect(
+      diffLines(before, after)
+        .filter((l) => l.op !== ' ')
+        .map((l) => `${l.op}${l.text}`),
+    ).toEqual(['-  "C": []', '+  "C": [],', '+  "D": []']);
   });
 });
 
@@ -102,6 +169,8 @@ describe('suggestName', () => {
   });
 
   it('numbers a name that is taken', () => {
-    expect(suggestName('claude-stop', 'echo done', (n) => n === 'claude-stop')).toBe('claude-stop-2');
+    expect(suggestName('claude-stop', 'echo done', (n) => n === 'claude-stop')).toBe(
+      'claude-stop-2',
+    );
   });
 });

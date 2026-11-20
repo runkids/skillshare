@@ -1,4 +1,4 @@
-import { apiFetch } from './client';
+import { http } from './http';
 
 /** What a Pi target's settings select for an extension; whether Pi loaded it is never known here. */
 export type PiSelection = 'loads' | 'skipped' | 'unknown' | 'none';
@@ -47,7 +47,13 @@ export interface PiExtensionFolder {
   /** Project view only: whose settings decide these rows. */
   scope?: 'global' | 'project';
   problem?: string;
-  rows: { path: string; file: 'present' | 'missing'; selection: PiSelection; provenance: 'native' | 'extras'; extra?: string }[];
+  rows: {
+    path: string;
+    file: 'present' | 'missing';
+    selection: PiSelection;
+    provenance: 'native' | 'extras';
+    extra?: string;
+  }[];
 }
 
 export interface PiExtensionsView {
@@ -72,30 +78,54 @@ export interface PiExtensionsView {
  * project, a global package is changed by a new project override; the global file is
  * never written.
  */
-export interface PiExtensionChange { scope: 'global' | 'project'; index: number; source: string; path: string; action: PiExtensionAction }
+export interface PiExtensionChange {
+  scope: 'global' | 'project';
+  index: number;
+  source: string;
+  path: string;
+  action: PiExtensionAction;
+}
 
 export interface PiExtensionsPlan {
   revision: string;
   settingsPath: string;
   entries: {
-    scope?: 'global' | 'project'; index: number; source: string; identity: string; before: string[] | null; after: string[] | null; converted: boolean; keptKeys: string[];
+    scope?: 'global' | 'project';
+    index: number;
+    source: string;
+    identity: string;
+    before: string[] | null;
+    after: string[] | null;
+    converted: boolean;
+    keptKeys: string[];
     /** Project only: a new override written with `reference` as its source, or an override left with no rule and removed. */
-    created?: boolean; removed?: boolean; reference?: string;
+    created?: boolean;
+    removed?: boolean;
+    reference?: string;
   }[];
-  rows: { scope?: 'global' | 'project'; index: number; path: string; before: PiSelection; after: PiSelection; removed: string[]; added: string[] }[];
+  rows: {
+    scope?: 'global' | 'project';
+    index: number;
+    path: string;
+    before: PiSelection;
+    after: PiSelection;
+    removed: string[];
+    added: string[];
+  }[];
   backupId?: string;
 }
 
 const base = (target: string) => `/targets/${encodeURIComponent(target)}/pi-extensions`;
 
 export const piExtensionsApi = {
-  get: (target: string) => apiFetch<PiExtensionsView>(base(target)),
+  get: (target: string) => http.get<PiExtensionsView>(base(target)),
   /** Writes nothing; the plan's revision is what apply checks the file against. */
   preview: (target: string, changes: PiExtensionChange[]) =>
-    apiFetch<PiExtensionsPlan>(`${base(target)}/preview`, { method: 'POST', body: JSON.stringify({ changes }) }),
+    http.post<PiExtensionsPlan>(`${base(target)}/preview`, { changes }),
   apply: (target: string, changes: PiExtensionChange[], revision: string) =>
-    apiFetch<PiExtensionsPlan>(`${base(target)}/apply`, { method: 'POST', body: JSON.stringify({ changes, revision }) }),
+    http.post<PiExtensionsPlan>(`${base(target)}/apply`, { changes, revision }),
 };
 
 /** A target whose Agent is Pi: pi itself or a Pi account. A project's Pi has its tab on the project page. */
-export const isPiTarget = (t: { name: string; agent?: string }) => t.name === 'pi' || t.agent === 'pi';
+export const isPiTarget = (t: { name: string; agent?: string }) =>
+  t.name === 'pi' || t.agent === 'pi';

@@ -7,7 +7,12 @@ import { api } from '../api/client';
 import type { Skill, SyncMatrixEntry } from '../api/client';
 import { I18nProvider } from '../i18n';
 import { ToastProvider } from '../components/Toast';
-import { byTargetOrProject, splitTargets, syncedByTarget, targetReach } from '../lib/resourceGrouping';
+import {
+  byTargetOrProject,
+  splitTargets,
+  syncedByTarget,
+  targetReach,
+} from '../lib/resourceGrouping';
 import ResourcesPage from './ResourcesPage';
 
 vi.mock('../context/AppContext', () => ({ useAppContext: () => ({ isProjectMode: false }) }));
@@ -15,48 +20,76 @@ vi.mock('../api/client', async (load) => {
   const actual = await load<typeof import('../api/client')>();
   // Anything the page asks for that a test does not set up answers with an empty object.
   const stubs: Record<string | symbol, unknown> = {};
-  return { ...actual, api: new Proxy(stubs, { get: (t, k) => (t[k] ??= vi.fn().mockResolvedValue({})) }) };
+  return {
+    ...actual,
+    api: new Proxy(stubs, { get: (t, k) => (t[k] ??= vi.fn().mockResolvedValue({})) }),
+  };
 });
 
 const skill = (flatName: string): Skill => ({
-  name: flatName, kind: 'skill', flatName, relPath: flatName, sourcePath: '', isInRepo: false,
+  name: flatName,
+  kind: 'skill',
+  flatName,
+  relPath: flatName,
+  sourcePath: '',
+  isInRepo: false,
 });
 
-const entry = (s: string, target: string, status: SyncMatrixEntry['status']): SyncMatrixEntry =>
-  ({ skill: s, target, status, reason: '' });
+const entry = (s: string, target: string, status: SyncMatrixEntry['status']): SyncMatrixEntry => ({
+  skill: s,
+  target,
+  status,
+  reason: '',
+});
 // The matrix reports both as 'na': a symlinked folder carries every skill, a target with skills off gets none.
-const symlinked = (s: string, target: string): SyncMatrixEntry => ({ ...entry(s, target, 'na'), reasonCode: 'sync_matrix.symlink_filters_not_applicable' });
+const symlinked = (s: string, target: string): SyncMatrixEntry => ({
+  ...entry(s, target, 'na'),
+  reasonCode: 'sync_matrix.symlink_filters_not_applicable',
+});
 const skillsOff = (s: string, target: string) => entry(s, target, 'na');
 
 describe('splitTargets', () => {
   it('groups project targets by project and keeps global tools apart', () => {
-    expect(splitTargets(['blog@claude', 'claude', 'codex', 'myapp@claude', 'myapp@codex'])).toEqual({
-      global: ['claude', 'codex'],
-      projects: [['blog', ['claude']], ['myapp', ['claude', 'codex']]],
-    });
+    expect(splitTargets(['blog@claude', 'claude', 'codex', 'myapp@claude', 'myapp@codex'])).toEqual(
+      {
+        global: ['claude', 'codex'],
+        projects: [
+          ['blog', ['claude']],
+          ['myapp', ['claude', 'codex']],
+        ],
+      },
+    );
   });
 });
 
 describe('byTargetOrProject', () => {
-  it('merges a project\'s tools into one entry and keeps global targets apart', () => {
-    const index = byTargetOrProject(new Map([
-      ['claude', new Set(['a'])],
-      ['blog@claude', new Set(['a'])],
-      ['blog@codex', new Set(['b'])],
-    ]));
+  it("merges a project's tools into one entry and keeps global targets apart", () => {
+    const index = byTargetOrProject(
+      new Map([
+        ['claude', new Set(['a'])],
+        ['blog@claude', new Set(['a'])],
+        ['blog@codex', new Set(['b'])],
+      ]),
+    );
 
-    expect([...index].map(([k, v]) => [k, [...v]])).toEqual([['claude', ['a']], ['blog@', ['a', 'b']]]);
+    expect([...index].map(([k, v]) => [k, [...v]])).toEqual([
+      ['claude', ['a']],
+      ['blog@', ['a', 'b']],
+    ]);
   });
 });
 
 describe('syncedByTarget', () => {
   it('indexes only entries that are synced and belong to the given items', () => {
-    const index = syncedByTarget([skill('a'), skill('b')], [
-      entry('a', 'claude', 'synced'),
-      entry('b', 'claude', 'synced'),
-      entry('a', 'cursor', 'not_included'),
-      entry('gone', 'codex', 'synced'),
-    ]);
+    const index = syncedByTarget(
+      [skill('a'), skill('b')],
+      [
+        entry('a', 'claude', 'synced'),
+        entry('b', 'claude', 'synced'),
+        entry('a', 'cursor', 'not_included'),
+        entry('gone', 'codex', 'synced'),
+      ],
+    );
 
     expect([...index.keys()]).toEqual(['claude']);
     expect([...index.get('claude')!]).toEqual(['a', 'b']);
@@ -71,7 +104,10 @@ describe('syncedByTarget', () => {
 
 describe('targetReach', () => {
   it('lists a symlink-mode target among the targets that get the item', () => {
-    expect(targetReach([entry('a', 'claude', 'synced'), symlinked('a', 'pi'), skillsOff('a', 'copilot')]).synced).toEqual(['claude', 'pi']);
+    expect(
+      targetReach([entry('a', 'claude', 'synced'), symlinked('a', 'pi'), skillsOff('a', 'copilot')])
+        .synced,
+    ).toEqual(['claude', 'pi']);
   });
 
   it.each([
@@ -84,15 +120,23 @@ describe('targetReach', () => {
   });
 
   it('leaves a project with skills off out of the projects the item could reach', () => {
-    expect(targetReach([skillsOff('a', 'blog@claude'), entry('a', 'app@claude', 'not_included')]).reachable).toEqual(['app']);
+    expect(
+      targetReach([skillsOff('a', 'blog@claude'), entry('a', 'app@claude', 'not_included')])
+        .reachable,
+    ).toEqual(['app']);
   });
 });
 
 /* -- Tree view ----------------------------------- */
 
 const at = (relPath: string, extra: Partial<Skill> = {}): Skill => ({
-  name: relPath.split('/').pop()!, kind: 'skill', flatName: relPath.replace(/\//g, '__'), relPath, sourcePath: '',
-  isInRepo: relPath.startsWith('_'), ...extra,
+  name: relPath.split('/').pop()!,
+  kind: 'skill',
+  flatName: relPath.replace(/\//g, '__'),
+  relPath,
+  sourcePath: '',
+  isInRepo: relPath.startsWith('_'),
+  ...extra,
 });
 
 const SKILLS = [
@@ -106,8 +150,14 @@ const SKILLS = [
 function mount(kind: 'skill' | 'agent' = 'skill') {
   render(
     <MemoryRouter initialEntries={['/skills']}>
-      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-        <I18nProvider><ToastProvider><ResourcesPage kind={kind} /></ToastProvider></I18nProvider>
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+      >
+        <I18nProvider>
+          <ToastProvider>
+            <ResourcesPage kind={kind} />
+          </ToastProvider>
+        </I18nProvider>
       </QueryClientProvider>
     </MemoryRouter>,
   );
@@ -116,7 +166,9 @@ function mount(kind: 'skill' | 'agent' = 'skill') {
 /** The tree row whose name reads `name` ("plugins/demo/skills" for a merged row). */
 async function row(name: string) {
   await screen.findAllByRole('treeitem');
-  const found = screen.getAllByRole('treeitem').find((el) => el.querySelector('.nm')?.textContent === name);
+  const found = screen
+    .getAllByRole('treeitem')
+    .find((el) => el.querySelector('.nm')?.textContent === name);
   if (!found) throw new Error(`no tree row ${name}`);
   return found;
 }
@@ -126,21 +178,37 @@ describe('Skills tree view', () => {
     localStorage.clear();
     localStorage.setItem('skillshare:skills-view', 'tree');
     vi.clearAllMocks();
-    vi.mocked(api.listSkills).mockResolvedValue({ resources: SKILLS } as Awaited<ReturnType<typeof api.listSkills>>);
-    vi.mocked(api.diff).mockResolvedValue({ diffs: [] } as unknown as Awaited<ReturnType<typeof api.diff>>);
+    vi.mocked(api.listSkills).mockResolvedValue({ resources: SKILLS } as Awaited<
+      ReturnType<typeof api.listSkills>
+    >);
+    vi.mocked(api.diff).mockResolvedValue({ diffs: [] } as unknown as Awaited<
+      ReturnType<typeof api.diff>
+    >);
     vi.mocked(api.listTargets).mockResolvedValue({ targets: [], sourceSkillCount: 0 });
-    vi.mocked(api.listTrash).mockResolvedValue({ items: [] } as unknown as Awaited<ReturnType<typeof api.listTrash>>);
-    vi.mocked(api.getSyncMatrix).mockResolvedValue({ entries: [] } as unknown as Awaited<ReturnType<typeof api.getSyncMatrix>>);
-    vi.mocked(api.batchToggleResources).mockResolvedValue({ results: [], summary: { updated: 1, unchanged: 0, failed: 0 } } as Awaited<ReturnType<typeof api.batchToggleResources>>);
+    vi.mocked(api.listTrash).mockResolvedValue({ items: [] } as unknown as Awaited<
+      ReturnType<typeof api.listTrash>
+    >);
+    vi.mocked(api.getSyncMatrix).mockResolvedValue({ entries: [] } as unknown as Awaited<
+      ReturnType<typeof api.getSyncMatrix>
+    >);
+    vi.mocked(api.batchToggleResources).mockResolvedValue({
+      results: [],
+      summary: { updated: 1, unchanged: 0, failed: 0 },
+    } as Awaited<ReturnType<typeof api.batchToggleResources>>);
     vi.mocked(api.batchSetTargets).mockResolvedValue({ updated: 2, skipped: 0, errors: [] });
-    vi.mocked(api.availableTargets).mockResolvedValue({ targets: [{ name: 'claude', installed: true }] } as Awaited<ReturnType<typeof api.availableTargets>>);
   });
 
   it('turns every skill of a partly enabled folder on from its switch', async () => {
     mount();
     fireEvent.click(await row('local'));
     fireEvent.click(screen.getByRole('switch', { name: 'local' }));
-    await waitFor(() => expect(api.batchToggleResources).toHaveBeenCalledWith(['local__one', 'local__two'], true, 'skill'));
+    await waitFor(() =>
+      expect(api.batchToggleResources).toHaveBeenCalledWith(
+        ['local__one', 'local__two'],
+        true,
+        'skill',
+      ),
+    );
   });
 
   it('turns every skill of a fully enabled folder off, without asking first', async () => {
@@ -149,9 +217,17 @@ describe('Skills tree view', () => {
     const sw = screen.getByRole('switch', { name: 'repo' });
     expect(sw).toHaveAttribute('aria-checked', 'true');
     fireEvent.click(sw);
-    await waitFor(() => expect(api.batchToggleResources).toHaveBeenCalledWith(
-      ['_repo__plugins__demo__skills__alpha', '_repo__plugins__demo__skills__beta', '_repo__skills__gamma'], false, 'skill',
-    ));
+    await waitFor(() =>
+      expect(api.batchToggleResources).toHaveBeenCalledWith(
+        [
+          '_repo__plugins__demo__skills__alpha',
+          '_repo__plugins__demo__skills__beta',
+          '_repo__skills__gamma',
+        ],
+        false,
+        'skill',
+      ),
+    );
   });
 
   it('offers to move a plain folder whole, but not a tracked repo', async () => {
@@ -164,25 +240,41 @@ describe('Skills tree view', () => {
     expect(screen.queryByRole('menuitem', { name: 'Move whole folder…' })).toBeNull();
   });
 
-  it('sets targets for a folder inside a tracked repo', async () => {
+  it('sets targets for a folder inside a tracked repo, offering a custom target', async () => {
+    // "my-tool" is in no built-in list of tools; only the configured targets name it.
+    vi.mocked(api.listTargets).mockImplementation(
+      async (scope) =>
+        ({ targets: scope ? [] : [{ name: 'my-tool' }], sourceSkillCount: 0 }) as Awaited<
+          ReturnType<typeof api.listTargets>
+        >,
+    );
     const user = userEvent.setup();
     mount();
     await user.click(await row('plugins/demo/skills'));
     await user.click(screen.getByRole('button', { name: 'Set targets' }));
-    await user.click(within(await screen.findByRole('menu')).getByRole('menuitem', { name: 'claude' }));
-    await waitFor(() => expect(api.batchSetTargets).toHaveBeenCalledWith('_repo/plugins/demo/skills', 'claude'));
+    await user.click(
+      within(await screen.findByRole('menu')).getByRole('menuitem', { name: 'my-tool' }),
+    );
+    await waitFor(() =>
+      expect(api.batchSetTargets).toHaveBeenCalledWith('_repo/plugins/demo/skills', 'my-tool'),
+    );
   });
-
 });
 
 describe('Move to folder', () => {
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
-    vi.mocked(api.listSkills).mockResolvedValue({ resources: [at('local/one'), at('_repo/skills/gamma')] } as Awaited<ReturnType<typeof api.listSkills>>);
-    vi.mocked(api.diff).mockResolvedValue({ diffs: [] } as unknown as Awaited<ReturnType<typeof api.diff>>);
+    vi.mocked(api.listSkills).mockResolvedValue({
+      resources: [at('local/one'), at('_repo/skills/gamma')],
+    } as Awaited<ReturnType<typeof api.listSkills>>);
+    vi.mocked(api.diff).mockResolvedValue({ diffs: [] } as unknown as Awaited<
+      ReturnType<typeof api.diff>
+    >);
     vi.mocked(api.listTargets).mockResolvedValue({ targets: [], sourceSkillCount: 0 });
-    vi.mocked(api.getSyncMatrix).mockResolvedValue({ entries: [] } as unknown as Awaited<ReturnType<typeof api.getSyncMatrix>>);
+    vi.mocked(api.getSyncMatrix).mockResolvedValue({ entries: [] } as unknown as Awaited<
+      ReturnType<typeof api.getSyncMatrix>
+    >);
   });
 
   it('opens from the selection bar with the skills that can move', async () => {
@@ -207,11 +299,20 @@ describe('Uninstall a package', () => {
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
-    vi.mocked(api.listSkills).mockResolvedValue({ resources: [at('pack'), at('pack/skills/child')] } as Awaited<ReturnType<typeof api.listSkills>>);
-    vi.mocked(api.diff).mockResolvedValue({ diffs: [] } as unknown as Awaited<ReturnType<typeof api.diff>>);
+    vi.mocked(api.listSkills).mockResolvedValue({
+      resources: [at('pack'), at('pack/skills/child')],
+    } as Awaited<ReturnType<typeof api.listSkills>>);
+    vi.mocked(api.diff).mockResolvedValue({ diffs: [] } as unknown as Awaited<
+      ReturnType<typeof api.diff>
+    >);
     vi.mocked(api.listTargets).mockResolvedValue({ targets: [], sourceSkillCount: 0 });
-    vi.mocked(api.getSyncMatrix).mockResolvedValue({ entries: [] } as unknown as Awaited<ReturnType<typeof api.getSyncMatrix>>);
-    vi.mocked(api.batchUninstall).mockResolvedValue({ results: [], summary: { succeeded: 1, failed: 0 } });
+    vi.mocked(api.getSyncMatrix).mockResolvedValue({ entries: [] } as unknown as Awaited<
+      ReturnType<typeof api.getSyncMatrix>
+    >);
+    vi.mocked(api.batchUninstall).mockResolvedValue({
+      results: [],
+      summary: { succeeded: 1, failed: 0 },
+    });
   });
 
   it('sends only the package when its nested skill is selected too', async () => {
@@ -220,18 +321,32 @@ describe('Uninstall a package', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Uninstall' }));
     const dialog = await screen.findByRole('dialog');
     fireEvent.click(within(dialog).getByRole('button', { name: 'Uninstall' }));
-    await waitFor(() => expect(api.batchUninstall).toHaveBeenCalledWith({ names: ['pack'], kind: 'skill', force: false }));
+    await waitFor(() =>
+      expect(api.batchUninstall).toHaveBeenCalledWith({
+        names: ['pack'],
+        kind: 'skill',
+        force: false,
+      }),
+    );
   });
 
   it('still sends the nested skills of a linked folder root, which only unlinks', async () => {
     const link = { linkName: 'team', linkTarget: '/elsewhere/team' };
-    vi.mocked(api.listSkills).mockResolvedValue({ resources: [at('team', link), at('team/skills/child', link)] } as Awaited<ReturnType<typeof api.listSkills>>);
+    vi.mocked(api.listSkills).mockResolvedValue({
+      resources: [at('team', link), at('team/skills/child', link)],
+    } as Awaited<ReturnType<typeof api.listSkills>>);
     mount();
     fireEvent.click(await screen.findByRole('checkbox', { name: 'Select all' }));
     fireEvent.click(screen.getByRole('button', { name: 'Uninstall' }));
     const dialog = await screen.findByRole('dialog');
     fireEvent.click(within(dialog).getByRole('button', { name: 'Uninstall' }));
-    await waitFor(() => expect(api.batchUninstall).toHaveBeenCalledWith({ names: ['team', 'team__skills__child'], kind: 'skill', force: false }));
+    await waitFor(() =>
+      expect(api.batchUninstall).toHaveBeenCalledWith({
+        names: ['team', 'team__skills__child'],
+        kind: 'skill',
+        force: false,
+      }),
+    );
   });
 });
 
@@ -247,7 +362,12 @@ describe('Link folder', () => {
     vi.clearAllMocks();
     vi.mocked(api.listSkills).mockResolvedValue({ resources: [] });
     vi.mocked(api.getConfig).mockResolvedValue({ config: { FollowSourceLinks: false }, raw: '' });
-    vi.mocked(api.createSourceLink).mockResolvedValue({ path: '/source/_team', target: '/work/team', kind: 'symlink', warning: '' });
+    vi.mocked(api.createSourceLink).mockResolvedValue({
+      path: '/source/_team',
+      target: '/work/team',
+      kind: 'symlink',
+      warning: '',
+    });
   });
 
   it('posts the path, optional name and explicit enable flag and refreshes the list', async () => {
@@ -257,22 +377,36 @@ describe('Link folder', () => {
     fireEvent.change(screen.getByLabelText('Link name (optional)'), { target: { value: '_team' } });
     fireEvent.click(await screen.findByRole('checkbox', { name: /Enable follow_source_links/ }));
     const calls = vi.mocked(api.listSkills).mock.calls.length;
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Link folder' }));
-    await waitFor(() => expect(api.createSourceLink).toHaveBeenCalledWith({ path: '/work/team', name: '_team', enable: true }));
+    fireEvent.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: 'Link folder' }),
+    );
+    await waitFor(() =>
+      expect(api.createSourceLink).toHaveBeenCalledWith({
+        path: '/work/team',
+        name: '_team',
+        enable: true,
+      }),
+    );
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(vi.mocked(api.listSkills).mock.calls.length).toBeGreaterThan(calls);
   });
-
 });
 
 /* -- Folders ------------------------------------- */
 
 describe('Unlink folder', () => {
   const LINKED = [
-    at('team/plugins/skills/alpha', { isInRepo: false, linkName: 'team', linkTarget: '/work/team' }),
+    at('team/plugins/skills/alpha', {
+      isInRepo: false,
+      linkName: 'team',
+      linkTarget: '/work/team',
+    }),
     at('plain/plugins/skills/beta', { isInRepo: false }),
   ];
-  const linkedHeader = () => [...document.querySelectorAll<HTMLElement>('.ss-gh, .ss-gl')].find((g) => g.querySelector('b')?.textContent === 'team')!;
+  const linkedHeader = () =>
+    [...document.querySelectorAll<HTMLElement>('.ss-gh, .ss-gl')].find(
+      (g) => g.querySelector('b')?.textContent === 'team',
+    )!;
   const openUnlink = async () => {
     await screen.findByText('/work/team');
     const user = userEvent.setup();
@@ -285,32 +419,49 @@ describe('Unlink folder', () => {
     vi.clearAllMocks();
     vi.mocked(api.listSkills).mockResolvedValue({ resources: LINKED });
     vi.mocked(api.removeSourceLink).mockResolvedValue({ success: true, name: 'team' });
-    vi.mocked(api.batchUninstall).mockResolvedValue({ results: [], summary: { succeeded: 1, failed: 0 } });
-    vi.mocked(api.diff).mockResolvedValue({ diffs: [] } as unknown as Awaited<ReturnType<typeof api.diff>>);
+    vi.mocked(api.batchUninstall).mockResolvedValue({
+      results: [],
+      summary: { succeeded: 1, failed: 0 },
+    });
+    vi.mocked(api.diff).mockResolvedValue({ diffs: [] } as unknown as Awaited<
+      ReturnType<typeof api.diff>
+    >);
     vi.mocked(api.listTargets).mockResolvedValue({ targets: [], sourceSkillCount: 0 });
-    vi.mocked(api.listTrash).mockResolvedValue({ items: [] } as unknown as Awaited<ReturnType<typeof api.listTrash>>);
-    vi.mocked(api.getSyncMatrix).mockResolvedValue({ entries: [] } as unknown as Awaited<ReturnType<typeof api.getSyncMatrix>>);
+    vi.mocked(api.listTrash).mockResolvedValue({ items: [] } as unknown as Awaited<
+      ReturnType<typeof api.listTrash>
+    >);
+    vi.mocked(api.getSyncMatrix).mockResolvedValue({ entries: [] } as unknown as Awaited<
+      ReturnType<typeof api.getSyncMatrix>
+    >);
   });
 
-  it.each(['list', 'cards', 'tree'])('unlinks an empty standalone link in %s view', async (view) => {
-    localStorage.setItem('skillshare:skills-view', view);
-    vi.mocked(api.listSkills).mockResolvedValue({ resources: [], sourceLinks: [{ name: 'team', target: '/work/team', available: true }] });
-    mount();
-    await screen.findByText('/work/team');
-    const header = view === 'tree' ? await row('team') : linkedHeader();
-    if (view === 'tree') fireEvent.click(header);
-    expect(within(header).getByText('0 skills')).toBeInTheDocument();
-    fireEvent.click(within(header).getByRole('button', { name: 'Unlink' }));
-    const dialog = screen.getByRole('dialog', { name: 'Unlink team?' });
-    expect(within(dialog).getByText('0 skills')).toBeInTheDocument();
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Unlink' }));
-    await waitFor(() => expect(api.removeSourceLink).toHaveBeenCalledWith('team'));
-    expect(api.batchUninstall).not.toHaveBeenCalled();
-  });
+  it.each(['list', 'cards', 'tree'])(
+    'unlinks an empty standalone link in %s view',
+    async (view) => {
+      localStorage.setItem('skillshare:skills-view', view);
+      vi.mocked(api.listSkills).mockResolvedValue({
+        resources: [],
+        sourceLinks: [{ name: 'team', target: '/work/team', available: true }],
+      });
+      mount();
+      await screen.findByText('/work/team');
+      const header = view === 'tree' ? await row('team') : linkedHeader();
+      if (view === 'tree') fireEvent.click(header);
+      expect(within(header).getByText('0 skills')).toBeInTheDocument();
+      fireEvent.click(within(header).getByRole('button', { name: 'Unlink' }));
+      const dialog = screen.getByRole('dialog', { name: 'Unlink team?' });
+      expect(within(dialog).getByText('0 skills')).toBeInTheDocument();
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Unlink' }));
+      await waitFor(() => expect(api.removeSourceLink).toHaveBeenCalledWith('team'));
+      expect(api.batchUninstall).not.toHaveBeenCalled();
+    },
+  );
 
   it('opens unlink confirmation from the icon and preserves plain repo actions', async () => {
     const user = userEvent.setup();
-    vi.mocked(api.listSkills).mockResolvedValue({ resources: [{ ...LINKED[0], isInRepo: true }, at('_repo/skills/gamma')] });
+    vi.mocked(api.listSkills).mockResolvedValue({
+      resources: [{ ...LINKED[0], isInRepo: true }, at('_repo/skills/gamma')],
+    });
     mount();
     await screen.findByText('/work/team');
     const unlink = within(linkedHeader()).getByRole('button', { name: 'Unlink' });
@@ -321,7 +472,9 @@ describe('Unlink folder', () => {
     expect(screen.queryByRole('menu')).toBeNull();
     expect(api.removeSourceLink).not.toHaveBeenCalled();
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel' }));
-    const plain = [...document.querySelectorAll<HTMLElement>('.ss-gh')].find((g) => g.querySelector('b')?.textContent === 'repo')!;
+    const plain = [...document.querySelectorAll<HTMLElement>('.ss-gh')].find(
+      (g) => g.querySelector('b')?.textContent === 'repo',
+    )!;
     await user.click(within(plain).getByRole('button', { name: 'Repo actions' }));
     expect(screen.getByRole('menuitem', { name: 'Update repo' })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: 'Uninstall repo' })).toBeInTheDocument();
@@ -334,9 +487,17 @@ describe('Unlink folder', () => {
     expect(within(dialog).getByText('/work/team')).toBeInTheDocument();
     expect(within(dialog).getByText('Skills')).toBeInTheDocument();
     expect(within(dialog).getByText('alpha')).toBeInTheDocument();
-    expect(within(dialog).getByText('These skills leave every target on the next sync.')).toBeInTheDocument();
-    expect(within(dialog).getByText('The link is removed from the skills source, and the folder it points at is not touched.')).toBeInTheDocument();
-    expect(within(dialog).getByText('The link goes to trash and can be restored from the Trash page.')).toBeInTheDocument();
+    expect(
+      within(dialog).getByText('These skills leave every target on the next sync.'),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
+        'The link is removed from the skills source, and the folder it points at is not touched.',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText('The link goes to trash and can be restored from the Trash page.'),
+    ).toBeInTheDocument();
     expect(api.removeSourceLink).not.toHaveBeenCalled();
     const calls = vi.mocked(api.listSkills).mock.calls.length;
     fireEvent.click(within(dialog).getByRole('button', { name: 'Unlink' }));
@@ -355,40 +516,61 @@ describe('Unlink folder', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Unlink' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(vi.mocked(api.listSkills).mock.calls.length).toBeGreaterThan(calls);
-    expect(screen.getByText(/The link was removed, but its tracked repository record may remain/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/The link was removed, but its tracked repository record may remain/),
+    ).toBeInTheDocument();
     expect(screen.queryByText('Unlinked team')).not.toBeInTheDocument();
     expect(vi.mocked(api.removeSourceLink).mock.calls).toEqual([['team']]);
   });
 
-  it.each(['actions', 'right-click', 'cards actions', 'cards right-click', 'tree right-click'])('confirms single linked skill uninstall from %s and sends only that skill name', async (action) => {
-    const user = userEvent.setup();
-    vi.mocked(api.listSkills).mockResolvedValue({ resources: [
-      { ...LINKED[0], isInRepo: true },
-      at('team/skills/second', { isInRepo: true, linkName: 'team', linkTarget: '/work/team' }),
-    ] });
-    if (action === 'tree right-click') localStorage.setItem('skillshare:skills-view', 'tree');
-    else if (action.startsWith('cards')) localStorage.setItem('skillshare:skills-view', 'cards');
-    mount();
-    if (action === 'tree right-click') fireEvent.contextMenu(await row('alpha'));
-    else {
-      const item = (await screen.findByRole('link', { name: 'alpha' })).closest('.ss-r, .ss-tile')!;
-      if (action.includes('right-click')) fireEvent.contextMenu(item);
-      else await user.click(within(item as HTMLElement).getByRole('button', { name: 'Actions' }));
-    }
-    expect(screen.queryByRole('menuitem', { name: 'Uninstall repo' })).toBeNull();
-    await user.click(screen.getByRole('menuitem', { name: 'Uninstall' }));
-    const dialog = screen.getByRole('dialog');
-    expect(within(dialog).getByText('Selected skills are moved out of the linked folder to the trash.')).toBeInTheDocument();
-    expect(within(dialog).getByText('alpha')).toBeInTheDocument();
-    expect(within(dialog).queryByText('second')).toBeNull();
-    expect(api.batchUninstall).not.toHaveBeenCalled();
-    await user.click(within(dialog).getByRole('button', { name: 'Uninstall' }));
-    await waitFor(() => expect(api.batchUninstall).toHaveBeenCalledWith({ names: ['team__plugins__skills__alpha'], kind: 'skill', force: false }));
-  });
+  it.each(['actions', 'right-click', 'cards actions', 'cards right-click', 'tree right-click'])(
+    'confirms single linked skill uninstall from %s and sends only that skill name',
+    async (action) => {
+      const user = userEvent.setup();
+      vi.mocked(api.listSkills).mockResolvedValue({
+        resources: [
+          { ...LINKED[0], isInRepo: true },
+          at('team/skills/second', { isInRepo: true, linkName: 'team', linkTarget: '/work/team' }),
+        ],
+      });
+      if (action === 'tree right-click') localStorage.setItem('skillshare:skills-view', 'tree');
+      else if (action.startsWith('cards')) localStorage.setItem('skillshare:skills-view', 'cards');
+      mount();
+      if (action === 'tree right-click') fireEvent.contextMenu(await row('alpha'));
+      else {
+        const item = (await screen.findByRole('link', { name: 'alpha' })).closest(
+          '.ss-r, .ss-tile',
+        )!;
+        if (action.includes('right-click')) fireEvent.contextMenu(item);
+        else await user.click(within(item as HTMLElement).getByRole('button', { name: 'Actions' }));
+      }
+      expect(screen.queryByRole('menuitem', { name: 'Uninstall repo' })).toBeNull();
+      await user.click(screen.getByRole('menuitem', { name: 'Uninstall' }));
+      const dialog = screen.getByRole('dialog');
+      expect(
+        within(dialog).getByText(
+          'Selected skills are moved out of the linked folder to the trash.',
+        ),
+      ).toBeInTheDocument();
+      expect(within(dialog).getByText('alpha')).toBeInTheDocument();
+      expect(within(dialog).queryByText('second')).toBeNull();
+      expect(api.batchUninstall).not.toHaveBeenCalled();
+      await user.click(within(dialog).getByRole('button', { name: 'Uninstall' }));
+      await waitFor(() =>
+        expect(api.batchUninstall).toHaveBeenCalledWith({
+          names: ['team__plugins__skills__alpha'],
+          kind: 'skill',
+          force: false,
+        }),
+      );
+    },
+  );
 
   it('preserves whole-repo uninstall confirmation for a plain tracked skill', async () => {
     const user = userEvent.setup();
-    vi.mocked(api.listSkills).mockResolvedValue({ resources: [at('_repo/skills/gamma'), at('_repo/skills/other')] });
+    vi.mocked(api.listSkills).mockResolvedValue({
+      resources: [at('_repo/skills/gamma'), at('_repo/skills/other')],
+    });
     mount();
     const item = (await screen.findByRole('link', { name: 'gamma' })).closest('.ss-r')!;
     await user.click(within(item as HTMLElement).getByRole('button', { name: 'Actions' }));
@@ -396,5 +578,4 @@ describe('Unlink folder', () => {
     expect(within(screen.getByRole('dialog')).getByText(/Whole repo/)).toBeInTheDocument();
     expect(api.batchUninstall).not.toHaveBeenCalled();
   });
-
 });

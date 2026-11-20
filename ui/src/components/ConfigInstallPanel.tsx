@@ -7,32 +7,56 @@ import { plural, useT } from '../i18n';
 import { useInstallFromConfig } from '../hooks/useInstallFromConfig';
 
 /** Rows finish one after another, so results read top to bottom. */
-const stagger = (i: number): CSSProperties => ({ animationDelay: `${i * 50}ms`, animationFillMode: 'both' });
+const stagger = (i: number): CSSProperties => ({
+  animationDelay: `${i * 50}ms`,
+  animationFillMode: 'both',
+});
 
 /** Install dialog section: what config records but the disk lacks, installed in one go. */
 export default function ConfigInstallPanel() {
   const t = useT();
-  const { entries, file, phase, done, failed, summary, contents, error, run, dismiss } = useInstallFromConfig();
+  const { entries, file, phase, done, failed, summary, contents, error, run, dismiss } =
+    useInstallFromConfig();
   if (entries.length === 0) return null;
 
   let icon = <FolderDown size={16} />;
   let tone = '';
-  let title = t(plural('install.fromConfig.title', entries.length), { count: entries.length, file });
+  let title = t(plural('install.fromConfig.title', entries.length), {
+    count: entries.length,
+    file,
+  });
   let sub = t('install.fromConfig.hint', { items: contents });
-  let action: ReactNode = <Button variant="primary" size="sm" onClick={run}><Download size={14} />{t('install.fromConfig.installAll')}</Button>;
+  let action: ReactNode = (
+    <Button variant="primary" size="sm" onClick={run}>
+      <Download size={14} />
+      {t('install.fromConfig.installAll')}
+    </Button>
+  );
   if (phase === 'running') {
     icon = <Download size={16} />;
     title = t('install.fromConfig.installing', { file });
     sub = t('install.audited');
     action = null;
   } else if (done) {
-    icon = failed.size ? <CircleAlert size={16} className="ss-pop" /> : <Check size={16} strokeWidth={2.6} className="ss-pop" />;
+    icon = failed.size ? (
+      <CircleAlert size={16} className="ss-pop" />
+    ) : (
+      <Check size={16} strokeWidth={2.6} className="ss-pop" />
+    );
     tone = failed.size ? 'warn' : 'ok';
     title = summary;
-    sub = t(failed.size ? 'install.fromConfig.failedHint' : 'install.fromConfig.syncHint', { file });
-    action = failed.size
-      ? <Button variant="secondary" size="sm" onClick={run}>{t('install.preview.retry')}</Button>
-      : <Button variant="secondary" size="sm" onClick={dismiss}>{t('install.done')}</Button>;
+    sub = t(failed.size ? 'install.fromConfig.failedHint' : 'install.fromConfig.syncHint', {
+      file,
+    });
+    action = failed.size ? (
+      <Button variant="secondary" size="sm" onClick={run}>
+        {t('install.preview.retry')}
+      </Button>
+    ) : (
+      <Button variant="secondary" size="sm" onClick={dismiss}>
+        {t('install.done')}
+      </Button>
+    );
   } else if (error) {
     tone = 'bad';
     icon = <CircleAlert size={16} />;
@@ -57,17 +81,42 @@ export default function ConfigInstallPanel() {
               const bad = done && failed.has(e.name);
               const row = phase === 'running' ? 'updating' : done && !bad ? 'flash' : '';
               return (
-                <div key={e.name} className={`ss-r relative !min-h-10 ${row}`} style={done ? stagger(i) : undefined}>
-                  {e.tracked
-                    ? <span className="w-[22px] grid place-items-center text-ink-2"><GitBranch size={15} /></span>
-                    : <span className="ss-cat sm skill"><Puzzle size={13} /></span>}
+                <div
+                  key={e.name}
+                  className={`ss-r relative !min-h-10 ${row}`}
+                  style={done ? stagger(i) : undefined}
+                >
+                  {e.tracked ? (
+                    <span className="w-[22px] grid place-items-center text-ink-2">
+                      <GitBranch size={15} />
+                    </span>
+                  ) : (
+                    <span className="ss-cat sm skill">
+                      <Puzzle size={13} />
+                    </span>
+                  )}
                   <span className="nm m truncate shrink-0 max-w-[55%]">{e.name}</span>
                   {e.tracked && <span className="ss-tag">tracked</span>}
-                  <span className="min-w-0 flex-1 truncate font-mono text-xs text-ink-3">{parseRemoteURL(e.source)?.ownerRepo ?? e.source}</span>
+                  <span className="min-w-0 flex-1 truncate font-mono text-xs text-ink-3">
+                    {parseRemoteURL(e.source)?.ownerRepo ?? e.source}
+                  </span>
                   <span className="w-5 grid place-items-center">
-                    {done && (bad
-                      ? <X size={15} strokeWidth={2.6} className="ss-pop text-bad" style={stagger(i)} />
-                      : <Check size={15} strokeWidth={2.6} className="ss-pop text-ok" style={stagger(i)} />)}
+                    {done &&
+                      (bad ? (
+                        <X
+                          size={15}
+                          strokeWidth={2.6}
+                          className="ss-pop text-bad"
+                          style={stagger(i)}
+                        />
+                      ) : (
+                        <Check
+                          size={15}
+                          strokeWidth={2.6}
+                          className="ss-pop text-ok"
+                          style={stagger(i)}
+                        />
+                      ))}
                   </span>
                 </div>
               );
