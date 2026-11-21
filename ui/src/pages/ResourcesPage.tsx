@@ -36,7 +36,7 @@ import {
   Unlink2,
   X,
 } from 'lucide-react';
-import { api } from '../api/client';
+import { api, ApiError } from '../api/client';
 import type { Skill, SourceLink } from '../api/client';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { globToRegex } from '../lib/glob';
@@ -675,7 +675,12 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
       ),
     onError: (err, _, restoreTargets) => {
       restoreTargets?.();
-      toast(err.message, 'error');
+      toast(
+        err instanceof ApiError && err.code === 'target.frontmatter'
+          ? t('target.frontmatter')
+          : err.message,
+        'error',
+      );
     },
     onSettled: refreshAfterTargets,
   });
@@ -685,7 +690,22 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
       api.batchSetTargets(folder, target),
     onSuccess: (res, { folder: path, target }) => {
       const folder = formatTrackedRepoName(path);
-      if (res.updated === 0 && res.skipped > 0)
+      if (res.errors.length > 0) {
+        const summary = t('resources.batchToggle.toast.partial', {
+          updated: res.updated,
+          failed: res.errors.length,
+        });
+        const details = res.errors.map((message, i) =>
+          res.error_details?.[i]?.error_code === 'target.frontmatter'
+            ? res.error_details[i].name
+            : message,
+        );
+        if (res.error_details?.some((f) => f.error_code === 'target.frontmatter'))
+          details.push(t('target.frontmatter'));
+        toast(summary + ': ' + details.join('; '), 'warning');
+      } else if (res.updated === 0 && res.unchanged)
+        toast(t('resources.batchToggle.toast.noChange'), 'info');
+      else if (res.updated === 0 && res.skipped > 0)
         toast(t('resources.folder.noEditableSkills', { folder }), 'error');
       else
         toast(
@@ -709,11 +729,26 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
           : t(plural('resources.bulk.limitRemoved', names.length), { count: names.length }),
         'success',
       );
-    else
+    else {
+      const refused = names.filter((_, i) => {
+        const r = results[i];
+        return (
+          r.status === 'rejected' &&
+          r.reason instanceof ApiError &&
+          r.reason.code === 'target.frontmatter'
+        );
+      });
+      const summary = t('resources.batchToggle.toast.partial', {
+        updated: names.length - failed,
+        failed,
+      });
       toast(
-        t('resources.batchToggle.toast.partial', { updated: names.length - failed, failed }),
+        refused.length
+          ? summary + ': ' + refused.join(', ') + '. ' + t('target.frontmatter')
+          : summary,
         failed === names.length ? 'error' : 'warning',
       );
+    }
     refreshAfterTargets();
   };
 

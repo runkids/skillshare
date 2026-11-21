@@ -741,6 +741,7 @@
   "resources.display.descriptions": "Descriptions",
   "resources.folder.expand": "Développer {name}",
   "resources.folder.collapse": "Réduire {name}",
+  "target.frontmatter": "Modifiez les cibles directement dans le fichier ou utilisez du YAML sans retrait au premier niveau, avec des valeurs de cible explicites plutôt que des alias.",
   "resources.folder.noEditableSkills": "Aucun skill modifié dans {folder}/ — les skills désactivés sont ignorés",
   "resources.folder.skillsUpdated": "{count} skill(s) dans {folder}/ maintenant disponible(s) dans {target}",
   "resources.folder.limitRemoved": "{count} skill(s) dans {folder}/ ne sont plus restreint(s) à une cible",

@@ -741,6 +741,7 @@
   "resources.display.descriptions": "説明",
   "resources.folder.expand": "{name} を展開",
   "resources.folder.collapse": "{name} を折りたたむ",
+  "target.frontmatter": "ファイル内のターゲットを直接編集するか、YAML の最上位をインデントせず、エイリアスの代わりにターゲット値を明示してください。",
   "resources.folder.noEditableSkills": "{folder}/ のスキルは変更されませんでした — 無効なスキルはスキップされます",
   "resources.folder.skillsUpdated": "{folder}/ の {count} 件のスキルが {target} で利用可能になりました",
   "resources.folder.limitRemoved": "{folder}/ の {count} 件のスキルのターゲット限定を解除しました",

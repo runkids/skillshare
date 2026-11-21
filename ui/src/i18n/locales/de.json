@@ -741,6 +741,7 @@
   "resources.display.descriptions": "Beschreibungen",
   "resources.folder.expand": "{name} ausklappen",
   "resources.folder.collapse": "{name} einklappen",
+  "target.frontmatter": "Bearbeite die Ziele direkt in der Datei oder verwende YAML ohne Einrückung auf der obersten Ebene und mit expliziten Zielwerten statt Aliasen.",
   "resources.folder.noEditableSkills": "Keine Skills in {folder}/ geändert — deaktivierte Skills werden übersprungen",
   "resources.folder.skillsUpdated": "{count} Skill(s) in {folder}/ jetzt verfügbar in {target}",
   "resources.folder.limitRemoved": "{count} Skill(s) in {folder}/ nicht mehr auf ein Ziel eingeschränkt",

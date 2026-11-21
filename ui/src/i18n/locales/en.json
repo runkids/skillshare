@@ -734,6 +734,7 @@
   "resources.display.descriptions": "Descriptions",
   "resources.folder.expand": "Expand {name}",
   "resources.folder.collapse": "Collapse {name}",
+  "target.frontmatter": "Edit targets directly in the file, or use unindented YAML with explicit target values instead of aliases.",
   "resources.folder.noEditableSkills": "No skills in {folder}/ were changed — disabled skills are skipped",
   "resources.folder.skillsUpdated": "{count} skill(s) in {folder}/ now available in {target}",
   "resources.folder.limitRemoved": "{count} skill(s) in {folder}/ no longer limited to a target",

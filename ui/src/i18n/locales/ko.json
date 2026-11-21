@@ -741,6 +741,7 @@
   "resources.display.descriptions": "설명",
   "resources.folder.expand": "{name} 펼치기",
   "resources.folder.collapse": "{name} 접기",
+  "target.frontmatter": "파일에서 대상을 직접 수정하거나 YAML의 최상위 들여쓰기를 없애고 별칭 대신 대상 값을 명시하세요.",
   "resources.folder.noEditableSkills": "{folder}/의 Skill이 변경되지 않았습니다 — 비활성화된 Skill은 건너뜁니다",
   "resources.folder.skillsUpdated": "{folder}/의 {count}개 skill(s)이 이제 {target}에서 사용 가능합니다",
   "resources.folder.limitRemoved": "{folder}/의 {count}개 skill(s)의 대상 제한을 해제했습니다",

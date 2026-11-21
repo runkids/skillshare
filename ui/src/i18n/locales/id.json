@@ -741,6 +741,7 @@
   "resources.display.descriptions": "Deskripsi",
   "resources.folder.expand": "Perluas {name}",
   "resources.folder.collapse": "Ciutkan {name}",
+  "target.frontmatter": "Edit target langsung di file, atau gunakan YAML tanpa indentasi di tingkat teratas dan tulis nilai target secara eksplisit, bukan sebagai alias.",
   "resources.folder.noEditableSkills": "Tidak ada skill di {folder}/ yang diubah — skill nonaktif dilewati",
   "resources.folder.skillsUpdated": "{count} skill di {folder}/ sekarang tersedia di {target}",
   "resources.folder.limitRemoved": "{count} skill di {folder}/ tidak lagi dibatasi ke satu target",
