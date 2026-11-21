@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { compileFunction } from "node:vm";
 import { BUSY } from "../skillshare/mods/skillshare/channel.js";
+import { buildItems, previewTargets } from "../skillshare/mods/skillshare/model.js";
 
 // Render the actual view against a tiny UI tree, without starting Herdr or any CLI.
 function element() {
@@ -149,4 +150,78 @@ test("machine upgrade spins only its update button and disables pull without a s
   assert.equal(label(pull), "Pull and sync");
   assert.equal("click" in update, false);
   assert.equal("click" in pull, false);
+});
+
+test("an extra whose source is missing needs a look on Overview and in Library, and never waits for a sync", async () => {
+  const { view } = await panel();
+  view.kind = "extras";
+  view.raw = { global: { list: [], diff: { targets: [] }, targets: ["claude"], pending: [], errors: {},
+    extras: [{ name: "gone", source_dir: "/src/gone", file_count: 0, targets: [{ path: "/home/me/.claude/rules", mode: "merge", status: "no source" }] }] } };
+  view.rebuild();
+  const overview = label(view.renderOverview({}, view.ctx));
+  assert.match(overview, /NEED A LOOK/);
+  assert.doesNotMatch(overview, /HOOKS NEED A LOOK|WAITING TO SYNC|Everything is in sync/);
+  assert.match(overview, /1 extra needs a look/);
+  assert.match(overview, /gone/);
+  const library = label(view.renderLibrary({}, view.ctx));
+  assert.match(library, /NEED A LOOK · 1/);
+  assert.match(library, /source missing/);
+  assert.doesNotMatch(library, /IN SYNC|NEEDS SYNC/);
+});
+
+test("an extra whose source is missing stays on Overview while extras are read again, and when that read fails", async () => {
+  const { view } = await panel();
+  const extras = [{ name: "gone", source_dir: "/src/gone", file_count: 0, targets: [{ path: "/home/me/.claude/rules", mode: "merge", status: "no source" }] }];
+  for (const read of [{ pending: ["extras"], errors: {} }, { pending: [], errors: { extras: "extras list failed" } }]) {
+    view.raw = { global: { list: [], diff: { targets: [] }, targets: ["claude"], extras, ...read } };
+    view.rebuild();
+    const overview = label(view.renderOverview({}, view.ctx));
+    assert.match(overview, /SYNC STATUS UNCONFIRMED · 1/);
+    assert.match(overview, /gone/);
+  }
+});
+
+test("the preview of an extra whose source is missing says so in every tab, with nothing to retry", async () => {
+  const { view } = await panel({ role: "preview" });
+  const [item] = buildItems("global", { extras: [{ name: "gone", source_dir: "/src/gone", source_exists: false, file_count: 0, targets: [{ path: "/home/me/.claude/rules", mode: "merge", status: "no source" }] }] });
+  view.doc = { gone: "/src/gone is missing. Create it, or remove the extra." };
+  view.pane = "main";
+  const main = label(view.renderPreview({}, { item, targets: previewTargets(item) }, () => {}));
+  assert.match(main, /Source missing/);
+  assert.match(main, /The source is missing/);
+  assert.match(main, /\/src\/gone is missing/);
+  assert.doesNotMatch(main, /could not be read|Try again/);
+  view.pane = "targets";
+  const targets = label(view.renderPreview({}, { item, targets: previewTargets(item) }, () => {}));
+  assert.match(targets, /Source missing, so a sync can't send it/);
+  assert.doesNotMatch(targets, /In sync with/);
+});
+
+test("memory notes are listed apart from the extras, without a sync state or a count", async () => {
+  const { view } = await panel();
+  view.kind = "extras";
+  view.raw = { global: { list: [], diff: { targets: [] }, targets: ["claude"], pending: ["memory"], errors: {},
+    extras: [{ name: "memory", source_dir: "/src/memory", source_exists: true, file_count: 2, targets: [] }],
+    memory: { root: "/src/memory", notes: [{ path: "INDEX.md" }, { path: "LEARNED.md" }] } } };
+  view.rebuild();
+  const library = label(view.renderLibrary({}, view.ctx));
+  assert.match(library, /Extras 1/);
+  assert.match(library, /IN SYNC · 1/);
+  assert.match(library, /MEMORY NOTES · 2/);
+  assert.match(library, /LEARNED\.md/);
+  assert.doesNotMatch(library, /sync status unknown/);
+});
+
+test("an extra's preview shows its frontmatter above the document, and highlights the file it shows", async () => {
+  const { view } = await panel({ role: "preview" }, { TextView: { markdown: element },
+    loadPreview: async () => ({ files: ["SKILL.md", "rules.md"], file: "rules.md", dir: "/src/rules", meta: [{ key: "paths", value: "src/**" }], body: "Body" }) });
+  const item = { kind: "extras", extra: "folder", key: "global:extras:rules", label: "rules", scope: "global", state: "ok", rows: [], dir: "/src/rules" };
+  const cx = { spawn: (fn) => fn(cx), notify: () => {} };
+  await view.loadDoc(cx);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(view.file, "rules.md");
+  view.pane = "main";
+  const text = label(view.renderPreview({}, { item, targets: [] }, () => {}));
+  assert.match(text, /paths/);
+  assert.match(text, /src\/\*\*/);
 });
