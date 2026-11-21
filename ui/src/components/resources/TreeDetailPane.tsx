@@ -4,6 +4,7 @@ import { ArrowUpRight, Bot, FolderInput, Puzzle, Target, Trash2 } from 'lucide-r
 import type { Skill } from '../../api/client';
 import { useT } from '../../i18n';
 import { formatTrackedRepoName, resourceHref } from '../../lib/resourceNames';
+import { formatVersion } from '../../lib/format';
 import AgentIcon from '../AgentIcon';
 import Tooltip from '../Tooltip';
 import Button from '../Button';
@@ -116,7 +117,9 @@ export default function TreeDetailPane({
     path = skill.relPath.slice(0, Math.max(0, skill.relPath.lastIndexOf('/')));
     title = skill.name;
     tracked = skill.isInRepo;
-    meta = skill.isInRepo ? '' : (skill.branch ?? '');
+    meta = [formatVersion(skill.metadataVersion), skill.isInRepo ? '' : skill.branch]
+      .filter(Boolean)
+      .join(' · ');
   } else {
     title = t('resources.tree.pane.selected', { what: count(skills.length) });
   }

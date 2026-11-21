@@ -1,4 +1,4 @@
-import { Document, isScalar, isSeq, parse, Scalar } from 'yaml';
+import { Document, isScalar, isSeq, parse, parseDocument, Scalar, visit } from 'yaml';
 
 export type FrontmatterScalar = string | number | boolean | null;
 export type FrontmatterNested = { [key: string]: FrontmatterValue };
@@ -158,6 +158,14 @@ function unquote(s: string): string | number | boolean {
   return s;
 }
 
+// An untouched decimal such as 1.10 keeps its written node, so a save does not drop its trailing zeros.
+class Decimal {
+  readonly node: Scalar<number>;
+  constructor(node: Scalar<number>) {
+    this.node = node;
+  }
+}
+
 export function serializeFrontmatter(
   fm: Frontmatter,
   keyOrder?: string[],
@@ -169,13 +177,30 @@ export function serializeFrontmatter(
     try {
       // YAML resolves aliases with a shared cache. BigInts stay transient;
       // editor and JSON values remain ordinary JavaScript numbers.
-      original = parse(originalYaml, { intAsBigInt: true });
+      const doc = parseDocument(originalYaml, { intAsBigInt: true });
+      if (doc.errors.length > 0) throw doc.errors[0];
+      visit(doc, {
+        Scalar(_, node) {
+          // JS prints 0.00000010 as 1e-7; padding that with zeros would not be a number.
+          if (
+            typeof node.value === 'number' &&
+            node.minFractionDigits &&
+            !String(node.value).includes('e')
+          ) {
+            const written = new Scalar(node.value);
+            written.minFractionDigits = node.minFractionDigits;
+            node.value = new Decimal(written);
+          }
+        },
+      });
+      original = doc.toJS();
     } catch {
       // Malformed legacy headers continue through the ordinary serializer.
     }
   }
   const seen = new WeakMap<object, unknown>();
   const preserve = (value: FrontmatterValue, old: unknown): unknown => {
+    if (old instanceof Decimal) return Object.is(value, old.node.value) ? old.node : value;
     if (typeof old === 'bigint' && typeof value === 'number' && Object.is(value, Number(old))) {
       return old;
     }

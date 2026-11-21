@@ -1329,6 +1329,7 @@
   "resourceDetail.meta.tracked": "Dilacak",
   "resourceDetail.meta.trackedBranch": "Ya, branch {branch}",
   "resourceDetail.meta.branch": "Branch",
+  "resourceDetail.meta.commit": "Commit",
   "resourceDetail.branch.title": "Ganti branch",
   "resourceDetail.branch.message": "Pasang ulang {name} dari {branch}? File-nya diganti dengan versi dari branch itu. Jika {branch} tidak punya skill ini, instalasi saat ini tetap dipertahankan.",
   "resourceDetail.branch.confirm": "Ganti dan pasang ulang",

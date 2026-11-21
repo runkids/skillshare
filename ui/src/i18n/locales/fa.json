@@ -1329,6 +1329,7 @@
   "resourceDetail.meta.tracked": "ردیابی‌شده",
   "resourceDetail.meta.trackedBranch": "بله، شاخهٔ {branch}",
   "resourceDetail.meta.branch": "شاخه",
+  "resourceDetail.meta.commit": "کامیت",
   "resourceDetail.branch.title": "تغییر شاخه",
   "resourceDetail.branch.message": "{name} از {branch} دوباره نصب شود؟ فایل‌های آن با نسخهٔ همان شاخه جایگزین می‌شوند. اگر {branch} این skill را نداشته باشد، نصب فعلی باقی می‌ماند.",
   "resourceDetail.branch.confirm": "تغییر و نصب دوباره",

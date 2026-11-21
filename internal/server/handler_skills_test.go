@@ -206,6 +206,75 @@ func TestHandleListSkills_Description(t *testing.T) {
 	}
 }
 
+func TestHandleListSkills_MetadataVersion(t *testing.T) {
+	s, src := newTestServer(t)
+	files := map[string]string{
+		"block": "---\nname: block\nmetadata:\n  version: 1.10\n---\n",
+		"flow":  "---\nname: flow\nmetadata: {version: \"v2.0.0\"}\n---\n",
+		"none":  "---\nname: none\ndescription: no version\n---\n",
+		// An unquoted ": " is invalid YAML; the row still gets its version.
+		"colon": "---\nname: colon\ndescription: Use when: a release is due\nmetadata:\n  version: 3.1.0\n---\n",
+	}
+	for name, md := range files {
+		addSkill(t, src, name)
+		if err := os.WriteFile(filepath.Join(src, name, "SKILL.md"), []byte(md), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/api/resources", nil))
+
+	var resp struct {
+		Resources []struct {
+			Name            string `json:"name"`
+			MetadataVersion string `json:"metadataVersion"`
+		} `json:"resources"`
+	}
+	json.Unmarshal(rr.Body.Bytes(), &resp)
+	got := map[string]string{}
+	for _, r := range resp.Resources {
+		got[r.Name] = r.MetadataVersion
+	}
+	want := map[string]string{"block": "1.10", "flow": "v2.0.0", "none": "", "colon": "3.1.0"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("metadataVersion = %v, want %v", got, want)
+	}
+}
+
+// The detail page reads the version from the single-resource endpoint, for skills and agents.
+func TestHandleGetSkill_MetadataVersion(t *testing.T) {
+	s, src := newTestServer(t)
+	addSkill(t, src, "pdf")
+	if err := os.WriteFile(filepath.Join(src, "pdf", "SKILL.md"), []byte("---\nname: pdf\nmetadata:\n  version: 1.4.0\n---\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	agentsDir := s.agentsSource()
+	if err := os.MkdirAll(agentsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(agentsDir, "reviewer.md"), []byte("---\nname: reviewer\nmetadata:\n  version: 2.0.0\n---\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	for url, want := range map[string]string{
+		"/api/resources/pdf":                    "1.4.0",
+		"/api/resources/reviewer.md?kind=agent": "2.0.0",
+	} {
+		rr := httptest.NewRecorder()
+		s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, url, nil))
+		var resp struct {
+			Resource struct {
+				MetadataVersion string `json:"metadataVersion"`
+			} `json:"resource"`
+		}
+		json.Unmarshal(rr.Body.Bytes(), &resp)
+		if resp.Resource.MetadataVersion != want {
+			t.Errorf("%s: metadataVersion = %q, want %q (status %d)", url, resp.Resource.MetadataVersion, want, rr.Code)
+		}
+	}
+}
+
 func TestHandleGetSkill_Found(t *testing.T) {
 	s, src := newTestServer(t)
 	addSkill(t, src, "my-skill")

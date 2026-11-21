@@ -1329,6 +1329,7 @@
   "resourceDetail.meta.tracked": "Tracked",
   "resourceDetail.meta.trackedBranch": "Yes, branch {branch}",
   "resourceDetail.meta.branch": "Branch",
+  "resourceDetail.meta.commit": "Commit",
   "resourceDetail.branch.title": "Switch branch",
   "resourceDetail.branch.message": "Reinstall {name} from {branch}? Its files are replaced with that branch's version. If {branch} has no such skill, the current install stays.",
   "resourceDetail.branch.confirm": "Switch and reinstall",
