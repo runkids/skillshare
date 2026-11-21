@@ -1,6 +1,19 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import { createElement } from 'react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import { api, type Skill } from '../api/client';
+import { I18nProvider } from '../i18n';
+import { ToastProvider } from '../components/Toast';
+import SkillEditor from '../components/skill-editor/SkillEditor';
 import { parse as parseYaml } from 'yaml';
-import { parseSkillMarkdown, serializeFrontmatter, composeSkillMarkdown } from './frontmatter';
+import {
+  parseSkillMarkdown,
+  serializeFrontmatter,
+  composeSkillMarkdown,
+  type Frontmatter,
+  type FrontmatterNested,
+} from './frontmatter';
 
 describe('parseSkillMarkdown', () => {
   it('parses scalar fields', () => {
@@ -27,10 +40,22 @@ describe('parseSkillMarkdown', () => {
   });
 
   it('keeps legacy headers with unquoted description colons editable', () => {
-    const { frontmatter } = parseSkillMarkdown(
+    const parsed = parseSkillMarkdown(
       '---\nname: foo\ndescription: Use when asked: convert PDF\n---\nbody',
     );
-    expect(frontmatter).toEqual({ name: 'foo', description: 'Use when asked: convert PDF' });
+    expect(parsed.frontmatter).toEqual({ name: 'foo', description: 'Use when asked: convert PDF' });
+    const saved = composeSkillMarkdown(
+      { ...parsed.frontmatter, name: 'bar' },
+      parsed.body,
+      undefined,
+      undefined,
+      parsed.bom,
+      parsed.rawFrontmatter,
+    );
+    expect(parseSkillMarkdown(saved).frontmatter).toEqual({
+      name: 'bar',
+      description: 'Use when asked: convert PDF',
+    });
   });
 
   it('skips a leading BOM before the opening fence', () => {
@@ -128,6 +153,74 @@ describe('edited frontmatter', () => {
   });
 });
 
+describe('exact integers in edited headers', () => {
+  it('retains integers reached through YAML aliases', () => {
+    const parsed = parseSkillMarkdown(
+      '---\nname: demo\nmetadata:\n  original: &event\n    id: 9007199254740993\n  copy: *event\n  later: 9007199254740995\n  id: &id 9007199254740993\n  sibling: *id\n  sources:\n    - resource: a.md\n      event: *id\n  ids: [&item 9007199254740993, *item]\n  first: &reused 9007199254740993\n  firstCopy: *reused\n  second: &reused 9007199254740995\n  secondCopy: *reused\n---\nbody',
+    );
+    const saved = composeSkillMarkdown(
+      { ...parsed.frontmatter, description: 'edited' },
+      parsed.body,
+      undefined,
+      undefined,
+      parsed.bom,
+      parsed.rawFrontmatter,
+    );
+    const exact = parseYaml(parseSkillMarkdown(saved).rawFrontmatter, { intAsBigInt: true });
+    expect(exact.metadata.original.id).toBe(9007199254740993n);
+    expect(exact.metadata.copy).toBe(exact.metadata.original);
+    expect(exact.metadata.later).toBe(9007199254740995n);
+    expect(exact.metadata.sibling).toBe(9007199254740993n);
+    expect(exact.metadata.sources[0].event).toBe(9007199254740993n);
+    expect(exact.metadata.ids).toEqual([9007199254740993n, 9007199254740993n]);
+    expect(exact.metadata.firstCopy).toBe(9007199254740993n);
+    expect(exact.metadata.secondCopy).toBe(9007199254740995n);
+  });
+
+  it('retains untouched values through description, targets and deletion edits', () => {
+    const original =
+      '---\nname: demo\ndescription: old\ntargets: [claude]\nmetadata:\n  x-acme-event-id: 9007199254740993\n  drop: 9007199254740993\n  changed: 9007199254740993\n  nested:\n    count: 9007199254740993\n  sources:\n    - resource: a.md\n      x-acme: 9007199254740993\n---\nbody';
+    const first = parseSkillMarkdown(original);
+    expect(typeof (first.frontmatter.metadata as FrontmatterNested)['x-acme-event-id']).toBe(
+      'number',
+    );
+    expect(() => JSON.stringify(first.frontmatter)).not.toThrow();
+    let content = composeSkillMarkdown(
+      { ...first.frontmatter, description: 'new' },
+      first.body,
+      undefined,
+      undefined,
+      first.bom,
+      first.rawFrontmatter,
+    );
+    let reopened = parseSkillMarkdown(content);
+    const metadata = { ...(reopened.frontmatter.metadata as FrontmatterNested) };
+    delete metadata.drop;
+    metadata.targets = ['codex'];
+    metadata.changed = 42;
+    const updated: Frontmatter = { ...reopened.frontmatter, metadata };
+    delete updated.targets;
+    content = composeSkillMarkdown(
+      updated,
+      reopened.body,
+      undefined,
+      undefined,
+      reopened.bom,
+      reopened.rawFrontmatter,
+    );
+    reopened = parseSkillMarkdown(content);
+    const exact = parseYaml(reopened.rawFrontmatter, { intAsBigInt: true });
+    expect(exact.description).toBe('new');
+    expect(exact.targets).toBeUndefined();
+    expect(exact.metadata.targets).toEqual(['codex']);
+    expect(exact.metadata.drop).toBeUndefined();
+    expect(exact.metadata.changed).toBe(42n);
+    expect(exact.metadata['x-acme-event-id']).toBe(9007199254740993n);
+    expect(exact.metadata.nested.count).toBe(9007199254740993n);
+    expect(exact.metadata.sources[0]['x-acme']).toBe(9007199254740993n);
+  });
+});
+
 describe('serializeFrontmatter', () => {
   it('emits known-safe scalars unquoted', () => {
     const out = serializeFrontmatter({ name: 'foo' });
@@ -154,4 +247,63 @@ describe('serializeFrontmatter', () => {
     const out = serializeFrontmatter({ description: 'b', name: 'a' }, ['name', 'description']);
     expect(out.indexOf('name:')).toBeLessThan(out.indexOf('description:'));
   });
+});
+
+it('saves exact integers through the SkillEditor form and body-only paths', async () => {
+  const save = vi.spyOn(api, 'saveSkillContent').mockResolvedValue({} as never);
+  const resource: Skill = {
+    name: 'demo',
+    kind: 'skill',
+    flatName: 'demo',
+    relPath: 'demo',
+    sourcePath: '/skills/demo',
+    isInRepo: false,
+  };
+  const original =
+    '---\nname: demo\ndescription: old\ntargets: [claude]\nmetadata:\n  x-acme: 9007199254740993\n  sources:\n    - resource: a.md\n      x-acme: 9007199254740993\n---\nbody';
+  const mount = () =>
+    render(
+      createElement(
+        MemoryRouter,
+        null,
+        createElement(
+          I18nProvider,
+          null,
+          createElement(
+            ToastProvider,
+            null,
+            createElement(SkillEditor, {
+              resource,
+              docName: 'SKILL.md',
+              initialContent: original,
+              onBack: vi.fn(),
+              onSaved: vi.fn(),
+            }),
+          ),
+        ),
+      ),
+    );
+  const first = mount();
+  fireEvent.change(screen.getByLabelText('Body'), { target: { value: 'new body' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+  fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Save' }));
+  await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+  expect(parseSkillMarkdown(save.mock.calls[0][1]).rawFrontmatter).toBe(
+    parseSkillMarkdown(original).rawFrontmatter,
+  );
+  first.unmount();
+  mount();
+  fireEvent.change(screen.getByDisplayValue('old'), { target: { value: 'new description' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+  fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Save' }));
+  await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
+  const result = parseYaml(parseSkillMarkdown(save.mock.calls[1][1]).rawFrontmatter, {
+    intAsBigInt: true,
+  });
+  expect(result.description).toBe('new description');
+  expect(result.targets).toBeUndefined();
+  expect(result.metadata.targets).toEqual(['claude']);
+  expect(result.metadata['x-acme']).toBe(9007199254740993n);
+  expect(result.metadata.sources[0]['x-acme']).toBe(9007199254740993n);
+  save.mockRestore();
 });

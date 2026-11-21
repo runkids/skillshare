@@ -158,13 +158,61 @@ function unquote(s: string): string | number | boolean {
   return s;
 }
 
-export function serializeFrontmatter(fm: Frontmatter, keyOrder?: string[]): string {
+export function serializeFrontmatter(
+  fm: Frontmatter,
+  keyOrder?: string[],
+  originalYaml?: string,
+): string {
   const doc = new Document();
+  let original: unknown;
+  if (originalYaml) {
+    try {
+      // YAML resolves aliases with a shared cache. BigInts stay transient;
+      // editor and JSON values remain ordinary JavaScript numbers.
+      original = parse(originalYaml, { intAsBigInt: true });
+    } catch {
+      // Malformed legacy headers continue through the ordinary serializer.
+    }
+  }
+  const seen = new WeakMap<object, unknown>();
+  const preserve = (value: FrontmatterValue, old: unknown): unknown => {
+    if (typeof old === 'bigint' && typeof value === 'number' && Object.is(value, Number(old))) {
+      return old;
+    }
+    if (!value || !old || typeof value !== 'object' || typeof old !== 'object') return value;
+    const cached = seen.get(value);
+    if (cached) return cached;
+    if (Array.isArray(value) && Array.isArray(old)) {
+      const result: unknown[] = [];
+      seen.set(value, result);
+      value.forEach((item, i) => result.push(preserve(item, old[i])));
+      return result;
+    }
+    if (!Array.isArray(value) && !Array.isArray(old)) {
+      const result: Record<string, unknown> = {};
+      const previous = old as Record<string, unknown>;
+      seen.set(value, result);
+      for (const key of Object.keys(value)) {
+        Object.defineProperty(result, key, {
+          value: preserve(value[key], previous[key]),
+          enumerable: true,
+          writable: true,
+          configurable: true,
+        });
+      }
+      return result;
+    }
+    return value;
+  };
+  const originals =
+    original && typeof original === 'object' && !Array.isArray(original)
+      ? (original as Record<string, unknown>)
+      : {};
   const keys = new Set([...(keyOrder ?? []), ...Object.keys(fm)]);
   for (const key of keys) {
     const value = fm[key];
     if (value == null || value === '' || (Array.isArray(value) && value.length === 0)) continue;
-    const node = doc.createNode(value);
+    const node = doc.createNode(preserve(value, originals[key]));
     // Prose stays readable without adding quote escapes to the source.
     if (
       key === 'description' &&
@@ -192,11 +240,14 @@ export function composeSkillMarkdown(
   keyOrder?: string[],
   rawFrontmatter?: string,
   bom = '',
+  originalYaml?: string,
 ): string {
   // Preserve original frontmatter text when it hasn't been edited,
   // avoiding spurious formatting changes (quote style, line wrapping).
   const fmText =
-    rawFrontmatter != null ? `---\n${rawFrontmatter}\n---` : serializeFrontmatter(fm, keyOrder);
+    rawFrontmatter != null
+      ? `---\n${rawFrontmatter}\n---`
+      : serializeFrontmatter(fm, keyOrder, originalYaml);
   const bodyText = body.startsWith('\n') ? body : '\n' + body;
   return `${bom}${fmText}${bodyText}`;
 }
