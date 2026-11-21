@@ -9,6 +9,15 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
+## [0.30.14] - 2026-11-21
+
+
+### Bug Fixes
+
+* **list:** preserve flow-style skill metadata when toggling manual invocation ([#970](https://github.com/runkids/skillshare/issues/970)) ([96de20e](https://github.com/runkids/skillshare/commit/96de20e638513511324794e7d765b8fbb3f3b0b5))
+* **ui:** preserve exact metadata integers on save ([#971](https://github.com/runkids/skillshare/issues/971)) ([b271e5f](https://github.com/runkids/skillshare/commit/b271e5f84a2e0454c814fec9692aebdccd619690))
+* **ui:** show structured metadata lists without flattening their records ([#969](https://github.com/runkids/skillshare/issues/969)) ([8690918](https://github.com/runkids/skillshare/commit/8690918dc30eb6906b9aaeb5f409fe3cc6c772a1))
+
 ## [0.30.13] - 2026-11-21
 
 ### New Features
