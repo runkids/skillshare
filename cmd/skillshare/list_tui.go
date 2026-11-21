@@ -120,7 +120,8 @@ type listTUIModel struct {
 	// Status filter — pre-filters by enabled/disabled state (from list --status)
 	statusFilter listStatusFilter
 
-	showKeys bool // ? swaps the detail panel for the full key list
+	toggleErr error // shown on the note line until the next keypress
+	showKeys  bool  // ? swaps the detail panel for the full key list
 
 	// Application-level filter — replaces bubbles/list built-in fuzzy filter
 	// to avoid O(N*M) fuzzy scan on 100k+ items every keystroke.
@@ -369,6 +370,7 @@ func (m listTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case tea.KeyMsg:
+		m.toggleErr = nil
 		// Ignore keys while loading
 		if m.loading {
 			if msg.String() == "q" || msg.String() == "ctrl+c" {
@@ -618,6 +620,11 @@ func (m listTUIModel) toggleModelInvocation() (tea.Model, tea.Cmd) {
 	}
 	skillMD := filepath.Join(m.sourcePath, item.entry.RelPath, "SKILL.md")
 	if _, err := utils.ToggleFrontmatterFlag(skillMD, modelInvocationKey); err != nil {
+		// The selected skill is already visible; keep file errors to one short line.
+		if pathErr, ok := err.(*os.PathError); ok {
+			err = fmt.Errorf("%s: %w", pathErr.Op, pathErr.Err)
+		}
+		m.toggleErr = err
 		return m, nil
 	}
 	delete(m.detailCache, item.entry.RelPath) // the chip re-reads the file
@@ -687,6 +694,9 @@ func (m listTUIModel) renderBottom() string {
 	case m.filtering:
 		line = renderFilterLine(m.termWidth, m.filterInput.View(), m.matchCount)
 	default:
+		if m.toggleErr != nil {
+			note = truncateANSI("  "+theme.Danger().Render("✗")+" SKILL.md: "+m.toggleErr.Error(), m.termWidth)
+		}
 		other := "agents"
 		if m.activeTab == listTabAgents {
 			other = "skills"

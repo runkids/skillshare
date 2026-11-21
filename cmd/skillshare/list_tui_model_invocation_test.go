@@ -76,6 +76,41 @@ func TestModelInvocationKey_TrackedSkillAsksFirst(t *testing.T) {
 	}
 }
 
+func TestModelInvocationKey_ShowsRefusal(t *testing.T) {
+	local := skillEntry{Name: "demo", RelPath: "demo"}
+	tracked := skillEntry{Name: "demo", RelPath: "_team/demo", RepoName: "_team"}
+	for _, tc := range []struct {
+		name, content, reason string
+		entry                 skillEntry
+	}{
+		{"local alias", "---\n{name: demo, fallback: &f false, disable-model-invocation: *f}\n---\n", "cannot safely edit flow flag", local},
+		{"local padded opener", "--- \n{name: demo}\n---\n", "exact --- delimiters starting on line 1", local},
+		{"tracked leading blank", "\n---\n{name: demo}\n---\n", "exact --- delimiters starting on line 1", tracked},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			m, path := modelInvocationTUI(t, tc.entry, tc.content)
+			next, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+			m = pressKey(t, next.(listTUIModel), "m")
+			if tc.entry.RepoName != "" {
+				if !m.confirming || strings.Contains(m.View(), tc.reason) {
+					t.Fatal("expected confirmation before attempting the edit")
+				}
+				m = pressKey(t, m, "y")
+			}
+			if m.confirming || !strings.Contains(m.View(), tc.reason) {
+				t.Fatalf("expected the list to show the refusal:\n%s", m.View())
+			}
+			got, err := os.ReadFile(path)
+			if err != nil || string(got) != tc.content {
+				t.Fatalf("refused edit did not preserve SKILL.md: %q, %v", got, err)
+			}
+			if m = pressKey(t, m, "?"); strings.Contains(m.View(), tc.reason) {
+				t.Error("the next key should clear the old refusal")
+			}
+		})
+	}
+}
+
 func TestModelInvocationKey_TurningBackOnNeverAsks(t *testing.T) {
 	m, path := modelInvocationTUI(t, skillEntry{Name: "theirs", RelPath: "_team/theirs", RepoName: "_team"}, "---\nname: theirs\n"+flagLine+"\n---\n# Body\n")
 
