@@ -9,6 +9,18 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
+## [0.30.13] - 2026-11-21
+
+### New Features
+
+- **Extras in the Herdr panel** — the panel showed skills, agents, MCP servers, plugins and hooks, but not extras, which `sync --all` also syncs, so Overview could say *Everything is in sync* while an extra still waited for one. Extras are now listed with the other kinds: Overview counts them and the Sync button covers an extra that waits for a sync, and Library has an Extras tab with file extras and folder extras grouped by sync state. A preview shows the file, or a folder's files, and each target's mode and status. An extra whose source is missing is listed under **Need a look** with "source missing", since a sync cannot fix it. Memory notes are listed on their own under **Memory notes**, without a sync state, and are not counted twice. Nothing new can be changed from the panel. See [Using skillshare in Herdr](https://skillshare.runkids.cc/docs/learn/with-herdr). Thanks to @eirikc for the request. Refs: #930, #961, #972.
+- **Check only the selected skills on the Updates tab** — a skill whose remote did not answer showed "Check failed", and the only way to check it again was to check everything once more. Ticking rows on the Skills tab of **Updates** now offers **Check N selected**, which checks only those skills and tracked repositories; every other row keeps its last result. See [`ui`](https://skillshare.runkids.cc/docs/reference/commands/ui). Thanks to @chung1912 for the request. Refs: #963, #965.
+
+### Bug Fixes
+
+- **Updating an agent from the dashboard keeps your local edits** — the update replaced an agent's file with the remote version even when you had edited it since install. An edited agent is now skipped like an edited skill: the Updates tab offers **Force Retry**, and the agent's own page asks before overwriting. An edited agent that is already at the remote version still shows as up to date, and assigning targets to an agent from the dashboard no longer counts as a local edit. Refs: #967.
+- **Check works on the Agents tab of Updates** — pressing **Check for updates** on the Agents tab marked every agent "Check failed", because the check looked only at skills. Agents are now checked the way `skillshare check agents` checks them, and a locally edited agent can show **Modified locally**. Checking skills no longer overwrites the status of an agent with the same name or repository folder. Refs: #966.
+
 ## [0.30.12] - 2026-11-18
 
 ### New Features
