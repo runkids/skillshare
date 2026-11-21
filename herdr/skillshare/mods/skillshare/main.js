@@ -11,7 +11,7 @@ import { v_flex, h_flex, InputState, Input, TextView, HoverCard } from "gpui-bas
 import { exec, hc, run, spaces, agents, focused, machines, shared, setShared, theme, settings, layout, openOverlay, closeOverlay, nextCommand, readTextFile, knownAgents, props as blockProps } from "herdr";
 import {
   KINDS, SCOPES, DISCOVER, AUDIT,
-  parseJSON, lastLine, failure, flag, sourceLine, buildItems, shownRows, endedRequests, afterRead, afterChecks, hookArgs, toggleArgs, rowState, previewTargets, eligibleTargets, targetList, waitsForSync, syncScopes, overviewAnswer, resourceProgress, remoteLine, waitingNames, mapLanes, needsBothWays, filterItems, groupItems, sourceGroups, counts,
+  parseJSON, lastLine, failure, flag, sourceLine, buildItems, shownRows, endedRequests, afterRead, afterChecks, hookArgs, toggleArgs, rowState, previewTargets, eligibleTargets, targetList, waitsForSync, needsLook, syncScopes, overviewAnswer, resourceProgress, remoteLine, waitingNames, mapLanes, needsBothWays, filterItems, groupItems, sourceGroups, counts,
   cloneUrl, installResult, newerVersion, panelUpdate, updateState, ago, auditMessage, parseDiscover, parseAudit,
 } from "./model.js";
 import { createRunner, withShell } from "./jobs.js";
@@ -494,13 +494,13 @@ export default class Skillshare extends View {
     const failed = Boolean(this.error || progress.errors.length) && !progress.available && !progress.pending.length;
     const byLabel = (a, b) => a.label.localeCompare(b.label);
     const waiting = all.filter((i) => !i.notice && (i.state === "sync" || i.state === "missing")).sort(byLabel);
-    const updates = all.filter((i) => !i.notice && i.state === "update").sort(byLabel), notices = all.filter((i) => i.notice);
+    const updates = all.filter((i) => !i.notice && i.state === "update").sort(byLabel), notices = all.filter(needsLook);
     const pending = [...waiting, ...notices.filter((i) => i.pending)];
     const targets = targetList(this.raw, scope, this.items), lag = targets.list.filter((x) => x.n);
     const busy = this.busyAt(ctx.on), moving = Boolean(busy) && /^Sync/.test(channel.textAt(ctx.on) ?? "");
-    const { kind: answer, headline, sub } = overviewAnswer({ loading, failed, error: this.error, moving, reading: progress.pending, incomplete: progress.incomplete, pending: pending.length, lag, total: kc.all, targets: targets.list.length });
+    const { kind: answer, headline, sub } = overviewAnswer({ loading, failed, error: this.error, moving, reading: progress.pending, incomplete: progress.incomplete, pending: pending.length, lag, total: kc.all, targets: targets.list.length, broken: all.filter((i) => i.state === "broken").length });
     const mark = { loading: () => icon("ring", 20, t.muted).spin(900), failed: () => icon("alert", 20, t.ansi1), moving: () => icon("ring", 20, t.blocked).spin(900),
-      waiting: () => icon("alert", 20, t.blocked), ok: () => icon("check", 20, t.ansi2) }[answer]();
+      waiting: () => icon("alert", 20, t.blocked), look: () => icon("alert", 20, t.blocked), ok: () => icon("check", 20, t.ansi2) }[answer]();
     const hot = new Set(pending.map((x) => x.kind));
     const sync = () => request({ op: "sync", on: ctx.on, project: this.project, scopes: syncScopes(this.items, this.raw, scope), plugins: waiting.some((i) => i.kind === "plugins") });
     const hero = v_flex().flex_none().px(14).py(16).gap(14).border_b(1).border_color(t.border)
@@ -518,11 +518,11 @@ export default class Skillshare extends View {
     else {
       const sections = [];
       const group = (id, label, color, rows) => { if (rows.length) sections.push(this.groupHeader(t, id, `${label} · ${rows.length}`, color, null), ...rows); };
-      const unconfirmed = all.filter((i) => i.state === "unknown" && ["sync", "missing", "update"].includes(i.cachedState)).sort(byLabel);
+      const unconfirmed = all.filter((i) => i.state === "unknown" && ["sync", "missing", "update", "broken"].includes(i.cachedState)).sort(byLabel);
       group("unconfirmed", "SYNC STATUS UNCONFIRMED", t.muted, unconfirmed.map((i) => this.row(t, i, showScope, ctx)));
       group("waiting", "WAITING TO SYNC", t.blocked, waiting.map((i) => this.row(t, i, showScope, ctx)));
       group("update", "UPDATE AVAILABLE", t.accent, updates.map((i) => this.row(t, i, showScope, ctx)));
-      group("notices", "HOOKS NEED A LOOK", t.muted, notices.map((i) => this.row(t, i, showScope, ctx)));
+      group("notices", "NEED A LOOK", t.muted, notices.map((i) => this.row(t, i, showScope, ctx)));
       // Machines appear here once the Machines tab has read them; the panel does not check them unasked.
       const behind = Object.values(this.machines).filter((m) => !m.checking && !m.error && !m.missing && (m.git?.behind || m.drift > 0));
       group("machines", "MACHINES", t.muted, behind.map((m) => line(t, `machine-${m.label}`, dot(t.blocked), m.label,
@@ -540,7 +540,7 @@ export default class Skillshare extends View {
     const all = this.items, scope = this.project ? this.scope : "global";
     const kc = counts(filterItems(all, { scope, kind: null, query: "" }));
     const listed = filterItems(all, { scope, kind: this.kind, query: this.query });
-    const groups = groupItems(listed), notices = listed.filter((i) => i.notice), unknown = listed.filter((i) => !i.notice && i.state === "unknown");
+    const groups = groupItems(listed), notices = listed.filter(needsLook), unknown = listed.filter((i) => !i.notice && i.state === "unknown");
     const live = groups.ok.filter((i) => i.state !== "off"), off = groups.ok.filter((i) => i.state === "off");
     const showScope = Boolean(this.project) && scope === "all";
 
@@ -586,6 +586,8 @@ export default class Skillshare extends View {
         sections.push(...rows(single));
       } else sections.push(...rows(live));
       if (off.length) sections.push(this.groupHeader(t, "off", `OFF · ${off.length}`, t.muted, null), ...rows(off));
+      // Memory notes have no sync state, so they sit apart from the sync groups.
+      if (groups.notes.length) sections.push(this.groupHeader(t, "notes", `MEMORY NOTES · ${groups.notes.length}`, t.muted, null), ...rows(groups.notes));
       if (!listed.length) sections.push(div().px(18).py(14).child(note(t, progress.unknown.has(this.kind) ? "This inventory is not confirmed yet." : this.query ? "Nothing matches the filter." : `No ${KINDS.find(([k]) => k === this.kind)[1].toLowerCase()} here yet.`)));
       list = v_flex().pb(16).children(sections);
     }
@@ -657,7 +659,7 @@ export default class Skillshare extends View {
 
   // A row is a name and one short state. Everything else, and every action, is in its preview.
   row(t, item, showScope, ctx) {
-    const color = item.notice || item.diagnostic ? t.blocked : { update: t.accent, sync: t.blocked, missing: t.ansi1, ok: t.ansi2, off: t.muted }[item.state] ?? t.muted;
+    const color = needsLook(item) || item.diagnostic ? t.blocked : { update: t.accent, sync: t.blocked, missing: t.ansi1, ok: t.ansi2, off: t.muted }[item.state] ?? t.muted;
     const update = item.state === "update" && !item.doing && (item.kind === "skills" || item.kind === "agents") && !this.busyAt(ctx.on)
       ? secondary(`update-${item.key}`, "Update", t, (_e, cx) => { cx.stop_propagation(); request({ op: "update", on: ctx.on, project: this.project, updates: [{ kind: item.kind, scope: item.scope, name: item.update, label: item.label }] }); }, { h: 24, px: 9, size: S().label })
       : null;
@@ -825,7 +827,7 @@ export default class Skillshare extends View {
       await asked; this.leaving = true; cx.notify();
       await cx.sleep(150); closeOverlay(p.overlay);
     });
-    if (p.role === "preview") { this.doc = null; this.file = null; this.pane = "main"; if (!p.item.notice && ["skills", "agents", "mcp"].includes(p.item.kind)) this.loadDoc(cx); }
+    if (p.role === "preview") { this.doc = null; this.file = null; this.pane = "main"; if (!p.item.notice && ["skills", "agents", "mcp", "extras"].includes(p.item.kind)) this.loadDoc(cx); }
     if (p.role === "install") {
       this.step = "url"; this.scope = p.scope ?? "global"; this.found = []; this.picked = new Set(); this.error = null; this.discovering = false;
       this.dir = null; this.prog = null;
@@ -850,7 +852,7 @@ export default class Skillshare extends View {
     const p = blockProps() ?? {};
     this.doc = { loading: true };
     cx.spawn(async (cx) => {
-      try { this.doc = await loadPreview(machineIO(cx), p.on, p.project, p.item, p.mcpPath); this.file = this.doc.files?.includes("SKILL.md") ? "SKILL.md" : this.doc.files?.[0] ?? null; }
+      try { this.doc = await loadPreview(machineIO(cx), p.on, p.project, p.item, p.mcpPath); this.file = this.doc.file ?? (this.doc.files?.includes("SKILL.md") ? "SKILL.md" : this.doc.files?.[0] ?? null); }
       catch (e) { this.doc = { error: String(e?.message ?? e) }; }
       cx.notify();
     });
@@ -871,15 +873,15 @@ export default class Skillshare extends View {
   // pane has to share its width with a list of something else.
   renderPreview(t, p, close) {
     const it = p.item, d = this.doc ?? {}, skillish = it.kind === "skills" || it.kind === "agents";
-    const kindName = { skills: "Skill", agents: "Agent", mcp: "MCP server", plugins: "Plugin", hooks: it.notice ? "Hooks" : "Hook" }[it.kind];
-    const color = it.notice ? t.blocked : { update: t.accent, sync: t.blocked, missing: t.ansi1, ok: t.ansi2, off: t.muted }[it.state] ?? t.muted;
+    const kindName = { skills: "Skill", agents: "Agent", mcp: "MCP server", plugins: "Plugin", hooks: it.notice ? "Hooks" : "Hook", extras: it.extra === "note" ? "Memory note" : "Extra" }[it.kind];
+    const color = needsLook(it) ? t.blocked : { update: t.accent, sync: t.blocked, missing: t.ansi1, ok: t.ansi2, off: t.muted }[it.state] ?? t.muted;
     const tag = (text, c) => h_flex().h(22).px(9).flex_none().items_center().rounded(11).bg(t.selected).text_size(S().label).text_color(c).child(text);
     const tags = [it.state === "update" ? tag(it.behind ? `Update available · ↓${it.behind}` : "Update available", t.accent) : null,
-      it.state === "sync" || it.state === "missing" ? tag("Needs sync", t.blocked) : null, it.state === "off" ? tag("Disabled", t.muted) : null];
+      it.state === "sync" || it.state === "missing" ? tag("Needs sync", t.blocked) : null, it.state === "off" ? tag("Disabled", t.muted) : null, it.state === "broken" ? tag("Source missing", t.blocked) : null];
     const sub = [kindName, it.scope, it.root, it.notice || it.kind === "hooks" || it.kind === "mcp" ? null : it.src, p.on].filter(Boolean).join(" · ");
     const targets = p.targets ?? [], waiting = targets.filter((r) => r.warn), whom = it.kind === "hooks" || it.kind === "plugins" ? "agent" : "target";
-    const panes = it.notice ? [] : [["main", { skills: "Document", agents: "Document", mcp: "Settings", hooks: "Definition", plugins: "About" }[it.kind]],
-      ["targets", `${whom === "agent" ? "Agents" : "Targets"} ${targets.length}`], skillish ? ["details", "Details"] : null].filter(Boolean);
+    const panes = it.notice ? [] : [["main", { skills: "Document", agents: "Document", mcp: "Settings", hooks: "Definition", plugins: "About", extras: "Document" }[it.kind]],
+      it.extra === "note" ? null : ["targets", `${whom === "agent" ? "Agents" : "Targets"} ${targets.length}`], skillish ? ["details", "Details"] : null].filter(Boolean);
     const pane = panes.some(([k]) => k === this.pane) ? this.pane : "main";
 
     const quietNote = (text) => div().flex_none().text_size(S().label).text_color(t.muted).child(text);
@@ -894,6 +896,10 @@ export default class Skillshare extends View {
     if (waitingFor) {
       body = [scroll("pane", page([v_flex().gap(12).loop("opacity", PULSE)
         .children([220, 520, 480, 340].map((w) => bone(t, w))).child(div().h(8)).children([160, 500, 420, 460, 260].map((w) => bone(t, w)))]))];
+    } else if (d.gone && pane !== "targets") {
+      // Nothing to retry: the source is missing until someone creates it or removes the extra.
+      body = [scroll("pane", v_flex().pt(110).gap(10).items_center().child(icon("alert", 22, t.blocked)).child(div().text_size(S().dialog).font_semibold().child("The source is missing"))
+        .child(div().px(40).text_size(S().secondary).text_color(t.muted).child(d.gone)))];
     } else if (d.error && pane !== "targets") {
       body = [scroll("pane", v_flex().pt(110).gap(10).items_center().child(icon("alert", 22, t.ansi1)).child(div().text_size(S().dialog).font_semibold().child("This could not be read"))
         .child(div().px(40).text_size(S().secondary).text_color(t.muted).child(d.error)).child(secondary("retry", "Try again", t, (_e, cx) => this.loadDoc(cx))))];
@@ -903,13 +909,13 @@ export default class Skillshare extends View {
         it.blocker ? quietNote("Resolve with the CLI or the dashboard. Sync validates again before it applies anything.") : null]))];
     } else if (pane === "targets") {
       // The Overview map's grammar, for this one thing: it on top, a line down to each place it goes.
-      const lane = (r, i) => mapLane(t, i === targets.length - 1, t.popover, syncLine(t, r.warn ? "wait" : "ok"), [dot(it.state === "unknown" ? t.muted : r.warn ? t.blocked : t.ansi2), agentIcon(t, r.name, 16),
+      const lane = (r, i) => mapLane(t, i === targets.length - 1, t.popover, syncLine(t, r.warn ? "wait" : "ok"), [dot(it.state === "unknown" || it.state === "broken" ? t.muted : r.warn ? t.blocked : t.ansi2), agentIcon(t, r.name, 16),
         div().flex_1().min_w(0).truncate().font_medium().child(r.name),
         r.text !== "in sync" ? div().flex_none().text_size(S().label).text_color(r.warn ? t.blocked : t.muted).child(r.text) : icon("check", 13, t.muted)]);
-      const said = it.state === "unknown" ? "Sync status unconfirmed" : it.state === "off" ? "Disabled, so it is not sent anywhere" : !targets.length ? `No ${whom}s yet` : waiting.length ? `${waiting.length} of ${plural(targets.length, whom)} waiting for a sync` : `In sync with ${plural(targets.length, whom)}`;
-      const how = { mcp: "Sync writes this server into each target's own MCP file.", hooks: "One definition. Sync writes each agent's native hook file.", plugins: "Each agent installs the plugin; skillshare keeps them the same." }[it.kind];
+      const said = it.state === "unknown" ? "Sync status unconfirmed" : it.state === "broken" ? "Source missing, so a sync can't send it" : it.state === "off" ? "Disabled, so it is not sent anywhere" : !targets.length ? `No ${whom}s yet` : waiting.length ? `${waiting.length} of ${plural(targets.length, whom)} waiting for a sync` : `In sync with ${plural(targets.length, whom)}`;
+      const how = { mcp: "Sync writes this server into each target's own MCP file.", hooks: "One definition. Sync writes each agent's native hook file.", plugins: "Each agent installs the plugin; skillshare keeps them the same.", extras: "Sync puts the extra's files in each target folder, in its mode." }[it.kind];
       body = [scroll("pane", page([
-        h_flex().gap(8).items_center().child(it.state === "unknown" ? icon("alert", 16, t.muted) : waiting.length ? icon("alert", 16, t.blocked) : icon("check", 16, targets.length && it.state !== "off" ? t.ansi2 : t.muted)).child(div().text_size(S().dialog).font_semibold().child(said)),
+        h_flex().gap(8).items_center().child(it.state === "unknown" ? icon("alert", 16, t.muted) : waiting.length || it.state === "broken" ? icon("alert", 16, t.blocked) : icon("check", 16, targets.length && it.state !== "off" ? t.ansi2 : t.muted)).child(div().text_size(S().dialog).font_semibold().child(said)),
         targets.length ? v_flex().pt(6)
           .child(h_flex().h(52).px(14).gap(10).items_center().rounded(10).border_1().border_color(t.border).bg(t.chrome)
             .child(dot(color, 9, it.state === "missing" || it.state === "off")).child(div().flex_1().min_w(0).truncate().font_semibold().child(it.label)).child(quietNote([kindName, it.scope].join(" · "))))
@@ -918,14 +924,14 @@ export default class Skillshare extends View {
     } else if (pane === "details") {
       body = [scroll("pane", page([d.meta?.length ? card(d.meta) : quietNote("This file declares no frontmatter."),
         d.dir ? sectionLabel(t, "LOCATION") : null, d.dir ? monoBox(t, "where", d.dir) : null]))];
-    } else if (skillish) {
+    } else if (skillish || it.kind === "extras") {
       const fileRow = (f) => div().id(`file-${f}`).h(28).mx(8).px(10).flex().flex_none().items_center().rounded(6).font_family(mono()).text_size(S().label)
         .text_color(f === this.file ? t.foreground : t.muted).when(f === this.file, (el) => el.bg(t.selected)).when(f !== this.file, (el) => el.cursor_pointer().hover((s) => s.bg(t.hover)))
         .on_click((_e, cx) => this.openFile(f, cx)).child(div().truncate().child(f));
       const doc = d.plain ? monoBox(t, `doc-${this.file}`, d.body ?? "") : TextView.markdown(`doc-${this.file ?? it.key}`, d.body ?? "");
       // Only a skill with more than its SKILL.md gets a file list; otherwise the document has the width.
       body = [(d.files?.length ?? 0) > 1 ? div().id("files").w(196).h_full().flex_none().overflow_y_scrollbar().border_r(1).border_color(t.border)
-        .child(v_flex().py(10).gap(1).children(d.files.map(fileRow))) : null, scroll("pane", page([doc]))];
+        .child(v_flex().py(10).gap(1).children(d.files.map(fileRow)).children(d.more ? [div().px(18).pt(6).text_size(S().label).text_color(t.muted).child("The first 40 files")] : [])) : null, scroll("pane", page([it.kind === "extras" && d.meta?.length ? card(d.meta) : null, doc]))];
     } else if (it.kind === "mcp") {
       body = [scroll("pane", page([d.server?.length ? card(d.server) : quietNote("skillshare's MCP source has no settings for this server on this machine."),
         quietNote("Secret values stay hidden. The preview shows names only.")]))];

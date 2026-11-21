@@ -46,7 +46,7 @@ Below 768 px, the dashboard shell replaces the fixed sidebar with a navigation b
 
 Do not run an unconfigured Prettier in `ui/` because it creates broad unrelated diffs. When Tailwind utilities conflict with the `ss-*` component layer, inspect the cascade before adding more complex selectors.
 
-The skill/agent editor uses `yaml` to read and write frontmatter, including escaped strings, block scalars and nested flow metadata. Description prose uses folded block style when needed; repeated edits preserve its value and nested metadata. Unedited frontmatter stays verbatim. The legacy parser remains a fallback for non-YAML headers. Nested object fields are shown as read-only JSON instead of editable `[object Object]` text.
+The skill/agent editor uses `yaml` to read and write frontmatter, including escaped strings, block scalars and nested flow metadata. Description prose uses folded block style when needed; repeated edits preserve its value and nested metadata. Unedited frontmatter stays verbatim. The legacy parser remains a fallback for non-YAML headers. Custom root and metadata mappings and lists containing mappings or nested lists are shown as read-only JSON; scalar lists remain editable.
 
 Dirty skill/agent frontmatter saves retain unchanged integer values from the original YAML header, including integers beyond JavaScript's safe range; the form, JSON view and YAML preview use ordinary JavaScript values and may display rounded integers. Editing such a field can save the rounded value; the save confirmation diff shows the pending file content.
 
