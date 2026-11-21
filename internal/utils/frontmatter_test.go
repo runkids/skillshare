@@ -285,6 +285,17 @@ enabled: true
 			fields:   []string{"version", "enabled"},
 			expected: map[string]string{"version": "2", "enabled": "true"},
 		},
+		{
+			name: "dotted field reads a nested scalar as written",
+			content: `---
+name: my-skill
+metadata:
+  version: 1.10
+  tags: [a, b]
+---`,
+			fields:   []string{"metadata.version", "metadata.tags", "metadata.missing"},
+			expected: map[string]string{"metadata.version": "1.10"},
+		},
 	}
 
 	for _, tt := range tests {

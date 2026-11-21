@@ -5,3 +5,8 @@ export function formatSize(bytes: number): string {
   const mb = kb / 1024;
   return `${mb.toFixed(1)} MB`;
 }
+
+/** A version as people write it: `v` before one that starts with a digit, anything else as is. */
+export function formatVersion(version?: string): string | undefined {
+  return version && /^\d/.test(version) ? `v${version}` : version;
+}
