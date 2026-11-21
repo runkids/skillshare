@@ -9,6 +9,21 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
+## [0.30.13] - 2026-11-21
+
+
+### New Features
+
+* **herdr:** show extras and memory notes in the panel ([#961](https://github.com/runkids/skillshare/issues/961)) ([cbc3614](https://github.com/runkids/skillshare/commit/cbc3614b71aa96083cb8ad643ad7ee6cde340b9c)), closes [#930](https://github.com/runkids/skillshare/issues/930)
+* **ui:** check only the selected skills on the Updates tab ([#965](https://github.com/runkids/skillshare/issues/965)) ([3916897](https://github.com/runkids/skillshare/commit/3916897c98916bdbc3f05eb750bec4135fba3105)), closes [#963](https://github.com/runkids/skillshare/issues/963)
+
+
+### Bug Fixes
+
+* **herdr:** list memory notes apart and finish the extras follow-ups ([#972](https://github.com/runkids/skillshare/issues/972)) ([036f342](https://github.com/runkids/skillshare/commit/036f34283af77f762e2ef794a5e2dfe399ee9f96)), closes [#930](https://github.com/runkids/skillshare/issues/930)
+* **server:** keep local edits when the dashboard updates an agent ([#967](https://github.com/runkids/skillshare/issues/967)) ([0cc1c25](https://github.com/runkids/skillshare/commit/0cc1c25d6793869bf7679adfaa9e6de8c1d5f6a5))
+* **ui:** check agents on the Updates tab ([#966](https://github.com/runkids/skillshare/issues/966)) ([b80224f](https://github.com/runkids/skillshare/commit/b80224f5012e0ccb3cebfc0fb1c74ef2e9cc8df4))
+
 ## [0.30.12] - 2026-11-18
 
 ### New Features
