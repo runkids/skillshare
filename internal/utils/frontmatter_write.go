@@ -1,8 +1,11 @@
 package utils
 
 import (
+	"fmt"
 	"os"
+	"reflect"
 	"strings"
+	"unicode/utf8"
 
 	"gopkg.in/yaml.v3"
 )
@@ -110,7 +113,7 @@ func splitFrontmatterAndBody(content []byte) (fmRaw, body []byte) {
 // Absent or false becomes "key: true"; true removes the line, so toggling twice hands back
 // the original file byte for byte — which keeps a tracked repo clean once the flag is off again.
 // It edits one line instead of round-tripping YAML: key order, comments, line endings and the
-// body are never touched.
+// body are never touched. In a flow root, other existing true flags become false in place.
 func ToggleFrontmatterFlag(filePath, key string) (bool, error) {
 	data, err := os.ReadFile(filePath)
 	if err != nil {
@@ -125,7 +128,12 @@ func ToggleFrontmatterFlag(filePath, key string) (bool, error) {
 	lines := fm.lines
 	on := true
 	i := fm.keyLine(key)
-	switch {
+	switch m := fm.mapping(); {
+	case m != nil && m.Style&yaml.FlowStyle != 0:
+		lines, on, err = toggleFlowFlag(fm, m, key)
+		if err != nil {
+			return false, err
+		}
 	case i < 0:
 		lines = append(lines[:fm.end], append([]string{flagLine}, lines[fm.end:]...)...)
 	case isTrueValue(lines[i][len(key)+1:]):
@@ -135,6 +143,105 @@ func ToggleFrontmatterFlag(filePath, key string) (bool, error) {
 		lines[i] = flagLine
 	}
 	return on, os.WriteFile(filePath, []byte(fm.join(lines)), 0644)
+}
+
+// toggleFlowFlag makes one bounded source edit and verifies its decoded result.
+func toggleFlowFlag(fm frontmatterLines, m *yaml.Node, key string) ([]string, bool, error) {
+	fail := func() ([]string, bool, error) { return nil, false, fmt.Errorf("cannot safely edit flow flag %q", key) }
+	// yaml.v3 counts CR, LF, CRLF, NEL, LS and PS as line breaks and
+	// columns as runes. fm.lines splits only LF, so scan the source directly.
+	at := func(n *yaml.Node) int {
+		start := len(strings.Join(fm.lines[:fm.open+1], "\n")) + 1
+		end := len(strings.Join(fm.lines[:fm.end], "\n"))
+		line, column := 1, 1
+		for i := start; i <= end; {
+			if line == n.Line && column == n.Column {
+				return i
+			}
+			if i == end {
+				break
+			}
+			r, size := utf8.DecodeRuneInString(fm.content[i:end])
+			i += size
+			switch r {
+			case '\r':
+				if i < end && fm.content[i] == '\n' {
+					i++
+				}
+				line++
+				column = 1
+			case '\n', '\u0085', '\u2028', '\u2029':
+				line++
+				column = 1
+			default:
+				column++
+			}
+		}
+		return -1
+	}
+	// The verification reader requires exact delimiters. Tell the user how to
+	// fix a block that the line editor found but that reader would not see.
+	if fm.open != 0 || !strictBlock.delim([]byte(fm.lines[fm.open])) || !strictBlock.delim([]byte(fm.lines[fm.end])) {
+		return nil, false, fmt.Errorf("flow frontmatter needs exact --- delimiters starting on line 1")
+	}
+	expected, err := ParseFrontmatterMap([]byte(fm.join(fm.lines)))
+	if err != nil {
+		return fail()
+	}
+	text, inserted := fm.content, key+": true"
+	from, to, replacement, on := -1, -1, "", true
+	v := mappingValue(m, key)
+	if v == nil {
+		if len(m.Content) > 0 {
+			from, replacement = at(m.Content[0]), inserted+", "
+		} else if start := at(m); start >= 0 {
+			if brace := strings.IndexByte(text[start:], '{'); brace >= 0 {
+				from = start + brace + 1
+				replacement = inserted
+			}
+		}
+		to = from
+		expected[key] = true
+	} else {
+		start := at(m.Content[0])
+		first := m.Content[0].Value == key
+		if start < 0 {
+			return fail()
+		}
+		// Only the exact prefix inserted by this helper can be removed without
+		// locating separators or disturbing comments.
+		tail := text[start:]
+		if first && isTrueValue(v.Value) && strings.HasPrefix(tail, inserted+", ") {
+			from, to = start, start+len(inserted)+2
+			delete(expected, key)
+			on = false
+		} else if first && len(m.Content) == 2 && isTrueValue(v.Value) && strings.HasPrefix(tail, inserted) && !strings.HasPrefix(strings.TrimLeft(tail[len(inserted):], " \t\r\n"), ",") {
+			from, to = start, start+len(inserted)
+			delete(expected, key)
+			on = false
+		} else {
+			from = at(v)
+			to = from + len(v.Value)
+			if v.Style&(yaml.SingleQuotedStyle|yaml.DoubleQuotedStyle) != 0 {
+				to += 2
+			}
+			on = !isTrueValue(v.Value)
+			replacement = "false"
+			if on {
+				replacement = "true"
+			}
+			expected[key] = on
+		}
+	}
+	if from < 0 || to < from || to > len(text) {
+		return fail()
+	}
+	candidate := text[:from] + replacement + text[to:]
+	after, err := ParseFrontmatterMap([]byte(fm.bom + candidate))
+	if err != nil || !reflect.DeepEqual(after, expected) {
+		return fail()
+	}
+	return strings.Split(candidate, "\n"), on, nil
 }
 
 // SetFrontmatterValue sets a top-level frontmatter key to a plain scalar value,
