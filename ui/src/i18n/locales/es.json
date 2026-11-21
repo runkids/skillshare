@@ -741,6 +741,7 @@
   "resources.display.descriptions": "Descripciones",
   "resources.folder.expand": "Expandir {name}",
   "resources.folder.collapse": "Contraer {name}",
+  "target.frontmatter": "Edita los destinos directamente en el archivo o usa YAML sin sangría en el nivel superior y con valores de destino explícitos en lugar de alias.",
   "resources.folder.noEditableSkills": "No se cambió ningún skill en {folder}/ — los skills deshabilitados se omiten",
   "resources.folder.skillsUpdated": "{count} skill(s) en {folder}/ ahora disponibles en {target}",
   "resources.folder.limitRemoved": "{count} skill(s) en {folder}/ ya no limitado(s) a un destino",

@@ -741,6 +741,7 @@
   "resources.display.descriptions": "描述",
   "resources.folder.expand": "展开 {name}",
   "resources.folder.collapse": "收起 {name}",
+  "target.frontmatter": "请直接在文件中编辑目标，或将 YAML 最外层的缩进去掉，并用明确的目标值替代别名。",
   "resources.folder.noEditableSkills": "{folder}/ 中没有 skill 被更改 — 已禁用的 skill 会被跳过",
   "resources.folder.skillsUpdated": "{folder}/ 中的 {count} 个 skill 现已在 {target} 中可用",
   "resources.folder.limitRemoved": "{folder}/ 中的 {count} 个 skill 不再限定目标",

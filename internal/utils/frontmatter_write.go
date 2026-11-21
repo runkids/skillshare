@@ -1,6 +1,8 @@
 package utils
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"reflect"
@@ -21,16 +23,26 @@ func SetFrontmatterList(filePath string, field string, values []string) error {
 		return err
 	}
 
-	data, err = RewriteFrontmatterList(data, field, values)
+	out, err := RewriteFrontmatterList(data, field, values)
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(filePath, data, 0644)
+	if bytes.Equal(out, data) {
+		return nil
+	}
+	return os.WriteFile(filePath, out, 0644)
 }
 
 // RewriteFrontmatterList returns updated frontmatter while preserving the body.
 // It has the same field and removal semantics as SetFrontmatterList.
 func RewriteFrontmatterList(data []byte, field string, values []string) ([]byte, error) {
+	if field == "metadata.targets" || field == "targets" {
+		return rewriteTargets(data, field, values)
+	}
+	return rewriteFrontmatterListLegacy(data, field, values)
+}
+
+func rewriteFrontmatterListLegacy(data []byte, field string, values []string) ([]byte, error) {
 	bom, rest := SplitBOM(string(data))
 	fmRaw, body := splitFrontmatterAndBody([]byte(rest))
 
@@ -44,45 +56,7 @@ func RewriteFrontmatterList(data []byte, field string, values []string) ([]byte,
 		fm = make(map[string]any)
 	}
 
-	parts := strings.SplitN(field, ".", 2)
-
-	if len(parts) == 2 && parts[0] == "metadata" {
-		subField := parts[1]
-		md, _ := fm["metadata"].(map[string]any)
-		if md == nil {
-			md = make(map[string]any)
-		}
-
-		if values == nil {
-			delete(md, subField)
-		} else {
-			list := make([]any, len(values))
-			for i, v := range values {
-				list[i] = v
-			}
-			md[subField] = list
-		}
-
-		if len(md) == 0 {
-			delete(fm, "metadata")
-		} else {
-			fm["metadata"] = md
-		}
-
-		// Always remove legacy top-level field when operating on metadata.<field>
-		delete(fm, subField)
-	} else {
-		topField := parts[0]
-		if values == nil {
-			delete(fm, topField)
-		} else {
-			list := make([]any, len(values))
-			for i, v := range values {
-				list[i] = v
-			}
-			fm[topField] = list
-		}
-	}
+	applyListField(fm, field, values, false)
 
 	fmBytes, err := MarshalYAML(fm)
 	if err != nil {
@@ -97,6 +71,320 @@ func RewriteFrontmatterList(data []byte, field string, values []string) ([]byte,
 	sb.Write(body)
 
 	return []byte(sb.String()), nil
+}
+
+// applyListField describes the intended change independently of its source layout.
+func applyListField(fm map[string]any, field string, values []string, preserveAbsent bool) {
+	set := func(parent map[string]any, key string) {
+		if values == nil {
+			delete(parent, key)
+			return
+		}
+		list := make([]any, len(values))
+		for i, v := range values {
+			list[i] = v
+		}
+		parent[key] = list
+	}
+	if key, ok := strings.CutPrefix(field, "metadata."); ok {
+		md, _ := fm["metadata"].(map[string]any)
+		if _, present := md[key]; !preserveAbsent || present || values != nil {
+			if md == nil {
+				md = make(map[string]any)
+			}
+			set(md, key)
+			if len(md) == 0 {
+				delete(fm, "metadata")
+			} else {
+				fm["metadata"] = md
+			}
+		}
+		delete(fm, key) // migrate the legacy root field
+		return
+	}
+	key, _, _ := strings.Cut(field, ".")
+	set(fm, key)
+}
+
+// ErrTargetFrontmatter identifies a file layout the target editor cannot safely
+// change. The remedy also reaches folder-batch clients via their errors list.
+var ErrTargetFrontmatter = errors.New("cannot safely edit target frontmatter: edit targets in the file directly or use an unindented YAML mapping with explicit target values instead of aliases")
+
+// Verify that a bounded edit did not alter any unowned data before callers write it.
+func rewriteTargets(data []byte, field string, values []string) ([]byte, error) {
+	beforeBlock := locateFrontmatter(data, rewriteBlock)
+	if !beforeBlock.closed {
+		return rewriteFrontmatterListLegacy(data, field, values)
+	}
+	var before, after map[string]any
+	if err := yaml.Unmarshal(beforeBlock.raw, &before); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrTargetFrontmatter, err)
+	}
+	mixed, hasMixedKeys := before["metadata"].(map[any]any)
+	if values == nil {
+		_, legacy := before["targets"]
+		md, _ := before["metadata"].(map[string]any)
+		_, nested := md["targets"]
+		if hasMixedKeys {
+			_, nested = mixed["targets"]
+		}
+		if !legacy && (field == "targets" || !nested) {
+			return data, nil // Includes absent targets under aliases and merge keys.
+		}
+	}
+	if field == "metadata.targets" && hasMixedKeys {
+		return nil, ErrTargetFrontmatter
+	}
+	out, block := data, beforeBlock
+	var err error
+	if _, legacy := before["targets"]; legacy && field == "metadata.targets" {
+		out, err = spliceTarget(out, block, "targets", nil)
+		if err == nil {
+			block = locateFrontmatter(out, rewriteBlock)
+		}
+	}
+	if err == nil {
+		out, err = spliceTarget(out, block, field, values)
+	}
+	if err != nil {
+		return nil, ErrTargetFrontmatter
+	}
+	afterBlock := locateFrontmatter(out, rewriteBlock)
+	if !afterBlock.closed || !bytes.Equal(beforeBlock.body, afterBlock.body) || yaml.Unmarshal(afterBlock.raw, &after) != nil {
+		return nil, ErrTargetFrontmatter
+	}
+	if before == nil {
+		before = make(map[string]any)
+	}
+	if after == nil {
+		after = make(map[string]any)
+	}
+	applyListField(before, field, values, true)
+	if !reflect.DeepEqual(before, after) {
+		return nil, ErrTargetFrontmatter
+	}
+	return out, nil
+}
+
+// spliceTarget changes one owned entry. The caller verifies the final document.
+func spliceTarget(data []byte, block frontmatterBlock, field string, values []string) ([]byte, error) {
+	bom, rest := SplitBOM(string(data))
+	var doc yaml.Node
+	if err := yaml.Unmarshal(block.raw, &doc); err != nil {
+		return nil, err
+	}
+	fm := splitKnownBlock(rest, "", block, true)
+	cr := ""
+	if strings.HasSuffix(fm.lines[fm.open], "\r") {
+		cr = "\r"
+	}
+	root := &yaml.Node{Kind: yaml.MappingNode}
+	if len(doc.Content) > 0 {
+		if doc.Content[0].Kind != yaml.MappingNode {
+			return rewriteFrontmatterListLegacy(data, field, values)
+		}
+		root = doc.Content[0]
+	}
+	if root.Style&yaml.FlowStyle == 0 && len(root.Content) != 0 && root.Column != 1 {
+		return nil, errors.New("use an unindented root mapping")
+	}
+	nested := field == "metadata.targets"
+	md := mappingValue(root, "metadata")
+	if nested && md != nil && md.Kind == yaml.AliasNode && values != nil {
+		return nil, errors.New("metadata is a YAML alias")
+	}
+	rootFlow := root.Style&yaml.FlowStyle != 0
+	// Choose the owned entry once, regardless of block or flow syntax.
+	parent, key := root, "targets"
+	if nested {
+		switch {
+		case md == nil || md.Kind != yaml.MappingNode || rootFlow && md.Style&yaml.FlowStyle == 0:
+			key = "metadata"
+			if values == nil {
+				return data, nil
+			}
+		case values == nil && len(md.Content) == 2 && mappingValue(md, "targets") != nil:
+			key = "metadata" // its only field will be removed
+		default:
+			parent = md
+		}
+	}
+	lines := fm.lines
+	if parent.Style&yaml.FlowStyle != 0 {
+		entry := targetEntry(values)
+		if key == "metadata" && entry != nil {
+			wrapped := "metadata: {" + *entry + "}"
+			entry = &wrapped
+		}
+		out, err := editFlowMap(string(block.raw), parent, key, entry)
+		if err != nil {
+			return nil, err
+		}
+		lines = append(lines[:fm.open+1], append(strings.Split(strings.TrimSuffix(out, "\n"), "\n"), lines[fm.end:]...)...)
+		return []byte(bom + strings.Join(lines, "\n")), nil
+	}
+	limit, insert, indent := fm.end, fm.end, ""
+	var added []string
+	if key == "metadata" && values != nil {
+		added, indent = []string{"metadata:" + cr}, "  "
+	} else if parent != root {
+		i, j := fm.keySpan(root, "metadata", fm.end)
+		if i < 0 || len(parent.Content) == 0 {
+			return nil, ErrTargetFrontmatter
+		}
+		limit, insert = j, lfLine(fm, parent.Content[0])
+		if insert <= i || insert >= j {
+			return nil, ErrTargetFrontmatter
+		}
+		indent = lines[insert][:len(lines[insert])-len(strings.TrimLeft(lines[insert], " \t"))]
+	}
+	i, j := fm.keySpan(parent, key, limit)
+	if i < 0 {
+		if mappingValue(parent, key) != nil {
+			return nil, ErrTargetFrontmatter
+		}
+		i, j = insert, insert
+	}
+	if values == nil {
+		if i < j {
+			lines = removeTargetSpan(lines, i, j)
+		}
+	} else {
+		encoded, err := MarshalYAML(values)
+		if err != nil {
+			return nil, err
+		}
+		added = append(added, indent+"targets:"+cr)
+		for _, line := range strings.Split(strings.TrimSuffix(string(encoded), "\n"), "\n") {
+			added = append(added, indent+"  "+line+cr)
+		}
+		lines = append(lines[:i], append(added, lines[j:]...)...)
+	}
+	return []byte(bom + strings.Join(lines, "\n")), nil
+}
+
+// lfLine converts parser coordinates to the physical LF-delimited line index.
+func lfLine(fm frontmatterLines, n *yaml.Node) int {
+	if !fm.targetEdit {
+		return fm.open + n.Line // scalar line editor uses the original parser-index policy
+	}
+	raw := strings.Join(fm.lines[fm.open+1:fm.end], "\n")
+	at := nodeOffset(raw, n)
+	if at < 0 {
+		return -1
+	}
+	return fm.open + 1 + strings.Count(raw[:at], "\n")
+}
+
+// Blank lines after a removed entry belong to that entry's position, not to a
+// preceding keep-chomp scalar. Preserve comments while dropping those blanks.
+func removeTargetSpan(lines []string, start, end int) []string {
+	next := end
+	for next < len(lines) {
+		trimmed := strings.TrimSpace(lines[next])
+		if trimmed != "" && !strings.HasPrefix(trimmed, "#") {
+			break
+		}
+		next++
+	}
+	kept := make([]string, 0, next-end)
+	for _, line := range lines[end:next] {
+		if strings.TrimSpace(line) != "" {
+			kept = append(kept, line)
+		}
+	}
+	return append(lines[:start], append(kept, lines[next:]...)...)
+}
+
+func targetEntry(values []string) *string {
+	if values == nil {
+		return nil
+	}
+	seq := &yaml.Node{Kind: yaml.SequenceNode, Tag: "!!seq", Style: yaml.FlowStyle}
+	for _, value := range values {
+		seq.Content = append(seq.Content, &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: value})
+	}
+	out, _ := MarshalYAML(seq)
+	entry := "targets: " + strings.TrimSpace(string(out))
+	return &entry
+}
+
+// nodeOffset converts YAML's one-based rune positions into byte offsets.
+func nodeOffset(text string, n *yaml.Node) int {
+	line, col := 1, 1
+	for i := 0; i < len(text); {
+		if line == n.Line && col == n.Column {
+			return i
+		}
+		r, size := utf8.DecodeRuneInString(text[i:])
+		i += size
+		switch r {
+		case '\r':
+			if i < len(text) && text[i] == '\n' {
+				i++
+			}
+			line++
+			col = 1
+		case '\n', '\u0085', '\u2028', '\u2029':
+			line++
+			col = 1
+		default:
+			col++
+		}
+	}
+	return -1
+}
+
+// yaml.v3 gives the start but not the end of a flow value. Only consume a
+// spelling its encoder can reproduce exactly, without adjacent comments.
+func flowValueEnd(text string, n *yaml.Node) int {
+	at := nodeOffset(text, n)
+	if at < 0 || n.Kind == yaml.AliasNode || n.Anchor != "" || n.Style&yaml.TaggedStyle != 0 {
+		return -1
+	}
+	v := *n
+	v.HeadComment, v.LineComment, v.FootComment = "", "", ""
+	raw, err := MarshalYAML(&v)
+	token := strings.TrimSuffix(string(raw), "\n")
+	if err != nil || token == "" || !strings.HasPrefix(text[at:], token) {
+		return -1
+	}
+	return at + len(token)
+}
+
+// Editing a flow entry never requires scanning siblings. A trailing comma is
+// valid YAML, so removing the last entry can leave preceding comments intact.
+func editFlowMap(text string, m *yaml.Node, key string, replacement *string) (string, error) {
+	fail := errors.New("use a plain target list or a block mapping")
+	for i := 0; i+1 < len(m.Content); i += 2 {
+		if m.Content[i].Value != key {
+			continue
+		}
+		from, to := nodeOffset(text, m.Content[i]), flowValueEnd(text, m.Content[i+1])
+		if from < 0 || to <= from {
+			return "", fail
+		}
+		if replacement != nil {
+			return text[:from] + *replacement + text[to:], nil
+		}
+		tail := strings.TrimLeft(text[to:], " \t")
+		if strings.HasPrefix(tail, ",") {
+			to = len(text) - len(tail) + 1
+		}
+		return text[:from] + text[to:], nil
+	}
+	if replacement == nil {
+		return text, nil
+	}
+	at := nodeOffset(text, m)
+	if at < 0 || text[at] != '{' {
+		return "", fail
+	}
+	sep := ""
+	if len(m.Content) > 0 {
+		sep = ", "
+	}
+	return text[:at+1] + *replacement + sep + text[at+1:], nil
 }
 
 // splitFrontmatterAndBody splits SKILL.md content into raw frontmatter YAML
@@ -119,7 +407,7 @@ func ToggleFrontmatterFlag(filePath, key string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	fm := splitFrontmatterLines(string(data))
+	fm := splitFrontmatterLines(string(data), lineEditorBlock)
 	flagLine := key + ": true" + fm.cr
 	if fm.end < 0 {
 		return true, os.WriteFile(filePath, []byte(fm.prepend(flagLine)), 0644)
@@ -148,34 +436,11 @@ func ToggleFrontmatterFlag(filePath, key string) (bool, error) {
 // toggleFlowFlag makes one bounded source edit and verifies its decoded result.
 func toggleFlowFlag(fm frontmatterLines, m *yaml.Node, key string) ([]string, bool, error) {
 	fail := func() ([]string, bool, error) { return nil, false, fmt.Errorf("cannot safely edit flow flag %q", key) }
-	// yaml.v3 counts CR, LF, CRLF, NEL, LS and PS as line breaks and
-	// columns as runes. fm.lines splits only LF, so scan the source directly.
+	raw := strings.Join(fm.lines[fm.open+1:fm.end], "\n")
+	start := len(strings.Join(fm.lines[:fm.open+1], "\n")) + 1
 	at := func(n *yaml.Node) int {
-		start := len(strings.Join(fm.lines[:fm.open+1], "\n")) + 1
-		end := len(strings.Join(fm.lines[:fm.end], "\n"))
-		line, column := 1, 1
-		for i := start; i <= end; {
-			if line == n.Line && column == n.Column {
-				return i
-			}
-			if i == end {
-				break
-			}
-			r, size := utf8.DecodeRuneInString(fm.content[i:end])
-			i += size
-			switch r {
-			case '\r':
-				if i < end && fm.content[i] == '\n' {
-					i++
-				}
-				line++
-				column = 1
-			case '\n', '\u0085', '\u2028', '\u2029':
-				line++
-				column = 1
-			default:
-				column++
-			}
+		if i := nodeOffset(raw, n); i >= 0 {
+			return start + i
 		}
 		return -1
 	}
@@ -255,7 +520,7 @@ func SetFrontmatterValue(filePath, key, value string) error {
 	if err != nil {
 		return err
 	}
-	fm := splitFrontmatterLines(string(data))
+	fm := splitFrontmatterLines(string(data), lineEditorBlock)
 	line := key + ": " + value + fm.cr
 	if fm.end < 0 {
 		return os.WriteFile(filePath, []byte(fm.prepend(line)), 0644)
@@ -275,7 +540,7 @@ func SetFrontmatterValue(filePath, key, value string) error {
 			block[i] += fm.cr
 		}
 		lines = append(lines[:fm.open+1], append(block, lines[fm.end:]...)...)
-	} else if i, j := fm.keySpan(m, key); i >= 0 {
+	} else if i, j := fm.keySpan(m, key, fm.end); i >= 0 {
 		if v := mappingValue(m, key); v != nil {
 			// Keep everything before the value as written (the key, its anchor, quoting,
 			// spacing and indent) and replace only the value, keeping its own anchor for
@@ -307,31 +572,29 @@ func SetFrontmatterValue(filePath, key, value string) error {
 // on every untouched line; open and end index the "---" delimiters (end < 0
 // when there is no frontmatter block).
 type frontmatterLines struct {
-	bom       string // a leading UTF-8 BOM, kept in front of whatever is written back
-	content   string
-	cr        string
-	lines     []string
-	open, end int
+	bom        string // a leading UTF-8 BOM, kept in front of whatever is written back
+	content    string
+	cr         string
+	lines      []string
+	open, end  int
+	targetEdit bool // preserve nested mapping comments before the following key
 }
 
-func splitFrontmatterLines(content string) frontmatterLines {
+func splitFrontmatterLines(content string, policy frontmatterPolicy) frontmatterLines {
 	bom, content := SplitBOM(content)
-	fm := frontmatterLines{bom: bom, content: content, lines: strings.Split(content, "\n"), open: -1, end: -1}
+	return splitKnownBlock(content, bom, locateFrontmatter([]byte(content), policy), policy.crlf)
+}
+
+func splitKnownBlock(content, bom string, block frontmatterBlock, targetEdit bool) frontmatterLines {
+	fm := frontmatterLines{bom: bom, content: content, lines: strings.Split(content, "\n"), open: -1, end: -1, targetEdit: targetEdit}
 	if strings.Contains(content, "\r\n") {
 		fm.cr = "\r"
 	}
-	isDelim := func(l string) bool { return strings.TrimRight(l, " \t\r") == "---" }
-	for i, l := range fm.lines {
-		if fm.open < 0 {
-			if isDelim(l) {
-				fm.open = i
-			} else if strings.TrimSpace(l) != "" {
-				break // body starts before any delimiter: no frontmatter
-			}
-		} else if isDelim(l) {
-			fm.end = i
-			break
-		}
+	if block.open {
+		fm.open = block.openLine
+	}
+	if block.closed {
+		fm.end = block.closeLine
 	}
 	return fm
 }
@@ -391,7 +654,7 @@ func setMappingScalar(m *yaml.Node, key, value string) {
 // value in block mapping node mapping, so "key": / key : / multi-line scalars count.
 // Blank and column-0 comment lines before the next key stay outside the span.
 // A nil mapping (frontmatter YAML cannot parse) falls back to keyLine; start is -1 when absent.
-func (fm frontmatterLines) keySpan(mapping *yaml.Node, key string) (int, int) {
+func (fm frontmatterLines) keySpan(mapping *yaml.Node, key string, limit int) (int, int) {
 	if mapping == nil {
 		i := fm.keyLine(key)
 		return i, i + 1
@@ -401,12 +664,19 @@ func (fm frontmatterLines) keySpan(mapping *yaml.Node, key string) (int, int) {
 		if m[k].Value != key {
 			continue
 		}
-		start, end := fm.open+m[k].Line, fm.end // Line is 1-based from the line after "---"
+		start, end := lfLine(fm, m[k]), limit
 		if k+2 < len(m) {
-			end = fm.open + m[k+2].Line
+			end = lfLine(fm, m[k+2])
+		}
+		if start < 0 || end <= start || end > limit {
+			return -1, -1
 		}
 		for end > start+1 {
-			if l := strings.TrimSpace(fm.lines[end-1]); l != "" && !strings.HasPrefix(fm.lines[end-1], "#") {
+			l := fm.lines[end-1]
+			if fm.targetEdit {
+				l = strings.TrimSpace(l)
+			}
+			if strings.TrimSpace(l) != "" && !strings.HasPrefix(l, "#") {
 				break
 			}
 			end--

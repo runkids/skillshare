@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"skillshare/internal/install"
@@ -516,5 +517,102 @@ func TestHandleBatchSetTargets_SaveFailureReported(t *testing.T) {
 
 	if rr.Code != http.StatusInternalServerError {
 		t.Fatalf("expected 500, got %d: %s", rr.Code, rr.Body.String())
+	}
+}
+
+// Exercise the HTTP write boundary; the writer's YAML cases live in utils.
+func TestPatchTargetsPreservesCRLFHeader(t *testing.T) {
+	s, src := newTestServer(t)
+	addSkillWithTargets(t, src, "demo", nil)
+	path := filepath.Join(src, "demo", "SKILL.md")
+	input := "---\r\nname: demo\r\nusage_count: 012\r\n---\r\nbody\r\n"
+	if err := os.WriteFile(path, []byte(input), 0644); err != nil {
+		t.Fatal(err)
+	}
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodPatch, "/api/resources/demo/targets", strings.NewReader(`{"target":"claude"}`)))
+	out, err := os.ReadFile(path)
+	if err != nil || rr.Code != http.StatusOK || !strings.HasPrefix(string(out), "---\r\nname: demo\r\nusage_count: 012\r\n") ||
+		!strings.HasSuffix(string(out), "---\r\nbody\r\n") || strings.Join(utils.ParseFrontmatterList(path, "targets"), ",") != "claude" {
+		t.Fatalf("PATCH %d: %s; file %q (%v)", rr.Code, rr.Body.String(), out, err)
+	}
+}
+
+// Writer preservation is tested in utils. Here the contract is what the dashboard sees.
+func TestTargetEndpointsReportFrontmatterRefusal(t *testing.T) {
+	for _, endpoint := range []string{"skill", "agent", "batch", "mixed batch"} {
+		t.Run(endpoint, func(t *testing.T) {
+			s, src := newTestServer(t)
+			name := "skill-a"
+			path := filepath.Join(src, name, "SKILL.md")
+			if endpoint == "agent" {
+				name = "tutor.md"
+				path = filepath.Join(s.agentsSource(), name)
+			}
+			if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+				t.Fatal(err)
+			}
+			// The requested edit would also change another field.
+			input := "---\nname: demo\ntargets: &t [old]\nother: *t\n---\nbody\n"
+			if err := os.WriteFile(path, []byte(input), 0644); err != nil {
+				t.Fatal(err)
+			}
+			rr := httptest.NewRecorder()
+			if strings.HasSuffix(endpoint, "batch") {
+				wantUpdated := "0"
+				if endpoint == "mixed batch" {
+					addSkillWithTargets(t, src, "editable", nil)
+					wantUpdated = "1"
+				}
+				s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodPost, "/api/resources/batch/targets", strings.NewReader(`{"folder":"","target":"claude"}`)))
+				var wire map[string]json.RawMessage
+				if err := json.Unmarshal(rr.Body.Bytes(), &wire); err != nil {
+					t.Fatalf("batch response is not JSON: %v: %s", err, rr.Body.String())
+				}
+				var messages []string
+				if err := json.Unmarshal(wire["errors"], &messages); err != nil || rr.Code != http.StatusOK || string(wire["updated"]) != wantUpdated || len(messages) != 1 || !strings.HasPrefix(messages[0], name+": ") || !strings.Contains(messages[0], "edit targets in the file") {
+					t.Fatalf("batch response: %d %s", rr.Code, rr.Body.String())
+				}
+				var details []struct {
+					Name string
+					Code string `json:"error_code"`
+				}
+				if err := json.Unmarshal(wire["error_details"], &details); err != nil || len(details) != 1 || details[0].Name != name || details[0].Code != "target.frontmatter" {
+					t.Fatalf("missing named refusal: %s", rr.Body.String())
+				}
+				return
+			}
+			s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodPatch, "/api/resources/"+name+"/targets", strings.NewReader(`{"target":"claude"}`)))
+			var res map[string]any
+			if err := json.Unmarshal(rr.Body.Bytes(), &res); err != nil || rr.Code != http.StatusUnprocessableEntity || res["error_code"] != "target.frontmatter" || !strings.Contains(fmt.Sprint(res["error"]), "edit targets in the file") {
+				t.Fatalf("PATCH response: %d %s", rr.Code, rr.Body.String())
+			}
+		})
+	}
+}
+
+func TestTargetWriteIOFailureIsServerError(t *testing.T) {
+	rr := httptest.NewRecorder()
+	writeTargetError(rr, "skill", &os.PathError{Op: "write", Path: "SKILL.md", Err: os.ErrPermission})
+	if rr.Code != http.StatusInternalServerError || !strings.Contains(rr.Body.String(), "permission denied") {
+		t.Fatalf("ordinary I/O failure: %d %s", rr.Code, rr.Body.String())
+	}
+}
+
+// A successful no-op is neither an update nor a skipped (disabled) skill.
+func TestBatchTargetsDoesNotCountOrReplaceUnchangedFile(t *testing.T) {
+	s, src := newTestServer(t)
+	addSkillNested(t, src, "plain/readme")
+	path := filepath.Join(src, "plain", "readme", "SKILL.md")
+	before, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodPost, "/api/resources/batch/targets", strings.NewReader(`{"folder":"plain","target":""}`)))
+	after, err := os.Stat(path)
+	var wire struct{ Updated, Skipped, Unchanged int }
+	if err != nil || !os.SameFile(before, after) || json.Unmarshal(rr.Body.Bytes(), &wire) != nil || wire.Updated != 0 || wire.Unchanged != 1 || wire.Skipped != 0 {
+		t.Fatalf("no-op replaced or counted: %s, stat: %v", rr.Body.String(), err)
 	}
 }

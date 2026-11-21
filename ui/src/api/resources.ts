@@ -65,7 +65,13 @@ export const resourcesApi = {
     ),
   createSkill: (data: CreateSkillRequest) => http.post<CreateSkillResponse>('/resources', data),
   batchSetTargets: (folder: string, target: string | null) =>
-    http.post<{ updated: number; skipped: number; errors: string[] }>('/resources/batch/targets', {
+    http.post<{
+      updated: number;
+      skipped: number;
+      unchanged?: number;
+      errors: string[];
+      error_details?: { name: string; error_code?: string }[];
+    }>('/resources/batch/targets', {
       folder,
       target: target ?? '',
     }),
