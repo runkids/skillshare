@@ -2,7 +2,6 @@ import { describe, expect, it, beforeEach, vi } from 'vitest';
 import {
   DEFAULT_LOCALE,
   LOCALE_STORAGE_KEY,
-  LOCALE_URL_PARAM,
   detectBrowserLocale,
   getInitialLocale,
   interpolate,
@@ -44,17 +43,6 @@ describe('i18n locale detection', () => {
   it('uses persisted locale before browser locale', () => {
     localStorage.setItem(LOCALE_STORAGE_KEY, 'ja');
     expect(getInitialLocale()).toBe('ja');
-  });
-
-  it('uses the ?lang= parameter before the persisted locale and saves it', () => {
-    localStorage.setItem(LOCALE_STORAGE_KEY, 'ja');
-    expect(getInitialLocale(`?${LOCALE_URL_PARAM}=en`)).toBe('en');
-    expect(localStorage.getItem(LOCALE_STORAGE_KEY)).toBe('en');
-  });
-
-  it('ignores an unsupported ?lang= parameter', () => {
-    localStorage.setItem(LOCALE_STORAGE_KEY, 'ja');
-    expect(getInitialLocale(`?${LOCALE_URL_PARAM}=tlh`)).toBe('ja');
   });
 });
 

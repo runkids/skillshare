@@ -1,6 +1,7 @@
 export { I18nProvider, useI18n, useT } from './I18nContext';
 export {
   DEFAULT_LOCALE,
+  applyUrlLocaleParam,
   LOCALE_STORAGE_KEY,
   LOCALE_URL_PARAM,
   detectBrowserLocale,
