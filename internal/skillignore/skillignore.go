@@ -244,6 +244,7 @@ func (m *Matcher) CanSkipDir(dirPath string) bool {
 	// for callers that bypass Match in the future.
 	dirPath = normalizePath(dirPath)
 
+	dirSegments := strings.Split(dirPath, "/")
 	for _, r := range m.rules {
 		if !r.negated {
 			continue
@@ -252,14 +253,57 @@ func (m *Matcher) CanSkipDir(dirPath string) bool {
 		if !r.anchored {
 			return false
 		}
-		// Anchored negation: check if its prefix overlaps with dirPath.
-		negPath := strings.Join(r.segments, "/")
-		if strings.HasPrefix(negPath, dirPath+"/") || negPath == dirPath {
+		// An anchored negation reaches inside when its pattern can match a path
+		// under dirPath. Comparing path prefixes is not enough: "**/keep" and
+		// "*/keep" reach inside "build" without spelling it out.
+		if negationReachesUnder(r.segments, dirSegments) {
 			return false
 		}
 	}
 
 	return true
+}
+
+// negationReachesUnder reports whether pattern can match a path under dir, so
+// skipping dir would hide a skill the negation re-enables. Segments are matched
+// the way matchSegments matches them: "**" consumes any number of path
+// segments, every other segment is a path.Match glob. dir is the segments of an
+// already-ignored directory, so every segment is consumed.
+func negationReachesUnder(pattern, dir []string) bool {
+	if len(dir) == 0 {
+		// dir is consumed. Whatever is left in the pattern can still match a
+		// deeper segment, and a pattern that ends here matches dir itself.
+		return true
+	}
+	if len(pattern) == 0 {
+		return false
+	}
+
+	type key struct{ pi, di int }
+	memo := make(map[key]bool)
+	var reach func(pi, di int) bool
+	reach = func(pi, di int) bool {
+		k := key{pi, di}
+		if v, ok := memo[k]; ok {
+			return v
+		}
+		var res bool
+		switch {
+		case di == len(dir):
+			res = true
+		case pi == len(pattern):
+			res = false
+		case pattern[pi] == "**":
+			// "**" matches zero or more segments: end it here, or absorb one.
+			res = reach(pi+1, di) || reach(pi, di+1)
+		default:
+			matched, _ := path.Match(pattern[pi], dir[di])
+			res = matched && reach(pi+1, di+1)
+		}
+		memo[k] = res
+		return res
+	}
+	return reach(0, 0)
 }
 
 // matchRule checks if a single rule matches a given path.

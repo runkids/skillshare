@@ -321,6 +321,18 @@ func TestCanSkipDir(t *testing.T) {
 		// Anchored negation targeting exact dir
 		{"negation targets same dir", []string{"tmp", "!tmp"}, "tmp", false},
 
+		// Anchored negation whose globs reach inside without naming the dir.
+		// Skipping the dir would hide the skill the negation re-enables, and the
+		// walk would then disagree with Match, which reports it as kept.
+		{"globstar negation reaches inside", []string{"build/", "!**/keep"}, "build", false},
+		{"one-segment star negation reaches inside", []string{"build/", "!*/keep"}, "build", false},
+		{"globstar negation with a dir prefix", []string{"build/", "!**/ci/keep"}, "build", false},
+		{"character-class negation reaches inside", []string{"build/", "![b]uild/keep"}, "build", false},
+		// A negation that cannot match anything under the dir keeps the skip.
+		{"negation outside dir -> safe", []string{"build/", "!other/keep"}, "build", true},
+		{"negation with a deeper fixed prefix -> safe", []string{"build/", "!build/a/b/keep"}, "build/sub", true},
+		{"negation under an unrelated segment -> safe", []string{"build/", "!src/*"}, "build", true},
+
 		// Windows path
 		{"windows backslash", []string{"vendor"}, "vendor", true},
 	}
