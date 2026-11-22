@@ -1,5 +1,8 @@
 ---
 sidebar_position: 2
+type: Reference
+description: Reference for skillshare sync, which pushes skills from source to all targets.
+generated: { by: claude-code/claude-opus-5-5, at: "2026-11-22T19:53:42Z" }
 ---
 
 # sync
