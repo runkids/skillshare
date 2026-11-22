@@ -78,7 +78,24 @@ export function detectBrowserLocale(languages: readonly string[] | undefined): L
   return DEFAULT_LOCALE;
 }
 
-export function getInitialLocale(): Locale {
+/** The `?lang=` URL parameter, which an embedding app uses to carry the user's choice. */
+export const LOCALE_URL_PARAM = 'lang';
+
+/**
+ * The locale to start with: `?lang=` first, then the saved choice, then the browser languages.
+ * The desktop app embeds this UI in an iframe whose storage WebKit does not keep between
+ * launches, so it remembers the choice itself and passes it back in the URL.
+ */
+export function getInitialLocale(search: string = window.location.search): Locale {
+  const fromUrl = normalizeLocale(new URLSearchParams(search).get(LOCALE_URL_PARAM));
+  if (fromUrl) {
+    try {
+      localStorage.setItem(LOCALE_STORAGE_KEY, fromUrl);
+    } catch {
+      // The URL still decides the locale when storage is unavailable.
+    }
+    return fromUrl;
+  }
   try {
     const stored = localStorage.getItem(LOCALE_STORAGE_KEY);
     const storedLocale = normalizeLocale(stored);

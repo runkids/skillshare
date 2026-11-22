@@ -33,6 +33,10 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     } catch {
       // Locale switching should still work when storage is unavailable.
     }
+    // An embedding app (the desktop shell) keeps the choice, since this frame's storage may not last.
+    if (window.parent !== window) {
+      window.parent.postMessage({ type: 'locale-change', locale: nextLocale }, '*');
+    }
   }, []);
 
   const t = useCallback(
