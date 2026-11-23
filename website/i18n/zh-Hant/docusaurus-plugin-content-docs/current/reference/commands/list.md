@@ -294,7 +294,7 @@ skillshare install owner/repo -s vue-patterns --into frontend
 
 ## Agent 支援
 
-`skillshare list agents` 會篩選成只顯示 agents，也就是 agents source 目錄（`~/.config/skillshare/agents/` 或 `.skillshare/agents/`）中的 `.md` 檔案。
+`skillshare list agents` 會篩選成只顯示 agents，也就是 agents source 目錄（`~/.config/skillshare/agents/` 或 `.skillshare/agents/`）中的 `.md` 檔案。被 `.agentignore` 忽略的資料夾中的 agents 會顯示為已停用。
 
 ```bash
 skillshare list agents              # 只列出 agents

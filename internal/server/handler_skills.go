@@ -148,7 +148,7 @@ func (s *Server) handleListSkills(w http.ResponseWriter, r *http.Request) {
 
 	// Agents — recursive discovery (supports --into subdirectories)
 	if (kindFilter == "" || kindFilter == "agent") && agentsSource != "" {
-		discovered, _ := resource.AgentKind{}.Discover(agentsSource)
+		discovered, _ := resource.AgentKind{}.DiscoverAll(agentsSource)
 		for _, d := range discovered {
 			item := skillItem{
 				Name:       d.Name,
@@ -301,15 +301,11 @@ func (s *Server) handleGetSkill(w http.ResponseWriter, r *http.Request) {
 
 	// Fallback: check agents source (recursive — supports --into subdirectories)
 	if kind != "skill" && agentsSource != "" {
-		agentDiscovered, _ := resource.AgentKind{}.Discover(agentsSource)
-		for _, d := range agentDiscovered {
-			if !matchesAgentName(d, name) {
-				continue
-			}
-
+		if d, err := findAgent(agentsSource, name); err == nil {
 			data, readErr := os.ReadFile(d.SourcePath)
 			if readErr != nil {
-				continue
+				writeError(w, http.StatusNotFound, "skill not found: "+name)
+				return
 			}
 
 			item := skillItem{

@@ -193,7 +193,7 @@ skillshare collect -p agents --json
 
 ## `.agentignore`
 
-`.skillignore` と全く同じように動作します — gitignore 形式のパターンで sync から agent を除外します。
+`.skillignore` と全く同じように動作します — gitignore 形式のパターンで sync から agent を除外します。`list` とダッシュボードでは、無視された agent も無効として表示されます。`archive/` のような無視されたフォルダ内のすべての agent も含みます。
 
 | スコープ | パス |
 |-------|------|

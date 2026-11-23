@@ -295,7 +295,7 @@ For more details, see [Organizing Skills with Folders](/docs/how-to/daily-tasks/
 
 ## Agent Support
 
-`skillshare list agents` filters to agents only, showing `.md` files from the agents source directory (`~/.config/skillshare/agents/` or `.skillshare/agents/`).
+`skillshare list agents` filters to agents only, showing `.md` files from the agents source directory (`~/.config/skillshare/agents/` or `.skillshare/agents/`). Agents inside a folder ignored by `.agentignore` are listed as disabled.
 
 ```bash
 skillshare list agents              # List agents only

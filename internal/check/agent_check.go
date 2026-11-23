@@ -30,6 +30,20 @@ func CheckAgents(agentsDir string) []AgentCheckResult {
 	if err != nil {
 		return nil
 	}
+	return checkDiscoveredAgents(agentsDir, discovered)
+}
+
+// CheckAllAgents is CheckAgents including agents in .agentignore'd folders.
+// Use it only to resolve agents the user names, which list shows as disabled.
+func CheckAllAgents(agentsDir string) []AgentCheckResult {
+	discovered, err := resource.AgentKind{}.DiscoverAll(agentsDir)
+	if err != nil {
+		return nil
+	}
+	return checkDiscoveredAgents(agentsDir, discovered)
+}
+
+func checkDiscoveredAgents(agentsDir string, discovered []resource.DiscoveredResource) []AgentCheckResult {
 
 	// Load centralized metadata store (auto-migrates any lingering sidecars).
 	store, loadErr := install.LoadMetadata(agentsDir)

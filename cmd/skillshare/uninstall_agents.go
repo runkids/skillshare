@@ -35,8 +35,12 @@ func cmdUninstallAgents(agentsDir string, opts *uninstallOptions, cfgPath string
 		return fail(fmt.Errorf("cannot access agents source: %w", err))
 	}
 
-	// Discover all agents for resolution
-	discovered, discErr := resource.AgentKind{}.Discover(agentsDir)
+	// Names and --group can reach agents in .agentignore'd folders, which list shows.
+	discover := resource.AgentKind{}.DiscoverAll
+	if opts.all {
+		discover = resource.AgentKind{}.Discover
+	}
+	discovered, discErr := discover(agentsDir)
 	if discErr != nil {
 		return fail(fmt.Errorf("failed to discover agents: %w", discErr))
 	}
@@ -44,7 +48,8 @@ func cmdUninstallAgents(agentsDir string, opts *uninstallOptions, cfgPath string
 	// Resolve targets
 	var targets []resource.DiscoveredResource
 	if opts.all {
-		targets = discovered
+		// Like skills, --all leaves .agentignore'd agents alone; name them to remove them.
+		targets = resource.ActiveAgents(discovered)
 		if len(targets) == 0 {
 			if opts.jsonOutput {
 				jsonUI.Flush()
@@ -55,17 +60,11 @@ func cmdUninstallAgents(agentsDir string, opts *uninstallOptions, cfgPath string
 		}
 	} else {
 		for _, input := range opts.skillNames {
-			found := false
-			for _, d := range discovered {
-				if d.Name == input || d.FlatName == input || d.RelPath == input || strings.TrimSuffix(d.RelPath, ".md") == input {
-					targets = append(targets, d)
-					found = true
-					break
-				}
-			}
+			d, found := resource.FindAgent(discovered, input)
 			if !found {
 				return fail(fmt.Errorf("agent %q not found in %s", input, agentsDir))
 			}
+			targets = append(targets, d)
 		}
 
 		// Resolve --group targets

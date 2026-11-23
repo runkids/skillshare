@@ -42,7 +42,7 @@ func NewIgnoreReport(stats *skillignore.IgnoreStats, agentsSource string, agents
 			r.AgentIgnoreRoot = ignoreFile
 		}
 		if agents == nil {
-			agents, _ = resource.AgentKind{}.Discover(agentsSource)
+			agents, _ = resource.AgentKind{}.DiscoverAll(agentsSource)
 		}
 		for _, a := range agents {
 			if a.Disabled {

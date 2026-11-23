@@ -123,7 +123,7 @@ func (s *Server) handleToggleSkill(w http.ResponseWriter, r *http.Request, enabl
 func (s *Server) disabledByRelPath(kind, source, agentsSource string) (map[string]bool, error) {
 	states := map[string]bool{}
 	if kind == "agent" {
-		discovered, err := resource.AgentKind{}.Discover(agentsSource)
+		discovered, err := resource.AgentKind{}.DiscoverAll(agentsSource)
 		if err != nil {
 			return nil, fmt.Errorf("failed to discover agents: %w", err)
 		}

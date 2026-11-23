@@ -336,7 +336,7 @@ skillshare uninstall --kind agent tutor reviewer -f   # 移除多個 agents
 skillshare uninstall --kind agent --all               # 移除所有 agents
 ```
 
-Agent 解除安裝遵循與 skills 相同的 trash 保留行為（移到 trash，保留 7 天）。背景說明見 [Agents](/docs/understand/agents)。
+Agent 解除安裝遵循與 skills 相同的 trash 保留行為（移到 trash，保留 7 天）。`--all` 會保留被 `.agentignore` 停用的 agents；要移除它們，請指定名稱或使用 `--group`。指定 agent 的路徑（`archive/reviewer`）或 flat name 時，一定會選中該 agent，即使它已停用；多個 agents 共用同一個 agent 名稱時，只寫名稱會優先選中已啟用的那個。背景說明見 [Agents](/docs/understand/agents)。
 
 ## 另見
 

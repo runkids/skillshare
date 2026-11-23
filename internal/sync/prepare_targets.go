@@ -10,10 +10,11 @@ import (
 )
 
 // DiscoverTargetAgents preserves agent discovery's empty-source/prune behavior.
-// all also holds .agentignore'd agents, so NewIgnoreReport needs no second scan.
+// all also holds .agentignore'd agents, including those in ignored folders as
+// the skills ignore stats do, so NewIgnoreReport needs no second scan.
 func DiscoverTargetAgents(source string) (active, all []resource.DiscoveredResource, available bool) {
 	if info, err := os.Stat(source); err == nil && info.IsDir() {
-		all, _ = (resource.AgentKind{}).Discover(source)
+		all, _ = (resource.AgentKind{}).DiscoverAll(source)
 		if all == nil {
 			// NewIgnoreReport treats nil as a rescan request; preserve an empty snapshot.
 			all = []resource.DiscoveredResource{}
