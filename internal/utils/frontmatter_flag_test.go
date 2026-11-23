@@ -169,3 +169,22 @@ func TestToggleFrontmatterFlag_FlowRoot(t *testing.T) {
 		})
 	}
 }
+
+// A new header on top would hide the one readers already use.
+func TestToggleFrontmatterFlag_RefusesHeaderItCannotLocate(t *testing.T) {
+	for _, in := range []string{
+		"---\nname: s\ndescription: d\n\n# Body\n", // never closed
+		"# Title\n---\nname: s\n---\nBody\n",       // below other text
+	} {
+		path := filepath.Join(t.TempDir(), "SKILL.md")
+		if err := os.WriteFile(path, []byte(in), 0644); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := ToggleFrontmatterFlag(path, "disable-model-invocation"); err == nil {
+			t.Fatalf("%q: expected a refusal", in)
+		}
+		if got, _ := os.ReadFile(path); string(got) != in {
+			t.Fatalf("%q changed to %q", in, got)
+		}
+	}
+}

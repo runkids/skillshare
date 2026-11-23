@@ -11,7 +11,12 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { TriangleAlert } from 'lucide-react';
 import { api, ApiError, type Skill } from '../../api/client';
-import { composeSkillMarkdown, parseSkillMarkdown, type Frontmatter } from '../../lib/frontmatter';
+import {
+  composeSkillMarkdown,
+  parseSkillMarkdown,
+  withBody,
+  type Frontmatter,
+} from '../../lib/frontmatter';
 import { highlightLines } from '../../lib/highlight';
 import { parseRemoteURL } from '../../lib/parseRemoteURL';
 import { folderOf, formatTrackedRepoName } from '../../lib/resourceNames';
@@ -117,14 +122,16 @@ export default function SkillEditor({ resource, docName, initialContent, onBack,
   const dirty = fmDirty || body !== initial.body;
   const sourceChanged = source !== (resource.source ?? '');
   const pending = dirty || sourceChanged;
-  const next = composeSkillMarkdown(
-    migrateRootTargets(fm),
-    body,
-    undefined,
-    fmDirty ? undefined : initial.rawFrontmatter,
-    initial.bom,
-    initial.rawFrontmatter,
-  );
+  const next = fmDirty
+    ? composeSkillMarkdown(
+        migrateRootTargets(fm),
+        body,
+        undefined,
+        undefined,
+        initial.bom,
+        initial.rawFrontmatter,
+      )
+    : withBody(initial, body);
 
   const save = async () => {
     setSaving(true);

@@ -65,6 +65,8 @@ func snapshotFrontmatter(t *testing.T, content string) fmSnapshot {
 // same file can give different answers. These cases pin each entry point's current answer
 // on the inputs where the rules differ; they are not a statement of what is right.
 func TestFrontmatterEntryPoints_DelimiterRules(t *testing.T) {
+	// The target writer refuses a header it cannot locate but the readers accept.
+	refused := "error: " + ErrTargetFrontmatter.Error() + ": frontmatter --- lines are indented, unclosed or below other text"
 	tests := []struct {
 		name    string
 		content string
@@ -83,12 +85,12 @@ func TestFrontmatterEntryPoints_DelimiterRules(t *testing.T) {
 		{
 			name:    "indented opening delimiter",
 			content: "  ---\nname: a\ntargets: [t]\n---\nbody\n",
-			want:    fmSnapshot{SkillName: "a", Field: "a", Fields: "a", List: "t", ListBytes: "t", Map: "error: no frontmatter at the start", Body: "body", Rewrite: "---\ntargets:\n  - x\n---\n  ---\nname: a\ntargets: [t]\n---\nbody\n"},
+			want:    fmSnapshot{SkillName: "a", Field: "a", Fields: "a", List: "t", ListBytes: "t", Map: "error: no frontmatter at the start", Body: "body", Rewrite: refused},
 		},
 		{
 			name:    "indented closing delimiter",
 			content: "---\nname: a\ntargets: [t]\n  ---\nbody\n",
-			want:    fmSnapshot{SkillName: "a", Field: "a", Fields: "a", List: "t", ListBytes: "t", Map: "error: unclosed frontmatter: no closing ---", Body: "body", Rewrite: "---\ntargets:\n  - x\n---\n---\nname: a\ntargets: [t]\n  ---\nbody\n"},
+			want:    fmSnapshot{SkillName: "a", Field: "a", Fields: "a", List: "t", ListBytes: "t", Map: "error: unclosed frontmatter: no closing ---", Body: "body", Rewrite: refused},
 		},
 		{
 			name:    "blank line before the opening delimiter",
@@ -98,7 +100,7 @@ func TestFrontmatterEntryPoints_DelimiterRules(t *testing.T) {
 		{
 			name:    "text before the opening delimiter",
 			content: "# Title\n---\nname: a\ntargets: [t]\n---\nbody\n",
-			want:    fmSnapshot{SkillName: "a", Field: "a", Fields: "a", List: "t", ListBytes: "t", Map: "error: no frontmatter at the start", Body: "# Title\n---\nname: a\ntargets: [t]\n---\nbody", Rewrite: "---\ntargets:\n  - x\n---\n# Title\n---\nname: a\ntargets: [t]\n---\nbody\n"},
+			want:    fmSnapshot{SkillName: "a", Field: "a", Fields: "a", List: "t", ListBytes: "t", Map: "error: no frontmatter at the start", Body: "# Title\n---\nname: a\ntargets: [t]\n---\nbody", Rewrite: refused},
 		},
 		{
 			name:    "first line only starts with dashes",
@@ -108,7 +110,7 @@ func TestFrontmatterEntryPoints_DelimiterRules(t *testing.T) {
 		{
 			name:    "unclosed block",
 			content: "---\nname: a\ntargets: [t]\nbody: text\n",
-			want:    fmSnapshot{SkillName: "a", Field: "a", Fields: "a", List: "t", ListBytes: "t", Map: "error: unclosed frontmatter: no closing ---", Body: "", Rewrite: "---\ntargets:\n  - x\n---\n---\nname: a\ntargets: [t]\nbody: text\n"},
+			want:    fmSnapshot{SkillName: "a", Field: "a", Fields: "a", List: "t", ListBytes: "t", Map: "error: unclosed frontmatter: no closing ---", Body: "", Rewrite: refused},
 		},
 		{
 			name:    "trailing spaces after the delimiters",
