@@ -706,9 +706,9 @@ skillshare install <repo> --kind agent --all --force
    [gitignore 構文](https://git-scm.com/docs/gitignore) を使用します。
 
 **解決策:** `skillshare doctor` でファイルパスを確認し、パターンを再チェックしてください。
-Agent はベース名（`.md` を除く）でマッチするため、`draft-*` は `draft-experiment.md` に
-マッチします。CLI にエントリを書き込ませるには `skillshare disable <agent> --kind agent` を
-使用してください。
+パターンは `.md` を含む Agent のファイルパスにマッチします。`draft-*` は `draft-experiment.md` に
+マッチしますが、手書きの `draft-experiment` 行は何にもマッチしません。CLI にエントリを書き込ませるには
+`skillshare disable <agent> --kind agent` を使用してください。`.md` は CLI が付けます。
 
 ---
 

@@ -311,7 +311,7 @@ Agent 文件名只能使用 `a-z`、`0-9`、`_`、`-`、`.`。与 skill 不同�
 draft-*
 
 # 禁用特定 agent
-experimental-reviewer
+experimental-reviewer.md
 ```
 
 使用 [gitignore 语法](https://git-scm.com/docs/gitignore)。与 `.skillignore` 相同的模式规则适用（`*`、`**`、`!negation`、`#` 注释等）。被禁用的 agent 仍保留在来源目录中，但会从同步中排除。

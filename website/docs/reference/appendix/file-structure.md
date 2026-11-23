@@ -311,7 +311,7 @@ Excludes agents from sync. Lives at the agents source root:
 draft-*
 
 # Disable a specific agent
-experimental-reviewer
+experimental-reviewer.md
 ```
 
 Uses [gitignore syntax](https://git-scm.com/docs/gitignore). The same pattern rules as `.skillignore` apply (`*`, `**`, `!negation`, `#` comments, etc.). Disabled agents remain in the source directory but are excluded from sync.

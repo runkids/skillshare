@@ -57,7 +57,7 @@ func cmdListProject(root string, opts listOptions, kind resourceKindFilter) erro
 			sortSkillEntries(allEntries, sortBy)
 			return listLoadResult{skills: toSkillItems(allEntries), totalCount: total, discovered: discovered}
 		}
-		action, skillName, skillKind, err := runListTUI(loadFn, "project", skillsSource, agentsSource, targets, "", kind, opts.Status)
+		action, skillName, skillKind, err := runListTUI(loadFn, "project", skillsSource, agentsSource, targets, skillsWalk, "", kind, opts.Status)
 		printSkippedSourceLinkWarnings(skillsWalk, false)
 		if err != nil {
 			return err

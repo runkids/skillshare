@@ -23,6 +23,8 @@ skillshare disable my-skill -p      # Project mode
 
 `disable` は `.skillignore` にパターンを追加し、`enable` はそれを削除します。無効化された Skill は Source ディレクトリには残りますが、`sync` と `collect` の対象からは除外されます。
 
+Skill 名はその名前のフォルダにあるすべての Skill を指すため、`enable inner` は `group/inner` と `other/inner` の両方に作用します。`group/inner` のような正確なパスや `group__inner` のような flat name は、その Skill だけを指します。`enable` は名前が指す各 Skill について、そのパスの行（list TUI とダッシュボードが書き込む行）も削除するため、`enable inner` は `group/inner` も削除します。各 `✓` 行には、書き込み・削除した行が表示されます。`disable` は、その行が Skill に一致する場合は入力した名前をそのまま書き込みます。どの行にも一致しない flat name の場合は、代わりに Skill のパスを書き込みます。
+
 ```mermaid
 flowchart LR
     DIS["skillshare disable my-skill"]
@@ -85,10 +87,31 @@ $ skillshare disable my-skill --dry-run
 
 Dry run — nothing was written
 
+# プレビューには、enable が削除するパスの行も含めてすべての行が表示されます
+$ skillshare enable inner --dry-run
+  inner        would be removed from ~/.config/skillshare/skills/.skillignore
+  group/inner  would be removed from ~/.config/skillshare/skills/.skillignore
+
+Dry run — nothing was written
+
 # すでに無効化されている場合
 $ skillshare disable my-draft
 ! my-draft  already disabled
 ```
+
+## 別のルールが状態を決めている場合
+
+`disable` と `enable` が書き込み・削除するのは 1 行だけですが、ほかのルールが Skill の状態を決めることがあります。`draft-*` のような glob、`frontend/` のようなフォルダルール、`.skillignore.local` の `!` ルール、tracked repo 自身の `.skillignore` などです。書き込み後、skillshare は指定した各 Skill や Agent を `skillshare list` が示す状態で確認します。元の状態のままなら、編集すべきファイルを示す `✗` 行を出力し、終了ステータス 1 で終了します。
+
+```bash
+$ skillshare enable draft-one
+
+✗ could not enable draft-one: still disabled: another rule in .skillignore or .skillignore.local matches it — remove that rule to enable it
+```
+
+複数がブロックされた場合は、それぞれに `✗` 行が出ます。反映された変更はそのまま残って `✓` で表示され、操作ログには `partial` として記録されます。
+
+`"draft-*"` のような glob 引数は単一の Skill を指さないため、この確認なしで書き込み・削除されます。
 
 ## フォルダ全体を無効化する
 
@@ -118,7 +141,7 @@ Next
 
 ## TUI での切り替え
 
-`skillshare list` の TUI でも Skill の有効/無効を切り替えられます。変更は即座に `.skillignore` に書き込まれます。
+`skillshare list` の TUI でも Skill の有効/無効を切り替えられます。変更は即座に `.skillignore` に書き込まれます。別のルールで Skill が元の状態のままの場合、行は変わらず、キー行に CLI と同じ `✗` メッセージが表示されます。
 
 ## .skillignore はどこにある?
 
@@ -138,6 +161,8 @@ skillshare disable --kind agent draft-reviewer     # Agent を無効化
 skillshare enable --kind agent draft-reviewer      # 再有効化
 skillshare disable --kind agent "experimental-*"   # パターンで無効化
 ```
+
+`.agentignore` の各行は `.md` を含むファイル名にマッチします。`.md` なしの名前が同じファイル名の Agent を指す場合は `.md` を付けて書き込むため、`draft-reviewer` は `draft-reviewer.md` として書き込まれます。Agent の frontmatter `name` を指定した場合はそのパスを書き込むため、`rev.md` に対する `disable --kind agent critic` は `rev.md` を書き込みます。
 
 | モード | `.agentignore` のパス |
 |------|---------------------|

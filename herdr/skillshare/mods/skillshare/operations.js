@@ -72,9 +72,10 @@ const OPS = {
     if (!args) return error("This action is unavailable.");
     step(`${req.action === "enable" ? "Enabling" : "Disabling"} ${it.label}…`);
     const r = await job(args, at(req, it.scope));
-    if (r.code !== 0) return error(failure(r, `skillshare ${req.action}`));
-    // Exit 0 only says the entry's own line was written. A glob, a folder pattern or a negation in
-    // the .local file can still decide the other way, so the list is what answers.
+    // skillshare exits 1 when another pattern (a glob, a folder rule, a negation in the .local file,
+    // a tracked repo's own .skillignore) keeps the entry as it was; its last line names the file.
+    if (r.code !== 0) return error(failure(r, `skillshare ${req.action}`).replace(/^✗\s*/, ""));
+    // An older skillshare exits 0 even then, so the list is what answers.
     const kind = it.kind === "agents" ? "agent" : "skill", want = req.action === "disable";
     const now = (parseJSON((await job(["list", "--all", "--json", flag(it.scope)], at(req, it.scope))).stdout) ?? []).find?.((x) => (x.kind ?? "skill") === kind && (x.relPath ?? x.name) === it.path);
     if (now && Boolean(now.disabled) !== want) {

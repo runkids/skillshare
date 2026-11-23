@@ -206,7 +206,7 @@ Example:
 # Disable draft agents
 draft-*
 # Disable a specific agent
-experimental-reviewer
+experimental-reviewer.md
 ```
 
 Use `enable`/`disable` with `--kind agent` to manage entries:

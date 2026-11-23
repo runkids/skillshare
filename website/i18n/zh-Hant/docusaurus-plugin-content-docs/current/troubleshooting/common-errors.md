@@ -644,7 +644,7 @@ skillshare install <repo> --kind agent --all --force
 1. 檔案位置錯誤。它必須放在 Agent Source 根目錄下：`~/.config/skillshare/agents/.agentignore`（Global）或 `.skillshare/agents/.agentignore`（Project）。
 2. 你的樣式比對到了非預期的部分 — 此檔案使用 [gitignore 語法](https://git-scm.com/docs/gitignore)。
 
-**解決方法：** 用 `skillshare doctor` 確認檔案路徑，並重新檢查樣式。Agent 是以基本檔名（不含 `.md`）進行比對的，所以 `draft-*` 會比對到 `draft-experiment.md`。使用 `skillshare disable <agent> --kind agent` 讓 CLI 幫你寫入該項目。
+**解決方法：** 用 `skillshare doctor` 確認檔案路徑，並重新檢查樣式。樣式比對的是 agent 的檔案路徑（包含 `.md`）：`draft-*` 會比對到 `draft-experiment.md`，但手寫的 `draft-experiment` 這一行什麼都比對不到。使用 `skillshare disable <agent> --kind agent` 讓 CLI 幫你寫入該項目，它會補上 `.md`。
 
 ---
 

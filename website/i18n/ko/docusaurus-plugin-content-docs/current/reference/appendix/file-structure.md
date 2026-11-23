@@ -311,7 +311,7 @@ Sync에서 Agent를 제외합니다. Agent Source 루트에 위치합니다:
 draft-*
 
 # 특정 Agent 비활성화
-experimental-reviewer
+experimental-reviewer.md
 ```
 
 [gitignore 문법](https://git-scm.com/docs/gitignore)을 사용합니다. `.skillignore`와 동일한 패턴 규칙(`*`, `**`, `!negation`, `#` 주석 등)이 적용됩니다. 비활성화된 Agent는 Source 디렉터리에 남아 있지만 Sync에서 제외됩니다.

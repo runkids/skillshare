@@ -206,7 +206,7 @@ skillshare collect -p agents --json
 # Disable draft agents
 draft-*
 # Disable a specific agent
-experimental-reviewer
+experimental-reviewer.md
 ```
 
 항목을 관리하려면 `--kind agent`와 함께 `enable`/`disable`을 사용하세요:
