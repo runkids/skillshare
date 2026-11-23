@@ -758,7 +758,7 @@ See [sync extras](/docs/reference/commands/sync#sync-extras) for usage details.
 
 ### `ignore`
 
-Glob patterns for files to skip during sync.
+Glob patterns for files to skip during sync. `diff` leaves the same files out when it compares a copy-mode target.
 
 ```yaml
 ignore:

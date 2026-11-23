@@ -137,6 +137,8 @@ claude
 
 Both `--stat` and `--patch` imply `--no-tui` (plain text output).
 
+For a copy-mode target, file-level details leave out the files sync does not copy: those matching [`ignore`](/docs/reference/targets/configuration#ignore) or its default patterns.
+
 ## What Diff Shows
 
 ### Merge Mode Targets

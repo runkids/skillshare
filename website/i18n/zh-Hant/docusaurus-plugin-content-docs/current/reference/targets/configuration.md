@@ -748,7 +748,7 @@ Extras 在 Global 與 Project mode 下都能運作。在 Project mode 下，Sour
 
 ### `ignore`
 
-同步期間要跳過的檔案 glob 樣式。
+同步期間要跳過的檔案 glob 樣式。`diff` 比對 copy 模式的 target 時，也會排除相同的檔案。
 
 ```yaml
 ignore:

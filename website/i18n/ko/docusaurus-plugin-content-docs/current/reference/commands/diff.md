@@ -137,6 +137,8 @@ claude
 
 `--stat`과 `--patch` 모두 `--no-tui`(plain text 출력)를 암시합니다.
 
+copy 모드 target에서는 파일 단위 세부 정보에 sync가 복사하지 않는 파일([`ignore`](/docs/reference/targets/configuration#ignore) 또는 그 기본 패턴에 일치하는 파일)이 포함되지 않습니다.
+
 ## Diff가 보여주는 내용
 
 ### Merge Mode Target

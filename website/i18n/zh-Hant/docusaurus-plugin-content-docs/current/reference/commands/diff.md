@@ -137,6 +137,8 @@ claude
 
 `--stat` 與 `--patch` 兩者皆隱含 `--no-tui`（純文字輸出）。
 
+對於 copy 模式的 target，檔案層級的細節不包含 sync 不會複製的檔案，也就是符合 [`ignore`](/docs/reference/targets/configuration#ignore) 或其預設模式的檔案。
+
 ## Diff 顯示的內容
 
 ### Merge 模式的 Targets

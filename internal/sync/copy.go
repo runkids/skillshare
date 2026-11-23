@@ -509,6 +509,34 @@ type checksumEntry struct {
 // collectChecksumEntries recursively collects file entries for checksumming.
 // Directory symlinks are dereferenced to hash effective copied content.
 func collectChecksumEntries(root, relPrefix string, entries *[]checksumEntry, active map[string]bool, ignore *skillignore.Matcher) error {
+	return walkCopiedFiles(root, relPrefix, active, ignore, func(relPath, path string) error {
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		*entries = append(*entries, checksumEntry{relPath: relPath, content: content})
+		return nil
+	})
+}
+
+// CopiedFiles lists, by skill-relative path, the files copy mode copies from
+// dir under ignorePatterns. Directory symlinks are followed as the copy does.
+func CopiedFiles(dir string, ignorePatterns []string) (map[string]os.FileInfo, error) {
+	files := map[string]os.FileInfo{}
+	err := walkCopiedFiles(dir, "", map[string]bool{}, compileFileIgnore(ignorePatterns), func(relPath, path string) error {
+		info, err := os.Stat(path)
+		if err != nil {
+			return err
+		}
+		files[relPath] = info
+		return nil
+	})
+	return files, err
+}
+
+// walkCopiedFiles calls visit for each file the copy walk copies from root,
+// with its skill-relative path. Directory symlinks are dereferenced.
+func walkCopiedFiles(root, relPrefix string, active map[string]bool, ignore *skillignore.Matcher, visit func(relPath, path string) error) error {
 	resolvedRoot, err := resolveLinkRoot(root)
 	if err != nil {
 		return fmt.Errorf("failed to resolve checksum root %s: %w", root, err)
@@ -568,16 +596,10 @@ func collectChecksumEntries(root, relPrefix string, entries *[]checksumEntry, ac
 				if resolveErr != nil {
 					return fmt.Errorf("failed to resolve symlink directory %s: %w", path, resolveErr)
 				}
-				return collectChecksumEntries(resolvedDir, fullRelPath, entries, active, ignore)
+				return walkCopiedFiles(resolvedDir, fullRelPath, active, ignore, visit)
 			}
 		}
 
-		content, err := os.ReadFile(path)
-		if err != nil {
-			return err
-		}
-
-		*entries = append(*entries, checksumEntry{relPath: fullRelPath, content: content})
-		return nil
+		return visit(fullRelPath, path)
 	})
 }
