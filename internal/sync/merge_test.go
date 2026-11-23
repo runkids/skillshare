@@ -284,6 +284,56 @@ func TestSyncTargetMerge_KeepsEditedCopyModeCopy(t *testing.T) {
 	}
 }
 
+// syncCopyThenMerge copies skill alpha under patterns, runs edit on the copy,
+// then switches the target to merge with the same patterns.
+func syncCopyThenMerge(t *testing.T, patterns []string, edit func(copyDir string)) (SkillTargetResult, string) {
+	t.Helper()
+	src, tgt := setupMergeTest(t, "alpha")
+	if err := os.WriteFile(filepath.Join(src, "alpha", ".DS_Store"), []byte("finder"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	skills, err := DiscoverSourceSkills(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	opts := SkillRunOptions{Source: src, IgnorePatterns: EffectiveFileIgnorePatterns(patterns)}
+	copyTarget := config.TargetConfig{Path: tgt, Mode: "copy"}
+	if res := SyncSkillTarget(SkillTarget{Name: "test", Target: copyTarget, Mode: "copy"}, skills, opts); res.Err != nil {
+		t.Fatal(res.Err)
+	}
+	copyDir := filepath.Join(tgt, "alpha")
+	edit(copyDir)
+	mergeTarget := config.TargetConfig{Path: tgt, Mode: "merge"}
+	return SyncSkillTarget(SkillTarget{Name: "test", Target: mergeTarget, Mode: "merge"}, skills, opts), copyDir
+}
+
+// ignore: can re-include a file the defaults leave out; the copy then holds it
+// and is still copy mode's unedited copy.
+func TestSyncTargetMerge_ReplacesCopyWithReincludedDefault(t *testing.T) {
+	res, copyDir := syncCopyThenMerge(t, []string{"!.DS_Store"}, func(string) {})
+	if res.Err != nil {
+		t.Fatal(res.Err)
+	}
+	if len(res.Updated) != 1 || !utils.IsSymlinkOrJunction(copyDir) {
+		t.Errorf("expected the unedited copy replaced with a link, got updated=%v skipped=%v", res.Updated, res.Skipped)
+	}
+}
+
+// A file the user adds to the copy is their work even when ignore: names it.
+func TestSyncTargetMerge_KeepsCopyWithAddedIgnoredFile(t *testing.T) {
+	res, copyDir := syncCopyThenMerge(t, []string{"notes.md"}, func(dir string) {
+		if err := os.WriteFile(filepath.Join(dir, "notes.md"), []byte("mine"), 0644); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if res.Err != nil {
+		t.Fatal(res.Err)
+	}
+	if got, err := os.ReadFile(filepath.Join(copyDir, "notes.md")); err != nil || string(got) != "mine" {
+		t.Errorf("the added file must stay, got skipped=%v updated=%v err=%v", res.Skipped, res.Updated, err)
+	}
+}
+
 // A folder the manifest records as a link is not a copy-mode copy; it is the user's.
 func TestSyncTargetMerge_KeepsFolderRecordedAsLink(t *testing.T) {
 	src, tgt := setupMergeTest(t, "alpha")

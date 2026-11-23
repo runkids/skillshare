@@ -627,6 +627,20 @@ func SyncTargetMerge(name string, target config.TargetConfig, sourcePath string,
 // avoiding redundant filesystem walks when syncing multiple targets.
 // sourcePath is the skills source directory, used to detect symlink-mode targets.
 func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkills []DiscoveredSkill, sourcePath string, dryRun, force bool, projectRoot string) (*MergeResult, error) {
+	return SyncTargetMergeWithSkillsOptions(name, target, allSkills, sourcePath, dryRun, force, projectRoot, MergeOptions{
+		IgnorePatterns: DefaultFileIgnorePatterns(),
+	})
+}
+
+// MergeOptions controls merge-mode sync behavior.
+type MergeOptions struct {
+	// IgnorePatterns are the effective copy-mode patterns, used to recognize
+	// an unedited copy that copy mode left behind.
+	IgnorePatterns []string
+}
+
+// SyncTargetMergeWithSkillsOptions is SyncTargetMergeWithSkills with options.
+func SyncTargetMergeWithSkillsOptions(name string, target config.TargetConfig, allSkills []DiscoveredSkill, sourcePath string, dryRun, force bool, projectRoot string, opts MergeOptions) (*MergeResult, error) {
 	sc := target.SkillsConfig()
 	result := &MergeResult{}
 	if !sc.IsEnabled() {
@@ -717,7 +731,7 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 				result.Updated = append(result.Updated, activeName)
 			} else {
 				// It's a real directory
-				if force || manifest.OwnsCopy(activeName, targetSkillPath) {
+				if force || manifest.OwnsCopy(activeName, targetSkillPath, opts.IgnorePatterns) {
 					// Force, or an unedited copy left by copy mode: replace it with a symlink
 					if dryRun {
 						if !quietDryRun {

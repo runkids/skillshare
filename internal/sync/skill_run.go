@@ -67,7 +67,7 @@ func SyncSkillTarget(t SkillTarget, skills []DiscoveredSkill, opts SkillRunOptio
 
 	switch t.Mode {
 	case "merge":
-		result, err := SyncTargetMergeWithSkills(t.Name, t.Target, skills, opts.Source, opts.DryRun, opts.Force, opts.ProjectRoot)
+		result, err := SyncTargetMergeWithSkillsOptions(t.Name, t.Target, skills, opts.Source, opts.DryRun, opts.Force, opts.ProjectRoot, MergeOptions{IgnorePatterns: opts.IgnorePatterns})
 		if err != nil {
 			res.Err = err
 			return res

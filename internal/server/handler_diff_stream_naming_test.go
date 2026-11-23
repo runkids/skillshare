@@ -119,6 +119,38 @@ func TestComputeTargetDiff_MergeModeCopyModeCopyIsReplacedWithLink(t *testing.T)
 	}
 }
 
+// A copy made under ignore: ["!.DS_Store"] holds .DS_Store; it is still copy mode's copy.
+func TestComputeTargetDiff_MergeModeCopyWithReincludedDefaultIsReplacedWithLink(t *testing.T) {
+	source, target := t.TempDir(), t.TempDir()
+	for _, dir := range []string{filepath.Join(source, "alpha"), filepath.Join(target, "alpha")} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		for name, body := range map[string]string{"SKILL.md": "---\nname: alpha\n---\n", ".DS_Store": "finder"} {
+			if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	patterns := ssync.EffectiveFileIgnorePatterns([]string{"!.DS_Store"})
+	checksum, err := ssync.DirChecksumWithIgnore(filepath.Join(source, "alpha"), patterns)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ssync.WriteManifest(target, &ssync.Manifest{Managed: map[string]string{"alpha": checksum}}); err != nil {
+		t.Fatal(err)
+	}
+	discovered, err := ssync.DiscoverSourceSkills(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	dt := (&Server{}).computeTargetDiff("claude", config.TargetConfig{Skills: &config.ResourceTargetConfig{Path: target, Mode: "merge"}}, discovered, "merge", source, patterns)
+	if len(dt.Items) != 1 || dt.Items[0].Action != "update" || dt.Items[0].Reason != ssync.CopyToLinkReason {
+		t.Fatalf("items = %+v, want one update replacing the copy with a link", dt.Items)
+	}
+}
+
 func TestComputeTargetDiff_CountsNamingSkipsApartFromCollisions(t *testing.T) {
 	source, target := t.TempDir(), t.TempDir()
 	skills := map[string]string{"a/dev": "dev", "b/dev": "dev", "odd": "not-odd"}
