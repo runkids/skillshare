@@ -170,7 +170,7 @@ func TestDiffListsLinkFromAnotherToolAsOverride(t *testing.T) {
 	manifest, _ := sync.ReadManifest(target)
 
 	var merge, copyMode targetDiffResult
-	collectMergeDiff(&merge, target, source, names, map[string]string{"alpha": skill}, nil)
+	collectMergeDiff(&merge, target, source, names, map[string]string{"alpha": skill}, nil, nil)
 	collectCopyDiff(&copyMode, "claude", target, source, resolved, "flat", names, nil, manifest, nil, nil)
 
 	for mode, r := range map[string]targetDiffResult{"merge": merge, "copy": copyMode} {
@@ -178,6 +178,32 @@ func TestDiffListsLinkFromAnotherToolAsOverride(t *testing.T) {
 		if len(cats) != 1 || cats[0].kind != "override" {
 			t.Errorf("%s: want one local override, got items %+v", mode, r.items)
 		}
+	}
+}
+
+// A copy made under ignore: ["!.DS_Store"] holds .DS_Store; merge sync still
+// recognizes it as copy mode's copy and replaces it, so diff says so.
+func TestDiffMergeModeCopyWithReincludedDefaultIsReplacedWithLink(t *testing.T) {
+	source, target := t.TempDir(), t.TempDir()
+	skill, copyDir := filepath.Join(source, "alpha"), filepath.Join(target, "alpha")
+	for _, dir := range []string{skill, copyDir} {
+		writeTestFile(t, dir, "SKILL.md", "# alpha")
+		writeTestFile(t, dir, ".DS_Store", "finder")
+	}
+	patterns := sync.EffectiveFileIgnorePatterns([]string{"!.DS_Store"})
+	checksum, err := sync.DirChecksumWithIgnore(skill, patterns)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := sync.WriteManifest(target, &sync.Manifest{Managed: map[string]string{"alpha": checksum}}); err != nil {
+		t.Fatal(err)
+	}
+
+	var r targetDiffResult
+	collectMergeDiff(&r, target, source, map[string]bool{"alpha": true}, map[string]string{"alpha": skill}, nil, patterns)
+
+	if len(r.items) != 1 || r.items[0].reason != sync.CopyToLinkReason {
+		t.Fatalf("items = %+v, want the copy replaced with a link", r.items)
 	}
 }
 
@@ -196,7 +222,7 @@ func TestDiffListsOrphanLinkThatSyncPrunes(t *testing.T) {
 	}
 
 	var r targetDiffResult
-	collectMergeDiff(&r, target, source, map[string]bool{}, map[string]string{}, nil)
+	collectMergeDiff(&r, target, source, map[string]bool{}, map[string]string{}, nil, nil)
 
 	if len(r.items) != 1 || r.items[0].name != "removed" || r.items[0].action != "remove" || !r.items[0].isSync || r.syncCount != 1 {
 		t.Fatalf("items = %+v syncCount = %d, want only the orphan link listed as a sync change", r.items, r.syncCount)

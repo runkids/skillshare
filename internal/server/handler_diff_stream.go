@@ -209,7 +209,7 @@ func (s *Server) computeTargetDiff(name string, target config.TargetConfig, disc
 			}
 		} else if old, ok := renamedFrom[resolved.TargetName]; ok {
 			dt.Items = append(dt.Items, diffItem{Skill: resolved.TargetName, Action: "kept", Reason: ssync.KeptLegacyReason(old), Kind: kindSkill})
-		} else if manifest.OwnsCopy(resolved.TargetName, targetSkillPath) {
+		} else if manifest.OwnsCopy(resolved.TargetName, targetSkillPath, ignorePatterns) {
 			dt.Items = append(dt.Items, diffItem{Skill: resolved.TargetName, Action: "update", Reason: ssync.CopyToLinkReason, Kind: kindSkill})
 		} else {
 			dt.Items = append(dt.Items, diffItem{Skill: resolved.TargetName, Action: "skip", Reason: "local copy (sync --force to replace)", Kind: kindSkill})

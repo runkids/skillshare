@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"skillshare/internal/utils"
@@ -68,7 +69,8 @@ const CopyToLinkReason = "copy mode copy (sync replaces with link)"
 // OwnsCopy reports whether dir is still the copy that copy mode made for name:
 // the manifest records a checksum (not a merge-mode link) and the folder still
 // hashes to it, so nothing the user edited is lost when it is replaced.
-func (m *Manifest) OwnsCopy(name, dir string) bool {
+// ignorePatterns are the effective patterns the copy was made under.
+func (m *Manifest) OwnsCopy(name, dir string, ignorePatterns []string) bool {
 	if m == nil {
 		return false
 	}
@@ -76,8 +78,21 @@ func (m *Manifest) OwnsCopy(name, dir string) bool {
 	if !ok || recorded == manifestSymlink {
 		return false
 	}
-	sum, err := DirChecksumWithIgnore(dir, DefaultFileIgnorePatterns())
+	sum, err := DirChecksumWithIgnore(dir, copyHashPatterns(ignorePatterns))
 	return err == nil && sum == recorded
+}
+
+// copyHashPatterns keeps the default patterns and the rules that re-include
+// files. Hashing a copy under them counts every file sync copied, and still
+// counts a file the user added to the copy that ignore: names.
+func copyHashPatterns(ignorePatterns []string) []string {
+	out := DefaultFileIgnorePatterns()
+	for _, p := range ignorePatterns {
+		if strings.HasPrefix(p, "!") {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 // ForeignLinkReason is the diff reason for a same-name link that sync keeps

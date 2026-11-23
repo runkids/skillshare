@@ -623,7 +623,7 @@ func collectTargetDiff(name string, target config.TargetConfig, source, mode str
 		}
 	} else {
 		// Merge mode (instant)
-		collectMergeDiff(&r, sc.Path, source, sourceSkills, sourceMap, legacyNames)
+		collectMergeDiff(&r, sc.Path, source, sourceSkills, sourceMap, legacyNames, ignorePatterns)
 		dp.add(len(resolution.Skills))
 	}
 
@@ -770,7 +770,7 @@ func collectCopyDiff(r *targetDiffResult, targetName, targetPath, source string,
 	r.synced = len(r.items) == 0
 }
 
-func collectMergeDiff(r *targetDiffResult, targetPath, source string, sourceSkills map[string]bool, sourceMap map[string]string, legacyNames map[string]sync.ResolvedTargetSkill) {
+func collectMergeDiff(r *targetDiffResult, targetPath, source string, sourceSkills map[string]bool, sourceMap map[string]string, legacyNames map[string]sync.ResolvedTargetSkill, ignorePatterns []string) {
 	targetSkills := make(map[string]bool)
 	targetSymlinks := make(map[string]bool)
 	entries, err := os.ReadDir(targetPath)
@@ -806,7 +806,7 @@ func collectMergeDiff(r *targetDiffResult, targetPath, source string, sourceSkil
 			r.items = append(r.items, copyDiffEntry{action: "remove", name: skill, reason: sync.KeptLegacyReason(old), keptAt: old})
 		} else if !targetSymlinks[skill] {
 			reason := "local copy (sync --force to replace)"
-			if manifest.OwnsCopy(skill, dstDir) {
+			if manifest.OwnsCopy(skill, dstDir, ignorePatterns) {
 				reason = sync.CopyToLinkReason
 			}
 			r.items = append(r.items, copyDiffEntry{action: "modify", name: skill, reason: reason, isSync: true, srcDir: srcDir, dstDir: dstDir})
