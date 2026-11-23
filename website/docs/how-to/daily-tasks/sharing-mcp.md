@@ -63,7 +63,9 @@ JSON, such as a Codex approval mode; see [`options`](../../reference/commands/mc
 Agent that does not get them by sync: choose which skills, tick the Agents, and it marks
 the Agents that already sync skills and would see them twice. In a project's **MCP** tab,
 **From another project** fills the form with a server another project already has; the copy
-uses this project's Agents, not the other project's. **Import from a target** is
+uses this project's Agents, not the other project's. Its list can be searched by server
+name or project folder, and a server that several projects have under the same name with
+the same settings is listed once, with the folders that have it. **Import from a target** is
 separate and reads the servers an installed Agent already has. Either way the
 dashboard uses the same source, validation, preview and conflict rules as the
 CLI. **Sync MCP**, in the MCP page's Sync box, writes the MCP config files only. The

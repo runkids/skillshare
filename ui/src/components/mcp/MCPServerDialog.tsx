@@ -261,11 +261,21 @@ function ServerForm({
           label={t('mcp.copy.which')}
           value={copied}
           onChange={onCopy}
+          search={{
+            placeholder: t('mcp.copy.search'),
+            empty: t('mcp.copy.noMatch'),
+            clear: t('resources.search.clear'),
+          }}
           options={[
             { value: '', label: t('mcp.copy.pick') },
+            // Every folder is in the label, so search finds a shared server by any of them; the count stays visible when it is cut off.
             ...copyFrom.map((c) => ({
               value: copyKey(c),
-              label: `${c.name} · ${shortenHome(c.root)}`,
+              label: `${c.name} · ${c.roots.map(shortenHome).join(', ')}`,
+              trailing:
+                c.roots.length > 1
+                  ? t(plural('mcp.copy.projects', c.roots.length), { count: c.roots.length })
+                  : undefined,
             })),
           ]}
           disabled={saving}

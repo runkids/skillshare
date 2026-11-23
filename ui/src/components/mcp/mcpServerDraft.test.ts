@@ -44,7 +44,19 @@ describe('MCP server drafts', () => {
       },
     };
     expect(copyableServers(projects, '/work/app')).toEqual([
-      { root: '/work/web', name: 'docs', server: { command: 'docs' } },
+      { roots: ['/work/web'], name: 'docs', server: { command: 'docs' } },
+    ]);
+  });
+
+  it('offers a server several projects share once, and keeps differently set up ones apart', () => {
+    const projects = {
+      '/work/a': { servers: { docs: { command: 'docs', env: { A: '1', B: '2' } } } },
+      '/work/b': { servers: { docs: { env: { B: '2', A: '1' }, command: 'docs' } } },
+      '/work/c': { servers: { docs: { command: 'docs', args: ['--beta'] } } },
+    };
+    expect(copyableServers(projects, '/work/app').map((c) => c.roots)).toEqual([
+      ['/work/a', '/work/b'],
+      ['/work/c'],
     ]);
   });
 
