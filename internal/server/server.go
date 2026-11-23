@@ -344,6 +344,7 @@ func (s *Server) reloadConfig() error {
 		agentsDir := pcfg.EffectiveAgentsSource(s.projectRoot)
 		s.cfg.Source = skillsDir
 		s.cfg.AgentsSource = agentsDir
+		s.cfg.Ignore = pcfg.Ignore
 		if st, err := install.LoadMetadata(skillsDir); err == nil {
 			s.skillsStore = st
 		}

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"slices"
 	"testing"
+	"time"
 
 	"skillshare/internal/config"
 )
@@ -59,6 +60,48 @@ func TestHandleSync_ProjectModeParity(t *testing.T) {
 	link, err := os.Readlink(path)
 	if err != nil || filepath.IsAbs(link) {
 		t.Fatalf("project link = %q, %v; want relative link", link, err)
+	}
+}
+
+func TestProjectDashboard_AppliesIgnore(t *testing.T) {
+	root := t.TempDir()
+	src := filepath.Join(root, ".skillshare", "skills")
+	addSkill(t, src, "alpha")
+	if err := os.WriteFile(filepath.Join(src, "alpha", "notes.md"), []byte("notes"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	projectCfg := &config.ProjectConfig{
+		Ignore:  []string{"notes.md"},
+		Targets: []config.ProjectTargetEntry{{Name: "claude", Skills: &config.ResourceTargetConfig{Mode: "copy"}}},
+	}
+	if err := projectCfg.Save(root); err != nil {
+		t.Fatal(err)
+	}
+	s := NewProject(&config.Config{Source: src, Mode: "merge"}, projectCfg, root, "127.0.0.1:0", "", "")
+
+	if rr := projectRequest(t, s, http.MethodPost, "/api/sync", `{}`); rr.Code != http.StatusOK {
+		t.Fatalf("sync: %d %s", rr.Code, rr.Body)
+	}
+	if _, err := os.Stat(filepath.Join(root, ".claude", "skills", "alpha", "notes.md")); !os.IsNotExist(err) {
+		t.Errorf("sync copied a file the project's ignore: lists (err = %v)", err)
+	}
+
+	// Editing an ignored file must not make the copy look stale.
+	later := time.Now().Add(time.Hour)
+	if err := os.Chtimes(filepath.Join(src, "alpha", "notes.md"), later, later); err != nil {
+		t.Fatal(err)
+	}
+	rr := projectRequest(t, s, http.MethodGet, "/api/diff", "")
+	var resp struct {
+		Diffs []diffTarget `json:"diffs"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("diff: %d %s", rr.Code, rr.Body)
+	}
+	for _, d := range resp.Diffs {
+		if len(d.Items) > 0 {
+			t.Errorf("diff right after sync lists %s: %+v", d.Target, d.Items)
+		}
 	}
 }
 
