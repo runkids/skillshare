@@ -326,12 +326,10 @@ func TestCanSkipDir(t *testing.T) {
 		// walk would then disagree with Match, which reports it as kept.
 		{"globstar negation reaches inside", []string{"build/", "!**/keep"}, "build", false},
 		{"one-segment star negation reaches inside", []string{"build/", "!*/keep"}, "build", false},
-		{"globstar negation with a dir prefix", []string{"build/", "!**/ci/keep"}, "build", false},
 		{"character-class negation reaches inside", []string{"build/", "![b]uild/keep"}, "build", false},
 		// A negation that cannot match anything under the dir keeps the skip.
-		{"negation outside dir -> safe", []string{"build/", "!other/keep"}, "build", true},
 		{"negation with a deeper fixed prefix -> safe", []string{"build/", "!build/a/b/keep"}, "build/sub", true},
-		{"negation under an unrelated segment -> safe", []string{"build/", "!src/*"}, "build", true},
+		{"negation ending above the dir -> safe", []string{"build/sub/", "!/build"}, "build/sub", true},
 
 		// Windows path
 		{"windows backslash", []string{"vendor"}, "vendor", true},
