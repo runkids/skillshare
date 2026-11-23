@@ -512,6 +512,8 @@ func TestRewriteTargetsLeavesNoOpUntouched(t *testing.T) {
 		{"---\ncommon: &m {1: stable}\nmetadata: *m\n---\nbody\n", nil},
 		{"---\ncommon: &m {targets: [claude]}\nmetadata: *m\n---\nbody\n", []string{"claude"}},
 		{"# Agent\n\nbody\n", nil}, // no header, so nothing to clear
+		{"---\nname: demo\n", nil},
+		{"intro\n---\nmetadata:\n  targets: [claude]\n---\nbody\n", []string{"claude"}},
 	} {
 		got, err := RewriteFrontmatterList([]byte(tc.input), "metadata.targets", tc.values)
 		if err != nil || string(got) != tc.input {
@@ -547,6 +549,23 @@ func TestRewriteTargetsRefusesUnsupportedSource(t *testing.T) {
 		if !errors.Is(err, ErrTargetFrontmatter) || !strings.Contains(err.Error(), reason) {
 			t.Fatalf("%q: expected a typed refusal naming %q, got %v", header, reason, err)
 		}
+	}
+}
+
+// A header that never closes still holds the fields readers use, even when the rest is not YAML.
+func TestRewriteTargetsRefusesUnclosedHeader(t *testing.T) {
+	input := []byte("---\nname: demo\n\n# Demo\n\nplain prose\n")
+	if _, err := RewriteFrontmatterList(input, "metadata.targets", []string{"claude"}); !errors.Is(err, ErrTargetFrontmatter) {
+		t.Fatalf("expected a typed refusal, got %v", err)
+	}
+}
+
+// A --- rule in a file without frontmatter is body text, so the new header goes on top.
+func TestRewriteTargetsAddsHeaderAboveHorizontalRules(t *testing.T) {
+	input := "# Agent\n\none\n\n---\n\ntwo\n\n---\n\nthree\n"
+	got, err := RewriteFrontmatterList([]byte(input), "metadata.targets", []string{"claude"})
+	if want := "---\nmetadata:\n  targets:\n    - claude\n---\n" + input; err != nil || string(got) != want {
+		t.Fatalf("got %q, %v; want %q", got, err, want)
 	}
 }
 

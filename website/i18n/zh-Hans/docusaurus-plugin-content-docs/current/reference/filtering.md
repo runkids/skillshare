@@ -69,7 +69,7 @@ targets: [claude, cursor]
 
 **Tracked repos：** 在 dashboard 中为 tracked repo 内的 skill 设置的 targets 存储在 source 的 `.metadata.json` 中，而不是它的 SKILL.md，因此 clone 保持干净，`update` 也能照常运行。该设置优先于 skill 的 `metadata.targets`。
 
-**Dashboard 编辑：** 在 dashboard 中设置或清除 targets 时，只会改写文件 frontmatter 里的 `targets` 那几行；其他字段、换行格式和正文都保持原样。frontmatter 的写法无法这样安全编辑时，dashboard 会拒绝并保持文件不变，例如 `metadata` 是 YAML alias 或含有非字符串的 key、最外层 mapping 整体缩进，或 flow 写法的 `metadata: {...}` 中 target 列表不是 `[a, b]` 这种形式。遇到这种情况，请直接在文件中编辑 `targets`。
+**Dashboard 编辑：** 在 dashboard 中设置或清除 targets 时，只会改写文件 frontmatter 里的 `targets` 那几行；其他字段、换行格式和正文都保持原样。frontmatter 的写法无法这样安全编辑时，dashboard 会拒绝并保持文件不变，例如 frontmatter 前面有其他文字、`---` 行有缩进或缺少结尾的 `---` 行、`metadata` 是 YAML alias 或含有非字符串的 key、最外层 mapping 整体缩进，或 flow 写法的 `metadata: {...}` 中 target 列表不是 `[a, b]` 这种形式。遇到这种情况，请直接在文件中编辑 `targets`。
 
 ### Tracked repo 中的 Agent 专用变体 {#agent-specific-variants-in-tracked-repositories}
 

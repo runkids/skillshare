@@ -7,6 +7,7 @@ import (
 	"maps"
 	"os"
 	"reflect"
+	"slices"
 	"strings"
 	"unicode/utf8"
 
@@ -111,6 +112,18 @@ func applyListField(fm map[string]any, field string, values []string, preserveAb
 // change. The remedy also reaches folder-batch clients via their errors list.
 var ErrTargetFrontmatter = errors.New("cannot safely edit target frontmatter: edit targets in the file directly or use an unindented YAML mapping with explicit target values instead of aliases")
 
+// errUnlocatedHeader tells the user what to fix when a writer will not put a header over
+// one it cannot locate.
+var errUnlocatedHeader = errors.New("frontmatter --- lines are indented, unclosed or below other text")
+
+// hidesHeader reports whether a new header on top of content would hide one the readers
+// use but the writer could not locate: unclosed, indented or below other text. opened says
+// the writer saw an opening delimiter that never closes; that counts even when the text is
+// not valid YAML, since the readers that scan line by line still read it.
+func hidesHeader(content []byte, opened bool) bool {
+	return opened || len(decodeFrontmatter(locateFrontmatter(content, lenientBlock).withoutLastNewline())) != 0
+}
+
 // refuseTargetEdit keeps the reason next to the remedy for API clients.
 func refuseTargetEdit(reason any) error {
 	return fmt.Errorf("%w: %v", ErrTargetFrontmatter, reason)
@@ -120,8 +133,11 @@ func refuseTargetEdit(reason any) error {
 func rewriteTargets(data []byte, field string, values []string) ([]byte, error) {
 	beforeBlock := locateFrontmatter(data, rewriteBlock)
 	if !beforeBlock.closed {
-		if values == nil && ParseFrontmatterListFromBytes(data, "targets") == nil {
-			return data, nil // no reader sees targets here, so there is nothing to clear
+		if slices.Equal(ParseFrontmatterListFromBytes(data, "targets"), values) {
+			return data, nil // readers already see the requested targets
+		}
+		if hidesHeader(data, beforeBlock.open) {
+			return nil, refuseTargetEdit(errUnlocatedHeader)
 		}
 		return rewriteFrontmatterListLegacy(data, field, values)
 	}
@@ -417,6 +433,9 @@ func ToggleFrontmatterFlag(filePath, key string) (bool, error) {
 	fm := splitFrontmatterLines(string(data))
 	flagLine := key + ": true" + fm.cr
 	if fm.end < 0 {
+		if hidesHeader(data, fm.open >= 0) {
+			return false, errUnlocatedHeader
+		}
 		return true, os.WriteFile(filePath, []byte(fm.prepend(flagLine)), 0644)
 	}
 
@@ -530,6 +549,9 @@ func SetFrontmatterValue(filePath, key, value string) error {
 	fm := splitFrontmatterLines(string(data))
 	line := key + ": " + value + fm.cr
 	if fm.end < 0 {
+		// The one caller renames a fresh copy in a target. Refusing would fail the whole sync,
+		// so the copy gets a new header holding only the name; a header only readers accept
+		// (see hidesHeader) stays below it as body text.
 		return os.WriteFile(filePath, []byte(fm.prepend(line)), 0644)
 	}
 

@@ -11,6 +11,7 @@ import {
   parseSkillMarkdown,
   serializeFrontmatter,
   composeSkillMarkdown,
+  withBody,
   type Frontmatter,
   type FrontmatterNested,
 } from './frontmatter';
@@ -77,6 +78,12 @@ describe('parseSkillMarkdown', () => {
     const result = parseSkillMarkdown('# just a body');
     expect(result.hasFrontmatter).toBe(false);
     expect(result.body).toBe('# just a body');
+  });
+
+  it('saves a body edit without adding a header to a file that has none it can read', () => {
+    // The header is unclosed, so the editor shows it as body text; the user closes it there.
+    const parsed = parseSkillMarkdown('---\nname: foo\n# body');
+    expect(withBody(parsed, '---\nname: foo\n---\n# body')).toBe('---\nname: foo\n---\n# body');
   });
 
   it('round-trips via compose', () => {

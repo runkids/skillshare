@@ -276,3 +276,10 @@ export function composeSkillMarkdown(
   const bodyText = body.startsWith('\n') ? body : '\n' + body;
   return `${bom}${fmText}${bodyText}`;
 }
+
+/** What saving writes when only the body changed: the header text as written, and no new header for a file that had none. */
+export function withBody(parsed: ParsedSkillMarkdown, body: string): string {
+  return parsed.hasFrontmatter
+    ? composeSkillMarkdown(parsed.frontmatter, body, undefined, parsed.rawFrontmatter, parsed.bom)
+    : parsed.bom + body;
+}

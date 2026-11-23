@@ -69,7 +69,7 @@ targets: [claude, cursor]
 
 **Tracked repo:** dashboard에서 tracked repo 안의 skill에 설정한 targets는 해당 SKILL.md가 아니라 source의 `.metadata.json`에 저장됩니다. 그래서 clone은 깨끗하게 유지되고 `update`도 정상적으로 동작합니다. 이 설정은 skill의 `metadata.targets`보다 우선합니다.
 
-**Dashboard 편집:** dashboard에서 targets를 설정하거나 지우면 파일 frontmatter의 `targets` 줄만 다시 씁니다. 다른 필드, 줄바꿈 형식, 본문은 그대로 유지됩니다. 이 방식으로 안전하게 편집할 수 없는 형태의 frontmatter는 거부되며 파일은 바뀌지 않습니다. 예를 들어 `metadata`가 YAML 별칭이거나 문자열이 아닌 키를 포함하거나, 최상위 mapping 전체가 들여쓰기되어 있거나, flow 형식의 `metadata: {...}`에서 target 목록이 `[a, b]` 형태가 아닌 경우입니다. 이런 경우에는 파일에서 `targets`를 직접 편집하세요.
+**Dashboard 편집:** dashboard에서 targets를 설정하거나 지우면 파일 frontmatter의 `targets` 줄만 다시 씁니다. 다른 필드, 줄바꿈 형식, 본문은 그대로 유지됩니다. 이 방식으로 안전하게 편집할 수 없는 형태의 frontmatter는 거부되며 파일은 바뀌지 않습니다. 예를 들어 frontmatter 앞에 다른 텍스트가 있거나, `---` 줄이 들여쓰기되어 있거나 닫는 `---` 줄이 없거나, `metadata`가 YAML 별칭이거나 문자열이 아닌 키를 포함하거나, 최상위 mapping 전체가 들여쓰기되어 있거나, flow 형식의 `metadata: {...}`에서 target 목록이 `[a, b]` 형태가 아닌 경우입니다. 이런 경우에는 파일에서 `targets`를 직접 편집하세요.
 
 ### Tracked 저장소의 Agent별 변형본 {#agent-specific-variants-in-tracked-repositories}
 
