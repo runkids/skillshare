@@ -763,8 +763,11 @@ ignore:
 ```
 
 **Default patterns:**
-- `**/.DS_Store`
-- `**/.git/**`
+- `.DS_Store`
+- `.git/`
+- `__pycache__/`
+
+뒤에 오는 `!` 패턴은 무시된 폴더 안의 파일이라도 경로를 다시 포함합니다. `docs/`와 `!docs/keep.md`를 지정하면 `docs/`에서는 `docs/keep.md`만 복사됩니다. `!*.md`처럼 고정되지 않은 부정 패턴은 무시된 모든 폴더 안의 일치하는 파일을 다시 포함하므로, sync는 해당 폴더도 탐색합니다.
 
 ### `gitlab_hosts`
 

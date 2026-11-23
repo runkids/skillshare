@@ -758,8 +758,11 @@ ignore:
 ```
 
 **默认 pattern：**
-- `**/.DS_Store`
-- `**/.git/**`
+- `.DS_Store`
+- `.git/`
+- `__pycache__/`
+
+后面的 `!` pattern 会重新包含路径，即使是被忽略文件夹中的文件：设置 `docs/` 和 `!docs/keep.md` 时，`docs/` 中只有 `docs/keep.md` 会被复制。像 `!*.md` 这样未锚定的否定 pattern 会重新包含每个被忽略文件夹中匹配的文件，因此 sync 也会遍历这些文件夹。
 
 ### `gitlab_hosts`
 

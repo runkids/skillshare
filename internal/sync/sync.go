@@ -379,6 +379,11 @@ func copyDirectory(src, dst string) error {
 type copyDirectoryOpts struct {
 	SkipGit bool // skip .git directories
 	Ignore  *skillignore.Matcher
+
+	// relPrefix is the skill-root-relative path of src when the walk re-roots
+	// at a dereferenced directory symlink, so ignore rules match the same
+	// paths as the checksum walk.
+	relPrefix string
 }
 
 // copyDirectorySkipGit copies a directory recursively, skipping .git directories.
@@ -409,9 +414,15 @@ func copyDirectoryWithState(src, dst string, active map[string]bool, opts *copyD
 
 	skipGit := opts != nil && opts.SkipGit
 	var ignore *skillignore.Matcher
+	relPrefix := ""
 	if opts != nil {
 		ignore = opts.Ignore
+		relPrefix = opts.relPrefix
 	}
+
+	// Ignored directories entered only because a later negation may re-include
+	// something inside them. Each is created when a kept entry needs it.
+	pending := map[string]os.FileMode{}
 
 	// Walk the operation root itself as a directory, not as a second link hop.
 	src = resolvedSrc
@@ -424,17 +435,37 @@ func copyDirectoryWithState(src, dst string, active map[string]bool, opts *copyD
 		relPath = strings.ReplaceAll(relPath, "\\", "/")
 		dstPath := filepath.Join(dst, relPath)
 
+		// Ignore rules match paths relative to the skill root, like the
+		// checksum walk, even below a dereferenced directory symlink.
+		ignoreRel := relPath
+		if ignoreRel == "." {
+			ignoreRel = ""
+		}
+		if relPrefix != "" {
+			ignoreRel = strings.TrimSuffix(relPrefix+"/"+ignoreRel, "/")
+		}
+
 		if info.IsDir() {
 			if skipGit && info.Name() == ".git" {
 				return filepath.SkipDir
 			}
-			if relPath != "." && isFileIgnored(ignore, relPath, true) {
-				return filepath.SkipDir
+			if ignoreRel != "" && isFileIgnored(ignore, ignoreRel, true) {
+				if ignore.CanSkipDir(ignoreRel) {
+					return filepath.SkipDir
+				}
+				pending[dstPath] = info.Mode()
+				return nil
+			}
+			if err := createPendingDirs(filepath.Dir(dstPath), pending); err != nil {
+				return err
 			}
 			return os.MkdirAll(dstPath, info.Mode())
 		}
-		if isFileIgnored(ignore, relPath, false) {
+		if isFileIgnored(ignore, ignoreRel, false) {
 			return nil
+		}
+		if err := createPendingDirs(filepath.Dir(dstPath), pending); err != nil {
+			return err
 		}
 
 		// In copy mode we need real files/dirs, so directory symlinks are
@@ -449,12 +480,31 @@ func copyDirectoryWithState(src, dst string, active map[string]bool, opts *copyD
 				if resolveErr != nil {
 					return fmt.Errorf("failed to resolve symlink directory %s: %w", path, resolveErr)
 				}
-				return copyDirectoryWithState(resolvedDir, dstPath, active, opts)
+				subOpts := &copyDirectoryOpts{relPrefix: ignoreRel}
+				if opts != nil {
+					*subOpts = *opts
+					subOpts.relPrefix = ignoreRel
+				}
+				return copyDirectoryWithState(resolvedDir, dstPath, active, subOpts)
 			}
 		}
 
 		return copyFile(path, dstPath)
 	})
+}
+
+// createPendingDirs creates dir when the copy walk deferred it, after its
+// deferred parents, with the mode of the matching source directory.
+func createPendingDirs(dir string, pending map[string]os.FileMode) error {
+	mode, ok := pending[dir]
+	if !ok {
+		return nil
+	}
+	delete(pending, dir)
+	if err := createPendingDirs(filepath.Dir(dir), pending); err != nil {
+		return err
+	}
+	return os.MkdirAll(dir, mode)
 }
 
 // copyFile copies a single file

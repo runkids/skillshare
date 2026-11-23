@@ -768,8 +768,11 @@ ignore:
 ```
 
 **Default patterns:**
-- `**/.DS_Store`
-- `**/.git/**`
+- `.DS_Store`
+- `.git/`
+- `__pycache__/`
+
+A later `!` pattern re-includes a path, even a file inside an ignored folder: with `docs/` and `!docs/keep.md`, only `docs/keep.md` is copied from `docs/`. A negation that is not anchored, such as `!*.md`, re-includes matching files inside every ignored folder, so sync also walks those folders.
 
 ### `gitlab_hosts`
 

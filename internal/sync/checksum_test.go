@@ -92,6 +92,38 @@ func TestDirChecksumWithIgnore_SkipsIgnoredArtifacts(t *testing.T) {
 	}
 }
 
+func TestDirChecksumWithIgnore_NegationReincludesFileUnderIgnoredDir(t *testing.T) {
+	dir := t.TempDir()
+	writeIgnoreTestFiles(t, dir, map[string]string{
+		"SKILL.md":     "# A",
+		"docs/keep.md": "v1",
+		"tmp/note.txt": "v1",
+	})
+	// "!*.md" is unanchored, so the walk must enter tmp/ as well as docs/.
+	patterns := EffectiveFileIgnorePatterns([]string{"docs/", "tmp/", "!*.md"})
+
+	c1, err := DirChecksumWithIgnore(dir, patterns)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeIgnoreTestFiles(t, dir, map[string]string{"tmp/note.txt": "v2"})
+	c2, err := DirChecksumWithIgnore(dir, patterns)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c1 != c2 {
+		t.Error("changing an ignored file should not change the checksum")
+	}
+	writeIgnoreTestFiles(t, dir, map[string]string{"docs/keep.md": "v2"})
+	c3, err := DirChecksumWithIgnore(dir, patterns)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c2 == c3 {
+		t.Error("changing a re-included file should change the checksum")
+	}
+}
+
 func TestDirChecksum_EmptyDir(t *testing.T) {
 	dir := t.TempDir()
 
@@ -251,6 +283,31 @@ func TestDirMaxMtimeWithIgnore_SkipsIgnoredArtifacts(t *testing.T) {
 	}
 	if mt != fileTime.UnixNano() {
 		t.Errorf("ignored artifact mtime should not win; expected %d, got %d", fileTime.UnixNano(), mt)
+	}
+}
+
+func TestDirMaxMtimeWithIgnore_NegationReincludesFileUnderIgnoredDir(t *testing.T) {
+	dir := t.TempDir()
+	writeIgnoreTestFiles(t, dir, map[string]string{"SKILL.md": "# A", "docs/keep.md": "keep", "docs/drop.md": "drop"})
+	older := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	newer := time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC)
+	newest := time.Date(2025, 12, 31, 0, 0, 0, 0, time.UTC)
+	for path, mt := range map[string]time.Time{
+		filepath.Join(dir, "SKILL.md"):        older,
+		filepath.Join(dir, "docs", "keep.md"): newer,
+		filepath.Join(dir, "docs", "drop.md"): newest,
+	} {
+		if err := os.Chtimes(path, mt, mt); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	mt, err := DirMaxMtimeWithIgnore(dir, EffectiveFileIgnorePatterns([]string{"docs/", "!docs/keep.md"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mt != newer.UnixNano() {
+		t.Errorf("re-included file mtime should win over the ignored one; expected %d, got %d", newer.UnixNano(), mt)
 	}
 }
 

@@ -443,7 +443,7 @@ func DirMaxMtimeWithIgnore(dir string, ignorePatterns []string) (int64, error) {
 			if info.Name() == ".git" {
 				return filepath.SkipDir
 			}
-			if relPath != "." && isFileIgnored(ignore, relPath, true) {
+			if relPath != "." && ignore.CanSkipDir(relPath) {
 				return filepath.SkipDir
 			}
 			return nil
@@ -547,7 +547,7 @@ func collectChecksumEntries(root, relPrefix string, entries *[]checksumEntry, ac
 			if info.Name() == ".git" {
 				return filepath.SkipDir
 			}
-			if fullRelPath != "" && isFileIgnored(ignore, fullRelPath, true) {
+			if fullRelPath != "" && ignore.CanSkipDir(fullRelPath) {
 				return filepath.SkipDir
 			}
 			return nil
