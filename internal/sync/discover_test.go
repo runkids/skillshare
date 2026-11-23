@@ -800,6 +800,29 @@ func TestDiscoverSourceSkillsLite_NegationWithCanSkipDir(t *testing.T) {
 	}
 }
 
+// diff and check walk with CanSkipDir while sync does not. A glob negation
+// must keep both walks on the same skills, or diff reports a synced skill as
+// an orphan.
+func TestDiscoverSourceSkills_GlobNegationMatchesSyncWalk(t *testing.T) {
+	src := t.TempDir()
+	os.WriteFile(filepath.Join(src, ".skillignore"), []byte("build/\n!**/keep\n"), 0644)
+	writeSkillMD(t, filepath.Join(src, "build", "keep"), "kept by !**/keep")
+	writeSkillMD(t, filepath.Join(src, "build", "drop"), "ignored by build/")
+	writeSkillMD(t, filepath.Join(src, "plain"), "kept")
+
+	want := []string{"build__keep", "plain"}
+	skipping, err := DiscoverSourceSkills(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertFlatNames(t, skipping, want)
+	full, _, err := DiscoverSourceSkillsWithStatsAndContext(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertFlatNames(t, full, want)
+}
+
 func TestDiscoverSourceSkills_RootLevelGitignoreSyntax(t *testing.T) {
 	src := t.TempDir()
 
