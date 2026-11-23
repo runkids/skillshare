@@ -559,10 +559,10 @@ func TestTargetEndpointsReportFrontmatterRefusal(t *testing.T) {
 			}
 			rr := httptest.NewRecorder()
 			if strings.HasSuffix(endpoint, "batch") {
-				wantUpdated := "0"
+				wantUpdated, wantStatus := "0", "error"
 				if endpoint == "mixed batch" {
 					addSkillWithTargets(t, src, "editable", nil)
-					wantUpdated = "1"
+					wantUpdated, wantStatus = "1", "partial"
 				}
 				s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodPost, "/api/resources/batch/targets", strings.NewReader(`{"folder":"","target":"claude"}`)))
 				var wire map[string]json.RawMessage
@@ -577,14 +577,17 @@ func TestTargetEndpointsReportFrontmatterRefusal(t *testing.T) {
 					Name string
 					Code string `json:"error_code"`
 				}
-				if err := json.Unmarshal(wire["error_details"], &details); err != nil || len(details) != 1 || details[0].Name != name || details[0].Code != "target.frontmatter" {
+				if err := json.Unmarshal(wire["error_details"], &details); err != nil || len(details) != 1 || details[0].Name != name || details[0].Code != "target_frontmatter" {
 					t.Fatalf("missing named refusal: %s", rr.Body.String())
+				}
+				if got := latestOpsEntry(t, s).Status; got != wantStatus {
+					t.Fatalf("oplog status %q, want %q", got, wantStatus)
 				}
 				return
 			}
 			s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodPatch, "/api/resources/"+name+"/targets", strings.NewReader(`{"target":"claude"}`)))
 			var res map[string]any
-			if err := json.Unmarshal(rr.Body.Bytes(), &res); err != nil || rr.Code != http.StatusUnprocessableEntity || res["error_code"] != "target.frontmatter" || !strings.Contains(fmt.Sprint(res["error"]), "edit targets in the file") {
+			if err := json.Unmarshal(rr.Body.Bytes(), &res); err != nil || rr.Code != http.StatusUnprocessableEntity || res["error_code"] != "target_frontmatter" || !strings.Contains(fmt.Sprint(res["error"]), "edit targets in the file") {
 				t.Fatalf("PATCH response: %d %s", rr.Code, rr.Body.String())
 			}
 		})

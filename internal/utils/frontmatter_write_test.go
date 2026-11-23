@@ -501,28 +501,51 @@ func TestRewriteRootTargetsBlockAndFlow(t *testing.T) {
 	}
 }
 
-func TestRewriteTargetsClearsAbsentAliasedTarget(t *testing.T) {
-	for _, input := range []string{
-		"---\ncommon: &m {status: stable}\nmetadata: *m\n---\nbody\n",
-		"---\n{common: &m {status: stable}, metadata: *m}\n---\nbody\n",
-		"---\ncommon: &m {1: stable}\nmetadata: *m\n---\nbody\n",
+// A request that changes nothing leaves the file as it is, whatever its layout.
+func TestRewriteTargetsLeavesNoOpUntouched(t *testing.T) {
+	for _, tc := range []struct {
+		input  string
+		values []string
+	}{
+		{"---\ncommon: &m {status: stable}\nmetadata: *m\n---\nbody\n", nil},
+		{"---\n{common: &m {status: stable}, metadata: *m}\n---\nbody\n", nil},
+		{"---\ncommon: &m {1: stable}\nmetadata: *m\n---\nbody\n", nil},
+		{"---\ncommon: &m {targets: [claude]}\nmetadata: *m\n---\nbody\n", []string{"claude"}},
+		{"# Agent\n\nbody\n", nil}, // no header, so nothing to clear
 	} {
-		got, err := RewriteFrontmatterList([]byte(input), "metadata.targets", nil)
-		if err != nil || string(got) != input {
-			t.Fatalf("clear changed %q to %q: %v", input, got, err)
+		got, err := RewriteFrontmatterList([]byte(tc.input), "metadata.targets", tc.values)
+		if err != nil || string(got) != tc.input {
+			t.Fatalf("%v changed %q to %q: %v", tc.values, tc.input, got, err)
 		}
 	}
 }
 
+// Non-string metadata keys only block edits inside metadata.
+func TestRewriteTargetsRemovesLegacyBesideMixedKeyMetadata(t *testing.T) {
+	got, err := RewriteFrontmatterList([]byte("---\ntargets: [old]\nmetadata: {1: value}\n---\nbody\n"), "metadata.targets", nil)
+	if want := "---\nmetadata: {1: value}\n---\nbody\n"; err != nil || string(got) != want {
+		t.Fatalf("got %q, %v; want %q", got, err, want)
+	}
+}
+
+// An explicit null header has nothing to preserve, so it is replaced.
+func TestRewriteTargetsReplacesNullHeader(t *testing.T) {
+	got, err := RewriteFrontmatterList([]byte("---\nnull\n---\nbody\n"), "metadata.targets", []string{"claude"})
+	if want := "---\nmetadata:\n  targets:\n    - claude\n---\nbody\n"; err != nil || string(got) != want {
+		t.Fatalf("got %q, %v; want %q", got, err, want)
+	}
+}
+
 func TestRewriteTargetsRefusesUnsupportedSource(t *testing.T) {
-	for _, header := range []string{
-		"  name: demo\n  metadata: {status: stable}",
-		`{metadata: {targets: ["cur\u0073or"]}}`,
-		"metadata: {1: value, targets: [old]}",
+	for header, reason := range map[string]string{
+		"  name: demo\n  metadata: {status: stable}": "unindented root mapping",
+		`{metadata: {targets: ["cur\u0073or"]}}`:     "plain target list",
+		"metadata: {1: value, targets: [old]}":       "non-string keys",
 	} {
 		input := []byte("---\n" + header + "\n---\nbody\n")
-		if _, err := RewriteFrontmatterList(input, "metadata.targets", []string{"claude"}); !errors.Is(err, ErrTargetFrontmatter) {
-			t.Fatalf("%q: expected a typed refusal, got %v", header, err)
+		_, err := RewriteFrontmatterList(input, "metadata.targets", []string{"claude"})
+		if !errors.Is(err, ErrTargetFrontmatter) || !strings.Contains(err.Error(), reason) {
+			t.Fatalf("%q: expected a typed refusal naming %q, got %v", header, reason, err)
 		}
 	}
 }

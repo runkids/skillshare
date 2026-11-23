@@ -38,7 +38,7 @@ type batchSetTargetsRequest struct {
 	Target string `json:"target"`
 }
 
-const targetFrontmatterCode = "target.frontmatter"
+const targetFrontmatterCode = "target_frontmatter"
 
 type targetFailure struct {
 	Name      string `json:"name"`
@@ -157,14 +157,22 @@ func (s *Server) handleBatchSetTargets(w http.ResponseWriter, r *http.Request) {
 	}
 	s.mu.Unlock()
 
-	s.writeOpsLog("batch-set-targets", "ok", start, map[string]any{
+	status, firstErr := "ok", ""
+	if len(result.Errors) > 0 {
+		status, firstErr = "error", result.Errors[0]
+		if result.Updated > 0 {
+			status = "partial"
+		}
+	}
+	s.writeOpsLog("batch-set-targets", status, start, map[string]any{
 		"folder":    req.Folder,
 		"target":    req.Target,
 		"updated":   result.Updated,
 		"skipped":   result.Skipped,
 		"unchanged": result.Unchanged,
+		"failed":    len(result.Errors),
 		"scope":     "ui",
-	}, "")
+	}, firstErr)
 
 	writeJSON(w, result)
 }

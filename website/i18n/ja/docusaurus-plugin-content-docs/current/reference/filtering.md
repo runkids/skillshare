@@ -79,6 +79,8 @@ targets: [claude, cursor]
 
 **Tracked repo:** dashboard で tracked repo 内の Skill に設定した targets は、その SKILL.md ではなく source の `.metadata.json` に保存される。そのため clone はクリーンなままで、`update` も通常どおり動作する。この設定は Skill の `metadata.targets` より優先される。
 
+**Dashboard での編集:** dashboard で targets を設定または解除すると、ファイルの frontmatter のうち `targets` の行だけが書き換えられます。ほかのフィールド、改行コード、本文はそのまま残ります。この方法で安全に編集できない書き方の frontmatter は拒否され、ファイルは変更されません。たとえば `metadata` が YAML エイリアスの場合や文字列以外のキーを含む場合、最上位の mapping 全体がインデントされている場合、flow 形式の `metadata: {...}` で target のリストが `[a, b]` 以外の書き方になっている場合です。その場合は、ファイル内の `targets` を直接編集してください。
+
 ### Tracked repo 内の Agent 別バリアント {#agent-specific-variants-in-tracked-repositories}
 
 ```text

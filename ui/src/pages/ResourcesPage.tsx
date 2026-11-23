@@ -1,4 +1,5 @@
 import { optimisticTargets } from '../lib/optimisticTargets';
+import { TARGET_FRONTMATTER, isTargetRefusal, targetFailureText } from '../lib/targetFailures';
 import { useResourceToggle } from '../hooks/useResourceToggle';
 import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
@@ -36,7 +37,7 @@ import {
   Unlink2,
   X,
 } from 'lucide-react';
-import { api, ApiError } from '../api/client';
+import { api } from '../api/client';
 import type { Skill, SourceLink } from '../api/client';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { globToRegex } from '../lib/glob';
@@ -676,9 +677,7 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
     onError: (err, _, restoreTargets) => {
       restoreTargets?.();
       toast(
-        err instanceof ApiError && err.code === 'target.frontmatter'
-          ? t('target.frontmatter')
-          : err.message,
+        isTargetRefusal(err) ? t('resources.targets.error.target_frontmatter') : err.message,
         'error',
       );
     },
@@ -690,20 +689,22 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
       api.batchSetTargets(folder, target),
     onSuccess: (res, { folder: path, target }) => {
       const folder = formatTrackedRepoName(path);
-      if (res.errors.length > 0) {
-        const summary = t('resources.batchToggle.toast.partial', {
-          updated: res.updated,
-          failed: res.errors.length,
-        });
-        const details = res.errors.map((message, i) =>
-          res.error_details?.[i]?.error_code === 'target.frontmatter'
-            ? res.error_details[i].name
-            : message,
+      if (res.errors.length > 0)
+        toast(
+          targetFailureText(
+            t,
+            res.updated,
+            // The server lists a failure's name and code at the same index as its message.
+            res.errors.map((message, i) => {
+              const failure = res.error_details?.[i];
+              return failure?.error_code === TARGET_FRONTMATTER
+                ? { detail: failure.name, refused: true }
+                : { detail: message, refused: false };
+            }),
+          ),
+          'warning',
         );
-        if (res.error_details?.some((f) => f.error_code === 'target.frontmatter'))
-          details.push(t('target.frontmatter'));
-        toast(summary + ': ' + details.join('; '), 'warning');
-      } else if (res.updated === 0 && res.unchanged)
+      else if (res.updated === 0 && res.unchanged)
         toast(t('resources.batchToggle.toast.noChange'), 'info');
       else if (res.updated === 0 && res.skipped > 0)
         toast(t('resources.folder.noEditableSkills', { folder }), 'error');
@@ -721,34 +722,24 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
 
   const setManyTargets = async (names: string[], target: string | null) => {
     const results = await Promise.allSettled(names.map((n) => api.setSkillTargets(n, target)));
-    const failed = results.filter((r) => r.status === 'rejected').length;
-    if (failed === 0)
+    const failures = results.flatMap((r, i) => {
+      if (r.status !== 'rejected') return [];
+      const refused = isTargetRefusal(r.reason);
+      const reason = r.reason instanceof Error ? r.reason.message : r.reason;
+      return [{ detail: refused ? names[i] : `${names[i]}: ${reason}`, refused }];
+    });
+    if (failures.length === 0)
       toast(
         target
           ? t(plural('resources.bulk.targetsSet', names.length), { count: names.length, target })
           : t(plural('resources.bulk.limitRemoved', names.length), { count: names.length }),
         'success',
       );
-    else {
-      const refused = names.filter((_, i) => {
-        const r = results[i];
-        return (
-          r.status === 'rejected' &&
-          r.reason instanceof ApiError &&
-          r.reason.code === 'target.frontmatter'
-        );
-      });
-      const summary = t('resources.batchToggle.toast.partial', {
-        updated: names.length - failed,
-        failed,
-      });
+    else
       toast(
-        refused.length
-          ? summary + ': ' + refused.join(', ') + '. ' + t('target.frontmatter')
-          : summary,
-        failed === names.length ? 'error' : 'warning',
+        targetFailureText(t, names.length - failures.length, failures),
+        failures.length === names.length ? 'error' : 'warning',
       );
-    }
     refreshAfterTargets();
   };
 

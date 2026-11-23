@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"reflect"
 	"strings"
@@ -110,30 +111,40 @@ func applyListField(fm map[string]any, field string, values []string, preserveAb
 // change. The remedy also reaches folder-batch clients via their errors list.
 var ErrTargetFrontmatter = errors.New("cannot safely edit target frontmatter: edit targets in the file directly or use an unindented YAML mapping with explicit target values instead of aliases")
 
+// refuseTargetEdit keeps the reason next to the remedy for API clients.
+func refuseTargetEdit(reason any) error {
+	return fmt.Errorf("%w: %v", ErrTargetFrontmatter, reason)
+}
+
 // Verify that a bounded edit did not alter any unowned data before callers write it.
 func rewriteTargets(data []byte, field string, values []string) ([]byte, error) {
 	beforeBlock := locateFrontmatter(data, rewriteBlock)
 	if !beforeBlock.closed {
+		if values == nil && ParseFrontmatterListFromBytes(data, "targets") == nil {
+			return data, nil // no reader sees targets here, so there is nothing to clear
+		}
 		return rewriteFrontmatterListLegacy(data, field, values)
 	}
 	var before, after map[string]any
 	if err := yaml.Unmarshal(beforeBlock.raw, &before); err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrTargetFrontmatter, err)
+		return nil, refuseTargetEdit(err)
 	}
-	mixed, hasMixedKeys := before["metadata"].(map[any]any)
-	if values == nil {
-		_, legacy := before["targets"]
-		md, _ := before["metadata"].(map[string]any)
-		_, nested := md["targets"]
-		if hasMixedKeys {
-			_, nested = mixed["targets"]
-		}
-		if !legacy && (field == "targets" || !nested) {
-			return data, nil // Includes absent targets under aliases and merge keys.
+	if before == nil {
+		before = make(map[string]any)
+	}
+	// applyListField cannot describe an edit inside a mapping with non-string keys.
+	if mixed, ok := before["metadata"].(map[any]any); ok && field == "metadata.targets" {
+		if _, nested := mixed["targets"]; nested || values != nil {
+			return nil, refuseTargetEdit("metadata has non-string keys")
 		}
 	}
-	if field == "metadata.targets" && hasMixedKeys {
-		return nil, ErrTargetFrontmatter
+	want := maps.Clone(before)
+	if md, ok := want["metadata"].(map[string]any); ok {
+		want["metadata"] = maps.Clone(md)
+	}
+	applyListField(want, field, values, true)
+	if reflect.DeepEqual(before, want) {
+		return data, nil // Includes absent targets under aliases and merge keys.
 	}
 	out, block := data, beforeBlock
 	var err error
@@ -147,21 +158,17 @@ func rewriteTargets(data []byte, field string, values []string) ([]byte, error) 
 		out, err = spliceTarget(out, block, field, values)
 	}
 	if err != nil {
-		return nil, ErrTargetFrontmatter
+		return nil, refuseTargetEdit(err)
 	}
 	afterBlock := locateFrontmatter(out, rewriteBlock)
 	if !afterBlock.closed || !bytes.Equal(beforeBlock.body, afterBlock.body) || yaml.Unmarshal(afterBlock.raw, &after) != nil {
-		return nil, ErrTargetFrontmatter
-	}
-	if before == nil {
-		before = make(map[string]any)
+		return nil, refuseTargetEdit("the edit would break the header or change the body")
 	}
 	if after == nil {
 		after = make(map[string]any)
 	}
-	applyListField(before, field, values, true)
-	if !reflect.DeepEqual(before, after) {
-		return nil, ErrTargetFrontmatter
+	if !reflect.DeepEqual(want, after) {
+		return nil, refuseTargetEdit("the edit would change other fields")
 	}
 	return out, nil
 }
@@ -181,6 +188,7 @@ func spliceTarget(data []byte, block frontmatterBlock, field string, values []st
 	root := &yaml.Node{Kind: yaml.MappingNode}
 	if len(doc.Content) > 0 {
 		if doc.Content[0].Kind != yaml.MappingNode {
+			// The caller decoded a mapping, so this is an explicit null with nothing to preserve.
 			return rewriteFrontmatterListLegacy(data, field, values)
 		}
 		root = doc.Content[0]
@@ -193,12 +201,11 @@ func spliceTarget(data []byte, block frontmatterBlock, field string, values []st
 	if nested && md != nil && md.Kind == yaml.AliasNode && values != nil {
 		return nil, errors.New("metadata is a YAML alias")
 	}
-	rootFlow := root.Style&yaml.FlowStyle != 0
 	// Choose the owned entry once, regardless of block or flow syntax.
 	parent, key := root, "targets"
 	if nested {
 		switch {
-		case md == nil || md.Kind != yaml.MappingNode || rootFlow && md.Style&yaml.FlowStyle == 0:
+		case md == nil || md.Kind != yaml.MappingNode:
 			key = "metadata"
 			if values == nil {
 				return data, nil
@@ -230,18 +237,18 @@ func spliceTarget(data []byte, block frontmatterBlock, field string, values []st
 	} else if parent != root {
 		i, j := fm.keySpan(root, "metadata", fm.end)
 		if i < 0 || len(parent.Content) == 0 {
-			return nil, ErrTargetFrontmatter
+			return nil, errors.New("cannot locate the metadata mapping")
 		}
 		limit, insert = j, lfLine(fm, parent.Content[0])
 		if insert <= i || insert >= j {
-			return nil, ErrTargetFrontmatter
+			return nil, errors.New("cannot locate the first metadata key")
 		}
 		indent = lines[insert][:len(lines[insert])-len(strings.TrimLeft(lines[insert], " \t"))]
 	}
 	i, j := fm.keySpan(parent, key, limit)
 	if i < 0 {
 		if mappingValue(parent, key) != nil {
-			return nil, ErrTargetFrontmatter
+			return nil, fmt.Errorf("cannot locate the lines of %q", key)
 		}
 		i, j = insert, insert
 	}
@@ -407,7 +414,7 @@ func ToggleFrontmatterFlag(filePath, key string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	fm := splitFrontmatterLines(string(data), lineEditorBlock)
+	fm := splitFrontmatterLines(string(data))
 	flagLine := key + ": true" + fm.cr
 	if fm.end < 0 {
 		return true, os.WriteFile(filePath, []byte(fm.prepend(flagLine)), 0644)
@@ -520,7 +527,7 @@ func SetFrontmatterValue(filePath, key, value string) error {
 	if err != nil {
 		return err
 	}
-	fm := splitFrontmatterLines(string(data), lineEditorBlock)
+	fm := splitFrontmatterLines(string(data))
 	line := key + ": " + value + fm.cr
 	if fm.end < 0 {
 		return os.WriteFile(filePath, []byte(fm.prepend(line)), 0644)
@@ -580,9 +587,9 @@ type frontmatterLines struct {
 	targetEdit bool // preserve nested mapping comments before the following key
 }
 
-func splitFrontmatterLines(content string, policy frontmatterPolicy) frontmatterLines {
+func splitFrontmatterLines(content string) frontmatterLines {
 	bom, content := SplitBOM(content)
-	return splitKnownBlock(content, bom, locateFrontmatter([]byte(content), policy), policy.crlf)
+	return splitKnownBlock(content, bom, locateFrontmatter([]byte(content), lineEditorBlock), false)
 }
 
 func splitKnownBlock(content, bom string, block frontmatterBlock, targetEdit bool) frontmatterLines {
