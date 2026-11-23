@@ -134,7 +134,9 @@ skillshare sync
 ```
 
 Run the requested operation, not this entire example sequence. Quote glob patterns so
-Skillshare receives them unchanged. Disabling uses ignore rules; uninstall of installed
+Skillshare receives them unchanged. Disabling uses ignore rules; when a `✗` line says "still enabled" or
+"still disabled", another rule decides that state, so edit the file it names.
+Uninstall of installed
 content uses trash. A global tracked declaration without a checkout is removed as
 metadata only, with no trash undo; see [install.md](references/install.md#uninstall)
 for canonical names, occupied paths, and the limit after reconcile.

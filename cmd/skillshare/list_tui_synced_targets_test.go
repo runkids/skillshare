@@ -4,12 +4,15 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"skillshare/internal/config"
 	"skillshare/internal/resource"
 	"skillshare/internal/sync"
 	"skillshare/internal/utils"
+
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 func writeSourceFile(t *testing.T, path, content string) {
@@ -87,6 +90,50 @@ func TestFindSyncedTargets_DisablingSkillDropsItsTargets(t *testing.T) {
 
 	// A reopened list rediscovers the skill as disabled and shows no target; the open one must agree.
 	assertSyncedTo(t, m.findSyncedTargets(skillEntryAt("demo")))
+}
+
+// pressToggle presses t on one row whose source holds files (relative to the
+// skills source, or the agents source for an agent).
+func pressToggle(t *testing.T, entry skillEntry, files map[string]string) listTUIModel {
+	t.Helper()
+	source, agents := t.TempDir(), t.TempDir()
+	root := source
+	if entry.Kind == "agent" {
+		root = agents
+	}
+	for rel, content := range files {
+		writeSourceFile(t, filepath.Join(root, rel), content)
+	}
+	m := newListTUIModel(nil, []skillItem{{entry: entry}}, 1, "global", source, agents, nil, kindAll)
+	next, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 24})
+	return pressKey(t, next.(listTUIModel), "t")
+}
+
+func TestToggleKey_AnotherRuleKeepsRowState(t *testing.T) {
+	draft := skillEntryAt("draft-one")
+	draft.Disabled = true
+	archived := skillEntry{Name: "reviewer", Kind: "agent", RelPath: "archive/reviewer.md", Disabled: true}
+	for _, tc := range []struct {
+		name  string
+		entry skillEntry
+		files map[string]string
+		file  string
+	}{
+		{"skill glob", draft, map[string]string{"draft-one/SKILL.md": "# draft", ".skillignore": "draft-one\ndraft-*\n"}, ".skillignore"},
+		{"agent folder rule", archived, map[string]string{"archive/reviewer.md": "# reviewer", ".agentignore": "archive/\n"}, ".agentignore"},
+		{"negation", skillEntryAt("mine"), map[string]string{"mine/SKILL.md": "# mine", ".skillignore.local": "!mine\n"}, ".skillignore"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			m := pressToggle(t, tc.entry, tc.files)
+
+			if m.allItems[0].entry.Disabled != tc.entry.Disabled {
+				t.Error("another rule decides the state, so the row must not change")
+			}
+			if !strings.Contains(m.View(), tc.file) {
+				t.Errorf("expected an error naming %s:\n%s", tc.file, m.View())
+			}
+		})
+	}
 }
 
 func TestFindSyncedTargets_CopyMode(t *testing.T) {

@@ -206,7 +206,7 @@ skillshare collect -p agents --json
 # Disable draft agents
 draft-*
 # Disable a specific agent
-experimental-reviewer
+experimental-reviewer.md
 ```
 
 使用带 `--kind agent` 的 `enable`/`disable` 来管理条目:

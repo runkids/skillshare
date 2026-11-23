@@ -644,7 +644,7 @@ skillshare install <repo> --kind agent --all --force
 1. 파일이 잘못된 위치에 있습니다. agents source root에 있어야 합니다: `~/.config/skillshare/agents/.agentignore` (global) 또는 `.skillshare/agents/.agentignore` (project).
 2. 패턴이 예상과 다른 세그먼트와 일치합니다 — 이 파일은 [gitignore 문법](https://git-scm.com/docs/gitignore)을 사용합니다.
 
-**Solution:** `skillshare doctor`로 파일 경로를 확인하고 패턴을 다시 점검하세요. Agent는 (`.md`를 뺀) basename으로 매칭되므로, `draft-*`는 `draft-experiment.md`와 일치합니다. CLI가 항목을 대신 작성하게 하려면 `skillshare disable <agent> --kind agent`를 사용하세요.
+**Solution:** `skillshare doctor`로 파일 경로를 확인하고 패턴을 다시 점검하세요. 패턴은 `.md`를 포함한 agent 파일 경로와 매칭됩니다. `draft-*`는 `draft-experiment.md`와 일치하지만, 직접 쓴 `draft-experiment` 줄은 아무것과도 일치하지 않습니다. CLI가 항목을 대신 작성하게 하려면 `skillshare disable <agent> --kind agent`를 사용하세요. `.md`는 CLI가 붙여 줍니다.
 
 ---
 

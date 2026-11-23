@@ -90,13 +90,20 @@ test("disabling a skill says the next sync removes it", async () => {
   assert.deepEqual([r, calls], [{ kind: "done", text: "Disabled archify. The next sync removes it from your targets." }, ["disable archify -g", "list --all --json -g"]]);
 });
 
-test("a skill another pattern keeps disabled is not reported as enabled", async () => {
+test("a toggle another pattern blocks says which file decides", async () => {
+  const why = "could not enable drafts/idea: still disabled: another rule in .skillignore or .skillignore.local matches it — remove that rule to enable it";
+  const { io, calls } = machine({ jobs: { "enable drafts/idea -g": { code: 1, stdout: `\n✗ ${why}\n` } } });
+  const r = await operate({ op: "toggle", action: "enable", item: { kind: "skills", scope: "global", path: "drafts/idea", label: "idea", disabled: true } }, io);
+  assert.deepEqual([r, calls], [{ kind: "error", text: why }, ["enable drafts/idea -g"]]);
+});
+
+test("with an older skillshare, a skill another pattern keeps disabled is not reported as enabled", async () => {
   const { io } = machine({ jobs: { "list --all --json -g": listed({ name: "idea", kind: "skill", relPath: "drafts/idea", disabled: true }) } });
   const r = await operate({ op: "toggle", action: "enable", item: { kind: "skills", scope: "global", path: "drafts/idea", label: "idea", disabled: true } }, io);
   assert.deepEqual(r, { kind: "error", text: "idea is still disabled: another pattern in .skillignore or .skillignore.local decides it. Edit that file." });
 });
 
-test("an agent another pattern keeps enabled is not reported as disabled", async () => {
+test("with an older skillshare, an agent another pattern keeps enabled is not reported as disabled", async () => {
   const { io } = machine({ jobs: { "list --all --json -p": listed({ name: "tutor.md", kind: "agent", relPath: "tutor.md" }) } });
   const r = await operate({ op: "toggle", action: "disable", project: "/w", item: { kind: "agents", scope: "project", path: "tutor.md", label: "tutor", disabled: false } }, io);
   assert.deepEqual(r, { kind: "error", text: "tutor is still enabled: another pattern in .agentignore or .agentignore.local decides it. Edit that file." });

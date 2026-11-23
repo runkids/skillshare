@@ -23,14 +23,6 @@ func resolveAgentResource(agentsSource, name string) (resource.DiscoveredResourc
 	return findAgent(agentsSource, name)
 }
 
-func (s *Server) resolveAgentRelPathWithStatus(agentsSource, name string) (string, bool, error) {
-	d, err := findAgent(agentsSource, name)
-	if err != nil {
-		return "", false, err
-	}
-	return d.RelPath, d.Disabled, nil
-}
-
 func agentMetaKey(relPath string) string {
 	return strings.TrimSuffix(filepath.ToSlash(relPath), ".md")
 }

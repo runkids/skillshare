@@ -311,7 +311,7 @@ Agent 檔名只能使用 `a-z`、`0-9`、`_`、`-`、`.`。與 skills 不同，a
 draft-*
 
 # 停用特定 agent
-experimental-reviewer
+experimental-reviewer.md
 ```
 
 採用 [gitignore 語法](https://git-scm.com/docs/gitignore)。與 `.skillignore` 相同的規則語法皆適用（`*`、`**`、`!negation`、`#` 註解等）。被停用的 agents 仍會留在 source 目錄中，但不會出現在 sync 結果裡。

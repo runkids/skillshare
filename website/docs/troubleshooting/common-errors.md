@@ -680,7 +680,7 @@ skillshare install <repo> --kind agent --all --force
 1. The file is in the wrong location. It must live at the agents source root: `~/.config/skillshare/agents/.agentignore` (global) or `.skillshare/agents/.agentignore` (project).
 2. Your pattern matches a different segment than you expect — the file uses [gitignore syntax](https://git-scm.com/docs/gitignore).
 
-**Solution:** Confirm the file path with `skillshare doctor` and re-check the pattern. Agents are matched by basename (without `.md`), so `draft-*` matches `draft-experiment.md`. Use `skillshare disable <agent> --kind agent` to let the CLI write the entry for you.
+**Solution:** Confirm the file path with `skillshare doctor` and re-check the pattern. Patterns match the agent's file path, `.md` included: `draft-*` matches `draft-experiment.md`, but a hand-written `draft-experiment` line matches nothing. Use `skillshare disable <agent> --kind agent` to let the CLI write the entry for you; it adds the `.md`.
 
 ---
 
