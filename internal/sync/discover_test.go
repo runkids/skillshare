@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -730,6 +731,7 @@ func TestDiscoverSourceSkills_IgnorePatterns(t *testing.T) {
 		{"DoubleStarPattern", "**/temp\n", []string{"temp", "sub/temp"}, []string{"real-skill"}},
 		{"NegationPattern", "test-*\n!test-important\n", []string{"test-alpha", "test-beta"}, []string{"test-important", "prod-skill"}},
 		{"DirOnlyPattern", "demo/\n", []string{"demo"}, []string{"demo-skill", "real"}},
+		{"DirOnlyNegation", "vendor/\n!vendor/keep/\n", []string{"vendor/drop"}, []string{"real", "vendor/keep"}},
 		{"QuestionMarkPattern", "?.md-test\n", []string{"a.md-test"}, []string{"ab.md-test", "real-skill"}},
 		{"CharClassPattern", "[Tt]emp\n", []string{"Temp", "temp"}, []string{"hemp"}},
 	} {
@@ -747,20 +749,27 @@ func TestDiscoverSourceSkills_IgnorePatterns(t *testing.T) {
 					writeSkillMD(t, filepath.Join(repoDir, path), "# Skill")
 				}
 			}
-			skills, err := DiscoverSourceSkills(src)
+			skipping, err := DiscoverSourceSkills(src)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if len(skills) != len(tt.kept) {
-				t.Fatalf("expected %d skills, got %v", len(tt.kept), skills)
+			// sync's walk does not skip ignored folders; it must keep the same skills.
+			full, _, err := DiscoverSourceSkillsWithStatsAndContext(src)
+			if err != nil {
+				t.Fatal(err)
 			}
-			found := map[string]bool{}
-			for _, skill := range skills {
-				found[skill.FlatName] = true
-			}
-			for _, path := range tt.kept {
-				if !found["_team__"+strings.ReplaceAll(path, "/", "__")] {
-					t.Errorf("missing kept skill %q", path)
+			for _, skills := range [][]DiscoveredSkill{skipping, full} {
+				if len(skills) != len(tt.kept) {
+					t.Fatalf("expected %d skills, got %v", len(tt.kept), skills)
+				}
+				found := map[string]bool{}
+				for _, skill := range skills {
+					found[skill.FlatName] = true
+				}
+				for _, path := range tt.kept {
+					if !found["_team__"+strings.ReplaceAll(path, "/", "__")] {
+						t.Errorf("missing kept skill %q", path)
+					}
 				}
 			}
 		})
@@ -1039,5 +1048,59 @@ func TestDiscoverSourceSkillsWithStats_RootLevelSkillignore(t *testing.T) {
 	}
 	if !ignoredSet["hidden"] {
 		t.Error("expected hidden in ignored skills")
+	}
+}
+
+// A skill is a directory, so a directory-only rule ("name/") applies to the
+// skill's own folder. sync must agree with diff and check, which skip ignored
+// folders, and with install's preview. TestDiscoverSourceSkills_IgnorePatterns
+// covers the same rules in a tracked repo.
+func TestDiscoverSourceSkills_DirOnlyRulesMatchSkillFolder(t *testing.T) {
+	tests := []struct {
+		name    string
+		rules   string
+		skills  []string
+		want    []string
+		ignored []string // what sync reports as ignored and list shows as disabled
+	}{
+		{"ignore", "plain/\n", []string{"plain", "other"}, []string{"other"}, []string{"plain"}},
+		{"negation", "build/\n!build/keep/\n", []string{"build/keep", "build/drop", "other"}, []string{"build__keep", "other"}, []string{"build/drop"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			src := t.TempDir()
+			os.WriteFile(filepath.Join(src, ".skillignore"), []byte(tt.rules), 0644)
+			for _, s := range tt.skills {
+				writeSkillMD(t, filepath.Join(src, s), s)
+			}
+
+			skipping, err := DiscoverSourceSkills(src)
+			if err != nil {
+				t.Fatal(err)
+			}
+			assertFlatNames(t, skipping, tt.want)
+			full, stats, err := DiscoverSourceSkillsWithStatsAndContext(src)
+			if err != nil {
+				t.Fatal(err)
+			}
+			assertFlatNames(t, full, tt.want)
+			if !slices.Equal(stats.IgnoredSkills, tt.ignored) {
+				t.Errorf("ignored = %v, want %v", stats.IgnoredSkills, tt.ignored)
+			}
+			// list, the dashboard and toggles read Disabled from this walk.
+			all, err := DiscoverSourceSkillsAll(src)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var disabled []string
+			for _, s := range all {
+				if s.Disabled {
+					disabled = append(disabled, s.RelPath)
+				}
+			}
+			if !slices.Equal(disabled, tt.ignored) {
+				t.Errorf("disabled = %v, want %v", disabled, tt.ignored)
+			}
+		})
 	}
 }

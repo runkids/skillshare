@@ -42,7 +42,8 @@ type DiscoveredSkill struct {
 // isSkillIgnored checks whether a skill inside a tracked repo should be
 // skipped based on the repo's .skillignore matcher.
 // relPath and repoRelPath are slash paths relative to the source root, and
-// ignoreMatchers is keyed by repo root in the same form.
+// ignoreMatchers is keyed by repo root in the same form. The skill is matched
+// as a directory, so a directory-only rule such as "name/" applies to it.
 func isSkillIgnored(relPath, repoRelPath string, ignoreMatchers map[string]*skillignore.Matcher) bool {
 	if relPath == repoRelPath {
 		return false
@@ -51,7 +52,7 @@ func isSkillIgnored(relPath, repoRelPath string, ignoreMatchers map[string]*skil
 	if !ok {
 		return false
 	}
-	return m.Match(strings.TrimPrefix(relPath, repoRelPath+"/"), false)
+	return m.Match(strings.TrimPrefix(relPath, repoRelPath+"/"), true)
 }
 
 // walkOptions returns the optional traversal policy passed to a Discover
