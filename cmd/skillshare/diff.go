@@ -164,6 +164,9 @@ type copyDiffEntry struct {
 	files  []fileDiffEntry // file-level diffs (nil until populated)
 	srcDir string          // source directory path (for lazy diff)
 	dstDir string          // target directory path (for lazy diff)
+	// copyIgnore holds a copy-mode target's ignore patterns, so the file
+	// diff leaves out source files sync does not copy.
+	copyIgnore []string
 }
 
 // ensureFiles lazily populates file-level diffs on first access.
@@ -175,7 +178,7 @@ func (e *copyDiffEntry) ensureFiles() {
 	if e.srcDir == "" && e.dstDir == "" {
 		return
 	}
-	e.files = diffSkillFiles(e.srcDir, e.dstDir)
+	e.files = diffSkillFiles(e.srcDir, e.dstDir, e.copyIgnore)
 }
 
 // label is the item's name, plus the old name a kept skill stays at.
@@ -615,6 +618,9 @@ func collectTargetDiff(name string, target config.TargetConfig, source, mode str
 	legacyNames := resolution.LegacyNames(mode, sc.Path, manifest)
 	if mode == "copy" {
 		collectCopyDiff(&r, name, sc.Path, source, resolution.Skills, resolution.Naming, sourceSkills, legacyNames, manifest, ignorePatterns, dp)
+		for i := range r.items {
+			r.items[i].copyIgnore = ignorePatterns
+		}
 	} else {
 		// Merge mode (instant)
 		collectMergeDiff(&r, sc.Path, source, sourceSkills, sourceMap, legacyNames)

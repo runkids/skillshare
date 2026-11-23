@@ -115,3 +115,53 @@ func TestCopySkillToTarget_NegationReincludesDirUnderIgnoredDir(t *testing.T) {
 		t.Errorf("ignored docs/other.md should not be copied, stat err = %v", err)
 	}
 }
+
+func TestCopiedFiles_ListsWhatTheCopyCopies(t *testing.T) {
+	src, dst, outside := t.TempDir(), filepath.Join(t.TempDir(), "skill-a"), t.TempDir()
+	writeIgnoreTestFiles(t, src, map[string]string{
+		"SKILL.md":                "# a",
+		"notes.md":                "ignored",
+		"docs/drop.md":            "ignored dir",
+		"docs/keep.md":            "re-included",
+		".DS_Store":               "default ignore",
+		"__pycache__/x.pyc":       "default ignore",
+		".git/HEAD":               "never copied",
+		"scripts/run.sh":          "kept",
+		"scripts/notes.md":        "ignored at any depth",
+		"scripts/nested/deep.txt": "kept",
+	})
+	writeIgnoreTestFiles(t, outside, map[string]string{"linked.md": "through a link", "notes.md": "ignored through a link"})
+	if err := os.Symlink(outside, filepath.Join(src, "shared")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	patterns := EffectiveFileIgnorePatterns([]string{"notes.md", "docs/", "!docs/keep.md"})
+	if err := copySkillToTarget(src, dst, "", patterns); err != nil {
+		t.Fatal(err)
+	}
+	copied := map[string]bool{}
+	if err := filepath.Walk(dst, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() {
+			return err
+		}
+		rel, err := filepath.Rel(dst, path)
+		copied[filepath.ToSlash(rel)] = true
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	listed, err := CopiedFiles(src, patterns)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for rel := range listed {
+		if !copied[rel] {
+			t.Errorf("CopiedFiles lists %s, which the copy left out", rel)
+		}
+	}
+	for rel := range copied {
+		if _, ok := listed[rel]; !ok {
+			t.Errorf("the copy made %s, which CopiedFiles leaves out", rel)
+		}
+	}
+}

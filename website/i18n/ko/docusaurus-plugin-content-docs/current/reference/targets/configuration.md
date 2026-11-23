@@ -753,7 +753,7 @@ Extras는 global mode와 project mode 모두에서 동작합니다. Project mode
 
 ### `ignore`
 
-Sync 중 건너뛸 파일에 대한 glob 패턴.
+Sync 중 건너뛸 파일에 대한 glob 패턴. `diff`도 copy 모드 target을 비교할 때 같은 파일을 제외합니다.
 
 ```yaml
 ignore:

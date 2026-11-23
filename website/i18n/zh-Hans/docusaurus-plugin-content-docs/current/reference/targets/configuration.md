@@ -748,7 +748,7 @@ Extras 在 Global mode 和 Project mode 下都可用。在 Project mode 下，So
 
 ### `ignore`
 
-Sync 时要跳过的文件 glob pattern。
+Sync 时要跳过的文件 glob pattern。`diff` 比较 copy 模式的 target 时也会排除相同的文件。
 
 ```yaml
 ignore:

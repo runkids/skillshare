@@ -16,7 +16,7 @@ func TestDiffSkillFiles_IdenticalDirs(t *testing.T) {
 	writeTestFile(t, src, "SKILL.md", "# Hello")
 	writeTestFile(t, dst, "SKILL.md", "# Hello")
 
-	diffs := diffSkillFiles(src, dst)
+	diffs := diffSkillFiles(src, dst, nil)
 	if len(diffs) != 0 {
 		t.Fatalf("expected 0 diffs for identical dirs, got %d: %+v", len(diffs), diffs)
 	}
@@ -30,7 +30,7 @@ func TestDiffSkillFiles_NewFile(t *testing.T) {
 	writeTestFile(t, src, "extra.md", "extra content")
 	writeTestFile(t, dst, "SKILL.md", "# Hello")
 
-	diffs := diffSkillFiles(src, dst)
+	diffs := diffSkillFiles(src, dst, nil)
 	if len(diffs) != 1 {
 		t.Fatalf("expected 1 diff, got %d: %+v", len(diffs), diffs)
 	}
@@ -50,7 +50,7 @@ func TestDiffSkillFiles_DeletedFile(t *testing.T) {
 	writeTestFile(t, dst, "SKILL.md", "# Hello")
 	writeTestFile(t, dst, "old.md", "old content")
 
-	diffs := diffSkillFiles(src, dst)
+	diffs := diffSkillFiles(src, dst, nil)
 	if len(diffs) != 1 {
 		t.Fatalf("expected 1 diff, got %d: %+v", len(diffs), diffs)
 	}
@@ -69,7 +69,7 @@ func TestDiffSkillFiles_ModifiedFile(t *testing.T) {
 	writeTestFile(t, src, "SKILL.md", "# Hello v2")
 	writeTestFile(t, dst, "SKILL.md", "# Hello v1")
 
-	diffs := diffSkillFiles(src, dst)
+	diffs := diffSkillFiles(src, dst, nil)
 	if len(diffs) != 1 {
 		t.Fatalf("expected 1 diff, got %d: %+v", len(diffs), diffs)
 	}
@@ -83,7 +83,7 @@ func TestDiffSkillFiles_SrcOnly(t *testing.T) {
 	writeTestFile(t, src, "a.md", "aaa")
 	writeTestFile(t, src, "b.md", "bbb")
 
-	diffs := diffSkillFiles(src, "/nonexistent_dir_that_does_not_exist")
+	diffs := diffSkillFiles(src, "/nonexistent_dir_that_does_not_exist", nil)
 	if len(diffs) != 2 {
 		t.Fatalf("expected 2 diffs, got %d: %+v", len(diffs), diffs)
 	}
@@ -108,7 +108,7 @@ func TestDiffSkillFiles_NestedDir(t *testing.T) {
 	}
 	writeTestFile(t, src, filepath.Join("sub", "extra.md"), "nested content")
 
-	diffs := diffSkillFiles(src, dst)
+	diffs := diffSkillFiles(src, dst, nil)
 	if len(diffs) != 1 {
 		t.Fatalf("expected 1 diff, got %d: %+v", len(diffs), diffs)
 	}
