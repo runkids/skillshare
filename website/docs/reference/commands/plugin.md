@@ -143,7 +143,12 @@ They do not require a CLI executable or modify marketplace registries:
   takes precedence over a local copy.
 - Antigravity desktop: `~/.gemini/config/plugins/<name>` globally; `.agents/plugins/<name>`
   in a workspace (or an existing `_agents/plugins/` directory). If both workspace
-  directories exist, consolidate them first.
+  directories exist, consolidate them first. Native manifests are discovered in
+  precedence order `.antigravity-plugin/plugin.json`, `.gemini-plugin/plugin.json`,
+  then root `plugin.json`. Multi-plugin repositories can ship
+  `.antigravity-plugin/marketplace.json`; when present, `antigravity` and
+  `antigravity-cli` resolve exclusively from it and never fall back to
+  `.claude-plugin/marketplace.json`.
 - The standalone **agy CLI** has a separate plugin store. The `antigravity` target
   manages the desktop/workspace discovery paths, not that CLI store. `agy` is only
   a Skillshare target alias. Use `--target antigravity-cli` for the standalone CLI;
