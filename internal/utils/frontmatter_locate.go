@@ -31,14 +31,21 @@ type frontmatterPolicy struct {
 	dashGuard bool
 	// firstLine requires the opening delimiter to be the first line. Otherwise the first
 	// delimiter line anywhere in the content opens the block.
-	firstLine bool
+	firstLine         bool
+	leadingBlanksOnly bool // line editors allow only blank lines before an opening delimiter
+	// crlf accepts a CR only when it is followed by LF.
+	crlf bool
 	// delim reports whether a line, without its "\n", is a delimiter.
 	delim func(line []byte) bool
 }
 
 var (
-	// strictBlock is the Agent Skills format: the file begins with exactly ---, and the
-	// block ends at the next line that is exactly ---. CRLF is fine. ParseFrontmatterMap.
+	// Flag and scalar line editors accept leading blank lines, but not prose.
+	lineEditorBlock = frontmatterPolicy{leadingBlanksOnly: true, delim: func(line []byte) bool {
+		return string(bytes.TrimRight(line, " \t\r")) == "---"
+	}}
+
+	// strictBlock is the Agent Skills format: exact delimiters, starting on line one.
 	strictBlock = frontmatterPolicy{firstLine: true, delim: delimExact}
 
 	// lenientBlock takes the first two lines that are --- after trimming all whitespace,
@@ -49,9 +56,9 @@ var (
 	// bodyBlock is lenientBlock for content that starts with ---. ReadSkillBody.
 	bodyBlock = frontmatterPolicy{dashGuard: true, delim: delimTrimmed}
 
-	// rewriteBlock allows trailing spaces and tabs but no indent and no "\r", so that an
+	// rewriteBlock allows trailing spaces and tabs and CRLF but no indent, so that an
 	// indented --- inside a YAML block scalar stays content. splitFrontmatterAndBody.
-	rewriteBlock = frontmatterPolicy{dashGuard: true, delim: delimColumn0}
+	rewriteBlock = frontmatterPolicy{dashGuard: true, crlf: true, delim: delimColumn0}
 )
 
 func delimExact(line []byte) bool   { return string(bytes.TrimRight(line, "\r")) == "---" }
@@ -61,10 +68,11 @@ func delimColumn0(line []byte) bool { return string(bytes.TrimRight(line, " \t")
 // frontmatterBlock is where the frontmatter sits in the content. raw and body point into
 // the content; nothing is copied.
 type frontmatterBlock struct {
-	open   bool   // an opening delimiter was found
-	closed bool   // and a closing one
-	raw    []byte // the lines between the delimiters; up to the end of the content when unclosed
-	body   []byte // everything after the closing delimiter line; nil when unclosed
+	open                bool   // an opening delimiter was found
+	openLine, closeLine int    // zero-based physical lines when present
+	closed              bool   // and a closing one
+	raw                 []byte // the lines between the delimiters; up to the end of the content when unclosed
+	body                []byte // everything after the closing delimiter line; nil when unclosed
 }
 
 // withoutLastNewline returns raw without the newline before the closing delimiter, which
@@ -107,7 +115,7 @@ func (w *blockWalk) next(line []byte) lineKind {
 	case isDelim:
 		w.open = true
 		return lineOpen
-	case w.p.firstLine:
+	case w.p.firstLine || (w.p.leadingBlanksOnly && len(bytes.TrimSpace(line)) != 0):
 		return lineNoBlock
 	}
 	return lineBefore
@@ -123,23 +131,28 @@ func locateFrontmatter(content []byte, p frontmatterPolicy) frontmatterBlock {
 	}
 
 	w := blockWalk{p: p}
-	start, pos := -1, 0
+	start, pos, lineNo, openLine := -1, 0, 0, -1
 	for line := range bytes.Lines(content) {
 		next := pos + len(line)
-		switch w.next(bytes.TrimSuffix(line, []byte("\n"))) {
+		lineText := bytes.TrimSuffix(line, []byte("\n"))
+		if p.crlf && bytes.HasSuffix(line, []byte("\r\n")) {
+			lineText = bytes.TrimSuffix(lineText, []byte("\r"))
+		}
+		switch w.next(lineText) {
 		case lineClose:
-			return frontmatterBlock{open: true, closed: true, raw: content[start:pos], body: content[next:]}
+			return frontmatterBlock{open: true, closed: true, openLine: openLine, closeLine: lineNo, raw: content[start:pos], body: content[next:]}
 		case lineOpen:
-			start = next
+			start, openLine = next, lineNo
 		case lineNoBlock:
 			return frontmatterBlock{}
 		}
 		pos = next
+		lineNo++
 	}
 	if start < 0 {
 		return frontmatterBlock{}
 	}
-	return frontmatterBlock{open: true, raw: content[start:]}
+	return frontmatterBlock{open: true, openLine: openLine, raw: content[start:]}
 }
 
 // scanLenientBlock calls fn with each line of a file's lenientBlock, without the

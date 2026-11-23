@@ -1,4 +1,5 @@
 import { optimisticTargets } from '../lib/optimisticTargets';
+import { TARGET_FRONTMATTER, isTargetRefusal, targetFailureText } from '../lib/targetFailures';
 import { useResourceToggle } from '../hooks/useResourceToggle';
 import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
@@ -676,7 +677,10 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
       ),
     onError: (err, _, restoreTargets) => {
       restoreTargets?.();
-      toast(err.message, 'error');
+      toast(
+        isTargetRefusal(err) ? t('resources.targets.error.target_frontmatter') : err.message,
+        'error',
+      );
     },
     onSettled: refreshAfterTargets,
   });
@@ -686,7 +690,24 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
       api.batchSetTargets(folder, target),
     onSuccess: (res, { folder: path, target }) => {
       const folder = formatTrackedRepoName(path);
-      if (res.updated === 0 && res.skipped > 0)
+      if (res.errors.length > 0)
+        toast(
+          targetFailureText(
+            t,
+            res.updated,
+            // The server lists a failure's name and code at the same index as its message.
+            res.errors.map((message, i) => {
+              const failure = res.error_details?.[i];
+              return failure?.error_code === TARGET_FRONTMATTER
+                ? { detail: failure.name, refused: true }
+                : { detail: message, refused: false };
+            }),
+          ),
+          'warning',
+        );
+      else if (res.updated === 0 && res.unchanged)
+        toast(t('resources.batchToggle.toast.noChange'), 'info');
+      else if (res.updated === 0 && res.skipped > 0)
         toast(t('resources.folder.noEditableSkills', { folder }), 'error');
       else
         toast(
@@ -702,8 +723,13 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
 
   const setManyTargets = async (names: string[], target: string | null) => {
     const results = await Promise.allSettled(names.map((n) => api.setSkillTargets(n, target)));
-    const failed = results.filter((r) => r.status === 'rejected').length;
-    if (failed === 0)
+    const failures = results.flatMap((r, i) => {
+      if (r.status !== 'rejected') return [];
+      const refused = isTargetRefusal(r.reason);
+      const reason = r.reason instanceof Error ? r.reason.message : r.reason;
+      return [{ detail: refused ? names[i] : `${names[i]}: ${reason}`, refused }];
+    });
+    if (failures.length === 0)
       toast(
         target
           ? t(plural('resources.bulk.targetsSet', names.length), { count: names.length, target })
@@ -712,8 +738,8 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
       );
     else
       toast(
-        t('resources.batchToggle.toast.partial', { updated: names.length - failed, failed }),
-        failed === names.length ? 'error' : 'warning',
+        targetFailureText(t, names.length - failures.length, failures),
+        failures.length === names.length ? 'error' : 'warning',
       );
     refreshAfterTargets();
   };

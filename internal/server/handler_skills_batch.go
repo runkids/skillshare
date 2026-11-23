@@ -1,11 +1,13 @@
 package server
 
 import (
+	"bytes"
 	"errors"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -36,10 +38,19 @@ type batchSetTargetsRequest struct {
 	Target string `json:"target"`
 }
 
+const targetFrontmatterCode = "target_frontmatter"
+
+type targetFailure struct {
+	Name      string `json:"name"`
+	ErrorCode string `json:"error_code,omitempty"`
+}
+
 type batchSetTargetsResponse struct {
-	Updated int      `json:"updated"`
-	Skipped int      `json:"skipped"`
-	Errors  []string `json:"errors"`
+	Unchanged    int             `json:"unchanged,omitempty"`
+	Updated      int             `json:"updated"`
+	Skipped      int             `json:"skipped"`
+	Errors       []string        `json:"errors"` // Kept for existing clients.
+	ErrorDetails []targetFailure `json:"error_details,omitempty"`
 }
 
 // handleBatchSetTargets handles POST /api/skills/batch/targets.
@@ -77,8 +88,7 @@ func (s *Server) handleBatchSetTargets(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var updated, skipped int
-	var errors []string
+	result := batchSetTargetsResponse{Errors: []string{}}
 
 	overridden := false
 
@@ -97,30 +107,44 @@ func (s *Server) handleBatchSetTargets(w http.ResponseWriter, r *http.Request) {
 
 		// Skip disabled skills
 		if d.Disabled {
-			skipped++
+			result.Skipped++
 			continue
 		}
 
 		// Tracked-repo members keep their SKILL.md untouched so the clone
 		// stays clean for update; the targets live in .metadata.json.
 		if d.IsInRepo {
+			if old, present := s.skillsStore.TargetOverrides[relPath]; present && slices.Equal(old, values) {
+				result.Unchanged++
+				continue
+			}
 			s.skillsStore.SetTargetOverride(relPath, values)
 			overridden = true
-			updated++
+			result.Updated++
 			continue
 		}
 
 		skillMDPath := filepath.Join(d.SourcePath, "SKILL.md")
 		before, _ := utils.FileHashFormatted(skillMDPath)
-		if err := setSourceFrontmatterList(source, skillMDPath, "metadata.targets", values, walk.Follow); err != nil {
-			errors = append(errors, d.FlatName+": "+err.Error())
+		changed, err := setSourceFrontmatterList(source, skillMDPath, "metadata.targets", values, walk.Follow)
+		if err != nil {
+			failure := targetFailure{Name: d.FlatName}
+			if errors.Is(err, utils.ErrTargetFrontmatter) {
+				failure.ErrorCode = targetFrontmatterCode
+			}
+			result.ErrorDetails = append(result.ErrorDetails, failure)
+			result.Errors = append(result.Errors, d.FlatName+": "+err.Error())
+			continue
+		}
+		if !changed {
+			result.Unchanged++
 			continue
 		}
 
 		if after, err := utils.FileHashFormatted(skillMDPath); err == nil && s.skillsStore.CarryFileHash(relPath, "SKILL.md", before, after) {
 			overridden = true
 		}
-		updated++
+		result.Updated++
 	}
 	// Save the overrides and hashes before unlocking: every API request reloads
 	// skillsStore from disk, so a change left unsaved here can be dropped by the next one.
@@ -133,22 +157,24 @@ func (s *Server) handleBatchSetTargets(w http.ResponseWriter, r *http.Request) {
 	}
 	s.mu.Unlock()
 
-	s.writeOpsLog("batch-set-targets", "ok", start, map[string]any{
-		"folder":  req.Folder,
-		"target":  req.Target,
-		"updated": updated,
-		"skipped": skipped,
-		"scope":   "ui",
-	}, "")
-
-	if errors == nil {
-		errors = []string{}
+	status, firstErr := "ok", ""
+	if len(result.Errors) > 0 {
+		status, firstErr = "error", result.Errors[0]
+		if result.Updated > 0 {
+			status = "partial"
+		}
 	}
-	writeJSON(w, batchSetTargetsResponse{
-		Updated: updated,
-		Skipped: skipped,
-		Errors:  errors,
-	})
+	s.writeOpsLog("batch-set-targets", status, start, map[string]any{
+		"folder":    req.Folder,
+		"target":    req.Target,
+		"updated":   result.Updated,
+		"skipped":   result.Skipped,
+		"unchanged": result.Unchanged,
+		"failed":    len(result.Errors),
+		"scope":     "ui",
+	}, firstErr)
+
+	writeJSON(w, result)
 }
 
 type setSkillTargetsRequest struct {
@@ -209,8 +235,8 @@ func (s *Server) handleSetSkillTargets(w http.ResponseWriter, r *http.Request) {
 
 			s.mu.Lock()
 			before, _ := utils.FileHashFormatted(skillMDPath)
-			err := setSourceFrontmatterList(source, skillMDPath, "metadata.targets", values, walk.Follow)
-			if err == nil {
+			changed, err := setSourceFrontmatterList(source, skillMDPath, "metadata.targets", values, walk.Follow)
+			if err == nil && changed {
 				if after, hashErr := utils.FileHashFormatted(skillMDPath); hashErr == nil && s.skillsStore.CarryFileHash(d.RelPath, "SKILL.md", before, after) {
 					err = s.skillsStore.Save(s.cfg.EffectiveSkillsSource())
 				}
@@ -218,11 +244,7 @@ func (s *Server) handleSetSkillTargets(w http.ResponseWriter, r *http.Request) {
 			s.mu.Unlock()
 
 			if err != nil {
-				status := http.StatusInternalServerError
-				if errors.Is(err, sourcefs.ErrLink) {
-					status = http.StatusBadRequest
-				}
-				writeError(w, status, "failed to update skill: "+err.Error())
+				writeTargetError(w, "skill", err)
 				return
 			}
 		}
@@ -256,8 +278,8 @@ func (s *Server) handleSetSkillTargets(w http.ResponseWriter, r *http.Request) {
 
 			s.mu.Lock()
 			before, _ := utils.FileHashFormatted(d.SourcePath)
-			err := setSourceFrontmatterList(agentsSource, d.SourcePath, "targets", values, nil)
-			if err == nil {
+			changed, err := setSourceFrontmatterList(agentsSource, d.SourcePath, "targets", values, nil)
+			if err == nil && changed {
 				if after, hashErr := utils.FileHashFormatted(d.SourcePath); hashErr == nil && s.agentsStore.CarryFileHash(agentMetaKey(d.RelPath), filepath.Base(d.RelPath), before, after) {
 					err = s.agentsStore.Save(agentsSource)
 				}
@@ -265,7 +287,7 @@ func (s *Server) handleSetSkillTargets(w http.ResponseWriter, r *http.Request) {
 			s.mu.Unlock()
 
 			if err != nil {
-				writeError(w, http.StatusInternalServerError, "failed to update agent: "+err.Error())
+				writeTargetError(w, "agent", err)
 				return
 			}
 
@@ -283,32 +305,48 @@ func (s *Server) handleSetSkillTargets(w http.ResponseWriter, r *http.Request) {
 	writeError(w, http.StatusNotFound, "resource not found: "+name)
 }
 
+func writeTargetError(w http.ResponseWriter, kind string, err error) {
+	if errors.Is(err, utils.ErrTargetFrontmatter) {
+		writeCodedError(w, http.StatusUnprocessableEntity, targetFrontmatterCode, err.Error(), nil)
+		return
+	}
+	status := http.StatusInternalServerError
+	if kind == "skill" && errors.Is(err, sourcefs.ErrLink) {
+		status = http.StatusBadRequest
+	}
+	writeError(w, status, "failed to update "+kind+": "+err.Error())
+}
+
 // setSourceFrontmatterList keeps target assignment inside the source write boundary.
-func setSourceFrontmatterList(source, path, field string, values []string, follow *sourcewalk.Follow) error {
+func setSourceFrontmatterList(source, path, field string, values []string, follow *sourcewalk.Follow) (bool, error) {
 	root, err := sourcefs.Open(source, follow)
 	if err != nil {
-		return err
+		return false, err
 	}
 	defer root.Close()
 	rel, err := root.Rel(path)
 	if err != nil {
-		return err
+		return false, err
 	}
 	if err := root.CheckNoLink(rel); err != nil {
-		return err
+		return false, err
 	}
 	file, err := root.OpenFile(rel, os.O_RDONLY, 0)
 	if err != nil {
-		return err
+		return false, err
 	}
 	data, err := io.ReadAll(file)
 	file.Close()
 	if err != nil {
-		return err
+		return false, err
 	}
-	data, err = utils.RewriteFrontmatterList(data, field, values)
+	out, err := utils.RewriteFrontmatterList(data, field, values)
 	if err != nil {
-		return err
+		return false, err
 	}
-	return root.WriteFileAtomic(rel, data, 0644)
+	if bytes.Equal(out, data) {
+		return false, nil
+	}
+	err = root.WriteFileAtomic(rel, out, 0644)
+	return err == nil, err
 }
