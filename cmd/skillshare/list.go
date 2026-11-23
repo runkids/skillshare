@@ -338,7 +338,7 @@ func discoverAndBuildAgentEntries(agentsSource string) []skillEntry {
 	if agentsSource == "" {
 		return nil
 	}
-	discovered, err := resource.AgentKind{}.Discover(agentsSource)
+	discovered, err := resource.AgentKind{}.DiscoverAll(agentsSource)
 	if err != nil {
 		return nil
 	}

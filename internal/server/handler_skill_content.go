@@ -11,7 +11,6 @@ import (
 
 	"skillshare/internal/git"
 	"skillshare/internal/install"
-	"skillshare/internal/resource"
 	"skillshare/internal/sourcefs"
 	"skillshare/internal/sourcewalk"
 	"skillshare/internal/sync"
@@ -265,11 +264,7 @@ func (s *Server) findMetadataEntry(name, kind, source, agentsSource string) *met
 	}
 
 	if kind != "skill" && agentsSource != "" {
-		agents, _ := resource.AgentKind{}.Discover(agentsSource)
-		for _, d := range agents {
-			if d.FlatName != name && d.Name != name {
-				continue
-			}
+		if d, err := findAgent(agentsSource, name); err == nil {
 			agentKey := strings.TrimSuffix(d.RelPath, ".md")
 			return &metadataLookup{
 				Store: s.agentsStore, StoreDir: agentsSource,
@@ -326,11 +321,7 @@ func (s *Server) resolveEditableSkillPath(source, agentsSource, name, kind strin
 	}
 
 	if kind != "skill" && agentsSource != "" {
-		agents, _ := resource.AgentKind{}.Discover(agentsSource)
-		for _, d := range agents {
-			if !matchesAgentName(d, name) {
-				continue
-			}
+		if d, err := findAgent(agentsSource, name); err == nil {
 			if !withinDir(d.SourcePath, agentsSource) {
 				return "", "", fmt.Errorf("invalid agent path")
 			}

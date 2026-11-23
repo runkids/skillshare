@@ -294,7 +294,7 @@ skillshare install owner/repo -s vue-patterns --into frontend
 
 ## Agent Support
 
-`skillshare list agents`는 agent만 필터링하여 agent source 디렉터리(`~/.config/skillshare/agents/` 또는 `.skillshare/agents/`)의 `.md` 파일을 표시합니다.
+`skillshare list agents`는 agent만 필터링하여 agent source 디렉터리(`~/.config/skillshare/agents/` 또는 `.skillshare/agents/`)의 `.md` 파일을 표시합니다. `.agentignore`로 무시된 폴더 안의 agent는 비활성화 상태로 표시됩니다.
 
 ```bash
 skillshare list agents              # List agents only

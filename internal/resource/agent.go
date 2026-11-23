@@ -22,7 +22,21 @@ func (AgentKind) Kind() string { return "agent" }
 // For tracked repos (directories starting with _): if the repo contains an
 // agents/ subdirectory, only files inside agents/ are discovered. Otherwise
 // the entire repo is walked with conventional excludes applied.
+//
+// Directories ignored by .agentignore are skipped; agents ignored by a file
+// rule are kept with Disabled=true.
 func (AgentKind) Discover(sourceDir string) ([]DiscoveredResource, error) {
+	return discoverAgents(sourceDir, false)
+}
+
+// DiscoverAll is Discover that also walks directories ignored by
+// .agentignore, returning their agents with Disabled=true. Use it only where
+// the user must see or act on those agents (list, toggle, uninstall by name).
+func (AgentKind) DiscoverAll(sourceDir string) ([]DiscoveredResource, error) {
+	return discoverAgents(sourceDir, true)
+}
+
+func discoverAgents(sourceDir string, includeIgnored bool) ([]DiscoveredResource, error) {
 	walkRoot := utils.ResolveSymlink(sourceDir)
 
 	// Read .agentignore for filtering
@@ -55,7 +69,7 @@ func (AgentKind) Discover(sourceDir string) ([]DiscoveredResource, error) {
 				return filepath.SkipDir
 			}
 			// Skip ignored directories early
-			if ignoreMatcher.HasRules() && info.Name() != "." {
+			if !includeIgnored && ignoreMatcher.HasRules() && info.Name() != "." {
 				relDir, relErr := filepath.Rel(walkRoot, path)
 				if relErr == nil {
 					relDir = strings.ReplaceAll(relDir, "\\", "/")
@@ -184,6 +198,34 @@ func (AgentKind) FlatName(relPath string) string {
 // encoded using the same path flattening rule as skills.
 func AgentFlatName(relPath string) string {
 	return utils.PathToFlatName(relPath)
+}
+
+// FindAgent resolves a user-supplied agent name. An exact flat name or
+// relative path (with or without .md) wins regardless of state; otherwise a
+// frontmatter or file name match is used, preferring an active agent over one
+// disabled by .agentignore.
+func FindAgent(agents []DiscoveredResource, name string) (DiscoveredResource, bool) {
+	for _, a := range agents {
+		if a.FlatName == name || a.RelPath == name || strings.TrimSuffix(a.RelPath, ".md") == name {
+			return a, true
+		}
+	}
+	var disabled *DiscoveredResource
+	for i, a := range agents {
+		if a.Name != name {
+			continue
+		}
+		if !a.Disabled {
+			return a, true
+		}
+		if disabled == nil {
+			disabled = &agents[i]
+		}
+	}
+	if disabled != nil {
+		return *disabled, true
+	}
+	return DiscoveredResource{}, false
 }
 
 // ActiveAgents returns only non-disabled agents from the given slice.

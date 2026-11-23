@@ -12,19 +12,14 @@ const (
 	kindAgent = "agent"
 )
 
-// discoverAllAgents discovers all agents (including disabled) from the source directory.
-func discoverAllAgents(agentsSource string) []resource.DiscoveredResource {
-	if agentsSource == "" {
-		return nil
-	}
-	discovered, _ := resource.AgentKind{}.Discover(agentsSource)
-	return discovered
-}
-
 // discoverActiveAgents discovers agents from the given source directory,
-// returning only non-disabled agents. Returns nil if source is empty.
+// returning only non-disabled agents. Returns an empty slice if source is empty.
 func discoverActiveAgents(agentsSource string) []resource.DiscoveredResource {
-	return resource.ActiveAgents(discoverAllAgents(agentsSource))
+	var discovered []resource.DiscoveredResource
+	if agentsSource != "" {
+		discovered, _ = resource.AgentKind{}.Discover(agentsSource)
+	}
+	return resource.ActiveAgents(discovered)
 }
 
 // agentIgnorePayload returns JSON-serialisable fields describing .agentignore state.

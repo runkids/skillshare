@@ -689,7 +689,7 @@
   },
   {
     "file": "internal/resource/agent.go",
-    "function": "(AgentKind).Discover",
+    "function": "discoverAgents",
     "callee": "filepath.Walk",
     "root": "walkRoot",
     "reason": "agents",
@@ -697,7 +697,7 @@
   },
   {
     "file": "internal/resource/agent.go",
-    "function": "(AgentKind).Discover",
+    "function": "discoverAgents",
     "callee": "os.ReadDir",
     "root": "walkRoot",
     "reason": "agents",

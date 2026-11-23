@@ -403,12 +403,8 @@ func (s *Server) handleAuditSkill(w http.ResponseWriter, r *http.Request) {
 		// Resolve agent file path via discovery
 		var agentPath string
 		if agentsSource != "" {
-			discovered, _ := resource.AgentKind{}.Discover(agentsSource)
-			for _, d := range discovered {
-				if d.FlatName == name || d.Name == name {
-					agentPath = d.AbsPath
-					break
-				}
+			if d, err := findAgent(agentsSource, name); err == nil {
+				agentPath = d.AbsPath
 			}
 		}
 		if agentPath == "" {

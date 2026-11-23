@@ -57,8 +57,9 @@ func (s *Server) handleBatchToggleSkills(w http.ResponseWriter, r *http.Request)
 	agentsSource := s.agentsSource()
 	s.mu.RUnlock()
 
-	// Discover once and build a name → status lookup. First match wins, matching
-	// the resolve* helpers used by the single-resource toggle handler.
+	// Discover once and build a name → status lookup, resolving names the same
+	// way as the single-resource toggle handler: resource.FindAgent for agents,
+	// first match for skills.
 	type entry struct {
 		relPath  string
 		disabled bool
@@ -79,17 +80,15 @@ func (s *Server) handleBatchToggleSkills(w http.ResponseWriter, r *http.Request)
 			writeError(w, http.StatusNotFound, "no agents source configured")
 			return
 		}
-		discovered, err := resource.AgentKind{}.Discover(agentsSource)
+		discovered, err := resource.AgentKind{}.DiscoverAll(agentsSource)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "failed to discover agents: "+err.Error())
 			return
 		}
-		for _, d := range discovered {
-			e := entry{relPath: d.RelPath, disabled: d.Disabled}
-			put(d.FlatName, e)
-			put(d.Name, e)
-			put(d.RelPath, e)
-			put(agentDisplayName(d.RelPath), e)
+		for _, name := range req.Names {
+			if d, ok := resource.FindAgent(discovered, name); ok {
+				put(name, entry{relPath: d.RelPath, disabled: d.Disabled})
+			}
 		}
 		ignorePath = filepath.Join(agentsSource, ".agentignore")
 	} else {

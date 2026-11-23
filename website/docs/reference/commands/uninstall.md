@@ -336,7 +336,7 @@ skillshare uninstall --kind agent tutor reviewer -f   # Remove multiple agents
 skillshare uninstall --kind agent --all               # Remove all agents
 ```
 
-Agent uninstall follows the same trash-and-retain behavior as skills (moved to trash, kept 7 days). See [Agents](/docs/understand/agents) for background.
+Agent uninstall follows the same trash-and-retain behavior as skills (moved to trash, kept 7 days). `--all` leaves agents disabled by `.agentignore` in place; name one or use `--group` to remove it. A name that is an agent's path (`archive/reviewer`) or flat name always selects that agent, even a disabled one; a plain agent name shared by several agents selects an enabled one first. See [Agents](/docs/understand/agents) for background.
 
 ## See Also
 

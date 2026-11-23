@@ -377,3 +377,18 @@ func TestHandleAuditSkill_MarksAcceptedFindings(t *testing.T) {
 		t.Fatalf("accepted finding must not block or count as critical: %s", rr.Body.String())
 	}
 }
+
+func TestHandleAuditSkill_AgentInIgnoredFolder(t *testing.T) {
+	s, _ := newTestServer(t)
+	agentsDir := s.agentsSource()
+	addAgent(t, agentsDir, "demo/reviewer.md")
+	if err := os.WriteFile(filepath.Join(agentsDir, ".agentignore"), []byte("demo/\n"), 0o644); err != nil {
+		t.Fatalf("write .agentignore: %v", err)
+	}
+
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/api/audit/demo__reviewer.md?kind=agent", nil))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200 for an agent the dashboard lists as disabled, got %d: %s", rr.Code, rr.Body.String())
+	}
+}

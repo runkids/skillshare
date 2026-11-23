@@ -168,6 +168,34 @@ func TestExecuteTargets_NoEffectiveTargetsReturnsEmptyCollections(t *testing.T) 
 	}
 }
 
+func TestIgnoreReport_ListsAgentsInIgnoredFolders(t *testing.T) {
+	source := t.TempDir()
+	for _, rel := range []string{"keep.md", "solo.md", "demo/reviewer.md"} {
+		path := filepath.Join(source, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte("# Agent\n"), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(source, ".agentignore"), []byte("demo/\nsolo.md\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"demo/reviewer.md", "solo.md"}
+
+	if r := NewIgnoreReport(nil, source, nil); !slices.Equal(r.AgentIgnoredSkills, want) {
+		t.Errorf("rescanned report = %v, want %v", r.AgentIgnoredSkills, want)
+	}
+	active, all, _ := DiscoverTargetAgents(source)
+	if len(active) != 1 || active[0].RelPath != "keep.md" {
+		t.Errorf("active agents = %+v, want only keep.md", active)
+	}
+	if r := NewIgnoreReport(nil, source, all); !slices.Equal(r.AgentIgnoredSkills, want) {
+		t.Errorf("sync report = %v, want %v", r.AgentIgnoredSkills, want)
+	}
+}
+
 func TestExecuteTargets_ReturnsDiscoveredAgentsForIgnoreReport(t *testing.T) {
 	source := t.TempDir()
 	for _, name := range []string{"keep.md", "ignored.md"} {

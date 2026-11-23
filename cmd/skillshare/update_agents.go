@@ -61,8 +61,13 @@ func cmdUpdateAgents(args []string, cfg *config.Config, start time.Time) error {
 		return failJSON(fmt.Errorf("cannot access agents source: %w", err))
 	}
 
-	// Discover agents and check status
-	results := check.CheckAgents(agentsDir)
+	// Discover agents and check status; a named agent may sit in an
+	// .agentignore'd folder, which list shows as disabled.
+	checkAgents := check.CheckAgents
+	if len(opts.names) > 0 {
+		checkAgents = check.CheckAllAgents
+	}
+	results := checkAgents(agentsDir)
 	if len(results) == 0 {
 		if opts.jsonOutput {
 			return jsonWriteResult(nil, nil)
@@ -686,7 +691,11 @@ func cmdUpdateAgentsProject(args []string, projectRoot string, start time.Time) 
 		return failJSON(fmt.Errorf("cannot access project agents: %w", err))
 	}
 
-	results := check.CheckAgents(agentsDir)
+	checkAgents := check.CheckAgents
+	if len(opts.names) > 0 {
+		checkAgents = check.CheckAllAgents
+	}
+	results := checkAgents(agentsDir)
 	if len(results) == 0 {
 		if opts.jsonOutput {
 			return jsonWriteResult(nil, nil)

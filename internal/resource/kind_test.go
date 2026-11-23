@@ -3,6 +3,7 @@ package resource
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	"skillshare/internal/sourcewalk"
@@ -324,44 +325,66 @@ func TestAgentKind_Discover_EmptyDir(t *testing.T) {
 
 func TestAgentKind_Discover_RespectsAgentignore(t *testing.T) {
 	dir := t.TempDir()
-
-	os.WriteFile(filepath.Join(dir, "active.md"), []byte("# Active"), 0o644)
-	os.WriteFile(filepath.Join(dir, "ignored.md"), []byte("# Ignored"), 0o644)
-
-	// Create .agentignore
-	os.WriteFile(filepath.Join(dir, ".agentignore"), []byte("ignored.md\n"), 0o644)
-
-	k := AgentKind{}
-	resources, err := k.Discover(dir)
-	if err != nil {
-		t.Fatalf("Discover error: %v", err)
+	for _, rel := range []string{"active.md", "solo.md", "demo/reviewer.md", "demo/nested/deep.md", "kept/drop.md", "kept/keep.md"} {
+		os.MkdirAll(filepath.Join(dir, filepath.Dir(rel)), 0o755)
+		os.WriteFile(filepath.Join(dir, rel), []byte("# Agent"), 0o644)
 	}
+	os.WriteFile(filepath.Join(dir, ".agentignore"), []byte("demo/\nsolo.md\nkept/\n!kept/keep.md\n"), 0o644)
 
-	if len(resources) != 2 {
-		t.Fatalf("expected 2 resources (ignored included as disabled), got %d", len(resources))
-	}
-
-	// Find each by name and check Disabled flag
-	var active, ignored *DiscoveredResource
-	for i := range resources {
-		switch resources[i].Name {
-		case "active":
-			active = &resources[i]
-		case "ignored":
-			ignored = &resources[i]
+	disabledByRelPath := func(discover func(string) ([]DiscoveredResource, error)) map[string]bool {
+		resources, err := discover(dir)
+		if err != nil {
+			t.Fatalf("discover error: %v", err)
 		}
+		got := map[string]bool{}
+		for _, r := range resources {
+			got[r.RelPath] = r.Disabled
+		}
+		return got
 	}
-	if active == nil {
-		t.Fatal("active agent not found")
+
+	// Discover skips ignored directories and keeps file-rule matches as disabled.
+	want := map[string]bool{"active.md": false, "solo.md": true, "kept/drop.md": true, "kept/keep.md": false}
+	if got := disabledByRelPath(AgentKind{}.Discover); !reflect.DeepEqual(got, want) {
+		t.Errorf("Discover: relPath → disabled = %v, want %v", got, want)
 	}
-	if active.Disabled {
-		t.Error("active agent should not be disabled")
+
+	// DiscoverAll also lists the agents inside ignored directories, as disabled.
+	want["demo/reviewer.md"] = true
+	want["demo/nested/deep.md"] = true
+	if got := disabledByRelPath(AgentKind{}.DiscoverAll); !reflect.DeepEqual(got, want) {
+		t.Errorf("DiscoverAll: relPath → disabled = %v, want %v", got, want)
 	}
-	if ignored == nil {
-		t.Fatal("ignored agent not found")
+}
+
+func TestFindAgent(t *testing.T) {
+	agent := func(relPath, name string, disabled bool) DiscoveredResource {
+		return DiscoveredResource{Name: name, RelPath: relPath, FlatName: AgentFlatName(relPath), Disabled: disabled}
 	}
-	if !ignored.Disabled {
-		t.Error("ignored agent should be disabled")
+	agents := []DiscoveredResource{
+		agent("archive/reviewer.md", "reviewer", true),
+		agent("team/reviewer.md", "reviewer", false),
+		agent("lead.md", "lead", true),
+		agent("team/lead.md", "lead", false),
+		agent("old/solo.md", "solo", true),
+	}
+	tests := []struct {
+		name string
+		want string
+	}{
+		{"reviewer", "team/reviewer.md"},               // name only: the active agent wins
+		{"archive/reviewer", "archive/reviewer.md"},    // an exact path reaches a disabled agent
+		{"archive/reviewer.md", "archive/reviewer.md"}, // with .md too
+		{"lead", "lead.md"},                            // an exact path beats an active name match
+		{"team__lead.md", "team/lead.md"},              // flat name
+		{"solo", "old/solo.md"},                        // a disabled name match is still found
+		{"missing", ""},
+	}
+	for _, tt := range tests {
+		got, ok := FindAgent(agents, tt.name)
+		if got.RelPath != tt.want || ok != (tt.want != "") {
+			t.Errorf("FindAgent(%q) = %q, %v; want %q", tt.name, got.RelPath, ok, tt.want)
+		}
 	}
 }
 

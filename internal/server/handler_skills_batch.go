@@ -265,7 +265,7 @@ func (s *Server) handleSetSkillTargets(w http.ResponseWriter, r *http.Request) {
 	s.mu.RUnlock()
 
 	if agentsSource != "" {
-		agents, _ := resource.AgentKind{}.Discover(agentsSource)
+		agents, _ := resource.AgentKind{}.DiscoverAll(agentsSource)
 		for _, d := range agents {
 			if d.FlatName != name {
 				continue
