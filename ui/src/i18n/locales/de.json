@@ -1332,6 +1332,7 @@
   "resourceDetail.meta.tracked": "Getrackt",
   "resourceDetail.meta.trackedBranch": "Ja, Branch {branch}",
   "resourceDetail.meta.branch": "Branch",
+  "resourceDetail.meta.commit": "Commit",
   "resourceDetail.branch.title": "Branch wechseln",
   "resourceDetail.branch.message": "{name} aus {branch} neu installieren? Die Dateien werden durch die Version aus diesem Branch ersetzt. Hat {branch} diesen Skill nicht, bleibt die aktuelle Installation erhalten.",
   "resourceDetail.branch.confirm": "Wechseln und neu installieren",

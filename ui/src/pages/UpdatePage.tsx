@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { Link as RouterLink } from 'react-router-dom';
 import { resourceHref } from '../lib/resourceNames';
+import { formatVersion } from '../lib/format';
 import { api } from '../api/client';
 import type { CheckResult, LinkedRepo, Skill, UpdateResultItem } from '../api/client';
 import { queryKeys } from '../lib/queryKeys';
@@ -726,6 +727,14 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
     <span className="flex flex-wrap md:flex-nowrap items-baseline gap-x-3 gap-y-1 min-w-0 flex-1">
       <span className="nm m truncate max-w-full md:shrink-0 md:max-w-[60%]">{unit.label}</span>
       {unit.isRepo && <span className="ss-tag self-center">tracked</span>}
+      {!unit.isRepo && unit.items[0]?.metadataVersion && (
+        <span
+          className="ss-tag self-center max-w-[30%] font-mono"
+          title={unit.items[0].metadataVersion}
+        >
+          <span className="truncate">{formatVersion(unit.items[0].metadataVersion)}</span>
+        </span>
+      )}
       {unit.items[0]?.branch && (
         <span className="ss-tag self-center max-w-[40%]" title={unit.items[0].branch}>
           <GitBranch size={11} className="shrink-0" />

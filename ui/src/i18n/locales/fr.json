@@ -1332,6 +1332,7 @@
   "resourceDetail.meta.tracked": "Suivi",
   "resourceDetail.meta.trackedBranch": "Oui, branche {branch}",
   "resourceDetail.meta.branch": "Branche",
+  "resourceDetail.meta.commit": "Commit",
   "resourceDetail.branch.title": "Changer de branche",
   "resourceDetail.branch.message": "Réinstaller {name} depuis {branch} ? Ses fichiers sont remplacés par la version de cette branche. Si {branch} n'a pas ce skill, l'installation actuelle est conservée.",
   "resourceDetail.branch.confirm": "Changer et réinstaller",

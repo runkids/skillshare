@@ -1332,6 +1332,7 @@
   "resourceDetail.meta.tracked": "Rastreado",
   "resourceDetail.meta.trackedBranch": "Sí, rama {branch}",
   "resourceDetail.meta.branch": "Rama",
+  "resourceDetail.meta.commit": "Commit",
   "resourceDetail.branch.title": "Cambiar de rama",
   "resourceDetail.branch.message": "¿Reinstalar {name} desde {branch}? Sus archivos se reemplazan por la versión de esa rama. Si {branch} no tiene este skill, se conserva la instalación actual.",
   "resourceDetail.branch.confirm": "Cambiar y reinstalar",

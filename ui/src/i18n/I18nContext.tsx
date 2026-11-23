@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
+  applyUrlLocaleParam,
   getInitialLocale,
   LOCALE_STORAGE_KEY,
   supportedLocales,
@@ -14,6 +15,8 @@ interface I18nContextValue {
   setLocale: (locale: Locale) => void;
   t: (key: string, params?: TranslationParams, fallback?: string) => string;
 }
+
+applyUrlLocaleParam();
 
 const I18nContext = createContext<I18nContextValue | null>(null);
 
@@ -32,6 +35,10 @@ export function I18nProvider({ children }: { children: ReactNode }) {
       localStorage.setItem(LOCALE_STORAGE_KEY, nextLocale);
     } catch {
       // Locale switching should still work when storage is unavailable.
+    }
+    // An embedding app (the desktop shell) keeps the choice, since this frame's storage may not last.
+    if (window.parent !== window) {
+      window.parent.postMessage({ type: 'locale-change', locale: nextLocale }, '*');
     }
   }, []);
 

@@ -153,7 +153,7 @@ describe('edited frontmatter', () => {
   });
 });
 
-describe('exact integers in edited headers', () => {
+describe('exact numbers in edited headers', () => {
   it('retains integers reached through YAML aliases', () => {
     const parsed = parseSkillMarkdown(
       '---\nname: demo\nmetadata:\n  original: &event\n    id: 9007199254740993\n  copy: *event\n  later: 9007199254740995\n  id: &id 9007199254740993\n  sibling: *id\n  sources:\n    - resource: a.md\n      event: *id\n  ids: [&item 9007199254740993, *item]\n  first: &reused 9007199254740993\n  firstCopy: *reused\n  second: &reused 9007199254740995\n  secondCopy: *reused\n---\nbody',
@@ -218,6 +218,24 @@ describe('exact integers in edited headers', () => {
     expect(exact.metadata['x-acme-event-id']).toBe(9007199254740993n);
     expect(exact.metadata.nested.count).toBe(9007199254740993n);
     expect(exact.metadata.sources[0]['x-acme']).toBe(9007199254740993n);
+  });
+
+  it('retains the trailing zeros of untouched decimals', () => {
+    const parsed = parseSkillMarkdown(
+      '---\nname: demo\nmetadata:\n  version: 1.10\n  ratio: 0.50\n  tiny: 0.00000010\n  changed: 2.0\n---\nbody',
+    );
+    const metadata = { ...(parsed.frontmatter.metadata as FrontmatterNested), changed: 3 };
+    const saved = composeSkillMarkdown(
+      { ...parsed.frontmatter, description: 'edited', metadata },
+      parsed.body,
+      undefined,
+      undefined,
+      parsed.bom,
+      parsed.rawFrontmatter,
+    );
+    expect(parseSkillMarkdown(saved).rawFrontmatter).toContain(
+      'metadata:\n  version: 1.10\n  ratio: 0.50\n  tiny: 1e-7\n  changed: 3\n',
+    );
   });
 });
 

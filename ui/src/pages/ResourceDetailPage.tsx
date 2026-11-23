@@ -41,6 +41,7 @@ import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { clearAuditCache } from '../lib/auditCache';
 import { SEV, parseFindings, thresholdOf } from '../lib/auditMessage';
 import { parseSkillMarkdown } from '../lib/frontmatter';
+import { formatVersion } from '../lib/format';
 import { isMarkdown } from '../lib/highlight';
 import { parseRemoteURL } from '../lib/parseRemoteURL';
 import { resourceHref } from '../lib/resourceNames';
@@ -685,6 +686,13 @@ function MetaBox({
 
   const rows: [string, React.ReactNode][] = [];
   const addRow = (label: string, value: React.ReactNode) => rows.push([label, value]);
+  if (resource.metadataVersion)
+    addRow(
+      t('resourceDetail.metadata.version'),
+      <span className="font-mono" title={resource.metadataVersion}>
+        {formatVersion(resource.metadataVersion)}
+      </span>,
+    );
   if (isAgent && str(frontmatter.model))
     addRow(
       t('resourceDetail.meta.model'),
@@ -745,7 +753,7 @@ function MetaBox({
   }
   if (resource.version || updateNote) {
     addRow(
-      t('resourceDetail.metadata.version'),
+      t('resourceDetail.meta.commit'),
       <>
         {resource.version && <span className="font-mono">{resource.version}</span>}
         {updateNote && (

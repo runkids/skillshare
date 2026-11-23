@@ -41,6 +41,7 @@ import { api } from '../api/client';
 import type { Skill, SourceLink } from '../api/client';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { globToRegex } from '../lib/glob';
+import { formatVersion } from '../lib/format';
 import { parseRemoteURL } from '../lib/parseRemoteURL';
 import { folderOf, formatTrackedRepoName, resourceHref } from '../lib/resourceNames';
 import {
@@ -1041,6 +1042,13 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
         <span className="truncate">{s.branch}</span>
       </span>
     ) : null;
+  /** The skill's own `metadata.version`, when its frontmatter has one. */
+  const versionTag = (s: Skill) =>
+    s.metadataVersion ? (
+      <span className="ss-tag shrink-0 max-w-[10rem] font-mono" title={s.metadataVersion}>
+        <span className="truncate">{formatVersion(s.metadataVersion)}</span>
+      </span>
+    ) : null;
   /** Marks the typed text inside a name; glob patterns match whole names, so they mark nothing. */
   const hit = (name: string) => {
     const i = query && !isGlob ? name.toLowerCase().indexOf(query.toLowerCase()) : -1;
@@ -1114,6 +1122,7 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
                 manual only
               </span>
             )}
+            {versionTag(s)}
             {branchTag(s)}
             {pkg && pill(s, pkg)}
           </span>
@@ -1169,6 +1178,7 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
             manual only
           </span>
         )}
+        {versionTag(s)}
         {branchTag(s)}
         {pkg && pill(s, pkg)}
         {tone !== 'ok' && <span className="ss-tag shrink-0">{label}</span>}
@@ -1278,6 +1288,7 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
                 manual only
               </span>
             )}
+            {versionTag(s)}
             {branchTag(s)}
           </span>
           {status$(tone, label)}

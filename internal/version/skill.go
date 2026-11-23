@@ -18,11 +18,12 @@ const SkillSourceURL = "https://raw.githubusercontent.com/runkids/skillshare/mai
 // The returned value never has a "v" prefix.
 func ReadLocalSkillVersion(sourceDir string) string {
 	skillFile := filepath.Join(sourceDir, "skillshare", "SKILL.md")
-	return strings.TrimPrefix(parseMetadataVersion(skillFile), "v")
+	return strings.TrimPrefix(ParseMetadataVersion(skillFile), "v")
 }
 
-// parseMetadataVersion reads the version from a metadata block in YAML frontmatter.
-func parseMetadataVersion(filePath string) string {
+// ParseMetadataVersion reads the version from a metadata block in YAML frontmatter,
+// line by line, so it also works when the rest of the frontmatter is not valid YAML.
+func ParseMetadataVersion(filePath string) string {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return ""

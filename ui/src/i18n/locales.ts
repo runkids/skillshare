@@ -78,6 +78,34 @@ export function detectBrowserLocale(languages: readonly string[] | undefined): L
   return DEFAULT_LOCALE;
 }
 
+/** The `?lang=` URL parameter, which an embedding app uses to carry the user's choice. */
+export const LOCALE_URL_PARAM = 'lang';
+
+// The locale `?lang=` asked for, for when storage cannot keep it.
+let urlLocale: Locale | null = null;
+
+/**
+ * Save the locale `?lang=` asks for, then drop the parameter from the address (runs once on load).
+ * The desktop app embeds this UI in an iframe whose storage WebKit does not keep between launches,
+ * so it remembers the choice itself and passes it back in the URL. Left in the address, the
+ * parameter would come back on a reload inside the frame and undo a language picked since.
+ */
+export function applyUrlLocaleParam(): void {
+  const url = new URL(window.location.href);
+  if (!url.searchParams.has(LOCALE_URL_PARAM)) return;
+  const locale = normalizeLocale(url.searchParams.get(LOCALE_URL_PARAM));
+  url.searchParams.delete(LOCALE_URL_PARAM);
+  window.history.replaceState(window.history.state, '', url);
+  if (!locale) return;
+  urlLocale = locale;
+  try {
+    localStorage.setItem(LOCALE_STORAGE_KEY, locale);
+  } catch {
+    // The URL still decides the locale when storage is unavailable.
+  }
+}
+
+/** The locale to start with: the saved choice, then the one `?lang=` gave, then the browser's. */
 export function getInitialLocale(): Locale {
   try {
     const stored = localStorage.getItem(LOCALE_STORAGE_KEY);
@@ -86,6 +114,7 @@ export function getInitialLocale(): Locale {
   } catch {
     // Ignore storage access failures and fall back to browser detection.
   }
+  if (urlLocale) return urlLocale;
   return detectBrowserLocale(
     navigator.languages?.length ? navigator.languages : [navigator.language],
   );
