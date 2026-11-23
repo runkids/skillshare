@@ -529,11 +529,15 @@ func (m listTUIModel) toggleDisabled() (tea.Model, tea.Cmd) {
 	start := time.Now()
 	newDisabled := !item.entry.Disabled
 	// Another rule can still decide the state, so the row shows what discovery sees.
-	res, err := src.Apply(!newDisabled, []string{pattern}, []string{pattern})
+	var res toggle.Result
+	set, err := src.Discover()
+	if err == nil {
+		res, err = src.Apply(!newDisabled, set.ItemLines([]string{pattern}, !newDisabled), []string{pattern})
+	}
 	if err == nil && res.Items[0].Blocked != "" {
 		err = errors.New(res.Items[0].Blocked)
 	}
-	if err != nil || res.Changed[pattern] {
+	if err != nil || len(res.Items[0].Lines) > 0 {
 		m.logToggle(newDisabled, pattern, item.entry.Kind, start, err)
 	}
 	if err != nil {

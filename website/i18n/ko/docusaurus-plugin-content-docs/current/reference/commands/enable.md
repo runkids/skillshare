@@ -109,7 +109,7 @@ $ skillshare enable draft-one
 ✗ could not enable draft-one: still disabled: another rule in .skillignore or .skillignore.local matches it — remove that rule to enable it
 ```
 
-여러 개가 막히면 각각 `✗` 행이 출력됩니다. 적용된 변경은 그대로 유지되어 `✓`로 표시되고, 작업 로그에는 `partial`로 기록됩니다.
+여러 개가 막히면 각각 `✗` 행이 출력됩니다. 적용된 변경은 그대로 유지되어 `✓`로 표시되고, 작업 로그에는 `partial`로 기록됩니다. `disable`이 쓴 줄이 지정한 모든 skill에서 `!` 규칙에 덮어써지면 그 줄은 다시 제거되어 ignore 파일이 원래대로 유지됩니다.
 
 `"draft-*"` 같은 glob 인자는 특정 skill 하나를 가리키지 않으므로 이 확인 없이 쓰거나 지웁니다.
 
@@ -141,7 +141,7 @@ Next
 
 ## TUI 토글
 
-`skillshare list` TUI에서도 skill을 켜고 끌 수 있습니다. 변경 사항은 즉시 `.skillignore`에 기록됩니다. 다른 규칙 때문에 skill이 이전 상태로 남으면 행은 바뀌지 않고, 키 줄에 CLI와 같은 `✗` 메시지가 표시됩니다.
+`skillshare list` TUI에서도 skill을 켜고 끌 수 있습니다. 변경 사항은 즉시 `.skillignore`에 기록됩니다. 다른 규칙 때문에 skill이 이전 상태로 남으면 행은 바뀌지 않고, 키 줄에 CLI와 같은 `✗` 메시지가 표시됩니다. TUI나 대시보드에서 skill을 켜면 `skillshare disable <name>`이 쓰는 폴더 이름 줄도 함께 제거됩니다. 단, 그 줄이 켜지 않는 다른 skill에도 일치하면 남겨 둡니다.
 
 ## .skillignore는 어디에 있나요?
 
