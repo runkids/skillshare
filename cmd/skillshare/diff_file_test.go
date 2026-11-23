@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"skillshare/internal/sync"
 )
@@ -204,6 +205,21 @@ func TestDiffMergeModeCopyWithReincludedDefaultIsReplacedWithLink(t *testing.T) 
 
 	if len(r.items) != 1 || r.items[0].reason != sync.CopyToLinkReason {
 		t.Fatalf("items = %+v, want the copy replaced with a link", r.items)
+	}
+}
+
+// A file ignore: keeps out of the copy does not move "source changed".
+func TestCopiedMtimeLeavesOutIgnoredFiles(t *testing.T) {
+	dir := t.TempDir()
+	writeTestFile(t, dir, "SKILL.md", "# a")
+	writeTestFile(t, dir, "notes.md", "later")
+	skillTime := time.Now().Add(-time.Hour).Truncate(time.Second)
+	if err := os.Chtimes(filepath.Join(dir, "SKILL.md"), skillTime, skillTime); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := copiedMtime(dir, sync.EffectiveFileIgnorePatterns([]string{"notes.md"})); !got.Equal(skillTime) {
+		t.Errorf("copiedMtime = %v, want SKILL.md's %v", got, skillTime)
 	}
 }
 

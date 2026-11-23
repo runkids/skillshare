@@ -144,6 +144,17 @@ func TestToggleKey_AnotherRuleKeepsRowState(t *testing.T) {
 	}
 }
 
+// `disable inner` writes the folder name; enabling the row removes that line too.
+func TestToggleKey_EnablesSkillDisabledByFolderName(t *testing.T) {
+	entry := skillEntryAt("group/inner")
+	entry.Disabled = true
+	m := pressToggle(t, entry, map[string]string{"group/inner/SKILL.md": "# i", ".skillignore": "inner\n"})
+
+	if m.toggleErr != nil || m.allItems[0].entry.Disabled {
+		t.Errorf("want the skill enabled, got disabled=%v err=%v", m.allItems[0].entry.Disabled, m.toggleErr)
+	}
+}
+
 func TestToggleKey_WritesOplog(t *testing.T) {
 	blocked := skillEntryAt("draft-one")
 	blocked.Disabled = true

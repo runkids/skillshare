@@ -141,11 +141,12 @@ func TestEnable_BlockedByAgentFolderRule(t *testing.T) {
 
 func TestDisable_OverriddenByNegationRule(t *testing.T) {
 	for _, tc := range []struct {
-		name string
-		args []string
+		name   string
+		args   []string
+		ignore string
 	}{
-		{"skill", []string{"disable", "my-skill"}},
-		{"agent", []string{"disable", "-g", "--kind", "agent", "mine"}},
+		{"skill", []string{"disable", "my-skill"}, "skills/.skillignore"},
+		{"agent", []string{"disable", "-g", "--kind", "agent", "mine"}, "agents/.agentignore"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			sb := toggleSandbox(t, []string{"my-skill"}, map[string]string{
@@ -160,6 +161,10 @@ func TestDisable_OverriddenByNegationRule(t *testing.T) {
 			result.AssertOutputNotContains(t, "skillshare sync")
 			if op := lastOp(t, sb); op.Command != "disable" || op.Status != "error" {
 				t.Errorf("oplog = %+v, want a disable error", op)
+			}
+			// The line it wrote disables nothing, so it is removed again.
+			if data, _ := os.ReadFile(filepath.Join(filepath.Dir(sb.SourcePath), tc.ignore)); strings.TrimSpace(string(data)) != "" {
+				t.Errorf("%s = %q, want no line left", tc.ignore, data)
 			}
 		})
 	}

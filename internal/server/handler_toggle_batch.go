@@ -98,7 +98,7 @@ func (s *Server) handleBatchToggleSkills(w http.ResponseWriter, r *http.Request)
 	// Hold the write lock while writing and re-checking the outcome.
 	if len(relPaths) > 0 {
 		s.mu.Lock()
-		res, err := src.Apply(req.Enable, relPaths, relPaths)
+		res, err := src.Apply(req.Enable, items.ItemLines(relPaths, req.Enable), relPaths)
 		s.mu.Unlock()
 		counted := map[string]bool{}
 		for i := range req.Names {
@@ -112,12 +112,13 @@ func (s *Server) handleBatchToggleSkills(w http.ResponseWriter, r *http.Request)
 			}
 			// A written rule can still be overridden by another one, such as
 			// a "!" line in the .local file; Apply re-checks it as discovery sees it.
-			if msg := res.Items[slices.Index(relPaths, relPath)].Blocked; msg != "" {
-				fail(i, req.Enable, msg)
+			out := res.Items[slices.Index(relPaths, relPath)]
+			if out.Blocked != "" {
+				fail(i, req.Enable, out.Blocked)
 				continue
 			}
 			resp.Results[i] = batchToggleItemResult{Name: req.Names[i], Success: true, Disabled: !req.Enable}
-			if res.Changed[relPath] && !counted[relPath] {
+			if len(out.Lines) > 0 && !counted[relPath] {
 				counted[relPath] = true
 				resp.Summary.Updated++
 			} else {

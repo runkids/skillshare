@@ -109,7 +109,7 @@ $ skillshare enable draft-one
 ✗ could not enable draft-one: still disabled: another rule in .skillignore or .skillignore.local matches it — remove that rule to enable it
 ```
 
-若有多個被擋下，每個都會有自己的 `✗` 列。已生效的變更會保留並以 `✓` 顯示，操作紀錄會把這次執行記為 `partial`。
+若有多個被擋下，每個都會有自己的 `✗` 列。已生效的變更會保留並以 `✓` 顯示，操作紀錄會把這次執行記為 `partial`。如果 `disable` 寫入的那一行，對它指定的每個 skill 都被 `!` 規則推翻，這一行會被移除，ignore 檔維持原樣。
 
 像 `"draft-*"` 這樣的 glob 參數不對應單一 skill，因此會直接寫入或移除，不做這項檢查。
 
@@ -141,7 +141,7 @@ Next
 
 ## TUI Toggle
 
-你也可以在 `skillshare list` TUI 中開關 skills。變更會立即寫入 `.skillignore`。如果其他規則讓 skill 維持原狀態，該列不會改變，按鍵列會顯示與 CLI 相同的 `✗` 訊息。
+你也可以在 `skillshare list` TUI 中開關 skills。變更會立即寫入 `.skillignore`。如果其他規則讓 skill 維持原狀態，該列不會改變，按鍵列會顯示與 CLI 相同的 `✗` 訊息。在 TUI 或 dashboard 啟用 skill 時，也會移除 `skillshare disable <name>` 寫入的資料夾名稱那一行，除非這一行也符合這次沒有要啟用的 skill。
 
 ## Where is the .skillignore?
 

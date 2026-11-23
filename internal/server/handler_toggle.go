@@ -68,7 +68,7 @@ func (s *Server) handleToggleSkill(w http.ResponseWriter, r *http.Request, enabl
 		}
 	}
 
-	res, err := src.Apply(enable, []string{relPath}, []string{relPath})
+	res, err := src.Apply(enable, items.ItemLines([]string{relPath}, enable), []string{relPath})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -79,7 +79,7 @@ func (s *Server) handleToggleSkill(w http.ResponseWriter, r *http.Request, enabl
 		"scope": "ui",
 	}
 	if msg := res.Items[0].Blocked; msg != "" {
-		// The ignore file may already have changed, so the attempt is still logged.
+		// A failed attempt is logged too.
 		s.writeOpsLog(action, "error", start, logArgs, msg)
 		writeError(w, http.StatusConflict, msg)
 		return

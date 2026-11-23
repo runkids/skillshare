@@ -109,7 +109,7 @@ $ skillshare enable draft-one
 ✗ could not enable draft-one: still disabled: another rule in .skillignore or .skillignore.local matches it — remove that rule to enable it
 ```
 
-When several are blocked, each gets its own `✗` row. Changes that did take effect are kept and shown with `✓`, and the operation log records the run as `partial`.
+When several are blocked, each gets its own `✗` row. Changes that did take effect are kept and shown with `✓`, and the operation log records the run as `partial`. A line `disable` wrote that a `!` rule overrides for every skill it names is removed again, so the ignore file is left as it was.
 
 A glob argument such as `"draft-*"` names no single skill, so it is written or removed without this check.
 
@@ -141,7 +141,7 @@ Always wrap folder patterns in quotes (`"frontend/**"`) so your shell doesn't ex
 
 ## TUI Toggle
 
-You can also turn skills on and off in the `skillshare list` TUI. The change is written to `.skillignore` immediately. If another rule keeps the skill in its old state, the row stays as it was and the key line shows the same `✗` message as the CLI.
+You can also turn skills on and off in the `skillshare list` TUI. The change is written to `.skillignore` immediately. If another rule keeps the skill in its old state, the row stays as it was and the key line shows the same `✗` message as the CLI. Enabling a skill in the TUI or the dashboard also removes its folder-name line, the one `skillshare disable <name>` writes, unless that line also matches a skill you are not enabling.
 
 ## Where is the .skillignore?
 

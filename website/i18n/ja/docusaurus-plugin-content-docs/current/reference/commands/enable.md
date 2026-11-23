@@ -109,7 +109,7 @@ $ skillshare enable draft-one
 ✗ could not enable draft-one: still disabled: another rule in .skillignore or .skillignore.local matches it — remove that rule to enable it
 ```
 
-複数がブロックされた場合は、それぞれに `✗` 行が出ます。反映された変更はそのまま残って `✓` で表示され、操作ログには `partial` として記録されます。
+複数がブロックされた場合は、それぞれに `✗` 行が出ます。反映された変更はそのまま残って `✓` で表示され、操作ログには `partial` として記録されます。`disable` が書いた行が、指定したすべての Skill で `!` ルールに上書きされる場合、その行は取り除かれ、ignore ファイルは元のままになります。
 
 `"draft-*"` のような glob 引数は単一の Skill を指さないため、この確認なしで書き込み・削除されます。
 
@@ -141,7 +141,7 @@ Next
 
 ## TUI での切り替え
 
-`skillshare list` の TUI でも Skill の有効/無効を切り替えられます。変更は即座に `.skillignore` に書き込まれます。別のルールで Skill が元の状態のままの場合、行は変わらず、キー行に CLI と同じ `✗` メッセージが表示されます。
+`skillshare list` の TUI でも Skill の有効/無効を切り替えられます。変更は即座に `.skillignore` に書き込まれます。別のルールで Skill が元の状態のままの場合、行は変わらず、キー行に CLI と同じ `✗` メッセージが表示されます。TUI やダッシュボードで Skill を有効にすると、`skillshare disable <name>` が書くフォルダ名の行も取り除かれます。ただし、その行が有効にしない別の Skill にも一致する場合は残ります。
 
 ## .skillignore はどこにある?
 

@@ -139,6 +139,35 @@ func (s *Set) Lines(arg string, enable bool) ([]string, []Item) {
 	return lines, items
 }
 
+// ItemLines returns the ignore lines that toggling the items at relPaths
+// writes (disable) or removes (enable), as the list TUI and the dashboard do.
+// Enable also removes each item's folder or file name line, which
+// `disable <name>` writes, unless that line also matches the path of a skill
+// or agent not in relPaths.
+func (s *Set) ItemLines(relPaths []string, enable bool) []string {
+	lines := slices.Clone(relPaths)
+	if !enable {
+		return lines
+	}
+	for _, relPath := range relPaths {
+		if base := path.Base(relPath); !slices.Contains(lines, base) && !s.nameMatchesOthers(base, relPaths) {
+			lines = append(lines, base)
+		}
+	}
+	return lines
+}
+
+// nameMatchesOthers reports whether a line of name matches the path of an
+// item not in relPaths.
+func (s *Set) nameMatchesOthers(name string, relPaths []string) bool {
+	for rel := range s.byRelPath {
+		if !slices.Contains(relPaths, rel) && slices.Contains(strings.Split(rel, "/"), name) {
+			return true
+		}
+	}
+	return false
+}
+
 // lineNames reports whether line, as a plain name or path, names it.
 func lineNames(it Item, line string) bool {
 	return it.RelPath == line || path.Base(it.RelPath) == line
@@ -159,6 +188,8 @@ type Result struct {
 
 // Apply adds (disable) or removes (enable) each line in the ignore file, then
 // discovers again and reports whether each item ended in the requested state.
+// A line it added that disables none of the items it names, because a "!" rule
+// keeps them enabled, is removed again.
 func (src Source) Apply(enable bool, lines, relPaths []string) (Result, error) {
 	res := Result{Changed: map[string]bool{}}
 	for _, line := range lines {
@@ -180,8 +211,22 @@ func (src Source) Apply(enable bool, lines, relPaths []string) (Result, error) {
 	if err != nil {
 		return res, err
 	}
+	blocked := make(map[string]string, len(relPaths))
 	for _, rel := range relPaths {
-		out := Outcome{RelPath: rel, Blocked: after.blocked(rel, enable)}
+		blocked[rel] = after.blocked(rel, enable)
+	}
+	if !enable {
+		for _, line := range lines {
+			if res.Changed[line] && disablesNone(line, relPaths, blocked) {
+				if _, err := skillignore.RemovePattern(src.IgnorePath(), line); err != nil {
+					return res, fmt.Errorf("failed to update %s: %w", src.ignoreFile(), err)
+				}
+				delete(res.Changed, line)
+			}
+		}
+	}
+	for _, rel := range relPaths {
+		out := Outcome{RelPath: rel, Blocked: blocked[rel]}
 		for _, line := range lines {
 			if res.Changed[line] && lineNames(Item{RelPath: rel}, line) {
 				out.Lines = append(out.Lines, line)
@@ -190,6 +235,21 @@ func (src Source) Apply(enable bool, lines, relPaths []string) (Result, error) {
 		res.Items = append(res.Items, out)
 	}
 	return res, nil
+}
+
+// disablesNone reports whether line names at least one of relPaths and every
+// item it names is still enabled.
+func disablesNone(line string, relPaths []string, blocked map[string]string) bool {
+	named := false
+	for _, rel := range relPaths {
+		if lineNames(Item{RelPath: rel}, line) {
+			if blocked[rel] == "" {
+				return false
+			}
+			named = true
+		}
+	}
+	return named
 }
 
 // blocked explains why the item at relPath is not in the requested state, or

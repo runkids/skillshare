@@ -63,6 +63,17 @@ func TestApply_DisableOverriddenByNegation(t *testing.T) {
 	}
 }
 
+// A "!" rule keeps the agent enabled, so the line disable wrote does nothing.
+func TestApply_DisableOverriddenByNegationLeavesNoLine(t *testing.T) {
+	src := source(t, true, map[string]string{"mine.md": "# m", ".agentignore.local": "!mine.md\n"})
+	if _, err := src.Apply(false, []string{"mine.md"}, []string{"mine.md"}); err != nil {
+		t.Fatal(err)
+	}
+	if data, _ := os.ReadFile(src.IgnorePath()); strings.Contains(string(data), "mine.md") {
+		t.Errorf(".agentignore = %q, want no mine.md line", data)
+	}
+}
+
 func TestApply_ReportsTheLinesThatChangedAnItem(t *testing.T) {
 	src := source(t, false, map[string]string{"group/inner/SKILL.md": "# i", ".skillignore": "group/inner\n"})
 	res, err := src.Apply(true, []string{"inner", "group/inner"}, []string{"group/inner"})
@@ -71,6 +82,34 @@ func TestApply_ReportsTheLinesThatChangedAnItem(t *testing.T) {
 	}
 	if got := res.Items[0]; got.Blocked != "" || !slices.Equal(got.Lines, []string{"group/inner"}) {
 		t.Errorf("outcome = %+v, want enabled by the group/inner line", got)
+	}
+}
+
+func TestItemLines(t *testing.T) {
+	src := source(t, false, map[string]string{
+		"solo/one/SKILL.md": "# o",
+		"a/dup/SKILL.md":    "# d",
+		"b/dup/SKILL.md":    "# d",
+		"top/SKILL.md":      "# t",
+	})
+	set, err := src.Discover()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		relPaths []string
+		enable   bool
+		want     []string
+	}{
+		{[]string{"solo/one"}, true, []string{"solo/one", "one"}},
+		{[]string{"solo/one"}, false, []string{"solo/one"}},
+		{[]string{"a/dup"}, true, []string{"a/dup"}}, // "dup" also disables b/dup
+		{[]string{"a/dup", "b/dup"}, true, []string{"a/dup", "b/dup", "dup"}},
+		{[]string{"top"}, true, []string{"top"}},
+	} {
+		if got := set.ItemLines(tc.relPaths, tc.enable); !slices.Equal(got, tc.want) {
+			t.Errorf("ItemLines(%q, %v) = %v, want %v", tc.relPaths, tc.enable, got, tc.want)
+		}
 	}
 }
 

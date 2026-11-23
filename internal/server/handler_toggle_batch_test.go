@@ -95,6 +95,20 @@ func TestHandleBatchToggle_EnableSubset(t *testing.T) {
 	}
 }
 
+// `disable inner` writes the folder name; a batch enable of every skill it
+// disables removes it too.
+func TestHandleBatchToggle_EnableSkillsDisabledByFolderName(t *testing.T) {
+	s, src := newTestServer(t)
+	addSkill(t, src, "a/inner")
+	addSkill(t, src, "b/inner")
+	os.WriteFile(filepath.Join(src, ".skillignore"), []byte("inner\n"), 0644)
+
+	_, resp := postBatchToggle(t, s, `{"names":["a__inner","b__inner"],"kind":"skill","enable":true}`)
+	if resp.Summary.Updated != 2 || resp.Summary.Failed != 0 {
+		t.Fatalf("want updated=2, got %+v %+v", resp.Summary, resp.Results)
+	}
+}
+
 func TestHandleBatchToggle_AlreadyDisabled_Unchanged(t *testing.T) {
 	s, src := newTestServer(t)
 	addSkill(t, src, "skill-a")

@@ -215,6 +215,22 @@ func latestMtime(dir string) time.Time {
 	return latest
 }
 
+// copiedMtime returns the newest mtime among the files copy mode copies from
+// dir, so a file ignore: keeps out does not count as a source change.
+func copiedMtime(dir string, ignorePatterns []string) time.Time {
+	files, err := sync.CopiedFiles(dir, ignorePatterns)
+	if err != nil {
+		return latestMtime(dir)
+	}
+	var latest time.Time
+	for _, info := range files {
+		if info.ModTime().After(latest) {
+			latest = info.ModTime()
+		}
+	}
+	return latest
+}
+
 // diffProgress displays multi-target scanning progress.
 // Target list (spinner/queued/done) + overall progress bar at the bottom.
 type diffProgress struct {
@@ -639,7 +655,7 @@ func collectTargetDiff(name string, target config.TargetConfig, source, mode str
 		r.dstMtime = latestMtime(sc.Path)
 		var srcLatest time.Time
 		for _, resolved := range resolution.Skills {
-			mt := latestMtime(resolved.Skill.SourcePath)
+			mt := copiedMtime(resolved.Skill.SourcePath, ignorePatterns)
 			if mt.After(srcLatest) {
 				srcLatest = mt
 			}
