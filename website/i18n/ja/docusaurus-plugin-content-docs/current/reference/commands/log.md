@@ -44,10 +44,12 @@ skillshare log --no-tui | less    # 手動でページャーにパイプする
 
 | コマンド | ログファイル |
 |---------|------|
-| `install`, `uninstall`, `sync`, `push`, `pull`, `collect`, `backup`, `restore`, `update`, `target`, `project`, `trash`, `config`, `check`, `diff`, `init`, `upgrade` | `operations.log` |
+| `install`, `uninstall`, `sync`, `push`, `pull`, `collect`, `backup`, `restore`, `update`, `enable`, `disable`, `target`, `project`, `trash`, `config`, `check`, `diff`, `init`, `upgrade` | `operations.log` |
 | `audit` | `audit.log` |
 
 これらの API を呼び出す Web UI のアクションも、CLI の操作と同じ方法で記録されます。
+
+`skillshare list` の TUI で `t` を押した操作は、`enable` または `disable` として、`via: tui` とエントリの `name`、`kind` 付きで記録されます。
 
 `project` のエントリには `action`（`add`、`update`、`remove`、`localize`、`share`、またはダッシュボードの `convert`）と project の `root` が記録されるため、どの project が変更されたかがわかります。`remove` では `shared` も記録され、`config.yaml` のコピーも削除した場合は true になります。`skillshare project sync` は同じ 2 つのフィールドを持つ `sync` エントリとして記録されます。
 

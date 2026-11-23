@@ -7,8 +7,10 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"skillshare/internal/config"
+	"skillshare/internal/oplog"
 	"skillshare/internal/resource"
 	"skillshare/internal/sourcewalk"
 	"skillshare/internal/sync"
@@ -98,6 +100,7 @@ type listTUIModel struct {
 	agentsSourcePath string
 	targets          map[string]config.TargetConfig
 	walk             sourcewalk.Options     // skills source traversal, as list's discovery used
+	cfgPath          string                 // config whose oplog records toggles
 	discovered       []sync.DiscoveredSkill // source skills; sync's name resolution needs all of them
 	defaultMode      string                 // skills mode of a target that sets none
 	quitting         bool
@@ -523,15 +526,18 @@ func (m listTUIModel) toggleDisabled() (tea.Model, tea.Cmd) {
 		pattern = item.entry.Name
 	}
 
+	start := time.Now()
 	newDisabled := !item.entry.Disabled
 	// Another rule can still decide the state, so the row shows what discovery sees.
 	res, err := src.Apply(!newDisabled, []string{pattern}, []string{pattern})
+	if err == nil && res.Items[0].Blocked != "" {
+		err = errors.New(res.Items[0].Blocked)
+	}
+	if err != nil || res.Changed[pattern] {
+		m.logToggle(newDisabled, pattern, item.entry.Kind, start, err)
+	}
 	if err != nil {
 		m.toggleErr = err
-		return m, nil
-	}
-	if msg := res.Items[0].Blocked; msg != "" {
-		m.toggleErr = errors.New(msg)
 		return m, nil
 	}
 
@@ -573,6 +579,23 @@ func (m listTUIModel) toggleDisabled() (tea.Model, tea.Cmd) {
 	}
 	m.list.SetItems(items)
 	return m, nil
+}
+
+// logToggle records a t toggle in the oplog, as enable and disable do.
+func (m listTUIModel) logToggle(disable bool, name, kind string, start time.Time, err error) {
+	if m.cfgPath == "" {
+		return
+	}
+	action := "enable"
+	if disable {
+		action = "disable"
+	}
+	e := oplog.NewEntry(action, statusFromErr(err), time.Since(start))
+	e.Args = map[string]any{"name": name, "kind": kind, "via": "tui"}
+	if err != nil {
+		e.Message = err.Error()
+	}
+	oplog.WriteWithLimit(m.cfgPath, oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
 }
 
 // quitWithAction sets the action on the selected skill and exits the TUI.
@@ -1047,8 +1070,9 @@ func (m listTUIModel) syncedTo(name string, tc config.TargetConfig, e skillEntry
 // When loadFn is non-nil, data is loaded asynchronously inside the TUI (no blank screen).
 // initialStatus comes from list --status and stays for the whole session.
 // Returns (action, skillName, skillKind, error). action is "" on normal quit (q/ctrl+c).
-func runListTUI(loadFn listLoadFn, modeLabel, sourcePath, agentsSourcePath string, targets map[string]config.TargetConfig, walk sourcewalk.Options, defaultMode string, initialKind resourceKindFilter, initialStatus listStatusFilter) (string, string, string, error) {
+func runListTUI(loadFn listLoadFn, modeLabel, cfgPath, sourcePath, agentsSourcePath string, targets map[string]config.TargetConfig, walk sourcewalk.Options, defaultMode string, initialKind resourceKindFilter, initialStatus listStatusFilter) (string, string, string, error) {
 	model := newListTUIModel(loadFn, nil, 0, modeLabel, sourcePath, agentsSourcePath, targets, initialKind)
+	model.cfgPath = cfgPath
 	model.walk = walk
 	model.defaultMode = defaultMode
 	model.statusFilter = initialStatus
