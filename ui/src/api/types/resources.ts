@@ -52,6 +52,8 @@ export interface Skill {
   manualOnly?: boolean;
   /** Frontmatter description from the source file. */
   description?: string;
+  /** Frontmatter `metadata.version` as written; `version` is the installed commit. */
+  metadataVersion?: string;
   branch?: string;
 }
 

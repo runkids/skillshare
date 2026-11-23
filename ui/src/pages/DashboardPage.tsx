@@ -42,6 +42,7 @@ import { useRepoUpdate } from '../hooks/useRepoUpdate';
 import { useUpdatePolicy } from '../hooks/useUpdatePolicy';
 import { useHooksQuery, useMcpQuery, useOverviewQuery } from '../hooks/useSharedQueries';
 import { invalidate } from '../lib/queryEvents';
+import { formatVersion } from '../lib/format';
 import MemoryOverview from '../components/memory/MemoryOverview';
 import { useHeldWhileClosing, useMenuPresence } from '../hooks/usePresence';
 
@@ -912,7 +913,6 @@ function Versions({ data }: { data: Overview }) {
     queryFn: () => api.getVersionCheck(),
     staleTime: staleTimes.version,
   });
-  const ver = (s?: string) => (s && /^\d/.test(s) ? `v${s}` : s);
   const sources = [data.source, data.agentsSource, data.extrasSource].filter(Boolean);
   return (
     <div>
@@ -930,11 +930,11 @@ function Versions({ data }: { data: Overview }) {
           <>
             <div className="ss-r">
               <span className="w-[120px] font-semibold">{t('dashboard.version.cli')}</span>
-              <span className="flex-1 font-mono text-[13px]">{ver(v.cliVersion)}</span>
+              <span className="flex-1 font-mono text-[13px]">{formatVersion(v.cliVersion)}</span>
               {policy.data?.enabled === true &&
                 (v.cliUpdateAvailable ? (
                   <span className="ss-st warn">
-                    {t('dashboard.version.update', { version: ver(v.cliLatest) })}
+                    {t('dashboard.version.update', { version: formatVersion(v.cliLatest) })}
                   </span>
                 ) : (
                   <span className="ss-st ok">{t('dashboard.version.upToDate')}</span>
@@ -942,13 +942,15 @@ function Versions({ data }: { data: Overview }) {
             </div>
             <div className="ss-r">
               <span className="w-[120px] font-semibold">{t('dashboard.version.builtInSkill')}</span>
-              <span className="flex-1 font-mono text-[13px]">{ver(v.skillVersion) || '—'}</span>
+              <span className="flex-1 font-mono text-[13px]">
+                {formatVersion(v.skillVersion) || '—'}
+              </span>
               {policy.data?.enabled === true &&
                 (!v.skillVersion ? (
                   <span className="ss-st off">{t('dashboard.version.notInstalled')}</span>
                 ) : v.skillUpdateAvailable ? (
                   <span className="ss-st warn">
-                    {t('dashboard.version.update', { version: ver(v.skillLatest) })}
+                    {t('dashboard.version.update', { version: formatVersion(v.skillLatest) })}
                   </span>
                 ) : v.skillLatest ? (
                   <span className="ss-st ok">{t('dashboard.version.upToDate')}</span>

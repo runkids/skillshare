@@ -172,7 +172,8 @@ func ParseFrontmatterMap(content []byte) (map[string]any, error) {
 // ParseFrontmatterFields reads a SKILL.md file once and returns the values of
 // multiple frontmatter fields. This avoids opening the same file repeatedly
 // when multiple fields are needed (e.g. description + license).
-// Note: does not resolve metadata.<field> — only reads top-level scalar fields.
+// A dotted field such as "metadata.version" reads that nested scalar exactly as
+// written, so an unquoted 1.10 stays "1.10". Other fields are top-level scalars.
 // Use ParseFrontmatterMap for the complete structured frontmatter, including nested values.
 func ParseFrontmatterFields(filePath string, fields []string) map[string]string {
 	result := make(map[string]string, len(fields))
@@ -185,8 +186,30 @@ func ParseFrontmatterFields(filePath string, fields []string) map[string]string 
 		return result
 	}
 	fm := decodeFrontmatter(raw)
+	var doc *yaml.Node // parsed on the first dotted field
 
 	for _, field := range fields {
+		if parent, key, nested := strings.Cut(field, "."); nested {
+			if fm == nil {
+				continue
+			}
+			if doc == nil {
+				doc = &yaml.Node{}
+				_ = yaml.Unmarshal(raw, doc) // fm decoded, so raw parses
+			}
+			if len(doc.Content) == 0 {
+				continue
+			}
+			// mappingValue walks Content in pairs, so a list must not stand in for a mapping.
+			p := mappingValue(doc.Content[0], parent)
+			if p == nil || p.Kind != yaml.MappingNode {
+				continue
+			}
+			if v := mappingValue(p, key); v != nil && v.Kind == yaml.ScalarNode && v.Tag != "!!null" {
+				result[field] = v.Value
+			}
+			continue
+		}
 		val, ok := fm[field]
 		if !ok || val == nil {
 			continue
