@@ -44,10 +44,12 @@ Every mutating CLI and Web UI operation is recorded as a JSONL entry with timest
 
 | Command | Log File |
 |---------|----------|
-| `install`, `uninstall`, `sync`, `push`, `pull`, `collect`, `backup`, `restore`, `update`, `target`, `project`, `trash`, `config`, `check`, `diff`, `init`, `upgrade` | `operations.log` |
+| `install`, `uninstall`, `sync`, `push`, `pull`, `collect`, `backup`, `restore`, `update`, `enable`, `disable`, `target`, `project`, `trash`, `config`, `check`, `diff`, `init`, `upgrade` | `operations.log` |
 | `audit` | `audit.log` |
 
 Web UI actions that call these APIs are logged the same way as CLI operations.
+
+Pressing `t` in the `skillshare list` TUI is logged as `enable` or `disable` with `via: tui`, the entry's `name` and `kind`.
 
 `project` entries record the `action` (`add`, `update`, `remove`, `localize`, `share`, or the dashboard's `convert`) and the project `root`, so you can tell which project changed; `remove` also records `shared`, which is true when `config.yaml`'s copy was removed too. `skillshare project sync` is logged as a `sync` entry with the same two fields.
 

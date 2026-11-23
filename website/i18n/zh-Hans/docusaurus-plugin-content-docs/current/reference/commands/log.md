@@ -44,10 +44,12 @@ skillshare log --no-tui | less    # 手动通过 pager 分页
 
 | 命令 | 日志文件 |
 |---------|----------|
-| `install`、`uninstall`、`sync`、`push`、`pull`、`collect`、`backup`、`restore`、`update`、`target`、`project`、`trash`、`config`、`check`、`diff`、`init`、`upgrade` | `operations.log` |
+| `install`、`uninstall`、`sync`、`push`、`pull`、`collect`、`backup`、`restore`、`update`、`enable`、`disable`、`target`、`project`、`trash`、`config`、`check`、`diff`、`init`、`upgrade` | `operations.log` |
 | `audit` | `audit.log` |
 
 调用这些 API 的 Web UI 操作，其记录方式与 CLI 操作相同。
+
+在 `skillshare list` 的 TUI 中按 `t`，会记录为 `enable` 或 `disable`，并带有 `via: tui` 以及该条目的 `name` 和 `kind`。
 
 `project` 记录会包含 `action`（`add`、`update`、`remove`、`localize`、`share`，或仪表盘的 `convert`）和项目的 `root`，因此可以看出是哪个项目发生了变更。`remove` 还会记录 `shared`，同时移除了 `config.yaml` 中的副本时为 true。`skillshare project sync` 会记录为带有这两个字段的 `sync` 条目。
 
