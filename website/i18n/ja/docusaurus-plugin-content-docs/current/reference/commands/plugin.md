@@ -74,12 +74,12 @@ JSON 出力には source パスとネイティブ識別子が含まれます。s
 | Claude Code | `.claude-plugin/plugin.json` | Yes | Yes | ネイティブ update |
 | Codex | `.codex-plugin/plugin.json`、Agent Plugins ルートマニフェスト、または Claude マニフェスト | Yes | No | レビュー済みの Source を更新して再度 add。Codex で有効な場合のみ |
 | Cursor | `.cursor-plugin/plugin.json` または Agent Plugins ルートマニフェスト | Yes | No | reviewed されたローカルコピーを置き換え |
-| Antigravity Desktop | 明示的な name を持つルート `plugin.json` | Yes | Yes | reviewed されたローカルコピーを置き換え |
+| Antigravity Desktop | `.antigravity-plugin/plugin.json`、`.gemini-plugin/plugin.json`、またはルートの `plugin.json`（明示的な名前が必要） | Yes | Yes | reviewed されたローカルコピーを置き換え |
 | Pi | `pi` resources を持つ `package.json`、または `pi-package` キーワードと慣例的な resource フォルダ | Yes | Yes（ネイティブな project trust が必要） | 管理下 source スナップショットを更新 |
 | Oh My Pi | ネイティブ互換のメタデータを持つ、マーケットプレイス経由のローカル/Git plugin | 新しい cache へのインストール/再インストール、インポート、スコープを限定した削除 | OMP の project アンカーで | 更新は新しい cache に再インストール。削除しても共有 cache は保持 |
 | OpenCode | SDK 依存を持つ `package.json`、`.opencode/plugins/` エントリ、または明示的な `--entry` | Yes | Yes | 管理下 source スナップショットを更新 |
 
-| Antigravity CLI | `agy` に受け入れられるネイティブルートマニフェストまたは Claude マニフェスト | Yes | No | reviewed された source を更新（ネイティブな enabled 状態がわかっており enabled の場合のみ） |
+| Antigravity CLI | `.antigravity-plugin/plugin.json`、`.gemini-plugin/plugin.json`、ルートの `plugin.json`、または `agy` が受け付ける Claude マニフェスト | Yes | No | reviewed された source を更新（ネイティブな enabled 状態がわかっており enabled の場合のみ） |
 | GitHub Copilot CLI | `.plugin/plugin.json`、`.github/plugin/plugin.json`、Claude マニフェスト、または Agent Plugins ルートマニフェスト | Yes | No | reviewed された source を更新（ネイティブな enabled 状態がわかっており enabled の場合のみ） |
 | Grok Build | `.grok-plugin/plugin.json` または Claude マニフェスト | インポート/削除のみ。インストールにはネイティブな trust が必要 | No | ネイティブに update |
 | Kimi Code | `kimi.plugin.json` または `.kimi-plugin/plugin.json` | 検出のみ | No | 自動化されていない |
@@ -115,6 +115,7 @@ skillshare plugin import demo@market --from claude-work
 
 - Cursor: `~/.cursor/plugins/local/<name>`。ローカルインポートを許可しておく必要があります。Cursor を再読み込みし、Customize を確認してください。同名のインストール済みマーケットプレイス plugin はローカルコピーより優先されます。
 - Antigravity desktop: global では `~/.gemini/config/plugins/<name>`。workspace では `.agents/plugins/<name>`（または既存の `_agents/plugins/` ディレクトリ）。両方の workspace ディレクトリが存在する場合は、先に統合してください。
+  ネイティブマニフェストは `.antigravity-plugin/plugin.json`、`.gemini-plugin/plugin.json`、ルートの `plugin.json` の順に検索します。複数のプラグインを含むリポジトリに `.antigravity-plugin/marketplace.json` がある場合、`antigravity` と `antigravity-cli` はこのカタログだけを使用し、`.claude-plugin/marketplace.json` にはフォールバックしません。
 - スタンドアロンの **agy CLI** は独自の plugin ストアを持ちます。`antigravity` target はデスクトップ/workspace の discovery パスを管理するものであり、その CLI ストアではありません。`agy` は単なる Skillshare target のエイリアスです。スタンドアロン CLI には `--target antigravity-cli` を使ってください。`--target agy` は既存のデスクトップの意味のままです。
 
 これらのローカル package には `plugin add` を使ってください。既存のローカルフォルダやマーケットプレイスインストールのインポートには対応していません。Skillshare は、所有していないフォルダ、symlink、またはローカルで編集された管理下コンテンツを上書きすることを拒否します。明示的な Antigravity マニフェスト名を指定すると、Git のチェックアウトやスナップショットをまたいで identity を安定させられます。
