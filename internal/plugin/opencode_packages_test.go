@@ -184,3 +184,61 @@ func TestOpenCodeV2BlocksSourceWithoutLoaderEntry(t *testing.T) {
 		t.Fatalf("%+v %v", p, err)
 	}
 }
+
+// OpenCode reports a configured package as not configured until it has loaded the folder's
+// plugins (anomalyco/opencode#54654), so the update runs again once the load had time.
+func TestOpenCodeImportedUpdateWaitsForOpenCodeToLoadItsPlugins(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	wait := openCodeLoadWait
+	openCodeLoadWait = 0
+	t.Cleanup(func() { openCodeLoadWait = wait })
+	notLoaded := agentError{cause: errOpenCodeNotLoaded, key: "plugins.error.opencodeNotLoaded", message: "not loaded"}
+	for _, tt := range []struct {
+		name    string
+		fails   int
+		failure error
+		updates int
+		key     string
+	}{
+		{"loads in time", 2, notLoaded, 3, ""},
+		{"never loads", 99, notLoaded, 1 + openCodeLoadRetries, "plugins.error.opencodeNotLoaded"},
+		{"other failure", 99, agentError{key: "plugins.error.commandFailed", message: "failed"}, 1, "plugins.error.commandFailed"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			updates := 0
+			s := &Service{Run: func(_ context.Context, _ string, _ []string, _ string, args ...string) ([]byte, error) {
+				switch strings.Join(args, " ") {
+				case "--version":
+					return []byte("2.4.1"), nil
+				case "plugin update demo-pkg":
+					if updates++; updates <= tt.fails {
+						return nil, tt.failure
+					}
+					return nil, nil
+				}
+				return nil, fmt.Errorf("unexpected command %v", args)
+			}}
+			err := s.applyOpenCode(context.Background(), Change{Action: "update", Target: "opencode"}, Binding{ID: "demo-pkg"})
+			if key, _ := ErrorKey(err); key != tt.key || (err == nil) != (tt.key == "") || updates != tt.updates {
+				t.Fatalf("err = %v (key %q), updates = %d; want key %q after %d updates", err, key, updates, tt.key, tt.updates)
+			}
+		})
+	}
+}
+
+// Stopped while waiting for OpenCode, the update still names why it did not finish.
+func TestOpenCodeImportedUpdateCancelledWhileWaitingKeepsItsReason(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	ctx, cancel := context.WithCancel(context.Background())
+	s := &Service{Run: func(_ context.Context, _ string, _ []string, _ string, args ...string) ([]byte, error) {
+		if args[0] == "--version" {
+			return []byte("2.4.1"), nil
+		}
+		cancel()
+		return nil, agentError{cause: errOpenCodeNotLoaded, key: "plugins.error.opencodeNotLoaded", message: "not loaded"}
+	}}
+	err := s.applyOpenCode(ctx, Change{Action: "update", Target: "opencode"}, Binding{ID: "demo-pkg"})
+	if key, _ := ErrorKey(err); key != "plugins.error.opencodeNotLoaded" {
+		t.Fatalf("err = %v (key %q), want plugins.error.opencodeNotLoaded", err, key)
+	}
+}

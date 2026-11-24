@@ -130,7 +130,7 @@ no Agent holds it, drops the package from Skillshare entirely.
 
 Claude supports native updates; Codex re-adds the reviewed snapshot unless the plugin is disabled in Codex. Cursor/Antigravity replace managed
 local copies; Pi/OpenCode refresh reviewed source snapshots; OMP removes its scoped registration and reinstalls the reviewed commit. Imported Codex plugins update by upgrading their marketplace; imported Pi packages through `pi update`, global only. Imported OpenCode v1 packages must be updated natively. OpenCode v2 global
-package imports may use native update; imported local directories and project imports may not. Copilot and Antigravity CLI source updates
+package imports may use native update, retried while OpenCode is still loading its plugins (it then reports `Plugin is not configured`; packages its settings no longer list are skipped); imported local directories and project imports may not. Copilot and Antigravity CLI source updates
 require known native enabled state; Grok updates natively. Project mode supports Claude, Antigravity, Pi,
 OMP and OpenCode, never falling back to global scope. An update reports failed targets and continues healthy targets; intentional skips remain pending. Dry runs print the complete plan and exit nonzero on failure; isolated failures include `failed: true` in JSON.
 

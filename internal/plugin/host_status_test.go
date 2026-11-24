@@ -105,6 +105,19 @@ func TestGitFailureNamesTheCauseWithoutItsOutput(t *testing.T) {
 	}
 }
 
+// An account's OpenCode CLI can have any name; its words, not its name, mark the failure.
+func TestRunCommandMarksOpenCodeAnsweringBeforeItLoadedItsPlugins(t *testing.T) {
+	dir := t.TempDir()
+	bin := filepath.Join(dir, "opencode-work")
+	if err := os.WriteFile(bin, []byte("#!/bin/sh\necho 'Error: Plugin is not configured: demo-pkg' >&2\nexit 1\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	_, err := runCommand(context.Background(), dir, nil, bin, "plugin", "update", "demo-pkg")
+	if key, _ := ErrorKey(err); !errors.Is(err, errOpenCodeNotLoaded) || key != "plugins.error.opencodeNotLoaded" {
+		t.Fatalf("err = %v (key %q), want plugins.error.opencodeNotLoaded", err, key)
+	}
+}
+
 func TestRunCommandReadsVersionFromStderr(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "pi"), []byte("#!/bin/sh\necho 0.73.1 >&2\n"), 0755); err != nil {

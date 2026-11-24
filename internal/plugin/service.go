@@ -783,6 +783,10 @@ func (s *Service) prepareChange(ctx context.Context, r Request, d *document, hos
 			skip("plugins.skip.opencodeLocal", "Imported local package: edit it at its source; Skillshare does not run a dependency installer.", nil)
 		}
 	}
+	// OpenCode would answer that the package is not configured, which reads like its loading race.
+	if c.Action == "update" && agent == "opencode" && c.Binding.Source == "" && !slices.ContainsFunc(h.Installed, func(item Installed) bool { return item.ID == c.ID }) {
+		skip("plugins.skip.opencodeNotConfigured", "OpenCode's settings no longer list this package; add it again in OpenCode, or remove this Agent from the plugin.", nil)
+	}
 	if c.Action == "update" && agent == "opencode" && c.Binding.Source == "" {
 		help, err := s.run(ctx, c.Target, "plugin", "update", "--help")
 		if err != nil || !strings.Contains(string(help), "update") {
