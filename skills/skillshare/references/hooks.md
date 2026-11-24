@@ -94,7 +94,8 @@ write fails, is named in the error and does not stop the other homes. Only `trus
 added (disabled hooks are reported, not enabled). A moved or removed hook leaves its
 old entry in `config.toml`; it matches only the same event, matcher and handler at
 that position, so it cannot trust another hook. Global mode only; `sync hooks`,
-`hooks list` and project mode reject `--trust`. `--json` has a `codexTrust` list
+`hooks list` and project mode reject `--trust`; hooks written for `hooks.projects`
+are skipped, so trust those in Codex `/hooks`. `--json` has a `codexTrust` list
 (`target`, `entry`, `key`, `command`, `action`, `disabled`). If Codex fails, files
 are still written and it errors "hook files were written, but Codex trust was not
 recorded". Plain `hooks sync` never touches trust. The dashboard Hooks page

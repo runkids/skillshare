@@ -20,3 +20,4 @@ Each recipe follows the same structure: **Scenario** (when/why), **Solution** (s
 | [Team Onboarding](team-onboarding-recipe) | New hire skill environment setup |
 | [Centralized Skills Repo](centralized-skills-repo) | One repo for skills, targets in each developer's config |
 | [Many Projects, One Config](many-projects-one-config) | Send skills and MCP servers into several project folders from the global config |
+| [Session Start Command](session-start-command) | Run one project script at session start in Claude Code, Codex, Pi and OpenCode |
