@@ -124,7 +124,12 @@ function compilePattern(pattern: string): RegExp | null {
       i = j;
     } else re += lit(c);
   }
-  return new RegExp(`^${re}$`);
+  // A class whose range runs backwards, such as [z-a], still fails here; it matches nothing.
+  try {
+    return new RegExp(`^${re}$`);
+  } catch {
+    return null;
+  }
 }
 
 // Hovering re-renders every row and rule count, so each pattern compiles once.

@@ -157,6 +157,10 @@ describe('patternMatches', () => {
   it('matches nothing for a malformed pattern', () => {
     expect(patternMatches('[abc', '[abc')).toBe(false);
   });
+
+  it('matches nothing for a class whose range is out of order, as Go does', () => {
+    expect(patternMatches('[z-a]', 'm')).toBe(false);
+  });
 });
 
 describe('rowAction', () => {
