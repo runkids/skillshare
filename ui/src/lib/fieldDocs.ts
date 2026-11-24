@@ -200,6 +200,13 @@ export const fieldDocs: Record<string, FieldDoc> = {
     allowedValues: ['true'],
     example: 'disabled: true',
   },
+  'mcp.servers.global': {
+    description:
+      "Global config only. false makes it a shared server: it is written to no Agent's global file, only to the mcp.projects roots that list it under use. Defaults to true.",
+    type: 'boolean',
+    allowedValues: ['true', 'false'],
+    example: 'global: false',
+  },
   'mcp.servers.transport': {
     description: 'Optional transport. Inferred from command (stdio) or url (streamable-http).',
     type: 'string',

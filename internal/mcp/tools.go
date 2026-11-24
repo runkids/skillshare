@@ -158,9 +158,9 @@ func (s *Source) toolPolicyNotices() []string {
 			}
 		}
 	}
-	add(s.Servers, s.Targets, "")
-	for root, project := range s.Projects {
-		add(project.Servers, project.defaults(s), root)
+	add(s.globalServers(), s.Targets, "")
+	for _, project := range s.projectScopes() {
+		add(project.servers, project.defaults, project.root)
 	}
 	var notices []string
 	for _, message := range sortedKeys(found) {

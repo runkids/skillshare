@@ -14,6 +14,7 @@ import AgentOptionsFields from './AgentOptionsFields';
 import PiSettingsFields from './PiSettingsFields';
 import ToolPolicyFields from './ToolPolicyFields';
 import MCPConfigView from './MCPConfigView';
+import RadioOption from '../projects/RadioOption';
 import { cleanToolPolicy, describeError, hasToolPolicy, targetLabel } from './mcpView';
 import { MCPAccountAgents, MCPTargetOrder } from './targetOrder';
 import {
@@ -164,10 +165,13 @@ interface Props {
   serve?: boolean;
   /** Other projects' servers; when any, a tab offers to start from a copy of one. */
   copyFrom?: CopyableServer[];
+  /** The projects that use this server, when it loads only in those (`global: false`). */
+  users?: string[];
   /** The copy tab is open: pick a server to fill the fields with. */
   copy?: boolean;
   onClose: () => void;
-  onSaved: () => void;
+  /** Gets the server as saved. */
+  onSaved: (server: MCPServer) => void;
 }
 
 interface ServerFormProps {
@@ -181,6 +185,9 @@ interface ServerFormProps {
   visibleTargets: Set<string>;
   isProject: boolean;
   project?: string;
+  users: string[];
+  /** Saved as loading only in the projects that use it. */
+  wasShared: boolean;
   serve: boolean;
   copyFrom: CopyableServer[];
   copy: boolean;
@@ -196,6 +203,63 @@ interface ServerFormProps {
   mutation?: MCPMutation;
 }
 
+/** Every folder through the Agents' global files, or only the projects that turn it on. */
+function LoadsIn({
+  shared,
+  wasShared,
+  users,
+  disabled,
+  onChange,
+}: {
+  shared: boolean;
+  wasShared: boolean;
+  users: string[];
+  disabled: boolean;
+  onChange: (shared: boolean) => void;
+}) {
+  const t = useT();
+  return (
+    <div className="ss-fld">
+      <span id="mcp-loads-in" className="text-[13px] font-semibold">
+        {t('mcp.shared.loadsIn')}
+      </span>
+      <div role="radiogroup" aria-labelledby="mcp-loads-in" className="flex flex-col gap-2">
+        <RadioOption
+          checked={!shared}
+          onSelect={() => onChange(false)}
+          disabled={disabled}
+          title={t('mcp.shared.everywhere')}
+          hint={t('mcp.shared.everywhereHint')}
+        />
+        <RadioOption
+          checked={shared}
+          onSelect={() => onChange(true)}
+          disabled={disabled}
+          title={t('mcp.shared.chosen')}
+          hint={t('mcp.shared.chosenHint')}
+        />
+      </div>
+      {wasShared && users.length > 0 && (
+        <span className="flex flex-wrap items-center gap-1.5 text-xs text-ink-3">
+          {t('mcp.shared.usedBy')}
+          {users.map((root) => (
+            <span key={root} className="ss-tag font-mono" title={root}>
+              {shortenHome(root)}
+            </span>
+          ))}
+        </span>
+      )}
+      {wasShared && !shared && users.length > 0 && (
+        <div className="ss-note warn">
+          <span className="flex-1">
+            {t(plural('mcp.shared.backToGlobal', users.length), { count: users.length })}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ServerForm({
   draft,
   validation,
@@ -207,6 +271,8 @@ function ServerForm({
   visibleTargets,
   isProject,
   project,
+  users,
+  wasShared,
   serve,
   copyFrom,
   copy,
@@ -353,10 +419,22 @@ function ServerForm({
         </div>
       )}
 
+      {!off && !isProject && (
+        <LoadsIn
+          shared={draft.shared}
+          wasShared={wasShared}
+          users={users}
+          disabled={saving}
+          onChange={(shared) => patch({ shared })}
+        />
+      )}
       <div className="ss-fld">
         <span className="text-[13px] font-semibold">
           {off ? t('mcp.offTargets') : t('mcp.targets')}
         </span>
+        {draft.shared && !off && !isProject && (
+          <span className="hp">{t('mcp.shared.targetsHint')}</span>
+        )}
         <div className="flex flex-wrap gap-x-5 gap-y-3">
           {order
             .filter((target) => visibleTargets.has(target))
@@ -592,6 +670,7 @@ export default function MCPServerDialog({
   serve = false,
   copyFrom = [],
   copy = false,
+  users = [],
   onClose,
   onSaved,
 }: Props) {
@@ -655,6 +734,9 @@ export default function MCPServerDialog({
     if (Object.keys(agentOptions).length > 0) next.options = agentOptions;
     const tools = cleanToolPolicy(draft.tools);
     if (tools) next.tools = tools;
+    // Only the global list can choose. An edit that leaves it out keeps what was saved,
+    // so switching back to every project says so.
+    if (!isProject && (draft.shared || server?.global === false)) next.global = !draft.shared;
     return next;
   };
   const ordered = order.filter((x) => targets.includes(x));
@@ -677,7 +759,7 @@ export default function MCPServerDialog({
     setError('');
     try {
       await mcpApi.save({ project, name: trimmed, server: next, replace: Boolean(initial) });
-      onSaved();
+      onSaved(next);
     } catch (e) {
       setError(describeError(t, (e as Error).message));
       setSaving(false);
@@ -722,6 +804,8 @@ export default function MCPServerDialog({
           visibleTargets={visibleTargets}
           isProject={isProject}
           project={project}
+          users={users}
+          wasShared={server?.global === false}
           serve={serve}
           copyFrom={copyFrom}
           copy={copy}

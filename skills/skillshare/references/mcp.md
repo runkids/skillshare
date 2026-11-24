@@ -131,6 +131,7 @@ mcp:
 | `options` | `{<client>: {field: value}}`: other Agents' native per-server fields written as given, e.g. `codex: {default_tools_approval_mode: approve}`, `claude: {timeout: 600000}`. Values: scalars, lists of scalars, or mappings; no `null`. Managed fields (`url`, `command`, `env`, `headers`, `type`, `enabled`, Codex `enabled_tools`…) and `options.pi` (use `piOptions`) are refused; credentials (by field name or a URL password) must be a whole-value environment reference in the Agent's own syntax (`${VAR}`, `{env:VAR}`), never plain text, and options of an Agent that reads no references there (Codex, Antigravity, Claude Desktop, Goose, Junie, LM Studio, Warp) cannot hold one; not allowed with `disabled`. Sync removes an option it wrote once the source drops it |
 | `piOptions` | Other Pi built-in per-server fields. See [Pi](#pi) |
 | `disabled` | `true` only, no connection fields, and a project must be in scope: project mode, or a root under `mcp.projects`. See [Turn off a global server in one project](#turn-off-a-global-server-in-one-project) |
+| `global` | Global config `mcp.servers` only. `false` loads the server only in roots that list it under `use`. Default `true`. See [Several projects from the global config](#several-projects-from-the-global-config) |
 
 Client IDs: `claude`, `codex`, `cursor`, `vscode`, `opencode`, `kilocode`, `grok`,
 `antigravity`, `amp`, `claude-desktop`, `cline`, `copilot`, `factory`, `gemini`, `goose`, `hermes`,
@@ -469,7 +470,7 @@ mcp:
 - A project lists only what differs. Global servers already load in every project,
   because the Agent reads its global and project files together; do not repeat them. A
   `disabled` entry only switches one off in that folder.
-- No command edits `mcp.projects`; `mcp add` leaves it as written. Edit `config.yaml`, or
+- No command edits `mcp.projects` (including `use`); `mcp add` leaves it as written. Edit `config.yaml`, or
   use the dashboard: the **Projects** page adds and removes projects, and each project's
   **MCP** tab turns global servers off there, edits project servers and lists the
   project's Agent files with **Open folder**, **Open in editor** and **Copy path**.
@@ -478,8 +479,21 @@ mcp:
 - It is refused inside a project config. A folder whose own `.skillshare/config.yaml`
   manages the same entry produces a conflict, not an overwrite.
 - Removing a project from the list removes the entries Skillshare wrote there.
-- To share one definition between projects, use a YAML anchor kept inside
-  `mcp.projects`.
+- **Share one definition:** set `global: false` on a server in the global `mcp.servers`, then
+  list it under `use: [name]` in each root that should load it. It is never written to a
+  global file; sync writes it into each using root, to that root's `targets` unless the server
+  names its own. Editing it once updates every using root. A shared server no root uses is
+  written nowhere.
+  - `use` names must exist, be `global: false`, and appear once; a name cannot also be
+    in that root's `servers`.
+  - `global` is refused under `mcp.projects.<root>.servers`, in project mode, and with
+    `disabled`. A shared server's `targets` cannot name an account (`claude-work`): name the Agent.
+  - Removing a shared server, or setting it back to global, clears it from every `use` list.
+  - `mcp list` adds a `shared` row per shared server with its projects; `mcp list --json` has
+    a top-level `shared: [{name, projects}]`.
+  - No command edits `use` and existing per-project copies are not converted. Edit
+    `config.yaml`, or use the dashboard: **Loads in** in the server dialog, and
+    **Opt-in servers** on a project's **MCP** tab.
 - The preview names the file when one server appears in several places.
 
 ## Interactive use

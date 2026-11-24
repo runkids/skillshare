@@ -15,14 +15,19 @@ import {
 } from 'lucide-react';
 import { hooksApi, type HookChange, type HookEntry, type HookInventory } from '../../api/hooks';
 import { plural, useT } from '../../i18n';
-import { shortenHome } from '../../lib/paths';
+import { relativeTo, shortenHome } from '../../lib/paths';
 import Button from '../Button';
+import ConfirmDialog from '../ConfirmDialog';
+import IconButton from '../IconButton';
 import EmptyState from '../EmptyState';
 import { RailLayout, RailRow, RailSection } from '../StatusRail';
 import SourcePathButton from '../SourcePathButton';
 import Tooltip from '../Tooltip';
 import { SkillContextMenu, type ContextMenuItem } from '../TargetMenu';
 import { useToast } from '../Toast';
+import ProjectSectionHead, { InfoTip } from '../mcp/ProjectSectionHead';
+import { AgentStack } from '../mcp/TargetPicker';
+import { targetLabel } from '../mcp/mcpView';
 import HookDialog from './HookDialog';
 import { HooksConfigDialog } from './HooksConfigView';
 import HooksImportDialog from './HooksImportDialog';
@@ -34,6 +39,7 @@ import HooksUnmanagedNote from './HooksUnmanagedNote';
 import {
   blockedHint,
   hookAccounts,
+  hookLabel,
   keyLabel,
   hookNote,
   scopeBackups,
@@ -52,12 +58,18 @@ interface Props {
   data: HookInventory;
   /** A root under hooks.projects. Left out, this is the global source; the two never show each other's hooks. */
   project?: string;
-  /** Lays out what sits above the list; receives the buttons (backups, import, add). */
-  header: (actions: ReactNode) => ReactNode;
+  /** Lays out what sits above the list; receives the buttons (backups, import, add). A project puts them in its section head instead. */
+  header?: (actions: ReactNode) => ReactNode;
+  /** The project's targets, so the rail can name those that take no hooks. */
+  tools?: string[];
+  /** After the project stops managing hooks here. */
+  onRemoved?: () => void;
 }
 
+const TARGETS_SHOWN = 5;
+
 /** The hooks of one scope with everything you do to them, on the Hooks page and in a project's tab. */
-export default function HooksScope({ data, project, header }: Props) {
+export default function HooksScope({ data, project, header, tools = [], onRemoved }: Props) {
   const t = useT();
   const { toast } = useToast();
   const cache = useQueryClient();
@@ -67,6 +79,8 @@ export default function HooksScope({ data, project, header }: Props) {
   const [takingOver, setTakingOver] = useState('');
   const [viewing, setViewing] = useState('');
   const [backupsOpen, setBackupsOpen] = useState(false);
+  const [dropping, setDropping] = useState(false);
+  const [allTargets, setAllTargets] = useState(false);
   const [busy, setBusy] = useState(false);
   const [menu, setMenu] = useState<{ x: number; y: number; items: ContextMenuItem[] } | null>(null);
 
@@ -155,7 +169,45 @@ export default function HooksScope({ data, project, header }: Props) {
     });
   };
 
+  const drop = async () => {
+    if (!project) return;
+    setBusy(true);
+    try {
+      await hooksApi.save({ project, remove: true });
+      refresh();
+      toast(t('projects.hooks.stopped', { name: shortenHome(project) }), 'success');
+      onRemoved?.();
+    } catch (e) {
+      toast((e as Error).message, 'error');
+    } finally {
+      setBusy(false);
+      setDropping(false);
+    }
+  };
+
+  // A project lists the targets that have a file there; the rest of its targets take no hooks.
+  const shownTargets = project ? targets.filter((tg) => paths[tg.name]) : targets;
+  const noHooks = project ? tools.filter((x) => !targets.some((tg) => tg.name === x)) : [];
+
   const add = () => setEditing('');
+  const projectActions = (
+    <>
+      {backups.length > 0 && (
+        <Button variant="ghost" size="sm" onClick={() => setBackupsOpen(true)}>
+          <Archive size={14} />
+          {t('hooks.backupsButton')}
+        </Button>
+      )}
+      <Button variant="ghost" size="sm" onClick={() => setImporting(true)}>
+        <Target size={14} />
+        {t('hooks.import')}
+      </Button>
+      <Button variant="ghost" size="sm" onClick={add}>
+        <Plus size={14} />
+        {t('hooks.add')}
+      </Button>
+    </>
+  );
   const actions = (
     <span className="flex flex-wrap items-center justify-end gap-2.5">
       {!project && (
@@ -184,7 +236,7 @@ export default function HooksScope({ data, project, header }: Props) {
 
   return (
     <>
-      {header(actions)}
+      {header?.(actions)}
       {data.previewError && (
         <div className="ss-note bad mb-4">
           <AlertCircle size={16} />
@@ -209,7 +261,67 @@ export default function HooksScope({ data, project, header }: Props) {
                 />
               )}
             <HooksUnmanagedNote entries={unmanaged} onImport={() => setImporting(true)} />
-            {!project && (
+            {project ? (
+              shownTargets.length + noHooks.length > 0 && (
+                <RailSection
+                  title={t('hooks.targets')}
+                  count={shownTargets.length}
+                  action={<InfoTip hint={t('projects.hooks.targetsInfo')} />}
+                >
+                  <div className="flex flex-col">
+                    {(allTargets ? shownTargets : shownTargets.slice(0, TARGETS_SHOWN)).map(
+                      (tg) => (
+                        <RailRow
+                          key={tg.name}
+                          target={tg.agent ?? tg.name}
+                          label={hookLabel(tg.name)}
+                          path={relativeTo(project, paths[tg.name])}
+                          right={
+                            <IconButton
+                              icon={<Copy size={14} />}
+                              label={t('hooks.copyPathOf', { name: hookLabel(tg.name) })}
+                              size="sm"
+                              onClick={() => {
+                                copy(paths[tg.name]);
+                                toast(t('mcp.copied'), 'success');
+                              }}
+                            />
+                          }
+                        />
+                      ),
+                    )}
+                    {noHooks.length > 0 && (
+                      <div
+                        className="flex min-h-9 items-center gap-2.5 text-[13px] text-ink-3"
+                        title={noHooks.map(targetLabel).join(', ')}
+                      >
+                        <span className="ss-stack shrink-0 opacity-55">
+                          <AgentStack targets={noHooks} max={3} />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          {t(plural('projects.hooks.unsupported', noHooks.length), {
+                            count: noHooks.length,
+                          })}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  {shownTargets.length > TARGETS_SHOWN && (
+                    <Button
+                      variant="link"
+                      className="self-start"
+                      onClick={() => setAllTargets(!allTargets)}
+                    >
+                      {allTargets
+                        ? t('mcp.projects.showFewer', { count: TARGETS_SHOWN })
+                        : t('mcp.projects.showRest', {
+                            count: shownTargets.length - TARGETS_SHOWN,
+                          })}
+                    </Button>
+                  )}
+                </RailSection>
+              )
+            ) : (
               <RailSection
                 title={t('hooks.targets')}
                 count={targets.length}
@@ -258,7 +370,40 @@ export default function HooksScope({ data, project, header }: Props) {
             <span className="flex-1">{blockedHint(t, railPlan ?? plan)}</span>
           </div>
         )}
-        {names.length > 0 ? (
+        {project ? (
+          <section className="flex flex-col gap-3">
+            <ProjectSectionHead
+              icon={<Webhook size={16} />}
+              title={t('projects.hooks.title')}
+              count={names.length}
+              hint={t('projects.hooks.hint')}
+            >
+              {projectActions}
+            </ProjectSectionHead>
+            {names.length > 0 ? (
+              <HooksList
+                compact
+                accounts={accounts}
+                entries={entries}
+                plan={plan}
+                disabled={busy}
+                onToggle={(n, on) => void toggle(n, on)}
+                onMenu={openMenu}
+              />
+            ) : (
+              <p className="text-[13px] text-ink-3">{t('hooks.emptyHint')}</p>
+            )}
+            <Button
+              className="flush mt-3 self-start"
+              size="sm"
+              variant="ghost"
+              onClick={() => setDropping(true)}
+            >
+              <Trash2 size={14} />
+              {t('projects.hooks.stop')}
+            </Button>
+          </section>
+        ) : names.length > 0 ? (
           <HooksList
             accounts={accounts}
             entries={entries}
@@ -347,6 +492,18 @@ export default function HooksScope({ data, project, header }: Props) {
           backups={backups}
           onClose={() => setBackupsOpen(false)}
           onRestored={() => done(t('hooks.toast.restored'))}
+        />
+      )}
+      {project && (
+        <ConfirmDialog
+          open={dropping}
+          variant="danger"
+          loading={busy}
+          title={t('projects.hooks.stopTitle', { name: shortenHome(project) })}
+          message={t('projects.hooks.stopMessage')}
+          confirmText={t('projects.hooks.stop')}
+          onCancel={() => setDropping(false)}
+          onConfirm={() => void drop()}
         />
       )}
       <SkillContextMenu

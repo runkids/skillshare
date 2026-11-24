@@ -91,9 +91,15 @@ type Server struct {
 	// Agent's global config defines. Unselecting an Agent already covers a server
 	// Skillshare defines, so a disabled server carries no command or url.
 	Disabled bool `yaml:"disabled,omitempty" json:"disabled,omitempty"`
+	// Global false keeps a server of the global config out of the Agents' global files; it
+	// is written only to the mcp.projects roots that list it under use. Unset is true.
+	Global *bool `yaml:"global,omitempty" json:"global,omitempty"`
 	// global is the same-named server of the global config, nil in project mode or when absent.
 	global *Server
 }
+
+// Shared reports a server that loads only in the project roots that use it.
+func (s Server) Shared() bool { return s.Global != nil && !*s.Global }
 
 // legacyServerFields chose Pi's MCP extension and opted in to pruning Pi fields, before
 // 0.23.0 made Pi use its built-in MCP and always prune. A config that still has them loads,
@@ -378,6 +384,9 @@ func (s Server) Validate(name string) error {
 		}
 	}
 	if s.Disabled {
+		if s.Global != nil {
+			return fmt.Errorf("MCP %s: global applies to a server Skillshare defines, not to a disabled entry", name)
+		}
 		if s.Command != "" || s.URL != "" || s.Transport != "" || s.BearerToken != nil || len(s.Args)+len(s.Env)+len(s.Headers) > 0 {
 			return fmt.Errorf("MCP %s: disabled turns off a server the Agent already has; leave out its command, url and settings", name)
 		}

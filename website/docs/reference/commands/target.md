@@ -286,7 +286,7 @@ From then on, `sync`, `diff`, `status` and `doctor` skip the target's skills; `s
 
 `--skills` cannot be combined with include/exclude flags in one command; run them separately. It works the same in project mode (`-p`).
 
-In the web dashboard, use **Stop syncing skills** on the target's Skills tab. Before anything is removed, it lists what goes and what stays, and warns when other tools read the same folder.
+In the web dashboard, turn off the **Sync skills to** switch at the top of the target's Skills tab. Before anything is removed, it lists what goes and what stays, and warns when other tools read the same folder.
 
 ## Options
 

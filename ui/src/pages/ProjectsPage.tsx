@@ -66,7 +66,9 @@ export default function ProjectsPage() {
     const mine = (targets.data?.targets ?? []).filter((tg) => tg.project === p.path);
     const skills = Math.max(0, ...mine.map((tg) => tg.expectedSkillCount));
     const agents = Math.max(0, ...mine.map((tg) => tg.agentExpectedCount ?? 0));
-    const servers = Object.keys(mcp.data?.source.projects?.[p.path]?.servers ?? {}).length;
+    const project = mcp.data?.source.projects?.[p.path];
+    // Its own servers and the shared ones it uses.
+    const servers = Object.keys(project?.servers ?? {}).length + (project?.use?.length ?? 0);
     const hookCount = Object.keys(hooks.data?.source.projects?.[p.path]?.entries ?? {}).length;
     const filtered = (p.skills?.include.length ?? 0) + (p.skills?.exclude.length ?? 0) > 0;
     return (

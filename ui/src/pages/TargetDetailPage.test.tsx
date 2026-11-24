@@ -157,7 +157,7 @@ describe('Target page naming', () => {
     renderAlone('copy', 'standard');
 
     await user.click(await screen.findByRole('button', { name: 'prefixed' }));
-    await user.click(screen.getByRole('radio', { name: /merge/ }));
+    await user.click(screen.getByRole('button', { name: 'merge' }));
 
     expect(screen.getByRole('button', { name: 'standard' })).toHaveAttribute(
       'aria-pressed',
@@ -170,7 +170,7 @@ describe('Target page naming', () => {
     const user = userEvent.setup();
     renderAlone('copy', 'prefixed');
 
-    await user.click(await screen.findByRole('radio', { name: /merge/ }));
+    await user.click(await screen.findByRole('button', { name: 'merge' }));
 
     expect(screen.getByRole('button', { name: 'flat' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByText('pending')).toBeInTheDocument();

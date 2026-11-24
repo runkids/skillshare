@@ -11,10 +11,21 @@ interface Props {
   selected: string[];
   onChange: (next: string[]) => void;
   disabled?: boolean;
+  /** Shown in the trigger in place of the tool names. */
+  summary?: string;
+  className?: string;
 }
 
 /** The tools used in one project, from every tool that has a project path. */
-export default function ProjectTools({ tools, common, selected, onChange, disabled }: Props) {
+export default function ProjectTools({
+  tools,
+  common,
+  selected,
+  onChange,
+  disabled,
+  summary,
+  className,
+}: Props) {
   const t = useT();
   const names = tools.map((x) => x.name);
   // The tools on this machine come first; the search box finds the rest.
@@ -34,6 +45,8 @@ export default function ProjectTools({ tools, common, selected, onChange, disabl
         icon: <AgentIcon target={name} size={13} />,
       }))}
       disabled={disabled}
+      summary={summary}
+      className={className}
       search={{
         placeholder: t('projects.tools.search'),
         empty: t('projects.tools.noMatch'),

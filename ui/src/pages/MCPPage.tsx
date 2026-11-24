@@ -13,7 +13,14 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
-import { mcpApi, type MCPMutation, type MCPPlan, type MCPSettings } from '../api/mcp';
+import {
+  isShared,
+  mcpApi,
+  type MCPMutation,
+  type MCPPlan,
+  type MCPServer,
+  type MCPSettings,
+} from '../api/mcp';
 import Button from '../components/Button';
 import { useAppContext } from '../context/AppContext';
 import DialogShell from '../components/DialogShell';
@@ -48,6 +55,8 @@ import {
   isResolvable,
   mcpOrder,
   projectOf,
+  sharedTargets,
+  sharedUsers,
   targetLabel,
   writes,
   type MCPChange,
@@ -64,13 +73,20 @@ const inGlobalScope = (change: MCPChange) => !change.root;
 function mcpPageModel(data: MCPList | undefined, order: readonly string[]) {
   const servers = data?.source.servers ?? {};
   const defaults = data?.source.targets ?? [];
-  const targetsOf = (name: string) => servers[name]?.targets ?? defaults;
+  // A shared server that names no targets follows the projects that use it, as sync does.
+  const targetsOf = (name: string) =>
+    servers[name]?.targets ??
+    (isShared(servers[name]) && data ? sharedTargets(data.source, name) : defaults);
   const changes = data?.plan?.changes ?? [];
   // mcp.projects puts a server of the same name into other folders; this list is the global
   // files only. A project's off switch for Claude Code lands in a global path, so ask the
   // change which scope it came from rather than trusting the path alone.
+  // A shared server is written only to the projects that use it, so those changes are its own.
+  const users = sharedUsers(data?.source);
+  const inScope = (c: MCPChange) =>
+    inGlobalScope(c) || Boolean(c.root && users[c.name]?.includes(c.root));
   const rows = data
-    ? buildMatrix(servers, data.plan && { ...data.plan, changes: changes.filter(inGlobalScope) })
+    ? buildMatrix(servers, data.plan && { ...data.plan, changes: changes.filter(inScope) })
     : [];
   // The plan still covers every project's files, so the sync box counts them.
   const roots = Object.keys(data?.source.projects ?? {});
@@ -92,6 +108,8 @@ function mcpPageModel(data: MCPList | undefined, order: readonly string[]) {
     defaults,
     targetsOf,
     changes,
+    users,
+    inScope,
     rows,
     roots,
     conflicts,
@@ -252,6 +270,7 @@ function MCPContent({
   const {
     rows,
     roots,
+    users,
     changes,
     conflicts,
     servers,
@@ -383,6 +402,7 @@ function MCPContent({
           onMenu={onMenu}
           disabled={busy}
           problems={problemsByServer(check.report)}
+          users={users}
         />
       ) : (
         <EmptyState
@@ -425,9 +445,9 @@ function MCPEditDialog({
   addMode: AddMode;
   onMode: (mode: AddMode) => void;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (server?: MCPServer) => void;
 }) {
-  const { servers, defaults, files } = model;
+  const { servers, defaults, files, users } = model;
   const server = editing ? servers[editing] : undefined;
   // skillshare mcp serve has its own tab; an edit of such a server opens it again.
   const serve = editing === '' ? addMode === 'serve' : isServeCommand(server);
@@ -440,7 +460,7 @@ function MCPEditDialog({
       detected={data.detected}
       onMode={onMode}
       onClose={onClose}
-      onImported={onSaved}
+      onImported={() => onSaved()}
     />
   ) : (
     <MCPServerDialog
@@ -451,6 +471,7 @@ function MCPEditDialog({
       defaultTargets={defaults}
       existingNames={Object.keys(servers)}
       availableTargets={files}
+      users={editing ? users[editing] : undefined}
       onMode={editing === '' ? onMode : undefined}
       onClose={onClose}
       onSaved={onSaved}
@@ -784,7 +805,16 @@ export default function MCPPage() {
               addMode={addMode}
               onMode={setAddMode}
               onClose={() => setEditing(null)}
-              onSaved={() => done(t('mcp.toast.saved'))}
+              onSaved={(server) => {
+                // An edit of a shared server reaches every project that uses it.
+                const count =
+                  editing && server?.global === false ? (model.users[editing]?.length ?? 0) : 0;
+                done(
+                  count > 0
+                    ? t(plural('mcp.shared.saved', count), { count })
+                    : t('mcp.toast.saved'),
+                );
+              }}
             />
           )}
           {importing && data && (
@@ -814,7 +844,8 @@ export default function MCPPage() {
           {removing && (
             <MCPRemoveDialog
               name={removing}
-              inScope={inGlobalScope}
+              inScope={model.inScope}
+              users={model.users[removing]}
               onClose={() => setRemoving('')}
               onSaved={(unmanaged) =>
                 done(t(unmanaged ? 'mcp.toast.unmanaged' : 'mcp.toast.removed', { name: removing }))

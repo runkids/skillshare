@@ -268,8 +268,8 @@ skillshare mcp add company-docs --disabled --target opencode
 skillshare sync mcp
 ```
 
-在控制台中，从项目文件夹使用 `skillshare ui` 打开它，选择 **添加服务器** 旁边的
-**关闭全局服务器** 按钮。
+在控制台中，从项目文件夹使用 `skillshare ui` 打开它，选择 **添加 MCP** 旁边的
+**按名称关闭 MCP** 按钮。
 
 此功能适用于 Claude Code、OpenCode、Kilo Code 与 Pi 1.0.1 及以上版本。其他 Agent
 则会被拒绝。

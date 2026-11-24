@@ -100,6 +100,7 @@ Add、edit、remove、import では、**Save and sync** または **Save only** 
 | `options` | 他の Agent のネイティブなサーバー別フィールド。クライアント ID をキーにする。Codex の承認モードや Claude Code のタイムアウトなど。[下記](#agent-options)を参照 |
 | `piOptions` | Pi の内蔵 MCP のその他のサーバー別フィールド。[Pi](#pi-options)を参照 |
 | `disabled` | `true` のみ、他の接続フィールドを伴わない、かつ project がスコープ内にあること: project mode、または `mcp.projects` 配下の root。[下記](#turn-off-a-global-server-in-one-project)を参照 |
+| `global` | global config の `mcp.servers` のみ。`false` にすると、サーバーはデフォルトではどの project にも読み込まれず、`use` に列挙した root だけが受け取る。デフォルトは `true`。[選んだ project とサーバーを共有する](#share-a-server-with-chosen-projects)を参照 |
 
 クライアント ID は `claude`、`codex`、`cursor`、`vscode`、`opencode`、`kilocode`、
 `grok`、`antigravity`、`amp`、`claude-desktop`、`cline`、`copilot`、`factory`、`gemini`、
@@ -396,7 +397,7 @@ skillshare sync mcp
 - **Skillshare 自身が定義したサーバーにはこれは不要です。** 代わりにそのサーバーで Agent の選択を外せば、
   次の sync でそのエントリが削除されます。
 
-ダッシュボードでは、**グローバルサーバーをオフにする** ボタンがこれに当たります。project mode では **サーバー** 見出しの横に、project の MCP タブでは **サーバーを追加** の横にあります。
+ダッシュボードでは、**名前でオフにする** ボタンがこれに当たります。project mode では **サーバー** 見出しの横に、project の MCP タブでは **サーバーを追加** の横にあります。
 
 ## global config から複数の project を管理する {#manage-several-projects-from-the-global-config}
 
@@ -446,24 +447,62 @@ context7     add          opencode (~/work/project01/opencode.json)
 リストから project を削除すると、サーバーを削除した場合と同様に、Skillshare がそこに書き込んだエントリが
 次の sync で削除されます。
 
-複数の project に同じサーバーを持たせるには、YAML アンカーで一度だけ定義して再利用します。
+### 選んだ project とサーバーを共有する {#share-a-server-with-chosen-projects}
+
+各 project にコピーを置かずに複数の project に同じサーバーを持たせるには、`mcp.servers` で
+`global: false` を指定して一度だけ定義し、読み込ませたい project ごとに `use` に列挙します。
 
 ```yaml
+# ~/.config/skillshare/config.yaml
 mcp:
+  targets: [claude]
+  servers:
+    context7:                    # global: loads in every folder
+      command: npx
+      args: ["-y", "@upstash/context7-mcp@4.4.1"]
+    internal-docs:
+      global: false              # loads in no project unless a root uses it
+      url: https://docs.example.com/mcp
   projects:
     ~/work/project01:
+      use: [internal-docs]
       servers:
-        internal-docs: &internal-docs
-          url: https://example.com/mcp
-          targets: [opencode]
+        local-db:                # this project only
+          command: ./scripts/db-mcp
     ~/work/project02:
-      servers:
-        internal-docs: *internal-docs
+      use: [internal-docs]
 ```
 
-アンカーは `mcp.projects` の中に置いてください。`mcp.servers` 上のアンカーへのエイリアスも機能しますが、
-`skillshare mcp add` とダッシュボードは `mcp.servers` を書き換えます。保存時には、ファイルが有効なままになるよう
-そうしたエイリアスを完全な形に展開して書き出すため、それ以降は global サーバーへの編集に追従しなくなります。
+`global: false` のサーバーは Agent の global ファイルには書き込まれません。sync は、それを使う各 root に、
+サーバー自身が `targets` を指定していなければその root の `targets` へ書き込みます。一度編集すれば、
+次の sync でそれを使うすべての root が更新されます。どの root も使っていない共有サーバーはどこにも書き込まれません。
+global だったサーバーの `global` をオフにすると、次の sync で global ファイルから Skillshare のエントリが削除されます。
+
+ルール:
+
+- 各 `use` の名前は `mcp.servers` 内の `global: false` サーバーでなければならず、1 回だけ指定できます。
+- ある名前を、root の `use` とその root 自身の `servers`（サーバーとしても `disabled` エントリとしても）の両方に
+  置くことはできません。
+- `global` は `mcp.projects.<root>.servers` の下、project 自身の config（`-p`）、および `disabled` との併用では
+  拒否されます。省略するか `global: true` にするのがデフォルトで、config を保存するときに削除されます。
+- 共有サーバーの `targets` に `claude-work` のような[アカウント](#accounts)は指定できません。すべてのアカウントが
+  同じ project ファイルを読むためです。`claude` のように Agent を指定してください。
+- 共有サーバーを削除する、または global に戻すと、同じ保存で、すべての `use` リストからその名前も削除されます。
+- 共有サーバーを編集しても、編集で `global` を設定しない限り `global: false` は維持されます。
+
+`skillshare mcp list` は共有サーバーごとに `shared` 行を追加し、それを使う project、または
+`not used by any project` を表示します。`mcp list --json` にはトップレベルの `shared` 配列があります。
+
+```json
+{"shared": [{"name": "internal-docs", "projects": ["~/work/project01", "~/work/project02"]}]}
+```
+
+インタラクティブな一覧には、共有サーバーを使う project の target が表示され、詳細にはそれらの project が表示されます。`mcp check` は、どの project も共有サーバーを使っていなければそう表示します。
+
+このバージョンでは、既存の project ごとのコピーを共有サーバーに変換することはなく、`use` を編集するコマンドも
+ありません。`config.yaml` を編集するか、[ダッシュボード](#projects-in-the-dashboard)のスイッチを使ってください。
+`mcp.projects` の中に置いた YAML アンカーで共有するサーバーも引き続き機能しますが、ダッシュボードと
+`skillshare mcp add` はそれらのコピーをリンクされたものとして扱いません。
 
 ### ダッシュボードでの project {#projects-in-the-dashboard}
 
@@ -474,10 +513,14 @@ global mode では、ダッシュボードに **プロジェクト** ページ�
 
 - **プロジェクトを追加** では、フォルダーとその target を指定します。**MCP** にチェックを入れると、そのフォルダーは
   `mcp.projects` にも一覧されます。
-- **MCP** タブには、すべての global サーバーがスイッチ付きで一覧表示されます。オフにすると、`targets` を
-  持たない `disabled` エントリが保存されるため、[上記](#turn-off-a-global-server-in-one-project)のとおり
-  project の target に従います。オンに戻すとそのエントリは削除されます。
-  その下には、その project にのみ存在するサーバーが並びます。
+- **MCP** タブには 3 つのセクションがあります。**On in every project** には global サーバーがスイッチ付きで
+  一覧表示されます。オフにすると、`targets` を持たない `disabled` エントリが保存されるため、
+  [上記](#turn-off-a-global-server-in-one-project)のとおり project の target に従います。オンに戻すとそのエントリは
+  削除されます。**Opt-in servers** には[共有サーバー](#share-a-server-with-chosen-projects)が一覧表示され、
+  デフォルトではオフです。そのスイッチは project の `use` に名前を追加または削除します。
+  **Only in this project** には、その project にのみ存在するサーバーが並びます。
+- MCP ページでは、サーバーのダイアログに **Loads in** があり、**Every project** または
+  **Only projects that turn it on** を選べます。一覧では共有サーバーに **Opt-in · N projects** と表示されます。
 - オフになっているサーバーには、オフになっている Agent のロゴが表示されます。オンのサーバーには読み込まれる Agent が表示され、
   同じ名前の project サーバーに置き換えられている場合は何も表示されません。project の Agent の中に
   project ごとのスイッチを持たないものがある場合、その行にはサーバーがそこでは引き続き読み込まれることが
@@ -499,7 +542,7 @@ YAML が書かれたまま保持され、`~/work/app` と書かれたフォル�
 
 - `mcp.projects` は global config からのみ読み込まれます。これを含む project config は拒否されます。
 - これを編集するコマンドはありません。`skillshare mcp add` は `mcp.servers` を管理し、
-  `mcp.projects` は書かれたままにします。編集は `config.yaml`、または
+  `mcp.projects`（`use` を含む）は書かれたままにします。編集は `config.yaml`、または
   [ダッシュボード](#projects-in-the-dashboard)で行ってください。
 - Claude Code 向けの `disabled` エントリは、global サーバーが書き込まれるのと同じファイルである
   `~/.claude.json` に書き込まれます。Claude Code は project ごとのオフリストをそこに保持しているためです。
@@ -533,6 +576,7 @@ HTTP リクエストの送信、コマンドの実行、ファイルの書き込
 | Agent のエントリが source と競合する(`sync mcp --dry-run` と同様) | error |
 | Agent のエントリがまだ書き込まれていない、または更新されていない | warning |
 | サーバーが `targets: []` を持ち、Skillshare 内にのみ保持されている | info |
+| サーバーが共有（`global: false`）で、どの project も `use` に挙げていない | info |
 | 選択された Agent がサーバーの[ツールポリシー](#tool-policy)の一部を保持できない | warning |
 
 変数の値は表示されません。error が 1 件でもあれば終了コードは 1、それ以外は 0 です。warning で
@@ -585,8 +629,8 @@ HTTP リクエストの送信、コマンドの実行、ファイルの書き込
 
 ダッシュボードでは、MCP ページの Sync ボックスにある **チェック** ボタンで同じチェックを実行します。チェックする
 サーバーがあるときに表示され、クリックしたときにだけ実行され、サーバー一覧の上に概要を、各サーバーの下にそれぞれの
-error や warning を表示し、ページを再読み込みすると何も残りません。MCP ページには global サーバーしか一覧表示
-されないため、その概要と各行には project のサーバーは含まれません。global サーバーと同じ名前のものも同様です。
+error や warning を表示し、ページを再読み込みすると何も残りません。MCP ページには global サーバーと共有サーバーが一覧表示
+されるため、その概要と各行には project 専用のサーバーは含まれません。global サーバーと同じ名前のものも同様です。
 project の MCP タブには Sync ボックスに専用の **チェック** があり、その project 自身のサーバーを報告します。
 変数は `skillshare ui` を起動したターミナルから読み込まれます。
 

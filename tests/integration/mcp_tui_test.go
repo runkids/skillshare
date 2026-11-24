@@ -66,3 +66,61 @@ func TestMCPImportJSONDoesNotSave(t *testing.T) {
 		t.Fatal("listing candidates wrote source")
 	}
 }
+
+func TestMCPListNamesTheProjectsOfASharedServer(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	root := filepath.Join(sb.Home, "work", "api")
+	sb.WriteConfig("targets: {}\nmcp:\n  targets: [cursor]\n  servers:\n    docs: {url: https://example.com/mcp, global: false}\n    wiki: {url: https://wiki.example/mcp, global: false}\n  projects:\n    " + root + ": {use: [docs]}\n")
+	r := sb.RunCLI("mcp", "list", "--no-tui", "-g")
+	r.AssertSuccess(t)
+	r.AssertOutputContains(t, root)
+	r.AssertOutputContains(t, "not used by any project")
+	var listed struct {
+		Shared []struct {
+			Name     string   `json:"name"`
+			Projects []string `json:"projects"`
+		} `json:"shared"`
+	}
+	out := sb.RunCLI("mcp", "list", "--json", "-g")
+	out.AssertSuccess(t)
+	if err := json.Unmarshal([]byte(out.Stdout), &listed); err != nil || len(listed.Shared) != 2 || listed.Shared[0].Name != "docs" || len(listed.Shared[0].Projects) != 1 || listed.Shared[1].Projects == nil {
+		t.Fatalf("shared servers in --json: %+v (%v)\n%s", listed, err, out.Stdout)
+	}
+}
+
+func TestMCPListWithOnlyAnUnusedSharedServerIsNotEmpty(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	sb.WriteConfig("targets: {}\nmcp:\n  targets: [cursor]\n  servers:\n    docs: {url: https://example.com/mcp, global: false}\n")
+	r := sb.RunCLI("mcp", "list", "--no-tui", "-g")
+	r.AssertSuccess(t)
+	r.AssertOutputContains(t, "not used by any project")
+	r.AssertOutputNotContains(t, "No MCP servers configured")
+}
+
+func TestMCPListShowsASharedServerWithNoTargetsOnce(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	sb.WriteConfig("targets: {}\nmcp:\n  targets: [cursor]\n  servers:\n    docs: {url: https://example.com/mcp, global: false, targets: []}\n")
+	r := sb.RunCLI("mcp", "list", "--no-tui", "-g")
+	r.AssertSuccess(t)
+	r.AssertOutputContains(t, "shared")
+	r.AssertOutputNotContains(t, "no targets")
+}
+
+func TestMCPRemovePreviewNamesTheProjectsOfASharedServer(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	root := filepath.Join(sb.Home, "work", "api")
+	sb.WriteConfig("targets: {}\nmcp:\n  targets: [cursor]\n  servers:\n    docs: {url: https://example.com/mcp, global: false}\n  projects:\n    " + root + ": {use: [docs]}\n")
+	if err := os.MkdirAll(root, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if r := sb.RunCLI("sync", "mcp", "-g"); r.ExitCode != 0 {
+		t.Fatalf("sync: %s%s", r.Stdout, r.Stderr)
+	}
+	r := sb.RunCLI("mcp", "remove", "docs", "--dry-run", "-g")
+	r.AssertSuccess(t)
+	r.AssertOutputContains(t, root)
+}

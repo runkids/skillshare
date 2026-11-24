@@ -684,7 +684,7 @@ Each entry in `targets` is a [supported target](./supported-targets.md) name. Sk
 - **`target` and `collect` leave projects alone.** `skillshare target` lists and edits the `targets` section only, and `collect` does not pull a project's own skills into the source. Use [`skillshare project`](/docs/reference/commands/project) to add, edit, sync, or remove projects, or use the dashboard’s **Projects** page.
 - Skills with a `targets` frontmatter field are matched against the tool, so `targets: [claude]` reaches `shop-web@claude`.
 
-MCP servers for the same folders are listed under [`mcp.projects`](/docs/reference/commands/mcp#manage-several-projects-from-the-global-config), keyed by the same folder. For a step-by-step setup see [Many Projects, One Config](/docs/how-to/recipes/many-projects-one-config).
+MCP servers for the same folders are listed under [`mcp.projects`](/docs/reference/commands/mcp#manage-several-projects-from-the-global-config), keyed by the same folder. A server set to `global: false` loads only in the folders that list it under `use`; see [Share a server with chosen projects](/docs/reference/commands/mcp#share-a-server-with-chosen-projects). For a step-by-step setup see [Many Projects, One Config](/docs/how-to/recipes/many-projects-one-config).
 
 ### `projects_storage` {#projects-storage}
 

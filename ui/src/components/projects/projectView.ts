@@ -52,20 +52,47 @@ export function projectRows(
   return rows.sort((a, b) => a.name.localeCompare(b.name));
 }
 
-/** Tools grouped by the skills folder they write, as the server groups a saved project. */
-export function toolGroups(tools: ProjectList['tools'], selected: string[]) {
-  const groups: { tools: string[]; skillsPath: string }[] = [];
+/** The folders a project writes one kind to, tools that share a folder together, and the tools that have no such folder. */
+export function writeFolders(
+  tools: ProjectList['tools'],
+  selected: string[],
+  kind: 'skill' | 'agent',
+) {
+  const folders: { tools: string[]; path: string }[] = [];
+  const none: string[] = [];
   for (const name of selected) {
     const tool = tools.find((x) => x.name === name);
     if (!tool) continue;
-    const group = groups.find((g) => g.skillsPath === tool.skillsPath);
-    if (group) group.tools.push(name);
-    else groups.push({ tools: [name], skillsPath: tool.skillsPath });
+    const path = kind === 'agent' ? tool.agentsPath : tool.skillsPath;
+    const folder = folders.find((f) => f.path === path);
+    if (!path) none.push(name);
+    else if (folder) folder.tools.push(name);
+    else folders.push({ tools: [name], path });
   }
-  return groups;
+  return { folders, none };
 }
 
+/** Which preview rows to show: all of them, the ones that sync, or the ones that do not. */
+export type PreviewSegment = 'all' | 'sync' | 'skip';
+
+export const inSegment = (status: string, segment: PreviewSegment) =>
+  segment === 'all' || (status === 'synced') === (segment === 'sync');
+
 export type ProjectState = 'missing' | 'conflict' | 'pending' | 'synced' | 'idle';
+
+/** The sync box's tone and words for a project's state; a count picks the plural form. */
+export function syncBoxState(state: ProjectState): { tone: 'ok' | 'warn' | 'plain'; key: string } {
+  switch (state) {
+    case 'pending':
+      return { tone: 'warn', key: 'mcp.pending' };
+    case 'conflict':
+      return { tone: 'warn', key: 'projects.state.conflict' };
+    case 'missing':
+      return { tone: 'plain', key: 'projects.state.missing' };
+    default:
+      return { tone: 'ok', key: 'targets.state.synced' };
+  }
+}
 
 /** Where a project stands across its targets, its MCP files and its hooks. */
 export function projectHealth(

@@ -675,23 +675,24 @@ func (s *Service) FindUnmanaged(source *Source) []Unmanaged {
 			scanFile(target, format, piAdapterPath(path), root, defined)
 		}
 	}
+	global := source.globalServers()
 	paths := s.ClientPaths()
 	for _, target := range Targets {
 		if path, ok := paths[target]; ok {
-			scan(target, target, path, "", source.Servers)
+			scan(target, target, path, "", global)
 		}
 	}
 	accounts := s.AccountPaths(source.Accounts)
 	for _, name := range sortedKeys(accounts) {
-		scan(name, source.Accounts[name].Agent, accounts[name], "", source.Servers)
+		scan(name, source.Accounts[name].Agent, accounts[name], "", global)
 	}
-	for _, root := range sortedKeys(source.Projects) {
+	for _, project := range source.projectScopes() {
 		scoped := *s
-		scoped.ProjectRoot = root
+		scoped.ProjectRoot = project.root
 		paths := scoped.ClientPaths()
 		for _, target := range Targets {
 			if path, ok := paths[target]; ok {
-				scan(target, target, path, root, source.Projects[root].Servers)
+				scan(target, target, path, project.root, project.servers)
 			}
 		}
 	}

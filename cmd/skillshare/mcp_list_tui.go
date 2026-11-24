@@ -45,7 +45,12 @@ func mcpListItems(source *mcp.Source, plan *mcp.Plan) []list.Item {
 	for _, name := range mcpServerNames(source) {
 		server := source.Servers[name]
 		targets := server.Targets
-		if targets == nil {
+		switch {
+		case targets != nil:
+		case server.Shared():
+			// It follows the targets of each project that uses it.
+			targets = source.SharedTargets(name)
+		default:
 			targets = source.Targets
 			// A switch goes only where an Agent has one, which is what sync will write.
 			if server.Disabled {
@@ -56,7 +61,12 @@ func mcpListItems(source *mcp.Source, plan *mcp.Plan) []list.Item {
 		if plan != nil {
 			for _, change := range plan.Changes {
 				if change.Name == name {
-					status = append(status, change.Target+": "+change.Action)
+					line := change.Target + ": " + change.Action
+					// A server can reach several projects; say which one each line is for.
+					if change.Root != "" {
+						line += " (" + shortenPath(change.Root) + ")"
+					}
+					status = append(status, line)
 				}
 			}
 		}
@@ -80,6 +90,16 @@ func mcpListItems(source *mcp.Source, plan *mcp.Plan) []list.Item {
 		row("Connects", mcpConnectionSummary(server))
 		row("Arguments", fmt.Sprintf("%d", len(server.Args))+theme.Dim().Render(" · values hidden"))
 		row("Targets", mcpTargetSummary(targets))
+		if server.Shared() {
+			projects := []string{}
+			for _, root := range source.Users(name) {
+				projects = append(projects, shortenPath(root))
+			}
+			if len(projects) == 0 {
+				projects = []string{theme.Dim().Render("shared · not used by any project")}
+			}
+			row("Projects", strings.Join(projects, "\n"+strings.Repeat(" ", 11)))
+		}
 		row("Source", shortenPath(source.Path))
 		detail.WriteString("\n" + theme.Primary().Bold(true).Render("Sync") + "\n" + strings.Join(status, "\n") + "\n")
 		for _, group := range []struct {

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertCircle, CircleCheck, RefreshCw, ShieldCheck } from 'lucide-react';
+import { AlertCircle, ChevronRight, CircleCheck, RefreshCw, ShieldCheck } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   hooksApi,
@@ -11,7 +11,7 @@ import {
 } from '../../api/hooks';
 import { useTheme } from '../../context/ThemeContext';
 import { useT, plural } from '../../i18n';
-import { shortenHome } from '../../lib/paths';
+import { relativeTo, shortenHome } from '../../lib/paths';
 import { queryKeys } from '../../lib/queryKeys';
 import Button from '../Button';
 import DialogShell from '../DialogShell';
@@ -24,6 +24,7 @@ import {
   agentOfKey,
   blockedHint,
   fileName,
+  groupChanges,
   hookLabel,
   needsTakeover,
   rootPlan,
@@ -162,6 +163,77 @@ export function HooksSyncDialog({
   );
 }
 
+/** One pending change: the hook, what happens to it, and the target file. `root`: also name the project it writes to. */
+function PendingLine({ change: c, root }: { change: HookChange; root?: boolean }) {
+  const t = useT();
+  return (
+    <div className="flex flex-col text-[13px] text-ink-2">
+      <span className="flex items-baseline gap-1.5">
+        <span className="min-w-0 flex-1 break-all font-mono text-[12.5px] font-semibold text-ink">
+          {c.name}
+        </span>
+        <span className="shrink-0 font-mono text-xs text-ink">{actionLabel(t, c.action)}</span>
+      </span>
+      <span className="break-all text-xs">
+        {[hookLabel(c.target), root && c.root && shortenHome(c.root), fileName(c.path)]
+          .filter(Boolean)
+          .join(' · ')}
+      </span>
+    </div>
+  );
+}
+
+/** Pending changes grouped by hook and action; a group with several targets opens to their files. */
+function PendingGroups({ changes }: { changes: HookChange[] }) {
+  const t = useT();
+  const [open, setOpen] = useState('');
+  return (
+    <div className="flex flex-col gap-1.5">
+      {groupChanges(changes).map((g) => {
+        const key = `${g.name}\0${g.action}`;
+        if (g.changes.length === 1) return <PendingLine key={key} change={g.changes[0]} />;
+        const expanded = open === key;
+        return (
+          <div key={key} className="flex flex-col gap-1.5">
+            <button
+              type="button"
+              aria-expanded={expanded}
+              className="flex items-baseline gap-1.5 text-left text-[13px] text-ink-2"
+              onClick={() => setOpen(expanded ? '' : key)}
+            >
+              <span
+                className="max-w-[45%] shrink-0 truncate font-mono text-[12.5px] font-semibold text-ink"
+                title={g.name}
+              >
+                {g.name}
+              </span>
+              <span className="min-w-0 flex-1 truncate">
+                → {t(plural('hooks.targetCount', g.changes.length), { count: g.changes.length })}
+              </span>
+              <span className="shrink-0 font-mono text-xs text-ink">
+                {actionLabel(t, g.action)}
+              </span>
+              <ChevronRight
+                size={14}
+                className={`shrink-0 self-center transition-transform duration-150 ease-[cubic-bezier(.23,1,.32,1)] motion-reduce:transition-none ${expanded ? 'rotate-90' : ''}`}
+              />
+            </button>
+            {expanded && (
+              <div className="flex flex-col gap-0.5 pb-1 text-xs text-ink-2">
+                {g.changes.map((c) => (
+                  <span key={`${c.path}:${c.target}`} className="break-all">
+                    {hookLabel(c.target)} · {c.root ? relativeTo(c.root, c.path) : fileName(c.path)}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 /** What Sync would write. This is Skillshare's side only: whether an Agent trusts and loads it is that Agent's call. */
 export default function HooksSyncBox({
   plan,
@@ -195,9 +267,13 @@ export default function HooksSyncBox({
   const inactiveReasons = [
     ...new Set(inactive.map((c) => c.inactiveReason || c.message).filter(Boolean)),
   ];
+  // A project counts hooks, as its list groups each hook's targets into one line.
+  const pendingHooks = new Set(pending.map((c) => c.name)).size;
   const state =
     pending.length > 0
-      ? t(plural('mcp.pending', pending.length), { count: pending.length })
+      ? project
+        ? t(plural('projects.hooks.pending', pendingHooks), { count: pendingHooks })
+        : t(plural('mcp.pending', pending.length), { count: pending.length })
       : conflicts.length > 0
         ? t(conflicts.every(needsTakeover) ? 'hooks.status.unmanaged' : 'mcp.status.conflict')
         : inactive.length > 0
@@ -217,31 +293,18 @@ export default function HooksSyncBox({
       }
       state={state}
     >
-      {pending.length > 0 && (
-        <div className="flex flex-col gap-1.5">
-          {/* The target file gets its own line, so it wraps instead of being cut short at rail width. */}
-          {pending.map((c) => (
-            <div
-              key={`${c.path}:${c.target}:${c.name}`}
-              className="flex flex-col text-[13px] text-ink-2"
-            >
-              <span className="flex items-baseline gap-1.5">
-                <span className="min-w-0 flex-1 break-all font-mono text-[12.5px] font-semibold text-ink">
-                  {c.name}
-                </span>
-                <span className="shrink-0 font-mono text-xs text-ink">
-                  {actionLabel(t, c.action)}
-                </span>
-              </span>
-              <span className="break-all text-xs">
-                {[hookLabel(c.target), c.root && !project && shortenHome(c.root), fileName(c.path)]
-                  .filter(Boolean)
-                  .join(' · ')}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
+      {pending.length > 0 &&
+        (project ? (
+          // One project: a hook going to several targets is one line that opens to its files.
+          <PendingGroups changes={pending} />
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            {/* The target file gets its own line, so it wraps instead of being cut short at rail width. */}
+            {pending.map((c) => (
+              <PendingLine key={`${c.path}:${c.target}:${c.name}`} change={c} root />
+            ))}
+          </div>
+        ))}
       {conflicts.length > 0 && (
         <div className="flex flex-col gap-2">
           {conflicts.map((c) => (

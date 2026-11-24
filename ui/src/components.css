@@ -1169,6 +1169,32 @@ svg.lucide {
   :root[data-theme='playful'].dark .ss-r.sel {
     background: #332b17;
   }
+  /* Preview rows: a rule under the pointer lights the rows it matches; a row a rule change just flipped
+   is tinted at once, then fades. Transitions, not keyframes, since rules can change twice in a second. */
+  .ss-fr {
+    transition: background-color 0.3s ease;
+  }
+  .ss-fr.ss-lit {
+    background: var(--sunken);
+    transition-duration: 0.12s;
+  }
+  .ss-fr.ss-chg {
+    background: var(--warn-bg);
+    transition: none;
+  }
+  .ss-tag.ss-pat {
+    transition:
+      border-color 0.12s ease,
+      background-color 0.12s ease;
+  }
+  .ss-tag.ss-pat.hot {
+    border-color: var(--ink);
+    background: var(--sunken);
+  }
+  .ss-tag.ss-pat.zero {
+    border-style: dashed;
+    color: var(--ink-3);
+  }
   .ss-r .nm {
     font-weight: 600;
   }

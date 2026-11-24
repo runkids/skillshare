@@ -19,6 +19,8 @@ interface Props {
   project?: string;
   /** Changes of this scope. One name can be in the global source and in projects, and only one of them goes. */
   inScope?: (change: MCPChange) => boolean;
+  /** The projects that use it, when it loads only in those; they stop loading it. */
+  users?: string[];
   onClose: () => void;
   /** `unmanaged` when the entries were kept and only forgotten. */
   onSaved: (unmanaged: boolean) => void;
@@ -28,6 +30,7 @@ export default function MCPRemoveDialog({
   name,
   project,
   inScope = () => true,
+  users = [],
   onClose,
   onSaved,
 }: Props) {
@@ -92,6 +95,14 @@ export default function MCPRemoveDialog({
       </div>
       <div className="db">
         <p className="text-[13px]">{t('mcp.removeDesc')}</p>
+        {users.length > 0 && (
+          <p className="text-[13px] text-ink-2">
+            {t(plural('mcp.shared.removeNote', users.length), {
+              count: users.length,
+              projects: users.map(shortenHome).join(', '),
+            })}
+          </p>
+        )}
         {isPending ? (
           <Spinner size="sm" />
         ) : changes.length > 0 ? (

@@ -53,6 +53,20 @@ const view = (
 };
 
 describe('Target MCP tab', () => {
+  it('leaves out a shared server, so its switch cannot change the projects that use it', () => {
+    view(
+      'claude',
+      {
+        context7: { command: 'npx' },
+        docs: { url: 'https://docs.example/mcp', global: false },
+      },
+      null,
+      ['claude'],
+    );
+    expect(screen.getByRole('switch', { name: 'context7' })).toBeInTheDocument();
+    expect(screen.queryByRole('switch', { name: 'docs' })).not.toBeInTheDocument();
+  });
+
   it('takes this Agent out of a server and keeps the others', async () => {
     const user = userEvent.setup();
     view('claude', { context7: { command: 'npx', targets: ['claude', 'cursor'] } });

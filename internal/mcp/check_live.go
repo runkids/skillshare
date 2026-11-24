@@ -67,7 +67,12 @@ func (s *Service) checkLive(source *Source, report *CheckReport, opts CheckOptio
 			result.Findings = append(result.Findings, CheckFinding{Level: "info", Check: "live", Message: reason})
 			continue
 		}
-		p := newLiveProbe(server, result.Project, timeout, opts)
+		// A shared server is checked once, so it starts where the first project that uses it would.
+		dir := result.Project
+		if users := source.Users(result.Name); dir == "" && server.Shared() && len(users) > 0 {
+			dir = users[0]
+		}
+		p := newLiveProbe(server, dir, timeout, opts)
 		wg.Add(1)
 		go func() {
 			defer wg.Done()

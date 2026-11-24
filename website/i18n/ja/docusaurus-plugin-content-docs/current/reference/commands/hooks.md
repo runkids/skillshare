@@ -270,7 +270,7 @@ plan は実際の `add`、`update`、`remove`、`unchanged` を維持し、実�
 
 ## プロジェクト、競合と復元
 
-global 設定の `hooks.projects` は絶対プロジェクトパスを同じ Entry 形式の `entries` に対応づけます。**Projects → Hooks** で管理できます。独自の `.skillshare/config.yaml` があるプロジェクトは project scope で管理します。プロジェクト同期はそのルートだけを適用します。
+global 設定の `hooks.projects` は絶対プロジェクトパスを同じ Entry 形式の `entries` に対応づけます。**Projects → Hooks** で管理できます。そこで **ここでの hook の管理をやめる** を選ぶとルートが `hooks.projects` から外れ、次の同期で Skillshare がその下に書いた hook が削除されます。独自の `.skillshare/config.yaml` があるプロジェクトは project scope で管理します。プロジェクト同期はそのルートだけを適用します。
 
 無関係な設定と所有していない hooks は保持します。内容の一致だけでは所有を判断しません。所有出力が外部編集されると、無効化、削除、復元も競合になります。明示的な置換は選択 entry のみが対象です。共有ファイルでは、plan の各行に entry が追加（`+`）、更新（`~`）、削除（`−`）する event を表示し、JSON plan の `events` にも含まれます。`update` は entry がそのファイルに登録を残すこと、`remove` はファイルから完全に外れることを意味します。編集はファイルの書式（コンパクトまたはインデント）を保ち、Skillshare が追加した `hooks` キーは最後の hook が外れると削除します。Skillshare が作成したファイルは、ほかに何も残っていなければ、作成して空になったフォルダーとともに削除し、プレビューではファイルの削除として表示します。以前からあったファイルやフォルダー、あなたが追加した内容は残ります。
 

@@ -1,33 +1,44 @@
 import { useState } from 'react';
-import { Pencil, Plus, PowerOff, Trash2 } from 'lucide-react';
-import { mcpApi, mcpOffTargets, mcpTargets, type MCPMutation, type MCPServer } from '../../api/mcp';
-import AgentIcon from '../AgentIcon';
+import { Folder, Globe, Pencil, Plus, PowerOff, Trash2, Workflow } from 'lucide-react';
+import {
+  isShared,
+  mcpApi,
+  mcpOffTargets,
+  mcpTargets,
+  type MCPMutation,
+  type MCPServer,
+} from '../../api/mcp';
 import Button from '../Button';
 import ConfirmDialog from '../ConfirmDialog';
 import Reveal from '../Reveal';
 import { RailLayout, RailRow, RailSection } from '../StatusRail';
 import { SkillContextMenu, type ContextMenuItem } from '../TargetMenu';
+import Tooltip from '../Tooltip';
 import { useToast } from '../Toast';
 import { useT } from '../../i18n';
 import { shortenHome } from '../../lib/paths';
 import { ProjectTargets } from './MCPProjectSettings';
 import MCPCheckNote from './MCPCheckNote';
 import MCPFileActions from './MCPFileActions';
+import MCPFlowDialog from './MCPFlowDialog';
 import MCPImportDialog from './MCPImportDialog';
 import MCPRemoveDialog from './MCPRemoveDialog';
 import MCPServerDialog from './MCPServerDialog';
 import { copyableServers, isServeCommand, type AddMode } from './mcpServerDraft';
 import MCPServerList from './MCPServerList';
+import MCPSharedServers from './MCPSharedServers';
+import ProjectSectionHead from './ProjectSectionHead';
+import ProjectServerRow from './ProjectServerRow';
 import MCPSyncBox, { MCPRailActions } from './MCPSyncBox';
 import MCPUnmanagedNote from './MCPUnmanagedNote';
 import { TargetPill } from './TargetPicker';
 import { problemsByServer, useMCPCheck } from './useMCPCheck';
 import {
   buildMatrix,
-  describeEndpoint,
   describeError,
   projectFileTargets,
   projectOf,
+  sharedUsers,
   switchTargets,
   targetLabel,
   writes,
@@ -45,7 +56,12 @@ interface Props {
 
 function projectViewModel(data: MCPList, root: string, offered: readonly string[]) {
   const project = data.source.projects?.[root] ?? {};
-  const globals = data.source.servers;
+  // A shared server never reaches the global files, so there is nothing to turn off here.
+  const globals = Object.fromEntries(
+    Object.entries(data.source.servers).filter(([, s]) => !isShared(s)),
+  );
+  const users = sharedUsers(data.source);
+  const use = project.use ?? [];
   const defaults = data.source.targets ?? [];
   const targets = project.targets ?? defaults;
   const servers = project.servers ?? {};
@@ -75,6 +91,8 @@ function projectViewModel(data: MCPList, root: string, offered: readonly string[
   return {
     project,
     globals,
+    users,
+    use,
     defaults,
     targets,
     servers,
@@ -93,6 +111,9 @@ function projectViewModel(data: MCPList, root: string, offered: readonly string[
 }
 
 type ProjectModel = ReturnType<typeof projectViewModel>;
+
+// The rail lists this many Agent files before the rest fold behind a button.
+const FILES_SHOWN = 5;
 
 function ProjectSettings({
   model,
@@ -165,7 +186,7 @@ function ProjectServerEditor({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const { servers, targets, own } = model;
+  const { servers, targets, own, use } = model;
   const server = editing ? own[editing] : undefined;
   const serve = editing === '' ? addMode === 'serve' : isServeCommand(server);
   const copyFrom = copyableServers(data.source.projects, root);
@@ -193,7 +214,8 @@ function ProjectServerEditor({
       copy={editing === '' && addMode === 'copy'}
       initial={editing && server ? { name: editing, server } : undefined}
       defaultTargets={targets}
-      existingNames={Object.keys(servers)}
+      // A shared server this project uses holds its name here too.
+      existingNames={[...Object.keys(servers), ...use]}
       availableTargets={offered}
       onMode={editing === '' ? onMode : undefined}
       onClose={onClose}
@@ -214,12 +236,16 @@ export default function MCPProjectView({ data, root, offered, onChanged, onRemov
   const [dropping, setDropping] = useState(false);
   const [importFrom, setImportFrom] = useState(''); // an Agent file of this project to import from
   const [busy, setBusy] = useState(false);
+  const [showFlow, setShowFlow] = useState(false);
+  const [allFiles, setAllFiles] = useState(false);
   const [menu, setMenu] = useState<{ x: number; y: number; items: ContextMenuItem[] } | null>(null);
   const check = useMCPCheck();
 
   const model = projectViewModel(data, root, offered);
   const {
     globals,
+    users,
+    use,
     defaults,
     targets,
     servers,
@@ -259,6 +285,9 @@ export default function MCPProjectView({ data, root, offered, onChanged, onRemov
   // that moment. A stored list went stale as soon as those changed.
   const toggleGlobal = (n: string, on: boolean) =>
     save(on ? { name: n, remove: true } : { name: n, replace: true, server: { disabled: true } });
+
+  // One name at a time, so a second switch, or another tab, never undoes the first.
+  const toggleShared = (n: string, on: boolean) => save({ name: n, using: on });
 
   const toggleOwn = (n: string, target: string, on: boolean) => {
     const next = mcpTargets.filter((x) => (x === target ? on : targetsOf(n).includes(x)));
@@ -314,6 +343,7 @@ export default function MCPProjectView({ data, root, offered, onChanged, onRemov
                 changes={changes}
                 roots={roots}
                 plan={data.plan}
+                byServer
                 check={ownRows.length > 0 ? check : undefined}
               />
             ) : (
@@ -325,7 +355,7 @@ export default function MCPProjectView({ data, root, offered, onChanged, onRemov
             )}
             {files.length > 0 && (
               <RailSection title={t('layout.nav.agents')} count={files.length}>
-                {files.map((target) => (
+                {(allFiles ? files : files.slice(0, FILES_SHOWN)).map((target) => (
                   <RailRow
                     key={target}
                     target={target}
@@ -341,6 +371,17 @@ export default function MCPProjectView({ data, root, offered, onChanged, onRemov
                     }
                   />
                 ))}
+                {files.length > FILES_SHOWN && (
+                  <Button
+                    variant="link"
+                    className="self-start"
+                    onClick={() => setAllFiles(!allFiles)}
+                  >
+                    {allFiles
+                      ? t('mcp.projects.showFewer', { count: FILES_SHOWN })
+                      : t('mcp.projects.showRest', { count: files.length - FILES_SHOWN })}
+                  </Button>
+                )}
               </RailSection>
             )}
           </>
@@ -372,11 +413,18 @@ export default function MCPProjectView({ data, root, offered, onChanged, onRemov
         </div>
 
         <section className="mt-3 flex flex-col">
-          <div className="ss-sec">
-            <h2>{t('mcp.projects.globalServers')}</h2>
-            <span className="ss-cnt">{shownGlobals.length}</span>
-            <span className="text-[13px] text-ink-2">{t('mcp.projects.globalHint')}</span>
-          </div>
+          <ProjectSectionHead
+            icon={<Globe size={16} />}
+            title={t('mcp.projects.globalServers')}
+            count={shownGlobals.length}
+            chip={t('mcp.projects.chipOn')}
+            hint={t('mcp.projects.globalHint')}
+          >
+            <Button size="sm" variant="ghost" onClick={() => setShowFlow(true)}>
+              <Workflow size={14} />
+              {t('mcp.projects.flow')}
+            </Button>
+          </ProjectSectionHead>
           {shownGlobals.length > 0 ? (
             <div className="ss-list">
               {shownGlobals.map((n) => {
@@ -416,72 +464,46 @@ export default function MCPProjectView({ data, root, offered, onChanged, onRemov
                   targets: icons.map(targetLabel).join(', '),
                 });
                 return (
-                  <div key={n} className="ss-r !items-stretch !flex-col !gap-2 !py-3">
-                    <span className="flex min-w-0 items-center gap-2">
-                      <span
-                        title={n}
-                        className="max-w-[45%] shrink-0 truncate font-mono font-semibold"
-                      >
-                        {n}
+                  <ProjectServerRow
+                    key={n}
+                    name={n}
+                    server={server}
+                    tags={
+                      <>
+                        {off && <span className="ss-tag warn">{t('mcp.projects.offBadge')}</span>}
+                        {changes.some((c) => c.name === n && writes(c)) && (
+                          <span className="ss-tag warn">{t('plugins.pending')}</span>
+                        )}
+                      </>
+                    }
+                    icons={icons}
+                    iconsLabel={iconsLabel}
+                    checked={!off}
+                    disabled={busy || (!off && to.length === 0) || Boolean(entry && !off)}
+                    onToggle={() => void toggleGlobal(n, off)}
+                  >
+                    {reason && <span className="text-ink-3">{reason}</span>}
+                    {stillOn.length > 0 && (
+                      <span className="text-warn">
+                        {t('mcp.projects.stillOn', {
+                          targets: stillOn.map(targetLabel).join(', '),
+                        })}
                       </span>
-                      {off && <span className="ss-tag warn">{t('mcp.projects.offBadge')}</span>}
-                      {changes.some((c) => c.name === n && writes(c)) && (
-                        <span className="ss-tag warn">{t('plugins.pending')}</span>
-                      )}
-                      <span className="min-w-0 flex-1 truncate font-mono text-xs text-ink-3">
-                        {describeEndpoint(server)}
-                      </span>
-                      {icons.length > 0 && (
-                        <span
-                          className="ss-stack"
-                          role="img"
-                          aria-label={iconsLabel}
-                          title={iconsLabel}
+                    )}
+                    {stale && (
+                      <span className="text-warn">
+                        {t('mcp.projects.staleSwitch')}{' '}
+                        <button
+                          type="button"
+                          className="underline disabled:opacity-50"
+                          disabled={busy}
+                          onClick={() => void toggleGlobal(n, false)}
                         >
-                          {icons.map((x) => (
-                            <span key={x} className="ss-at">
-                              <AgentIcon target={x} size={13} />
-                            </span>
-                          ))}
-                        </span>
-                      )}
-                      <button
-                        type="button"
-                        role="switch"
-                        aria-checked={!off}
-                        aria-label={n}
-                        aria-describedby={`mcp-sw-${n}`}
-                        className={`ss-sw ${off ? '' : 'on'} disabled:opacity-50`}
-                        disabled={busy || (!off && to.length === 0) || Boolean(entry && !off)}
-                        onClick={() => void toggleGlobal(n, off)}
-                      >
-                        <i />
-                      </button>
-                    </span>
-                    <span id={`mcp-sw-${n}`} className="flex flex-col text-xs empty:hidden">
-                      {reason && <span className="text-ink-3">{reason}</span>}
-                      {stillOn.length > 0 && (
-                        <span className="text-warn">
-                          {t('mcp.projects.stillOn', {
-                            targets: stillOn.map(targetLabel).join(', '),
-                          })}
-                        </span>
-                      )}
-                      {stale && (
-                        <span className="text-warn">
-                          {t('mcp.projects.staleSwitch')}{' '}
-                          <button
-                            type="button"
-                            className="underline disabled:opacity-50"
-                            disabled={busy}
-                            onClick={() => void toggleGlobal(n, false)}
-                          >
-                            {t('mcp.projects.matchProject')}
-                          </button>
-                        </span>
-                      )}
-                    </span>
-                  </div>
+                          {t('mcp.projects.matchProject')}
+                        </button>
+                      </span>
+                    )}
+                  </ProjectServerRow>
                 );
               })}
             </div>
@@ -490,27 +512,45 @@ export default function MCPProjectView({ data, root, offered, onChanged, onRemov
           )}
         </section>
 
+        <MCPSharedServers
+          root={root}
+          servers={data.source.servers}
+          users={users}
+          use={use}
+          own={own}
+          targets={targets}
+          changes={changes}
+          busy={busy}
+          onToggle={(n, on) => void toggleShared(n, on)}
+        />
+
         <section className="mt-3 flex flex-col">
           {/* Two named actions rather than one button that then asks which it was. */}
-          <div className="ss-sec !items-center">
-            <h2>{t('mcp.projects.onlyHere')}</h2>
-            <span className="ss-cnt">{ownRows.length}</span>
+          <ProjectSectionHead
+            icon={<Folder size={16} />}
+            title={t('mcp.projects.onlyHere')}
+            count={ownRows.length}
+            chip={t('mcp.projects.chipLocal')}
+            hint={t('mcp.projects.onlyHereHint')}
+          >
+            <Tooltip content={t('mcp.addOffHint')} side="top">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-ink-2"
+                onClick={() => {
+                  setAddingOff(true);
+                  setAddMode('form');
+                  setEditing('');
+                }}
+              >
+                <PowerOff size={14} />
+                {t('mcp.addOff')}
+              </Button>
+            </Tooltip>
             <Button
-              className="ml-auto"
               size="sm"
               variant="ghost"
-              onClick={() => {
-                setAddingOff(true);
-                setAddMode('form');
-                setEditing('');
-              }}
-            >
-              <PowerOff size={14} />
-              {t('mcp.addOff')}
-            </Button>
-            <Button
-              size="sm"
-              variant="secondary"
               onClick={() => {
                 setAddingOff(false);
                 setAddMode('form');
@@ -520,7 +560,7 @@ export default function MCPProjectView({ data, root, offered, onChanged, onRemov
               <Plus size={14} />
               {t('mcp.addServer')}
             </Button>
-          </div>
+          </ProjectSectionHead>
           {ownRows.length > 0 ? (
             <MCPServerList
               rows={ownRows}
@@ -547,6 +587,20 @@ export default function MCPProjectView({ data, root, offered, onChanged, onRemov
         </Button>
       </RailLayout>
 
+      {showFlow && (
+        <MCPFlowDialog
+          root={root}
+          global={{
+            on: shownGlobals.filter((n) => !servers[n]).length,
+            total: shownGlobals.length,
+          }}
+          shared={{ on: use.filter((n) => users[n]).length, total: Object.keys(users).length }}
+          own={Object.values(own).filter((x) => !x.disabled).length}
+          files={files}
+          paths={paths}
+          onClose={() => setShowFlow(false)}
+        />
+      )}
       {editing !== null && (
         <ProjectServerEditor
           data={data}

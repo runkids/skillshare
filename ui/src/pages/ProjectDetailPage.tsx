@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Folder, Folders, Plug, RefreshCw, Webhook } from 'lucide-react';
+import { Folders, Plug, RefreshCw, Webhook } from 'lucide-react';
 import { hooksApi, type HookInventory } from '../api/hooks';
 import { api, type ProjectList, type ProjectResource } from '../api/client';
 import { mcpApi, mcpTargets } from '../api/mcp';
-import AgentIcon from '../components/AgentIcon';
 import Button from '../components/Button';
 import EmptyState from '../components/EmptyState';
 import PageHeader from '../components/PageHeader';
@@ -14,20 +13,13 @@ import SegmentedControl from '../components/SegmentedControl';
 import { useToast } from '../components/Toast';
 import HooksScope from '../components/hooks/HooksScope';
 import MCPProjectView from '../components/mcp/MCPProjectView';
-import { targetLabel } from '../components/mcp/mcpView';
 import ProjectSyncDialog from '../components/projects/ProjectSyncDialog';
 import RemoveProjectDialog from '../components/projects/RemoveProjectDialog';
-import ProjectTools from '../components/projects/ProjectTools';
+import ProjectResourceTab from '../components/projects/ProjectResourceTab';
 import { removeProject } from '../components/projects/projectActions';
 import TargetOmpExtensions from '../components/targets/TargetOmpExtensions';
 import TargetPiExtensions from '../components/targets/TargetPiExtensions';
-import {
-  projectHealth,
-  projectRows,
-  toolGroups,
-  type ProjectRow,
-} from '../components/projects/projectView';
-import FilterSection, { ModePicker } from '../components/targets/FilterSection';
+import { projectHealth, projectRows, type ProjectRow } from '../components/projects/projectView';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { shortenHome } from '../lib/paths';
 import { useT, plural } from '../i18n';
@@ -174,6 +166,12 @@ function ProjectEditor({
   const entries = (preview.data?.entries ?? []).filter(
     (e) => (e.kind === 'agent') === agent && e.status !== 'na',
   );
+  // The filters of this kind the shown rows were computed for; a placeholder is the last ones' rows.
+  const loadedFilters = agent ? filters.agents : filters.skills;
+  const previewKey =
+    preview.data && !preview.isPlaceholderData && loadedFilters
+      ? JSON.stringify([loadedFilters.include, loadedFilters.exclude])
+      : null;
 
   const refresh = () => void invalidate(queryClient, 'projectChanged');
   const save = async () => {
@@ -256,12 +254,6 @@ function ProjectEditor({
     </nav>
   );
   const health = projectHealth(project, targets.data?.targets ?? [], mcp, hooks);
-  const folders = agent
-    ? draft.targets.map((tool) => ({
-        tools: [tool],
-        path: tools.find((x) => x.name === tool)?.agentsPath ?? '',
-      }))
-    : toolGroups(tools, draft.targets).map((g) => ({ tools: g.tools, path: g.skillsPath }));
 
   return (
     <div className="animate-page-in">
@@ -317,10 +309,7 @@ function ProjectEditor({
         )}
       </div>
 
-      {/* The Hooks tab carries its own actions, so it draws this bar itself with them at the right. */}
-      {!(tab === 'hooks' && !hooksError && hooks && hooksEntry) && (
-        <div className="mb-7">{tabs}</div>
-      )}
+      <div className="mb-7">{tabs}</div>
 
       {tab === 'extensions' ? (
         <div className="flex flex-col gap-5">
@@ -350,12 +339,13 @@ function ProjectEditor({
           <HooksScope
             data={hooks}
             project={project.path}
-            header={(actions) => (
-              <div className="ss-tabbar mb-7">
-                {tabs}
-                {actions}
-              </div>
-            )}
+            tools={project.targets}
+            onRemoved={
+              project.declared || mcpEntry
+                ? undefined
+                : // Only hooks.projects named this folder, so it is gone from the list.
+                  () => void navigate('/projects')
+            }
           />
         ) : (
           <EmptyState
@@ -377,7 +367,7 @@ function ProjectEditor({
             offered={mcpTargets.filter((x) => mcp.paths[x])}
             onChanged={refresh}
             onRemoved={
-              project.declared
+              project.declared || hooksEntry
                 ? refresh
                 : () => {
                     refresh();
@@ -398,105 +388,31 @@ function ProjectEditor({
           />
         )
       ) : (
-        <div className="grid grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] items-start gap-12">
-          <section className="flex flex-col gap-5">
-            <div className="flex items-center gap-4">
-              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <h2 className="ss-h2" id="project-part">
-                  {t(`projects.part.${tab}`)}
-                </h2>
-                <span className="text-[13px] text-ink-2">{t(`projects.part.${tab}Hint`)}</span>
-              </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={Boolean(resource)}
-                aria-labelledby="project-part"
-                className={`ss-sw ${resource ? 'on' : ''} disabled:opacity-50`}
-                disabled={saving}
-                onClick={() =>
-                  setResource(
-                    resource ? null : ((agent ? saved.agents : saved.skills) ?? EVERYTHING),
-                  )
-                }
-              >
-                <i />
-              </button>
-            </div>
-            {resource && previewTool && (
-              <FilterSection
-                kind={agent ? 'agent' : 'skill'}
-                mode={resource.mode || 'merge'}
-                name={project.name}
-                include={resource.include}
-                exclude={resource.exclude}
-                onChange={(next) => setResource({ ...resource, ...next })}
-                entries={entries}
-                loaded={Boolean(preview.data)}
-                loading={preview.isPending}
-                error={preview.error}
-                disabled={saving}
-              />
-            )}
-          </section>
-
-          <aside className="flex flex-col gap-7">
-            <div className="flex flex-col gap-3">
-              <h2 className="ss-h2">{t('projects.targets')}</h2>
-              <ProjectTools
-                tools={tools}
-                common={common}
-                selected={draft.targets}
-                onChange={(next) => setDraft({ ...draft, targets: next })}
-                disabled={saving}
-              />
-            </div>
-            {resource && folders.length > 0 && (
-              <div className="flex flex-col gap-3">
-                <h2 className="ss-h2">{t('projects.writes')}</h2>
-                <div className="ss-list">
-                  {folders.map((f) => (
-                    <div key={f.tools.join()} className={`ss-r ${f.path ? '' : 'opacity-55'}`}>
-                      <span className="ss-stack shrink-0">
-                        {f.tools.map((tool) => (
-                          <span key={tool} className="ss-at" title={tool}>
-                            <AgentIcon target={tool} size={13} />
-                          </span>
-                        ))}
-                      </span>
-                      {f.path ? (
-                        <span className="flex min-w-0 flex-1 items-center gap-2 font-mono text-[13px]">
-                          <Folder size={14} className="shrink-0 text-ink-3" />
-                          <span className="truncate">{f.path}</span>
-                        </span>
-                      ) : (
-                        <span className="min-w-0 flex-1 text-[13px] text-ink-2">
-                          {t('projects.writes.noAgents', { name: targetLabel(f.tools[0]) })}
-                        </span>
-                      )}
-                      {f.tools.length > 1 && (
-                        <span className="ss-tag" title={f.tools.join(', ')}>
-                          {t('projects.writes.shared')}
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            {resource && (
-              <div className="flex flex-col gap-3">
-                <h2 className="ss-h2">{t('targetDetail.syncMode')}</h2>
-                <ModePicker
-                  kind={agent ? 'agent' : 'skill'}
-                  mode={resource.mode || 'merge'}
-                  onChange={(mode) => setResource({ ...resource, mode })}
-                  disabled={saving}
-                />
-              </div>
-            )}
-          </aside>
-        </div>
+        <ProjectResourceTab
+          key={tab}
+          kind={agent ? 'agent' : 'skill'}
+          resource={resource}
+          onToggle={() =>
+            setResource(resource ? null : ((agent ? saved.agents : saved.skills) ?? EVERYTHING))
+          }
+          onChange={setResource}
+          entries={entries}
+          preview={{
+            loaded: Boolean(preview.data),
+            loading: preview.isPending && Boolean(previewTool),
+            error: preview.error,
+          }}
+          previewKey={previewKey}
+          tools={tools}
+          common={common}
+          targets={draft.targets}
+          onTargets={(next) => setDraft({ ...draft, targets: next })}
+          health={health}
+          dirty={dirty}
+          onSync={() => setSyncing(true)}
+          syncDisabled={project.missing}
+          disabled={saving}
+        />
       )}
 
       <ProjectSyncDialog

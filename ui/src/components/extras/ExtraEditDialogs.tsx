@@ -334,8 +334,6 @@ export function EditTargetDialog({
           ) : (
             <>
               <FilterSection
-                kind="file"
-                mode={mode}
                 name={shortenHome(trimmed)}
                 include={filters.include}
                 exclude={filters.exclude}

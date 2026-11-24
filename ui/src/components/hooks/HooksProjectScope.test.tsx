@@ -312,6 +312,32 @@ describe('project row preview', () => {
     await waitFor(() => expect(hooksApi.configure).toHaveBeenCalledWith(takeover, 'rev-all', true));
   });
 
+  it('stops managing the project only after the confirmation, without syncing', async () => {
+    const user = userEvent.setup();
+    vi.mocked(hooksApi.save).mockResolvedValue(undefined as never);
+    const onRemoved = vi.fn();
+    wrap(<HooksScope data={conflictData()} project={APP} onRemoved={onRemoved} />);
+    await user.click(screen.getByRole('button', { name: 'Stop managing hooks here' }));
+    expect(hooksApi.save).not.toHaveBeenCalled();
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Stop managing hooks here' }));
+    await waitFor(() => expect(onRemoved).toHaveBeenCalled());
+    expect(hooksApi.save).toHaveBeenCalledWith({ project: APP, remove: true });
+    expect(hooksApi.configure).not.toHaveBeenCalled();
+  });
+
+  it('keeps the page when stopping fails', async () => {
+    const user = userEvent.setup();
+    vi.mocked(hooksApi.save).mockRejectedValue(new Error('refused'));
+    const onRemoved = vi.fn();
+    wrap(<HooksScope data={conflictData()} project={APP} onRemoved={onRemoved} />);
+    await user.click(screen.getByRole('button', { name: 'Stop managing hooks here' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Stop managing hooks here' }));
+    expect(await screen.findByText('refused')).toBeInTheDocument();
+    expect(onRemoved).not.toHaveBeenCalled();
+  });
+
   it('offers no Codex trust in a project, even with a Codex hook', () => {
     wrap(
       <HooksSyncBox

@@ -11,7 +11,7 @@ import { useT, plural } from '../../i18n';
 import { shortenHome } from '../../lib/paths';
 import PatternInput from '../targets/PatternInput';
 import ProjectTools from './ProjectTools';
-import { baseName, projectUrl, toolGroups } from './projectView';
+import { baseName, projectUrl, writeFolders } from './projectView';
 import { opensProject, renamed, scanCounts, scanNote, scanWarning } from './scanView';
 
 interface Props {
@@ -88,7 +88,7 @@ export default function AddProjectDialog({
       ? t('projects.scan.inside')
       : '';
   const agentTools = targets.filter((x) => tools.find((tool) => tool.name === x)?.agentsPath);
-  const folders = toolGroups(tools, targets).length;
+  const folders = writeFolders(tools, targets, 'skill').folders.length;
   const counts = scanCounts(review?.rows ?? []);
   const canSave =
     Boolean(root) &&
