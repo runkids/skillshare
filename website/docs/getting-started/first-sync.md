@@ -1,8 +1,9 @@
 ---
 sidebar_position: 2
 type: Guide
+title: First Sync
 description: A complete first-time skillshare setup, from installing the CLI to a working sync across your AI tools.
-generated: { by: claude-code/claude-opus-5-5, at: "2026-11-22T19:53:42Z" }
+generated: { by: claude-code/claude-opus-5-5, at: "2026-11-24T15:44:56Z" }
 ---
 
 # First Sync
