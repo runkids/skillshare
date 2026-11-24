@@ -1,5 +1,37 @@
 # Changelog
 
+## [0.31.0](https://github.com/runkids/skillshare/compare/v0.30.13...v0.31.0) (2026-11-24)
+
+
+### New Features
+
+* **mcp:** share MCP servers with chosen projects ([#1001](https://github.com/runkids/skillshare/issues/1001)) ([0cd966d](https://github.com/runkids/skillshare/commit/0cd966dada76fe6d1cf8c42168bd21a8ab99479a))
+* **ui:** search and merge servers in the copy-from-project picker ([#995](https://github.com/runkids/skillshare/issues/995)) ([e931055](https://github.com/runkids/skillshare/commit/e931055dec37f43545699bacc76296fe3e2bf9ed)), closes [#976](https://github.com/runkids/skillshare/issues/976)
+* **ui:** show each skill's metadata.version in the dashboard ([#979](https://github.com/runkids/skillshare/issues/979)) ([fbfc9f2](https://github.com/runkids/skillshare/commit/fbfc9f2dfac56719b350e25a844dbf2e7a834dd2)), closes [#975](https://github.com/runkids/skillshare/issues/975)
+
+
+### Bug Fixes
+
+* **agents:** list agents in .agentignore'd folders as disabled ([#987](https://github.com/runkids/skillshare/issues/987)) ([bfcc392](https://github.com/runkids/skillshare/commit/bfcc3928ba4e29f8fe109fcac2d6f19e3b96dcbb))
+* **audit:** downgrade fenced JS root properties to HIGH ([#999](https://github.com/runkids/skillshare/issues/999)) ([4ef39d5](https://github.com/runkids/skillshare/commit/4ef39d5d908b29ac5d035799ba6d8c7dd812e514))
+* **audit:** keep commented root properties critical ([#1000](https://github.com/runkids/skillshare/issues/1000)) ([2d74c76](https://github.com/runkids/skillshare/commit/2d74c76912259ec3291bb55ac94434b26054a784))
+* **diff:** leave files sync does not copy out of the file diff ([#992](https://github.com/runkids/skillshare/issues/992)) ([b20eacd](https://github.com/runkids/skillshare/commit/b20eacd0dbe3ff4bab46c8cb686d1e7cca64c958))
+* **frontmatter:** do not add a header over one the writer cannot locate ([#988](https://github.com/runkids/skillshare/issues/988)) ([4d151e3](https://github.com/runkids/skillshare/commit/4d151e368c8d4a3a7de46ad9ab34fb9e8514dc06))
+* **frontmatter:** preserve skill metadata when assigning dashboard targets ([#973](https://github.com/runkids/skillshare/issues/973)) ([115b50a](https://github.com/runkids/skillshare/commit/115b50a3d1ad89a2c2361cc905d2a553dbdae956))
+* leave no dead ignore lines and re-enable skills disabled by name ([#994](https://github.com/runkids/skillshare/issues/994)) ([584e0c9](https://github.com/runkids/skillshare/commit/584e0c9817f572cfbf0c9fe1063ce6b290286f0b))
+* **list:** log the TUI's enable and disable toggles ([#990](https://github.com/runkids/skillshare/issues/990)) ([621d9b8](https://github.com/runkids/skillshare/commit/621d9b8511975101a9f040c58b3b34df0a849818))
+* **list:** preserve flow-style skill metadata when toggling manual invocation ([#970](https://github.com/runkids/skillshare/issues/970)) ([96de20e](https://github.com/runkids/skillshare/commit/96de20e638513511324794e7d765b8fbb3f3b0b5))
+* **plugins:** support native Antigravity manifests and marketplace catalogs ([#997](https://github.com/runkids/skillshare/issues/997)) ([e09dd1d](https://github.com/runkids/skillshare/commit/e09dd1d350f65232a9b665231f1999860c447d6e))
+* **server:** honor the project's ignore: in the project dashboard ([#991](https://github.com/runkids/skillshare/issues/991)) ([99652b6](https://github.com/runkids/skillshare/commit/99652b6551cd5263901dfb98e9697c27df2db53d))
+* **skillignore:** apply directory-only rules to a skill's own folder ([#985](https://github.com/runkids/skillshare/issues/985)) ([3b46626](https://github.com/runkids/skillshare/commit/3b46626e5b41ec4f706372d9f3dff75e326521d0))
+* **skillignore:** keep directories a negation re-enables walkable ([#980](https://github.com/runkids/skillshare/issues/980)) ([e482d87](https://github.com/runkids/skillshare/commit/e482d87e166a65e03dece1da8da0e3a5b3d3813d))
+* **sync:** copy files that a negation re-includes under an ignored folder ([#986](https://github.com/runkids/skillshare/issues/986)) ([0538c5c](https://github.com/runkids/skillshare/commit/0538c5cb1abdf49dd79d148acfa5212d09fec1d2))
+* **sync:** recognize a copy made under ignore: negations as unedited ([#993](https://github.com/runkids/skillshare/issues/993)) ([7af3ad7](https://github.com/runkids/skillshare/commit/7af3ad7aadb5e4dd38c955b45ae954b464fda3f7))
+* **toggle:** report a toggle that another ignore rule overrides ([#989](https://github.com/runkids/skillshare/issues/989)) ([2ba1214](https://github.com/runkids/skillshare/commit/2ba1214d48dd1f3dcdb924a983bdd5e414f95e14))
+* **ui:** let an embedding app restore the chosen language ([#981](https://github.com/runkids/skillshare/issues/981)) ([bed9bb2](https://github.com/runkids/skillshare/commit/bed9bb2301f67a79248f81eb1119db133c4cb89a))
+* **ui:** preserve exact metadata integers on save ([#971](https://github.com/runkids/skillshare/issues/971)) ([b271e5f](https://github.com/runkids/skillshare/commit/b271e5f84a2e0454c814fec9692aebdccd619690))
+* **ui:** show structured metadata lists without flattening their records ([#969](https://github.com/runkids/skillshare/issues/969)) ([8690918](https://github.com/runkids/skillshare/commit/8690918dc30eb6906b9aaeb5f409fe3cc6c772a1))
+
 ## [0.30.13] - 2026-11-21
 
 ### New Features
