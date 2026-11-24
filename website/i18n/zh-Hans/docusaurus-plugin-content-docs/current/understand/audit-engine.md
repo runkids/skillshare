@@ -182,7 +182,7 @@ audit engine 会用 100 多条内置规则（正则表达式模式、表驱动�
 - Jailbreak 指令：`DEVELOPER MODE`、`DEV MODE`、`JAILBREAK`、`DAN MODE`（不区分大小写，容忍空白字符）
 - 隐藏在 HTML 注释（`<!-- ... -->`）中的注入
 
-在 `.md` fenced code block 中，SDK 形式的 `system:` / `System:` 参数触发的 `prompt-injection-1` 发现会从 CRITICAL 降为 HIGH，而非移除。可识别的值包括带引号的字符串、数组、Go `anthropic.String(...)`、以逗号结尾的变量、YAML 块标量，以及下一行带引号的字符串或数组。这是语法启发式判断，不代表代码安全。HIGH 在默认 CRITICAL 阈值下仅发出警告，但在 `strict` profile（HIGH 阈值）下仍会阻止操作。
+在 `.md` fenced code block 中，SDK 形式的 `system:` / `System:` 参数以及小写的 `root:` 对象属性触发的 `prompt-injection-1` 发现会从 CRITICAL 降为 HIGH，而非移除。可识别的 `system:` 值包括带引号的字符串、数组、Go `anthropic.String(...)`、以逗号结尾的变量、YAML 块标量，以及下一行带引号的字符串或数组；可识别的 `root:` 值是以逗号结尾的标识符或成员表达式，以及仅含引号字符串、标识符/成员表达式或数字参数的单行函数或方法调用（例如 `root: track,` 或 `root: document.querySelector(".carousel"),`）。这是语法启发式判断，不代表代码安全。HIGH 在默认 CRITICAL 阈值下仅发出警告，但在 `strict` profile（HIGH 阈值）下仍会阻止操作。
 
 大写 `SYSTEM:` 指令、单独的角色标签、代码块外的叙述，以及非 Markdown 源代码文件中的大写标签，保持配置的严重级别。其他规则仍会扫描参数文本：注入语句、输出抑制、凭证访问与数据外泄，不会因这项例外而降级。
 
