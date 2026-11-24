@@ -87,6 +87,7 @@ const sidebars: SidebarsConfig = {
             'how-to/recipes/team-onboarding-recipe',
             'how-to/recipes/centralized-skills-repo',
             'how-to/recipes/many-projects-one-config',
+            'how-to/recipes/session-start-command',
           ],
         },
       ],
