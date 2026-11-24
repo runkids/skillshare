@@ -188,6 +188,12 @@ func TestOpenCodeAccountUpdateProbeUsesConfiguredCLIAndEnv(t *testing.T) {
 	a := s.Accounts["opencode-work"]
 	a.CLI = "/custom/bin/opencode-v2"
 	s.Accounts["opencode-work"] = a
+	if err := os.MkdirAll(a.Dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(a.Dir, "opencode.json"), []byte(`{"plugins":["demo"]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	cfg := []byte("plugins:\n  packages:\n    demo:\n      bindings:\n        opencode-work:\n          id: demo\n")
 	if err := os.WriteFile(s.ConfigPath, cfg, 0o644); err != nil {
@@ -269,5 +275,28 @@ func TestAccountBindingIsValidatedByItsAgent(t *testing.T) {
 	}
 	if err := Validate(raw, map[string]string{"pi-work": "claude"}); err == nil {
 		t.Fatal("a Pi identifier was accepted for a Claude account")
+	}
+}
+
+// A package removed in OpenCode is not configured for good; updating it would wait for a load
+// that never lists it.
+func TestOpenCodeImportedUpdateSkipsAPackageOpenCodeNoLongerLists(t *testing.T) {
+	var calls []string
+	s := agentAccountPluginService(t, "opencode", &calls)
+	dir := s.Accounts["opencode-work"].Dir
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "opencode.json"), []byte(`{"plugins":["other-pkg"]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg := []byte("plugins:\n  packages:\n    demo:\n      bindings:\n        opencode-work:\n          id: demo\n")
+	if err := os.WriteFile(s.ConfigPath, cfg, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	seedLocalBinding(t, s, "demo", "opencode-work", Binding{ID: "demo"})
+	p, err := s.Preview(context.Background(), Request{Action: "update", Name: "demo", Targets: []string{"opencode-work"}})
+	if err != nil || len(p.Changes) != 1 || p.Changes[0].MessageKey != "plugins.skip.opencodeNotConfigured" {
+		t.Fatalf("changes = %+v %v, want plugins.skip.opencodeNotConfigured", p.Changes, err)
 	}
 }

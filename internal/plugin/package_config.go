@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"skillshare/internal/opencode"
 
@@ -296,6 +298,13 @@ func (s *Service) openCodeInventory(target, version string) ([]Installed, string
 	return result, hash(raw), nil
 }
 
+// OpenCode lists a folder's plugins seconds after it is first asked for them; tests shorten
+// the wait.
+var (
+	openCodeLoadRetries = 3
+	openCodeLoadWait    = 3 * time.Second
+)
+
 func (s *Service) applyOpenCode(ctx context.Context, c Change, b Binding) error {
 
 	version, err := s.run(ctx, c.Target, "--version")
@@ -310,7 +319,16 @@ func (s *Service) applyOpenCode(ctx context.Context, c Change, b Binding) error 
 		if key != "plugins" || s.ProjectRoot != "" {
 			return fmt.Errorf("imported package updates require OpenCode v2 global scope")
 		}
+		// The update itself makes OpenCode load the folder's plugins, which takes seconds.
 		_, err := s.run(ctx, c.Target, "plugin", "update", b.ID)
+		for retry := 0; retry < openCodeLoadRetries && errors.Is(err, errOpenCodeNotLoaded); retry++ {
+			select {
+			case <-ctx.Done():
+				return err
+			case <-time.After(openCodeLoadWait):
+			}
+			_, err = s.run(ctx, c.Target, "plugin", "update", b.ID)
+		}
 		return err
 	}
 	if b.Source != "" && (c.Action == "install" || c.Action == "update") {

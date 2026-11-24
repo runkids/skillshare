@@ -435,6 +435,10 @@ keeps their settings entry; a project's are updated in Pi, because `pi update`
 also reaches global packages. Imported OpenCode v1 packages are updated in their
 native tool. OpenCode v2 global package imports can use its native update command; imported local directories are left for you to update without running dependency installers; project imports must be
 updated natively because the v2 update command is global.
+OpenCode answers an update in a folder whose plugins it has not loaded yet with
+`Plugin is not configured` ([anomalyco/opencode#54654](https://github.com/anomalyco/opencode/issues/54654)),
+so Skillshare runs the update again up to three times, three seconds apart, before
+it reports that error. A package that OpenCode's settings no longer list is skipped.
 
 ```bash
 skillshare plugin add ./cursor-plugin --target cursor --no-tui
