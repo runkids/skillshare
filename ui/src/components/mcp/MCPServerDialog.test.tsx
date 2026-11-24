@@ -102,7 +102,7 @@ describe('MCP server dialog', () => {
     const user = userEvent.setup();
     const copyFrom = [
       {
-        root: '/work/web',
+        roots: ['/work/web'],
         name: 'docs',
         server: { command: 'npx', args: ['docs'], env: { DOCS_TOKEN: { fromEnv: 'DOCS_TOKEN' } } },
       },

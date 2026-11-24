@@ -83,26 +83,45 @@ export function initialServerDraft(
 export type AddMode = 'form' | 'paste' | 'serve' | 'copy';
 
 export interface CopyableServer {
-  root: string;
+  /** Every project that has this server under the same name with the same settings. */
+  roots: string[];
   name: string;
   server: MCPServer;
 }
 
-/** Tells copyable servers apart: two projects may each have one by the same name. */
-export const copyKey = (c: CopyableServer) => `${c.root}\0${c.name}`;
+/** Tells copyable servers apart: two projects may each have one by the same name, set up differently. */
+export const copyKey = (c: CopyableServer) => `${c.roots.join('\n')}\0${c.name}`;
 
-/** The servers of every other mcp.projects root, without their targets so the copy follows this project's. Off switches are left out. */
+/** JSON with object keys sorted, so servers with the same settings compare equal. */
+const settingsKey = (server: MCPServer) =>
+  JSON.stringify(server, (_, v: unknown) =>
+    v && typeof v === 'object' && !Array.isArray(v)
+      ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)))
+      : v,
+  );
+
+/**
+ * The servers of every other mcp.projects root, without their targets so the copy follows this project's.
+ * Projects that share a server by the same name and settings get one entry. Off switches are left out.
+ */
 export const copyableServers = (
   projects: Record<string, MCPProject> = {},
   root: string,
-): CopyableServer[] =>
-  Object.entries(projects)
-    .filter(([r]) => r !== root)
-    .flatMap(([r, p]) =>
-      Object.entries(p.servers ?? {})
-        .filter(([, s]) => !s.disabled)
-        .map(([name, server]) => ({ root: r, name, server: { ...server, targets: undefined } })),
-    );
+): CopyableServer[] => {
+  const shared = new Map<string, CopyableServer>();
+  for (const [r, p] of Object.entries(projects)) {
+    if (r === root) continue;
+    for (const [name, s] of Object.entries(p.servers ?? {})) {
+      if (s.disabled) continue;
+      const server = { ...s, targets: undefined };
+      const key = `${name}\0${settingsKey(server)}`;
+      const seen = shared.get(key);
+      if (seen) seen.roots.push(r);
+      else shared.set(key, { roots: [r], name, server });
+    }
+  }
+  return [...shared.values()];
+};
 
 /** The command that serves skills over MCP: every enabled skill, or those of one skills target. */
 export const serveSkillsCommand = (target: string, project: boolean) =>
