@@ -81,12 +81,12 @@ JSON 输出包含来源路径和原生标识符。不要在来源 URL 中放置�
 | Claude Code | `.claude-plugin/plugin.json` | Yes | Yes | Native update |
 | Codex | `.codex-plugin/plugin.json`, Agent Plugins root manifest, or Claude manifest | Yes | No | 刷新经审核的来源后再次 add，仅限在 Codex 中为启用状态 |
 | Cursor | `.cursor-plugin/plugin.json` or Agent Plugins root manifest | Yes | No | Replace reviewed local copy |
-| Antigravity Desktop | Root `plugin.json` with an explicit name | Yes | Yes | Replace reviewed local copy |
+| Antigravity Desktop | `.antigravity-plugin/plugin.json`、`.gemini-plugin/plugin.json` 或根目录下的 `plugin.json`（须明确指定名称） | Yes | Yes | Replace reviewed local copy |
 | Pi | `package.json` with `pi` resources, or `pi-package` keyword and conventional resource folders | Yes | Yes, with native project trust | Refresh managed source snapshot |
 | Oh My Pi | Marketplace-backed local/Git plugins with native-compatible metadata | Fresh-cache install/reinstall, import and scoped removal | At OMP's project anchor | Updates reinstall into fresh cache; removal retains shared cache |
 | OpenCode | `package.json` with an SDK dependency, `.opencode/plugins/` entry, or explicit `--entry` | Yes | Yes | Refresh managed source snapshot |
 
-| Antigravity CLI | Native root manifest or Claude manifest accepted by `agy` | Yes | No | Refresh reviewed source, only if native enabled state is known and enabled |
+| Antigravity CLI | `.antigravity-plugin/plugin.json`、`.gemini-plugin/plugin.json`、根目录下的 `plugin.json`，或 `agy` 接受的 Claude manifest | Yes | No | Refresh reviewed source, only if native enabled state is known and enabled |
 | GitHub Copilot CLI | `.plugin/plugin.json`, `.github/plugin/plugin.json`, Claude manifest, or Agent Plugins root manifest | Yes | No | Refresh reviewed source, only if native enabled state is known and enabled |
 | Grok Build | `.grok-plugin/plugin.json` or Claude manifest | Import/remove only; native trust required for install | No | Update natively |
 | Kimi Code | `kimi.plugin.json` or `.kimi-plugin/plugin.json` | Discovery only | No | Not automated |
@@ -129,6 +129,7 @@ skillshare plugin import demo@market --from claude-work
   Cursor 并检查 Customize。已安装的同名 marketplace plugin 优先于本地副本。
 - Antigravity desktop：全局为 `~/.gemini/config/plugins/<name>`；在工作区中为 `.agents/plugins/<name>`
   （或已存在的 `_agents/plugins/` 目录）。如果两个工作区目录都存在，请先合并它们。
+  原生 manifest 的查找顺序为 `.antigravity-plugin/plugin.json`、`.gemini-plugin/plugin.json`、根目录下的 `plugin.json`。如果包含多个插件的仓库中存在 `.antigravity-plugin/marketplace.json`，`antigravity` 和 `antigravity-cli` 就只使用这份 catalog，不会回退到 `.claude-plugin/marketplace.json`。
 - 独立的 **agy CLI** 有单独的 plugin store。`antigravity` target 管理的是
   desktop/workspace 的发现路径，而不是该 CLI store。`agy` 只是 Skillshare target 的一个别名；
   使用 `--target antigravity-cli` 表示独立 CLI，`--target agy` 保留其原有的 desktop 含义。
