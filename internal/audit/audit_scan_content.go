@@ -120,9 +120,9 @@ const (
 
 var mdRootPropertyRe = regexp.MustCompile(
 	`^(?:` +
-		mdRootIdentExpr + `,[ \t]*(?://.*)?` +
+		mdRootIdentExpr + `,` +
 		`|` +
-		mdRootIdentExpr + mdRootArgsExpr + `(?:` + mdRootArgsExpr + `|\??\.[A-Za-z_$][A-Za-z0-9_$]*)*,?[ \t]*(?://.*)?` +
+		mdRootIdentExpr + mdRootArgsExpr + `(?:` + mdRootArgsExpr + `|\??\.[A-Za-z_$][A-Za-z0-9_$]*)*,?` +
 		`)$`,
 )
 

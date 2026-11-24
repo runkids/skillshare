@@ -182,7 +182,7 @@ Markdown(`.md`) 파일에서는 펜스 및 들여쓰기 코드 블록과 파싱�
 - Jailbreak 지시문: `DEVELOPER MODE`, `DEV MODE`, `JAILBREAK`, `DAN MODE` (대소문자 구분 없음, 공백 허용)
 - HTML 주석(`<!-- ... -->`) 안에 숨겨진 인젝션
 
-`.md` fenced code block 안에서 SDK 형식의 `system:` / `System:` 매개변수나 소문자 `root:` 객체 속성으로 발생한 `prompt-injection-1` finding은 제거되지 않고 CRITICAL에서 HIGH로 낮아집니다. 인식되는 `system:` 값에는 따옴표로 감싼 문자열, 배열, 함수 호출, 쉼표로 끝나는 변수, YAML 블록 스칼라, 다음 줄의 따옴표로 감싼 문자열이나 배열이 포함됩니다. `root:` 값은 쉼표로 끝나는 식별자·멤버 표현식과 따옴표 문자열·식별자/멤버 표현식·숫자 인자만 받는 한 줄 함수·메서드 호출(예: `root: track,`, `root: document.querySelector(".carousel"),`)을 인식합니다. 이는 구문 휴리스틱이며 코드가 안전하다는 증거가 아닙니다. HIGH는 기본 CRITICAL 임계값에서 경고로 표시되지만 `strict` profile(HIGH 임계값)에서는 계속 차단됩니다.
+`.md` fenced code block 안에서 SDK 형식의 `system:` / `System:` 매개변수나 소문자 `root:` 객체 속성으로 발생한 `prompt-injection-1` finding은 제거되지 않고 CRITICAL에서 HIGH로 낮아집니다. 인식되는 `system:` 값에는 따옴표로 감싼 문자열, 배열, 함수 호출, 쉼표로 끝나는 변수, YAML 블록 스칼라, 다음 줄의 따옴표로 감싼 문자열이나 배열이 포함됩니다. `root:` 값은 쉼표로 끝나는 식별자·멤버 표현식과 따옴표 문자열·식별자/멤버 표현식·숫자 인자만 받는 한 줄 함수·메서드 호출(예: `root: track,`, `root: document.querySelector(".carousel"),`)을 인식합니다. 줄 끝에 `//` 주석이 있으면 `root:` finding은 CRITICAL로 유지됩니다. 이는 구문 휴리스틱이며 코드가 안전하다는 증거가 아닙니다. HIGH는 기본 CRITICAL 임계값에서 경고로 표시되지만 `strict` profile(HIGH 임계값)에서는 계속 차단됩니다.
 
 대문자 `SYSTEM:` 지시문, 값이 없는 역할 레이블, 코드 블록 밖의 일반 문장, Markdown이 아닌 소스 파일의 대문자 레이블은 설정된 심각도를 유지합니다. 다른 규칙도 매개변수 텍스트를 계속 스캔합니다. 인젝션 문구, 출력 억제, 자격 증명 접근, 데이터 유출은 이 예외로 인해 낮아지지 않습니다.
 
