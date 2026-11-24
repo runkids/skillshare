@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **최신 버전**: v0.30.11 — 대시보드에서 Pi 패키지를 공유하세요. Plugins 페이지의 「공유」는 이제 플러그인 다음에 Pi가 npm에서 설치한 패키지도 나열하고, `skillshare plugin add npm:<package> --target pi -g --no-tui`처럼 모두 추가하는 명령 하나를 복사합니다. 「대상에 있는 hook」 대화상자는 Antigravity와 Copilot hook도 가져오지 않고 편집하거나 제거할 수 있습니다. [플러그인 가이드 →](https://skillshare.runkids.cc/ko/docs/how-to/daily-tasks/sharing-plugins) · [변경 기록 →](https://skillshare.runkids.cc/changelog)
+> **최신 버전**: v0.31.0 — MCP 서버 하나를 필요한 프로젝트에만 공유하세요. `mcp.servers`의 서버에 `global: false`를 설정하고 각 프로젝트 root의 `use`에 넣으면, 한 번 고친 내용이 다음 `skillshare sync mcp`에서 모든 프로젝트에 반영됩니다. 대시보드에서는 프로젝트의 「MCP」 탭에 있는 「선택형 서버」에서 켤 수 있고, 「다른 프로젝트에서」 선택기는 이제 검색할 수 있으며 여러 프로젝트가 공유하는 서버를 한 번만 보여 줍니다. 대시보드는 스킬의 `metadata.version`도 `v1.2.0` 같은 태그로 표시합니다. [MCP 가이드 →](https://skillshare.runkids.cc/ko/docs/reference/commands/mcp#share-a-server-with-chosen-projects) · [변경 기록 →](https://skillshare.runkids.cc/changelog)
 
 ## skillshare를 쓰는 이유
 

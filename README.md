@@ -48,7 +48,7 @@
 </p>
 
 > [!NOTE]
-> **Latest**: v0.30.11 — Share your Pi packages from the dashboard: **Share** on the Plugins page now lists the npm packages Pi installed, after your plugins, and copies one command that adds them all, such as `skillshare plugin add npm:<package> --target pi -g --no-tui`. The **Hooks in targets** dialog can also edit or remove Antigravity and Copilot hooks without importing them. [Plugins guide →](https://skillshare.runkids.cc/docs/how-to/daily-tasks/sharing-plugins) · [All releases →](https://github.com/runkids/skillshare/releases)
+> **Latest**: v0.31.0 — Share one MCP server with only the projects that need it: give a server in `mcp.servers` `global: false` and list it under `use` in each project root, and editing it once updates every project on the next `skillshare sync mcp`. In the dashboard, a project's **MCP** tab turns it on under **Opt-in servers**, and the **From another project** picker can now search and lists a server that several projects share only once. The dashboard also shows a skill's `metadata.version` as a tag, such as `v1.2.0`. [MCP guide →](https://skillshare.runkids.cc/docs/reference/commands/mcp#share-a-server-with-chosen-projects) · [All releases →](https://github.com/runkids/skillshare/releases)
 
 ## Why skillshare
 
@@ -413,6 +413,9 @@ Thank you to everyone who has reported a bug, suggested an improvement, or helpe
 <a href="https://github.com/maciejniec"><img src="https://github.com/maciejniec.png" width="50" style="border-radius:50%" alt="maciejniec"></a>
 <a href="https://github.com/jani-nieminen-framehaus"><img src="https://github.com/jani-nieminen-framehaus.png" width="50" style="border-radius:50%" alt="jani-nieminen-framehaus"></a>
 <a href="https://github.com/endgame302"><img src="https://github.com/endgame302.png" width="50" style="border-radius:50%" alt="endgame302"></a>
+<a href="https://github.com/eirikc"><img src="https://github.com/eirikc.png" width="50" style="border-radius:50%" alt="eirikc"></a>
+<a href="https://github.com/AlexisSerneels"><img src="https://github.com/AlexisSerneels.png" width="50" style="border-radius:50%" alt="AlexisSerneels"></a>
+<a href="https://github.com/digitalflex-io"><img src="https://github.com/digitalflex-io.png" width="50" style="border-radius:50%" alt="digitalflex-io"></a>
 
 ---
 

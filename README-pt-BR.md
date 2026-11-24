@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **Versão mais recente**: v0.30.11 — Compartilhe seus pacotes do Pi pelo dashboard: **Compartilhar** na página Plugins agora lista, depois dos seus plugins, os pacotes npm que o Pi instalou e copia um comando que adiciona todos, como `skillshare plugin add npm:<package> --target pi -g --no-tui`. O diálogo **Hooks nos destinos** também pode editar ou remover hooks do Antigravity e do Copilot sem importá-los. [Guia de plugins →](https://skillshare.runkids.cc/docs/how-to/daily-tasks/sharing-plugins) · [Todas as versões →](https://github.com/runkids/skillshare/releases)
+> **Versão mais recente**: v0.31.0 — Compartilhe um servidor MCP só com os projetos que precisam dele: marque um servidor de `mcp.servers` com `global: false` e coloque-o em `use` na raiz de cada projeto; editá-lo uma vez atualiza todos os projetos no próximo `skillshare sync mcp`. No dashboard, ative-o na aba **MCP** de um projeto, em **Servidores opcionais**, e o seletor **De outro projeto** agora tem busca e lista uma só vez um servidor que vários projetos compartilham. O dashboard também mostra o `metadata.version` de um skill como etiqueta, como `v1.2.0`. [Guia de MCP →](https://skillshare.runkids.cc/docs/reference/commands/mcp#share-a-server-with-chosen-projects) · [Todas as versões →](https://github.com/runkids/skillshare/releases)
 
 ## Por que skillshare
 

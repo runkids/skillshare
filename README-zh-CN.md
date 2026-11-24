@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **最新版本**：v0.30.11 — 从 dashboard 分享你的 Pi 包：Plugins 页面的「分享」现在会在 plugin 之后列出 Pi 从 npm 安装的包，并复制一条把它们全部加入的命令，例如 `skillshare plugin add npm:<package> --target pi -g --no-tui`。「目标里的 hook」对话框也能直接修改或移除 Antigravity 和 Copilot 的 hook，不需要先导入。 [plugin 指南 →](https://skillshare.runkids.cc/zh-Hans/docs/how-to/daily-tasks/sharing-plugins) · [更新记录 →](https://skillshare.runkids.cc/changelog)
+> **最新版本**：v0.31.0 — 一个 MCP server 只给需要的项目用：在 `mcp.servers` 里把 server 设为 `global: false`，再列进各项目 root 的 `use`，改一次就会在下次 `skillshare sync mcp` 更新所有项目。在 dashboard 里，可以从项目「MCP」分页的「选用」开启它；「从其他项目」选单现在可以搜索，多个项目共用的 server 只列一次。dashboard 也会把 skill 的 `metadata.version` 显示成标签，例如 `v1.2.0`。 [MCP 指南 →](https://skillshare.runkids.cc/zh-Hans/docs/reference/commands/mcp#share-a-server-with-chosen-projects) · [更新记录 →](https://skillshare.runkids.cc/changelog)
 
 ## 为什么用 skillshare
 

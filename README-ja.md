@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **最新バージョン**：v0.30.11 — ダッシュボードから Pi パッケージを共有できます。Plugins ページの「共有」は、プラグインに続けて Pi が npm からインストールしたパッケージも一覧表示し、`skillshare plugin add npm:<package> --target pi -g --no-tui` のようにすべてを追加するコマンドを 1 つコピーします。「ターゲット内の hook」ダイアログでは、Antigravity と Copilot の hook もインポートせずに編集・削除できます。 [プラグインガイド →](https://skillshare.runkids.cc/ja/docs/how-to/daily-tasks/sharing-plugins) · [変更履歴 →](https://skillshare.runkids.cc/changelog)
+> **最新バージョン**：v0.31.0 — MCP サーバーを必要なプロジェクトだけで共有できます。`mcp.servers` のサーバーに `global: false` を設定し、各プロジェクトの root の `use` に並べれば、一度の編集が次の `skillshare sync mcp` ですべてのプロジェクトに反映されます。ダッシュボードでは、プロジェクトの「MCP」タブの「オプトインのサーバー」でオンにでき、「他のプロジェクトから」のピッカーは検索でき、複数のプロジェクトが共有するサーバーを 1 行にまとめます。ダッシュボードはスキルの `metadata.version` も `v1.2.0` のようなタグで表示します。 [MCP ガイド →](https://skillshare.runkids.cc/ja/docs/reference/commands/mcp#share-a-server-with-chosen-projects) · [変更履歴 →](https://skillshare.runkids.cc/changelog)
 
 ## skillshare を使う理由
 
