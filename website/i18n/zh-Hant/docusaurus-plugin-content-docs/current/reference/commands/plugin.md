@@ -80,12 +80,12 @@ JSON 輸出包含 source 路徑與原生識別碼。請勿在 source URL 中放�
 | Claude Code | `.claude-plugin/plugin.json` | Yes | Yes | 原生更新 |
 | Codex | `.codex-plugin/plugin.json`、Agent Plugins 根目錄 manifest 或 Claude manifest | Yes | No | 重新整理已審閱的來源後再次 add，僅限在 Codex 中為啟用狀態 |
 | Cursor | `.cursor-plugin/plugin.json` 或 Agent Plugins 根目錄 manifest | Yes | No | 取代已檢視的本機複本 |
-| Antigravity Desktop | 帶有明確名稱的根目錄 `plugin.json` | Yes | Yes | 取代已檢視的本機複本 |
+| Antigravity Desktop | `.antigravity-plugin/plugin.json`、`.gemini-plugin/plugin.json` 或根目錄的 `plugin.json`（須明確指定名稱） | Yes | Yes | 取代已檢視的本機複本 |
 | Pi | 含 `pi` resources 的 `package.json`，或帶有 `pi-package` 關鍵字與慣用 resource 資料夾 | Yes | Yes，需原生專案信任 | 重新整理受管理的 source 快照 |
 | Oh My Pi | 以 marketplace 為基礎、具有原生相容 metadata 的本機/Git plugins | 全新 cache 的安裝/重新安裝、匯入與限定 scope 的移除 | 在 OMP 的 project anchor | 更新會重新安裝到全新 cache；移除時保留共用 cache |
 | OpenCode | 含 SDK 依賴的 `package.json`、`.opencode/plugins/` 項目，或明確的 `--entry` | Yes | Yes | 重新整理受管理的 source 快照 |
 
-| Antigravity CLI | `agy` 接受的原生根目錄 manifest 或 Claude manifest | Yes | No | 重新整理已檢視的 source，僅在原生啟用狀態已知且為啟用時 |
+| Antigravity CLI | `.antigravity-plugin/plugin.json`、`.gemini-plugin/plugin.json`、根目錄的 `plugin.json`，或 `agy` 接受的 Claude manifest | Yes | No | 重新整理已檢視的 source，僅在原生啟用狀態已知且為啟用時 |
 | GitHub Copilot CLI | `.plugin/plugin.json`、`.github/plugin/plugin.json`、Claude manifest，或 Agent Plugins 根目錄 manifest | Yes | No | 重新整理已檢視的 source，僅在原生啟用狀態已知且為啟用時 |
 | Grok Build | `.grok-plugin/plugin.json` 或 Claude manifest | 僅限匯入/移除；安裝需要原生信任 | No | 以原生方式更新 |
 | Kimi Code | `kimi.plugin.json` 或 `.kimi-plugin/plugin.json` | 僅限探索 | No | 未自動化 |
@@ -129,6 +129,7 @@ marketplace registry：
 - Antigravity desktop：全域為 `~/.gemini/config/plugins/<name>`；workspace 中為
   `.agents/plugins/<name>`（或既有的 `_agents/plugins/` 目錄）。若兩個 workspace 目錄都存在，
   請先整合它們。
+  原生 manifest 的查找順序是 `.antigravity-plugin/plugin.json`、`.gemini-plugin/plugin.json`、根目錄的 `plugin.json`。若提供多個 plugin 的儲存庫含有 `.antigravity-plugin/marketplace.json`，`antigravity` 與 `antigravity-cli` 就只使用這份 catalog，不會改用 `.claude-plugin/marketplace.json`。
 - 獨立的 **agy CLI** 有自己獨立的 plugin 儲存庫。`antigravity` target 管理的是 desktop/workspace
   的探索路徑，不是那個 CLI 的儲存庫。`agy` 只是 Skillshare target 的別名。使用
   `--target antigravity-cli` 代表獨立的 CLI；`--target agy` 則維持其既有的 desktop 意涵。

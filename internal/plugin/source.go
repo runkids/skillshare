@@ -225,8 +225,9 @@ func discoverRoot(root, source string, explicit ...string) (*Discovery, error) {
 	seenAt := map[string]int{}
 	codexListed := map[string]bool{}
 	var ompCatalog map[string]Candidate
+	var antigravityCatalog map[string]Candidate
 	// Read all native catalogs; the same package may be advertised more than once.
-	for _, path := range []string{".agents/plugins/marketplace.json", ".omp-plugin/marketplace.json", ".claude-plugin/marketplace.json", ".cursor-plugin/marketplace.json", ".github/plugin/marketplace.json", ".plugin/marketplace.json", "marketplace.json"} {
+	for _, path := range []string{".agents/plugins/marketplace.json", ".omp-plugin/marketplace.json", ".antigravity-plugin/marketplace.json", ".claude-plugin/marketplace.json", ".cursor-plugin/marketplace.json", ".github/plugin/marketplace.json", ".plugin/marketplace.json", "marketplace.json"} {
 		data, err := os.ReadFile(filepath.Join(root, path))
 		if os.IsNotExist(err) {
 			continue
@@ -236,6 +237,9 @@ func discoverRoot(root, source string, explicit ...string) (*Discovery, error) {
 		}
 		if path == ".omp-plugin/marketplace.json" {
 			ompCatalog = map[string]Candidate{}
+		}
+		if path == ".antigravity-plugin/marketplace.json" {
+			antigravityCatalog = map[string]Candidate{}
 		}
 		var catalog struct {
 			Name    string                       `json:"name"`
@@ -347,6 +351,11 @@ func discoverRoot(root, source string, explicit ...string) (*Discovery, error) {
 				native.TargetInfo = maps.Clone(c.TargetInfo)
 				ompCatalog[c.Name] = native
 			}
+			if path == ".antigravity-plugin/marketplace.json" {
+				native := c
+				native.TargetInfo = maps.Clone(c.TargetInfo)
+				antigravityCatalog[c.Name] = native
+			}
 			if i, ok := seenAt[c.Name]; ok {
 				// An external entry has no path; a catalog that points inside the source wins over it.
 				// The same folder may be readable by one catalog only (Claude allows no plugin.json).
@@ -396,13 +405,30 @@ func discoverRoot(root, source string, explicit ...string) (*Discovery, error) {
 				c.TargetInfo["omp"] = info
 			}
 		}
+		// Antigravity reads its own marketplace exclusively when present, even if an entry is broken.
+		if antigravityCatalog != nil {
+			native, ok := antigravityCatalog[c.Name]
+			info, supported := native.TargetInfo["antigravity"]
+			delete(c.TargetInfo, "antigravity")
+			delete(c.TargetInfo, "antigravity-cli")
+			if ok {
+				if native.Problem != "" {
+					info.block(native.ProblemKey, native.Problem, native.ProblemArgs)
+				} else if !supported {
+					info.block("plugins.problem.noManifest", native.Name+": no Antigravity-compatible manifest found", nil)
+				}
+				info.Path = native.Path
+				c.TargetInfo["antigravity"] = info
+				c.TargetInfo["antigravity-cli"] = info
+			}
+		}
 		c.collectTargets()
 	}
 	return result, nil
 }
 
 // catalogOwner is the Agent each native catalog is written for.
-var catalogOwner = map[string]string{".agents/plugins/marketplace.json": "codex", ".omp-plugin/marketplace.json": "omp", ".claude-plugin/marketplace.json": "claude", ".cursor-plugin/marketplace.json": "cursor", ".github/plugin/marketplace.json": "copilot", ".plugin/marketplace.json": "copilot"}
+var catalogOwner = map[string]string{".agents/plugins/marketplace.json": "codex", ".omp-plugin/marketplace.json": "omp", ".antigravity-plugin/marketplace.json": "antigravity", ".claude-plugin/marketplace.json": "claude", ".cursor-plugin/marketplace.json": "cursor", ".github/plugin/marketplace.json": "copilot", ".plugin/marketplace.json": "copilot"}
 
 // mergeCatalogPath folds in the same plugin advertised by another catalog, possibly in another
 // folder. An Agent keeps the folder found first, unless its own catalog says otherwise or that

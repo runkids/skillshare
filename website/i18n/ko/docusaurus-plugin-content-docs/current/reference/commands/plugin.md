@@ -74,12 +74,12 @@ JSON 출력에는 source 경로와 네이티브 식별자가 포함됩니다. so
 | Claude Code | `.claude-plugin/plugin.json` | 예 | 예 | 네이티브 업데이트 |
 | Codex | `.codex-plugin/plugin.json`, Agent Plugins 루트 매니페스트, 또는 Claude 매니페스트 | 예 | 아니요 | 검토된 Source를 갱신한 뒤 다시 add, Codex에서 활성화된 경우에만 |
 | Cursor | `.cursor-plugin/plugin.json` 또는 Agent Plugins 루트 매니페스트 | 예 | 아니요 | 검토된 로컬 사본 교체 |
-| Antigravity Desktop | 명시적 이름이 있는 루트 `plugin.json` | 예 | 예 | 검토된 로컬 사본 교체 |
+| Antigravity Desktop | `.antigravity-plugin/plugin.json`, `.gemini-plugin/plugin.json` 또는 루트의 `plugin.json` (이름 명시 필수) | 예 | 예 | 검토된 로컬 사본 교체 |
 | Pi | `pi` 리소스가 있는 `package.json`, 또는 `pi-package` 키워드와 관례적인 리소스 폴더 | 예 | 예, 네이티브 project trust 사용 시 | 관리되는 source 스냅샷 새로고침 |
 | Oh My Pi | 네이티브 호환 메타데이터를 가진 marketplace 기반 로컬/Git plugin | 새 cache 설치/재설치, import, scope 단위 제거 | OMP의 project anchor에서 | 업데이트는 새 cache에 재설치, 제거 시 공유 cache 유지 |
 | OpenCode | SDK dependency가 있는 `package.json`, `.opencode/plugins/` entry, 또는 명시적 `--entry` | 예 | 예 | 관리되는 source 스냅샷 새로고침 |
 
-| Antigravity CLI | `agy`가 허용하는 네이티브 루트 매니페스트 또는 Claude 매니페스트 | 예 | 아니요 | 네이티브 활성화 상태가 확인되고 활성화된 경우에만 검토된 source를 새로고침 |
+| Antigravity CLI | `.antigravity-plugin/plugin.json`, `.gemini-plugin/plugin.json`, 루트의 `plugin.json` 또는 `agy`가 허용하는 Claude 매니페스트 | 예 | 아니요 | 네이티브 활성화 상태가 확인되고 활성화된 경우에만 검토된 source를 새로고침 |
 | GitHub Copilot CLI | `.plugin/plugin.json`, `.github/plugin/plugin.json`, Claude 매니페스트, 또는 Agent Plugins 루트 매니페스트 | 예 | 아니요 | 네이티브 활성화 상태가 확인되고 활성화된 경우에만 검토된 source를 새로고침 |
 | Grok Build | `.grok-plugin/plugin.json` 또는 Claude 매니페스트 | import/remove만 가능. 설치에는 네이티브 trust 필요 | 아니요 | 네이티브로 업데이트 |
 | Kimi Code | `kimi.plugin.json` 또는 `.kimi-plugin/plugin.json` | discovery만 가능 | 아니요 | 자동화되지 않음 |
@@ -114,6 +114,7 @@ skillshare plugin import demo@market --from claude-work
 
 - Cursor: `~/.cursor/plugins/local/<name>`. local import가 허용되어 있어야 합니다. Cursor를 다시 로드하고 Customize를 확인하세요. 동일한 이름의 설치된 marketplace plugin은 local 사본보다 우선합니다.
 - Antigravity desktop: global로는 `~/.gemini/config/plugins/<name>`, workspace에서는 `.agents/plugins/<name>`(또는 기존의 `_agents/plugins/` 디렉터리). 두 workspace 디렉터리가 모두 존재하면 먼저 통합하세요.
+  네이티브 매니페스트는 `.antigravity-plugin/plugin.json`, `.gemini-plugin/plugin.json`, 루트의 `plugin.json` 순서로 찾습니다. 여러 플러그인을 제공하는 저장소에 `.antigravity-plugin/marketplace.json` 파일이 있으면 `antigravity` 및 `antigravity-cli`는 이 카탈로그만 사용하며 `.claude-plugin/marketplace.json` 파일로 폴백하지 않습니다.
 - 독립형 **agy CLI**는 별도의 plugin store를 가지고 있습니다. `antigravity` target은 해당 CLI store가 아니라 desktop/workspace discovery 경로를 관리합니다. `agy`는 단지 Skillshare target alias일 뿐입니다. 독립형 CLI에는 `--target antigravity-cli`를 사용하세요. `--target agy`는 기존의 desktop 의미를 그대로 유지합니다.
 
 이러한 local 패키지에는 `plugin add`를 사용하세요. 기존의 local 폴더나 marketplace 설치를 import하는 것은 지원되지 않습니다. Skillshare는 소유하지 않은 폴더, symlink, 또는 로컬에서 편집된 관리 콘텐츠를 덮어쓰기를 거부합니다. 명시적인 Antigravity 매니페스트 이름은 Git checkout과 스냅샷 전반에서 identity를 안정적으로 유지합니다.

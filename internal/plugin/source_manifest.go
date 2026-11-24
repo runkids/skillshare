@@ -19,7 +19,7 @@ type manifestSpec struct{ path, target string }
 func inspect(root string, explicit ...string) (Candidate, error) {
 	c := Candidate{Targets: []string{}, Components: []string{}, TargetInfo: map[string]TargetPackage{}}
 	var claudeFields map[string]json.RawMessage
-	specs := []manifestSpec{{".codex-plugin/plugin.json", "codex"}, {".claude-plugin/plugin.json", "claude"}, {".omp-plugin/plugin.json", "omp"}, {".cursor-plugin/plugin.json", "cursor"}, {"package.json", "pi"}, {"package.json", "opencode"}, {".plugin/plugin.json", "copilot"}, {".github/plugin/plugin.json", "copilot"}, {".grok-plugin/plugin.json", "grok"}, {"kimi.plugin.json", "kimi"}, {".kimi-plugin/plugin.json", "kimi"}, {".devin-plugin/plugin.json", "devin"}, {".hermes-plugin/plugin.yaml", "hermes"}, {"plugin.json", "codex"}, {"package.json", "omp"}}
+	specs := []manifestSpec{{".codex-plugin/plugin.json", "codex"}, {".claude-plugin/plugin.json", "claude"}, {".omp-plugin/plugin.json", "omp"}, {".cursor-plugin/plugin.json", "cursor"}, {".antigravity-plugin/plugin.json", "antigravity"}, {".gemini-plugin/plugin.json", "antigravity"}, {"package.json", "pi"}, {"package.json", "opencode"}, {".plugin/plugin.json", "copilot"}, {".github/plugin/plugin.json", "copilot"}, {".grok-plugin/plugin.json", "grok"}, {"kimi.plugin.json", "kimi"}, {".kimi-plugin/plugin.json", "kimi"}, {".devin-plugin/plugin.json", "devin"}, {".hermes-plugin/plugin.yaml", "hermes"}, {"plugin.json", "codex"}, {"package.json", "omp"}}
 	for _, spec := range specs {
 		data, err := os.ReadFile(filepath.Join(root, spec.path))
 		if os.IsNotExist(err) {

@@ -92,12 +92,12 @@ the CLI exits nonzero when any target fails. Inspect the result before retrying.
 | Claude Code | `.claude-plugin/plugin.json` | Yes | Yes | Native update |
 | Codex | `.codex-plugin/plugin.json`, Agent Plugins root manifest, or Claude manifest | Yes | No | Refresh reviewed source and add it again, only if enabled in Codex |
 | Cursor | `.cursor-plugin/plugin.json` or Agent Plugins root manifest | Yes | No | Replace reviewed local copy |
-| Antigravity Desktop | Root `plugin.json` with an explicit name | Yes | Yes | Replace reviewed local copy |
+| Antigravity Desktop | `.antigravity-plugin/plugin.json`, `.gemini-plugin/plugin.json`, or root `plugin.json` with an explicit name | Yes | Yes | Replace reviewed local copy |
 | Pi | `package.json` with `pi` resources, or `pi-package` keyword and conventional resource folders | Yes | Yes, with native project trust | Refresh managed source snapshot |
 | Oh My Pi | Marketplace-backed local/Git plugins with native-compatible metadata | Fresh-cache install/reinstall, import and scoped removal | At OMP's project anchor | Updates reinstall into fresh cache; removal retains shared cache |
 | OpenCode | `package.json` with an SDK dependency, `.opencode/plugins/` entry, or explicit `--entry` | Yes | Yes | Refresh managed source snapshot |
 
-| Antigravity CLI | Native root manifest or Claude manifest accepted by `agy` | Yes | No | Refresh reviewed source, only if native enabled state is known and enabled |
+| Antigravity CLI | `.antigravity-plugin/plugin.json`, `.gemini-plugin/plugin.json`, root `plugin.json`, or Claude manifest accepted by `agy` | Yes | No | Refresh reviewed source, only if native enabled state is known and enabled |
 | GitHub Copilot CLI | `.plugin/plugin.json`, `.github/plugin/plugin.json`, Claude manifest, or Agent Plugins root manifest | Yes | No | Refresh reviewed source, only if native enabled state is known and enabled |
 | Grok Build | `.grok-plugin/plugin.json` or Claude manifest | Import/remove only; native trust required for install | No | Update natively |
 | Kimi Code | `kimi.plugin.json` or `.kimi-plugin/plugin.json` | Discovery only | No | Not automated |
@@ -143,7 +143,12 @@ They do not require a CLI executable or modify marketplace registries:
   takes precedence over a local copy.
 - Antigravity desktop: `~/.gemini/config/plugins/<name>` globally; `.agents/plugins/<name>`
   in a workspace (or an existing `_agents/plugins/` directory). If both workspace
-  directories exist, consolidate them first.
+  directories exist, consolidate them first. Native manifests are discovered in
+  precedence order `.antigravity-plugin/plugin.json`, `.gemini-plugin/plugin.json`,
+  then root `plugin.json`. Multi-plugin repositories can ship
+  `.antigravity-plugin/marketplace.json`; when present, `antigravity` and
+  `antigravity-cli` resolve exclusively from it and never fall back to
+  `.claude-plugin/marketplace.json`.
 - The standalone **agy CLI** has a separate plugin store. The `antigravity` target
   manages the desktop/workspace discovery paths, not that CLI store. `agy` is only
   a Skillshare target alias. Use `--target antigravity-cli` for the standalone CLI;
