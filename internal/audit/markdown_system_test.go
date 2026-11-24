@@ -147,7 +147,6 @@ func TestMarkdownRootProperty(t *testing.T) {
 		{"untagged fence identifier", "", `  root: scroller,`},
 		{"member expression", "ts", `  root: containerRef.current,`},
 		{"optional chaining member", "ts", `  root: container?.parentElement,`},
-		{"identifier with comment", "js", `  root: scroller, // scroll container`},
 		{"call with nested parens in selector", "js", `  root: document.querySelector(":not(.hidden)"),`},
 		{"call without trailing comma", "js", `  root: document.getElementById('app')`},
 		{"chained call", "js", `  root: document.querySelector(".a").closest(".b"),`},
@@ -157,7 +156,6 @@ func TestMarkdownRootProperty(t *testing.T) {
 		{"call with mixed simple args", "js", `  root: getRoot(containerEl, 0, ".carousel"),`},
 		{"call with negative float arg", "js", `  root: getRoot(-1, 0.5),`},
 		{"call with escaped quote in string", "js", `  root: document.querySelector("[data-id=\"carousel\"]"),`},
-		{"call with trailing line comment", "js", `  root: document.querySelector(".carousel"), // scroll container`},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			content := "```" + tc.lang + "\n" + tc.line + "\n```\n"
@@ -188,6 +186,8 @@ func TestMarkdownRootPropertyBoundaries(t *testing.T) {
 	for _, tc := range []struct {
 		name, content, ruleID string
 	}{
+		{"identifier with comment", "```js\nroot: scroller, // scroll container\n```", "prompt-injection-1"},
+		{"call with comment", "```js\nroot: document.querySelector(\".carousel\"), // scroll container\n```", "prompt-injection-1"},
 		{"outside fence identifier", "root: track,", "prompt-injection-1"},
 		{"outside fence call", `root: document.querySelector(".carousel"),`, "prompt-injection-1"},
 		{"after fence", "```js\nroot: track,\n```\nroot: track,", "prompt-injection-1"},

@@ -182,7 +182,7 @@ Audit engine 會把 skill 目錄中每個以文字為主的檔案，拿去比對
 - Jailbreak 指令：`DEVELOPER MODE`、`DEV MODE`、`JAILBREAK`、`DAN MODE`（不分大小寫、容許空白）
 - 藏在 HTML 註解中的注入（`<!-- ... -->`）
 
-在 `.md` fenced code block 中，SDK 形式的 `system:` / `System:` 參數以及小寫的 `root:` 物件屬性所觸發的 `prompt-injection-1` 發現會從 CRITICAL 降為 HIGH，而非移除。可辨識的 `system:` 值包含引號字串、陣列、Go `anthropic.String(...)`、以逗號結尾的變數、YAML 區塊純量，以及下一行的引號字串或陣列；可辨識的 `root:` 值是以逗號結尾的識別碼或成員運算式，以及僅含引號字串、識別碼/成員運算式或數字參數的單行函式或方法呼叫（例如 `root: track,` 或 `root: document.querySelector(".carousel"),`）。這是語法啟發式判斷，不代表程式碼安全。HIGH 在預設 CRITICAL 門檻下只會警告，但在 `strict` profile（HIGH 門檻）下仍會封鎖。
+在 `.md` fenced code block 中，SDK 形式的 `system:` / `System:` 參數以及小寫的 `root:` 物件屬性所觸發的 `prompt-injection-1` 發現會從 CRITICAL 降為 HIGH，而非移除。可辨識的 `system:` 值包含引號字串、陣列、Go `anthropic.String(...)`、以逗號結尾的變數、YAML 區塊純量，以及下一行的引號字串或陣列；可辨識的 `root:` 值是以逗號結尾的識別碼或成員運算式，以及僅含引號字串、識別碼/成員運算式或數字參數的單行函式或方法呼叫（例如 `root: track,` 或 `root: document.querySelector(".carousel"),`）。若行尾有 `//` 註解，`root:` 發現仍為 CRITICAL。這是語法啟發式判斷，不代表程式碼安全。HIGH 在預設 CRITICAL 門檻下只會警告，但在 `strict` profile（HIGH 門檻）下仍會封鎖。
 
 大寫 `SYSTEM:` 指令、單獨的角色標籤、區塊外的敘述，以及非 Markdown 原始碼檔案中的大寫標籤，維持設定的嚴重程度。其他規則仍會掃描參數文字：注入語句、輸出壓制、憑證存取與資料外洩，不會因這項例外而降級。
 
