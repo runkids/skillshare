@@ -407,3 +407,29 @@ func TestSharedServerInAnExternalSourceSavesBothFiles(t *testing.T) {
 		})
 	}
 }
+
+func TestCheckKeepsTheProjectTargetsOfASharedServerOneAgentRefuses(t *testing.T) {
+	// Claude reserves the name workspace; Cursor, which only the project names, takes it.
+	s, _ := projectsService(t, `mcp:
+  targets: [claude]
+  servers:
+    workspace:
+      global: false
+      url: https://example.com/mcp
+  projects:
+    $TMP/api:
+      targets: [claude, cursor]
+      use: [workspace]
+`)
+	report, err := s.Check(offlineCheck())
+	if err != nil {
+		t.Fatal(err)
+	}
+	list := findings(t, report, "workspace")
+	if !hasFinding(list, "error", "client-rule", "claude") {
+		t.Fatalf("Claude must refuse its reserved name: %+v", list)
+	}
+	if !hasFinding(list, "warning", "sync", "cursor") {
+		t.Fatalf("the project's Cursor entry must still report its sync state: %+v", list)
+	}
+}

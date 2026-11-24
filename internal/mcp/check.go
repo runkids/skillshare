@@ -165,10 +165,30 @@ func (s *Service) Check(opts CheckOptions) (*CheckReport, error) {
 	}
 	accepted := *source
 	accepted.Servers = accept("", source.Servers, source.Targets)
+	// A shared server that names no targets follows each using project's. Once an Agent
+	// refuses it, it becomes each project's own entry here, so every project keeps its targets.
+	var inherited []string
+	for name, server := range source.Servers {
+		if k := (checkKey{name: name}); server.Shared() && server.Targets == nil && len(refused[k]) > 0 && !slices.Contains(refused[k], "") {
+			inherited = append(inherited, name)
+			delete(accepted.Servers, name)
+		}
+	}
 	if source.Projects != nil {
 		accepted.Projects = map[string]Project{}
 		for root, project := range source.Projects {
 			project.Servers = accept(root, project.Servers, project.defaults(source))
+			for _, name := range inherited {
+				if !slices.Contains(project.Use, name) {
+					continue
+				}
+				server := source.Servers[name]
+				server.Global = nil
+				server.Targets = slices.DeleteFunc(slices.Clone(project.defaults(source)), func(target string) bool {
+					return slices.Contains(refused[checkKey{name: name}], target)
+				})
+				project.Servers[name] = server
+			}
 			// A shared server left out above cannot stay in use.
 			project.Use = slices.DeleteFunc(slices.Clone(project.Use), func(name string) bool {
 				_, ok := accepted.Servers[name]
