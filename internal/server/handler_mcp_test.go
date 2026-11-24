@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"skillshare/internal/mcp"
 	syncpkg "skillshare/internal/sync"
 )
 
@@ -379,5 +381,42 @@ func TestNearestDir(t *testing.T) {
 	root := t.TempDir()
 	if got := nearestDir(filepath.Join(root, ".cursor", "rules")); got != root {
 		t.Fatalf("nearestDir = %s, want %s", got, root)
+	}
+}
+
+func TestMCPAPITurnsASharedServerOnForAProject(t *testing.T) {
+	s, _ := newTestServerWithExtras(t, nil, "")
+	t.Setenv("HOME", t.TempDir())
+	root := t.TempDir()
+	cfgPath := os.Getenv("SKILLSHARE_CONFIG")
+	raw, err := os.ReadFile(cfgPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw = append(raw, fmt.Sprintf("mcp:\n  targets: [cursor]\n  servers:\n    docs: {url: https://example.com/mcp, global: false}\n  projects:\n    %q: {}\n", root)...)
+	if err := os.WriteFile(cfgPath, raw, 0644); err != nil {
+		t.Fatal(err)
+	}
+	body := fmt.Sprintf(`{"mutation":{"project":%q,"name":"docs","using":true}}`, root)
+	preview := httptest.NewRecorder()
+	s.handleMCPPreview(preview, httptest.NewRequest(http.MethodPost, "/api/mcp/preview", strings.NewReader(body)))
+	var p struct {
+		Revision string `json:"revision"`
+	}
+	if preview.Code != 200 || json.Unmarshal(preview.Body.Bytes(), &p) != nil {
+		t.Fatalf("preview: %d %s", preview.Code, preview.Body)
+	}
+	apply := httptest.NewRecorder()
+	request := strings.TrimSuffix(body, "}") + `,"revision":"` + p.Revision + `"}`
+	s.handleMCPConfigure(apply, httptest.NewRequest(http.MethodPost, "/api/mcp", strings.NewReader(request)))
+	if apply.Code != 200 {
+		t.Fatalf("apply: %d %s", apply.Code, apply.Body)
+	}
+	source, err := mcp.LoadSource(cfgPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := source.Projects[root].Use; len(got) != 1 || got[0] != "docs" {
+		t.Fatalf("use = %v", got)
 	}
 }

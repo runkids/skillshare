@@ -439,7 +439,9 @@ See the [Roborev recipe](../../how-to/recipes/git-hooks.md) for portable wrapper
 ## Projects, conflicts and recovery
 
 In a global config, `hooks.projects` maps absolute project roots to an `entries`
-mapping using the same Entry format. Manage these in **Projects → Hooks**.
+mapping using the same Entry format. Manage these in **Projects → Hooks**; **Stop managing hooks here**
+there takes the root out of `hooks.projects`, and the next sync removes the hooks
+Skillshare wrote under it.
 A project with its own `.skillshare/config.yaml` must be managed in project
 scope. Project-only sync applies that project's hook changes.
 

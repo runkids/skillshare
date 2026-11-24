@@ -127,6 +127,7 @@ source가 한 번 저장되기 전에 검증되며, 이후의 네이티브 파�
 | `options` | 다른 Agent의 네이티브 서버별 필드. client ID를 키로 사용하며, 예를 들어 Codex 승인 모드나 Claude Code 타임아웃. [아래](#agent-options) 참고 |
 | `piOptions` | Pi 내장 MCP의 그 밖의 서버별 필드. [Pi](#pi-options) 참고 |
 | `disabled` | `true`만 가능, 다른 연결 필드 불가, 그리고 project가 scope 안에 있어야 합니다: project mode이거나 `mcp.projects` 아래의 root. [아래](#turn-off-a-global-server-in-one-project) 참고 |
+| `global` | global 설정의 `mcp.servers`에서만 사용합니다. `false`이면 기본적으로 어떤 project에도 서버를 로드하지 않으며, `use`에 나열한 root만 받습니다. 기본값은 `true`입니다. [Share a server with chosen projects](#share-a-server-with-chosen-projects) 참고 |
 
 Client ID는 `claude`, `codex`, `cursor`, `vscode`, `opencode`, `kilocode`,
 `grok`, `antigravity`, `amp`, `claude-desktop`, `cline`, `copilot`, `factory`, `gemini`,
@@ -503,7 +504,7 @@ skillshare sync mcp
 - **Skillshare가 직접 정의하는 서버는 이것이 필요 없습니다.** 대신 해당 서버에서
   Agent 선택을 해제하면, 다음 sync에서 그 항목이 제거됩니다.
 
-대시보드에서는 **전역 서버 끄기** 버튼이 이에 해당합니다. project mode에서는 **서버** 제목 옆에,
+대시보드에서는 **이름으로 끄기** 버튼이 이에 해당합니다. project mode에서는 **서버** 제목 옆에,
 프로젝트의 MCP 탭에서는 **서버 추가** 옆에 있습니다.
 
 ## Manage several projects from the global config {#manage-several-projects-from-the-global-config}
@@ -555,25 +556,66 @@ context7     add          opencode (~/work/project01/opencode.json)
 목록에서 프로젝트를 제거하면, 서버를 제거할 때와 마찬가지로 Skillshare가 그곳에
 작성한 항목이 다음 sync에서 제거됩니다.
 
-여러 프로젝트에 같은 서버를 제공하려면, YAML anchor로 한 번 정의하고 재사용하세요:
+### Share a server with chosen projects {#share-a-server-with-chosen-projects}
+
+각 프로젝트에 사본을 두지 않고 여러 프로젝트에 같은 서버를 제공하려면,
+`mcp.servers`에 `global: false`로 한 번 정의하고, 이를 로드할 각 프로젝트의 `use`에
+나열하세요:
 
 ```yaml
+# ~/.config/skillshare/config.yaml
 mcp:
+  targets: [claude]
+  servers:
+    context7:                    # global: 모든 폴더에서 로드
+      command: npx
+      args: ["-y", "@upstash/context7-mcp@4.4.1"]
+    internal-docs:
+      global: false              # root가 사용하지 않으면 어떤 project에도 로드되지 않음
+      url: https://docs.example.com/mcp
   projects:
     ~/work/project01:
+      use: [internal-docs]
       servers:
-        internal-docs: &internal-docs
-          url: https://example.com/mcp
-          targets: [opencode]
+        local-db:                # 이 project에만
+          command: ./scripts/db-mcp
     ~/work/project02:
-      servers:
-        internal-docs: *internal-docs
+      use: [internal-docs]
 ```
 
-anchor는 `mcp.projects` 안에 두세요. `mcp.servers`에 있는 anchor를 가리키는 alias도
-동작하지만, `skillshare mcp add`와 대시보드는 `mcp.servers`를 다시 씁니다. 저장할 때
-파일이 유효하게 유지되도록 그런 alias를 전체 내용으로 풀어서 작성하므로, 이후 global
-서버를 수정해도 더 이상 따라가지 않습니다.
+`global: false` 서버는 Agent의 global 파일에 절대 작성되지 않습니다. Sync는 이를 사용하는
+각 root에, 서버가 자체 `targets`를 지정하지 않으면 해당 root의 `targets`에 작성합니다.
+한 번 수정하면 다음 sync에서 이를 사용하는 모든 root가 갱신됩니다. 어떤 root도 사용하지
+않는 shared 서버는 어디에도 작성되지 않습니다. global이던 서버의 `global`을 끄면 다음
+sync에서 global 파일에 있는 Skillshare의 항목이 제거됩니다.
+
+규칙:
+
+- 각 `use` 이름은 `mcp.servers`의 `global: false` 서버여야 하며, 한 번만 나타날 수 있습니다.
+- 같은 이름을 root의 `use`와 해당 root 자체 `servers`(서버 또는 `disabled` 항목)에
+  동시에 둘 수 없습니다.
+- `global`은 `mcp.projects.<root>.servers` 아래, 프로젝트 자체 설정(`-p`), 그리고
+  `disabled`와 함께 사용하면 거부됩니다. 생략하거나 `global: true`로 두는 것이 기본값이며,
+  설정을 저장할 때 제거됩니다.
+- shared 서버의 `targets`에는 `claude-work` 같은 [account](#accounts)를 지정할 수 없습니다.
+  모든 account가 같은 프로젝트 파일을 읽기 때문입니다. `claude` 같은 Agent를 지정하세요.
+- shared 서버를 제거하거나 global로 되돌리면, 같은 저장에서 모든 `use` 목록에서 그 이름이
+  제거됩니다.
+- shared 서버를 편집해도 편집에서 `global`을 설정하지 않는 한 `global: false`가 유지됩니다.
+
+`skillshare mcp list`는 shared 서버마다 `shared` 행을 추가하며, 이를 사용하는 프로젝트 또는
+`not used by any project`를 표시합니다. `mcp list --json`에는 최상위 `shared` 배열이 있습니다:
+
+```json
+{"shared": [{"name": "internal-docs", "projects": ["~/work/project01", "~/work/project02"]}]}
+```
+
+대화형 목록은 shared 서버를 사용하는 프로젝트의 target을 표시하고, 상세 정보에 그 프로젝트들을 나열합니다. `mcp check`는 shared 서버를 사용하는 프로젝트가 없으면 그렇게 알려 줍니다.
+
+이 버전은 기존 프로젝트별 사본을 shared 서버로 변환하지 않으며, `use`를 편집하는 명령도
+없습니다. `config.yaml`을 편집하거나 [대시보드](#projects-in-the-dashboard)의 스위치를
+사용하세요. `mcp.projects` 안에 둔 YAML anchor로 공유한 서버도 여전히 동작하지만,
+대시보드와 `skillshare mcp add`는 그 사본들을 연결된 것으로 취급하지 않습니다.
 
 ### Projects in the dashboard {#projects-in-the-dashboard}
 
@@ -585,11 +627,15 @@ Global mode에서는 대시보드에 **프로젝트** 페이지가 있습니다.
 
 - **프로젝트 추가**는 폴더와 그 target을 받습니다. **MCP**를 체크하면 해당 폴더가
   `mcp.projects` 아래에도 나열됩니다.
-- **MCP** 탭은 모든 global 서버를 스위치와 함께 나열합니다. 하나를 끄면
-  `targets` 없이 `disabled` 항목이 저장되므로,
+- **MCP** 탭에는 세 개의 섹션이 있습니다. **On in every project**는 global 서버를
+  스위치와 함께 나열합니다. 하나를 끄면 `targets` 없이 `disabled` 항목이 저장되므로,
   [위](#turn-off-a-global-server-in-one-project)에서 설명한 대로 프로젝트의
-  target을 따릅니다. 다시 켜면 그 항목이 제거됩니다. 그 아래에는 해당
-  프로젝트에만 존재하는 서버가 있습니다.
+  target을 따릅니다. 다시 켜면 그 항목이 제거됩니다. **Opt-in servers**는
+  [shared 서버](#share-a-server-with-chosen-projects)를 나열하며 기본적으로 꺼져 있습니다.
+  이 스위치는 프로젝트의 `use`에 이름을 추가하거나 제거합니다.
+  **Only in this project**는 해당 프로젝트에만 존재하는 서버를 나열합니다.
+- MCP 페이지에서 서버의 대화상자에는 **Loads in**이 있습니다: **Every project** 또는
+  **Only projects that turn it on**. 목록은 shared 서버를 **Opt-in · N projects**로 표시합니다.
 - 꺼져 있는 서버는 꺼져 있는 Agent의 로고를 표시합니다. 켜져 있는 서버는 로드되는 Agent를 표시하고,
   같은 이름의 프로젝트 서버로 대체되면 아무것도 표시하지 않습니다. 프로젝트의 Agent 중 하나에
   프로젝트별 스위치가 없으면, 해당 행은 그 Agent에서는 서버가 여전히 로드된다고
@@ -615,7 +661,7 @@ Sync가 작성합니다.
 - `mcp.projects`는 global 설정에서만 읽습니다. 이를 포함한 프로젝트 설정은
   거부됩니다.
 - 이를 편집하는 명령은 없습니다. `skillshare mcp add`는 `mcp.servers`를 관리하며
-  `mcp.projects`는 작성된 그대로 둡니다. `config.yaml`에서 직접 편집하거나
+  `use`를 포함한 `mcp.projects`는 작성된 그대로 둡니다. `config.yaml`에서 직접 편집하거나
   [대시보드](#projects-in-the-dashboard)에서 편집하세요.
 - Claude Code에 대한 `disabled` 항목은 global 서버가 작성되는 것과 같은 파일인
   `~/.claude.json`에 작성됩니다. Claude Code가 프로젝트별 off 목록을 그곳에 보관하기
@@ -648,6 +694,7 @@ skillshare mcp check --no-dns
 | Agent의 항목이 source와 충돌함 (`sync mcp --dry-run`과 동일) | error |
 | Agent의 항목이 아직 작성되지 않았거나 업데이트되지 않음 | warning |
 | 서버가 `targets: []`를 가지며 Skillshare에만 보관됨 | info |
+| 서버가 shared(`global: false`)이고 어떤 프로젝트도 `use`에 나열하지 않음 | info |
 | 선택한 Agent가 서버의 [도구 정책](#tool-policy) 일부를 담을 수 없음 | warning |
 
 변수 값은 출력되지 않습니다. error가 하나라도 있으면 1로, 그렇지 않으면 0으로 종료하며,
@@ -701,8 +748,8 @@ warning으로는 실패하지 않습니다. 알 수 없는 서버 이름은 erro
 
 대시보드에서는 MCP 페이지 Sync 박스의 **검사** 버튼이 같은 검사를 실행합니다. 검사할 서버가 있을 때
 나타나고, 클릭할 때만 실행되며, 서버 목록 위에 요약을, 각 서버 아래에 해당 error나 warning을 표시하고,
-페이지를 새로 고치면 아무것도 남기지 않습니다. MCP 페이지는 global 서버만 나열하므로, 요약과 각 행에는
-global 서버와 이름이 같은 것이라도 프로젝트 서버가 포함되지 않습니다. 프로젝트의 MCP 탭에는 Sync 박스에
+페이지를 새로 고치면 아무것도 남기지 않습니다. MCP 페이지는 global 서버와 shared 서버를 나열하므로, 요약과 각 행에는
+global 서버와 이름이 같은 것이라도 프로젝트 전용 서버가 포함되지 않습니다. 프로젝트의 MCP 탭에는 Sync 박스에
 자체 **검사**가 있어 해당 프로젝트 자체 서버를 보고합니다. 변수는 `skillshare ui`를 시작한
 터미널에서 읽습니다.
 

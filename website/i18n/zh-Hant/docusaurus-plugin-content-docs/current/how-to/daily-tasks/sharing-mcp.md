@@ -250,8 +250,8 @@ skillshare mcp add company-docs --disabled --target opencode
 skillshare sync mcp
 ```
 
-在 dashboard 中，從專案資料夾以 `skillshare ui` 開啟，選擇 **新增伺服器** 旁邊的
-**關閉全域伺服器** 按鈕。
+在 dashboard 中，從專案資料夾以 `skillshare ui` 開啟，選擇 **新增 MCP** 旁邊的
+**依名稱關閉 MCP** 按鈕。
 
 這適用於 Claude Code、OpenCode、Kilo Code 與 Pi 1.0.1 以上版本。其他 Agents 則會被拒絕。
 [指令參考](/docs/reference/commands/mcp#turn-off-a-global-server-in-one-project)

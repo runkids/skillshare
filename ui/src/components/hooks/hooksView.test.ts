@@ -27,6 +27,7 @@ import {
   isCodeAgent,
   hookLabel,
   hookNote,
+  groupChanges,
 } from './hooksView';
 
 const claudeEvents = {
@@ -490,6 +491,22 @@ describe('account target keys', () => {
         accounts,
       ),
     ).toEqual(['codex', 'codex-2', 'pi']);
+  });
+});
+
+describe('groupChanges', () => {
+  it('puts one hook with one action together, whatever target it goes to', () => {
+    const c = (name: string, target: string, action: string) => ({ name, target, action });
+    expect(
+      groupChanges([
+        c('lint', 'claude', 'add'),
+        c('lint', 'cursor', 'add'),
+        c('lint', 'codex', 'remove'),
+      ]).map((g) => [g.name, g.action, g.changes.map((x) => x.target)]),
+    ).toEqual([
+      ['lint', 'add', ['claude', 'cursor']],
+      ['lint', 'remove', ['codex']],
+    ]);
   });
 });
 

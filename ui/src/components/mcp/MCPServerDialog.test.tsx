@@ -247,6 +247,21 @@ describe('MCP server dialog', () => {
     );
   });
 
+  it('saves a server that loads only in the projects that use it', async () => {
+    const user = userEvent.setup();
+    const server = { url: 'https://docs.example/mcp', targets: ['claude'] };
+    renderDialog({ initial: { name: 'docs', server } });
+    await user.click(screen.getByRole('radio', { name: /Only projects that turn it on/ }));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(mcpApi.save).toHaveBeenCalledWith({
+        name: 'docs',
+        server: { ...server, global: false },
+        replace: true,
+      }),
+    );
+  });
+
   it('edits a header, keeping a secret as a reference to the environment', async () => {
     const user = userEvent.setup();
     renderDialog({

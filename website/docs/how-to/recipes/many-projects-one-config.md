@@ -85,6 +85,24 @@ skillshare sync mcp --dry-run   # preview every file
 skillshare sync mcp
 ```
 
+To define a server once and load it in chosen projects only, mark it `global: false` and list it under `use`:
+
+```yaml
+mcp:
+  targets: [claude]
+  servers:
+    internal-docs:
+      global: false          # loads in no project unless a root uses it
+      url: https://docs.example.com/mcp
+  projects:
+    ~/work/project01:
+      use: [internal-docs]
+    ~/work/project02:
+      use: [internal-docs]
+```
+
+Editing `internal-docs` once updates both projects on the next `skillshare sync mcp`. In the dashboard, turn it on from a project's **MCP** tab, under **Opt-in servers**.
+
 See [`mcp`: manage several projects](/docs/reference/commands/mcp#manage-several-projects-from-the-global-config) for the fields and limits.
 
 ## Verification
@@ -99,7 +117,7 @@ See [`mcp`: manage several projects](/docs/reference/commands/mcp#manage-several
 - **A folder outside the tool paths**: a target is just a name and a path, so `skillshare target add project01 ~/work/project01/some/folder` still works for a folder no tool's project path covers. When such a target does point at a tool's project path, the dashboard's **Projects** page offers to convert it.
 - **Commit or ignore**: in `copy` mode Skillshare also writes `.skillshare-manifest.json` into the target folder to track what it copied. Commit it with the skills, or add it to `.gitignore`.
 - **Path overlap warning**: if a project folder is one another target already uses, `sync` prints a path overlap warning. Run `skillshare doctor` to see which targets share it.
-- **Same server in several projects**: define it once under one project with a YAML anchor (`docs: &docs`) and reuse it in the others (`docs: *docs`). See the [`mcp` reference](/docs/reference/commands/mcp#manage-several-projects-from-the-global-config).
+- **Same server in several projects**: use `global: false` and `use`, as above, instead of a copy per project. See [Share a server with chosen projects](/docs/reference/commands/mcp#share-a-server-with-chosen-projects). Existing copies are not converted; move one by hand.
 - **Shared projects**: teammates who clone the project do not get your global config. When the setup must travel with the repo, use [project mode](/docs/how-to/recipes/skill-per-project-workflow).
 
 ## Related

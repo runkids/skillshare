@@ -2,6 +2,10 @@ import { describe, expect, it } from 'vitest';
 import type { SyncMatrixEntry, Target } from '../../api/client';
 import {
   joinList,
+  patternMatches,
+  previewChange,
+  previewReason,
+  rowAction,
   searchEntries,
   targetHealth,
   targetSkipHints,
@@ -71,6 +75,22 @@ describe('targetHealth', () => {
   });
 });
 
+describe('previewReason', () => {
+  const t = ((key: string, vars?: object) =>
+    vars ? `${key} ${JSON.stringify(vars)}` : key) as never;
+  it('credits a synced row to the include filter only when one is set', () => {
+    expect([true, false].map((f) => previewReason(t, row('a', 'synced'), f))).toEqual([
+      'targetDetail.reason.included',
+      'targetDetail.reason.noFilter',
+    ]);
+  });
+  it('names the exclude pattern that skipped a row', () => {
+    expect(previewReason(t, { ...row('a', 'excluded'), reason: 'old-*' }, true)).toBe(
+      'targetDetail.reason.excluded {"pattern":"old-*"}',
+    );
+  });
+});
+
 describe('searchEntries', () => {
   it('matches part of a name in any case, and an agent by its name without the extension', () => {
     const rows = [
@@ -105,6 +125,73 @@ describe('togglePatterns', () => {
 
   it('cannot re-include a row a wildcard excludes', () => {
     expect(togglePatterns(row('core-deprecated', 'excluded'), [], ['*-deprecated'])).toBeNull();
+  });
+});
+
+describe('patternMatches', () => {
+  it('matches * within a name, as the server does', () => {
+    expect(patternMatches('*-experimental', 'search-experimental')).toBe(true);
+  });
+
+  it('does not let * cross a slash', () => {
+    expect(patternMatches('team*', 'team/ui')).toBe(false);
+  });
+
+  it('matches ? as exactly one character', () => {
+    expect(['ab', 'abc'].map((n) => patternMatches('a?', n))).toEqual([true, false]);
+  });
+
+  it('matches a character class and its negation', () => {
+    expect(
+      ['api', 'cli'].map((n) => [patternMatches('[a-b]*', n), patternMatches('[^a]*', n)]),
+    ).toEqual([
+      [true, false],
+      [false, true],
+    ]);
+  });
+
+  it('takes dots and other regex characters literally', () => {
+    expect(patternMatches('a.b', 'axb')).toBe(false);
+  });
+
+  it('matches nothing for a malformed pattern', () => {
+    expect(patternMatches('[abc', '[abc')).toBe(false);
+  });
+});
+
+describe('rowAction', () => {
+  it('offers to exclude a synced row by name', () => {
+    expect(rowAction(row('api', 'synced'), [], [])).toEqual({
+      action: 'exclude',
+      next: { include: [], exclude: ['api'] },
+    });
+  });
+
+  it('offers to include a row no include matches', () => {
+    expect(rowAction(row('api', 'not_included'), ['web-*'], [])?.action).toBe('include');
+  });
+
+  it('offers to drop an exclude that names the row', () => {
+    expect(rowAction(row('api', 'excluded'), [], ['api'])?.action).toBe('unexclude');
+  });
+
+  it('offers nothing for a row a wildcard excludes', () => {
+    expect(rowAction(row('api-x', 'excluded'), [], ['api-*'])).toBeNull();
+  });
+});
+
+describe('previewChange', () => {
+  it('counts the rows a rule change skipped and synced', () => {
+    expect(
+      previewChange(
+        [row('a', 'synced'), row('b', 'excluded'), row('c', 'synced')],
+        [row('a', 'excluded'), row('b', 'synced'), row('c', 'synced')],
+      ),
+    ).toEqual({ changed: ['a', 'b'], synced: 1, skipped: 1 });
+  });
+
+  it('ignores rows only one preview has', () => {
+    expect(previewChange([], [row('a', 'synced')]).changed).toEqual([]);
   });
 });
 

@@ -61,6 +61,18 @@ const order = (agent: string) => {
 export const writes = (change: { action: string }) =>
   ['add', 'adopt', 'update', 'remove', 'restore'].includes(change.action);
 
+/** The changes of one hook and one action together, in plan order. */
+export function groupChanges<C extends { name: string; action: string }>(changes: readonly C[]) {
+  const groups = new Map<string, { name: string; action: string; changes: C[] }>();
+  for (const c of changes) {
+    const key = `${c.name}\0${c.action}`;
+    const group = groups.get(key) ?? { name: c.name, action: c.action, changes: [] };
+    group.changes.push(c);
+    groups.set(key, group);
+  }
+  return [...groups.values()];
+}
+
 /** The synchronized state of one entry in one Agent, from the plan. `none` when the plan says nothing (not published). */
 export type SyncState = 'synced' | 'pending' | 'conflict' | 'inactive' | 'none';
 export function syncState(

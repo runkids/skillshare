@@ -93,6 +93,24 @@ func TestMCPListShowsWhereASwitchGoes(t *testing.T) {
 	}
 }
 
+func TestMCPListShowsTheTargetsOfTheProjectsThatUseASharedServer(t *testing.T) {
+	off := false
+	source := &mcp.Source{
+		Targets:  []string{"cursor"},
+		Servers:  map[string]mcp.Server{"docs": {URL: "https://docs.example/mcp", Global: &off}},
+		Projects: map[string]mcp.Project{"/repo": {Targets: []string{"claude"}, Use: []string{"docs"}}},
+	}
+	plan := &mcp.Plan{Changes: []mcp.Change{{Target: "claude", Name: "docs", Root: "/repo", Action: "add"}}}
+	item := mcpListItems(source, plan)[0].(mcpListItem)
+	if !strings.Contains(item.description, "· claude ·") {
+		t.Fatalf("a shared server goes where its projects send it: %s", item.description)
+	}
+	// The detail pane is what the screen shows: which projects, and which project each change is in.
+	if !strings.Contains(item.detail, "/repo\n") || !strings.Contains(item.detail, "claude: add (/repo)") {
+		t.Fatalf("the detail does not name the project:\n%s", item.detail)
+	}
+}
+
 // A target that is another account of an Agent is an MCP target too.
 func TestMCPAccountTarget(t *testing.T) {
 	s := mcpTUIService(t)

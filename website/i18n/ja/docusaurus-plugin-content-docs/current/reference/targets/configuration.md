@@ -703,7 +703,7 @@ projects:
 - **`target` と `collect` は project に触れません。** `skillshare target` は `targets` セクションのみを一覧・編集し、`collect` は project 自身の Skill を Source に取り込みません。[`skillshare project`](/docs/reference/commands/project) でプロジェクトの追加・編集・同期・削除を行うか、ダッシュボードの **プロジェクト** ページを使用してください。
 - `targets` フロントマターフィールドを持つ Skill はツールと照合されるため、`targets: [claude]` は `shop-web@claude` に届きます。
 
-同じフォルダーの MCP サーバーは、同じフォルダーをキーとして [`mcp.projects`](/docs/reference/commands/mcp#manage-several-projects-from-the-global-config) に一覧されます。手順は[多数の Project を 1 つの Config で](/docs/how-to/recipes/many-projects-one-config)を参照してください。
+同じフォルダーの MCP サーバーは、同じフォルダーをキーとして [`mcp.projects`](/docs/reference/commands/mcp#manage-several-projects-from-the-global-config) に一覧されます。`global: false` のサーバーは、`use` に列挙したフォルダーにのみ読み込まれます。[選んだ project とサーバーを共有する](/docs/reference/commands/mcp#share-a-server-with-chosen-projects)を参照してください。手順は[多数の Project を 1 つの Config で](/docs/how-to/recipes/many-projects-one-config)を参照してください。
 
 ### `projects_storage` {#projects-storage}
 

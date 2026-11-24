@@ -41,6 +41,8 @@ interface SelectProps {
   onChangeValues?: (values: string[]) => void;
   /** Multi-select: shown in the trigger while nothing is chosen. */
   placeholder?: string;
+  /** Multi-select: shown in the trigger in place of the chosen labels, such as a count. */
+  summary?: string;
   options: SelectOption[];
   className?: string;
   size?: 'sm' | 'md';
@@ -101,6 +103,7 @@ export function Select({
   quiet = false,
   up = false,
   search,
+  summary,
 }: SelectProps) {
   const labelId = useId();
   const listId = useId();
@@ -122,7 +125,7 @@ export function Select({
   const isOn = (v: string) => (values ? values.includes(v) : v === value);
   const chosen = options.filter((o) => isOn(o.value));
   const selectedLabel = values
-    ? chosen.map((o) => o.label).join(', ')
+    ? (summary ?? chosen.map((o) => o.label).join(', '))
     : (chosen[0]?.label ?? value);
   // Options with descriptions need room to read; widen the popup to ~15rem
   // (matching the dropdownWidth estimate below) so descriptions wrap nicely.

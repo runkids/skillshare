@@ -131,6 +131,7 @@ Skillshare config. The schema is `schemas/mcp.schema.json` in the repository.
 | `options` | Other Agents' native per-server fields, keyed by client ID, such as a Codex approval mode or a Claude Code timeout. See [below](#agent-options) |
 | `piOptions` | Other per-server fields of Pi's built-in MCP. See [Pi](#pi-options) |
 | `disabled` | `true` only, no other connection fields, and a project must be in scope: project mode, or a root under `mcp.projects`. See [below](#turn-off-a-global-server-in-one-project) |
+| `global` | Global config's `mcp.servers` only. `false` loads the server in no project by default; only roots that list it under `use` get it. Default `true`. See [Share a server with chosen projects](#share-a-server-with-chosen-projects) |
 
 Client IDs are `claude`, `codex`, `cursor`, `vscode`, `opencode`, `kilocode`,
 `grok`, `antigravity`, `amp`, `claude-desktop`, `cline`, `copilot`, `factory`, `gemini`,
@@ -555,7 +556,7 @@ skillshare sync mcp
 - **A server Skillshare itself defines does not need this.** Unselect the Agent on
   that server instead, and the next sync removes its entry.
 
-In the dashboard, this is the **Turn off a global server** button. In project mode it
+In the dashboard, this is the **Turn off by name** button. In project mode it
 sits beside the **Servers** heading; on a project's MCP tab, beside **Add server**.
 
 ## Manage several projects from the global config {#manage-several-projects-from-the-global-config}
@@ -608,26 +609,69 @@ context7     add          opencode (~/work/project01/opencode.json)
 Removing a project from the list removes the entries Skillshare wrote there on the
 next sync, the same as removing a server.
 
-To give several projects the same server, define it once with a YAML anchor and
-reuse it:
+### Share a server with chosen projects {#share-a-server-with-chosen-projects}
+
+To give several projects the same server without a copy in each, define it once in
+`mcp.servers` with `global: false` and list it under `use` in each project that
+should load it:
 
 ```yaml
+# ~/.config/skillshare/config.yaml
 mcp:
+  targets: [claude]
+  servers:
+    context7:                    # global: loads in every folder
+      command: npx
+      args: ["-y", "@upstash/context7-mcp@4.4.1"]
+    internal-docs:
+      global: false              # loads in no project unless a root uses it
+      url: https://docs.example.com/mcp
   projects:
     ~/work/project01:
+      use: [internal-docs]
       servers:
-        internal-docs: &internal-docs
-          url: https://example.com/mcp
-          targets: [opencode]
+        local-db:                # this project only
+          command: ./scripts/db-mcp
     ~/work/project02:
-      servers:
-        internal-docs: *internal-docs
+      use: [internal-docs]
 ```
 
-Keep the anchor inside `mcp.projects`. An alias to an anchor on `mcp.servers` also
-works, but `skillshare mcp add` and the dashboard rewrite `mcp.servers`; when they
-save, they write such an alias out in full so the file stays valid, and it no longer
-follows later edits to the global server.
+A `global: false` server is never written to an Agent's global file. Sync writes it into
+each root that uses it, to that root's `targets` unless the server names its own
+`targets`. Editing it once updates every root that uses it on the next sync. A shared
+server that no root uses is written nowhere. Turning `global` off on a server that was
+global removes Skillshare's entries from the global files on the next sync.
+
+Rules:
+
+- Each `use` name must be a `global: false` server in `mcp.servers`, and may appear once.
+- A name cannot be both in a root's `use` and in that root's own `servers`, as a server or
+  as a `disabled` entry.
+- `global` is refused under `mcp.projects.<root>.servers`, in a project's own config
+  (`-p`), and together with `disabled`. Omitting it, or `global: true`, is the default and
+  is dropped when the config is saved.
+- A shared server's `targets` cannot name an
+  [account](#accounts) such as `claude-work`, since every account reads the same project
+  files. Name the Agent, such as `claude`.
+- Removing a shared server, or setting it back to global, removes its name from every
+  `use` list in the same save.
+- Editing a shared server keeps its `global: false` unless the edit sets `global`.
+
+`skillshare mcp list` adds a `shared` row per shared server, with the projects that use
+it or `not used by any project`. `mcp list --json` has a top-level `shared` array:
+
+```json
+{"shared": [{"name": "internal-docs", "projects": ["~/work/project01", "~/work/project02"]}]}
+```
+
+The interactive list shows the targets of the projects that use a shared server, and its
+details name those projects. `mcp check` says when no project uses a shared server.
+
+This version does not convert existing per-project copies into a shared server, and no
+command edits `use`. Edit `config.yaml`, or use the switches in the
+[dashboard](#projects-in-the-dashboard). A server shared through a YAML anchor kept
+inside `mcp.projects` still works, but the dashboard and `skillshare mcp add` do not
+treat the copies as linked.
 
 ### Projects in the dashboard {#projects-in-the-dashboard}
 
@@ -639,10 +683,15 @@ project has an **MCP** tab.
 
 - **Add project** takes the folder and its targets. Tick **MCP** to list the folder under
   `mcp.projects` as well.
-- The **MCP** tab lists every global server with a switch. Turning one off saves a
-  `disabled` entry without `targets`, so it follows the project's targets as described
+- The **MCP** tab has three sections. **On in every project** lists the global servers
+  with a switch: turning one off saves a `disabled` entry without `targets`, so it
+  follows the project's targets as described
   [above](#turn-off-a-global-server-in-one-project); turning it back on removes the
-  entry. Below it are the servers that exist in that project only.
+  entry. **Opt-in servers** lists the [shared servers](#share-a-server-with-chosen-projects),
+  off by default; its switch adds or removes the name in the project's `use`.
+  **Only in this project** lists the servers that exist in that project only.
+- On the MCP page, a server's dialog has **Loads in**: **Every project**, or **Only
+  projects that turn it on**. The list marks a shared server **Opt-in · N projects**.
 - A server that is off shows the logos of the Agents it is off in. A server that is on shows
   the Agents it loads in, and none when a project server of the same name replaces it. When one of the
   project's Agents has no per-project switch, the row says that the server still loads
@@ -668,7 +717,7 @@ Limits:
 - `mcp.projects` is read from the global config only. A project config that contains
   it is refused.
 - No command edits it: `skillshare mcp add` manages `mcp.servers` and leaves
-  `mcp.projects` as written. Edit it in `config.yaml`, or in the
+  `mcp.projects`, including `use`, as written. Edit it in `config.yaml`, or in the
   [dashboard](#projects-in-the-dashboard).
 - A `disabled` entry for Claude Code is written to `~/.claude.json`, the same file the
   global servers go to, because that is where Claude Code keeps its per-project off
@@ -701,6 +750,7 @@ HTTP request, runs a command or writes a file, unless you add [`--live`](#probe-
 | An Agent's entry conflicts with the source, as in `sync mcp --dry-run` | error |
 | An Agent's entry is not written or not updated yet | warning |
 | The server has `targets: []` and is kept in Skillshare only | info |
+| The server is shared (`global: false`) and no project lists it under `use` | info |
 | A selected Agent cannot hold part of the server's [tool policy](#tool-policy) | warning |
 
 Variable values are never printed. The command exits with 1 when any error is found
@@ -758,8 +808,8 @@ report, project servers included.
 In the dashboard, the **Check** button in the MCP page's Sync box runs the same check.
 It appears once there are servers to check, runs only when clicked, shows a summary
 above the server list and each error or warning under its server, and keeps nothing
-after the page reloads. The MCP page lists global servers only, so its summary and rows
-leave project servers out, even one that shares a global server's name. A project's
+after the page reloads. The MCP page lists global and shared servers, so its summary and rows
+leave project-only servers out, even one that shares a global server's name. A project's
 MCP tab has its own **Check** in its Sync box, which reports that project's own servers. Variables are read from
 the terminal that started `skillshare ui`.
 

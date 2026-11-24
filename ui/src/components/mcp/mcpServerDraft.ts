@@ -48,6 +48,8 @@ export interface ServerDraft {
   url: string;
   tokenEnv: string;
   targets: string[];
+  /** Loads only in the projects that use it (`global: false`) instead of in every folder. */
+  shared: boolean;
 }
 
 export type DraftPatch = (patch: Partial<ServerDraft>) => void;
@@ -76,6 +78,7 @@ export function initialServerDraft(
     tokenEnv: server?.bearerToken?.fromEnv ?? '',
     targets:
       server?.targets ?? (off ? defaultTargets.filter((x) => offTargetSet.has(x)) : defaultTargets),
+    shared: server?.global === false,
   };
 }
 

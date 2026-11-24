@@ -166,14 +166,14 @@ func TestAgentConfigDir_ConfigEditorValidation(t *testing.T) {
 	if _, err := ValidateConfig(cfg); err != nil {
 		t.Fatalf("an account target was refused: %v", err)
 	}
-	if err := ValidateMCP(cfg.MCP, "", cfg.AgentConfigDirTargets()...); err != nil {
+	if err := ValidateMCP(cfg.MCP, MCPValidation{Accounts: cfg.AgentConfigDirTargets()}); err != nil {
 		t.Fatalf("an account was refused as an MCP target: %v", err)
 	}
 	if _, err := ValidateConfig(parse("targets:\n  cursor-work:\n    agent: cursor\n    config_dir: /tmp/cursor-work\n")); err == nil {
 		t.Error("an Agent without a config directory was accepted")
 	}
 	for _, mcp := range []string{"mcp:\n  targets: [claude-home]\n", "mcp:\n  servers:\n    docs:\n      command: docs\n      targets: [claude-home]\n"} {
-		if cfg := parse(account + mcp); ValidateMCP(cfg.MCP, "", cfg.AgentConfigDirTargets()...) == nil {
+		if cfg := parse(account + mcp); ValidateMCP(cfg.MCP, MCPValidation{Accounts: cfg.AgentConfigDirTargets()}) == nil {
 			t.Errorf("a name that is no target was accepted:\n%s", mcp)
 		}
 	}

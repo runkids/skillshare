@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AlertCircle, ArrowRight, ChevronRight, Plug, RefreshCw } from 'lucide-react';
-import { mcpOffTargets, type MCPPlan, type MCPServer, type mcpApi } from '../../api/mcp';
+import { isShared, mcpOffTargets, type MCPPlan, type MCPServer, type mcpApi } from '../../api/mcp';
 import Button from '../Button';
 import EmptyState from '../EmptyState';
 import { MCPSyncDialog } from '../mcp/MCPSyncBox';
@@ -44,7 +44,10 @@ export default function TargetMCP({ name, data }: { name: string; data: MCPList 
   // A switch-only entry turns a server off, which only a few Agents can do per project. A server
   // gone from the source keeps its row while the plan still takes it out of this Agent.
   const rows: [string, MCPServer | undefined][] = [
-    ...Object.entries(servers).filter(([, s]) => !s.disabled || mcpOffTargets.includes(name)),
+    // A shared server goes only to the projects that use it, which the Projects page shows.
+    ...Object.entries(servers).filter(
+      ([, s]) => !isShared(s) && (!s.disabled || mcpOffTargets.includes(name)),
+    ),
     ...[...new Set(changes.map((c) => c.name))]
       .filter((n) => !servers[n])
       .map((n): [string, undefined] => [n, undefined]),

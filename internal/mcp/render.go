@@ -213,8 +213,18 @@ func (s *Service) RenderNative(name string, server Server) []Rendered {
 	if source, err := LoadSource(s.ConfigPath); err == nil {
 		s = s.withAccounts(source.Accounts)
 		// A switch under mcp.projects follows the global server of the same name, as in sync.
-		if shared, ok := source.Servers[name]; ok && server.Disabled && s.ProjectRoot != "" && s.configProjectRoot() == "" {
+		if shared, ok := source.globalServer(name); ok && server.Disabled && s.ProjectRoot != "" && s.configProjectRoot() == "" {
 			server.global = &shared
+		}
+		// A shared server is written only to the projects that use it, as in sync.
+		if server.Shared() && s.ProjectRoot == "" {
+			var out []Rendered
+			for _, root := range source.Users(name) {
+				scoped := *s
+				scoped.ProjectRoot = root
+				out = append(out, scoped.RenderNative(name, server)...)
+			}
+			return out
 		}
 	}
 	out := make([]Rendered, 0, len(server.Targets))

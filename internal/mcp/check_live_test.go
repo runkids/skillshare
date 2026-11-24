@@ -30,6 +30,10 @@ func TestMCPLiveHelperServer(t *testing.T) {
 	if marker := os.Getenv("MCP_LIVE_MARKER"); marker != "" {
 		_ = os.WriteFile(marker, []byte("started"), 0600)
 	}
+	if path := os.Getenv("MCP_LIVE_CWD"); path != "" {
+		wd, _ := os.Getwd()
+		_ = os.WriteFile(path, []byte(wd), 0600)
+	}
 	if os.Getenv("API_TOKEN") != liveSecret {
 		fmt.Fprintln(os.Stderr, "API_TOKEN was not passed")
 		os.Exit(4)
@@ -193,6 +197,26 @@ func TestLiveStdioSpawnFailure(t *testing.T) {
 	}
 	if _, f := liveOf(t, report); f.Level != "error" || !strings.Contains(f.Message, "could not start /no/such/mcp-server") {
 		t.Fatalf("finding = %+v", f)
+	}
+}
+
+func TestLiveSharedServerStartsInTheFirstProjectThatUsesIt(t *testing.T) {
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	cwd := filepath.Join(t.TempDir(), "cwd")
+	config := strings.Replace(liveConfig("modern", map[string]string{"MCP_LIVE_CWD": cwd}), "    fake:\n", "    fake:\n      global: false\n", 1)
+	config += fmt.Sprintf("  projects:\n    %q:\n      use: [fake]\n", root)
+	if _, err := checkService(t, config).Check(liveCheck(10*time.Second, tokenEnv)); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(cwd)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != root {
+		t.Fatalf("shared server started in %q, want %q", got, root)
 	}
 }
 

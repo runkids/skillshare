@@ -46,7 +46,7 @@ Check `skillshare <command> --help` if the installed version differs from these 
   what is specific to Claude Code, Codex, OpenCode and Pi: scopes and files, names and
   credentials they refuse, Pi's built-in MCP and `piOptions`, OMP's native MCP and preserved enable/disable lists, the portable `tools` policy,
   upgrading Pi settings from 0.22, turning a global server off in one project, `mcp.projects` for many folders from
-  one config, and `mcp serve` for Agents that cannot reach the synced skill folders.
+  one config (including `global: false` servers chosen per project with `use`), and `mcp serve` for Agents that cannot reach the synced skill folders.
 - Plugins keep their native components together. Read [plugins.md](references/plugins.md)
   for installation, import, sync selection, updates, and native compatibility limits
   across Claude, Codex, Cursor, Antigravity, Pi, OMP, and OpenCode, including Pi packages from pi.dev

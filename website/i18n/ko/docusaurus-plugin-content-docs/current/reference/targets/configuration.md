@@ -679,7 +679,7 @@ projects:
 - **`target`과 `collect`는 프로젝트를 건드리지 않습니다.** `skillshare target`은 `targets` 섹션만 나열하고 편집하며, `collect`는 프로젝트 자체 skill을 source로 가져오지 않습니다. [`skillshare project`](/docs/reference/commands/project)로 프로젝트를 추가·편집·동기화·제거하거나 대시보드의 **프로젝트** 페이지를 사용하세요.
 - `targets` frontmatter 필드가 있는 skill은 tool을 기준으로 매칭되므로, `targets: [claude]`는 `shop-web@claude`에 도달합니다.
 
-같은 폴더의 MCP 서버는 같은 폴더를 키로 하는 [`mcp.projects`](/docs/reference/commands/mcp#manage-several-projects-from-the-global-config) 아래에 나열됩니다. 단계별 설정은 [Many Projects, One Config](/docs/how-to/recipes/many-projects-one-config)를 참고하세요.
+같은 폴더의 MCP 서버는 같은 폴더를 키로 하는 [`mcp.projects`](/docs/reference/commands/mcp#manage-several-projects-from-the-global-config) 아래에 나열됩니다. `global: false`로 설정한 서버는 `use`에 나열한 폴더에서만 로드됩니다. [Share a server with chosen projects](/docs/reference/commands/mcp#share-a-server-with-chosen-projects)를 참고하세요. 단계별 설정은 [Many Projects, One Config](/docs/how-to/recipes/many-projects-one-config)를 참고하세요.
 
 ### `projects_storage` {#projects-storage}
 

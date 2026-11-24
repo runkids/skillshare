@@ -18,6 +18,11 @@ export function shortenPath(path: string): string {
   return [...parts.slice(0, 2), '…', ...parts.slice(-2)].join('/');
 }
 
+/** A path inside `root` relative to it; any other path with home shortened. */
+export function relativeTo(root: string, path = ''): string {
+  return path.startsWith(`${root}/`) ? path.slice(root.length + 1) : shortenHome(path);
+}
+
 /** Last segment of a local path, splitting on / and on Windows \ alike. */
 export function fileName(path: string): string {
   return path.split(/[\\/]/).pop() || path;

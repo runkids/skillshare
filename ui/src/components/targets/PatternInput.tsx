@@ -1,8 +1,8 @@
-import { useState } from 'react';
 import { X } from 'lucide-react';
 import { useT } from '../../i18n';
+import { usePatternDraft } from './usePatternDraft';
 
-/** Include/exclude patterns as removable tags. Enter, comma or blur adds; Backspace on an empty field removes the last. */
+/** Include/exclude patterns as removable tags, typed into one field. */
 export default function PatternInput({
   id,
   patterns,
@@ -17,12 +17,7 @@ export default function PatternInput({
   placeholder?: string;
 }) {
   const t = useT();
-  const [draft, setDraft] = useState('');
-  const commit = () => {
-    const value = draft.trim();
-    if (value && !patterns.includes(value)) onChange([...patterns, value]);
-    setDraft('');
-  };
+  const field = usePatternDraft(patterns, onChange);
   return (
     <span className="ss-inp !h-auto min-h-[38px] flex-wrap !gap-1.5 !py-1.5">
       {patterns.map((p) => (
@@ -42,17 +37,7 @@ export default function PatternInput({
       <input
         id={id}
         className="min-w-[160px] !h-[24px]"
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onKeyDown={(e) => {
-          if ((e.key === 'Enter' || e.key === ',') && draft.trim()) {
-            e.preventDefault();
-            commit();
-          } else if (e.key === 'Backspace' && !draft && patterns.length) {
-            onChange(patterns.slice(0, -1));
-          }
-        }}
-        onBlur={commit}
+        {...field}
         placeholder={placeholder ?? t('targetDetail.addPattern')}
         disabled={disabled}
       />

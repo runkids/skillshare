@@ -86,6 +86,24 @@ skillshare sync mcp --dry-run   # 預覽每個檔案
 skillshare sync mcp
 ```
 
+若要只定義一次 server，並只在指定的 projects 載入，請將它標為 `global: false`，並列在 `use` 中：
+
+```yaml
+mcp:
+  targets: [claude]
+  servers:
+    internal-docs:
+      global: false          # loads in no project unless a root uses it
+      url: https://docs.example.com/mcp
+  projects:
+    ~/work/project01:
+      use: [internal-docs]
+    ~/work/project02:
+      use: [internal-docs]
+```
+
+編輯 `internal-docs` 一次，下次 `skillshare sync mcp` 時兩個 projects 都會更新。在 dashboard 中，請從 project 的 **MCP** 分頁，在 **Opt-in servers** 下開啟它。
+
 欄位與限制請參閱 [`mcp`：管理多個 projects](/docs/reference/commands/mcp#manage-several-projects-from-the-global-config)。
 
 ## 驗證
@@ -100,7 +118,7 @@ skillshare sync mcp
 - **工具路徑之外的資料夾**：一個 target 就只是一個名稱加一個路徑，所以對於任何工具的 project 路徑都涵蓋不到的資料夾，`skillshare target add project01 ~/work/project01/some/folder` 仍然可用。當這樣的 target 剛好指向某個工具的 project 路徑時，dashboard 的 **Projects** 頁面會提供轉換選項。
 - **Commit 或忽略**：在 `copy` mode 下，Skillshare 也會在 target 資料夾中寫入 `.skillshare-manifest.json`，用來追蹤它複製了哪些內容。可以把它和 skills 一起 commit，或加入 `.gitignore`。
 - **路徑重疊警告**：若 project 資料夾是另一個 target 已在使用的資料夾，`sync` 會印出路徑重疊警告。執行 `skillshare doctor` 可查看哪些 targets 共用該路徑。
-- **多個 projects 使用同一個 server**：在其中一個 project 下用 YAML anchor 定義一次（`docs: &docs`），再於其他 project 中重複使用（`docs: *docs`）。請參閱 [`mcp` 參考](/docs/reference/commands/mcp#manage-several-projects-from-the-global-config)。
+- **多個 projects 使用同一個 server**：如上所示使用 `global: false` 與 `use`，而不是每個 project 各放一份副本。請參閱[與指定的 projects 共用 server](/docs/reference/commands/mcp#share-a-server-with-chosen-projects)。既有的副本不會被轉換；請手動搬移。
 - **共用的 projects**：clone 該 project 的隊友不會拿到你的 global config。當設定必須跟著 repo 走時，請使用 [project mode](/docs/how-to/recipes/skill-per-project-workflow)。
 
 ## 相關

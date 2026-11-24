@@ -32,6 +32,8 @@ export interface MCPSettings {
 }
 /** One root under the global config's mcp.projects. */
 export interface MCPProject extends MCPSettings {
+  /** Shared servers (`global: false` in mcp.servers) this root loads. */
+  use?: string[];
   servers?: Record<string, MCPServer>;
 }
 /** Which of a server's tools reach the model, written once and translated per Agent. Names may use `*`. */
@@ -55,13 +57,19 @@ export interface MCPServer {
   tools?: MCPToolPolicy;
   /** Project mode: the whole entry, turning off a server the Agent's global config defines. */
   disabled?: boolean;
+  /** `false`: written to no global file, only to the mcp.projects roots that list it under `use`. */
+  global?: boolean;
 }
+/** A server of the global config that loads only in the projects that use it. */
+export const isShared = (server?: MCPServer) => server?.global === false;
 /** Agents with a per-project switch: a field merged over the global entry, or Claude Code's own off list. */
 export const mcpOffTargets: readonly string[] = ['claude', 'opencode', 'kilocode', 'pi', 'omp'];
 export interface MCPMutation {
   /** A root under mcp.projects; with `remove` and no `name`, the project itself. */
   project?: string;
   settings?: MCPSettings;
+  /** With `project` and `name`: turns that shared server on or off for the root. */
+  using?: boolean;
   name?: string;
   server?: MCPServer;
   remove?: boolean;

@@ -18,6 +18,8 @@ import {
   parseToolNotice,
   pinFindingKey,
   serverCount,
+  sharedTargets,
+  groupByServer,
   setToolChecked,
   splitCommand,
   switchTargets,
@@ -512,6 +514,29 @@ describe('parsePiOptions', () => {
       ),
     ).toBe(2);
   });
+
+  it('leaves out a shared server, which reaches only the projects that use it', () => {
+    const servers = { docs: { url: 'https://d.example', global: false } };
+    expect(
+      serverCount(
+        { source: { servers, targets: ['claude'] }, paths: { claude: '/c.json' } },
+        'claude',
+      ),
+    ).toBe(0);
+  });
+
+  it('groups a server by what changes, naming each Agent once', () => {
+    expect(
+      groupByServer([
+        change('docs', 'claude', 'add'),
+        change('docs', 'cursor', 'add'),
+        change('docs', 'codex', 'update'),
+      ]),
+    ).toEqual([
+      { name: 'docs', action: 'add', targets: ['claude', 'cursor'] },
+      { name: 'docs', action: 'update', targets: ['codex'] },
+    ]);
+  });
 });
 
 describe('mcpNotice', () => {
@@ -567,5 +592,25 @@ describe('mcpNotice', () => {
         paths,
       ),
     ).toEqual(['claude', 'cursor', 'gemini']);
+  });
+});
+
+describe('sharedTargets', () => {
+  const source = {
+    targets: ['claude'],
+    servers: { docs: { url: 'https://docs.example/mcp', global: false } },
+    projects: {
+      '~/work/web': { use: ['docs'] },
+      '~/work/api': { targets: ['cursor', 'claude'], use: ['docs'] },
+      '~/work/cli': { targets: ['codex'] },
+    },
+  };
+
+  it('goes to the targets of each project that uses it, or the default where a project names none', () => {
+    expect(sharedTargets(source, 'docs')).toEqual(['cursor', 'claude']);
+  });
+
+  it('goes nowhere while no project uses it', () => {
+    expect(sharedTargets({ ...source, projects: {} }, 'docs')).toEqual([]);
   });
 });

@@ -99,6 +99,7 @@ Add、edit、remove 與 import 在 **Save and sync** 或 **Save only** 之前會
 | `options` | 其他 Agent 的原生單一 server 欄位，以 client ID 為鍵，例如 Codex 的核准模式或 Claude Code 的逾時。參見[下方說明](#agent-options) |
 | `piOptions` | Pi 內建 MCP 的其他單一 server 欄位。參見 [Pi](#pi-options) |
 | `disabled` | 只能是 `true`，不能有其他連線欄位，且必須有 project 在作用範圍內：project mode，或 `mcp.projects` 下的某個 root。參見[下方說明](#turn-off-a-global-server-in-one-project) |
+| `global` | 只限 global config 的 `mcp.servers`。`false` 表示預設不在任何 project 載入，只有在 `use` 中列出它的 root 才會載入。預設為 `true`。參見[與指定的 projects 共用 server](#share-a-server-with-chosen-projects) |
 
 Client ID 有 `claude`、`codex`、`cursor`、`vscode`、`opencode`、`kilocode`、
 `grok`、`antigravity`、`amp`、`claude-desktop`、`cline`、`copilot`、`factory`、`gemini`、
@@ -467,8 +468,8 @@ skillshare sync mcp
 - **Skillshare 自己定義的 server 不需要這麼做。** 改為在該 server 上取消選擇
   該 Agent，下一次同步就會移除它的項目。
 
-在 dashboard 中，這是 **關閉全域伺服器** 按鈕。在 project mode 中它位於 **伺服器** 標題旁；
-在 project 的 MCP 分頁中，則位於 **新增伺服器** 旁邊。
+在 dashboard 中，這是 **依名稱關閉 MCP** 按鈕。在 project mode 中它位於 **MCP** 標題旁；
+在 project 的 MCP 分頁中，則位於 **新增 MCP** 旁邊。
 
 ## Manage several projects from the global config {#manage-several-projects-from-the-global-config}
 
@@ -520,25 +521,65 @@ context7     add          opencode (~/work/project01/opencode.json)
 從清單中移除某個 project，下一次同步時就會移除 Skillshare 寫在那裡的項目，
 與移除一個 server 相同。
 
-若要讓多個 projects 使用同一個 server，請用 YAML anchor 定義一次，再重複使用：
+### 與指定的 projects 共用 server {#share-a-server-with-chosen-projects}
+
+若要讓多個 projects 使用同一個 server，又不必在每個 project 各放一份副本，請在
+`mcp.servers` 中用 `global: false` 定義一次，再於每個要載入它的 project 下，
+把它列在 `use` 中：
 
 ```yaml
+# ~/.config/skillshare/config.yaml
 mcp:
+  targets: [claude]
+  servers:
+    context7:                    # global: loads in every folder
+      command: npx
+      args: ["-y", "@upstash/context7-mcp@4.4.1"]
+    internal-docs:
+      global: false              # loads in no project unless a root uses it
+      url: https://docs.example.com/mcp
   projects:
     ~/work/project01:
+      use: [internal-docs]
       servers:
-        internal-docs: &internal-docs
-          url: https://example.com/mcp
-          targets: [opencode]
+        local-db:                # this project only
+          command: ./scripts/db-mcp
     ~/work/project02:
-      servers:
-        internal-docs: *internal-docs
+      use: [internal-docs]
 ```
 
-請把 anchor 放在 `mcp.projects` 之內。指向 `mcp.servers` 上某個 anchor 的 alias
-也能運作，但 `skillshare mcp add` 與 dashboard 會改寫 `mcp.servers`；它們儲存時
-會把這類 alias 完整展開寫出，讓檔案保持有效，之後它就不會再跟著 global server
-的後續編輯而變動。
+`global: false` 的 server 絕不會寫入 Agent 的 global 檔案。Sync 會把它寫入每個使用它的
+root，寫入該 root 的 `targets`，除非 server 自己指定了 `targets`。編輯它一次，下次 sync
+時每個使用它的 root 都會更新。沒有任何 root 使用的共用 server 不會寫到任何地方。
+把原本是 global 的 server 關閉 `global`，下次 sync 時會從 global 檔案中移除 Skillshare
+寫入的項目。
+
+規則：
+
+- 每個 `use` 名稱都必須是 `mcp.servers` 中 `global: false` 的 server，且只能出現一次。
+- 同一個名稱不能同時出現在 root 的 `use` 與該 root 自己的 `servers` 中，不論是作為
+  server 或 `disabled` 項目。
+- `global` 在 `mcp.projects.<root>.servers` 下、project 自己的 config（`-p`）中，以及
+  與 `disabled` 並用時都會被拒絕。省略它或寫 `global: true` 即為預設值，儲存 config
+  時會被丟棄。
+- 共用 server 的 `targets` 不能指名 [account](#accounts)（例如 `claude-work`），因為
+  所有 account 讀的是同一份 project 檔案。請指名 Agent，例如 `claude`。
+- 移除共用 server，或把它改回 global，會在同一次儲存中從每個 `use` 清單移除它的名稱。
+- 編輯共用 server 時會保留它的 `global: false`，除非該次編輯設定了 `global`。
+
+`skillshare mcp list` 會為每個共用 server 加上一列 `shared`，列出使用它的 projects，
+或顯示 `not used by any project`。`mcp list --json` 有一個頂層的 `shared` 陣列：
+
+```json
+{"shared": [{"name": "internal-docs", "projects": ["~/work/project01", "~/work/project02"]}]}
+```
+
+互動式清單會顯示使用共用 server 的 projects 的 targets，詳細資訊會列出這些 projects。沒有 project 使用共用 server 時，`mcp check` 會註明。
+
+這個版本不會把既有的個別 project 副本轉換成共用 server，也沒有指令可以編輯 `use`。
+請編輯 `config.yaml`，或使用 [dashboard](#projects-in-the-dashboard) 中的開關。
+在 `mcp.projects` 內用 YAML anchor 共用的 server 仍然可用，但 dashboard 與
+`skillshare mcp add` 不會把這些副本視為互相連結。
 
 ### Projects in the dashboard {#projects-in-the-dashboard}
 
@@ -550,10 +591,14 @@ mcp:
 
 - **新增專案** 會要求填入資料夾與它的 targets。勾選 **MCP** 可以讓該資料夾
   同時列在 `mcp.projects` 底下。
-- **MCP** 分頁會列出每個 global server，並各附一個開關。關閉其中一個會儲存一筆
-  不含 `targets` 的 `disabled` 項目，因此它會如
+- **MCP** 分頁有三個區段。**On in every project** 列出 global servers，並各附一個開關：
+  關閉其中一個會儲存一筆不含 `targets` 的 `disabled` 項目，因此它會如
   [上方說明](#turn-off-a-global-server-in-one-project)所述跟著 project 的 targets；
-  重新開啟則會移除該項目。下方則是只存在於該 project 的 servers。
+  重新開啟則會移除該項目。**Opt-in servers** 列出[共用 server](#share-a-server-with-chosen-projects)，
+  預設為關閉；它的開關會在 project 的 `use` 中加入或移除該名稱。
+  **Only in this project** 則列出只存在於該 project 的 servers。
+- 在 MCP 頁面中，server 的對話框有 **Loads in**：**Every project**，或 **Only
+  projects that turn it on**。清單會把共用 server 標示為 **Opt-in · N projects**。
 - 已關閉的 server 會顯示它在哪些 Agents 中被關閉的 logo。已開啟的 server 會顯示載入它的 Agents；
   被同名的 project server 取代時則不顯示。當 project 的某個 Agent
   不支援個別 project 開關時，該列會說明這個 server 在那裡仍會載入。如果項目列出了
@@ -576,7 +621,7 @@ anchor 與 alias，而寫成 `~/work/app` 的資料夾也會保留它的 `~`。�
 
 - `mcp.projects` 只會從 global config 讀取。包含它的 project config 會被拒絕。
 - 沒有指令可以編輯它：`skillshare mcp add` 管理的是 `mcp.servers`，
-  `mcp.projects` 會維持原樣。請在 `config.yaml` 中編輯它，或使用
+  `mcp.projects`（包含 `use`）會維持原樣。請在 `config.yaml` 中編輯它，或使用
   [dashboard](#projects-in-the-dashboard)。
 - 以 Claude Code 為 target 的 `disabled` 項目會寫入 `~/.claude.json`，也就是
   global servers 寫入的同一個檔案，因為 Claude Code 的個別 project 關閉清單就放在那裡。
@@ -608,6 +653,7 @@ skillshare mcp check --no-dns
 | 某個 Agent 的項目與 source 衝突，與 `sync mcp --dry-run` 相同 | error |
 | 某個 Agent 的項目尚未寫入或尚未更新 | warning |
 | 該 server 設定了 `targets: []`，只保留在 Skillshare 中 | info |
+| 該 server 為共用（`global: false`），且沒有 project 在 `use` 中列出它 | info |
 | 所選的某個 Agent 無法容納該 server [工具政策](#tool-policy)的一部分 | warning |
 
 變數的值永遠不會被印出。只要發現任何 error，指令就會以 1 結束，否則以 0 結束；warning 永遠不會
@@ -659,8 +705,8 @@ global server 則省略此欄位。`summary` 會計算報告中的每個 server�
 
 在 dashboard 中，MCP 頁面 Sync 框中的 **檢查** 按鈕會執行同樣的檢查。它在有 servers 可檢查時才會出現，
 只在點擊時執行，會在 server 清單上方顯示摘要，並在每個 server 下方顯示它的 error 或 warning；
-重新載入頁面後不會保留任何內容。MCP 頁面只列出 global servers，因此它的摘要與各列都不包含
-project servers，即使與某個 global server 同名也一樣。project 的 MCP 分頁在它的 Sync 框中
+重新載入頁面後不會保留任何內容。MCP 頁面列出 global 與共用 servers，因此它的摘要與各列都不包含
+只存在於 project 的 servers，即使與某個 global server 同名也一樣。project 的 MCP 分頁在它的 Sync 框中
 有自己的 **檢查**，會回報該 project 自己的 servers。變數是從啟動 `skillshare ui` 的終端機讀取。
 
 ### 即時探測 servers {#probe-servers-live}
@@ -859,7 +905,7 @@ skillshare mcp serve --http 0.0.0.0:8765 --http-allow-insecure
 skillshare mcp add skillshare --target codex --sync -- skillshare mcp serve --target codex
 ```
 
-在 dashboard 中，**新增伺服器** → **Skillshare** 會從你選擇的 skills 組出相同的指令
+在 dashboard 中，**新增 MCP** → **Skillshare** 會從你選擇的 skills 組出相同的指令
 （project mode 下會加上 `-p`）；勾選 Agent、儲存並同步即可。編輯該 server 時會開啟同一個分頁。
 
 若 Agent 在另一台機器上，請在 skills 所在的機器上搭配憑證執行 `mcp serve --http`，

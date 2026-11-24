@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { ChevronDown } from 'lucide-react';
 import AgentIcon from './AgentIcon';
 import Spinner from './Spinner';
@@ -19,7 +19,9 @@ const PANE = 'sticky top-6 max-h-[calc(100vh-11rem)]';
  * The list side is padded by what it is pulled out by, so the scroll box does not clip shadows.
  * Its children must not shrink: `.ss-list` clips its corners with overflow:hidden, which lets a
  * flex item go below its content height, and it would be squashed instead of scrolled.
- * `pageScroll` keeps the list in the page's own scroll, for a page that has more above it.
+ * `pageScroll` keeps the list in the page's own scroll, for a page that has more above it. The rail then
+ * sticks at the top while it fits the window; a taller rail scrolls with the page until its bottom shows,
+ * then stays, so its last section is never out of reach and the page keeps one scrollbar.
  */
 export function RailLayout({
   rail,
@@ -32,6 +34,14 @@ export function RailLayout({
   pageScroll?: boolean;
   /** Extra classes on the grid, for a page that needs its own narrow-width layout. */ className?: string;
 }) {
+  const railRef = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    const el = railRef.current;
+    if (!pageScroll || !el || typeof ResizeObserver !== 'function') return;
+    const ro = new ResizeObserver(() => el.style.setProperty('--rail-h', `${el.offsetHeight}px`));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [pageScroll]);
   return (
     <div className={`grid grid-cols-[minmax(0,1fr)_320px] items-start gap-8 ${className}`}>
       <div
@@ -43,7 +53,15 @@ export function RailLayout({
       >
         {children}
       </div>
-      <aside className={`${PANE} flex flex-col gap-7`}>{rail}</aside>
+      <aside
+        ref={railRef}
+        className={`${pageScroll ? 'sticky' : PANE} flex flex-col gap-7`}
+        style={
+          pageScroll ? { top: 'min(1.5rem, calc(100vh - var(--rail-h, 0px) - 1.5rem))' } : undefined
+        }
+      >
+        {rail}
+      </aside>
     </div>
   );
 }

@@ -139,7 +139,7 @@ func (s *Service) Check(opts CheckOptions) (*CheckReport, error) {
 			result.Findings = append(result.Findings, checkPin(server)...)
 		}
 		result.Findings = append(result.Findings, preflight[k]...)
-		result.Findings = append(result.Findings, checkToolPolicy(source, k.root, server)...)
+		result.Findings = append(result.Findings, checkToolPolicy(source, k.root, k.name, server)...)
 		report.Servers = append(report.Servers, result)
 	}
 	byKey := map[checkKey]*CheckServer{}
@@ -169,6 +169,11 @@ func (s *Service) Check(opts CheckOptions) (*CheckReport, error) {
 		accepted.Projects = map[string]Project{}
 		for root, project := range source.Projects {
 			project.Servers = accept(root, project.Servers, project.defaults(source))
+			// A shared server left out above cannot stay in use.
+			project.Use = slices.DeleteFunc(slices.Clone(project.Use), func(name string) bool {
+				_, ok := accepted.Servers[name]
+				return !ok
+			})
 			accepted.Projects[root] = project
 		}
 	}
@@ -176,17 +181,31 @@ func (s *Service) Check(opts CheckOptions) (*CheckReport, error) {
 	if err != nil {
 		return nil, err
 	}
+	// A shared server is checked once, in the global list, though each project that uses
+	// it has its own entries.
+	keyOf := func(c Change) checkKey {
+		if c.Root != "" && slices.Contains(source.Projects[c.Root].Use, c.Name) {
+			return checkKey{name: c.Name}
+		}
+		return checkKey{c.Root, c.Name}
+	}
 	var synced []Change
 	for _, c := range p.Changes {
-		k := checkKey{c.Root, c.Name}
+		k := keyOf(c)
 		if byKey[k] != nil && !slices.Contains(refused[k], c.Target) {
 			synced = append(synced, c)
 		}
 	}
 	slices.SortStableFunc(synced, func(a, b Change) int { return strings.Compare(a.Target, b.Target) })
 	for _, c := range synced {
-		result := byKey[checkKey{c.Root, c.Name}]
-		result.Findings = append(result.Findings, syncFinding(c))
+		k := keyOf(c)
+		f := syncFinding(c)
+		if k.root != c.Root {
+			// One entry stands for every project that uses it; say which one this is.
+			f.Message += " (" + c.Root + ")"
+		}
+		result := byKey[k]
+		result.Findings = append(result.Findings, f)
 	}
 	if opts.Live {
 		s.checkLive(source, report, opts)
@@ -385,6 +404,12 @@ func (s *Service) checkClientRules(source *Source, root, name string, server Ser
 		return []CheckFinding{{Level: "info", Check: "targets", Message: "kept in Skillshare only; no Agent receives it"}}
 	}
 	defaults := source.Targets
+	if root == "" && server.Shared() {
+		if len(source.Users(name)) == 0 {
+			return []CheckFinding{{Level: "info", Check: "use", Message: "not used by any project"}}
+		}
+		defaults = source.SharedTargets(name)
+	}
 	if root != "" {
 		project := source.Projects[root]
 		defaults = project.defaults(source)
@@ -397,9 +422,19 @@ func (s *Service) checkClientRules(source *Source, root, name string, server Ser
 		alone.Projects = nil
 		if root == "" {
 			alone.Servers[name] = server
+			// A shared server is written only to the projects that use it.
+			if server.Shared() {
+				alone.Projects = map[string]Project{}
+				for _, user := range source.Users(name) {
+					project := source.Projects[user]
+					project.Servers, project.Use = nil, []string{name}
+					alone.Projects[user] = project
+				}
+			}
 		} else {
 			project := source.Projects[root]
-			project.Servers = map[string]Server{name: server}
+			// The shared servers it uses are checked on their own, under the global list.
+			project.Servers, project.Use = map[string]Server{name: server}, nil
 			alone.Projects = map[string]Project{root: project}
 		}
 		_, err := s.render(&alone)
@@ -430,10 +465,12 @@ func (s *Service) checkClientRules(source *Source, root, name string, server Ser
 
 // checkToolPolicy names each selected Agent that cannot hold a part of the server's tool
 // policy, the same gaps the plan's notices list.
-func checkToolPolicy(source *Source, root string, server Server) []CheckFinding {
+func checkToolPolicy(source *Source, root, name string, server Server) []CheckFinding {
 	defaults := source.Targets
 	if root != "" {
 		defaults = source.Projects[root].defaults(source)
+	} else if server.Shared() {
+		defaults = source.SharedTargets(name)
 	}
 	var out []CheckFinding
 	for _, target := range server.Targets.orDefault(defaults) {

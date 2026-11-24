@@ -24,9 +24,12 @@ type Mutation struct {
 	Project string `json:"project,omitempty"`
 	// Settings replaces the targets of the scope, so a value left out is cleared.
 	Settings *Settings `json:"settings,omitempty"`
-	Name     string    `json:"name,omitempty"`
-	Server   *Server   `json:"server,omitempty"`
-	Remove   bool      `json:"remove,omitempty"`
+	// Using, with Project and Name, turns that shared server on or off for the root. It
+	// changes one name, so two edits made from pages loaded at the same time both stay.
+	Using  *bool   `json:"using,omitempty"`
+	Name   string  `json:"name,omitempty"`
+	Server *Server `json:"server,omitempty"`
+	Remove bool    `json:"remove,omitempty"`
 	// Unmanage, with Remove and a Name, also forgets which Agent entries the server wrote.
 	// No Agent file changes, and sync then leaves those entries alone as the user's own.
 	Unmanage    bool         `json:"unmanage,omitempty"`
@@ -83,10 +86,22 @@ func (s *Source) draftProject(m Mutation) error {
 		if err := m.Server.Validate(m.Name); err != nil {
 			return err
 		}
+		if m.Server.Global != nil {
+			return fmt.Errorf("MCP %s: global applies only to servers in mcp.servers", m.Name)
+		}
 		if project.Servers == nil {
 			project.Servers = map[string]Server{}
 		}
 		project.Servers[m.Name] = *m.Server
+	}
+	if m.Using != nil {
+		project.Use = slices.DeleteFunc(slices.Clone(project.Use), func(name string) bool { return name == m.Name })
+		if *m.Using {
+			project.Use = append(project.Use, m.Name)
+		}
+		if len(project.Use) == 0 {
+			project.Use = nil
+		}
 	}
 	if m.Settings != nil {
 		if exists && m.Name == "" && !m.Replace {
@@ -122,6 +137,9 @@ func (s *Service) draftMutations(mutations []Mutation) (*Source, error) {
 		if m.Unmanage && (!m.Remove || m.Name == "") {
 			return nil, fmt.Errorf("stop managing applies only to removing a named server")
 		}
+		if m.Using != nil && (m.Project == "" || m.Name == "" || m.Server != nil || m.Remove) {
+			return nil, fmt.Errorf("using turns one shared server on or off for a project; give only the project and the name")
+		}
 		if m.Project != "" {
 			if s.ProjectRoot != "" {
 				return nil, fmt.Errorf("mcp.projects belongs in the global config")
@@ -145,19 +163,51 @@ func (s *Service) draftMutations(mutations []Mutation) (*Source, error) {
 			delete(source.Servers, m.Name)
 			if m.Unmanage {
 				source.unmanaged["\x00"+m.Name] = true
+				// A shared server's entries belong to the projects that use it.
+				for _, root := range source.Users(m.Name) {
+					source.unmanaged[root+"\x00"+m.Name] = true
+				}
 			}
+			source.dropUse(m.Name)
 		}
 		if m.Server != nil {
-			if _, exists := source.Servers[m.Name]; exists && !m.Replace {
+			old, exists := source.Servers[m.Name]
+			if exists && !m.Replace {
 				return nil, fmt.Errorf("MCP server %q already exists; explicitly choose edit or replace", m.Name)
 			}
 			if err := m.Server.Validate(m.Name); err != nil {
 				return nil, err
 			}
-			source.Servers[m.Name] = *m.Server
+			server := *m.Server
+			// Writers rebuild a server from its fields, so one that does not say keeps where
+			// the server loads; only an explicit global moves it.
+			if server.Global == nil {
+				server.Global = old.Global
+			}
+			if !server.Shared() {
+				server.Global = nil
+				source.dropUse(m.Name)
+			} else if s.ProjectRoot != "" {
+				return nil, RefuseShared(map[string]Server{m.Name: server})
+			}
+			source.Servers[m.Name] = server
 		}
 	}
 	return source, nil
+}
+
+// dropUse takes a server that is no longer shared out of every root that uses it, so the
+// config never names a server that loads everywhere, or none, under use.
+func (s *Source) dropUse(name string) {
+	for _, root := range s.Users(name) {
+		project := s.Projects[root]
+		project.Use = slices.DeleteFunc(slices.Clone(project.Use), func(n string) bool { return n == name })
+		if len(project.Use) == 0 {
+			project.Use = nil
+		}
+		s.Projects[root] = project
+		s.touched[root] = true
+	}
 }
 
 // PreviewMutation does not persist a draft or claim ownership.
@@ -418,7 +468,7 @@ func (s *Service) MutateBatch(mutations []Mutation, revision string, sync bool) 
 	}
 	changed := false
 	for _, m := range mutations {
-		changed = changed || m.Server != nil || m.Remove || m.Settings != nil
+		changed = changed || m.Server != nil || m.Remove || m.Settings != nil || m.Using != nil
 	}
 	if changed {
 		if err := source.save(s.configProjectRoot()); err != nil {

@@ -289,7 +289,7 @@ skillshare target pi --skills=false
 
 `--skills` 不能与 include/exclude 标志在同一条命令中组合使用，请分开运行。它在项目模式（`-p`）下的行为相同。
 
-在 Web 控制台中，在 target 的 Skills 标签页使用 **停止同步 Skills**。在移除任何内容之前，它会列出哪些会被移除、哪些会保留，并在有其他工具读取同一文件夹时发出警告。
+在 Web 控制台中，关闭 target 的 Skills 标签页顶部的 **同步 Skills 到** 开关。在移除任何内容之前，它会列出哪些会被移除、哪些会保留，并在有其他工具读取同一文件夹时发出警告。
 
 ## 选项
 

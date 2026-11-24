@@ -1,5 +1,5 @@
-import { mcpOffTargets, mcpTargets } from '../../api/mcp';
-import type { MCPPlan, MCPServer, MCPToolPolicy } from '../../api/mcp';
+import { isShared, mcpOffTargets, mcpTargets } from '../../api/mcp';
+import type { MCPPlan, MCPProject, MCPServer, MCPToolPolicy } from '../../api/mcp';
 import { plural } from '../../i18n';
 
 export type MCPChange = MCPPlan['changes'][number];
@@ -56,6 +56,18 @@ const MCP_CLIENTS: Record<string, string> = { droid: 'factory', 'antigravity-cli
 export const mcpClient = (target: string) => MCP_CLIENTS[target] ?? target;
 
 /** How many servers a scope writes to one Agent, none when it has no MCP file there. A switch-only entry turns a server off, so it does not count. */
+/** One server's changes of one kind, with the Agents they reach, in plan order. */
+export function groupByServer(changes: readonly MCPChange[]) {
+  const groups = new Map<string, { name: string; action: string; targets: string[] }>();
+  for (const c of changes) {
+    const key = `${c.name}:${c.action}`;
+    const group = groups.get(key) ?? { name: c.name, action: c.action, targets: [] };
+    if (!group.targets.includes(c.target)) group.targets.push(c.target);
+    groups.set(key, group);
+  }
+  return [...groups.values()];
+}
+
 export const serverCount = (
   data: {
     source: { servers?: Record<string, MCPServer>; targets: string[] | null };
@@ -65,12 +77,47 @@ export const serverCount = (
 ) =>
   data.paths[target]
     ? Object.values(data.source.servers ?? {}).filter(
-        (s) => !s.disabled && (s.targets ?? data.source.targets ?? []).includes(target),
+        // A shared server is written only to the projects that use it.
+        (s) =>
+          !s.disabled && !isShared(s) && (s.targets ?? data.source.targets ?? []).includes(target),
       ).length
     : 0;
 
 export const inside = (root: string, path: string) =>
   path.startsWith(root + '/') || path.startsWith(root + '\\');
+
+/** For each shared server (`global: false`), the projects that use it, sorted. */
+export function sharedUsers(source?: {
+  servers: Record<string, MCPServer>;
+  projects?: Record<string, MCPProject>;
+}): Record<string, string[]> {
+  const users: Record<string, string[]> = {};
+  for (const [name, server] of Object.entries(source?.servers ?? {})) {
+    if (isShared(server)) users[name] = [];
+  }
+  for (const root of Object.keys(source?.projects ?? {}).sort()) {
+    for (const name of source?.projects?.[root].use ?? []) users[name]?.push(root);
+  }
+  return users;
+}
+
+/** Where a shared server that names no targets goes: each using project's targets, or the default where it names none. */
+export function sharedTargets(
+  source: {
+    targets?: string[] | null;
+    servers: Record<string, MCPServer>;
+    projects?: Record<string, MCPProject>;
+  },
+  name: string,
+): string[] {
+  const out: string[] = [];
+  for (const root of sharedUsers(source)[name] ?? []) {
+    for (const target of source.projects?.[root].targets ?? source.targets ?? []) {
+      if (!out.includes(target)) out.push(target);
+    }
+  }
+  return out;
+}
 
 /** The mcp.projects root a change belongs to, if any. */
 // The plan says so outright, because Claude Code's off list is written to the global file

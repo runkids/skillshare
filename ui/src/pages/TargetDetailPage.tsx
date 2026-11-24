@@ -3,10 +3,12 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowDownToLine,
+  Bot,
   CirclePause,
   Folder,
   Info,
   Plus,
+  Puzzle,
   Target as TargetIcon,
   TriangleAlert,
 } from 'lucide-react';
@@ -19,8 +21,14 @@ import PageHeader from '../components/PageHeader';
 import SegmentedControl from '../components/SegmentedControl';
 import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
-import FilterSection, { ModePicker } from '../components/targets/FilterSection';
-import { targetWarning, targetSkipHints } from '../components/targets/targetView';
+import FilterCard from '../components/targets/FilterCard';
+import ModeField from '../components/targets/ModeField';
+import { NAMES, TargetRow } from '../components/targets/FilterSection';
+import PreviewList from '../components/targets/PreviewList';
+import { joinList, targetWarning, targetSkipHints } from '../components/targets/targetView';
+import { useFilterFeedback } from '../components/targets/useFilterFeedback';
+import ProjectSectionHead from '../components/mcp/ProjectSectionHead';
+import { RailLayout } from '../components/StatusRail';
 import RemoveTargetDialog from '../components/targets/RemoveTargetDialog';
 import SkillsOffDialog from '../components/targets/SkillsOffDialog';
 import TargetMCP from '../components/targets/TargetMCP';
@@ -37,7 +45,7 @@ import TargetFileTab from '../components/targetFiles/TargetFileTab';
 import { mcpClient, serverCount } from '../components/mcp/mcpView';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { fileName, shortenHome } from '../lib/paths';
-import { useT, plural } from '../i18n';
+import { useI18n, useT, plural } from '../i18n';
 import { useAvailableTargetsQuery, useHooksQuery, useMcpQuery } from '../hooks/useSharedQueries';
 import { invalidate } from '../lib/queryEvents';
 
@@ -91,7 +99,7 @@ export default function TargetDetailPage() {
 }
 
 function TargetEditor({ target, targets }: { target: Target; targets: Target[] }) {
-  const t = useT();
+  const { t, locale } = useI18n();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -222,6 +230,19 @@ function TargetEditor({ target, targets }: { target: Target; targets: Target[] }
       (e) => (e.kind === 'agent') === (k === 'agent') && e.status !== 'na',
     );
   const entries = entriesOf(kind);
+  const synced = entries.filter((e) => e.status === 'synced').length;
+  // Each kind ties its own rules to its own rows. The key names the filters the shown rows were computed
+  // for; a placeholder is the last ones' rows.
+  const loaded = preview.data && !preview.isPlaceholderData;
+  const skillFeedback = useFilterFeedback(
+    entriesOf('skill'),
+    loaded ? JSON.stringify([filters.include, filters.exclude]) : null,
+  );
+  const agentFeedback = useFilterFeedback(
+    entriesOf('agent'),
+    loaded ? JSON.stringify([filters.agentInclude, filters.agentExclude]) : null,
+  );
+  const feedback = kind === 'agent' ? agentFeedback : skillFeedback;
 
   const payload: Parameters<typeof api.updateTarget>[1] = {
     ...(!same(draft.include, saved.include) && { include: draft.include }),
@@ -572,189 +593,238 @@ function TargetEditor({ target, targets }: { target: Target; targets: Target[] }
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] items-start gap-12">
-          <section className="flex flex-col gap-5">
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="ss-h2">{t('targetDetail.whatSyncs')}</h2>
-              {!agent && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setStoppingSkills(true)}
-                  disabled={saving}
-                >
-                  <CirclePause size={15} />
-                  {t('targetDetail.skillsOff.stop')}
-                </Button>
-              )}
-            </div>
-            <FilterSection
-              kind={kind}
-              mode={mode}
-              name={target.name}
-              include={include}
-              exclude={exclude}
-              onChange={setFiltersFor}
-              entries={entries}
-              loaded={Boolean(preview.data)}
-              loading={preview.isPending}
-              error={preview.error}
-              disabled={saving}
-              alsoReadBy={agent ? undefined : target.skillsAlsoReadBy}
-              readsFrom={agent ? undefined : readsFrom}
-            />
-            {!agent && filtersClash && (
-              <div className="ss-note warn">
-                <TriangleAlert size={16} />
-                <div className="flex min-w-0 flex-col gap-2">
-                  <span>
-                    {t('targetDetail.shared.filters', {
-                      other: filtersClash.name,
-                      path: shortenHome(target.path),
-                    })}
-                  </span>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="self-start"
-                    onClick={() =>
-                      setDraft({
-                        ...draft,
-                        include: filtersClash.include,
-                        exclude: filtersClash.exclude,
-                      })
-                    }
-                    disabled={saving}
-                  >
-                    {t('targetDetail.shared.useFilters', { other: filtersClash.name })}
-                  </Button>
-                </div>
-              </div>
-            )}
-          </section>
-
-          <aside className="flex flex-col gap-7">
-            {agent && (
-              <div className="flex flex-col gap-1.5">
-                <span className="text-[13px] font-semibold">{t('targetDetail.agentsFolder')}</span>
-                <span className="flex items-center gap-2 font-mono text-[13px]">
-                  <Folder size={15} className="shrink-0 text-ink-3" />
-                  {shortenHome(target.agentPath ?? '')}
-                </span>
-                <span className="text-[12.5px] text-ink-3">
-                  {t('targetDetail.agentsFolderHint')}
-                </span>
-              </div>
-            )}
-            {agent && (
-              <div className="flex flex-col gap-1.5">
-                <span className="text-[13px] font-semibold">{t('extras.modal.colExtension')}</span>
-                <Select
-                  value={draft.agentExtension}
-                  // An extension converts each agent, so it always writes copies
-                  onChange={(v) =>
-                    setDraft({ ...draft, agentExtension: v, ...(v ? { agentMode: 'copy' } : {}) })
-                  }
-                  options={[
-                    { value: '', label: t('extras.noExtension') },
-                    ...[
-                      ...new Set([
-                        ...extensions,
-                        ...(draft.agentExtension ? [draft.agentExtension] : []),
-                      ]),
-                    ].map((e) => ({ value: e, label: e })),
-                  ]}
-                  disabled={saving || (extensions.length === 0 && !draft.agentExtension)}
-                />
-                <span className="text-[12.5px] text-ink-3">
-                  {t('extras.hint.extension')}{' '}
-                  {extensions.length === 0 && (
-                    <Link
-                      to="/config?tab=extensions"
-                      className="font-semibold text-ink-2 hover:text-ink"
+        <RailLayout
+          pageScroll
+          rail={
+            <>
+              <FilterCard
+                key={kind}
+                kind={kind}
+                include={include}
+                exclude={exclude}
+                onChange={setFiltersFor}
+                entries={preview.data ? entries : undefined}
+                symlink={mode === 'symlink'}
+                disabled={saving}
+                feedback={feedback}
+                note={
+                  !agent &&
+                  (target.skillsAlsoReadBy?.length ?? 0) > 0 && (
+                    <p className="text-xs leading-normal text-ink-2">
+                      {t('targetDetail.alsoReadBy.filterHint', {
+                        names: joinList(target.skillsAlsoReadBy ?? [], locale),
+                      })}
+                    </p>
+                  )
+                }
+              />
+              {!agent && filtersClash && (
+                <div className="ss-note warn">
+                  <TriangleAlert size={16} />
+                  <div className="flex min-w-0 flex-col gap-2">
+                    <span>
+                      {t('targetDetail.shared.filters', {
+                        other: filtersClash.name,
+                        path: shortenHome(target.path),
+                      })}
+                    </span>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="self-start"
+                      onClick={() =>
+                        setDraft({
+                          ...draft,
+                          include: filtersClash.include,
+                          exclude: filtersClash.exclude,
+                        })
+                      }
+                      disabled={saving}
                     >
-                      {t('extras.installExtensionHint')}
-                    </Link>
-                  )}
-                </span>
-              </div>
-            )}
-            <div className="flex flex-col gap-3">
-              <h2 className="ss-h2">{t('targetDetail.syncMode')}</h2>
-              <ModePicker
+                      {t('targetDetail.shared.useFilters', { other: filtersClash.name })}
+                    </Button>
+                  </div>
+                </div>
+              )}
+              {agent && (
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[13px] font-semibold">
+                    {t('targetDetail.agentsFolder')}
+                  </span>
+                  <span className="flex items-center gap-2 font-mono text-[13px]">
+                    <Folder size={15} className="shrink-0 text-ink-3" />
+                    {shortenHome(target.agentPath ?? '')}
+                  </span>
+                  <span className="text-[12.5px] text-ink-3">
+                    {t('targetDetail.agentsFolderHint')}
+                  </span>
+                </div>
+              )}
+              {agent && (
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[13px] font-semibold">
+                    {t('extras.modal.colExtension')}
+                  </span>
+                  <Select
+                    value={draft.agentExtension}
+                    // An extension converts each agent, so it always writes copies
+                    onChange={(v) =>
+                      setDraft({ ...draft, agentExtension: v, ...(v ? { agentMode: 'copy' } : {}) })
+                    }
+                    options={[
+                      { value: '', label: t('extras.noExtension') },
+                      ...[
+                        ...new Set([
+                          ...extensions,
+                          ...(draft.agentExtension ? [draft.agentExtension] : []),
+                        ]),
+                      ].map((e) => ({ value: e, label: e })),
+                    ]}
+                    disabled={saving || (extensions.length === 0 && !draft.agentExtension)}
+                  />
+                  <span className="text-[12.5px] text-ink-3">
+                    {t('extras.hint.extension')}{' '}
+                    {extensions.length === 0 && (
+                      <Link
+                        to="/config?tab=extensions"
+                        className="font-semibold text-ink-2 hover:text-ink"
+                      >
+                        {t('extras.installExtensionHint')}
+                      </Link>
+                    )}
+                  </span>
+                </div>
+              )}
+              <ModeField
                 kind={kind}
                 mode={mode}
                 onChange={(m) => (agent ? setDraft({ ...draft, agentMode: m }) : setSkillsMode(m))}
                 disabled={saving || (agent && draft.agentExtension !== '')}
-              />
-              {modeClash && sharedNote(modeClash, 'mode')}
-            </div>
+              >
+                {modeClash && sharedNote(modeClash, 'mode')}
+              </ModeField>
 
-            {!agent && draft.mode !== 'symlink' && (
-              <div className="flex flex-col gap-1.5">
-                <div className="flex items-center gap-4">
-                  <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                    <span className="flex items-center gap-2 text-[13px] font-semibold">
-                      {t('targetDetail.naming')}
-                      {draft.naming !== saved.naming && (
-                        <span className="ss-tag inf">{t('targetDetail.pending')}</span>
-                      )}
-                    </span>
-                    <span className="text-[13px] text-ink-2">
-                      {t(
-                        draft.naming === 'standard'
-                          ? 'targetDetail.namingStandard'
-                          : draft.naming === 'prefixed'
-                            ? 'targetDetail.namingPrefixed'
-                            : 'targetDetail.namingFlat',
-                      )}
-                    </span>
-                  </div>
+              {!agent && draft.mode !== 'symlink' && (
+                <div className="flex flex-col gap-1.5">
+                  <h3 className="flex items-center gap-2 text-[15px] font-semibold">
+                    {t('targetDetail.naming')}
+                    {draft.naming !== saved.naming && (
+                      <span className="ss-tag inf">{t('targetDetail.pending')}</span>
+                    )}
+                  </h3>
                   <SegmentedControl
                     value={draft.naming}
                     onChange={(naming) => setDraft({ ...draft, naming })}
                     options={namingOptions}
+                    className="self-start"
                   />
+                  <span className="text-xs leading-normal text-ink-2">
+                    {t(
+                      draft.naming === 'standard'
+                        ? 'targetDetail.namingStandard'
+                        : draft.naming === 'prefixed'
+                          ? 'targetDetail.namingPrefixed'
+                          : 'targetDetail.namingFlat',
+                    )}
+                  </span>
+                  {prefixedOff && (
+                    <span className="flex items-center gap-1.5 text-[13px] text-ink-3">
+                      <Info size={14} className="shrink-0" />
+                      {t('targetDetail.prefixedNeedsCopy')}
+                    </span>
+                  )}
+                  {namingClash && sharedNote(namingClash, 'naming')}
+                  {targetSkipHints(target).length > 0 && (
+                    <span className="text-[13px] text-warn">
+                      {t(plural('sync.skipped', target.skippedSkillCount ?? 0), {
+                        count: target.skippedSkillCount ?? 0,
+                        name: target.name,
+                      })}{' '}
+                      {targetSkipHints(target)
+                        .map((key) => t(key, { name: target.name }))
+                        .join(' ')}
+                    </span>
+                  )}
                 </div>
-                {prefixedOff && (
-                  <span className="flex items-center gap-1.5 text-[13px] text-ink-3">
-                    <Info size={14} className="shrink-0" />
-                    {t('targetDetail.prefixedNeedsCopy')}
-                  </span>
-                )}
-                {namingClash && sharedNote(namingClash, 'naming')}
-                {targetSkipHints(target).length > 0 && (
-                  <span className="text-[13px] text-warn">
-                    {t(plural('sync.skipped', target.skippedSkillCount ?? 0), {
-                      count: target.skippedSkillCount ?? 0,
-                      name: target.name,
-                    })}{' '}
-                    {targetSkipHints(target)
-                      .map((key) => t(key, { name: target.name }))
-                      .join(' ')}
-                  </span>
-                )}
-              </div>
-            )}
+              )}
 
-            {local > 0 && (
-              <div className="ss-box flex flex-col gap-3">
-                <span className="flex items-center gap-2 font-semibold">
-                  <ArrowDownToLine size={16} />
-                  {t('targetDetail.collect')}
-                </span>
-                <p className="text-[13px] text-ink-2">
-                  {t(plural(`targetDetail.collectHint.${agent ? 'agents' : 'skills'}`, local), {
-                    count: local,
-                  })}
-                </p>
-                <Button variant="secondary" onClick={() => setCollecting(true)}>
-                  {t(plural(`collectDialog.run.${kind}`, local), { count: local })}
-                </Button>
-              </div>
+              {local > 0 && (
+                <div className="ss-box flex flex-col gap-3">
+                  <span className="flex items-center gap-2 font-semibold">
+                    <ArrowDownToLine size={16} />
+                    {t('targetDetail.collect')}
+                  </span>
+                  <p className="text-[13px] text-ink-2">
+                    {t(plural(`targetDetail.collectHint.${agent ? 'agents' : 'skills'}`, local), {
+                      count: local,
+                    })}
+                  </p>
+                  <Button variant="secondary" onClick={() => setCollecting(true)}>
+                    {t(plural(`collectDialog.run.${kind}`, local), { count: local })}
+                  </Button>
+                </div>
+              )}
+            </>
+          }
+        >
+          <section className="flex flex-col gap-3">
+            <ProjectSectionHead
+              icon={agent ? <Bot size={16} /> : <Puzzle size={16} />}
+              title={t(`targetDetail.syncTo.${agent ? 'agents' : 'skills'}`, { name: target.name })}
+              count={preview.data ? `${synced} / ${entries.length}` : undefined}
+              hint={t(`targetDetail.syncHint.${agent ? 'agents' : 'skills'}`, {
+                name: target.name,
+              })}
+            >
+              {!agent && (
+                // Turning skills off asks first: it says who else loses them.
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked
+                  aria-label={t('targetDetail.syncTo.skills', { name: target.name })}
+                  className="grid h-7 shrink-0 place-items-center disabled:opacity-50"
+                  disabled={saving}
+                  onClick={() => setStoppingSkills(true)}
+                >
+                  <span className="ss-sw on">
+                    <i />
+                  </span>
+                </button>
+              )}
+            </ProjectSectionHead>
+            {!agent && (target.skillsAlsoReadBy?.length ?? 0) > 0 && (
+              <TargetRow
+                sentence={t('targetDetail.alsoReadBy.sentence', { names: NAMES })}
+                names={target.skillsAlsoReadBy ?? []}
+              />
             )}
-          </aside>
-        </div>
+            {!agent && readsFrom.length > 0 && (
+              <TargetRow
+                sentence={t('targetDetail.readsFrom.sentence', { names: NAMES })}
+                names={readsFrom}
+              />
+            )}
+            {mode === 'symlink' ? (
+              <div className="ss-note inf">
+                <span className="flex-1">{t('targetDetail.symlinkNoFilters')}</span>
+              </div>
+            ) : (
+              <PreviewList
+                key={kind}
+                kind={kind}
+                entries={entries}
+                include={include}
+                exclude={exclude}
+                onChange={setFiltersFor}
+                loading={preview.isPending}
+                error={preview.error}
+                disabled={saving}
+                feedback={feedback}
+              />
+            )}
+          </section>
+        </RailLayout>
       )}
 
       {removing && (

@@ -10,6 +10,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import type { MCPPlan } from '../../api/mcp';
+import AgentIcon from '../AgentIcon';
 import Button from '../Button';
 import DialogShell from '../DialogShell';
 import MCPNotices from './MCPNotices';
@@ -18,7 +19,14 @@ import SyncResultList from '../SyncResultList';
 import { MCP_CHANGED, mcpGroups, runSync } from '../sync/syncView';
 import { useT, plural } from '../../i18n';
 import { shortenHome } from '../../lib/paths';
-import { offListFor, projectOf, targetLabel, writes, type MCPChange } from './mcpView';
+import {
+  groupByServer,
+  offListFor,
+  projectOf,
+  targetLabel,
+  writes,
+  type MCPChange,
+} from './mcpView';
 import { invalidate } from '../../lib/queryEvents';
 
 function ChangeLines({ changes, roots }: { changes: MCPChange[]; roots: string[] }) {
@@ -34,6 +42,62 @@ function ChangeLines({ changes, roots }: { changes: MCPChange[]; roots: string[]
             agent={root ? `${targetLabel(c.target)} · ${shortenHome(root)}` : targetLabel(c.target)}
             word={t(`mcp.status.${c.action}`)}
           />
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * One line per server and action, for a single project where every change lands in the same root.
+ * Ten Agents would otherwise make ten lines per server; the line opens to name them.
+ */
+function ChangeGroups({ changes }: { changes: MCPChange[] }) {
+  const t = useT();
+  const [open, setOpen] = useState('');
+  return (
+    <div className="flex flex-col gap-1.5">
+      {groupByServer(changes).map((g) => {
+        const key = `${g.name}:${g.action}`;
+        const word = t(`mcp.status.${g.action}`);
+        if (g.targets.length === 1) {
+          return <RailLine key={key} name={g.name} agent={targetLabel(g.targets[0])} word={word} />;
+        }
+        const expanded = open === key;
+        return (
+          <div key={key} className="flex flex-col gap-1.5">
+            <button
+              type="button"
+              aria-expanded={expanded}
+              className="flex items-baseline gap-1.5 text-left text-[13px] text-ink-2"
+              onClick={() => setOpen(expanded ? '' : key)}
+            >
+              <span
+                className="max-w-[45%] shrink-0 truncate font-mono text-[12.5px] font-semibold text-ink"
+                title={g.name}
+              >
+                {g.name}
+              </span>
+              <span className="min-w-0 flex-1 truncate">
+                → {t(plural('mcp.agents', g.targets.length), { count: g.targets.length })}
+              </span>
+              <span className="shrink-0 font-mono text-xs text-ink">{word}</span>
+              <ChevronRight
+                size={14}
+                className={`shrink-0 self-center transition-transform duration-150 ease-[cubic-bezier(.23,1,.32,1)] motion-reduce:transition-none ${expanded ? 'rotate-90' : ''}`}
+              />
+            </button>
+            {expanded && (
+              <div className="flex flex-wrap gap-1.5 pb-1">
+                {g.targets.map((x) => (
+                  <span key={x} className="ss-tag inline-flex items-center gap-1">
+                    <AgentIcon target={x} size={12} />
+                    {targetLabel(x)}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
         );
       })}
     </div>
@@ -208,7 +272,14 @@ export default function MCPSyncBox({
   plan,
   check,
   onBackups,
-}: { changes: MCPChange[]; roots: string[]; plan: MCPPlan } & MCPRailActionsProps) {
+  byServer,
+}: {
+  changes: MCPChange[];
+  roots: string[];
+  plan: MCPPlan;
+  /** Group the lines by server, for one project's changes. */
+  byServer?: boolean;
+} & MCPRailActionsProps) {
   const t = useT();
   const navigate = useNavigate();
   // Held while the dialog is open, so the list it confirms stays put when the queries refresh.
@@ -225,7 +296,11 @@ export default function MCPSyncBox({
     >
       {pending.length > 0 && (
         <>
-          <ChangeLines changes={pending} roots={roots} />
+          {byServer ? (
+            <ChangeGroups changes={pending} />
+          ) : (
+            <ChangeLines changes={pending} roots={roots} />
+          )}
           {/* A blocked plan applies nothing; the Sync page shows why. */}
           {plan.blocked ? (
             <Button className="w-full justify-center" onClick={() => navigate('/sync')}>

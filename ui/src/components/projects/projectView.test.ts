@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ProjectList } from '../../api/client';
 import type { HookChange, HookInventory } from '../../api/hooks';
-import { projectHealth, projectRows, toolGroups } from './projectView';
+import { inSegment, projectHealth, projectRows, syncBoxState, writeFolders } from './projectView';
 
 const tools: ProjectList['tools'] = [
   { name: 'claude', skillsPath: '.claude/skills', agentsPath: '.claude/agents' },
@@ -9,12 +9,30 @@ const tools: ProjectList['tools'] = [
   { name: 'cursor', skillsPath: '.agents/skills', agentsPath: '.cursor/agents' },
 ];
 
-describe('toolGroups', () => {
-  it('puts tools that share a skills folder in one group', () => {
-    expect(toolGroups(tools, ['claude', 'codex', 'cursor'])).toEqual([
-      { tools: ['claude'], skillsPath: '.claude/skills' },
-      { tools: ['codex', 'cursor'], skillsPath: '.agents/skills' },
+describe('writeFolders', () => {
+  it('writes a shared skills folder once', () => {
+    expect(writeFolders(tools, ['claude', 'codex', 'cursor'], 'skill').folders).toEqual([
+      { tools: ['claude'], path: '.claude/skills' },
+      { tools: ['codex', 'cursor'], path: '.agents/skills' },
     ]);
+  });
+
+  it('sets apart the tools without a project agents folder', () => {
+    expect(writeFolders(tools, ['claude', 'codex', 'cursor'], 'agent')).toEqual({
+      folders: [
+        { tools: ['claude'], path: '.claude/agents' },
+        { tools: ['cursor'], path: '.cursor/agents' },
+      ],
+      none: ['codex'],
+    });
+  });
+});
+
+describe('inSegment', () => {
+  it('counts every status but synced as skipped', () => {
+    expect(
+      ['synced', 'excluded', 'skill_target_mismatch'].map((s) => inSegment(s, 'skip')),
+    ).toEqual([false, true, true]);
   });
 });
 
@@ -115,5 +133,15 @@ describe('projects and hooks', () => {
     ]);
     const [a] = projectRows(list, undefined, hooks);
     expect(projectHealth(a, [], undefined, hooks)).toEqual({ state: 'conflict', count: 1 });
+  });
+});
+
+describe('syncBoxState', () => {
+  it('warns of a conflict rather than calling the project in sync', () => {
+    expect(syncBoxState('conflict')).toEqual({ tone: 'warn', key: 'projects.state.conflict' });
+  });
+
+  it('says a missing folder is missing', () => {
+    expect(syncBoxState('missing').key).toBe('projects.state.missing');
   });
 });

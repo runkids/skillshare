@@ -1,7 +1,8 @@
 import { scalarText } from '../../lib/scalarText';
 import { Fragment, useState } from 'react';
 import { Ellipsis } from 'lucide-react';
-import { useT } from '../../i18n';
+import { useT, plural } from '../../i18n';
+import { shortenHome } from '../../lib/paths';
 import Reveal from '../Reveal';
 import { mcpOffTargets } from '../../api/mcp';
 import { describeEndpoint, hasToolPolicy, toolSummary, writes, type MatrixRow } from './mcpView';
@@ -21,6 +22,8 @@ interface Props {
   disabled?: boolean;
   /** The last check's errors and warnings, by server name. */
   problems?: Record<string, MCPCheckFinding[]>;
+  /** The projects that use each server that loads only in those (`global: false`). */
+  users?: Record<string, string[]>;
 }
 
 /**
@@ -36,6 +39,7 @@ export default function MCPServerList({
   offTargets = mcpOffTargets,
   disabled = false,
   problems = {},
+  users = {},
 }: Props) {
   const t = useT();
   const [open, setOpen] = useState<string[]>([]);
@@ -85,6 +89,15 @@ export default function MCPServerList({
                 {row.server && !row.server.disabled && row.server.targets?.length === 0 && (
                   <span className="ss-tag">{t('plugins.noAgentsYet')}</span>
                 )}
+                {row.server && users[row.name] && (
+                  <span className={`ss-tag ${users[row.name].length === 0 ? 'warn' : ''}`}>
+                    {users[row.name].length === 0
+                      ? t('mcp.shared.unused')
+                      : t(plural('mcp.shared.badge', users[row.name].length), {
+                          count: users[row.name].length,
+                        })}
+                  </span>
+                )}
                 {problems[row.name] && <MCPCheckTag findings={problems[row.name]} />}
                 {row.server && !row.server.disabled && hasToolPolicy(row.server.tools) && (
                   <span className="ss-tag">
@@ -107,6 +120,11 @@ export default function MCPServerList({
                   </button>
                 )}
               </span>
+              {row.server && users[row.name] && users[row.name].length > 0 && (
+                <span className="truncate font-mono text-xs text-ink-3">
+                  {users[row.name].map(shortenHome).join(', ')}
+                </span>
+              )}
               {(!row.server || row.server.disabled) && (
                 <span className="flex min-w-0 items-center gap-2 text-xs text-ink-3">
                   <span className="truncate">

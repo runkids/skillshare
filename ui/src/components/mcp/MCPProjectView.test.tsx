@@ -78,4 +78,30 @@ describe('MCP project view', () => {
       }),
     );
   });
+
+  it("turns a shared server on by adding it to this project's use list", async () => {
+    const user = userEvent.setup();
+    view({ docs: { url: 'https://docs.example/mcp', global: false } }, {});
+    await user.click(screen.getByRole('switch', { name: 'docs' }));
+    await waitFor(() =>
+      expect(mcpApi.save).toHaveBeenCalledWith({ name: 'docs', using: true, project: '/work/app' }),
+    );
+  });
+
+  it('keeps the first shared server when a second is turned on before the page reloads', async () => {
+    const user = userEvent.setup();
+    const shared = { url: 'https://docs.example/mcp', global: false };
+    view({ docs: shared, wiki: shared }, {});
+    await user.click(screen.getByRole('switch', { name: 'docs' }));
+    await waitFor(() => expect(screen.getByRole('switch', { name: 'wiki' })).toBeEnabled());
+    await user.click(screen.getByRole('switch', { name: 'wiki' }));
+    // Each switch sends only its own name, so the second save cannot undo the first.
+    await waitFor(() =>
+      expect(mcpApi.save).toHaveBeenLastCalledWith({
+        name: 'wiki',
+        using: true,
+        project: '/work/app',
+      }),
+    );
+  });
 });
