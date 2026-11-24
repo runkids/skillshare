@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.31.0](https://github.com/runkids/skillshare/compare/v0.30.13...v0.31.0) (2026-11-24)
+## [0.31.0] - 2026-11-24
 
 
 ### New Features
