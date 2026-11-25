@@ -887,10 +887,13 @@ export default function MCPPage() {
             <MCPConfigDialog
               mutation={{
                 name: viewing,
-                server: {
-                  ...servers[viewing],
-                  targets: order.filter((x) => targetsOf(viewing).includes(x)),
-                },
+                // A shared server goes as saved: each project that uses it decides its targets.
+                server: isShared(servers[viewing])
+                  ? servers[viewing]
+                  : {
+                      ...servers[viewing],
+                      targets: order.filter((x) => targetsOf(viewing).includes(x)),
+                    },
               }}
               onClose={() => setViewing('')}
             />

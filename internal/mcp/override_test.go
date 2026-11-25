@@ -119,11 +119,41 @@ func TestRenderNativeShowsEachRootsOverride(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, r := range s.RenderNative("docs", source.Servers["docs"]) {
+	rendered := s.RenderNative("docs", source.Servers["docs"])
+	if len(rendered) != 2 {
+		t.Fatalf("want api's and billing's pi files, got %+v", rendered)
+	}
+	for _, r := range rendered {
 		direct := strings.Contains(r.Content, `"direct"`)
 		if billing := strings.HasPrefix(r.Path, filepath.Join(tmp, "billing")); direct != billing {
 			t.Fatalf("%s: direct = %v\n%s", r.Path, direct, r.Content)
 		}
+	}
+}
+
+func TestRenderNativeGivesEachRootItsOwnTargets(t *testing.T) {
+	s, tmp := projectsService(t, `mcp:
+  servers:
+    docs: {url: https://docs.example.com/mcp, global: false, targets: [cursor]}
+  projects:
+    $TMP/api:
+      use: [docs]
+    $TMP/billing:
+      use: [docs]
+      overrides:
+        docs: {targets: [pi]}
+`)
+	source, err := LoadSource(s.ConfigPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, r := range s.RenderNative("docs", source.Servers["docs"]) {
+		root, _ := filepath.Rel(tmp, filepath.Dir(filepath.Dir(r.Path)))
+		got = append(got, root+":"+r.Target)
+	}
+	if want := []string{"api:cursor", "billing:pi"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("rendered %v, want %v", got, want)
 	}
 }
 
