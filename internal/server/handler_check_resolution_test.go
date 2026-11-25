@@ -64,6 +64,9 @@ func wantDashboardSkills(versions map[string]string) []skillCheckResult {
 		if name == "current" {
 			r.InstalledAt = "2024-05-06"
 		}
+		if name == "broken" {
+			r.Message = "Could not read from remote repository."
+		}
 		want = append(want, r)
 	}
 	sortSkillResults(want)

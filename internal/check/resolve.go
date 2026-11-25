@@ -192,6 +192,7 @@ func (g remoteGroup) resolve(remote Remote) []SkillResult {
 	if err != nil {
 		for i := range results {
 			results[i].Status = "error"
+			results[i].Message = err.Error()
 		}
 		return results
 	}

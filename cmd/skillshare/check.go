@@ -820,7 +820,7 @@ func (c checkTally) err(exitCode bool) error {
 }
 
 // skillErrorMessage returns the reason for an "error" skill result, falling
-// back to the remote-probe failure that most errors come from.
+// back to the remote probe for a result that carries none.
 func skillErrorMessage(s checkSkillResult) string {
 	if s.Message != "" {
 		return s.Message
