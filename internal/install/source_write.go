@@ -27,6 +27,36 @@ func removeInSource(sourceDir, destPath string, follow *sourcewalk.Follow) error
 	return src.RemoveAll(rel)
 }
 
+// setAsideInSource renames destPath, below the skills source sourceDir, to a
+// hidden sibling so a reinstall over it can be undone. restore puts it back in
+// place of whatever the failed install left; discard deletes it.
+func setAsideInSource(sourceDir, destPath string, follow *sourcewalk.Follow) (restore, discard func() error, err error) {
+	src, err := sourcefs.Open(sourceDir, follow)
+	if err != nil {
+		return nil, nil, err
+	}
+	rel, err := src.Rel(destPath)
+	if err == nil {
+		backup := filepath.Join(filepath.Dir(rel), ".skillshare-"+filepath.Base(rel)+".old."+strconv.FormatInt(time.Now().UnixNano(), 36))
+		if err = src.Rename(rel, backup); err == nil {
+			restore = func() error {
+				defer src.Close()
+				if err := src.RemoveAll(rel); err != nil {
+					return err
+				}
+				return src.Rename(backup, rel)
+			}
+			discard = func() error {
+				defer src.Close()
+				return src.RemoveAll(backup)
+			}
+			return restore, discard, nil
+		}
+	}
+	src.Close()
+	return nil, nil, err
+}
+
 // swapStagedIntoSource replaces destPath, below the skills source sourceDir,
 // with the staged directory. The rename crosses the source's edge, so the
 // in-source side is checked through the handle first. Only a cross-device

@@ -375,19 +375,34 @@ func installImpl(source *Source, destPath string, opts InstallOptions) (*Install
 			}
 			// nil means empty/invalid dir — safe to overwrite, fall through.
 		}
-		// Force mode (or empty dir): remove existing
+		// Force mode (or empty dir): set the existing skill aside, and put it
+		// back if the new version fails to install.
 		if !opts.DryRun {
-			if err := removeInSource(opts.SourceDir, destPath, opts.SourceFollow); err != nil {
-				return nil, fmt.Errorf("failed to remove existing skill: %w", err)
+			restore, discard, err := setAsideInSource(opts.SourceDir, destPath, opts.SourceFollow)
+			if err != nil {
+				return nil, fmt.Errorf("failed to set the existing skill aside: %w", err)
 			}
+			installed, err := installBySourceType(source, destPath, result, opts)
+			if err != nil {
+				if restoreErr := restore(); restoreErr != nil {
+					return nil, fmt.Errorf("%w; restoring the previous version failed: %v", err, restoreErr)
+				}
+				return nil, err
+			}
+			if err := discard(); err != nil {
+				installed.Warnings = append(installed.Warnings, fmt.Sprintf("failed to remove the previous version: %v", err))
+			}
+			return installed, nil
 		}
 	} else if destInfo != nil && !destInfo.IsDir() {
 		return nil, fmt.Errorf("destination exists but is not a directory")
 	}
 
-	result.SkillPath = destPath
+	return installBySourceType(source, destPath, result, opts)
+}
 
-	// Execute installation based on source type
+func installBySourceType(source *Source, destPath string, result *InstallResult, opts InstallOptions) (*InstallResult, error) {
+	result.SkillPath = destPath
 	switch source.Type {
 	case SourceTypeLocalPath:
 		return installFromLocal(source, destPath, result, opts)
