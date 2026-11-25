@@ -154,6 +154,25 @@ func handleUpdate(source *Source, destPath string, result *InstallResult, opts I
 		// Installation failed - original skill is preserved
 		return nil, err
 	}
+	// Preserve metadata generated during the temp install, then write it against
+	// the real destination after the swap. Writing the temp install directly to
+	// opts.SourceDir would create ../../ temp-path keys for nested skills.
+	updatedMeta := readTempUpdateMeta(tempDir)
+	entry := opts.MergeBase
+	if entry == nil && source.IsGit() {
+		entry = recordedEntry(destPath, opts.SourceDir)
+	}
+	trimmed, err := keepInstalledShape(entry, source, tempDest)
+	if err != nil {
+		return nil, fmt.Errorf("failed to keep the installed layout: %w", err)
+	}
+	if trimmed && updatedMeta != nil {
+		hashes, err := ComputeFileHashes(tempDest)
+		if err != nil {
+			return nil, fmt.Errorf("failed to hash the new version: %w", err)
+		}
+		updatedMeta.FileHashes = hashes
+	}
 	// A branch or upstream commit that dropped SKILL.md would replace a skill
 	// with a plain folder.
 	if skillFileExists(destPath) && !skillFileExists(tempDest) {
@@ -167,8 +186,8 @@ func handleUpdate(source *Source, destPath string, result *InstallResult, opts I
 		if !changed {
 			// Upstream left this skill alone: keep the local files, record the
 			// new version.
-			if meta := readTempUpdateMeta(tempDir); meta != nil {
-				if err := WriteMetaToStore(opts.SourceDir, destPath, meta); err != nil {
+			if updatedMeta != nil {
+				if err := WriteMetaToStore(opts.SourceDir, destPath, updatedMeta); err != nil {
 					result.Warnings = append(result.Warnings, fmt.Sprintf("failed to write metadata: %v", err))
 				}
 			}
@@ -185,11 +204,6 @@ func handleUpdate(source *Source, destPath string, result *InstallResult, opts I
 		result.AuditThreshold = innerResult.AuditThreshold
 		result.Warnings = append(result.Warnings, innerResult.Warnings...)
 	}
-
-	// Preserve metadata generated during the temp install, then write it against
-	// the real destination after the swap. Writing the temp install directly to
-	// opts.SourceDir would create ../../ temp-path keys for nested skills.
-	updatedMeta := readTempUpdateMeta(tempDir)
 
 	// Installation succeeded - now safe to remove original and move new
 	if err := swapStagedIntoSource(opts.SourceDir, tempDest, destPath, opts.SourceFollow); err != nil {

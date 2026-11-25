@@ -187,6 +187,8 @@ internal/install/install_update.go	handleUpdate	os.MkdirTemp	""	tmp
 internal/install/install_update.go	handleUpdate	os.RemoveAll	tempDir	tmp
 internal/install/install_update.go	updateRepoRootOrchestrator	os.MkdirTemp	""	tmp
 internal/install/install_update.go	updateRepoRootOrchestrator	os.RemoveAll	tempDir	tmp
+internal/install/installed_shape.go	keepInstalledShape	os.RemoveAll	filepath.Join(dir, filepath.FromSlash(skill.Path))	tmp
+internal/install/installed_shape.go	keepOnlySkillFile	os.RemoveAll	filepath.Join(dir, e.Name())	tmp
 internal/install/local_changes.go	installedVersion	os.MkdirTemp	""	tmp
 internal/install/local_changes.go	installedVersion	os.RemoveAll	tmp	tmp
 internal/install/local_changes.go	LocalChanges	os.RemoveAll	tmp	tmp

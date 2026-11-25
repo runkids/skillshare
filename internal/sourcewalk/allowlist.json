@@ -584,6 +584,14 @@
     "note": "Read nested legacy skill sidecars without following source entries"
   },
   {
+    "file": "internal/install/installed_shape.go",
+    "function": "keepOnlySkillFile",
+    "callee": "os.ReadDir",
+    "root": "dir",
+    "reason": "clone",
+    "note": "Trim a fresh clone of a repository-root skill to its SKILL.md"
+  },
+  {
     "file": "internal/instructions/instructions.go",
     "function": "countMarkdown",
     "callee": "filepath.WalkDir",
