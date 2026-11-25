@@ -1274,6 +1274,7 @@
   "install.hubs.subtitle": "Pencarian dilakukan di hub yang Anda pilih. Pencarian GitHub selalu tersedia.",
   "install.toast.installed": "{label}: Terinstal",
   "install.toast.exists": "{count} sudah terpasang: {names}. Untuk mengganti, aktifkan Force overwrite di Advanced.",
+  "install.toast.connectionLost": "Koneksi terputus sebelum instalasi selesai. Instalasi mungkin tetap berhasil, jadi periksa skill Anda sebelum mencoba lagi.",
   "install.done": "Selesai",
   "install.title.skills": "Instal skill",
   "install.title.agents": "Instal agent",

@@ -1274,6 +1274,7 @@
   "install.hubs.subtitle": "搜索会在你选择的 hub 中进行。GitHub 搜索始终可用。",
   "install.toast.installed": "{label}：已安装",
   "install.toast.exists": "{count} 个已安装：{names}。要覆盖请在 Advanced 中开启 Force overwrite。",
+  "install.toast.connectionLost": "安装完成前连接中断。安装可能已经完成，请先检查 skill 列表再重试。",
   "install.done": "完成",
   "install.title.skills": "安装 skill",
   "install.title.agents": "安装 agent",

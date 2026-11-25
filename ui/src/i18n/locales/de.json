@@ -1274,6 +1274,7 @@
   "install.hubs.subtitle": "Die Suche durchsucht den ausgewählten Hub. Die GitHub-Suche ist immer verfügbar.",
   "install.toast.installed": "{label}: Installiert",
   "install.toast.exists": "{count} bereits installiert: {names}. Zum Ersetzen unter Advanced Force overwrite aktivieren.",
+  "install.toast.connectionLost": "Die Verbindung brach ab, bevor die Installation fertig war. Sie ist vielleicht trotzdem abgeschlossen. Prüfe deine Skills, bevor du es erneut versuchst.",
   "install.done": "Fertig",
   "install.title.skills": "Skills installieren",
   "install.title.agents": "Agents installieren",
