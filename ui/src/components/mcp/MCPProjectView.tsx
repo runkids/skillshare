@@ -626,7 +626,6 @@ export default function MCPProjectView({ data, root, offered, onChanged, onRemov
           name={overriding}
           root={root}
           source={data.source}
-          offered={offered}
           paths={paths}
           onClose={() => setOverriding('')}
           onSaved={onChanged}

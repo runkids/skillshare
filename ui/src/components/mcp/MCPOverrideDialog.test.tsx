@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from '../../i18n';
 import { mcpApi, type MCPOverride, type MCPServer } from '../../api/mcp';
+import { mcpCheckApi } from '../../api/mcpCheck';
 import { ToastProvider } from '../Toast';
 import MCPOverrideDialog from './MCPOverrideDialog';
 
@@ -11,6 +12,7 @@ vi.mock('../../api/mcp', async (load) => ({
   ...(await load<typeof import('../../api/mcp')>()),
   mcpApi: { save: vi.fn().mockResolvedValue({}) },
 }));
+vi.mock('../../api/mcpCheck', () => ({ mcpCheckApi: { probe: vi.fn().mockResolvedValue({}) } }));
 
 type Source = Parameters<typeof MCPOverrideDialog>[0]['source'];
 
@@ -36,8 +38,7 @@ const open = (server: MCPServer, override?: MCPOverride, targets: string[] | nul
             name="docs"
             root="/work/billing"
             source={source}
-            offered={['claude', 'pi']}
-            paths={{ pi: '/work/billing/.pi/mcp.json' }}
+            paths={{ claude: '/work/billing/.mcp.json', pi: '/work/billing/.pi/mcp.json' }}
             onClose={vi.fn()}
             onSaved={vi.fn()}
           />
@@ -141,6 +142,34 @@ describe('MCP override dialog', () => {
         name: 'docs',
         override: { targets: ['claude'] },
       }),
+    );
+  });
+
+  it('leaves out an inherited Agent that has no file in this project', async () => {
+    const user = userEvent.setup();
+    open({ ...docs, targets: ['claude', 'windsurf'] });
+    await user.click(screen.getByRole('combobox', { name: 'Targets' }));
+    await user.click(screen.getByRole('option', { name: 'Choose Agents for this project' }));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(mcpApi.save).toHaveBeenLastCalledWith({
+        project: '/work/billing',
+        name: 'docs',
+        override: { targets: ['claude'] },
+      }),
+    );
+  });
+
+  it("loads this project's tools from the project's folder", async () => {
+    const user = userEvent.setup();
+    open({ command: 'node', args: ['./scripts/mcp.js'], global: false });
+    await user.click(screen.getByRole('combobox', { name: 'Tools' }));
+    await user.click(screen.getByRole('option', { name: 'Choose tools for this project' }));
+    await user.click(screen.getByRole('button', { name: 'Load tools' }));
+    await waitFor(() =>
+      expect(mcpCheckApi.probe).toHaveBeenCalledWith(
+        expect.objectContaining({ project: '/work/billing' }),
+      ),
     );
   });
 

@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { Info, X } from 'lucide-react';
-import { mcpApi, type MCPOverride, type MCPToolPolicy } from '../../api/mcp';
+import { mcpApi, mcpTargets, type MCPOverride, type MCPToolPolicy } from '../../api/mcp';
 import { useT } from '../../i18n';
 import { shortenHome } from '../../lib/paths';
 import { scalarText } from '../../lib/scalarText';
@@ -29,9 +29,7 @@ interface Props {
   /** The mcp.projects root the override is for. */
   root: string;
   source: MCPList['source'];
-  /** The Agents offered for this project, in the order they are listed. */
-  offered: readonly string[];
-  /** Each Agent's config file in this project. */
+  /** Each Agent's config file in this project; only these Agents are offered. */
   paths: Record<string, string>;
   onClose: () => void;
   onSaved: () => void;
@@ -41,21 +39,15 @@ interface Props {
  * What one project changes in a shared server it uses. The connection stays the MCP page's,
  * so it is shown, not edited; the project chooses its Agents, Pi's tool exposure and tools.
  */
-export default function MCPOverrideDialog({
-  name,
-  root,
-  source,
-  offered,
-  paths,
-  onClose,
-  onSaved,
-}: Props) {
+export default function MCPOverrideDialog({ name, root, source, paths, onClose, onSaved }: Props) {
   const t = useT();
   const { toast } = useToast();
   const server = source.servers[name] ?? {};
   const project = source.projects?.[root];
   // Settings the dialog does not edit, such as other Agents' options, are kept as they are.
   const saved: MCPOverride = project?.overrides?.[name] ?? {};
+  // Global-only Agents have no file in a project, so the project cannot send the server there.
+  const offered: readonly string[] = mcpTargets.filter((x) => paths[x]);
   const inherited = server.targets ?? project?.targets ?? source.targets ?? [];
   const [targets, setTargets] = useState<string[] | undefined>(saved.targets);
   const [exposure, setExposure] = useState(scalarText(saved.piOptions?.exposure));
@@ -237,7 +229,7 @@ export default function MCPOverrideDialog({
                 tools={tools}
                 onChange={setTools}
                 disabled={busy}
-                probe={{ name, server: { ...server, global: undefined } }}
+                probe={{ project: root, name, server: { ...server, global: undefined } }}
               />
             )}
           </Field>

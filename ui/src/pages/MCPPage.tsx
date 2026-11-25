@@ -18,7 +18,6 @@ import {
 import {
   isShared,
   mcpApi,
-  mcpTargets,
   type MCPMutation,
   type MCPPlan,
   type MCPServer,
@@ -916,7 +915,6 @@ export default function MCPPage() {
               name={overriding.name}
               root={overriding.root}
               source={data.source}
-              offered={mcpTargets.filter((x) => data.paths[x])}
               paths={data.projectPaths[overriding.root] ?? {}}
               onClose={() => setOverriding(null)}
               onSaved={refresh}
