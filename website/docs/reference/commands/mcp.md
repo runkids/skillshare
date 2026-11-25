@@ -691,7 +691,8 @@ project has an **MCP** tab.
   off by default; its switch adds or removes the name in the project's `use`.
   **Only in this project** lists the servers that exist in that project only.
 - On the MCP page, a server's dialog has **Loads in**: **Every project**, or **Only
-  projects that turn it on**. The list marks a shared server **Opt-in · N projects**.
+  projects that turn it on**. Once a shared server exists, the list splits into **Global**
+  and **Only in chosen projects**, and a shared server's row shows **N projects**.
 - A server that is off shows the logos of the Agents it is off in. A server that is on shows
   the Agents it loads in, and none when a project server of the same name replaces it. When one of the
   project's Agents has no per-project switch, the row says that the server still loads
