@@ -131,3 +131,26 @@ func TestInstall_ForceWholeRepoScanErrorKeepsMetadata(t *testing.T) {
 		t.Fatalf("metadata version = %q, want the restored install's %q", got, installed)
 	}
 }
+
+// `install ./ -p --force` copies a folder that holds the skills source; the
+// previous version set aside there must not be copied into the new one.
+func TestInstall_ForceDoesNotCopyItsBackup(t *testing.T) {
+	src := t.TempDir()
+	if err := os.WriteFile(filepath.Join(src, "SKILL.md"), []byte("---\nname: demo\n---\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	sourceDir := filepath.Join(src, "installed")
+	dest := filepath.Join(sourceDir, "demo")
+	source := &Source{Type: SourceTypeLocalPath, Path: src, Name: "demo", Raw: src}
+	if _, err := Install(source, dest, InstallOptions{SourceDir: sourceDir, SkipAudit: true}); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := Install(source, dest, InstallOptions{SourceDir: sourceDir, SkipAudit: true, Force: true}); err != nil {
+		t.Fatal(err)
+	}
+
+	if copied, _ := filepath.Glob(filepath.Join(dest, "installed", ".skillshare-demo.old.*")); len(copied) != 0 {
+		t.Fatalf("backup copied into the new version: %v", copied)
+	}
+}

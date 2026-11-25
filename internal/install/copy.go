@@ -4,6 +4,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // copyDir recursively copies src into dst, skipping any `.git` directory.
@@ -31,8 +32,9 @@ func copyDirExcluding(src, dst string, excludes map[string]bool) error {
 		dstPath := filepath.Join(dst, relPath)
 
 		// If dst is inside src (for example `skillshare install ./ -p`),
-		// never traverse the destination subtree as source input.
-		if info.IsDir() && pathSameOrDescendant(path, absDst) {
+		// never traverse the destination subtree as source input, nor the
+		// previous version a --force reinstall set aside beside it.
+		if info.IsDir() && (pathSameOrDescendant(path, absDst) || isBackupOf(path, absDst)) {
 			return filepath.SkipDir
 		}
 
@@ -56,6 +58,14 @@ func copyDirExcluding(src, dst string, excludes map[string]bool) error {
 
 		return copyFile(path, dstPath)
 	})
+}
+
+// isBackupOf reports whether path is a previous version of dst that
+// setAsideInSource or swapStagedIntoSource keeps beside it.
+func isBackupOf(path, dst string) bool {
+	abs, err := filepath.Abs(path)
+	return err == nil && filepath.Dir(abs) == filepath.Dir(dst) &&
+		strings.HasPrefix(filepath.Base(abs), ".skillshare-"+filepath.Base(dst)+".old.")
 }
 
 func pathSameOrDescendant(path, parent string) bool {
