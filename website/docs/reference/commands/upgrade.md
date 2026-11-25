@@ -162,6 +162,8 @@ The built-in `skillshare` skill that adds the `/skillshare` command to AI CLIs. 
 ~/.config/skillshare/skills/skillshare/SKILL.md
 ```
 
+If you move it into a folder, for example from the dashboard, `upgrade --skill`, `status`, `doctor` and the dashboard find it there, and `upgrade --skill` updates it in place.
+
 ## See Also
 
 - [update](/docs/reference/commands/update) — Update other skills and repos

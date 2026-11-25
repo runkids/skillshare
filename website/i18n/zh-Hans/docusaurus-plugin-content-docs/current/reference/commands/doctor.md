@@ -200,7 +200,7 @@ opencode skips ~/.claude/skills: OPENCODE_DISABLE_CLAUDE_CODE_SKILLS is set in t
 ### Version
 
 - CLI 版本
-- skillshare skill 版本；有较新的 skill 发布时会给出警告（`skillshare upgrade --skill`）
+- skillshare skill 版本；有较新的 skill 发布时会给出警告（`skillshare upgrade --skill`），被 `.skillignore` 禁用时也会给出警告（`skillshare enable skillshare`）
 - 检查是否有可用更新
 
 ### Skill Integrity

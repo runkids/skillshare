@@ -159,6 +159,8 @@ sudo chown -R "$(id -un)" ~/.config/skillshare/skills
 ~/.config/skillshare/skills/skillshare/SKILL.md
 ```
 
+如果把它移到資料夾裡（例如在 dashboard 中移動），`upgrade --skill`、`status`、`doctor` 與 dashboard 仍會在那裡找到它，`upgrade --skill` 也會就地更新。
+
 ## 另請參閱
 
 - [update](/docs/reference/commands/update) — 更新其他 skills 與儲存庫

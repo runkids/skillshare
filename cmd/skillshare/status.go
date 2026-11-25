@@ -430,7 +430,8 @@ func getSymlinkStatusDetail(target config.TargetConfig, source, mode string) tar
 // checkSkillVersion prints the CLI and built-in skill versions, and how to
 // update the skill when it is missing or behind.
 func checkSkillVersion(cfg *config.Config) {
-	localVersion := versioncheck.ReadLocalSkillVersion(cfg.EffectiveSkillsSource())
+	localSkill, _ := versioncheck.FindLocalSkill(cfg.EffectiveSkillsSource(), cfg.SkillsWalk())
+	localVersion := localSkill.Version
 	cli := "CLI " + version
 
 	if localVersion == "" {
@@ -440,6 +441,11 @@ func checkSkillVersion(cfg *config.Config) {
 	}
 
 	skill := cli + theme.Dim().Render(" · ") + "skill " + localVersion
+	if localSkill.Disabled {
+		fmt.Println(statusLine("Version", skill+" "+theme.Dim().Render("(disabled)")))
+		ui.Warning("The skillshare skill is disabled %s %s", theme.Dim().Render("— run"), theme.Accent().Render("skillshare enable skillshare -g && skillshare sync -g"))
+		return
+	}
 	if !config.AutoUpdateCheckEnabled() {
 		fmt.Println(statusLine("Version", skill))
 		return

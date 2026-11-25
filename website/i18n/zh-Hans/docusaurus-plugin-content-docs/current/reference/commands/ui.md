@@ -89,7 +89,7 @@ skillshare ui start --clear-cache
 
 | 页面 | 说明 |
 |------|------|
-| **Dashboard** | skills、agents、extras、MCP servers、hooks、plugins 和 targets 的计数，以及需要关注的项目。卸载有未提交更改、或读不到 git 状态的 tracked repo 时，会说明原因并再次确认，然后把 repo 原样移入回收站，等同 `uninstall --force`。metadata 中有记录、但本机没有 clone 的 tracked repo 会显示 **此设备上没有检出副本**，卸载它只移除其记录和审计接受记录，不会移入回收站。若确认前检出副本已出现，dashboard 会提示，需再次选择 **卸载** |
+| **Dashboard** | skills、agents、extras、MCP servers、hooks、plugins 和 targets 的计数，以及需要关注的项目。卸载有未提交更改、或读不到 git 状态的 tracked repo 时，会说明原因并再次确认，然后把 repo 原样移入回收站，等同 `uninstall --force`。metadata 中有记录、但本机没有 clone 的 tracked repo 会显示 **此设备上没有检出副本**，卸载它只移除其记录和审计接受记录，不会移入回收站。若确认前检出副本已出现，dashboard 会提示，需再次选择 **卸载**。**版本状态** 显示 CLI 与内置技能的版本；`.skillignore` 禁用该技能时显示 **已禁用**，因为 sync 不会把它放进任何 target |
 | **Sync** | 在写入之前，按 Target 预览每一处变更。选择要包含的部分（Skills、Agents、Extras、MCP）。在 Target 内部编辑过的文件会被保留，除非开启了 **Force**。只存在于某个 Target 中的项目可以从这里收集回 Source。每次 sync 会先备份 Target 目录。某个 Target 失败时，其他 Target 仍会 sync：页面会在其他警告上方列出每个失败的 Target 及其部分（Skills、Agents、Extras 或 Config）和错误，常见原因（symlink 指向别处、权限不足、只读文件系统、文件或文件夹不存在、Target 设置无效）还会附上一句易懂的说明；若 Skills 的 symlink 指向别处，会提供 **开启 Force**；变更列表中也会标出该 Target。即使所有 Target 都失败，也会以同样方式列出。**上次同步** 卡片会列出最近一次 sync 中失败的 Target。收到相同变更的 Target 会合并成一张卡片，按文件夹列出 skills。**Discard all** 会在确认后，把还没有任何 Target 收到的 skills 移到回收站。当某个 Target 的 `include` 过滤条件没有匹配任何 skill 时，会显示提示说明该 Target 收不到任何 skill，**Edit filter** 会打开设置该过滤条件的地方；Git Sync 在 pull 之后也会显示同样的提示 |
 | **Git Sync** | 提交并推送 source 仓库，推送尚未上 remote 的提交，并拉取。打开页面时会先从 remote fetch，所以 **Pull** 会显示 remote 有多少个新提交。Pull 会同步该仓库 scope 所涵盖的内容（`skills`、`agents`、`extras` 或 `root`），与 [`pull`](/docs/reference/commands/pull) 相同。**Sync both ways** 会提交本地更改、拉取并合并、同步 targets，然后推送，与 [`push --pull`](/docs/reference/commands/push#push-and-pull-together) 相同；遇到冲突时会在推送前停止。当 remote 因为有更新的提交而拒绝 push 时，错误提示会提供 **Pull**。当首次 pull 无法与 remote 合并时，它会提供一个强制 pull 选项，用 remote 分支替换本地文件 |
 | **Hubs** | 从 Skill 页面进入。列出内置 hub、已保存的 hubs 与你自己的 Hub（**我的**）；选择一个即可过滤并安装其中的 skills。**添加或创建 Hub** 可添加已有的 hub、创建新的 Hub，或导入 `skillshare-hub.json`。自己的 Hub 通过 **编辑** 修改；**分享** 会下载索引并生成 `hub add` 命令。已保存与内置的 hub 可点 **刷新**，不必等两分钟缓存过期就重新读取列表。参见 [`hub`](/docs/reference/commands/hub) |
@@ -134,6 +134,7 @@ Dashboard 支持两种视觉风格和三种颜色模式，可通过侧边栏的 
 - **Backup 标签页** 在 Settings 中被隐藏（改用版本控制）
 - **Tracked Repos 区块** 从 Dashboard 中隐藏（不适用）
 - **Settings -> Files** 显示的是 `.skillshare/config.yaml` 和项目级的 `.skillignore`，而非全局版本
+- Dashboard 的 **版本状态** 显示全局 source 中的内置技能（它安装在那里），并标注 **全局**
 - **Available targets** 列出的是 project 级 target（例如相对于项目根目录的 `.claude/skills/`）
 - **Targets** 统计并切换 project 的 MCP server，写入 project 自己的文件（例如 `.mcp.json`）。Claude Code、OpenCode、Kilo Code 和 Pi 的 **MCP** 标签页还会列出在这个 project 关闭全局 server 的开关
 - **Install** 会自动协调 project config 中的 `skills:` 条目
@@ -191,7 +192,7 @@ web dashboard 在 `/api/` 下暴露一个 REST API。所有端点都返回 JSON�
 | GET | `/api/doctor` | 运行所有健康检查（JSON） |
 | GET | `/api/doctor/stream` | 以 Server-Sent Events 运行所有健康检查：每完成一项发送一个 `check` 事件。较慢的检查会先以状态 `pending` 发送，之后同名的 `check` 事件会取代它，不需要它结果的检查会先发送；最后以 `done` 发送与 `/api/doctor` 相同的 JSON |
 | GET | `/api/health` | 存活探针；server 就绪后返回 `200` |
-| GET | `/api/version` | 当前/最新版本、是否有可用升级，以及 Nix 或 PyPI 安装时更新 CLI 的命令（`nixUpgradeCommand` 或 `pypiUpgradeCommand`） |
+| GET | `/api/version` | 当前/最新版本、是否有可用升级，以及 Nix 或 PyPI 安装时更新 CLI 的命令（`nixUpgradeCommand` 或 `pypiUpgradeCommand`）；`.skillignore` 禁用内置技能时 `skillDisabled` 为 true |
 | POST | `/api/upgrade` | 就地运行 `skillshare upgrade`（当二进制文件为开发构建时返回 `devMode: true`；通过 Nix 或 PyPI 安装且有更新的 CLI 待安装时返回 `409`，错误码为 `upgrade.nix` 或 `upgrade.pypi`） |
 | POST | `/api/restart` | 重启本地 UI server；可选的 `{ "clearCache": true }` body 会先清除缓存的 UI 资源 |
 

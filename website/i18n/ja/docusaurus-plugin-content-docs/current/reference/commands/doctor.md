@@ -196,7 +196,7 @@ OpenCode を別の環境（デスクトップのランチャーなど）から�
 ### バージョン
 
 - CLI のバージョン
-- skillshare skill のバージョン（新しい skill が公開されていれば警告。`skillshare upgrade --skill`）
+- skillshare skill のバージョン（新しい skill が公開されていれば警告。`skillshare upgrade --skill`。`.skillignore` で無効になっている場合も警告。`skillshare enable skillshare`）
 - 利用可能な更新のチェック
 
 ### Skill の整合性

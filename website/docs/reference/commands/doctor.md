@@ -196,7 +196,7 @@ If OpenCode starts with a different environment, for example from a desktop laun
 ### Version
 
 - CLI version
-- skillshare skill version, with a warning when a newer skill is published (`skillshare upgrade --skill`)
+- skillshare skill version, with a warning when a newer skill is published (`skillshare upgrade --skill`) or when `.skillignore` disables it (`skillshare enable skillshare`)
 - Checks for available updates
 
 ### Skill Integrity

@@ -162,6 +162,8 @@ AI CLI에 `/skillshare` command를 추가하는 내장 `skillshare` skill입니�
 ~/.config/skillshare/skills/skillshare/SKILL.md
 ```
 
+대시보드 등에서 폴더로 옮긴 경우에도 `upgrade --skill`, `status`, `doctor`, 대시보드가 옮긴 위치에서 찾으며, `upgrade --skill`은 그 자리에서 업데이트합니다.
+
 ## 참고
 
 - [update](/docs/reference/commands/update) — 다른 skill과 repo 업데이트

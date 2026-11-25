@@ -11,6 +11,8 @@ export interface VersionCheck {
   /** Set for a PyPI install: the pip, uv or pipx command that updates the CLI. */
   pypiUpgradeCommand?: string | null;
   skillVersion: string;
+  /** .skillignore disables the built-in skill, so sync leaves it out of every target. */
+  skillDisabled?: boolean;
   skillLatest?: string;
   skillUpdateAvailable: boolean;
 }

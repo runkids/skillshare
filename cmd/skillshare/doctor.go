@@ -1636,18 +1636,18 @@ func checkVersionDoctor(cfg *config.Config, result *doctorResult, isProject bool
 	result.addCheck("cli_version", checkPass, fmt.Sprintf("CLI: %s", version), nil)
 
 	// Skill version: try SKILL.md frontmatter first, then metadata store
-	localVersion := versioncheck.ReadLocalSkillVersion(cfg.EffectiveSkillsSource())
-	if localVersion == "" {
+	skill, found := versioncheck.FindLocalSkill(cfg.EffectiveSkillsSource(), cfg.SkillsWalk())
+	localVersion := skill.Version
+	if localVersion == "" && found {
 		// Try metadata store (tracks installed version even without metadata.version in SKILL.md)
 		store := install.LoadMetadataOrNew(cfg.EffectiveSkillsSource())
-		if entry := store.Get("skillshare"); entry != nil && entry.Version != "" {
+		if entry := store.GetByPath(skill.RelPath); entry != nil && entry.Version != "" {
 			localVersion = strings.TrimPrefix(entry.Version, "v")
 		}
 	}
 
 	if localVersion == "" {
-		skillFile := filepath.Join(cfg.EffectiveSkillsSource(), "skillshare", "SKILL.md")
-		if _, err := os.Stat(skillFile); os.IsNotExist(err) {
+		if !found {
 			if isProject {
 				ui.Row(ui.MarkNone, "Skill", "not installed", doctorWidth)
 				result.addCheck("skill_version", checkInfo, "Skill: not installed in project", nil)
@@ -1662,6 +1662,19 @@ func checkVersionDoctor(cfg *config.Config, result *doctorResult, isProject bool
 			result.addCheck("skill_version", checkWarning, "Skill: missing version", nil)
 			result.addWarning()
 		}
+		return
+	}
+
+	if skill.Disabled {
+		ui.Row(ui.MarkWarn, "Skill", localVersion+" (disabled)", doctorWidth)
+		// Name the mode: without it, both commands pick project mode inside a project folder.
+		enable := "skillshare enable skillshare -g && skillshare sync -g"
+		if isProject {
+			enable = "skillshare enable skillshare -p && skillshare sync -p"
+		}
+		result.suggest(enable, "sync the built-in skill to your tools again")
+		result.addCheck("skill_version", checkWarning, fmt.Sprintf("Skill: %s (disabled)", localVersion), nil)
+		result.addWarning()
 		return
 	}
 

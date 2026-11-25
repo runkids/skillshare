@@ -127,6 +127,15 @@ func TestInstallBuiltinSkill_RefusesLinkedFolder(t *testing.T) {
 	}
 }
 
+// The dashboard can move the built-in skill into a folder; init must not install a second copy.
+func TestHasBuiltinSkill_MovedIntoFolder(t *testing.T) {
+	source := t.TempDir()
+	writeSkill(t, source, "tools/skillshare")
+	if !hasBuiltinSkill(source) {
+		t.Fatal("hasBuiltinSkill = false for a skill moved into tools/")
+	}
+}
+
 func TestCommitSourceFiles_WarnsSourceLinkAtConfigRoot(t *testing.T) {
 	repo := t.TempDir()
 	skills := filepath.Join(repo, "skills")

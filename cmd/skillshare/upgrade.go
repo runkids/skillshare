@@ -20,6 +20,7 @@ import (
 	"skillshare/internal/config"
 	"skillshare/internal/install"
 	"skillshare/internal/oplog"
+	"skillshare/internal/sourcewalk"
 	"skillshare/internal/ui"
 	"skillshare/internal/uidist"
 	"skillshare/internal/utils"
@@ -292,8 +293,14 @@ func upgradeSkillshareSkill(dryRun, force bool) (bool, error) {
 	}
 
 	sourceDir := cfg.EffectiveSkillsSource()
+	// Update the skill where it is, so one moved into a folder is not installed twice.
 	skillshareSkillDir := filepath.Join(sourceDir, "skillshare")
-	localVersion := versionpkg.ReadLocalSkillVersion(sourceDir)
+	walk := cfg.SkillsWalk()
+	skill, found := versionpkg.FindLocalSkill(sourceDir, walk)
+	if found {
+		skillshareSkillDir = skill.Dir
+	}
+	localVersion := skill.Version
 
 	// Skill not installed
 	if localVersion == "" {
@@ -302,7 +309,7 @@ func upgradeSkillshareSkill(dryRun, force bool) (bool, error) {
 				printUpgradeRow(ui.MarkNone, "Skill", "not installed · would download", time.Time{})
 				return false, nil
 			}
-			return true, doSkillDownload(skillshareSkillDir, sourceDir, "")
+			return true, doSkillDownload(skillshareSkillDir, sourceDir, walk.Follow, "")
 		}
 
 		if dryRun {
@@ -319,7 +326,7 @@ func upgradeSkillshareSkill(dryRun, force bool) (bool, error) {
 			return false, nil
 		}
 
-		return true, doSkillDownload(skillshareSkillDir, sourceDir, "")
+		return true, doSkillDownload(skillshareSkillDir, sourceDir, walk.Follow, "")
 	}
 
 	// Skill installed — compare versions
@@ -329,7 +336,7 @@ func upgradeSkillshareSkill(dryRun, force bool) (bool, error) {
 			printUpgradeRow(ui.MarkNone, "Skill", current+" · would download again", time.Time{})
 			return false, nil
 		}
-		return true, doSkillDownload(skillshareSkillDir, sourceDir, localVersion)
+		return true, doSkillDownload(skillshareSkillDir, sourceDir, walk.Follow, localVersion)
 	}
 
 	spinner := ui.StartSpinner("Checking latest skill version...")
@@ -353,10 +360,11 @@ func upgradeSkillshareSkill(dryRun, force bool) (bool, error) {
 		return false, nil
 	}
 
-	return true, doSkillDownload(skillshareSkillDir, sourceDir, localVersion)
+	return true, doSkillDownload(skillshareSkillDir, sourceDir, walk.Follow, localVersion)
 }
 
-func doSkillDownload(skillshareSkillDir, sourceDir, fromVersion string) error {
+// follow is the source link policy, so a skill in a followed linked folder can be replaced.
+func doSkillDownload(skillshareSkillDir, sourceDir string, follow *sourcewalk.Follow, fromVersion string) error {
 	start := time.Now()
 	spinner := ui.StartSpinner("Downloading the skillshare skill...")
 
@@ -370,9 +378,11 @@ func doSkillDownload(skillshareSkillDir, sourceDir, fromVersion string) error {
 
 	// Update stages the download, so a failed audit keeps the installed skill.
 	_, err = install.Install(source, skillshareSkillDir, install.InstallOptions{
-		Force:  true,
-		Update: true,
-		DryRun: false,
+		Force:        true,
+		Update:       true,
+		DryRun:       false,
+		SourceDir:    sourceDir, // records a skill in a folder under its full path
+		SourceFollow: follow,
 	})
 	spinner.Stop()
 	if err != nil {
@@ -380,7 +390,7 @@ func doSkillDownload(skillshareSkillDir, sourceDir, fromVersion string) error {
 		return skillPermissionHint(err, sourceDir)
 	}
 
-	newVersion := versionpkg.ReadLocalSkillVersion(sourceDir)
+	newVersion := strings.TrimPrefix(versionpkg.ParseMetadataVersion(filepath.Join(skillshareSkillDir, "SKILL.md")), "v")
 	switch {
 	case newVersion != "" && fromVersion != "" && fromVersion != newVersion:
 		printUpgradeRow(ui.MarkOK, "Skill", fmt.Sprintf("v%s → v%s", fromVersion, newVersion), start)

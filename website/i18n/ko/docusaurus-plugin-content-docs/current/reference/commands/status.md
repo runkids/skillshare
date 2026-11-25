@@ -108,7 +108,7 @@ Extras
 
 ### Version
 
-CLI와 skill 버전을 표시합니다. 새 skill이 출시되면 업데이트 방법을 알려 주는 줄이 추가됩니다. (global mode 전용)
+CLI와 skill 버전을 표시합니다. 새 skill이 출시되면 업데이트 방법을 알려 주는 줄이 추가됩니다. `.skillignore`가 skill을 비활성화해 sync가 어떤 target에도 배포하지 않으면 활성화 방법을 알려 주는 줄이 추가됩니다. (global mode 전용)
 
 ## 옵션
 
