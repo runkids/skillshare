@@ -158,7 +158,7 @@ skillshare sync
 
 **업데이트 중 보안 동작:**
 - 격리된 후보에서 pull과 감사를 실행하며 기존 target 링크는 기존 checkout을 계속 읽습니다.
-- Sparse-checkout 선택 범위와 기존 integrity hashes를 유지합니다. 해석할 수 없거나 후보 밖을 가리키는 symlink는 스캔 오류로 업데이트를 거부합니다.
+- Sparse-checkout 선택 범위와 기존 integrity hashes를 유지합니다. 대상이 후보 안에 있지만 존재하지 않는 symlink(예: sparse checkout이 제외한 디렉터리를 가리키는 루트 파일)는 허용합니다. 후보 밖을 가리키거나 루프 등 다른 이유로 해석할 수 없는 symlink는 스캔 오류로 업데이트를 거부합니다.
 - 차단에는 활성 임계값(`audit.block_threshold` 또는 `--threshold`/`-T`)을 사용합니다.
 - TTY 모드에서는 임계값 이상의 findings에 대한 확인을 요청합니다. 비 TTY 모드에서는 기본적으로 후보를 거부합니다.
 - 거부 또는 스캔 오류 시 기존 checkout과 metadata가 유지됩니다. `--force`는 스캔 오류를 무시할 수 없으며 `--skip-audit`는 스캔을 비활성화합니다.

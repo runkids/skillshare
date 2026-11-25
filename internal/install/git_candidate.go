@@ -1,7 +1,9 @@
 package install
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -167,6 +169,10 @@ func prepareCandidateAudit(sourceDir, logicalPath, candidatePath string) error {
 	if err != nil {
 		return err
 	}
+	inside := func(path string) bool {
+		rel, err := filepath.Rel(candidatePath, path)
+		return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+	}
 	if err := sourcewalk.Walk(candidatePath, sourcewalk.Options{}, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -178,11 +184,26 @@ func prepareCandidateAudit(sourceDir, logicalPath, candidatePath string) error {
 			return nil
 		}
 		resolved, err := filepath.EvalSymlinks(path)
+		var missing *fs.PathError
+		if errors.As(err, &missing) && errors.Is(err, fs.ErrNotExist) {
+			// Sparse checkouts leave links into excluded directories dangling,
+			// and the published checkout shares that sparse state. Only a link
+			// that leaves the candidate can reach content the scan did not see.
+			// Check the lexical target too, since Windows cleans ".." first.
+			target, err := os.Readlink(path)
+			if err != nil {
+				return err
+			}
+			if filepath.IsAbs(target) || filepath.VolumeName(target) != "" || os.IsPathSeparator(target[0]) ||
+				!inside(missing.Path) || !inside(filepath.Join(filepath.Dir(path), target)) {
+				return fmt.Errorf("candidate symlink %s escapes the isolated checkout", path)
+			}
+			return nil
+		}
 		if err != nil {
 			return fmt.Errorf("cannot resolve candidate symlink %s: %w", path, err)
 		}
-		rel, err := filepath.Rel(candidatePath, resolved)
-		if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		if !inside(resolved) {
 			return fmt.Errorf("candidate symlink %s escapes the isolated checkout", path)
 		}
 		return nil
