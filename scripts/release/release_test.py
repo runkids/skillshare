@@ -7,6 +7,7 @@ import subprocess
 import tarfile
 import tempfile
 import unittest
+import warnings
 import zipfile
 
 from release import archive_binary, build_wheels, check, first_entry, prepare_assets, required_assets, sync, verify_assets
@@ -231,6 +232,73 @@ class ReleaseTest(unittest.TestCase):
             archive.writestr("README.md", "# skillshare\n")
         with self.assertRaisesRegex(ValueError, "regular skillshare binary in empty.zip"):
             archive_binary(path)
+
+    def rewrite_wheel(self, directory, name, change):
+        """Pass every entry of one wheel through change(entry, data), keep its RECORD, and refresh its checksum."""
+        path = directory / name
+        with zipfile.ZipFile(path) as wheel:
+            entries = [(info, change(info.filename, wheel.read(info))) for info in wheel.infolist()]
+        with zipfile.ZipFile(path, "w") as wheel:
+            for info, data in entries:
+                wheel.writestr(info, data)
+        checksum_file = directory / "checksums.txt"
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        checksum_file.write_text("".join(
+            f"{digest}  {name}\n" if line.endswith(f"  {name}") else line + "\n"
+            for line in checksum_file.read_text().splitlines()
+        ))
+
+    def test_assets_reject_a_missing_wheel(self):
+        directory = self.assets()
+        (directory / "skillshare_cli-0.24.0-py3-none-win_arm64.whl").unlink()
+        checksum_file = directory / "checksums.txt"
+        checksum_file.write_text("".join(line + "\n" for line in checksum_file.read_text().splitlines() if "win_arm64.whl" not in line))
+        with self.assertRaisesRegex(ValueError, "all six archives"):
+            verify_assets(self.root, directory, "v0.24.0")
+
+    def test_assets_reject_a_wheel_whose_binary_differs_from_its_archive(self):
+        directory = self.assets()
+        name = "skillshare_cli-0.24.0-py3-none-macosx_12_0_arm64.whl"
+        self.rewrite_wheel(directory, name, lambda entry, data: b"other binary" if entry.endswith("/skillshare") else data)
+        with self.assertRaisesRegex(ValueError, f"Wheel binary differs from its archive: {name}"):
+            verify_assets(self.root, directory, "v0.24.0")
+
+    def test_assets_reject_a_wheel_with_the_wrong_version(self):
+        directory = self.assets()
+        name = "skillshare_cli-0.24.0-py3-none-win_amd64.whl"
+        self.rewrite_wheel(directory, name, lambda entry, data: data.replace(b"Version: 0.24.0", b"Version: 0.23.1") if entry.endswith("METADATA") else data)
+        with self.assertRaisesRegex(ValueError, f"Wheel metadata differs from the release: {name}"):
+            verify_assets(self.root, directory, "v0.24.0")
+
+    def test_assets_reject_a_wheel_with_an_extra_entry(self):
+        directory = self.assets()
+        name = "skillshare_cli-0.24.0-py3-none-win_amd64.whl"
+        with zipfile.ZipFile(directory / name, "a") as wheel:
+            wheel.writestr("skillshare_cli-0.24.0.data/scripts/helper.exe", b"extra")
+        self.rewrite_wheel(directory, name, lambda entry, data: data)
+        with self.assertRaisesRegex(ValueError, f"Wheel metadata differs from the release: {name}"):
+            verify_assets(self.root, directory, "v0.24.0")
+
+    def test_assets_reject_a_wheel_with_a_duplicate_entry(self):
+        directory = self.assets()
+        name = "skillshare_cli-0.24.0-py3-none-win_amd64.whl"
+        script = "skillshare_cli-0.24.0.data/scripts/skillshare.exe"
+        with zipfile.ZipFile(directory / name) as wheel:
+            binary = wheel.read(script)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")  # zipfile warns about the duplicate name this test needs.
+            with zipfile.ZipFile(directory / name, "a") as wheel:
+                wheel.writestr(script, binary)
+            self.rewrite_wheel(directory, name, lambda entry, data: data)
+        with self.assertRaisesRegex(ValueError, f"Wheel metadata differs from the release: {name}"):
+            verify_assets(self.root, directory, "v0.24.0")
+
+    def test_assets_reject_a_wheel_whose_record_does_not_match(self):
+        directory = self.assets()
+        name = "skillshare_cli-0.24.0-py3-none-win_amd64.whl"
+        self.rewrite_wheel(directory, name, lambda entry, data: data.replace(b"Generator: skillshare", b"Generator: tampered") if entry.endswith("/WHEEL") else data)
+        with self.assertRaisesRegex(ValueError, f"Wheel RECORD does not match its contents: {name}"):
+            verify_assets(self.root, directory, "v0.24.0")
 
 
 if __name__ == "__main__":

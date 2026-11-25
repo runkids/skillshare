@@ -198,6 +198,29 @@ def prepare_assets(directory, version):
     checksum_file.write_text("\n".join(lines) + "\n")
 
 
+def verify_wheels(directory, version):
+    """Prove each wheel carries exactly its archive's binary, this version and a true RECORD."""
+    prefix = f"{WHEEL_DIST}-{version}"
+    for os_name, arch in WHEEL_TAGS:
+        name = wheel_name(version, os_name, arch)
+        script = f"{prefix}.data/scripts/{'skillshare.exe' if os_name == 'windows' else 'skillshare'}"
+        metadata, record = f"{prefix}.dist-info/METADATA", f"{prefix}.dist-info/RECORD"
+        with zipfile.ZipFile(directory / name) as wheel:
+            infos = wheel.infolist()
+            entries = {info.filename: wheel.read(info) for info in infos}
+        # A repeated name would let an installer pick a copy this check never compared.
+        if len(infos) != len(entries) or set(entries) != {script, metadata, f"{prefix}.dist-info/WHEEL", record}:
+            raise ValueError(f"Wheel metadata differs from the release: {name}")
+        if entries[script] != archive_binary(directory / archive_name(version, os_name, arch)):
+            raise ValueError(f"Wheel binary differs from its archive: {name}")
+        fields = entries[metadata].decode().split("\n\n", 1)[0].splitlines()
+        if f"Name: {PYPI_NAME}" not in fields or f"Version: {version}" not in fields:
+            raise ValueError(f"Wheel metadata differs from the release: {name}")
+        expected = "".join(record_line(path, data) for path, data in entries.items() if path != record) + f"{record},,\n"
+        if sorted(entries[record].decode().splitlines()) != sorted(expected.splitlines()):
+            raise ValueError(f"Wheel RECORD does not match its contents: {name}")
+
+
 def verify_assets(root, directory, tag):
     version = check(root, tag)
     checksums = {}
@@ -207,10 +230,11 @@ def verify_assets(root, directory, tag):
             raise ValueError("Malformed or duplicate checksum entry")
         checksums[match[2]] = match[1]
     if set(checksums) != required_assets(version):
-        raise ValueError("Checksums must contain all six archives, UI assets and the Homebrew formula")
+        raise ValueError("Checksums must contain all six archives, UI assets, the Homebrew formula and the PyPI wheels")
     for name, digest in checksums.items():
         if hashlib.sha256((directory / name).read_bytes()).hexdigest() != digest:
             raise ValueError(f"Checksum mismatch: {name}")
+    verify_wheels(directory, version)
     formula = (directory / "skillshare.rb").read_text()
     if f'version "{version}"' not in formula:
         raise ValueError("Homebrew formula version differs from the release manifest")
