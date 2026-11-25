@@ -263,6 +263,7 @@
   "common.close": "Fechar",
   "common.confirm": "Confirmar",
   "common.nFailed": "{count} falhou(aram): {details}",
+  "common.connectionLost": "A conexão caiu antes de o servidor responder. A alteração pode ter sido feita mesmo assim, então confira antes de tentar de novo.",
   "common.scrollToTop": "Voltar ao topo",
   "common.save": "Salvar",
   "common.copy": "Copiar",

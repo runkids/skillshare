@@ -21,6 +21,13 @@ export class ApiError extends Error {
   }
 }
 
+const CONNECTION_LOST = 'connection_lost';
+
+/** The request got no reply. The server may still have finished a change it started. */
+export function isConnectionLost(e: unknown): boolean {
+  return e instanceof ApiError && e.code === CONNECTION_LOST;
+}
+
 interface ParsedApiError {
   code?: string;
   message: string;
@@ -93,7 +100,7 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   } catch (error) {
     if (init?.signal?.aborted) throw error;
     throw new ApiError(0, 'Server connection lost - try restarting with "skillshare ui".', {
-      code: 'connection_lost',
+      code: CONNECTION_LOST,
     });
   }
   const text = await res.text();

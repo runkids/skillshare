@@ -302,6 +302,7 @@
   "common.close": "Close",
   "common.confirm": "Confirm",
   "common.nFailed": "{count} failed: {details}",
+  "common.connectionLost": "Lost the connection before the server answered. The change may still have been made, so check before trying again.",
   "common.scrollToTop": "Scroll to top",
   "common.save": "Save",
   "common.copy": "Copy",

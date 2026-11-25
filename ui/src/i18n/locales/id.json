@@ -259,6 +259,7 @@
   "batchUninstall.toast.uninstallFailed": "Penghapusan gagal: {error}",
   "collect.empty.description": "Semua {nounPlural} di target Anda disinkronkan dari sumber. Tidak ada yang perlu dikumpulkan.",
   "common.nFailed": "{count} gagal: {details}",
+  "common.connectionLost": "Koneksi terputus sebelum server menjawab. Perubahan mungkin tetap diterapkan, jadi periksa dulu sebelum mencoba lagi.",
   "common.back": "Kembali",
   "common.cancel": "Batal",
   "common.close": "Tutup",

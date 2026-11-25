@@ -263,6 +263,7 @@
   "common.close": "Fermer",
   "common.confirm": "Confirmer",
   "common.nFailed": "{count} échec(s) : {details}",
+  "common.connectionLost": "La connexion a été perdue avant la réponse du serveur. La modification a peut-être quand même été appliquée : vérifiez avant de réessayer.",
   "common.scrollToTop": "Revenir en haut",
   "common.save": "Enregistrer",
   "common.copy": "Copier",

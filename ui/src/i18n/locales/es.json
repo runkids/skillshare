@@ -259,6 +259,7 @@
   "batchUninstall.toast.uninstallFailed": "Error al desinstalar: {error}",
   "collect.empty.description": "Todos los {nounPlural} en tus destinos están sincronizados desde la fuente. Nada que recopilar.",
   "common.nFailed": "{count} fallidos: {details}",
+  "common.connectionLost": "Se perdió la conexión antes de que el servidor respondiera. Puede que el cambio se haya aplicado igualmente, así que compruébalo antes de volver a intentarlo.",
   "common.back": "Volver",
   "common.cancel": "Cancelar",
   "common.close": "Cerrar",

@@ -263,6 +263,7 @@
   "common.close": "Schließen",
   "common.confirm": "Bestätigen",
   "common.nFailed": "{count} fehlgeschlagen: {details}",
+  "common.connectionLost": "Die Verbindung brach ab, bevor der Server antwortete. Die Änderung ist vielleicht trotzdem erfolgt. Prüfe das, bevor du es erneut versuchst.",
   "common.scrollToTop": "Nach oben scrollen",
   "common.save": "Speichern",
   "common.copy": "Kopieren",

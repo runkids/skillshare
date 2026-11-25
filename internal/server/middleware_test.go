@@ -5,7 +5,28 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
+
+func TestWithLongWriteDeadlineAnswersAfterWriteTimeout(t *testing.T) {
+	slow := withLongWriteDeadline(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(300 * time.Millisecond)
+		writeJSON(w, map[string]string{"status": "installed"})
+	})
+	srv := httptest.NewUnstartedServer(slow)
+	srv.Config.WriteTimeout = 50 * time.Millisecond
+	srv.Start()
+	defer srv.Close()
+
+	res, err := http.Get(srv.URL)
+	if err != nil {
+		t.Fatalf("request past WriteTimeout got no reply: %v", err)
+	}
+	res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d", res.StatusCode)
+	}
+}
 
 func TestWriteErrorIncludesStableCodeAndLegacyMessage(t *testing.T) {
 	rr := httptest.NewRecorder()

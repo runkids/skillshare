@@ -260,6 +260,7 @@
   "collect.empty.description": "ターゲット内のすべての {nounPlural} はソースから同期されています。収集するものはありません。",
   "common.back": "戻る",
   "common.nFailed": "{count} 件失敗: {details}",
+  "common.connectionLost": "サーバーの応答前に接続が切れました。変更は反映されている可能性があるため、再試行する前に確認してください。",
   "common.cancel": "キャンセル",
   "common.close": "閉じる",
   "common.confirm": "確認",

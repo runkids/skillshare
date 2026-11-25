@@ -263,6 +263,7 @@
   "common.close": "بستن",
   "common.confirm": "تأیید",
   "common.nFailed": "{count} ناموفق: {details}",
+  "common.connectionLost": "اتصال پیش از پاسخ سرور قطع شد. ممکن است تغییر با این حال انجام شده باشد، پس پیش از تلاش دوباره آن را بررسی کنید.",
   "common.scrollToTop": "رفتن به بالا",
   "common.save": "ذخیره",
   "common.copy": "کپی",

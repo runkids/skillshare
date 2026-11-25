@@ -234,6 +234,7 @@ location /skillshare/ {
     proxy_pass http://127.0.0.1:19420;
     proxy_set_header Host $http_host;
     proxy_set_header X-Real-IP $remote_addr;
+    proxy_read_timeout 600s;
 }
 ```
 
@@ -246,6 +247,8 @@ handle_path /skillshare/* {
 ```
 
 두 예시처럼 브라우저의 `Host` 헤더를 포트까지 포함해 그대로 전달하세요. 대시보드는 `Host`를 trusted origin과 대조하고, 요청의 `Origin`이 `Host`와 일치하지 않으면 대시보드는 변경을 거부합니다. 이렇게 해서 다른 웹사이트가 브라우저를 통해 변경하지 못하게 합니다. Caddy는 기본적으로 `Host`를 유지합니다. `header_up Host`로 바꾸지 마세요.
+
+느린 네트워크에서 큰 저장소로부터 설치하거나 업데이트하면 몇 분이 걸릴 수 있습니다. Nginx는 기본적으로 60초가 지나면 요청을 끊으므로, 예시에서는 `proxy_read_timeout`을 600초로 늘립니다. Caddy는 기본적으로 끝날 때까지 기다립니다.
 
 :::tip
 `--base-path` 없이는 대시보드가 이전과 동일하게 동작합니다 — `localhost:19420`에서 직접 접속할 때는 별도 설정이 필요 없습니다.

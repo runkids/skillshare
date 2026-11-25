@@ -263,6 +263,7 @@
   "common.close": "關閉",
   "common.confirm": "確認",
   "common.nFailed": "{count} 個失敗：{details}",
+  "common.connectionLost": "伺服器回應前連線中斷。變更可能已經完成，請先確認再重試。",
   "common.scrollToTop": "回到頂端",
   "common.save": "儲存",
   "common.copy": "複製",

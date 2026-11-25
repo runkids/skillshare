@@ -263,6 +263,7 @@
   "common.close": "닫기",
   "common.confirm": "확인",
   "common.nFailed": "{count}개 실패: {details}",
+  "common.connectionLost": "서버가 응답하기 전에 연결이 끊어졌습니다. 변경은 적용되었을 수 있으니 다시 시도하기 전에 확인하세요.",
   "common.scrollToTop": "맨 위로",
   "common.save": "저장",
   "common.copy": "복사",

@@ -259,6 +259,7 @@
   "batchUninstall.toast.uninstallFailed": "卸载失败：{error}",
   "collect.empty.description": "你目标中的所有 {nounPlural} 均已从源目录同步。没有可收集的内容。",
   "common.nFailed": "{count} 个失败：{details}",
+  "common.connectionLost": "服务器响应前连接中断。更改可能已经完成，请先检查再重试。",
   "common.back": "返回",
   "common.cancel": "取消",
   "common.close": "关闭",

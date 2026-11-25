@@ -77,6 +77,22 @@ func sendSSE(w http.ResponseWriter, f http.Flusher, event string, data any) {
 	f.Flush()
 }
 
+// longRequestTimeout outlasts one git network step (180 s), so a failed clone
+// still reaches the dashboard as an error. Some git calls have no timeout of
+// their own, so the deadline stays finite.
+const longRequestTimeout = 10 * time.Minute
+
+// withLongWriteDeadline lets a handler that clones, fetches, downloads or
+// waits on another program outlast the server's 30-second WriteTimeout. Past that timeout the
+// connection drops with no reply, and the dashboard reports a lost server even
+// when the work succeeded.
+func withLongWriteDeadline(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(longRequestTimeout))
+		next(w, r)
+	}
+}
+
 // initSSE sets SSE headers, disables the write deadline, and returns a
 // mutex-protected safeSend function. If the ResponseWriter does not support
 // flushing, an error response is written and ok is false.

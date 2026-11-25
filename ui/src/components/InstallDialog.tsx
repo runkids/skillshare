@@ -25,6 +25,8 @@ import {
 import {
   api,
   ApiError,
+  isConnectionLost,
+  type BatchInstallResult,
   type DiscoverResult,
   type DiscoveredSkill,
   type HubSavedEntry,
@@ -315,6 +317,14 @@ export default function InstallDialog({
     void invalidate(queryClient, 'skillsChanged');
   };
 
+  // The server keeps installing after a dropped connection, so show what it installed.
+  const installLost = (e: unknown) => {
+    if (!isConnectionLost(e)) return false;
+    refresh();
+    toast(t('common.connectionLost'), 'error');
+    return true;
+  };
+
   const finish = (warningLines: string[]) => {
     refresh();
     const list = parseFindings(
@@ -346,6 +356,7 @@ export default function InstallDialog({
       );
       finish(res.warnings ?? []);
     } catch (e) {
+      if (installLost(e)) return;
       if (e instanceof ApiError && e.code === TRACK_KIND_AMBIGUOUS) {
         askKind({
           source: opts.source,
@@ -369,7 +380,13 @@ export default function InstallDialog({
   };
 
   const runBatch = async (opts: BatchOpts) => {
-    const res = await api.installBatch(opts);
+    let res: BatchInstallResult;
+    try {
+      res = await api.installBatch(opts);
+    } catch (e) {
+      if (installLost(e)) return;
+      throw e;
+    }
     const blockedItems: DiscoveredSkill[] = [];
     const findings: Finding[] = [];
     const errors: string[] = [];

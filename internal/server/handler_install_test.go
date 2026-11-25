@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"skillshare/internal/install"
 )
@@ -21,6 +22,39 @@ func entryNames(entries []os.DirEntry) []string {
 		names = append(names, entry.Name())
 	}
 	return names
+}
+
+// Cloning a slow repository must not hold the config lock, or every other
+// dashboard request waits for the clone and is dropped after 30 seconds.
+func TestHandleInstallBatch_CloneDoesNotHoldTheConfigLock(t *testing.T) {
+	s, _ := newTestServer(t)
+	started := make(chan struct{}, 1)
+	release := make(chan struct{})
+	remote := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case started <- struct{}{}:
+		default:
+		}
+		<-release
+		http.NotFound(w, r)
+	}))
+	defer remote.Close()
+	payload := `{"source":"` + remote.URL + `/demo.git","skills":[{"name":"demo","path":"demo"}]}`
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		s.mux.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodPost, "/api/install/batch", strings.NewReader(payload)))
+	}()
+	defer func() { close(release); <-done }()
+	select {
+	case <-started:
+	case <-time.After(10 * time.Second):
+		t.Fatal("the install never asked the remote for the repository")
+	}
+	if !s.mu.TryLock() {
+		t.Fatal("a batch install holds the config lock while cloning")
+	}
+	s.mu.Unlock()
 }
 
 func TestHandleInstallBatch_AgentInstallWritesMetadataToAgentsSource(t *testing.T) {
