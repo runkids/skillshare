@@ -234,6 +234,7 @@ location /skillshare/ {
     proxy_pass http://127.0.0.1:19420;
     proxy_set_header Host $http_host;
     proxy_set_header X-Real-IP $remote_addr;
+    proxy_read_timeout 600s;
 }
 ```
 
@@ -246,6 +247,8 @@ handle_path /skillshare/* {
 ```
 
 両方の例のように、ブラウザの `Host` ヘッダーをポートも含めてそのまま渡してください。ダッシュボードは `Host` を trusted origin と照合し、リクエストの `Origin` が `Host` と一致しない場合、ダッシュボードは変更を拒否します。これにより、他の Web サイトがブラウザ経由で変更を行うことを防ぎます。Caddy はデフォルトで `Host` を保持します。`header_up Host` で書き換えないでください。
+
+低速なネットワークで大きなリポジトリからインストールや更新を行うと、数分かかることがあります。Nginx はデフォルトで 60 秒経つとリクエストを打ち切るため、例では `proxy_read_timeout` を 600 秒に引き上げています。Caddy はデフォルトで完了まで待ちます。
 
 :::tip
 `--base-path` を使わない場合、ダッシュボードは従来どおり動作します — `localhost:19420` への直接アクセスに追加の設定は不要です。

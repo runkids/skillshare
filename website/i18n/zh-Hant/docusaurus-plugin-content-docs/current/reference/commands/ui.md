@@ -234,6 +234,7 @@ location /skillshare/ {
     proxy_pass http://127.0.0.1:19420;
     proxy_set_header Host $http_host;
     proxy_set_header X-Real-IP $remote_addr;
+    proxy_read_timeout 600s;
 }
 ```
 
@@ -246,6 +247,8 @@ handle_path /skillshare/* {
 ```
 
 如兩個範例所示，請保留瀏覽器的 `Host` 標頭，包括連接埠。dashboard 會將 `Host` 與 trusted origin 比對，而且請求的 `Origin` 與 `Host` 不一致時，dashboard 會拒絕變更，這樣其他網站就無法透過你的瀏覽器進行變更。Caddy 預設會保留 `Host`，不要用 `header_up Host` 改寫它。
+
+在慢速網路上從大型儲存庫安裝或更新可能需要幾分鐘。Nginx 預設在 60 秒後中斷請求，所以範例把 `proxy_read_timeout` 調高到 600 秒。Caddy 預設會等到完成。
 
 :::tip
 不使用 `--base-path` 時，dashboard 的行為與以往完全相同——直接在 `localhost:19420` 存取不需要任何額外設定。

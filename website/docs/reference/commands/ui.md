@@ -234,6 +234,7 @@ location /skillshare/ {
     proxy_pass http://127.0.0.1:19420;
     proxy_set_header Host $http_host;
     proxy_set_header X-Real-IP $remote_addr;
+    proxy_read_timeout 600s;
 }
 ```
 
@@ -246,6 +247,8 @@ handle_path /skillshare/* {
 ```
 
 Keep the browser's `Host` header, including its port, as both examples do. The dashboard matches `Host` against the trusted origins, and refuses a change when the request's `Origin` does not match its `Host`, so another website cannot make changes through your browser. Caddy keeps `Host` by default; do not rewrite it with `header_up Host`.
+
+Installing or updating from a large repository on a slow network can take several minutes. Nginx ends a request after 60 seconds by default, so the example raises `proxy_read_timeout` to 600 seconds. Caddy waits by default.
 
 :::tip
 Without `--base-path`, the dashboard behaves identically to before — no configuration needed for direct access on `localhost:19420`.
