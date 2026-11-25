@@ -17,6 +17,8 @@ interface Props {
   checked: boolean;
   disabled: boolean;
   onToggle: () => void;
+  /** A button before the switch, such as one that edits what this project changes. */
+  action?: ReactNode;
   /** Notes under the row; the switch is described by them. */
   children?: ReactNode;
 }
@@ -35,6 +37,7 @@ export default function ProjectServerRow({
   checked,
   disabled,
   onToggle,
+  action,
   children,
 }: Props) {
   const noteId = `mcp-sw-${name}`;
@@ -49,7 +52,7 @@ export default function ProjectServerRow({
           {describeEndpoint(server)}
         </span>
         {aside && (
-          <span title={aside} className="max-w-[30%] shrink-0 truncate text-xs text-ink-3">
+          <span title={aside} className="min-w-0 max-w-[30%] truncate text-xs text-ink-3">
             {aside}
           </span>
         )}
@@ -58,6 +61,7 @@ export default function ProjectServerRow({
             <AgentStack targets={icons} max={STACK} />
           </span>
         )}
+        {action}
         <button
           type="button"
           role="switch"

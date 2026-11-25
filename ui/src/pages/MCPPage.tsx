@@ -18,6 +18,7 @@ import {
 import {
   isShared,
   mcpApi,
+  mcpTargets,
   type MCPMutation,
   type MCPPlan,
   type MCPServer,
@@ -45,6 +46,7 @@ import MCPServerList from '../components/mcp/MCPServerList';
 import ProjectSectionHead from '../components/mcp/ProjectSectionHead';
 import MCPPreview, { type MCPResolve } from '../components/mcp/MCPPreview';
 import { MCPConfigDialog } from '../components/mcp/MCPConfigView';
+import MCPOverrideDialog from '../components/mcp/MCPOverrideDialog';
 import MCPRemoveDialog from '../components/mcp/MCPRemoveDialog';
 import MCPRestoreDialog from '../components/mcp/MCPRestoreDialog';
 import MCPServerDialog from '../components/mcp/MCPServerDialog';
@@ -58,6 +60,7 @@ import {
   isResolvable,
   mcpOrder,
   projectOf,
+  sharedInRoot,
   sharedTargets,
   sharedUsers,
   targetLabel,
@@ -243,6 +246,7 @@ interface ContentProps {
   busy: boolean;
   onToggle: (name: string, target: string, on: boolean) => void;
   onProjects: (name: string, picked: string[]) => void;
+  onOverride: (name: string, root: string) => void;
   onMenu: (e: React.MouseEvent<HTMLButtonElement>, name: string) => void;
   onImport: (request: ImportRequest) => void;
   onAdd: () => void;
@@ -263,6 +267,7 @@ function MCPContent({
   busy,
   onToggle,
   onProjects,
+  onOverride,
   onMenu,
   onImport,
   onAdd,
@@ -310,6 +315,12 @@ function MCPContent({
       users={users}
       roots={roots}
       onProjects={onProjects}
+      shared={{
+        loadedIn: (name, root) => sharedInRoot(data.source, name, root),
+        overrideOf: (name, root) => data.source.projects?.[root]?.overrides?.[name],
+        replaced: (name, root) => Boolean(data.source.projects?.[root]?.servers?.[name]),
+        onOverride,
+      }}
     />
   );
   const actions = {
@@ -670,6 +681,7 @@ export default function MCPPage() {
   const [importing, setImporting] = useState<ImportRequest | null>(null);
   const [removing, setRemoving] = useState('');
   const [viewing, setViewing] = useState('');
+  const [overriding, setOverriding] = useState<{ name: string; root: string } | null>(null);
   const [backupsOpen, setBackupsOpen] = useState(false);
   const [replace, setReplace] = useState<{ plan: MCPPlan; mutation: MCPMutation } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -831,6 +843,7 @@ export default function MCPPage() {
               busy={busy}
               onToggle={(n, x, on) => toggle(n, x, on)}
               onProjects={(n, picked) => void saveProjects(n, picked)}
+              onOverride={(name, root) => setOverriding({ name, root })}
               onMenu={openMenu}
               onImport={setImporting}
               onAdd={() => {
@@ -896,6 +909,17 @@ export default function MCPPage() {
                     },
               }}
               onClose={() => setViewing('')}
+            />
+          )}
+          {overriding && data && (
+            <MCPOverrideDialog
+              name={overriding.name}
+              root={overriding.root}
+              source={data.source}
+              offered={mcpTargets.filter((x) => data.paths[x])}
+              paths={data.projectPaths[overriding.root] ?? {}}
+              onClose={() => setOverriding(null)}
+              onSaved={refresh}
             />
           )}
           {removing && (

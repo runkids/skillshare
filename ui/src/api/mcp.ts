@@ -79,6 +79,8 @@ export interface MCPMutation {
   settings?: MCPSettings;
   /** With `project` and `name`: turns that shared server on or off for the root. */
   using?: boolean;
+  /** With `project` and `name`: what the root changes in that shared server, replacing what it had; `{}` clears it. */
+  override?: MCPOverride;
   name?: string;
   server?: MCPServer;
   remove?: boolean;

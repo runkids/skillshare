@@ -18,7 +18,9 @@ import {
   parseToolChange,
   parseToolNotice,
   pinFindingKey,
+  overrideParts,
   serverCount,
+  sharedInRoot,
   sharedTargets,
   groupByServer,
   setToolChecked,
@@ -634,6 +636,59 @@ describe('usingChanges', () => {
     expect(usingChanges('docs', ['/a', '/b'], ['/b', '/c'])).toEqual([
       { project: '/a', name: 'docs', using: false },
       { project: '/c', name: 'docs', using: true },
+    ]);
+  });
+});
+
+describe('project overrides', () => {
+  const source = {
+    path: '',
+    targets: ['claude'],
+    servers: {
+      docs: {
+        url: 'https://docs.example/mcp',
+        global: false,
+        piOptions: { exposure: 'codemode', timeout: 30 },
+      },
+    },
+    projects: {
+      '/work/api': { use: ['docs'], targets: ['claude', 'pi'] },
+      '/work/billing': {
+        use: ['docs'],
+        overrides: { docs: { targets: ['pi'], piOptions: { exposure: 'direct' } } },
+      },
+    },
+  } as Parameters<typeof sharedInRoot>[0];
+
+  it("loads a shared server with the root's override merged over it", () => {
+    const loaded = sharedInRoot(source, 'docs', '/work/billing');
+    expect([loaded.targets, loaded.piOptions]).toEqual([
+      ['pi'],
+      { exposure: 'direct', timeout: 30 },
+    ]);
+  });
+
+  it("sends a shared server without targets to the project's Agents where nothing overrides it", () => {
+    expect(sharedInRoot(source, 'docs', '/work/api').targets).toEqual(['claude', 'pi']);
+  });
+
+  it('names what an override changes, and settings only config.yaml holds as other settings', () => {
+    const t = (key: string, params?: Record<string, string | number>) =>
+      `${key}${params ? JSON.stringify(params) : ''}`;
+    expect(
+      overrideParts(t, { targets: [], piOptions: { exposure: 'direct', timeout: 5 } }),
+    ).toEqual([
+      'mcp.override.partTargets{"targets":"mcp.override.noAgents"}',
+      'mcp.override.partExposure{"value":"mcp.piExposureShort.direct"}',
+      'mcp.override.partOther',
+    ]);
+  });
+
+  it("names the MCP page's exposure next to the one a project chose", () => {
+    const t = (key: string, params?: Record<string, string | number>) =>
+      `${key}${params ? JSON.stringify(params) : ''}`;
+    expect(overrideParts(t, { piOptions: { exposure: 'direct' } }, source.servers.docs)).toEqual([
+      'mcp.override.partExposureFrom{"value":"mcp.piExposureShort.direct","shared":"mcp.piExposureShort.codemode"}',
     ]);
   });
 });

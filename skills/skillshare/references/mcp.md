@@ -498,7 +498,8 @@ mcp:
   - No command edits `use` or `overrides`, and existing per-project copies are not converted. Edit
     `config.yaml`, or use the dashboard: **Loads in** in the server dialog or
     **Projects** in a shared server's expanded row on the **MCP** page, and
-    **Opt-in servers** on a project's **MCP** tab.
+    **Opt-in servers** on a project's **MCP** tab. Both places open an **Override** dialog
+    for a project that uses the server; saving it replaces that root's override.
 - The preview names the file when one server appears in several places.
 
 ## Interactive use
