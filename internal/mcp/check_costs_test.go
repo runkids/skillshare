@@ -116,3 +116,38 @@ func TestToolCostsProjectGroupIncludesGlobalServersItKeeps(t *testing.T) {
 		t.Fatalf("totals = %v, want %v", totals, want)
 	}
 }
+
+// A project that only turns a global server off adds nothing of its own, yet its Agent loads a
+// different set there, so it still gets a group: the global servers it keeps on.
+func TestToolCostsProjectThatOnlyTurnsAServerOff(t *testing.T) {
+	s, tmp := projectsService(t, `mcp:
+  targets: [claude]
+  servers:
+    big:
+      command: big-server
+    small:
+      command: small-server
+  projects:
+    $TMP/web:
+      servers:
+        small:
+          disabled: true
+`)
+	counted := func(n int) ToolCost { return ToolCost{Tools: 1, Tokens: n, Checked: time.Now()} }
+	if err := writeJSONFile(s.toolCostsPath(), toolCostFile{Version: 1, Servers: map[string]map[string]ToolCost{
+		"": {"big": counted(40000), "small": counted(1000)},
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	report, err := s.ToolCosts()
+	if err != nil {
+		t.Fatal(err)
+	}
+	totals := map[string]int{}
+	for _, g := range report.Groups {
+		totals[g.Root+"@"+g.Target] = g.Tokens
+	}
+	if want := map[string]int{"@claude": 41000, tmp + "/web@claude": 40000}; !maps.Equal(totals, want) {
+		t.Fatalf("totals = %v, want %v", totals, want)
+	}
+}

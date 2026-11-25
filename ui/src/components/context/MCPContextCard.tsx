@@ -6,7 +6,7 @@ import { useT } from '../../i18n';
 import { queryKeys, staleTimes } from '../../lib/queryKeys';
 import { groupKey, groupLabel, kTokens } from './contextCost';
 
-/** The MCP page's link to the Context page: the global MCP target whose tool definitions cost most, against the budget. */
+/** The MCP page's link to the Context page: the global MCP target whose tool definitions cost most, against the budget, or the heaviest project one when only projects load servers. */
 export default function MCPContextCard() {
   const t = useT();
   const { data } = useQuery({
@@ -14,9 +14,11 @@ export default function MCPContextCard() {
     queryFn: () => mcpCheckApi.costs(),
     staleTime: staleTimes.check,
   });
-  const global = (data?.groups ?? []).filter((g) => !g.root);
-  if (global.length === 0) return null;
-  const top = global.reduce((a, b) => (b.tokens > a.tokens ? b : a));
+  const groups = data?.groups ?? [];
+  const global = groups.filter((g) => !g.root);
+  const pool = global.length > 0 ? global : groups;
+  if (pool.length === 0) return null;
+  const top = pool.reduce((a, b) => (b.tokens > a.tokens ? b : a));
   const budget = data?.budget ?? 0;
   const over = budget > 0 && top.tokens > budget;
   return (

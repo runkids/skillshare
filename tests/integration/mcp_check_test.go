@@ -4,6 +4,7 @@ package integration
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -351,4 +352,25 @@ func TestMCPToolCostsInProjectMode(t *testing.T) {
 	if err := json.Unmarshal([]byte(r.Stdout), &global); err != nil || len(global.MCP.Groups) != 1 || global.MCP.Groups[0].Measured != 0 {
 		t.Fatalf("the project's count must not reach the global tiny: %v\n%s", err, r.Stdout)
 	}
+}
+
+// Servers that only projects load still get a line in the summary once counted.
+func TestAnalyzeSummarizesProjectOnlyServers(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	script := filepath.Join(sb.Home, "tiny-mcp.sh")
+	if err := os.WriteFile(script, []byte(tinyMCPServer), 0755); err != nil {
+		t.Fatal(err)
+	}
+	root := filepath.Join(sb.Root, "web")
+	if err := os.MkdirAll(root, 0755); err != nil {
+		t.Fatal(err)
+	}
+	sb.CreateSkill("demo", map[string]string{"SKILL.md": "---\nname: demo\ndescription: Use when testing\n---\n# Demo\n"})
+	sb.WriteConfig(fmt.Sprintf("targets: {}\nmcp:\n  targets: [claude]\n  projects:\n    %q:\n      servers:\n        tiny:\n          command: sh\n          args: [%q]\n", root, script))
+	sb.RunCLI("mcp", "check", "--live", "--timeout", "5s", "-g").AssertSuccess(t)
+
+	r := sb.RunCLI("analyze", "--no-tui", "-g")
+	r.AssertSuccess(t)
+	r.AssertOutputContains(t, "MCP tool definitions (upper bound)  claude (")
 }

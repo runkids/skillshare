@@ -78,8 +78,8 @@ func printMCPToolCosts(report *mcp.ToolCostReport, budget int) bool {
 				uncounted[server.Project+"\x00"+server.Name] = true
 			}
 		}
-		if g.Root == "" && g.Measured > 0 {
-			parts = append(parts, fmt.Sprintf("%s ~%s", g.Target, formatTokenK(g.Tokens)))
+		if g.Measured > 0 {
+			parts = append(parts, fmt.Sprintf("%s ~%s", mcpGroupLabel(g), formatTokenK(g.Tokens)))
 		}
 	}
 	if len(parts) > 0 {

@@ -158,6 +158,17 @@ func (s *Service) ToolCosts() (*ToolCostReport, error) {
 	type groupKey struct{ root, target string }
 	groups := map[groupKey]*ToolCostGroup{}
 	off := map[groupKey][]string{}
+	group := func(root, target string) *ToolCostGroup {
+		k := groupKey{root, target}
+		if groups[k] == nil {
+			agent := target
+			if account, ok := source.Accounts[target]; ok {
+				agent = account.Agent
+			}
+			groups[k] = &ToolCostGroup{Root: root, Target: target, Agent: agent, Servers: []ToolCostServer{}}
+		}
+		return groups[k]
+	}
 	add := func(g *ToolCostGroup, server ToolCostServer) {
 		if server.Checked != nil {
 			g.Tokens += server.Tokens
@@ -170,6 +181,8 @@ func (s *Service) ToolCosts() (*ToolCostReport, error) {
 			continue
 		}
 		if c.Switch {
+			// A project that only turns servers off still loads the rest, so it gets a group.
+			group(c.Root, c.Target)
 			off[groupKey{c.Root, c.Target}] = append(off[groupKey{c.Root, c.Target}], c.Name)
 			continue
 		}
@@ -178,16 +191,7 @@ func (s *Service) ToolCosts() (*ToolCostReport, error) {
 		if c.Root != "" && slices.Contains(source.Projects[c.Root].Use, c.Name) {
 			project = ""
 		}
-		k := groupKey{c.Root, c.Target}
-		g := groups[k]
-		if g == nil {
-			agent := c.Target
-			if account, ok := source.Accounts[c.Target]; ok {
-				agent = account.Agent
-			}
-			g = &ToolCostGroup{Root: c.Root, Target: c.Target, Agent: agent, Servers: []ToolCostServer{}}
-			groups[k] = g
-		}
+		g := group(c.Root, c.Target)
 		if slices.ContainsFunc(g.Servers, func(server ToolCostServer) bool { return server.Name == c.Name }) {
 			continue
 		}
@@ -212,6 +216,9 @@ func (s *Service) ToolCosts() (*ToolCostReport, error) {
 	}
 	report := &ToolCostReport{Groups: []ToolCostGroup{}}
 	for _, g := range groups {
+		if len(g.Servers) == 0 {
+			continue
+		}
 		slices.SortFunc(g.Servers, func(a, b ToolCostServer) int {
 			return cmp.Or(cmp.Compare(b.Tokens, a.Tokens), cmp.Compare(a.Name, b.Name))
 		})
