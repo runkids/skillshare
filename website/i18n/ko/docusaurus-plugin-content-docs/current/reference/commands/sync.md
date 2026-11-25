@@ -700,6 +700,7 @@ config에서 경고 임계값을 설정할 수 있습니다.
 context_budget:
   warn_always_loaded_tokens: 10000   # 기본값; 0 = 비활성화
   warn_on_demand_tokens: 100000      # 기본값; 0 = 비활성화
+  warn_mcp_tool_tokens: 30000        # 기본값; 0 = 비활성화
 ```
 
 임계값이 초과되면 상위 3개 원인과 함께 경고가 표시됩니다.
@@ -711,6 +712,16 @@ context_budget:
      • another-verbose-skill           ~6,400 tokens
      • chatgpt-system-prompt           ~5,100 tokens
    Run `skillshare analyze` for details.
+```
+
+### MCP Tool Definitions
+
+`skillshare sync mcp`와 `skillshare sync --all`은 MCP 단계가 끝난 뒤(바뀐 파일이 없어도) 각 MCP target의 도구 정의 비용도 출력하고, target(또는 `mcp.projects` 루트)이 `warn_mcp_tool_tokens`를 넘으면 경고합니다. 집계 값은 [`mcp check --live`](/docs/reference/commands/mcp#count-tool-tokens)에서 가져오므로, live 검사로 서버를 집계하기 전에는 아무것도 출력되지 않습니다. 아직 집계되지 않은 서버는 0으로 세지 않고 이름으로 표시합니다:
+
+```
+MCP tool definitions (upper bound)  claude ~6.8K · codex ~5.7K
+! claude: MCP tool definitions are ~6,750 tokens (budget: 5,000)
+   Largest: github ~3,276, playwright ~1,932, sentry ~1,092
 ```
 
 ### Quiet 모드

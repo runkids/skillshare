@@ -822,7 +822,7 @@ error가 있는 서버나 비활성화된 항목에는 접속하지 않으며, `
 
 | 결과 | 수준 |
 |---|---|
-| 서버가 응답함: 이름과 버전, 프로토콜 버전, 도구 수 | info |
+| 서버가 응답함: 이름과 버전, 프로토콜 버전, 도구 수와 그 추정 토큰 수 | info |
 | 원격 서버가 로그인을 요구함 (HTTP 401) | warning |
 | 명령을 시작할 수 없거나, 일찍 종료되었거나, 제한 시간 안에 응답하지 않음 | error |
 | 프로토콜 error, 지원되지 않는 프로토콜 버전, 또는 그 밖의 HTTP 상태 | error |
@@ -834,7 +834,8 @@ error가 있는 서버나 비활성화된 항목에는 접속하지 않으며, `
 `bearerToken`의 값은 모든 메시지에서 제거되며, 네 글자보다 짧은 값은 그대로 남습니다. 값은 작성된
 그대로 전달됩니다: Skillshare는 Pi `!command` 값을 실행하지 않으며 `piOptions`를 읽지 않습니다.
 종료 코드는 같은 규칙을 따르며, error가 하나라도 있으면 1입니다. `--live`는 설정 파일도, 작업 로그
-항목도 쓰지 않으며, state 디렉터리에 [도구 고정](#pin-tool-definitions)만 보관합니다.
+항목도 쓰지 않으며, state 디렉터리에 [도구 고정](#pin-tool-definitions)과
+[도구 토큰 수](#count-tool-tokens)만 보관합니다.
 
 `--json`을 사용하면 응답한 서버에는 `live` 객체도 추가됩니다:
 
@@ -843,9 +844,9 @@ error가 있는 서버나 비활성화된 항목에는 접속하지 않으며, `
   "name": "docs",
   "ok": true,
   "findings": [
-    { "level": "info", "check": "live", "target": "", "message": "responds: docs-server 1.4.0, protocol 2026-07-28, 12 tool(s)", "subject": "docs-server" }
+    { "level": "info", "check": "live", "target": "", "message": "responds: docs-server 1.4.0, protocol 2026-07-28, 12 tool(s), ~4810 tokens", "subject": "docs-server" }
   ],
-  "live": { "protocolVersion": "2026-07-28", "serverInfo": { "name": "docs-server", "version": "1.4.0" }, "tools": 12 }
+  "live": { "protocolVersion": "2026-07-28", "serverInfo": { "name": "docs-server", "version": "1.4.0" }, "tools": 12, "toolTokens": 4810 }
 }
 ```
 
@@ -855,7 +856,13 @@ error가 있는 서버나 비활성화된 항목에는 접속하지 않으며, `
 대시보드의 **검사** 버튼은 정적 검사만 실행합니다. 대시보드가 서버를 프로브하는 곳은
 한 군데뿐입니다: 서버 대화상자의 [도구 섹션](#tool-policy-dashboard)에 있는 **도구 불러오기**로,
 대화상자의 현재 입력값으로 서버를 한 번 시작해 도구 목록을 가져옵니다. `--json`을 사용하면 `live`에는
-`tools/list`가 반환한 이름인 `toolNames`도 들어갑니다.
+`tools/list`가 반환한 이름인 `toolNames`와, 모든 도구의 이름, description, 입력 스키마의 추정 토큰 수인 `toolTokens`도 들어갑니다([도구 토큰 세기](#count-tool-tokens) 참고).
+
+### 도구 토큰 세기 {#count-tool-tokens}
+
+Agent는 어떤 도구를 호출하기 전에 모든 도구의 이름, description, 입력 스키마를 모델의 context에 불러옵니다. `--live`는 [`analyze`](/docs/reference/commands/analyze)와 같은 추정기로 서버별 비용을 추정합니다: 토큰 하나당 ASCII 문자 약 4개, 또는 전각 문자 하나입니다. info 줄에 `~4810 tokens`로 표시되고, `--json`에서는 `live.toolTokens`로 나옵니다. 보고서 뒤에 텍스트 출력은 각 MCP target이 불러오는 양의 합계도 보여 주며, 요약과 예산 경고는 [`analyze`](/docs/reference/commands/analyze#mcp-tool-definitions)와 같습니다.
+
+프로브에 성공할 때마다 도구 수, 토큰 수, 검사 시각이 범위와 서버 이름별로 state 디렉터리의 `mcp/tool-costs.json`에 저장되며, `tool-pins.json` 옆에 놓입니다. 이 파일은 캐시이고 다음 live 검사가 다시 쓰며, 읽을 수 없는 파일은 빈 것으로 취급합니다. [`analyze`](/docs/reference/commands/analyze#mcp-tool-definitions), `sync`, 대시보드의 **Context** 페이지는 이 값을 MCP target별로 합산하고 [`context_budget.warn_mcp_tool_tokens`](/docs/reference/targets/configuration#context_budget)를 넘으면 경고하며, 서버는 시작하지 않습니다. 어떤 live 검사로도 집계되지 않은 서버는 집계되지 않음으로 표시됩니다. `--live` 없이는 `mcp check`가 이 값을 읽지도 쓰지도 않습니다. 편집한 서버는 다음 live 검사 전까지 같은 이름의 값을 그대로 유지합니다.
 
 ### 도구 정의 고정하기 {#pin-tool-definitions}
 
@@ -884,7 +891,7 @@ error가 있는 서버나 비활성화된 항목에는 접속하지 않으며, `
 `--live` 없이는 고정 내용을 읽지도 쓰지도 않습니다. 편집한 서버(다른 명령, 다른 URL)나 삭제한 뒤 다시 추가한
 서버는 같은 이름으로 고정 내용을 그대로 유지합니다. 도구가 정당하게 달라졌다면 새 정의를 한 번 수락하세요.
 `GET /api/mcp/check?live=1`(대시보드 **검사** 버튼이 호출하는 엔드포인트이며, 버튼은
-`live`를 보내지 않습니다)도 고정하고 비교하지만 수락은 할 수 없습니다.
+`live`를 보내지 않습니다)도 고정하고 비교하며 도구 토큰 수를 저장하지만 수락은 할 수 없습니다. 대시보드 **Context** 페이지의 **Check live** 버튼이 이 엔드포인트를 호출합니다.
 
 ## Stop managing a server {#stop-managing-a-server}
 
@@ -1159,7 +1166,8 @@ export default defineApp({ app: { accounts: { skillshare } } }, async (ctx) => (
   해석되지 않은 채로 도달합니다.
 - 로컬 작업 기록은 Skillshare state 디렉터리의 `mcp/` 아래에 존재합니다:
   `state.json`, 쓰기 중의 `pending.json`, `tool-pins.json`(`mcp check --live`의
-  [도구 고정](#pin-tool-definitions)), 그리고 `backups/`(Agent 파일별 최신 20개).
+  [도구 고정](#pin-tool-definitions)), `tool-costs.json`(그
+  [도구 토큰 수](#count-tool-tokens)), 그리고 `backups/`(Agent 파일별 최신 20개).
   이 디렉터리를 이식 가능한 매니페스트로 공유하지 마세요.
 
 

@@ -254,6 +254,9 @@ func cmdSyncMCP(args []string) error {
 			return outputErr
 		}
 	}
+	if err == nil && !o.json {
+		printServiceMCPToolCosts(service)
+	}
 	return err
 }
 

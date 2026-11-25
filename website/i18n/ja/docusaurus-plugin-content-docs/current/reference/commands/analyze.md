@@ -70,13 +70,14 @@ skillshare analyze --json | jq '.targets[].skills[] | select(.lint_issues | leng
 | `description-too-short` | warning | 説明文が 50 文字未満 |
 | `description-too-long` | warning | 説明文が目標上限の 1024 文字を超えている |
 | `description-near-limit` | warning | 説明文が 900〜1024 文字の範囲にある |
+| `body-too-long` | warning | Skill 本文（front matter の後）が 500 行を超えている。詳細は参照ファイルへ移す |
 | `no-trigger-phrase` | warning | 説明文にトリガーフレーズ（例: "Use when…"）がない |
 
 TUI では、Lint 上の問題がある Skill は名前の横に ✗（error）または ⚠（warning）アイコンが表示されます。詳細パネルには、すべての検出結果を一覧する **Quality** セクションが含まれます。
 
 ## インタラクティブ TUI
 
-TTY 上では、`analyze` はターゲットごとにインタラクティブな画面を開きます。左側にトークン量順の Skill、右側に選択した Skill のトークン内訳、lint の問題、説明が表示されます。Skill を開くと、front matter を含むファイルの原文が表示され、lint の問題と照らし合わせられます。キーは画面下部に表示されます。プレーンテキストにするには `--no-tui` を使用します。
+TTY 上では、`analyze` はターゲットごとにインタラクティブな画面を開きます。左側にトークン量順の Skill、右側に選択した Skill のトークン内訳、lint の問題、説明が表示されます。Skill を開くと、front matter を含むファイルの原文が表示され、lint の問題と照らし合わせられます。キーは画面下部に表示されます。プレーンテキストにするには `--no-tui` を使用します。TUI には MCP のツール定義は表示されません。表示するには `--no-tui` または `--json` を使用します。
 
 ### 色分け
 
@@ -114,6 +115,20 @@ claude · 7 skills
     another-skill  ~120 tokens
     …
 ```
+
+### MCP ツール定義 {#mcp-tool-definitions}
+
+source 全体を対象にした実行（Target 引数も `--filter` もなし）では、MCP サーバーのツール定義も追加され、MCP Target ごとに数えられます（`claude`、`codex`、`cursor` などの `mcp.targets` の Agent で、Skill の Target とは別のリストです）:
+
+```
+MCP tool definitions (upper bound)  claude ~6.8K · codex ~5.7K
+
+! claude: MCP tool definitions are ~6,750 tokens (budget: 5,000)
+   Largest: github ~3,276, playwright ~1,932, sentry ~1,092
+  1 MCP server not counted yet; run skillshare mcp check --live
+```
+
+数は [`mcp check --live`](/docs/reference/commands/mcp#probe-servers-live) から取得され、各サーバーのツール名、説明、入力スキーマを見積もったものです。`analyze` はサーバーを起動しません。ライブチェックがまだ数えていないサーバーは、0 ではなく「未カウント」として表示されます。どのサーバーも数えていない場合、`analyze` は `MCP tool definitions have not been counted yet; run skillshare mcp check --live` と表示します。場所ごとに別のグループになります: global の一覧と、各 `mcp.projects` ルートです。ルートのグループには、そのプロジェクトが無効にしていない global のサーバーも含まれます。Agent はそこでそれらも読み込むためです。ツールポリシーは適用されないため、合計は上限値です。警告には [`context_budget.warn_mcp_tool_tokens`](/docs/reference/targets/configuration#context_budget) を使います。
 
 ### 単一 Target
 
@@ -194,6 +209,24 @@ skillshare analyze --json
 
 Lint の問題がない Skill では `lint_issues` フィールドは省略されます。
 
+source 全体を対象にした実行では `mcp` オブジェクトも追加されます。どの MCP Target にもサーバーが渡されない場合は省略されます:
+
+```json
+"mcp": {
+  "budget": 30000,
+  "groups": [
+    {
+      "target": "claude", "agent": "claude", "tokens": 6750, "measured": 4,
+      "servers": [
+        { "name": "github", "tools": 26, "tokens": 3276, "checked": "2026-11-25T08:30:00Z" }
+      ]
+    }
+  ]
+}
+```
+
+`root`（`mcp.projects` のフォルダ）は project のグループに設定されます。サーバーに `project` があるのは project 由来の場合で、`checked` があるのはライブチェックが数えた場合だけです。`checked` がなければ `tokens` は実際の数ではありません。グループの `tokens` は数えたサーバーの合計で、`measured` はその数です。
+
 ## Project mode
 
 ```bash
@@ -233,7 +266,7 @@ Web UI でも、検索やフィルタが有効なときは動的なトークン�
 
 ## 予算の警告
 
-`context_budget` の閾値が設定されている場合、`analyze` はいずれかの Target が予算を超えていると警告を表示します。設定の詳細については [sync — Context Cost](/docs/reference/commands/sync#context-cost) を参照してください。
+`context_budget` の閾値が設定されている場合、`analyze` はいずれかの Target が予算を超えていると警告を表示します（MCP ツール定義には `warn_mcp_tool_tokens`）。設定の詳細については [sync — Context Cost](/docs/reference/commands/sync#context-cost) を参照してください。
 
 ## 関連項目
 

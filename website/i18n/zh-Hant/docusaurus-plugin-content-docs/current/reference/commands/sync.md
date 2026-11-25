@@ -697,6 +697,7 @@ Token 數量相同的 targets 會合併顯示在同一行。
 context_budget:
   warn_always_loaded_tokens: 10000   # 預設值；0 = 停用
   warn_on_demand_tokens: 100000      # 預設值；0 = 停用
+  warn_mcp_tool_tokens: 30000        # 預設值；0 = 停用
 ```
 
 超過門檻時，會顯示警告並列出前 3 名占用最多的項目：
@@ -708,6 +709,16 @@ context_budget:
      • another-verbose-skill           ~6,400 tokens
      • chatgpt-system-prompt           ~5,100 tokens
    Run `skillshare analyze` for details.
+```
+
+### MCP 工具定義
+
+`skillshare sync mcp` 與 `skillshare sync --all` 在 MCP 步驟之後（即使沒有檔案改變），也會印出每個 MCP target 的工具定義成本，並在某個 target（或某個 `mcp.projects` 根目錄）超過 `warn_mcp_tool_tokens` 時發出警告。數字來自 [`mcp check --live`](/docs/reference/commands/mcp#count-tool-tokens)，所以在即時檢查計算過某個 server 之前不會印出任何內容；尚未計算的 server 會被點名，絕不當成 0：
+
+```
+MCP tool definitions (upper bound)  claude ~6.8K · codex ~5.7K
+! claude: MCP tool definitions are ~6,750 tokens (budget: 5,000)
+   Largest: github ~3,276, playwright ~1,932, sentry ~1,092
 ```
 
 ### 安靜模式

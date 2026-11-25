@@ -697,6 +697,7 @@ config で警告のしきい値を設定します。
 context_budget:
   warn_always_loaded_tokens: 10000   # デフォルト; 0 = 無効
   warn_on_demand_tokens: 100000      # デフォルト; 0 = 無効
+  warn_mcp_tool_tokens: 30000        # デフォルト; 0 = 無効
 ```
 
 しきい値を超えると、上位 3 件の要因とともに警告が表示されます。
@@ -708,6 +709,16 @@ context_budget:
      • another-verbose-skill           ~6,400 tokens
      • chatgpt-system-prompt           ~5,100 tokens
    Run `skillshare analyze` for details.
+```
+
+### MCP ツール定義
+
+`skillshare sync mcp` と `skillshare sync --all` は、MCP のステップの後に（ファイルが変わらなかった場合も）、各 MCP Target のツール定義のコストも表示し、Target（または `mcp.projects` ルート）が `warn_mcp_tool_tokens` を超えると警告します。数は [`mcp check --live`](/docs/reference/commands/mcp#count-tool-tokens) から取得するため、ライブチェックがサーバーを一度も数えていない間は何も表示されません。まだ数えていないサーバーは名前が表示され、0 として数えられることはありません:
+
+```
+MCP tool definitions (upper bound)  claude ~6.8K · codex ~5.7K
+! claude: MCP tool definitions are ~6,750 tokens (budget: 5,000)
+   Largest: github ~3,276, playwright ~1,932, sentry ~1,092
 ```
 
 ### Quiet モード

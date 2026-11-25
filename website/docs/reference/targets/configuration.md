@@ -941,14 +941,16 @@ Token budget warning thresholds. Warnings appear after `sync` and `analyze` when
 context_budget:
   warn_always_loaded_tokens: 10000
   warn_on_demand_tokens: 100000
+  warn_mcp_tool_tokens: 30000
 ```
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `warn_always_loaded_tokens` | integer | `10000` | Warn when always-loaded tokens exceed this value. `0` disables |
 | `warn_on_demand_tokens` | integer | `100000` | Warn when on-demand tokens exceed this value. `0` disables |
+| `warn_mcp_tool_tokens` | integer | `30000` | Warn when the MCP tool definitions of one MCP target (an `mcp.targets` Agent such as `claude`, not a skill target) exceed this value in one place: the global list, or each `mcp.projects` root. Counts come from `mcp check --live`; servers not counted yet are left out. `0` disables |
 
-When omitted, defaults apply (10K / 100K). Use `skillshare sync --quiet` to suppress warnings. See [sync — Context Cost](/docs/reference/commands/sync#context-cost) for output format.
+When omitted, defaults apply (10K / 100K / 30K). Use `skillshare sync --quiet` to suppress warnings. See [sync — Context Cost](/docs/reference/commands/sync#context-cost) for output format.
 
 ### `preserve_tilde_on_save`
 

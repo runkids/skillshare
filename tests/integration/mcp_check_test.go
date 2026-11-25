@@ -248,3 +248,107 @@ func TestMCPCheckLiveToolPins(t *testing.T) {
 	r.AssertFailure(t)
 	r.AssertAnyOutputContains(t, "--accept-tools only applies with --live")
 }
+
+func TestMCPToolCostsReachAnalyzeAndSync(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	script := filepath.Join(sb.Home, "tiny-mcp.sh")
+	tool := `{"name":"echo","description":"Echo the text back to the caller, unchanged, so a client can test the connection.","inputSchema":{"type":"object"}}`
+	if err := os.WriteFile(script, []byte(strings.Replace(tinyMCPServer, `{"name":"echo","inputSchema":{"type":"object"}}`, tool, 1)), 0755); err != nil {
+		t.Fatal(err)
+	}
+	sb.CreateSkill("demo", map[string]string{"SKILL.md": "---\nname: demo\ndescription: Use when testing\n---\n# Demo\n"})
+	sb.WriteConfig("targets: {}\ncontext_budget:\n  warn_mcp_tool_tokens: 10\nmcp:\n  targets: [claude]\n  servers:\n    tiny:\n      command: sh\n      args: [" + script + "]\n")
+
+	r := sb.RunCLI("analyze", "--json", "-g")
+	r.AssertSuccess(t)
+	var before struct {
+		MCP struct {
+			Groups []struct {
+				Measured int `json:"measured"`
+			} `json:"groups"`
+		} `json:"mcp"`
+	}
+	if err := json.Unmarshal([]byte(r.Stdout), &before); err != nil || len(before.MCP.Groups) != 1 || before.MCP.Groups[0].Measured != 0 {
+		t.Fatalf("before a live check, tiny must be listed uncounted: %v\n%s", err, r.Stdout)
+	}
+
+	sb.RunCLI("mcp", "check", "--live", "--timeout", "5s", "-g").AssertSuccess(t)
+
+	r = sb.RunCLI("analyze", "--json", "-g")
+	r.AssertSuccess(t)
+	var after struct {
+		MCP struct {
+			Budget int `json:"budget"`
+			Groups []struct {
+				Target string `json:"target"`
+				Tokens int    `json:"tokens"`
+			} `json:"groups"`
+		} `json:"mcp"`
+	}
+	if err := json.Unmarshal([]byte(r.Stdout), &after); err != nil || after.MCP.Budget != 10 || len(after.MCP.Groups) != 1 || after.MCP.Groups[0].Target != "claude" || after.MCP.Groups[0].Tokens <= 10 {
+		t.Fatalf("analyze --json mcp: %v\n%s", err, r.Stdout)
+	}
+
+	r = sb.RunCLI("sync", "mcp", "-g")
+	r.AssertSuccess(t)
+	r.AssertAnyOutputContains(t, "claude: MCP tool definitions are ~")
+	r.AssertAnyOutputContains(t, "(budget: 10)")
+}
+
+// MCP servers load whether or not any skill exists, so analyze reports them without one.
+func TestAnalyzeReportsMCPWithoutSkills(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	sb.WriteConfig("targets: {}\nmcp:\n  targets: [claude]\n  servers:\n    tiny:\n      command: tiny-server\n")
+
+	r := sb.RunCLI("analyze", "--json", "-g")
+	r.AssertSuccess(t)
+	var out struct {
+		MCP *struct {
+			Groups []struct {
+				Target string `json:"target"`
+			} `json:"groups"`
+		} `json:"mcp"`
+	}
+	if err := json.Unmarshal([]byte(r.Stdout), &out); err != nil || out.MCP == nil || len(out.MCP.Groups) != 1 || out.MCP.Groups[0].Target != "claude" {
+		t.Fatalf("analyze --json with no skills must still list the MCP target: %v\n%s", err, r.Stdout)
+	}
+}
+
+// A project counts its own servers under its own budget, apart from a global server of the same name.
+func TestMCPToolCostsInProjectMode(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	script := filepath.Join(sb.Home, "tiny-mcp.sh")
+	if err := os.WriteFile(script, []byte(tinyMCPServer), 0755); err != nil {
+		t.Fatal(err)
+	}
+	sb.WriteConfig("targets: {}\nmcp:\n  targets: [claude]\n  servers:\n    tiny:\n      command: tiny-global\n")
+	root := sb.SetupProjectDir("claude")
+	sb.WriteProjectConfig(root, "targets:\n  - claude\ncontext_budget:\n  warn_mcp_tool_tokens: 1\nmcp:\n  targets: [claude]\n  servers:\n    tiny:\n      command: sh\n      args: ["+script+"]\n")
+
+	sb.RunCLIInDir(root, "mcp", "check", "--live", "--timeout", "5s", "-p").AssertSuccess(t)
+
+	type costs struct {
+		MCP struct {
+			Budget int `json:"budget"`
+			Groups []struct {
+				Measured int `json:"measured"`
+				Tokens   int `json:"tokens"`
+			} `json:"groups"`
+		} `json:"mcp"`
+	}
+	r := sb.RunCLIInDir(root, "analyze", "--json", "-p")
+	r.AssertSuccess(t)
+	var project costs
+	if err := json.Unmarshal([]byte(r.Stdout), &project); err != nil || project.MCP.Budget != 1 || len(project.MCP.Groups) != 1 || project.MCP.Groups[0].Measured != 1 || project.MCP.Groups[0].Tokens < 1 {
+		t.Fatalf("analyze -p --json mcp: %v\n%s", err, r.Stdout)
+	}
+	r = sb.RunCLI("analyze", "--json", "-g")
+	r.AssertSuccess(t)
+	var global costs
+	if err := json.Unmarshal([]byte(r.Stdout), &global); err != nil || len(global.MCP.Groups) != 1 || global.MCP.Groups[0].Measured != 0 {
+		t.Fatalf("the project's count must not reach the global tiny: %v\n%s", err, r.Stdout)
+	}
+}

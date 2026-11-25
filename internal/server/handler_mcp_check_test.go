@@ -148,3 +148,35 @@ func TestMCPCheckLiveDoesNotHoldTheConfigLock(t *testing.T) {
 	}
 	s.mu.Unlock()
 }
+
+func TestMCPCostsListsEachTargetWithBudget(t *testing.T) {
+	s, _ := newTestServerWithExtras(t, nil, "")
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("CLAUDE_CONFIG_DIR", "")
+	writeMCPSource(t, s, "mcp:\n  targets: [claude, cursor]\n  servers:\n    docs:\n      url: https://mcp.skillshare.invalid/mcp\n")
+	w := httptest.NewRecorder()
+	s.handleMCPCosts(w, httptest.NewRequest(http.MethodGet, "/api/mcp/costs", nil))
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d body = %s", w.Code, w.Body.String())
+	}
+	var body struct {
+		Budget int `json:"budget"`
+		Groups []struct {
+			Target   string `json:"target"`
+			Measured int    `json:"measured"`
+			Servers  []struct {
+				Name    string  `json:"name"`
+				Checked *string `json:"checked"`
+			} `json:"servers"`
+		} `json:"groups"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.Budget != 30000 || len(body.Groups) != 2 || body.Groups[0].Target != "claude" || body.Groups[1].Target != "cursor" {
+		t.Fatalf("body = %s", w.Body.String())
+	}
+	if g := body.Groups[0]; g.Measured != 0 || len(g.Servers) != 1 || g.Servers[0].Name != "docs" || g.Servers[0].Checked != nil {
+		t.Fatalf("an unprobed server must be listed without a count: %s", w.Body.String())
+	}
+}

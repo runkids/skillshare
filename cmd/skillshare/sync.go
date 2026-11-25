@@ -218,6 +218,9 @@ func cmdSync(args []string) error {
 				ui.Note(fmt.Sprintf("MCP backup: %s", id))
 			}
 			printMCPMigrated(mcpResult)
+			if applyErr == nil {
+				printServiceMCPToolCosts(mcpService)
+			}
 		}
 		return applyErr
 	}

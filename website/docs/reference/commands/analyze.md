@@ -75,13 +75,14 @@ In addition to token analysis, `analyze` runs a built-in lint engine against eve
 | `description-too-short` | warning | Description under 50 characters |
 | `description-too-long` | warning | Description exceeds 1024-character target limit |
 | `description-near-limit` | warning | Description between 900–1024 characters |
+| `body-too-long` | warning | Skill body (after frontmatter) is more than 500 lines; move detail into reference files |
 | `no-trigger-phrase` | warning | Description lacks trigger phrases (e.g. "Use when…") |
 
 In the TUI, skills with lint issues show ✗ (error) or ⚠ (warning) icons next to their name. The detail panel includes a **Quality** section listing all findings.
 
 ## Interactive TUI
 
-On a TTY, `analyze` opens an interactive view of one target at a time: skills sorted by token cost on the left, and the token breakdown, lint issues and description of the selected skill on the right. Opening a skill shows its files as written, front matter included, so a lint issue can be checked against the text. The keys are listed at the bottom of the screen. Use `--no-tui` for plain text.
+On a TTY, `analyze` opens an interactive view of one target at a time: skills sorted by token cost on the left, and the token breakdown, lint issues and description of the selected skill on the right. Opening a skill shows its files as written, front matter included, so a lint issue can be checked against the text. The keys are listed at the bottom of the screen. Use `--no-tui` for plain text. The TUI does not show MCP tool definitions; use `--no-tui` or `--json` for those.
 
 ### Color Coding
 
@@ -104,6 +105,20 @@ claude · 7 skills
 
   Add -v for the 10 largest descriptions
 ```
+
+### MCP tool definitions {#mcp-tool-definitions}
+
+A run over the whole source (no target argument and no `--filter`) also adds the MCP servers' tool definitions, counted per MCP target (the `mcp.targets` Agents such as `claude`, `codex` or `cursor`, which are a separate list from the skill targets):
+
+```
+MCP tool definitions (upper bound)  claude ~6.8K · codex ~5.7K
+
+! claude: MCP tool definitions are ~6,750 tokens (budget: 5,000)
+   Largest: github ~3,276, playwright ~1,932, sentry ~1,092
+  1 MCP server not counted yet; run skillshare mcp check --live
+```
+
+The counts come from [`mcp check --live`](/docs/reference/commands/mcp#probe-servers-live), which estimates each server's tool names, descriptions and input schemas; `analyze` starts no server. A server no live check has counted is listed as not counted, never as 0. When none has been counted, `analyze` prints `MCP tool definitions have not been counted yet; run skillshare mcp check --live`. Each place is its own group: the global list, and each `mcp.projects` root, whose group also holds the global servers that project does not turn off, since the Agent loads them there too. Tool policies are not applied, so a total is an upper bound. The warning uses [`context_budget.warn_mcp_tool_tokens`](/docs/reference/targets/configuration#context_budget).
 
 ### Verbose
 
@@ -199,6 +214,24 @@ skillshare analyze --json
 
 Skills with no lint issues omit the `lint_issues` field.
 
+A whole-source run also adds an `mcp` object, omitted when no MCP target receives a server:
+
+```json
+"mcp": {
+  "budget": 30000,
+  "groups": [
+    {
+      "target": "claude", "agent": "claude", "tokens": 6750, "measured": 4,
+      "servers": [
+        { "name": "github", "tools": 26, "tokens": 3276, "checked": "2026-11-25T08:30:00Z" }
+      ]
+    }
+  ]
+}
+```
+
+`root` (the `mcp.projects` folder) is set on a project group. A server has `project` when it comes from a project, and `checked` only when a live check counted it; without it, `tokens` is not a count. `tokens` of a group adds up the counted servers, and `measured` is how many that is.
+
 ## Project Mode
 
 ```bash
@@ -239,7 +272,7 @@ The Web UI also shows a dynamic token summary bar when search or filter is activ
 
 ## Budget Warnings
 
-When `context_budget` thresholds are configured, `analyze` shows a warning if any target exceeds the budget. See [sync — Context Cost](/docs/reference/commands/sync#context-cost) for configuration details.
+When `context_budget` thresholds are configured, `analyze` shows a warning if any target exceeds the budget (`warn_mcp_tool_tokens` for MCP tool definitions). See [sync — Context Cost](/docs/reference/commands/sync#context-cost) for configuration details.
 
 ## See Also
 

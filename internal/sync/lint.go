@@ -32,6 +32,7 @@ const (
 	checkFieldLengthRange = "field-length-range"
 	checkFieldNotMatches  = "field-not-matches"
 	checkFieldMatches     = "field-matches"
+	checkBodyLinesMax     = "body-lines-max"
 )
 
 // LintIssue represents a single lint finding for a skill.
@@ -97,8 +98,8 @@ func loadLintRules() ([]compiledLintRule, error) {
 
 // LintSkill runs all lint rules against a skill's metadata.
 // name and description come from SKILL.md frontmatter.
-// bodyChars is the rune count of the skill body after frontmatter.
-func LintSkill(name, description string, bodyChars int) ([]LintIssue, error) {
+// bodyChars and bodyLines are the rune and line counts of the skill body after frontmatter.
+func LintSkill(name, description string, bodyChars, bodyLines int) ([]LintIssue, error) {
 	rules, err := loadLintRules()
 	if err != nil {
 		return nil, err
@@ -106,14 +107,14 @@ func LintSkill(name, description string, bodyChars int) ([]LintIssue, error) {
 
 	var issues []LintIssue
 	for _, r := range rules {
-		if issue, ok := evalLintRule(r, name, description, bodyChars); ok {
+		if issue, ok := evalLintRule(r, name, description, bodyChars, bodyLines); ok {
 			issues = append(issues, issue)
 		}
 	}
 	return issues, nil
 }
 
-func evalLintRule(r compiledLintRule, name, description string, bodyChars int) (LintIssue, bool) {
+func evalLintRule(r compiledLintRule, name, description string, bodyChars, bodyLines int) (LintIssue, bool) {
 	fieldValue := resolveField(r.Field, name, description)
 	charCount := utf8.RuneCountInString(fieldValue)
 
@@ -123,6 +124,8 @@ func evalLintRule(r compiledLintRule, name, description string, bodyChars int) (
 		triggered = strings.TrimSpace(fieldValue) == ""
 	case checkBodyEmpty:
 		triggered = bodyChars == 0
+	case checkBodyLinesMax:
+		triggered = bodyLines > r.Threshold
 	case checkFieldLengthMin:
 		triggered = charCount > 0 && charCount < r.Threshold
 	case checkFieldLengthMax:
@@ -145,6 +148,7 @@ func evalLintRule(r compiledLintRule, name, description string, bodyChars int) (
 
 	msg := r.Message
 	msg = strings.ReplaceAll(msg, "{chars}", strconv.Itoa(charCount))
+	msg = strings.ReplaceAll(msg, "{lines}", strconv.Itoa(bodyLines))
 
 	return LintIssue{
 		Rule:     r.ID,

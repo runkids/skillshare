@@ -311,11 +311,14 @@ type BackupConfig struct {
 type ContextBudgetConfig struct {
 	WarnAlwaysLoadedTokens *int `yaml:"warn_always_loaded_tokens,omitempty"`
 	WarnOnDemandTokens     *int `yaml:"warn_on_demand_tokens,omitempty"`
+	// WarnMCPToolTokens is checked per MCP target, not per skill target: the two lists differ.
+	WarnMCPToolTokens *int `yaml:"warn_mcp_tool_tokens,omitempty"`
 }
 
 const (
 	DefaultWarnAlwaysLoadedTokens = 10000
 	DefaultWarnOnDemandTokens     = 100000
+	DefaultWarnMCPToolTokens      = 30000
 )
 
 func (c ContextBudgetConfig) AlwaysLoadedThreshold() int {
@@ -330,6 +333,13 @@ func (c ContextBudgetConfig) OnDemandThreshold() int {
 		return DefaultWarnOnDemandTokens
 	}
 	return *c.WarnOnDemandTokens
+}
+
+func (c ContextBudgetConfig) MCPToolThreshold() int {
+	if c.WarnMCPToolTokens == nil {
+		return DefaultWarnMCPToolTokens
+	}
+	return *c.WarnMCPToolTokens
 }
 
 // HubEntry represents a single saved hub source.

@@ -8,25 +8,12 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"skillshare/internal/tokens"
 	"skillshare/internal/utils"
 )
 
-// EstimateTokens approximates how many tokens s costs. ASCII text runs about
-// four characters per token; anything wider (CJK, emoji, accented letters)
-// is counted as one token per rune, which is what tokenizers charge for it.
-// ponytail: two-bucket heuristic. Swap in a real tokenizer if a model's count
-// ever needs to be exact rather than comparable.
-func EstimateTokens(s string) int {
-	var ascii, wide int
-	for _, r := range s {
-		if r < utf8.RuneSelf {
-			ascii++
-		} else {
-			wide++
-		}
-	}
-	return ascii/4 + wide
-}
+// EstimateTokens approximates how many tokens s costs; see tokens.Estimate.
+func EstimateTokens(s string) int { return tokens.Estimate(s) }
 
 // skillContext is the context cost of one SKILL.md: the always-loaded layer
 // (name + description) and the on-demand layer (body after the frontmatter).
@@ -35,6 +22,7 @@ type skillContext struct {
 	Description string
 	DescChars   int // rune count of name + description
 	BodyChars   int // rune count of body after frontmatter
+	BodyLines   int // line count of body after frontmatter
 	DescTokens  int
 	BodyTokens  int
 }
@@ -70,6 +58,7 @@ func calcContextFromContent(content []byte) (sc skillContext, yamlErr error) {
 		// No frontmatter — entire content is body
 		body := strings.TrimSpace(s)
 		sc.BodyChars = utf8.RuneCountInString(body)
+		sc.BodyLines = countLines(body)
 		sc.BodyTokens = EstimateTokens(body)
 		return sc, nil
 	}
@@ -109,7 +98,16 @@ func calcContextFromContent(content []byte) (sc skillContext, yamlErr error) {
 	sc.Description = fm.Description
 	sc.DescChars = utf8.RuneCountInString(alwaysLoaded)
 	sc.BodyChars = utf8.RuneCountInString(body)
+	sc.BodyLines = countLines(body)
 	sc.DescTokens = EstimateTokens(alwaysLoaded)
 	sc.BodyTokens = EstimateTokens(body)
 	return sc, yamlErr
+}
+
+// countLines is how many lines s spans; an empty s has none.
+func countLines(s string) int {
+	if s == "" {
+		return 0
+	}
+	return strings.Count(s, "\n") + 1
 }

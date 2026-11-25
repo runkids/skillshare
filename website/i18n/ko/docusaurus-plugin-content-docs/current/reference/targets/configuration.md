@@ -936,14 +936,16 @@ audit:
 context_budget:
   warn_always_loaded_tokens: 10000
   warn_on_demand_tokens: 100000
+  warn_mcp_tool_tokens: 30000
 ```
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `warn_always_loaded_tokens` | integer | `10000` | Always-loaded 토큰이 이 값을 초과하면 경고. `0`은 비활성화 |
 | `warn_on_demand_tokens` | integer | `100000` | On-demand 토큰이 이 값을 초과하면 경고. `0`은 비활성화 |
+| `warn_mcp_tool_tokens` | integer | `30000` | 한 곳(global 목록 또는 각 `mcp.projects` 루트)에서 MCP target 하나(skill target이 아니라 `claude` 같은 `mcp.targets` Agent)의 MCP 도구 정의가 이 값을 초과하면 경고. 집계 값은 `mcp check --live`에서 가져오며, 아직 집계되지 않은 서버는 제외됨. `0`은 비활성화 |
 
-생략하면 기본값(10K / 100K)이 적용됩니다. 경고를 억제하려면 `skillshare sync --quiet`를 사용하세요. 출력 형식은 [sync — Context Cost](/docs/reference/commands/sync#context-cost)를 참고하세요.
+생략하면 기본값(10K / 100K / 30K)이 적용됩니다. 경고를 억제하려면 `skillshare sync --quiet`를 사용하세요. 출력 형식은 [sync — Context Cost](/docs/reference/commands/sync#context-cost)를 참고하세요.
 
 ### `preserve_tilde_on_save`
 

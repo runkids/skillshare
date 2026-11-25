@@ -139,3 +139,13 @@ func TestCalcSkillContext_NoSkillMd(t *testing.T) {
 		t.Errorf("description: expected empty, got %q", description)
 	}
 }
+
+func TestCalcContextFromContent_BodyLines(t *testing.T) {
+	sc, err := calcContextFromContent([]byte("---\nname: a\n---\n\nline one\nline two\nline three\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sc.BodyLines != 3 {
+		t.Errorf("BodyLines = %d, want 3", sc.BodyLines)
+	}
+}
