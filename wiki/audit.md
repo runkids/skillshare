@@ -47,6 +47,8 @@ Compare routes in `internal/server/server.go`, `handler_*.go` files, handler tes
 
 `GET /api/resources/{name}/local-changes` (`name` is the skill's relative path) returns `{files: [{path, status, diff}]}` with `status` `modified`, `added` or `deleted`, each diffed against the commit the skill was installed at; it backs the same comparison as `check <name> --diff` through `install.LocalChanges`. Skills without an install record of their own (local, tracked, no recorded hashes) are 404.
 
+`GET /api/resources/{name}/upstream-changes` returns `{from, to, files: [{path, status, diff}]}`: the installed commit against the remote's latest commit (`git ls-remote` with token auth, on the installed branch), diffed from installed to latest through `install.UpstreamChanges`; local edits are not part of either side, and nothing is fetched when the commits match. Skills without a remote install record or recorded commit are 404; an unreachable remote is 502. `GET /api/repos/{name}/upstream-changes` (`name` must be a managed tracked repo from `dashboardRepos`, else 404) returns `{from, to, total_commits, commits: [{hash, subject, author, date}], files: [{path, added, deleted, binary}]}` comparing `HEAD` with `@{u}` as the last update check left them (`git.PreviewUpstream`, no fetch, at most 50 commits newest first); a branch without upstream is 409.
+
 Source-link endpoints (skills only, in the dashboard's current global/project mode):
 
 | Endpoint | Request | Response |
