@@ -493,7 +493,17 @@ func installFromGit(source *Source, destPath string, result *InstallResult, opts
 		return nil, fmt.Errorf("failed to clone repository: %w", err)
 	}
 
-	// Write metadata with file hashes
+	// Check for SKILL.md
+	checkSkillFile(destPath, result)
+	result.Warnings = append(result.Warnings, SubmoduleWarnings(destPath, source.authEnv())...)
+
+	// Security audit
+	if err := auditInstalledSkill(destPath, result, opts); err != nil {
+		return nil, err
+	}
+
+	// Write metadata with file hashes once the clone is kept, so a failed
+	// --force reinstall does not leave it on the restored skill.
 	meta := NewMetaFromSource(source)
 	if hash, err := getGitCommit(destPath); err == nil {
 		meta.Version = hash
@@ -503,15 +513,6 @@ func installFromGit(source *Source, destPath string, result *InstallResult, opts
 	}
 	if err := WriteMetaToStore(opts.SourceDir, destPath, meta); err != nil {
 		result.Warnings = append(result.Warnings, fmt.Sprintf("failed to write metadata: %v", err))
-	}
-
-	// Check for SKILL.md
-	checkSkillFile(destPath, result)
-	result.Warnings = append(result.Warnings, SubmoduleWarnings(destPath, source.authEnv())...)
-
-	// Security audit
-	if err := auditInstalledSkill(destPath, result, opts); err != nil {
-		return nil, err
 	}
 
 	result.Action = "cloned"
@@ -568,16 +569,10 @@ func installFromDiscoveryInternal(discovery *DiscoveryResult, skill SkillInfo, d
 			}
 			// nil means empty/invalid dir — safe to overwrite, fall through.
 		}
-		// Update: stage the new content in a temp dir and swap only after the
-		// audit passes, so a blocked update keeps the previously installed
-		// version on disk (mirrors handleUpdate). Fresh --force installs still
-		// overwrite in place.
-		stage = opts.Update
-		if !opts.DryRun && !stage {
-			if err := removeInSource(opts.SourceDir, destPath, opts.SourceFollow); err != nil {
-				return nil, fmt.Errorf("failed to remove existing skill: %w", err)
-			}
-		}
+		// Stage the new content in a temp dir and swap only after the copy and
+		// audit pass, so a failed or blocked install keeps the previously
+		// installed version on disk (mirrors handleUpdate).
+		stage = true
 	}
 
 	result.SkillPath = destPath
