@@ -88,6 +88,7 @@ func TestHandleVersionCheckReportsNixUpgradeCommand(t *testing.T) {
 		{method: versioncheck.InstallBrew, want: nil},
 		{method: versioncheck.InstallNixProfile, want: "nix profile upgrade skillshare"},
 		{method: versioncheck.InstallNix, want: ""},
+		{method: versioncheck.InstallPip, want: nil},
 	}
 	oldVersion, oldDetect := versioncheck.Version, detectUIInstallMethod
 	defer func() { versioncheck.Version, detectUIInstallMethod = oldVersion, oldDetect }()
@@ -103,6 +104,34 @@ func TestHandleVersionCheckReportsNixUpgradeCommand(t *testing.T) {
 		}
 		if body["nixUpgradeCommand"] != tt.want {
 			t.Errorf("method %v: nixUpgradeCommand = %#v, want %#v", tt.method, body["nixUpgradeCommand"], tt.want)
+		}
+	}
+}
+
+func TestHandleVersionCheckReportsPyPIUpgradeCommand(t *testing.T) {
+	tests := []struct {
+		method versioncheck.InstallMethod
+		want   any // nil: not a PyPI install
+	}{
+		{method: versioncheck.InstallDirect, want: nil},
+		{method: versioncheck.InstallNixProfile, want: nil},
+		{method: versioncheck.InstallUV, want: "uv tool upgrade skillshare-cli"},
+		{method: versioncheck.InstallPip, want: "pip install --upgrade skillshare-cli"},
+	}
+	oldVersion, oldDetect := versioncheck.Version, detectUIInstallMethod
+	defer func() { versioncheck.Version, detectUIInstallMethod = oldVersion, oldDetect }()
+	versioncheck.Version = "dev" // skips the network lookup
+	for _, tt := range tests {
+		detectUIInstallMethod = func() versioncheck.InstallMethod { return tt.method }
+		rec := httptest.NewRecorder()
+		(&Server{cfg: &config.Config{Source: t.TempDir()}}).handleVersionCheck(rec, httptest.NewRequest(http.MethodGet, "/api/version", nil))
+
+		var body map[string]any
+		if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+			t.Fatalf("decode response: %v", err)
+		}
+		if body["pypiUpgradeCommand"] != tt.want {
+			t.Errorf("method %v: pypiUpgradeCommand = %#v, want %#v", tt.method, body["pypiUpgradeCommand"], tt.want)
 		}
 	}
 }
