@@ -125,6 +125,9 @@ func wantCLISkills(versions map[string]string, names ...string) []checkSkillResu
 		if name == "current" || name == "plain" {
 			r.InstalledAt = "2024-05-06"
 		}
+		if name == "broken" {
+			r.Message = "Could not read from remote repository."
+		}
 		want = append(want, r)
 	}
 	sort.Slice(want, func(i, j int) bool { return want[i].Name < want[j].Name })

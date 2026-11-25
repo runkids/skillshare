@@ -497,6 +497,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("GET /api/resources/{name}", s.handleGetSkill)
 	s.mux.HandleFunc("GET /api/resources/{name}/files/{filepath...}", s.handleGetSkillFile)
 	s.mux.HandleFunc("GET /api/resources/{name}/local-changes", s.handleSkillLocalChanges)
+	s.mux.HandleFunc("GET /api/resources/{name}/upstream-changes", withLongWriteDeadline(s.handleSkillUpstreamChanges))
 	s.mux.HandleFunc("PUT /api/resources/{name}/content", s.handlePutSkillContent)
 	s.mux.HandleFunc("PATCH /api/resources/{name}/source", s.handlePatchSkillSource)
 	s.mux.HandleFunc("POST /api/resources/{name}/open-in-editor", s.handleOpenSkillInEditor)
@@ -603,7 +604,8 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("GET /api/check/stream", s.handleCheckStream)
 	s.mux.HandleFunc("GET /api/check", withLongWriteDeadline(s.handleCheck))
 
-	// Repo uninstall
+	// Tracked repos: update preview and uninstall
+	s.mux.HandleFunc("GET /api/repos/{name}/upstream-changes", s.handleRepoUpstreamChanges)
 	s.mux.HandleFunc("DELETE /api/repos/{name}", s.handleUninstallRepo)
 
 	// Version check / app lifecycle

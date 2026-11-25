@@ -393,7 +393,7 @@ skillshare update my-skill --force
 
 編集を残したまま upstream の変更も取り込みたい場合は、代わりに `--merge` を使います。[upstream の変更のマージ](#merging-upstream-changes)を参照してください。
 
-ダッシュボードの **Updates** タブでは、その skill に **Modified locally** と、変更を skill のページで開く **View changes** ボタンが表示されます。更新する前に **Force overwrite local edits** にチェックを入れるか、スキップされた行の **Merge** または **Force Retry** を使います。skill 自身のページから更新する場合は、変更を表示したうえで、破棄する選択肢の隣に **Merge** も表示します。`update <name> --dry-run` は、その skill をスキップ対象として報告します。upstream で削除された modified の skill も、`--prune` を付けても `--force` を付けるまで保持されます。
+ダッシュボードの **Updates** タブでは、その skill に **Modified locally** と、変更を表示して **Merge** または **Force overwrite local edits** を選べる **View changes** ボタンが表示されます。更新する前に **Force overwrite local edits** にチェックを入れることも、スキップされた行の **Merge** または **Force Retry** を使います。skill 自身のページから更新する場合は、変更を表示したうえで、破棄する選択肢の隣に **Merge** も表示します。`update <name> --dry-run` は、その skill をスキップ対象として報告します。upstream で削除された modified の skill も、`--prune` を付けても `--force` を付けるまで保持されます。
 
 インストール後に編集した agent も同じように保護されます。新しいバージョンが編集内容を上書きする場合、更新はスキップされます。`skillshare check agents` はその agent を `update available upstream` として報告し、`update agents` は **Modified locally** の下に一覧表示します。`skillshare update agents <name> --merge` でマージするか、ダッシュボードではスキップされた行の **Merge** または **Force Retry** を使うか、agent 自身のページから更新してください。
 

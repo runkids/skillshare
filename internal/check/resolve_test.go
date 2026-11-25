@@ -144,6 +144,16 @@ func TestResolution_Statuses(t *testing.T) {
 	}
 }
 
+func TestResolution_UnreachableRemoteSaysWhy(t *testing.T) {
+	results, err := Plan([]Skill{remoteSkill("a", "c1", "", "")}, "").Run(context.Background(), Options{Remote: &fakeRemote{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if results[0].Message != "unreachable" {
+		t.Errorf("message = %q, want the remote error", results[0].Message)
+	}
+}
+
 func TestResolution_GroupsByURLAndBranch(t *testing.T) {
 	entry := func(url, branch, version string) *install.MetadataEntry {
 		return &install.MetadataEntry{RepoURL: url, Branch: branch, Version: version}

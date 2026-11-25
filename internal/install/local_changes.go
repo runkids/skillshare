@@ -90,6 +90,13 @@ func installedVersion(entry *MetadataEntry, parseOpts ParseOptions) (string, err
 	if commit == "" {
 		return "", errors.New("no recorded commit to compare with")
 	}
+	return fetchVersion(entry, parseOpts, commit)
+}
+
+// fetchVersion installs the skill entry records, at commit or, when commit is
+// empty, at the tip of its recorded branch, into "skill" under a new temporary
+// directory, which it returns for the caller to remove.
+func fetchVersion(entry *MetadataEntry, parseOpts ParseOptions, commit string) (string, error) {
 	source, err := RecordedSource(entry, parseOpts)
 	if err != nil {
 		return "", fmt.Errorf("invalid source: %w", err)
@@ -108,7 +115,10 @@ func installedVersion(entry *MetadataEntry, parseOpts ParseOptions) (string, err
 	}
 	if err != nil {
 		os.RemoveAll(tmp)
-		return "", fmt.Errorf("fetch the installed version: %w", err)
+		if commit == "" {
+			commit = "latest"
+		}
+		return "", fmt.Errorf("fetch version %s: %w", commit, err)
 	}
 	return tmp, nil
 }
