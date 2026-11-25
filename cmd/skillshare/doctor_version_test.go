@@ -32,6 +32,27 @@ func TestCheckVersionDoctor_OutdatedSkillCountsAsWarning(t *testing.T) {
 	}
 }
 
+func TestCheckVersionDoctor_FindsSkillMovedIntoFolder(t *testing.T) {
+	source := t.TempDir()
+	skillDir := filepath.Join(source, "tools", "skillshare")
+	if err := os.MkdirAll(skillDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	skill := "---\nname: skillshare\nmetadata:\n  version: v0.2.0\n---\n"
+	if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(skill), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	remote := make(chan string, 1)
+	remote <- "0.2.0"
+	result := &doctorResult{}
+	captureStdout(t, func() { checkVersionDoctor(&config.Config{Source: source}, result, false, remote) })
+
+	if last := result.checks[len(result.checks)-1]; last.Status != checkPass || last.Message != "Skill: 0.2.0" {
+		t.Fatalf("last check = %+v, want the moved skill's 0.2.0 to pass", last)
+	}
+}
+
 func TestCheckVersionDoctor_DisabledSkillCountsAsWarning(t *testing.T) {
 	for _, tt := range []struct {
 		isProject bool

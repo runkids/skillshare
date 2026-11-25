@@ -20,6 +20,7 @@ import (
 	"skillshare/internal/trash"
 	"skillshare/internal/ui"
 	"skillshare/internal/utils"
+	versionpkg "skillshare/internal/version"
 )
 
 // initResult is what applyInitPlan did, for the done screen and the oplog.
@@ -179,8 +180,8 @@ func gitOutput(dir string, args ...string) (string, error) {
 }
 
 func hasBuiltinSkill(sourcePath string) bool {
-	_, err := os.Stat(filepath.Join(sourcePath, "skillshare", "SKILL.md"))
-	return err == nil
+	_, ok := versionpkg.FindLocalSkill(sourcePath)
+	return ok
 }
 
 // installBuiltinSkill downloads the skillshare skill, falling back to a

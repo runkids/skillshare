@@ -71,14 +71,14 @@ func (s *Server) handleVersionCheck(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Skill version (local) — always check global source for built-in skill
-	skillSourceDir := source
+	skillSourceDir, skillWalk := source, s.skillsWalk()
 	if isProjectMode {
 		if globalCfg, err := config.LoadReadOnly(); err == nil {
-			skillSourceDir = globalCfg.EffectiveSkillsSource()
+			skillSourceDir, skillWalk = globalCfg.EffectiveSkillsSource(), globalCfg.SkillsWalk()
 		}
 	}
-	skillVersion := versioncheck.ReadLocalSkillVersion(skillSourceDir)
-	skillDisabled := skillVersion != "" && versioncheck.LocalSkillDisabled(skillSourceDir)
+	skill, _ := versioncheck.FindLocalSkill(skillSourceDir, skillWalk)
+	skillVersion, skillDisabled := skill.Version, skill.Disabled
 
 	// Skill version (remote) — uses 24h cache, network call with 3s timeout
 	var skillLatest *string

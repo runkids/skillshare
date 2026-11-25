@@ -141,6 +141,8 @@ AI CLI に `/skillshare` コマンドを追加する組み込みの `skillshare`
 ~/.config/skillshare/skills/skillshare/SKILL.md
 ```
 
+ダッシュボードなどでフォルダに移動した場合も、`upgrade --skill`、`status`、`doctor`、ダッシュボードは移動先で見つけ、`upgrade --skill` はその場で更新します。
+
 ## 関連項目
 
 - [update](/docs/reference/commands/update) — 他の Skill やリポジトリを更新
