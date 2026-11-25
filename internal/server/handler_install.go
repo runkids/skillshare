@@ -175,11 +175,6 @@ func (s *Server) handleDiscover(w http.ResponseWriter, r *http.Request) {
 // handleInstallBatch re-clones a repo and installs each selected skill.
 func (s *Server) handleInstallBatch(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	defer s.trackProjectLock()()
-	before := s.skillsStoreOnDisk()
-
 	var body struct {
 		Source string `json:"source"`
 		Branch string `json:"branch"`
@@ -203,11 +198,17 @@ func (s *Server) handleInstallBatch(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "source and skills are required")
 		return
 	}
-	if !s.checkInstallInto(w, body.Into, body.Kind) {
+	// The clone can take minutes, so the lock is held only to read the config
+	// before it and to install after it.
+	s.mu.RLock()
+	intoOK := s.checkInstallInto(w, body.Into, body.Kind)
+	parseOpts := s.parseOpts()
+	s.mu.RUnlock()
+	if !intoOK {
 		return
 	}
 
-	source, err := install.ParseSourceWithOptions(body.Source, s.parseOpts())
+	source, err := install.ParseSourceWithOptions(body.Source, parseOpts)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid source: "+err.Error())
 		return
@@ -232,6 +233,15 @@ func (s *Server) handleInstallBatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer install.CleanupDiscovery(discovery)
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	defer s.trackProjectLock()()
+	before := s.skillsStoreOnDisk()
+	// Another request may have changed the destination during the clone.
+	if !s.checkInstallInto(w, body.Into, body.Kind) {
+		return
+	}
 
 	type batchResultItem struct {
 		Name     string   `json:"name"`
