@@ -118,7 +118,7 @@ func cmdUpgrade(args []string) error {
 // Swapped in tests to fake the install location and the latest release.
 var (
 	upgradeExecPath    = resolveExecPath
-	fetchLatestRelease = versionpkg.FetchLatestRelease
+	fetchLatestVersion = versionpkg.FetchLatestVersionFor
 )
 
 // upgradeRowWidth lines up the CLI and Skill rows.
@@ -173,12 +173,12 @@ func upgradeCLIBinary(dryRun, force bool) (string, error) {
 		return runBrewUpgrade(start)
 	}
 
-	// Get latest version from GitHub
+	// Get the latest version from where the install updates: PyPI for a
+	// wheel, whose upload follows the GitHub release, and GitHub otherwise.
 	spinner := ui.StartSpinner("Checking latest version...")
-	release, err := fetchLatestRelease()
+	latestVersion, err := fetchLatestVersion(method)
 	spinner.Stop()
 
-	var latestVersion string
 	if err != nil {
 		// API failed - try to use cached version
 		cachedVersion := versionpkg.GetCachedVersion()
@@ -187,8 +187,6 @@ func upgradeCLIBinary(dryRun, force bool) (string, error) {
 			return "", nil
 		}
 		latestVersion = cachedVersion
-	} else {
-		latestVersion = release.Version
 	}
 
 	// --force reinstalls the same version, which only skillshare's own installs can do.

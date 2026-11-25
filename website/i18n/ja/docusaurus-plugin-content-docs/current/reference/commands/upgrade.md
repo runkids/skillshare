@@ -74,13 +74,17 @@ NixOS、Home Manager、overlay の設定で skillshare を提供している場�
 
 ## PyPI ユーザー {#pypi-users}
 
-uv、pipx、pip でインストールした場合、`skillshare upgrade` は CLI を更新しません。インストーラーがインストール済みのバージョンを記録しており、バイナリを置き換えるとその記録が食い違うためです。新しいバージョンがある場合は、代わりにインストーラーの更新コマンドを表示します。
+uv、pipx、pip でインストールした場合、`skillshare upgrade` は CLI を更新しません。インストーラーがインストール済みのバージョンを記録しており、バイナリを置き換えるとその記録が食い違うためです。PyPI に新しいバージョンがある場合は、代わりにインストーラーの更新コマンドを表示します。
 
 ```bash
-uv tool upgrade skillshare-cli        # uv
-pipx upgrade skillshare-cli           # pipx
-pip install --upgrade skillshare-cli  # pip
+uv tool upgrade skillshare-cli                # uv tool install
+pipx upgrade skillshare-cli                   # pipx
+pip install --upgrade skillshare-cli          # pip
+uv pip install --upgrade skillshare-cli       # uv pip, in a uv venv without pip
+uvx --from skillshare-cli@latest skillshare   # uvx
 ```
+
+GitHub ではなく PyPI と比較するため、インストーラーがまだ取得できないリリースを提案することはありません。
 
 ダッシュボードの更新ボタンも同じ案内を表示します。`skillshare upgrade --skill` は引き続き組み込みの Skill を更新します。
 

@@ -5,14 +5,14 @@ Verify issue #236: a binary installed from a `skillshare-cli` wheel by uv, pipx 
 ## Scope
 
 - The wheel is built with `scripts/release/release.py` from archives that hold a local build, so the test runs this branch's code.
-- uv (`uv tool install`), pipx and pip in a virtual environment each get their own upgrade command.
+- uv (`uv tool install`), pipx, pip in a virtual environment, `uv pip` in a uv venv without pip, and `uvx` each get their own upgrade command.
 - `skillshare upgrade --cli` leaves the installed binary byte-for-byte unchanged.
 - A copy of the same binary outside a Python prefix stays a direct install.
 - Not covered: Windows, where uv and pipx copy the executable onto PATH (see the upgrade page), and musl/Alpine. Install the wheel there by hand when changing the packaging.
 
 ## Environment
 
-Run in the devcontainer with a fresh ssenv and network access: steps fetch uv and pipx, and `upgrade` asks GitHub for the latest release. The local build reports version `0.0.1`, so every published release is newer.
+Run in the devcontainer with a fresh ssenv and network access: steps fetch uv and pipx, and `upgrade` asks PyPI for the latest `skillshare-cli`. The local build reports version `0.0.1`, so every published release is newer. Until the first release is on PyPI, `upgrade` cannot find a version and steps 3 to 6 print `couldn't check for a newer version` instead.
 
 ## Steps
 
@@ -92,7 +92,22 @@ test "$before" = "$after" && echo binary-unchanged
 - exit_code: 0
 - installed from PyPI, run: pip install --upgrade skillshare-cli
 
-### 6. The same binary outside a Python prefix stays a direct install
+### 6. uv pip in a uv venv and uvx each get their own command
+
+```bash
+export UV_CACHE_DIR=/tmp/pypi/uv-cache
+/tmp/pypi/uv-bin/uv venv /tmp/pypi/uv-venv >/dev/null 2>&1
+VIRTUAL_ENV=/tmp/pypi/uv-venv /tmp/pypi/uv-bin/uv pip install --no-index --find-links /tmp/pypi/dist skillshare-cli >/dev/null 2>&1
+/tmp/pypi/uv-venv/bin/skillshare upgrade --cli
+/tmp/pypi/uv-bin/uvx --no-index --find-links /tmp/pypi/dist --from skillshare-cli skillshare upgrade --cli
+```
+
+**Expected:**
+- exit_code: 0
+- installed from PyPI, run: uv pip install --upgrade skillshare-cli
+- installed from PyPI, run: uvx --from skillshare-cli@latest skillshare
+
+### 7. The same binary outside a Python prefix stays a direct install
 
 ```bash
 mkdir -p /tmp/pypi/direct/bin && cp /tmp/pypi/stage/skillshare /tmp/pypi/direct/bin/skillshare
@@ -104,7 +119,7 @@ mkdir -p /tmp/pypi/direct/bin && cp /tmp/pypi/stage/skillshare /tmp/pypi/direct/
 - would download
 - Not installed from PyPI
 
-### 7. Each installer removes the binary
+### 8. Each installer removes the binary
 
 ```bash
 export UV_TOOL_DIR=/tmp/pypi/uv-tools UV_TOOL_BIN_DIR=/tmp/pypi/uv-tool-bin PIPX_HOME=/tmp/pypi/pipx PIPX_BIN_DIR=/tmp/pypi/pipx-bin
@@ -119,6 +134,6 @@ ls "$UV_TOOL_BIN_DIR/skillshare" "$PIPX_BIN_DIR/skillshare" /tmp/pypi/venv/bin/s
 
 ## Pass Criteria
 
-- Steps 3, 4 and 5 each print their own installer's command and leave the binary unchanged.
-- Step 6 offers a download, so a direct install is not mistaken for a PyPI one.
-- Step 7 leaves no `skillshare` binary behind.
+- Steps 3 to 6 each print their own installer's command, and steps 3 and 4 leave the binary unchanged.
+- Step 7 offers a download, so a direct install is not mistaken for a PyPI one.
+- Step 8 leaves no `skillshare` binary behind.

@@ -31,11 +31,11 @@ func fakeNixUpgrade(t *testing.T, latest string, inProfile, dryRun, force bool) 
 		}
 	}
 
-	oldVersion, oldPath, oldFetch := version, upgradeExecPath, fetchLatestRelease
-	t.Cleanup(func() { version, upgradeExecPath, fetchLatestRelease = oldVersion, oldPath, oldFetch })
+	oldVersion, oldPath, oldFetch := version, upgradeExecPath, fetchLatestVersion
+	t.Cleanup(func() { version, upgradeExecPath, fetchLatestVersion = oldVersion, oldPath, oldFetch })
 	version = "1.0.0"
 	upgradeExecPath = func() (string, error) { return nixStoreBinary, nil }
-	fetchLatestRelease = func() (*versionpkg.Release, error) { return &versionpkg.Release{Version: latest}, nil }
+	fetchLatestVersion = func(versionpkg.InstallMethod) (string, error) { return latest, nil }
 
 	var got string
 	var err error
