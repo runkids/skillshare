@@ -40,7 +40,7 @@ Style and mode are independent, so every screen has four looks.
 
 | Axis | Values | How it is set |
 |------|--------|---------------|
-| Style | Clean, Playful (default) | `html[data-theme="playful"]`; attribute absent = Clean |
+| Style | Clean (default), Playful | `html[data-theme="playful"]`; attribute absent = Clean |
 | Mode | light, dark, system | `html.dark` |
 
 Set by `ui/src/context/ThemeContext.tsx`, switched in `ThemePopover.tsx`. `?theme=clean|playful|dark|light` in the URL forces one, which is handy for screenshots.

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-theme="playful">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="./app-icon.png" />
@@ -19,8 +19,8 @@
       rel="stylesheet"
     />
     <script>
-      // FOUC prevention: handle Clean theme + dark mode before first paint
-      // Default is Playful (already set on <html>); only remove for explicit Clean
+      // FOUC prevention: apply the Playful style and dark mode before first paint.
+      // Clean is the default (no data-theme on <html>); only an explicit Playful sets it.
       // URL ?theme= param overrides localStorage (values: dark, light, playful, clean).
       // ?mode= (dark, light) and ?style= (playful, clean) name one axis each and win over it.
       (function () {
@@ -36,8 +36,8 @@
         });
         var style = localStorage.getItem('skillshare-style');
         var pref = localStorage.getItem('skillshare-theme-preference');
-        if (style === 'clean') {
-          document.documentElement.removeAttribute('data-theme');
+        if (style === 'playful') {
+          document.documentElement.setAttribute('data-theme', 'playful');
         }
         var dark =
           pref === 'dark' ||
