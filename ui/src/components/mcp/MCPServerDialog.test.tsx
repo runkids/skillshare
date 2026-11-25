@@ -283,6 +283,21 @@ describe('MCP server dialog', () => {
     expect(mcpApi.save).not.toHaveBeenCalled();
   });
 
+  it('keeps an added folder listed after Loads in is switched away and back', async () => {
+    const user = userEvent.setup();
+    const server = { url: 'https://docs.example/mcp', targets: ['claude'], global: false };
+    renderDialog({
+      initial: { name: 'docs', server },
+      users: [],
+      roots: ['/work/api'],
+    });
+    await user.click(screen.getByRole('button', { name: /Add folder/ }));
+    await user.type(screen.getByLabelText('Project folder'), '/work/new{Enter}');
+    await user.click(screen.getByRole('radio', { name: /Every project/ }));
+    await user.click(screen.getByRole('radio', { name: /Only projects that turn it on/ }));
+    expect(screen.getByRole('checkbox', { name: '/work/new' })).toBeChecked();
+  });
+
   it('tells the page which projects use the server once the ticks are saved', async () => {
     const user = userEvent.setup();
     const saved = vi.fn();

@@ -40,7 +40,8 @@ export default function MCPProjectPicker({
   const inputId = useId();
   const [added, setAdded] = useState<string[]>([]);
   const [adding, setAdding] = useState<string | null>(null);
-  const rows = [...roots, ...added.filter((x) => !roots.includes(x))];
+  // A ticked folder stays listed even when this list is mounted again and `added` starts empty.
+  const rows = [...new Set([...roots, ...added, ...picked])];
   const folder = (adding ?? '').trim().replace(/(?<=.)[\\/]+$/, '');
   const invalid = folder !== '' && !isFolder(folder);
 
@@ -48,8 +49,14 @@ export default function MCPProjectPicker({
     onChange(on ? [...picked, root] : picked.filter((x) => x !== root));
   const add = () => {
     if (!isFolder(folder)) return;
-    // The same folder written another way is already a row: tick that one.
-    const known = rows.find((x) => shortenHome(x) === shortenHome(folder));
+    // The same folder written with ~ or in full is already a row: tick that one. shortenHome
+    // turns any user's home into ~, so it only decides when one side is written with ~.
+    const known = rows.find(
+      (x) =>
+        x === folder ||
+        (folder.startsWith('~') && shortenHome(x) === folder) ||
+        (x.startsWith('~') && shortenHome(folder) === x),
+    );
     if (!known) setAdded((prev) => [...prev, folder]);
     if (!picked.includes(known ?? folder)) tick(known ?? folder, true);
     setAdding(null);
