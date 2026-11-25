@@ -52,7 +52,6 @@ func (s *Server) requireLocalPlugin(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 		// Native downloads can exceed the dashboard's normal 30-second deadline.
-		// Limit this extension to the local plugin endpoints.
 		withLongWriteDeadline(next)(w, r)
 	}
 }
