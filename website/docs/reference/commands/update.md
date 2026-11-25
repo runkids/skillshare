@@ -393,7 +393,7 @@ skillshare update my-skill --force
 
 To keep your edits and take the upstream changes as well, use `--merge` instead; see [Merging upstream changes](#merging-upstream-changes).
 
-On the dashboard's **Updates** tab, the skill shows **Modified locally** and a **View changes** button that opens its changes on the skill's page; tick **Force overwrite local edits** before updating it, or use **Merge** or **Force Retry** on the skipped row. Updating it from the skill's own page shows the changes and offers **Merge** beside discarding them. `update <name> --dry-run` reports the skill as one it would skip. A modified skill that was also deleted upstream is kept until you add `--force`, even with `--prune`.
+On the dashboard's **Updates** tab, the skill shows **Modified locally** and a **View changes** button that shows its changes and offers **Merge** or **Force overwrite local edits**; you can also tick **Force overwrite local edits** before updating it, or use **Merge** or **Force Retry** on the skipped row. Updating it from the skill's own page shows the changes and offers **Merge** beside discarding them. `update <name> --dry-run` reports the skill as one it would skip. A modified skill that was also deleted upstream is kept until you add `--force`, even with `--prune`.
 
 An agent edited since install is protected as well. When a newer version would overwrite the edits, the update is skipped: `skillshare check agents` reports the agent with `update available upstream`, and `update agents` lists it under **Modified locally**. Merge with `skillshare update agents <name> --merge`, or on the dashboard use **Merge** or **Force Retry** on the skipped row, or update from the agent's own page.
 

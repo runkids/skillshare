@@ -393,7 +393,7 @@ skillshare update my-skill --force
 
 편집 내용을 유지하면서 upstream 변경 사항도 가져오려면 대신 `--merge`를 사용하세요. [upstream 변경 사항 병합](#merging-upstream-changes)을 참고하세요.
 
-대시보드의 **Updates** 탭에서는 해당 skill이 **Modified locally**로 표시되고, 변경 사항을 skill 페이지에서 열어 보는 **View changes** 버튼이 나타납니다. 업데이트하기 전에 **Force overwrite local edits**를 선택하거나, 건너뛴 행의 **Merge** 또는 **Force Retry**를 사용하세요. skill 자체 페이지에서 업데이트하면 변경 사항을 보여 주고, 버리기 옵션 옆에 **Merge**도 제공합니다. `update <name> --dry-run`은 이 skill을 건너뛸 대상으로 보고합니다. upstream에서도 삭제된 modified skill은 `--prune`을 사용해도 `--force`를 추가하기 전까지 유지됩니다.
+대시보드의 **Updates** 탭에서는 해당 skill이 **Modified locally**로 표시되고, 변경 사항을 보여 주고 **Merge** 또는 **Force overwrite local edits**를 선택할 수 있는 **View changes** 버튼이 나타납니다. 업데이트하기 전에 **Force overwrite local edits**를 선택하거나, 건너뛴 행의 **Merge** 또는 **Force Retry**를 사용하세요. skill 자체 페이지에서 업데이트하면 변경 사항을 보여 주고, 버리기 옵션 옆에 **Merge**도 제공합니다. `update <name> --dry-run`은 이 skill을 건너뛸 대상으로 보고합니다. upstream에서도 삭제된 modified skill은 `--prune`을 사용해도 `--force`를 추가하기 전까지 유지됩니다.
 
 설치 후 편집한 agent도 같은 방식으로 보호됩니다. 새 버전이 편집 내용을 덮어쓰게 되는 경우 업데이트를 건너뜁니다. `skillshare check agents`는 해당 agent를 `update available upstream`으로 보고하고, `update agents`는 **Modified locally** 아래에 나열합니다. `skillshare update agents <name> --merge`로 병합하거나, 대시보드에서는 건너뛴 행의 **Merge** 또는 **Force Retry**를 사용하거나 agent 자체 페이지에서 업데이트하세요.
 

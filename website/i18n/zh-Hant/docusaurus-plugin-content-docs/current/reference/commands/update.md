@@ -393,7 +393,7 @@ skillshare update my-skill --force
 
 若想保留你的編輯並同時採用 upstream 的變更，請改用 `--merge`；見[合併 upstream 變更](#merging-upstream-changes)。
 
-在 dashboard 的 **Updates** 分頁中，該 skill 顯示為 **Modified locally**，並有 **View changes** 按鈕，可於該 skill 的頁面查看變更；更新前請勾選 **Force overwrite local edits**，或對被略過的列使用 **Merge** 或 **Force Retry**。從該 skill 自己的頁面更新時，會顯示這些變更，並在捨棄選項旁提供 **Merge**。`update <name> --dry-run` 會將該 skill 回報為將被略過。若一個 modified 的 skill 同時已在 upstream 被刪除，即使使用 `--prune`，在你加上 `--force` 之前也會保留它。
+在 dashboard 的 **Updates** 分頁中，該 skill 顯示為 **Modified locally**，並有 **View changes** 按鈕，可查看這些變更，並可選擇 **Merge** 或 **Force overwrite local edits**；也可在更新前勾選 **Force overwrite local edits**，或對被略過的列使用 **Merge** 或 **Force Retry**。從該 skill 自己的頁面更新時，會顯示這些變更，並在捨棄選項旁提供 **Merge**。`update <name> --dry-run` 會將該 skill 回報為將被略過。若一個 modified 的 skill 同時已在 upstream 被刪除，即使使用 `--prune`，在你加上 `--force` 之前也會保留它。
 
 安裝後編輯過的 agent 也受到同樣的保護。當新版本會覆寫這些編輯時，更新會被略過：`skillshare check agents` 會將該 agent 回報為 `update available upstream`，`update agents` 會將其列在 **Modified locally** 下。可用 `skillshare update agents <name> --merge` 合併；在 dashboard 上則對被略過的列使用 **Merge** 或 **Force Retry**，或從該 agent 自己的頁面更新。
 
