@@ -181,6 +181,13 @@ export const mcpApi = {
       revision: (await http.post<MCPPlan>('/mcp/preview', { mutation })).revision,
       sync: false,
     }),
+  /** Save several changes to the source together, under one preview's revision; none is saved if one is refused. */
+  saveBatch: async (mutations: MCPMutation[]) =>
+    http.post<MCPResult>('/mcp', {
+      mutations,
+      revision: (await http.post<MCPPlan>('/mcp/preview', { mutations })).revision,
+      sync: false,
+    }),
   /** One server as each of its targets' config files would hold it. Reads configuration only; no server is executed and no file is written. */
   /** `toolGaps`: the parts of the server's tool policy that Agent does not apply. */
   render: (mutation: MCPMutation) =>

@@ -733,3 +733,11 @@ export const projectFileTargets = (
   ]
     .filter((x) => paths[x])
     .sort();
+
+/** What saving `picked` changes: one `using` per project that turns the server on or off. */
+export function usingChanges(name: string, saved: string[], picked: string[]) {
+  return [
+    ...saved.filter((x) => !picked.includes(x)).map((project) => ({ project, name, using: false })),
+    ...picked.filter((x) => !saved.includes(x)).map((project) => ({ project, name, using: true })),
+  ];
+}

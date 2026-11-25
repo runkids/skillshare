@@ -10,6 +10,7 @@ import {
   isResolvable,
   joinCommand,
   projectFileTargets,
+  usingChanges,
   mcpClient,
   mcpNotice,
   otherConflicts,
@@ -612,5 +613,14 @@ describe('sharedTargets', () => {
 
   it('goes nowhere while no project uses it', () => {
     expect(sharedTargets({ ...source, projects: {} }, 'docs')).toEqual([]);
+  });
+});
+
+describe('usingChanges', () => {
+  it('turns the server off where a tick was cleared and on where one was added', () => {
+    expect(usingChanges('docs', ['/a', '/b'], ['/b', '/c'])).toEqual([
+      { project: '/a', name: 'docs', using: false },
+      { project: '/c', name: 'docs', using: true },
+    ]);
   });
 });

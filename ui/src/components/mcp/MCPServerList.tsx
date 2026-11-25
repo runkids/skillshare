@@ -5,10 +5,19 @@ import { useT, plural } from '../../i18n';
 import { shortenHome } from '../../lib/paths';
 import Reveal from '../Reveal';
 import { mcpOffTargets } from '../../api/mcp';
-import { describeEndpoint, hasToolPolicy, toolSummary, writes, type MatrixRow } from './mcpView';
+import {
+  describeEndpoint,
+  hasToolPolicy,
+  toolSummary,
+  usingChanges,
+  writes,
+  type MatrixRow,
+} from './mcpView';
 import { TargetPill, TargetToggles } from './TargetPicker';
 import type { MCPCheckFinding } from '../../api/mcpCheck';
 import MCPCheckFindings, { MCPCheckTag } from './MCPCheckFindings';
+import MCPProjectPicker from './MCPProjectPicker';
+import Button from '../Button';
 
 interface Props {
   rows: MatrixRow[];
@@ -24,6 +33,10 @@ interface Props {
   problems?: Record<string, MCPCheckFinding[]>;
   /** The projects that use each server that loads only in those (`global: false`). */
   users?: Record<string, string[]>;
+  /** The mcp.projects roots such a server can be ticked for. */
+  roots?: string[];
+  /** Saves the projects ticked for such a server; left out, they are not offered. */
+  onProjects?: (name: string, picked: string[]) => void;
 }
 
 /**
@@ -40,6 +53,8 @@ export default function MCPServerList({
   disabled = false,
   problems = {},
   users = {},
+  roots = [],
+  onProjects,
 }: Props) {
   const t = useT();
   const [open, setOpen] = useState<string[]>([]);
@@ -144,11 +159,70 @@ export default function MCPServerList({
                   tags={selected.includes('pi') && !row.server?.disabled ? { pi } : undefined}
                   onToggle={(target, on) => onToggle(row.name, target, on)}
                 />
+                {users[row.name] && onProjects && (
+                  <RowProjects
+                    // A save changes who uses it, which starts the ticks again from there.
+                    key={users[row.name].join('\n')}
+                    name={row.name}
+                    roots={roots}
+                    saved={users[row.name]}
+                    disabled={disabled}
+                    onSave={(picked) => onProjects(row.name, picked)}
+                  />
+                )}
               </div>
             </Reveal>
           </Fragment>
         );
       })}
+    </div>
+  );
+}
+
+/** The projects ticked for one server in its row, saved with one button rather than per tick. */
+function RowProjects({
+  name,
+  roots,
+  saved,
+  disabled,
+  onSave,
+}: {
+  name: string;
+  roots: string[];
+  saved: string[];
+  disabled: boolean;
+  onSave: (picked: string[]) => void;
+}) {
+  const t = useT();
+  const [picked, setPicked] = useState(saved);
+  const changed = usingChanges(name, saved, picked).length > 0;
+  return (
+    <div className="basis-full pt-3.5 [border-top:var(--sep)]">
+      <MCPProjectPicker
+        roots={roots}
+        saved={saved}
+        picked={picked}
+        onChange={setPicked}
+        disabled={disabled}
+        hint={t('mcp.projectsPick.hint')}
+      >
+        <Button
+          size="sm"
+          variant="secondary"
+          disabled={!changed || disabled}
+          onClick={() => setPicked(saved)}
+        >
+          {t('mcp.projectsPick.revert')}
+        </Button>
+        <Button
+          size="sm"
+          variant="primary"
+          disabled={!changed || disabled}
+          onClick={() => onSave(picked)}
+        >
+          {t('common.save')}
+        </Button>
+      </MCPProjectPicker>
     </div>
   );
 }
