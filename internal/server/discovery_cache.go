@@ -20,6 +20,8 @@ const (
 type keptDiscovery struct {
 	discovery *install.DiscoveryResult
 	expires   time.Time
+	// used orders the last listing or install, so the least recent goes first.
+	used uint64
 }
 
 // discoveryCache holds git discoveries by the source and branch they cloned.
@@ -28,6 +30,7 @@ type keptDiscovery struct {
 type discoveryCache struct {
 	mu     sync.Mutex
 	kept   map[string]keptDiscovery
+	used   uint64
 	closed bool
 }
 
@@ -37,21 +40,13 @@ func discoveryKey(source *install.Source) string {
 	return source.Raw + "\x00" + source.Branch
 }
 
-// keep stores a discovery in place of an older one for the same source.
-// Anything but a git clone is left where it is.
+// keep stores a listing's clone in place of an older one for the same source.
+// A local source costs nothing to list again, so only git clones are kept.
 func (c *discoveryCache) keep(key string, d *install.DiscoveryResult) {
 	if !d.Source.IsGit() {
 		return
 	}
-	c.mu.Lock()
-	var drop []*install.DiscoveryResult
-	if old, ok := c.kept[key]; ok {
-		drop = append(drop, old.discovery)
-		delete(c.kept, key)
-	}
-	c.mu.Unlock()
-	removeClones(drop)
-	c.put(key, keptDiscovery{discovery: d, expires: time.Now().Add(discoveryKeepFor)})
+	c.store(key, keptDiscovery{discovery: d, expires: time.Now().Add(discoveryKeepFor)}, true)
 	time.AfterFunc(discoveryKeepFor, c.trim)
 }
 
@@ -69,20 +64,26 @@ func (c *discoveryCache) take(key string) (*install.DiscoveryResult, func()) {
 		removeClones([]*install.DiscoveryResult{k.discovery})
 		return nil, nil
 	}
-	return k.discovery, func() { c.put(key, k) }
+	return k.discovery, func() { c.store(key, k, false) }
 }
 
-// put stores k unless it has expired, the server is stopping, or a newer
-// discovery took its place, then drops what has expired or is past the limit.
-func (c *discoveryCache) put(key string, k keptDiscovery) {
+// store puts k under key, then drops what has expired and the least recently
+// used clone past the limit. A clone given back loses to a newer listing.
+func (c *discoveryCache) store(key string, k keptDiscovery, replace bool) {
 	c.mu.Lock()
 	var drop []*install.DiscoveryResult
-	if _, newer := c.kept[key]; newer || c.closed || !time.Now().Before(k.expires) {
+	old, exists := c.kept[key]
+	if c.closed || !time.Now().Before(k.expires) || (exists && !replace) {
 		drop = append(drop, k.discovery)
 	} else {
+		if exists {
+			drop = append(drop, old.discovery)
+		}
 		if c.kept == nil {
 			c.kept = map[string]keptDiscovery{}
 		}
+		c.used++
+		k.used = c.used
 		c.kept[key] = k
 	}
 	drop = append(drop, c.trimLocked()...)
@@ -106,15 +107,16 @@ func (c *discoveryCache) trimLocked() []*install.DiscoveryResult {
 			delete(c.kept, key)
 		}
 	}
-	for len(c.kept) > discoveryKeepMax {
-		oldest := ""
+	// store adds one clone at a time, so one over the limit is the most there can be.
+	if len(c.kept) > discoveryKeepMax {
+		var least string
 		for key, k := range c.kept {
-			if oldest == "" || k.expires.Before(c.kept[oldest].expires) {
-				oldest = key
+			if least == "" || k.used < c.kept[least].used {
+				least = key
 			}
 		}
-		drop = append(drop, c.kept[oldest].discovery)
-		delete(c.kept, oldest)
+		drop = append(drop, c.kept[least].discovery)
+		delete(c.kept, least)
 	}
 	return drop
 }

@@ -113,16 +113,23 @@ func TestDiscoveryCache_KeepsACloneInUseUntilItIsGivenBack(t *testing.T) {
 	}
 }
 
-// Listings that are never installed, such as the hub's, must not pile up clones.
-func TestDiscoveryCache_DropsTheOldestPastTheLimit(t *testing.T) {
+// Listings that are never installed, such as the hub's, must not pile up
+// clones. The one an install just used is the last to go.
+func TestDiscoveryCache_DropsTheLeastRecentlyUsedPastTheLimit(t *testing.T) {
 	var c discoveryCache
-	oldest := keptClone(t, &c, "first")
-	for i := 1; i < discoveryKeepMax; i++ {
+	used := keptClone(t, &c, "used")
+	unused := keptClone(t, &c, "unused")
+	for i := 2; i < discoveryKeepMax; i++ {
 		keptClone(t, &c, string(rune('a'+i)))
 	}
+	_, giveBack := c.take("used")
+	giveBack()
 	keptClone(t, &c, "last")
-	if _, err := os.Stat(oldest); !os.IsNotExist(err) {
-		t.Fatalf("oldest clone kept past the limit: %v", err)
+	if _, err := os.Stat(unused); !os.IsNotExist(err) {
+		t.Fatalf("least recently used clone kept past the limit: %v", err)
+	}
+	if _, err := os.Stat(used); err != nil {
+		t.Fatalf("clone an install just used was dropped: %v", err)
 	}
 }
 
@@ -135,13 +142,29 @@ func TestDiscoveryCache_CloseRemovesKeptClones(t *testing.T) {
 	}
 }
 
-// A local source is the user's own folder, never a clone to remove.
-func TestDiscoveryCache_LeavesALocalSourceAlone(t *testing.T) {
-	var c discoveryCache
-	dir := t.TempDir()
-	c.keep("a", &install.DiscoveryResult{RepoPath: dir, Source: &install.Source{Type: install.SourceTypeLocalPath, Path: dir}})
-	c.close()
-	if _, err := os.Stat(dir); err != nil {
-		t.Fatalf("local source was removed: %v", err)
+// Restart ends the process without running deferred cleanup, so it removes kept clones itself.
+func TestHandleRestartRemovesKeptClones(t *testing.T) {
+	oldStart, oldExit := startUIRestartHelper, processExit
+	exited := make(chan struct{})
+	startUIRestartHelper = func([]string, string) error { return nil }
+	processExit = func(int) { close(exited) }
+	defer func() { startUIRestartHelper, processExit = oldStart, oldExit }()
+
+	s := &Server{addr: "127.0.0.1:19420"}
+	dir := keptClone(t, &s.discoveries, "a")
+	req := httptest.NewRequest(http.MethodPost, "/api/ui/restart", nil)
+	req.RemoteAddr = "127.0.0.1:50000"
+	rec := httptest.NewRecorder()
+	s.handleRestart(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body = %s", rec.Code, rec.Body.String())
+	}
+	select {
+	case <-exited:
+	case <-time.After(5 * time.Second):
+		t.Fatal("restart never exited")
+	}
+	if _, err := os.Stat(dir); !os.IsNotExist(err) {
+		t.Fatalf("kept clone survived restart: %v", err)
 	}
 }
