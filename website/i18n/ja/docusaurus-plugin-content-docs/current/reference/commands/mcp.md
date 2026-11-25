@@ -520,7 +520,7 @@ global mode では、ダッシュボードに **プロジェクト** ページ�
   デフォルトではオフです。そのスイッチは project の `use` に名前を追加または削除します。
   **Only in this project** には、その project にのみ存在するサーバーが並びます。
 - MCP ページでは、サーバーのダイアログに **Loads in** があり、**Every project** または
-  **Only projects that turn it on** を選べます。一覧では共有サーバーに **Opt-in · N projects** と表示されます。
+  **Only projects that turn it on** を選べます。共有サーバーがあると一覧は **Global** と **Only in chosen projects** に分かれ、共有サーバーの行には **N projects** と表示されます。
 - オフになっているサーバーには、オフになっている Agent のロゴが表示されます。オンのサーバーには読み込まれる Agent が表示され、
   同じ名前の project サーバーに置き換えられている場合は何も表示されません。project の Agent の中に
   project ごとのスイッチを持たないものがある場合、その行にはサーバーがそこでは引き続き読み込まれることが

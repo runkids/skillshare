@@ -6,10 +6,12 @@ import {
   ChevronDown,
   Download,
   Eye,
+  Globe,
   Pencil,
   Plug,
   Plus,
   PowerOff,
+  ToggleRight,
   Trash2,
   X,
 } from 'lucide-react';
@@ -40,6 +42,7 @@ import { problemsByServer, useMCPCheck } from '../components/mcp/useMCPCheck';
 import { projectUrl } from '../components/projects/projectView';
 import MCPSyncBox, { MCPRailActions } from '../components/mcp/MCPSyncBox';
 import MCPServerList from '../components/mcp/MCPServerList';
+import ProjectSectionHead from '../components/mcp/ProjectSectionHead';
 import MCPPreview, { type MCPResolve } from '../components/mcp/MCPPreview';
 import { MCPConfigDialog } from '../components/mcp/MCPConfigView';
 import MCPRemoveDialog from '../components/mcp/MCPRemoveDialog';
@@ -288,6 +291,21 @@ function MCPContent({
       return t('mcp.conflict.changed', params);
     return `${params.target} · ${c.name}: ${describeMessage(t, c.message)}`;
   };
+  // A project's own servers all load there, so only the global page has chosen-project ones.
+  const chosenRows = isProjectMode ? [] : rows.filter((row) => isShared(row.server));
+  const globalRows = rows.filter((row) => !isShared(row.server));
+  const serverList = (shown: typeof rows) => (
+    <MCPServerList
+      rows={shown}
+      targets={order.filter((x) => matrixTargets.has(x))}
+      targetsOf={targetsOf}
+      onToggle={onToggle}
+      onMenu={onMenu}
+      disabled={busy}
+      problems={problemsByServer(check.report)}
+      users={users}
+    />
+  );
   const actions = {
     check: Object.keys(servers).length > 0 ? check : undefined,
     onBackups: data.backups.length > 0 ? onBackups : undefined,
@@ -380,7 +398,7 @@ function MCPContent({
         entries={data.unmanaged.filter((u) => !u.project)}
         onImport={(from) => onImport({ from })}
       />
-      {(rows.length > 0 || isProjectMode) && (
+      {chosenRows.length === 0 && (rows.length > 0 || isProjectMode) && (
         <div className="ss-sec !mb-0 !items-center">
           <h2>{t('mcp.serverList')}</h2>
           <span className="ss-cnt">{rows.length}</span>
@@ -393,17 +411,33 @@ function MCPContent({
           )}
         </div>
       )}
-      {rows.length > 0 ? (
-        <MCPServerList
-          rows={rows}
-          targets={order.filter((x) => matrixTargets.has(x))}
-          targetsOf={targetsOf}
-          onToggle={onToggle}
-          onMenu={onMenu}
-          disabled={busy}
-          problems={problemsByServer(check.report)}
-          users={users}
-        />
+      {chosenRows.length > 0 ? (
+        // Split only once a server loads in chosen projects alone; until then every server
+        // is global, and one list keeps the page free of project terms for people without any.
+        <>
+          {globalRows.length > 0 && (
+            <section className="flex flex-col">
+              <ProjectSectionHead
+                icon={<Globe size={16} />}
+                title={t('mcp.shared.sectionGlobal')}
+                count={globalRows.length}
+                hint={t('mcp.shared.everywhereHint')}
+              />
+              {serverList(globalRows)}
+            </section>
+          )}
+          <section className={`flex flex-col ${globalRows.length > 0 ? 'mt-2' : ''}`}>
+            <ProjectSectionHead
+              icon={<ToggleRight size={16} />}
+              title={t('mcp.shared.sectionChosen')}
+              count={chosenRows.length}
+              hint={t('mcp.shared.chosenHint')}
+            />
+            {serverList(chosenRows)}
+          </section>
+        </>
+      ) : rows.length > 0 ? (
+        serverList(rows)
       ) : (
         <EmptyState
           icon={Plug}
