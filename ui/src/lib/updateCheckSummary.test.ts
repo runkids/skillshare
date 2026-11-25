@@ -4,7 +4,7 @@ import { updateCheckTitle } from './updateCheckSummary';
 describe('updateCheckTitle', () => {
   it.each([
     [true, true, 0, 'update.check.error'],
-    [true, true, 2, 'update.check.error'],
+    [true, true, 2, 'update.hero.available'],
     [true, false, 0, 'update.check.error'],
     [false, false, 0, 'update.tab.notChecked'],
     [false, true, 2, 'update.hero.available'],

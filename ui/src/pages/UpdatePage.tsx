@@ -8,17 +8,21 @@ import {
   CircleArrowUp,
   CircleCheck,
   Download,
+  Ellipsis,
+  ExternalLink,
   FolderX,
   GitBranch,
   Link,
+  Loader2,
   Puzzle,
   RefreshCw,
+  Search,
+  SearchX,
   ShieldAlert,
   Trash2,
   X,
 } from 'lucide-react';
-import { Link as RouterLink } from 'react-router-dom';
-import { resourceHref } from '../lib/resourceNames';
+import type { MouseEvent as ReactMouseEvent } from 'react';
 import { formatVersion } from '../lib/format';
 import { api } from '../api/client';
 import type { CheckResult, LinkedRepo, Skill, UpdateResultItem } from '../api/client';
@@ -26,14 +30,31 @@ import { queryKeys } from '../lib/queryKeys';
 import { clearAuditCache } from '../lib/auditCache';
 import { parseRemoteURL } from '../lib/parseRemoteURL';
 import { folderOf, formatTrackedRepoName } from '../lib/resourceNames';
-import { repoOf } from '../lib/resourceGrouping';
-import { formatRelativeTime, plural, useI18n, useT } from '../i18n';
+import { countLabel, repoOf, SOURCE_LABEL } from '../lib/resourceGrouping';
+import {
+  foldsAway,
+  githubPage,
+  matchesFilters,
+  NO_FILTERS,
+  repeatedLabels,
+  unitFolder,
+  unitSource,
+  statusGroup,
+  UPDATE_SOURCES,
+  UPDATE_STATUSES,
+  type UpdateFilters,
+  type UpdateStatus,
+} from '../lib/updateFilters';
+import { formatNumber, formatRelativeTime, plural, useI18n, useT } from '../i18n';
 import Button from '../components/Button';
 import DrawnCheck from '../components/DrawnCheck';
 import ProgressBar from '../components/ProgressBar';
 import { Checkbox } from '../components/Checkbox';
 import EmptyState from '../components/EmptyState';
+import { Select } from '../components/Select';
 import SyncPreviewModal from '../components/SyncPreviewModal';
+import { SkillContextMenu, type ContextMenuItem } from '../components/TargetMenu';
+import UpdatePreviewDialog from '../components/UpdatePreviewDialog';
 import { useToast } from '../components/Toast';
 import { useDiffQuery, useSkillsQuery } from '../hooks/useSharedQueries';
 import { countChanges, resourceGroups } from '../components/sync/syncView';
@@ -221,7 +242,25 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
   const [syncOpen, setSyncOpen] = useState(false);
   const [retried, setRetried] = useState<Set<string>>(new Set());
   const [openDetails, setOpenDetails] = useState<Set<string>>(new Set());
+  const [filters, setFilters] = useState<UpdateFilters>(NO_FILTERS);
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [menu, setMenu] = useState<{ unit: UpdateUnit; point: { x: number; y: number } } | null>(
+    null,
+  );
+  const [preview, setPreview] = useState<{
+    unit: UpdateUnit;
+    mode: 'upstream' | 'local';
+  } | null>(null);
   const esRef = useRef<EventSource | null>(null);
+  // The toolbar is marked stuck once it pins to the top. A callback ref, because the list (and the
+  // sentinel above it) mounts only after the resources load.
+  const [stuck, setStuck] = useState(false);
+  const sentinel = useCallback((el: HTMLDivElement | null) => {
+    if (!el || typeof IntersectionObserver === 'undefined') return;
+    const io = new IntersectionObserver(([e]) => setStuck(!e.isIntersecting));
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
 
   useEffect(() => () => esRef.current?.close(), []);
 
@@ -406,7 +445,7 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
   }, []);
 
   const startUpdate = useCallback(
-    (names: string[], forceUpdate: boolean) => {
+    (names: string[], forceUpdate: boolean, merge = false) => {
       if (names.length === 0) return;
       esRef.current?.close();
       setRun(new Map(names.map((n) => [n, { status: 'pending' }])));
@@ -429,7 +468,8 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
           if (names[index]) patchRun(names[index], { status: 'in-progress' });
         },
         (data) => {
-          applyUpdateResults(data.results);
+          // A merged item still differs from its install, so its check result stands.
+          if (!merge) applyUpdateResults(data.results);
           invalidateSkillData();
           setSelected(new Set());
           setRunning(false);
@@ -451,7 +491,7 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
           setRunning(false);
           setFinished(true);
         },
-        { names, kind, force: forceUpdate },
+        merge ? { names, kind, merge } : { names, kind, force: forceUpdate },
       );
     },
     [kind, patchRun, applyUpdateResults, invalidateSkillData, toast],
@@ -559,8 +599,6 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
   /* -- Render -- */
 
   const busy = running || checking;
-  const shown = units.filter((u) => selected.has(u.name));
-  const allSelected = units.length > 0 && shown.length === units.length;
   const toggle = (name: string) =>
     setSelected((prev) => {
       const next = new Set(prev);
@@ -605,6 +643,45 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
   );
   const listUnits = units.filter((u) => !failedUnits.includes(u) && !staleUnits.includes(u));
 
+  // Search and filters narrow the main list only; failed and stale sections report every unit.
+  const statusOf = (u: UpdateUnit) => unitCheck(statuses, u).status;
+  const query = filters.query.trim();
+  const filtering =
+    query !== '' || filters.source !== 'all' || filters.status !== 'all' || filters.folder !== null;
+  const matched = listUnits.filter((u) => matchesFilters(u, filters, statusOf(u)));
+  const foldable = matched
+    .filter((u) => foldsAway(filters, statusOf(u), run.has(u.name)))
+    .map((u) => u.name);
+  const folded = new Set(showCurrent ? [] : foldable);
+  const visible = matched.filter((u) => !folded.has(u.name));
+  const repeated = repeatedLabels(units);
+  // Selection acts on rows in view: a selected row hidden by a filter is left out.
+  const shown = visible.filter((u) => selected.has(u.name));
+  const allSelected = visible.length > 0 && shown.length === visible.length;
+  const setFilter = (patch: Partial<UpdateFilters>) =>
+    setFilters((prev) => ({ ...prev, ...patch }));
+
+  const chipCounts = (skip: 'source' | 'status' | 'folder') =>
+    listUnits.filter((u) => matchesFilters(u, filters, statusOf(u), skip));
+  const chipOf = (key: string) => ({
+    clearValue: 'all',
+    clearLabel: t('resources.toolbar.clearFilter', { name: t(key) }),
+  });
+  const countOption = (value: string, label: string, count: number, current: string) => ({
+    value,
+    label,
+    trailing: String(count),
+    disabled: count === 0 && value !== current && value !== 'all',
+  });
+  const folders = new Map<string, number>();
+  for (const u of listUnits) folders.set(unitFolder(u), (folders.get(unitFolder(u)) ?? 0) + 1);
+  const statusLabel: Record<UpdateStatus, string> = {
+    updates: t('update.check.updateAvailable'),
+    modified: t('update.check.dirty'),
+    failed: t('update.check.error'),
+    current: t('update.check.upToDate'),
+  };
+
   const runDone = [...run.values()].filter(
     (s) => s.status !== 'pending' && s.status !== 'in-progress',
   ).length;
@@ -617,12 +694,19 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
     const c = unitCheck(statuses, unit);
     switch (c.status) {
       case 'checking':
-        return <span className="ss-st off">{t('update.check.checking')}</span>;
+        return (
+          <span className="inline-flex items-center gap-1.5 text-[13px] font-medium text-ink-3">
+            <Loader2 size={13} className="animate-spin" />
+            {t('update.check.checking')}
+          </span>
+        );
       case 'behind':
         return (
           <span className="ss-st warn">
             {c.behind
-              ? t('update.check.behind', { count: c.behind })
+              ? t(plural('update.check.behind', c.behind), {
+                  count: formatNumber(c.behind, locale),
+                })
               : t('update.check.behindFallback')}
           </span>
         );
@@ -632,16 +716,8 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
         return <span className="ss-st warn">{t('update.check.stale')}</span>;
       case 'dirty':
         return (
-          <span className="inline-flex flex-wrap items-center gap-2">
-            <span className="ss-st warn" title={c.message}>
-              {t('update.check.dirty')}
-            </span>
-            {/* Local changes can be listed for skills only. */}
-            {kind === 'skill' && !unit.isRepo && unit.items[0] && (
-              <RouterLink className="ss-btn sm" to={`${resourceHref(unit.items[0])}?changes=1`}>
-                {t('update.check.viewChanges')}
-              </RouterLink>
-            )}
+          <span className="ss-st warn" title={c.message}>
+            {t('update.check.dirty')}
           </span>
         );
       case 'up-to-date':
@@ -738,7 +814,16 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
 
   const unitName = (unit: UpdateUnit) => (
     <span className="flex flex-wrap md:flex-nowrap items-baseline gap-x-3 gap-y-1 min-w-0 flex-1">
-      <span className="nm m truncate max-w-full md:shrink-0 md:max-w-[60%]">{unit.label}</span>
+      <span
+        className="nm m truncate max-w-full md:shrink-0 md:max-w-[60%]"
+        title={unit.isRepo ? unit.label : unit.name}
+      >
+        {/* Names repeated across folders read the same, so those rows lead with their folder. */}
+        {!unit.isRepo && repeated.has(unit.label) && unitFolder(unit) !== '' && (
+          <span className="font-normal text-ink-3">{unitFolder(unit)}/</span>
+        )}
+        {unit.label}
+      </span>
       {unit.isRepo && <span className="ss-tag self-center">tracked</span>}
       {!unit.isRepo && unit.items[0]?.metadataVersion && (
         <span
@@ -759,6 +844,70 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
       </span>
     </span>
   );
+
+  // A failed check says why under the name, where it can be read without hovering.
+  const listName = (unit: UpdateUnit) => {
+    const c = unitCheck(statuses, unit);
+    if (c.status !== 'error' || !c.message || run.has(unit.name)) return unitName(unit);
+    return (
+      <span className="flex flex-col min-w-0 flex-1 gap-0.5">
+        {unitName(unit)}
+        <span className="text-[12.5px] text-bad truncate" title={c.message}>
+          {failureSummary(c.message)}
+        </span>
+      </span>
+    );
+  };
+
+  const openMenu = (e: ReactMouseEvent, unit: UpdateUnit) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    setMenu({ unit, point: { x: r.right, y: r.bottom + 4 } });
+  };
+  // Which row actions apply. A check limited by names leaves agents out, so only skills can be
+  // checked one by one.
+  const rowActions = (unit: UpdateUnit) => {
+    const c = unitCheck(statuses, unit).status;
+    return {
+      check: kind === 'skill' && !busy,
+      update: !busy && !run.has(unit.name) && c !== 'up-to-date' && c !== 'checking',
+      page: githubPage(unit),
+    };
+  };
+  const menuItems = (unit: UpdateUnit): ContextMenuItem[] => {
+    const { check, update, page } = rowActions(unit);
+    return [
+      ...(check
+        ? [
+            {
+              key: 'check',
+              label: t('update.tab.checkNow'),
+              icon: <RefreshCw size={14} />,
+              onSelect: () => runCheck([unit]),
+            },
+          ]
+        : []),
+      ...(update
+        ? [
+            {
+              key: 'update',
+              label: t('update.row.update'),
+              icon: <CircleArrowUp size={14} />,
+              onSelect: () => startUpdate([unit.name], force),
+            },
+          ]
+        : []),
+      ...(page
+        ? [
+            {
+              key: 'github',
+              label: t('update.row.openGithub'),
+              icon: <ExternalLink size={14} />,
+              onSelect: () => window.open(page, '_blank', 'noopener,noreferrer'),
+            },
+          ]
+        : []),
+    ];
+  };
 
   const failureActions = (unit: UpdateUnit) => {
     const r = run.get(unit.name);
@@ -829,12 +978,34 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
     const summary = lastChecked
       ? t('update.check.checkedAt', { time: formatRelativeTime(lastChecked, locale) })
       : '';
-    const checkFailed = units.some((u) => unitCheck(statuses, u).status === 'error');
+    const failedChecks = units.filter((u) => unitCheck(statuses, u).status === 'error').length;
+    // Failures headline only when nothing can be updated; otherwise the updates lead.
+    const failedLead = failedChecks > 0 && available === 0;
     hero = {
-      icon: checkFailed ? <CircleAlert size={20} /> : <CircleArrowUp size={20} />,
-      tone: checkFailed ? 'warn' : '',
-      title: t(updateCheckTitle(checkFailed, !!lastChecked, available), { count: available }),
-      sub: `${checkFailed && available > 0 ? t('update.hero.available', { count: available }) + '. ' : ''}${summary} ${t('update.tab.audited')}`.trim(),
+      icon: failedLead ? <CircleAlert size={20} /> : <CircleArrowUp size={20} />,
+      tone: failedLead ? 'warn' : '',
+      title: t(updateCheckTitle(failedChecks > 0, !!lastChecked, available), {
+        count: available,
+      }),
+      sub: (
+        <>
+          {failedChecks > 0 && !failedLead && (
+            <>
+              <button
+                type="button"
+                className="inline-flex min-h-6 items-center font-medium text-bad hover:underline"
+                onClick={() => setFilters({ ...NO_FILTERS, status: 'failed' })}
+              >
+                {t(plural('update.hero.failedChecks', failedChecks), {
+                  count: formatNumber(failedChecks, locale),
+                })}
+              </button>
+              {' · '}
+            </>
+          )}
+          {`${summary} ${t('update.tab.audited')}`.trim()}
+        </>
+      ),
     };
   }
 
@@ -1166,69 +1337,260 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
             />
           )
         : listUnits.length > 0 && (
-            <div className="ss-list">
-              <div className="ss-lh">
-                <Checkbox
-                  hideLabel
-                  label={t('resources.select.selectAll')}
-                  checked={allSelected}
-                  indeterminate={shown.length > 0 && !allSelected}
-                  disabled={busy}
-                  onChange={() =>
-                    setSelected(allSelected ? new Set() : new Set(units.map((u) => u.name)))
+            <div className="flex flex-col gap-3">
+              <div ref={sentinel} className="-mb-[13px] h-px" />
+              <div
+                className={`ss-stickbar flex flex-wrap items-center gap-2 ${stuck ? 'stuck' : ''}`}
+              >
+                <label className="ss-inp w-[200px] shrink-0">
+                  <Search size={15} className="shrink-0 text-ink-3" />
+                  <input
+                    type="text"
+                    value={filters.query}
+                    onChange={(e) => setFilter({ query: e.target.value })}
+                    placeholder={t(
+                      kind === 'agent' ? 'resources.search.agents' : 'resources.search.skills',
+                    )}
+                    aria-label={t(
+                      kind === 'agent' ? 'resources.search.agents' : 'resources.search.skills',
+                    )}
+                  />
+                  {filters.query ? (
+                    <button
+                      type="button"
+                      className="ss-ib !w-6 !h-6 -mr-1.5 shrink-0"
+                      aria-label={t('resources.search.clear')}
+                      onClick={(e) => {
+                        setFilter({ query: '' });
+                        e.currentTarget.closest('label')?.querySelector('input')?.focus();
+                      }}
+                    >
+                      <X size={14} />
+                    </button>
+                  ) : (
+                    <span className="k">/</span>
+                  )}
+                </label>
+                {filtering && (
+                  <span className="shrink-0 text-[13px] text-ink-3">
+                    {matched.length} / {countLabel(t, kind, listUnits.length)}
+                  </span>
+                )}
+                <Select
+                  className="shrink-0 ml-2"
+                  prefix={t('resources.toolbar.source')}
+                  chip={chipOf('resources.toolbar.source')}
+                  value={filters.source}
+                  onChange={(v) => setFilter({ source: v as UpdateFilters['source'] })}
+                  options={(() => {
+                    const base = chipCounts('source');
+                    return (['all', ...UPDATE_SOURCES] as const).map((v) =>
+                      countOption(
+                        v,
+                        SOURCE_LABEL[v],
+                        v === 'all' ? base.length : base.filter((u) => unitSource(u) === v).length,
+                        filters.source,
+                      ),
+                    );
+                  })()}
+                />
+                <Select
+                  className="shrink-0"
+                  prefix={t('resources.toolbar.status')}
+                  chip={chipOf('resources.toolbar.status')}
+                  value={filters.status}
+                  onChange={(v) => setFilter({ status: v as UpdateFilters['status'] })}
+                  options={(() => {
+                    const base = chipCounts('status');
+                    return [
+                      countOption('all', t('resources.status.all'), base.length, filters.status),
+                      ...UPDATE_STATUSES.map((v) =>
+                        countOption(
+                          v,
+                          statusLabel[v],
+                          base.filter((u) => statusGroup(statusOf(u)) === v).length,
+                          filters.status,
+                        ),
+                      ),
+                    ];
+                  })()}
+                />
+                {folders.size > 1 && (
+                  <Select
+                    className="shrink-0"
+                    prefix={t('resources.toolbar.folder')}
+                    chip={chipOf('resources.toolbar.folder')}
+                    // Folder values carry a '/' prefix: '' (the root) and a folder named "all" stay distinct from All.
+                    value={filters.folder === null ? 'all' : `/${filters.folder}`}
+                    onChange={(v) => setFilter({ folder: v === 'all' ? null : v.slice(1) })}
+                    options={(() => {
+                      const base = chipCounts('folder');
+                      const current = filters.folder === null ? 'all' : `/${filters.folder}`;
+                      return [
+                        countOption('all', t('resources.status.all'), base.length, current),
+                        ...[...folders.keys()]
+                          .sort((a, b) =>
+                            formatTrackedRepoName(a).localeCompare(formatTrackedRepoName(b)),
+                          )
+                          .map((key) =>
+                            countOption(
+                              `/${key}`,
+                              key === '' ? t('resources.folder.root') : formatTrackedRepoName(key),
+                              base.filter((u) => unitFolder(u) === key).length,
+                              current,
+                            ),
+                          ),
+                      ];
+                    })()}
+                  />
+                )}
+              </div>
+              {matched.length === 0 ? (
+                <EmptyState
+                  icon={SearchX}
+                  title={t('resources.noMatches.title')}
+                  description={t('resources.noMatches.description')}
+                  action={
+                    <Button variant="secondary" size="sm" onClick={() => setFilters(NO_FILTERS)}>
+                      {t('resources.clearFilters')}
+                    </Button>
                   }
                 />
-                <span className="w-[26px]" />
-                <span className="flex-1">{t('resources.col.name')}</span>
-              </div>
-              {listUnits.map((unit) => {
-                const r = run.get(unit.name);
-                const c = unitCheck(statuses, unit).status;
-                const canUpdate = !r && c !== 'up-to-date' && c !== 'checking';
-                const rowState =
-                  r?.status === 'in-progress'
-                    ? 'updating'
-                    : r?.status === 'pending' || (running && !r)
-                      ? 'dim'
-                      : r?.status === 'success'
-                        ? 'flash'
-                        : '';
-                return (
-                  <div
-                    key={unit.name}
-                    className={`ss-r group flex-wrap md:flex-nowrap ${selected.has(unit.name) ? 'sel' : ''} ${rowState}`}
-                  >
-                    <Checkbox
-                      hideLabel
-                      label={unit.label}
-                      checked={selected.has(unit.name)}
-                      disabled={busy}
-                      onChange={() => toggle(unit.name)}
-                    />
-                    {unitIcon(unit)}
-                    {unitName(unit)}
-                    <div className="w-full flex flex-wrap items-center gap-2 pl-[66px] md:contents">
-                      {riskTag(unit)}
-                      {canUpdate && (
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          className="md:pointer-fine:opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
-                          disabled={busy}
-                          onClick={() => startUpdate([unit.name], force)}
-                        >
-                          {t('update.row.update')}
-                        </Button>
-                      )}
-                      <span className="max-w-full md:max-w-none md:min-w-[140px] md:shrink-0 flex justify-end ml-auto md:ml-0">
-                        {statusCell(unit)}
-                      </span>
+              ) : (
+                <div className="ss-list">
+                  {visible.length > 0 && (
+                    <div className="ss-lh">
+                      <Checkbox
+                        hideLabel
+                        label={t('resources.select.selectAll')}
+                        checked={allSelected}
+                        indeterminate={shown.length > 0 && !allSelected}
+                        disabled={busy}
+                        onChange={() =>
+                          setSelected((prev) => {
+                            const next = new Set(prev);
+                            for (const u of visible) {
+                              if (allSelected) next.delete(u.name);
+                              else next.add(u.name);
+                            }
+                            return next;
+                          })
+                        }
+                      />
+                      <span className="w-[26px]" />
+                      <span className="flex-1">{t('resources.col.name')}</span>
                     </div>
-                  </div>
-                );
-              })}
+                  )}
+                  {visible.map((unit) => {
+                    const r = run.get(unit.name);
+                    const c = unitCheck(statuses, unit).status;
+                    const hasPreview =
+                      !r && kind === 'skill' && hasUpdate(unitCheck(statuses, unit));
+                    const hasChanges = !r && kind === 'skill' && !unit.isRepo && c === 'dirty';
+                    const rowState =
+                      r?.status === 'in-progress'
+                        ? 'updating'
+                        : r?.status === 'pending' || (running && !r)
+                          ? 'dim'
+                          : r?.status === 'success'
+                            ? 'flash'
+                            : '';
+                    return (
+                      <div
+                        key={unit.name}
+                        className={`ss-r flex-wrap md:flex-nowrap ${selected.has(unit.name) ? 'sel' : ''} ${rowState}`}
+                      >
+                        <Checkbox
+                          hideLabel
+                          label={unit.label}
+                          checked={selected.has(unit.name)}
+                          disabled={busy}
+                          onChange={() => toggle(unit.name)}
+                        />
+                        {unitIcon(unit)}
+                        {listName(unit)}
+                        <div className="w-full flex flex-wrap items-center gap-2 pl-[66px] md:contents">
+                          {riskTag(unit)}
+                          {hasPreview && (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              disabled={busy}
+                              onClick={() => setPreview({ unit, mode: 'upstream' })}
+                            >
+                              {t('update.row.preview')}
+                            </Button>
+                          )}
+                          {hasChanges && (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              disabled={busy}
+                              onClick={() => setPreview({ unit, mode: 'local' })}
+                            >
+                              {t('update.check.viewChanges')}
+                            </Button>
+                          )}
+                          {/* With nothing to offer (an agent mid-run, say) the button would open nothing. */}
+                          {Object.values(rowActions(unit)).some(Boolean) ? (
+                            <button
+                              type="button"
+                              className="ss-ib shrink-0"
+                              aria-label={t('update.row.more', { name: unit.label })}
+                              aria-haspopup="menu"
+                              onClick={(e) => openMenu(e, unit)}
+                            >
+                              <Ellipsis size={16} />
+                            </button>
+                          ) : (
+                            <span className="ss-ib invisible shrink-0" aria-hidden="true" />
+                          )}
+                          {/* Keyed by status, so a result that arrives fades in instead of swapping in place. */}
+                          <span
+                            key={`${run.get(unit.name)?.status ?? ''}:${statusOf(unit)}`}
+                            className="animate-fade-in max-w-full md:max-w-none md:min-w-[140px] md:shrink-0 flex justify-end ml-auto md:ml-0"
+                          >
+                            {statusCell(unit)}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {foldable.length > 0 ? (
+                    <button
+                      type="button"
+                      className="ss-r w-full !min-h-[44px] justify-center text-[13px] font-medium text-ink-2 hover:text-ink"
+                      aria-expanded={showCurrent}
+                      onClick={() => setShowCurrent((v) => !v)}
+                    >
+                      {showCurrent
+                        ? t('update.list.hideCurrent')
+                        : t(plural('update.list.showCurrent', foldable.length), {
+                            count: formatNumber(foldable.length, locale),
+                          })}
+                    </button>
+                  ) : null}
+                </div>
+              )}
             </div>
           )}
+      <SkillContextMenu
+        open={!!menu}
+        anchorPoint={menu?.point}
+        align="end"
+        items={menu ? menuItems(menu.unit) : []}
+        onClose={() => setMenu(null)}
+      />
+      <UpdatePreviewDialog
+        unit={preview?.unit ?? null}
+        mode={preview?.mode ?? 'upstream'}
+        onClose={() => setPreview(null)}
+        onUpdate={({ force: forced, merge }) => {
+          const unit = preview!.unit;
+          setPreview(null);
+          startUpdate([unit.name], forced ?? force, merge);
+        }}
+      />
       <SyncPreviewModal open={syncOpen} onClose={() => setSyncOpen(false)} kind={kind} />
     </>
   );

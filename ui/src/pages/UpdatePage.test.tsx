@@ -25,6 +25,7 @@ vi.mock('../api/client', async (importOriginal) => {
       sync: vi.fn().mockResolvedValue({ results: [] }),
       diff: vi.fn(),
       listTargets: vi.fn(),
+      getLocalChanges: vi.fn(),
     },
   };
 });
@@ -286,6 +287,30 @@ describe('UpdatePage', () => {
     await waitFor(() =>
       expect(screen.queryByRole('button', { name: 'Merge' })).not.toBeInTheDocument(),
     );
+    expect(localStorage.getItem('skillshare.updateCheckCache.global')).not.toContain(
+      '"tools/agent-browser":{"status":"up-to-date"',
+    );
+  });
+
+  it('merges from View changes without marking the skill up to date', async () => {
+    vi.mocked(api.listSkills).mockResolvedValue({ resources: [nestedSkill] });
+    vi.mocked(api.getLocalChanges).mockResolvedValue({ files: [] });
+    cacheStatus('tools/agent-browser', 'dirty');
+    streamResult({
+      name: nestedSkill.relPath,
+      action: 'updated',
+      message: 'merged local changes',
+      isRepo: false,
+    });
+
+    const user = userEvent.setup();
+    renderUpdatePage('skill');
+    await user.click(await screen.findByRole('button', { name: 'View changes' }));
+    await user.click(
+      within(await screen.findByRole('dialog')).getByRole('button', { name: 'Merge' }),
+    );
+
+    await screen.findByText(/1 updated/);
     expect(localStorage.getItem('skillshare.updateCheckCache.global')).not.toContain(
       '"tools/agent-browser":{"status":"up-to-date"',
     );

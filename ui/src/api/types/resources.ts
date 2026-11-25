@@ -127,6 +127,39 @@ export interface LocalFileChange {
   diff: string;
 }
 
+/** What updating a skill would change: installed commit `from` to latest commit `to`, diffed from installed to latest. */
+export interface UpstreamChanges {
+  from: string;
+  to: string;
+  files: LocalFileChange[];
+}
+
+export interface RepoUpstreamCommit {
+  /** Short hash */
+  hash: string;
+  subject: string;
+  author: string;
+  /** RFC 3339 */
+  date: string;
+}
+
+export interface RepoUpstreamFile {
+  path: string;
+  added: number;
+  deleted: number;
+  binary: boolean;
+}
+
+/** What pulling a tracked repo would bring in, as of the last update check. */
+export interface RepoUpstreamChanges {
+  from: string;
+  to: string;
+  total_commits: number;
+  /** Newest first, at most 50 */
+  commits: RepoUpstreamCommit[];
+  files: RepoUpstreamFile[];
+}
+
 export interface BatchUninstallRequest {
   names: string[];
   kind?: 'skill' | 'agent';

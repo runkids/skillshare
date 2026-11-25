@@ -12,11 +12,13 @@ import type {
   Overview,
   LinkedRepo,
   LocalFileChange,
+  RepoUpstreamChanges,
   Skill,
   SkillFileContent,
   SourceLink,
   SourceLinkRequest,
   SourceLinkResult,
+  UpstreamChanges,
   TemplatesResponse,
 } from './types/resources';
 
@@ -92,6 +94,12 @@ export const resourcesApi = {
   // Files changed since install, diffed against the installed version; name is the skill's relPath.
   getLocalChanges: (name: string) =>
     http.get<{ files: LocalFileChange[] }>(`/resources/${encodeURIComponent(name)}/local-changes`),
+  // What updating would change: installed version vs the latest commit; name is the skill's relPath.
+  getUpstreamChanges: (name: string) =>
+    http.get<UpstreamChanges>(`/resources/${encodeURIComponent(name)}/upstream-changes`),
+  // What pulling a tracked repo would bring in, as of the last update check (no fetch).
+  getRepoUpstreamChanges: (name: string) =>
+    http.get<RepoUpstreamChanges>(`/repos/${encodeURIComponent(name)}/upstream-changes`),
   // Save SKILL.md / agent markdown.
   saveSkillContent: (name: string, content: string, kind?: 'skill' | 'agent') =>
     http.put<{
