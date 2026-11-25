@@ -278,7 +278,7 @@ function ProjectEditor({
             </Button>
             {tab === 'skills' && previewTool && (
               <Link
-                to={`/skills?tab=analyze&target=${encodeURIComponent(`${project.name}@${previewTool}`)}`}
+                to={`/context?target=${encodeURIComponent(`${project.name}@${previewTool}`)}`}
                 className="ss-btn ghost"
               >
                 {t('analyze.open')}

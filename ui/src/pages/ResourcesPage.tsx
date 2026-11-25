@@ -78,7 +78,6 @@ import AgentIcon from '../components/AgentIcon';
 import Button from '../components/Button';
 import { Checkbox } from '../components/Checkbox';
 import ConfirmDialog from '../components/ConfirmDialog';
-import AnalyzePanel from '../components/analyze/AnalyzePanel';
 import EmptyState from '../components/EmptyState';
 import InstallDialog from '../components/InstallDialog';
 import SyncPreviewModal from '../components/SyncPreviewModal';
@@ -340,15 +339,8 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
   const [checks] = useCheckStatuses();
   const [params, setParams] = useSearchParams();
   const requestedTab = params.get('tab');
-  // Analyze only measures skills, so the tab is hidden on the agents page.
   const tab =
-    requestedTab === 'updates'
-      ? 'updates'
-      : requestedTab === 'trash'
-        ? 'trash'
-        : requestedTab === 'analyze' && !isAgent
-          ? 'analyze'
-          : 'installed';
+    requestedTab === 'updates' ? 'updates' : requestedTab === 'trash' ? 'trash' : 'installed';
   // The dialog lives in the URL so the old /install and /search routes can open it.
   const installTab = params.get('install');
   const setInstall = (value: string | null) =>
@@ -1617,9 +1609,6 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
             ['installed', '', t('resources.tab.installed'), items.length],
             ['updates', '?tab=updates', t('resources.tab.updates'), updateCount],
             ['trash', '?tab=trash', t('trash.title'), trashCount],
-            ...(isAgent
-              ? []
-              : [['analyze', '?tab=analyze', t('resources.tab.analyze'), 0] as const]),
           ] as const
         ).map(([key, query, label, n]) => (
           <Link
@@ -1634,9 +1623,7 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
         ))}
       </nav>
 
-      {tab === 'analyze' ? (
-        <AnalyzePanel />
-      ) : tab === 'installed' ? (
+      {tab === 'installed' ? (
         <>
           {agentSupport &&
             items.length > 0 &&

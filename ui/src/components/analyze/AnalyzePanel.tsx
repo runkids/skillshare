@@ -14,16 +14,10 @@ import { useT } from '../../i18n';
 import { formatSkillDisplayName } from '../../lib/resourceNames';
 import { queryKeys, staleTimes } from '../../lib/queryKeys';
 import { segSlide } from '../../lib/segSlide';
+import { kTokens } from './contextCost';
 
 const STEP = 100;
 const MANAGED_ONLY_KEY = 'skillshare:analyze-managed-only';
-/** Thousands collapse to "3.4k" so the column stays one glance wide; smaller counts stay exact. */
-const kTokens = (n: number) =>
-  n < 1000
-    ? n.toLocaleString()
-    : n >= 10000
-      ? `${Math.round(n / 1000)}k`
-      : `${(n / 1000).toFixed(1)}k`;
 /** "description-length" reads as "description length" — the full sentence waits in the dialog. */
 const ruleLabel = (rule: string) => rule.replace(/-/g, ' ');
 /** A local skill's path is wherever the tool put it (e.g. synced/<org>_<uuid>/docx), so show just its folder. */

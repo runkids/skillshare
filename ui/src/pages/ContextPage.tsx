@@ -1,0 +1,46 @@
+import { useSearchParams } from 'react-router-dom';
+import AnalyzePanel from '../components/analyze/AnalyzePanel';
+import MCPCostPanel from '../components/analyze/MCPCostPanel';
+import PageHeader from '../components/PageHeader';
+import { useT } from '../i18n';
+import { segSlide } from '../lib/segSlide';
+
+/** What skills and MCP servers cost a model's context. Each tab has its own list: skill targets and MCP targets differ. */
+export default function ContextPage() {
+  const t = useT();
+  const [params, setParams] = useSearchParams();
+  const tab = params.get('tab') === 'mcp' ? 'mcp' : 'skills';
+  const setTab = (next: 'skills' | 'mcp') =>
+    setParams(
+      (p) => {
+        if (next === 'mcp') p.set('tab', 'mcp');
+        else p.delete('tab');
+        return p;
+      },
+      { replace: true },
+    );
+
+  return (
+    <div className="ss-wrap animate-page-in">
+      <PageHeader title={t('context.title')} subtitle={t('context.subtitle')} />
+      <div ref={segSlide} className="ss-seg self-start" role="tablist">
+        {(['skills', 'mcp'] as const).map((key) => (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={tab === key}
+            className={tab === key ? 'on' : ''}
+            onClick={() => setTab(key)}
+          >
+            {t(key === 'mcp' ? 'context.tab.mcp' : 'context.tab.skills')}
+          </button>
+        ))}
+      </div>
+      {/* Keyed, so switching tabs fades the new content in. */}
+      <div key={tab} className="animate-page-in">
+        {tab === 'mcp' ? <MCPCostPanel /> : <AnalyzePanel />}
+      </div>
+    </div>
+  );
+}

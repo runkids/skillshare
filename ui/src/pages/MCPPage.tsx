@@ -31,6 +31,7 @@ import PageHeader from '../components/PageHeader';
 import SourcePathButton from '../components/SourcePathButton';
 import { PageSkeleton } from '../components/Skeleton';
 import { RailGroup, RailLayout, RailRow, RailSection } from '../components/StatusRail';
+import MCPContextCard from '../components/analyze/MCPContextCard';
 import { SkillContextMenu, type ContextMenuItem } from '../components/TargetMenu';
 import { useToast } from '../components/Toast';
 import MCPDefaults from '../components/mcp/MCPDefaults';
@@ -341,6 +342,7 @@ function MCPContent({
             )
           )}
 
+          <MCPContextCard />
           <MCPFilesRail data={data} model={model} allFiles={allFiles} onShowAll={onShowAll} />
         </>
       }

@@ -5,6 +5,7 @@ import {
   Routes,
   Route,
   Navigate,
+  useLocation,
   useRouteError,
   useParams,
   useSearchParams,
@@ -32,6 +33,7 @@ const TargetsPage = lazy(() => import('./pages/TargetsPage'));
 const ExtrasPage = lazy(() => import('./pages/ExtrasPage'));
 const PluginsPage = lazy(() => import('./pages/PluginsPage'));
 const MCPPage = lazy(() => import('./pages/MCPPage'));
+const ContextPage = lazy(() => import('./pages/ContextPage'));
 const HooksPage = lazy(() => import('./pages/HooksPage'));
 const SyncPage = lazy(() => import('./pages/SyncPage'));
 const BackupPage = lazy(() => import('./pages/BackupPage'));
@@ -58,6 +60,24 @@ function LegacyResourceRedirect() {
   const base =
     params.get('kind') === 'agent' || params.get('tab') === 'agents' ? '/agents' : '/skills';
   return <Navigate to={name ? `${base}/${encodeURIComponent(name)}` : base} replace />;
+}
+
+/** The Skills page's Analyze tab became the Context page; links to it keep their target. */
+function SkillsPage() {
+  const [params] = useSearchParams();
+  if (params.get('tab') === 'analyze') {
+    const target = params.get('target');
+    return (
+      <Navigate to={`/context${target ? `?target=${encodeURIComponent(target)}` : ''}`} replace />
+    );
+  }
+  return <ResourcesPage key="skill" kind="skill" />;
+}
+
+/** /analyze led to the Analyze tab; it now opens the Context page with the same query. */
+function AnalyzeRedirect() {
+  const { search } = useLocation();
+  return <Navigate to={{ pathname: '/context', search }} replace />;
 }
 
 /** A shared AGENTS.md had its own page; it is now selected on the Extras tab. */
@@ -93,7 +113,7 @@ function AppRoutes() {
               path="skills"
               element={
                 <Lazy>
-                  <ResourcesPage key="skill" kind="skill" />
+                  <SkillsPage />
                 </Lazy>
               }
             />
@@ -252,7 +272,15 @@ function AppRoutes() {
                 </Lazy>
               }
             />
-            <Route path="analyze" element={<Navigate to="/skills?tab=analyze" replace />} />
+            <Route
+              path="context"
+              element={
+                <Lazy>
+                  <ContextPage />
+                </Lazy>
+              }
+            />
+            <Route path="analyze" element={<AnalyzeRedirect />} />
             <Route
               path="log"
               element={

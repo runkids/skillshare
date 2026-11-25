@@ -87,6 +87,8 @@ const events = {
   mcpChanged: () => keys(k.mcp, k.config),
   mcpSynced: () => keys(k.mcp, k.logAll),
   mcpRestored: () => keys(k.mcp),
+  // A live check records each server's tool token count.
+  mcpToolsCounted: () => keys(k.mcpCosts),
   hooksChanged: () => keys(k.hooks, k.config),
   hooksSynced: () => keys(k.hooks, k.logAll),
   hooksRestored: () => keys(k.hooks),
