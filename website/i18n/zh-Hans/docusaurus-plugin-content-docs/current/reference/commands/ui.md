@@ -192,8 +192,8 @@ web dashboard 在 `/api/` 下暴露一个 REST API。所有端点都返回 JSON�
 | GET | `/api/doctor` | 运行所有健康检查（JSON） |
 | GET | `/api/doctor/stream` | 以 Server-Sent Events 运行所有健康检查：每完成一项发送一个 `check` 事件。较慢的检查会先以状态 `pending` 发送，之后同名的 `check` 事件会取代它，不需要它结果的检查会先发送；最后以 `done` 发送与 `/api/doctor` 相同的 JSON |
 | GET | `/api/health` | 存活探针；server 就绪后返回 `200` |
-| GET | `/api/version` | 当前/最新版本、是否有可用升级，以及 Nix 安装时更新 CLI 的命令（`nixUpgradeCommand`）；`.skillignore` 禁用内置技能时 `skillDisabled` 为 true |
-| POST | `/api/upgrade` | 就地运行 `skillshare upgrade`（当二进制文件为开发构建时返回 `devMode: true`；通过 Nix 安装且有更新的 CLI 待安装时返回 `409`，错误码为 `upgrade.nix`） |
+| GET | `/api/version` | 当前/最新版本、是否有可用升级，以及 Nix 或 PyPI 安装时更新 CLI 的命令（`nixUpgradeCommand` 或 `pypiUpgradeCommand`）；`.skillignore` 禁用内置技能时 `skillDisabled` 为 true |
+| POST | `/api/upgrade` | 就地运行 `skillshare upgrade`（当二进制文件为开发构建时返回 `devMode: true`；通过 Nix 或 PyPI 安装且有更新的 CLI 待安装时返回 `409`，错误码为 `upgrade.nix` 或 `upgrade.pypi`） |
 | POST | `/api/restart` | 重启本地 UI server；可选的 `{ "clearCache": true }` body 会先清除缓存的 UI 资源 |
 
 ## 就地升级
@@ -205,6 +205,8 @@ web dashboard 在 `/api/` 下暴露一个 REST API。所有端点都返回 JSON�
 3. 浏览器轮询 `GET /api/health`，并在新 server 就绪后自动重新加载。
 
 如果 skillshare 通过 Nix 安装，该端点仍会更新内置的 skillshare skill，但 CLI 交给 Nix 更新。有更新的 CLI 时，它会返回 `409`（`upgrade.nix`），对话框随后说明如何通过 Nix 更新。点击之前，对话框就会说明如何通过 Nix 更新 CLI：`nix profile` 安装为 `nix profile upgrade skillshare`，否则为重新构建 Nix 配置。参见 [upgrade](./upgrade.md#nix-users)。
+
+通过 uv、pipx 或 pip 安装时处理方式相同：该端点会更新内置 skill，有更新的 CLI 时返回 `409`（`upgrade.pypi`），对话框在点击前后都会显示对应安装工具的命令，例如 `uv tool upgrade skillshare-cli`。参见 [upgrade](./upgrade.md#pypi-users)。
 
 如果运行中的二进制文件是开发构建（`version == "dev"`），upgrade 端点会返回
 `devMode: true`，UI 会模拟一次重启而不修改磁盘上的任何内容。
@@ -293,7 +295,7 @@ dashboard 会读写 `.skillshare/config.yaml`，同步到 project 本地的 targ
 
 ## Homebrew 说明
 
-所有安装方式（Homebrew、Nix、安装脚本、手动二进制文件）都使用运行时 UI 下载。当你运行 `skillshare ui` 时，它会在首次启动时自动从 GitHub 下载 UI 资源。之后会使用缓存的资源离线运行。
+所有安装方式（Homebrew、Nix、PyPI、安装脚本、手动二进制文件）都使用运行时 UI 下载。当你运行 `skillshare ui` 时，它会在首次启动时自动从 GitHub 下载 UI 资源。之后会使用缓存的资源离线运行。
 
 清除已下载的 UI 缓存：
 

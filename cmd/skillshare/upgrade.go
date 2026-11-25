@@ -193,14 +193,20 @@ func upgradeCLIBinary(dryRun, force bool) (string, error) {
 	}
 
 	// --force reinstalls the same version, which only skillshare's own installs can do.
-	if version == latestVersion && (!force || method.IsNix()) {
+	if version == latestVersion && (!force || method.IsPackageManaged()) {
 		printUpgradeRow(ui.MarkOK, "CLI", current+", already up to date", time.Time{})
 		return "", nil
 	}
 
-	// Replacing a file in the Nix store would corrupt it, so Nix updates it instead.
-	if method.IsNix() {
-		printUpgradeRow(ui.MarkWarn, "CLI", fmt.Sprintf("%s → v%s available · installed with Nix, %s", current, latestVersion, method.UpgradeInstruction()), time.Time{})
+	// Replacing a file in the Nix store would corrupt it, and replacing a
+	// wheel's binary would leave pip, uv or pipx recording the old version,
+	// so the package manager updates it instead.
+	if method.IsPackageManaged() {
+		source := "with Nix"
+		if method.IsPyPI() {
+			source = "from PyPI"
+		}
+		printUpgradeRow(ui.MarkWarn, "CLI", fmt.Sprintf("%s → v%s available · installed %s, %s", current, latestVersion, source, method.UpgradeInstruction()), time.Time{})
 		return "", nil
 	}
 

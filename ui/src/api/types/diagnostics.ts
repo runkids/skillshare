@@ -8,6 +8,8 @@ export interface VersionCheck {
   cliDevMode?: boolean;
   /** Set for a Nix install: the command that updates the CLI, or "" when a Nix configuration provides it. */
   nixUpgradeCommand?: string | null;
+  /** Set for a PyPI install: the pip, uv or pipx command that updates the CLI. */
+  pypiUpgradeCommand?: string | null;
   skillVersion: string;
   /** .skillignore disables the built-in skill, so sync leaves it out of every target. */
   skillDisabled?: boolean;

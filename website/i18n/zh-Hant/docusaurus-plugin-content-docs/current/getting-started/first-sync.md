@@ -57,8 +57,15 @@ nixpkgs.overlays = [ inputs.skillshare.overlays.default ];
 environment.systemPackages = [ pkgs.skillshare ]; # or home.packages
 ```
 
+**PyPI（uv、pipx 或 pip）：**
+```bash
+uv tool install skillshare-cli
+```
+
+也可以用 `pipx install skillshare-cli` 安裝。不安裝直接試用，可執行 `uvx --from skillshare-cli skillshare`。
+
 :::tip 之後如何更新
-`skillshare upgrade` 會偵測你當初的安裝方式（Homebrew、腳本、手動），並就地更新 CLI。透過 Nix 安裝時，它不會替換 CLI，而是提示更新方式：`nix profile` 安裝提示 `nix profile upgrade skillshare`，NixOS 或 Home Manager 則提示更新設定並重新建置。
+`skillshare upgrade` 會偵測你當初的安裝方式（Homebrew、腳本、手動），並就地更新 CLI。透過 Nix 安裝時，它不會替換 CLI，而是提示更新方式：`nix profile` 安裝提示 `nix profile upgrade skillshare`，NixOS 或 Home Manager 則提示更新設定並重新建置。透過 uv、pipx 或 pip 安裝時，它會改為提示對應安裝工具的指令，例如 `uv tool upgrade skillshare-cli`。
 :::
 
 ## 2. 初始化

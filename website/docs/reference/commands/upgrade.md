@@ -72,6 +72,20 @@ When a NixOS, Home Manager or overlay configuration provides skillshare, update 
 
 `skillshare upgrade --skill` still updates the built-in skill.
 
+## PyPI Users {#pypi-users}
+
+If you installed with uv, pipx or pip, `skillshare upgrade` leaves the CLI alone, because the installer keeps a record of the installed version and replacing the binary would make that record wrong. When a newer version exists, it shows the command for your installer instead:
+
+```bash
+uv tool upgrade skillshare-cli        # uv
+pipx upgrade skillshare-cli           # pipx
+pip install --upgrade skillshare-cli  # pip
+```
+
+The dashboard's upgrade button shows the same advice, and `skillshare upgrade --skill` still updates the built-in skill.
+
+On Windows, uv and pipx put a copy of `skillshare.exe` on your PATH, which skillshare cannot tell apart from a manual install, so `skillshare upgrade` updates that copy directly. Run your installer's upgrade command instead to keep its record current.
+
 ## Examples
 
 ```bash

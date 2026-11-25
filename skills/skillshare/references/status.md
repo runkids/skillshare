@@ -129,6 +129,9 @@ every target and `doctor` and `status` warn. Run `skillshare enable skillshare -
 **Nix installs:** the CLI binary is never replaced, even with `--force`; `upgrade` prints
 `nix profile upgrade skillshare` or says to rebuild the Nix configuration. The skill still updates.
 
+**PyPI installs** (`skillshare-cli` from uv, pipx or pip): the CLI binary is never replaced, even with
+`--force`; `upgrade` prints the installer's command, such as `uv tool upgrade skillshare-cli`. The skill still updates.
+
 **After upgrading skill:** `skillshare sync`
 
 `list` and `status` warn when an enabled `follow_source_links` policy skips an unavailable first-level source link; healthy skills remain in the inventory. With `--json`, warnings go to stderr so stdout stays valid JSON.

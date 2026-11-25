@@ -215,6 +215,23 @@ func TestHandleUpgradeNixSucceedsWhenCLICurrent(t *testing.T) {
 	}
 }
 
+func TestHandleUpgradePyPIUpdatesOnlyTheSkill(t *testing.T) {
+	ran, skillOnly := stubNixUpgrade(t, versioncheck.InstallUV, true)
+	postUpgrade()
+	if !*ran || !*skillOnly {
+		t.Fatalf("ran = %v skillOnly = %v, want a skill-only upgrade", *ran, *skillOnly)
+	}
+}
+
+func TestHandleUpgradePyPIReportsPendingCLI(t *testing.T) {
+	stubNixUpgrade(t, versioncheck.InstallUV, true)
+	rec := postUpgrade()
+	body := rec.Body.String()
+	if rec.Code != http.StatusConflict || !strings.Contains(body, `"error_code":"upgrade.pypi"`) || !strings.Contains(body, `"command":"uv tool upgrade skillshare-cli"`) {
+		t.Fatalf("status = %d body = %s", rec.Code, body)
+	}
+}
+
 func TestHandleUpgradeOtherInstallsUpgradeTheCLI(t *testing.T) {
 	_, skillOnly := stubNixUpgrade(t, versioncheck.InstallDirect, true)
 	if rec := postUpgrade(); rec.Code != http.StatusOK || *skillOnly {

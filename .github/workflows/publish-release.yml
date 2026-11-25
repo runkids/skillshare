@@ -56,6 +56,14 @@ jobs:
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
+      - name: Keep the verified wheels for PyPI
+        uses: actions/upload-artifact@v4
+        with:
+          name: pypi-wheels
+          path: ${{ runner.temp }}/release-assets/*.whl
+          if-no-files-found: error
+          retention-days: 1
+
       - name: Publish the verified draft
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -107,3 +115,26 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     with:
       ref: refs/tags/${{ inputs.tag }}
+
+  # PyPI Trusted Publishing trusts this workflow file and the pypi environment,
+  # so no API token is stored. The job lives here rather than in a reusable
+  # workflow, which Trusted Publishing does not support.
+  pypi:
+    needs: publish
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/skillshare-cli/
+    permissions:
+      id-token: write
+    steps:
+      - name: Download the wheels verify-assets checked
+        uses: actions/download-artifact@v4
+        with:
+          name: pypi-wheels
+          path: dist
+
+      - name: Publish the verified wheels to PyPI
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
+        with:
+          skip-existing: true
