@@ -62,12 +62,14 @@ func (s *Server) handleVersionCheck(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// `skillshare upgrade` updates both everywhere but leaves a Nix-store CLI
-	// to Nix, so the dialog also says how Nix updates it.
-	var nixUpgradeCommand *string
-	if method.IsNix() {
-		command := method.UpgradeCommand()
+	// `skillshare upgrade` updates both everywhere but leaves a Nix-store or
+	// PyPI CLI to its package manager, so the dialog also says how that
+	// manager updates it.
+	var nixUpgradeCommand, pypiUpgradeCommand *string
+	if command := method.UpgradeCommand(); method.IsNix() {
 		nixUpgradeCommand = &command
+	} else if method.IsPyPI() {
+		pypiUpgradeCommand = &command
 	}
 
 	// Skill version (local) — always check global source for built-in skill
@@ -115,6 +117,7 @@ func (s *Server) handleVersionCheck(w http.ResponseWriter, r *http.Request) {
 		"cliUpdateAvailable":   cliUpdateAvailable,
 		"cliDevMode":           cliDevMode,
 		"nixUpgradeCommand":    nixUpgradeCommand,
+		"pypiUpgradeCommand":   pypiUpgradeCommand,
 		"skillVersion":         skillVersion,
 		"skillLatest":          skillLatest,
 		"skillUpdateAvailable": skillUpdateAvailable,

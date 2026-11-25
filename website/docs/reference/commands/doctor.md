@@ -368,6 +368,8 @@ Next
 
 A `nix profile` install gets `nix profile upgrade skillshare` as its Next line. When NixOS or Home Manager provides skillshare, the Update row says to update your Nix configuration and rebuild, and there is no Next line for it.
 
+A uv, pipx or pip install gets its installer's command as its Next line, such as `uv tool upgrade skillshare-cli`.
+
 ## JSON Output
 
 Use `--json` for machine-readable output in CI pipelines and automation:

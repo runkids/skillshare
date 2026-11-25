@@ -363,6 +363,8 @@ Next
 
 `nix profile` でインストールした場合、Next 行は `nix profile upgrade skillshare` になります。NixOS や Home Manager が skillshare を提供している場合は、Update 行に Nix の設定を更新してリビルドするよう表示され、Next 行は出ません。
 
+uv、pipx、pip でインストールした場合、Next 行は `uv tool upgrade skillshare-cli` のようなインストーラーのコマンドになります。
+
 ## JSON 出力
 
 CI パイプラインや自動化のために、機械可読な出力には `--json` を使用します。

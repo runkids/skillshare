@@ -17,6 +17,9 @@ const (
 	InstallBrew                            // Homebrew (brew install)
 	InstallNix                             // Nix store, from a NixOS, Home Manager or overlay configuration
 	InstallNixProfile                      // Nix store, from nix profile add
+	InstallUV                              // PyPI wheel, from uv tool install
+	InstallPipx                            // PyPI wheel, from pipx install
+	InstallPip                             // PyPI wheel, from pip install
 )
 
 // NixConfigUpgradeHint tells a user whose Nix configuration provides
@@ -34,6 +37,12 @@ func (m InstallMethod) UpgradeCommand() string {
 		return ""
 	case InstallNixProfile:
 		return "nix profile upgrade skillshare"
+	case InstallUV:
+		return "uv tool upgrade " + pypiPackage
+	case InstallPipx:
+		return "pipx upgrade " + pypiPackage
+	case InstallPip:
+		return "pip install --upgrade " + pypiPackage
 	}
 	return "skillshare upgrade"
 }
@@ -50,6 +59,18 @@ func (m InstallMethod) UpgradeInstruction() string {
 // IsNix reports whether Nix, not skillshare, must replace the binary.
 func (m InstallMethod) IsNix() bool {
 	return m == InstallNix || m == InstallNixProfile
+}
+
+// IsPyPI reports whether pip, uv or pipx installed the binary from a wheel.
+func (m InstallMethod) IsPyPI() bool {
+	return m == InstallUV || m == InstallPipx || m == InstallPip
+}
+
+// IsPackageManaged reports whether a package manager owns the binary, so
+// skillshare must not replace it: the store is read-only for Nix, and a
+// replaced wheel binary leaves pip's records pointing at the old version.
+func (m InstallMethod) IsPackageManaged() bool {
+	return m.IsNix() || m.IsPyPI()
 }
 
 // DetectCurrentInstallMethod determines how the running binary was installed,
@@ -81,6 +102,9 @@ func DetectInstallMethod(execPath string) InstallMethod {
 	// The Nix store is read-only to its users; Nix itself must replace the binary.
 	if strings.HasPrefix(execPath, "/nix/store/") {
 		return detectNixMethod(execPath, nixProfileManifests())
+	}
+	if method, ok := detectPyPIMethod(execPath); ok {
+		return method
 	}
 	return InstallDirect
 }

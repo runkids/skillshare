@@ -106,14 +106,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Verify and upload the Homebrew formula and complete checksums
+      - name: Verify and upload the Homebrew formula, PyPI wheels and complete checksums
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ inputs.tag }}
         run: |
           python3 scripts/release/release.py prepare-assets --assets dist
           python3 scripts/release/release.py verify-assets --tag "$TAG" --assets dist
-          gh release upload "$TAG" dist/skillshare.rb dist/checksums.txt --clobber
+          gh release upload "$TAG" dist/skillshare.rb dist/checksums.txt dist/*.whl --clobber
 
       - name: Add contributors to release notes
         env:
