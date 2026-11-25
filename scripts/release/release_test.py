@@ -1,3 +1,4 @@
+import base64
 import hashlib
 import io
 import json
@@ -6,8 +7,9 @@ import subprocess
 import tarfile
 import tempfile
 import unittest
+import zipfile
 
-from release import check, first_entry, prepare_assets, required_assets, sync, verify_assets
+from release import archive_binary, build_wheels, check, first_entry, prepare_assets, required_assets, sync, verify_assets
 
 
 class ReleaseTest(unittest.TestCase):
@@ -92,25 +94,30 @@ class ReleaseTest(unittest.TestCase):
         sync(self.root)
         directory = self.root / "dist"
         directory.mkdir()
-        for name in required_assets("0.24.0") - {"skillshare.rb", "skillshare-ui-dist.tar.gz"}:
-            (directory / name).write_bytes(b"release asset")
         (self.root / "skillshare-ui-dist.tar.gz").write_bytes(b"release asset")
         binary = f"#!/bin/sh\necho 'skillshare v{binary_version}'\n".encode()
+        # Like GoReleaser's archives, each one also carries files besides the binary.
+        for os_name in ("darwin", "linux"):
+            for arch in ("amd64", "arm64"):
+                with tarfile.open(directory / f"skillshare_0.24.0_{os_name}_{arch}.tar.gz", "w:gz") as archive:
+                    for name, data in (("README.md", b"# skillshare\n"), ("skillshare", binary)):
+                        member = tarfile.TarInfo(name)
+                        member.size = len(data)
+                        archive.addfile(member, io.BytesIO(data))
         for arch in ("amd64", "arm64"):
-            with tarfile.open(directory / f"skillshare_0.24.0_linux_{arch}.tar.gz", "w:gz") as archive:
-                member = tarfile.TarInfo("skillshare")
-                member.size = len(binary)
-                archive.addfile(member, io.BytesIO(binary))
+            with zipfile.ZipFile(directory / f"skillshare_0.24.0_windows_{arch}.zip", "w") as archive:
+                archive.writestr("README.md", b"# skillshare\n")
+                archive.writestr("skillshare.exe", binary)
         self.write("dist/homebrew/Formula/skillshare.rb", 'class Skillshare < Formula\n  version "0.24.0"\n  url "https://github.com/runkids/skillshare/releases/download/v0.24.0/skillshare_0.24.0_darwin_arm64.tar.gz"\nend\n')
         lines = [f"{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.name}" for path in directory.iterdir() if path.is_file()]
         lines.append(f"{hashlib.sha256((self.root / 'skillshare-ui-dist.tar.gz').read_bytes()).hexdigest()}  skillshare-ui-dist.tar.gz")
         (directory / "checksums.txt").write_text("\n".join(lines) + "\n")
-        prepare_assets(directory)
+        prepare_assets(directory, "0.24.0")
         return directory
 
     def test_complete_assets_include_formula_and_match_binary_version(self):
         directory = self.assets()
-        prepare_assets(directory)
+        prepare_assets(directory, "0.24.0")
         verify_assets(self.root, directory, "v0.24.0")
         self.assertEqual((directory / "checksums.txt").read_text().count("  skillshare.rb"), 1)
 
@@ -136,9 +143,94 @@ class ReleaseTest(unittest.TestCase):
         directory = self.assets()
         formula = directory / "homebrew/Formula/skillshare.rb"
         formula.write_text(formula.read_text().replace("download/v0.24.0/", "download/v0.23.1/"))
-        prepare_assets(directory)
+        prepare_assets(directory, "0.24.0")
         with self.assertRaisesRegex(ValueError, "this release's verified archives"):
             verify_assets(self.root, directory, "v0.24.0")
+
+    def test_prepare_assets_builds_one_wheel_per_archive(self):
+        directory = self.assets()
+        wheels = sorted(path.name for path in directory.glob("*.whl"))
+        self.assertEqual(len(wheels), 6)
+        self.assertIn("skillshare_cli-0.24.0-py3-none-win_amd64.whl", wheels)
+        self.assertIn("skillshare_cli-0.24.0-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.musllinux_1_1_x86_64.whl", wheels)
+        checksums = (directory / "checksums.txt").read_text()
+        for name in wheels:
+            self.assertEqual(checksums.count(f"  {name}\n"), 1)
+
+    def test_prepare_assets_rerun_keeps_one_checksum_per_wheel(self):
+        directory = self.assets()
+        prepare_assets(directory, "0.24.0")
+        checksums = (directory / "checksums.txt").read_text()
+        self.assertEqual(checksums.count(".whl\n"), 6)
+
+    def test_wheel_contains_only_the_binary_and_metadata(self):
+        directory = self.assets()
+        with zipfile.ZipFile(directory / "skillshare_cli-0.24.0-py3-none-win_amd64.whl") as wheel:
+            self.assertEqual(sorted(wheel.namelist()), [
+                "skillshare_cli-0.24.0.data/scripts/skillshare.exe",
+                "skillshare_cli-0.24.0.dist-info/METADATA",
+                "skillshare_cli-0.24.0.dist-info/RECORD",
+                "skillshare_cli-0.24.0.dist-info/WHEEL",
+            ])
+            metadata = wheel.read("skillshare_cli-0.24.0.dist-info/METADATA").decode()
+            self.assertIn("Name: skillshare-cli\n", metadata)
+            self.assertIn("Version: 0.24.0\n", metadata)
+            self.assertIn("Tag: py3-none-win_amd64\n", wheel.read("skillshare_cli-0.24.0.dist-info/WHEEL").decode())
+            binary = wheel.getinfo("skillshare_cli-0.24.0.data/scripts/skillshare.exe")
+            self.assertEqual(binary.external_attr >> 16, 0o100755)
+            self.assertEqual(binary.create_system, 3)
+
+    def test_wheel_record_hashes_every_other_entry(self):
+        directory = self.assets()
+        with zipfile.ZipFile(directory / "skillshare_cli-0.24.0-py3-none-macosx_12_0_arm64.whl") as wheel:
+            record = wheel.read("skillshare_cli-0.24.0.dist-info/RECORD").decode().splitlines()
+            self.assertEqual(record[-1], "skillshare_cli-0.24.0.dist-info/RECORD,,")
+            for line in record[:-1]:
+                path, digest, size = line.split(",")
+                data = wheel.read(path)
+                expected = base64.urlsafe_b64encode(hashlib.sha256(data).digest()).rstrip(b"=").decode()
+                self.assertEqual((digest, int(size)), (f"sha256={expected}", len(data)))
+            self.assertEqual(len(record), len(wheel.namelist()))
+
+    def test_linux_wheel_lists_every_compressed_tag(self):
+        directory = self.assets()
+        name = "skillshare_cli-0.24.0-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.musllinux_1_1_aarch64.whl"
+        with zipfile.ZipFile(directory / name) as wheel:
+            tags = [line for line in wheel.read("skillshare_cli-0.24.0.dist-info/WHEEL").decode().splitlines() if line.startswith("Tag: ")]
+        self.assertEqual(tags, ["Tag: py3-none-manylinux_2_17_aarch64", "Tag: py3-none-manylinux2014_aarch64", "Tag: py3-none-musllinux_1_1_aarch64"])
+
+    def test_wheels_are_reproducible(self):
+        directory = self.assets()
+        first = {path.name: path.read_bytes() for path in directory.glob("*.whl")}
+        build_wheels(directory, "0.24.0")
+        self.assertEqual(first, {path.name: path.read_bytes() for path in directory.glob("*.whl")})
+
+    def test_archive_binary_rejects_a_symlink_member(self):
+        path = self.root / "bad.tar.gz"
+        with tarfile.open(path, "w:gz") as archive:
+            member = tarfile.TarInfo("skillshare")
+            member.type = tarfile.SYMTYPE
+            member.linkname = "/bin/sh"
+            archive.addfile(member)
+        with self.assertRaisesRegex(ValueError, "regular skillshare binary in bad.tar.gz"):
+            archive_binary(path)
+
+    def test_archive_binary_rejects_a_zip_symlink_member(self):
+        path = self.root / "bad.zip"
+        with zipfile.ZipFile(path, "w") as archive:
+            info = zipfile.ZipInfo("skillshare.exe")
+            info.create_system = 3
+            info.external_attr = 0o120777 << 16
+            archive.writestr(info, "C:/Windows/System32/cmd.exe")
+        with self.assertRaisesRegex(ValueError, "regular skillshare binary in bad.zip"):
+            archive_binary(path)
+
+    def test_archive_binary_rejects_a_missing_binary(self):
+        path = self.root / "empty.zip"
+        with zipfile.ZipFile(path, "w") as archive:
+            archive.writestr("README.md", "# skillshare\n")
+        with self.assertRaisesRegex(ValueError, "regular skillshare binary in empty.zip"):
+            archive_binary(path)
 
 
 if __name__ == "__main__":
