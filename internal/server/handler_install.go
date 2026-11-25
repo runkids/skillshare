@@ -251,15 +251,6 @@ func (s *Server) handleInstallBatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	defer s.trackProjectLock()()
-	before := s.skillsStoreOnDisk()
-	// Another request may have changed the destination during the clone.
-	if !s.checkInstallInto(w, body.Into, body.Kind) {
-		return
-	}
-
 	type batchResultItem struct {
 		Name     string   `json:"name"`
 		Action   string   `json:"action,omitempty"`
