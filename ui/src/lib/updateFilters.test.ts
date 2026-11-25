@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { Skill } from '../api/client';
 import {
+  compareUrl,
   foldsAway,
-  githubPage,
   hasUpstreamPreview,
   matchesFilters,
   NO_FILTERS,
   repeatedLabels,
+  sourcePage,
   type FilterUnit,
 } from './updateFilters';
 
@@ -104,7 +105,7 @@ describe('repeatedLabels', () => {
   });
 });
 
-describe('githubPage', () => {
+describe('sourcePage', () => {
   it.each([
     [
       unit('a', { branch: 'dev' }, 'github.com/acme/skills/frontend/a'),
@@ -116,14 +117,54 @@ describe('githubPage', () => {
     ],
     [unit('a', {}, 'git@github.com:acme/a.git'), 'https://github.com/acme/a'],
     [repo('_team'), 'https://github.com/acme/team'],
-    [unit('a', {}, 'gitlab.com/acme/skills/a'), null],
+    [unit('a', {}, 'gitlab.com/acme/skills/a'), 'https://gitlab.com/acme/skills/-/tree/HEAD/a'],
+    [
+      unit('a', {}, 'https://gitlab.com/acme/skills/-/tree/main/a'),
+      'https://gitlab.com/acme/skills/-/tree/main/a',
+    ],
+    [
+      unit(
+        'a',
+        { repoUrl: 'https://gitlab.com/acme/team/skills.git' },
+        'https://gitlab.com/acme/team/skills.git//tools/a',
+      ),
+      'https://gitlab.com/acme/team/skills/-/tree/HEAD/tools/a',
+    ],
+    [
+      unit('a', { branch: 'main' }, 'bitbucket.org/acme/skills/a'),
+      'https://bitbucket.org/acme/skills/src/main/a',
+    ],
+    [unit('a', {}, 'git.example.com/acme/skills/a'), null],
+    [unit('a', { type: 'local' }, '/src/a'), null],
   ])('%#', (u, expected) => {
-    expect(githubPage(u)).toBe(expected);
+    expect(sourcePage(u)?.url ?? null).toBe(expected);
+  });
+
+  it('names the host the link opens', () => {
+    expect(sourcePage(unit('a', {}, 'gitlab.com/acme/skills/a'))?.host).toBe('GitLab');
   });
 
   it('links the history of a skill in a repo whose owner is named tree', () => {
-    expect(githubPage(unit('a', { branch: 'main' }, 'github.com/tree/skills/a'), 'commits')).toBe(
-      'https://github.com/tree/skills/commits/main/a',
+    expect(
+      sourcePage(unit('a', { branch: 'main' }, 'github.com/tree/skills/a'), 'commits')?.url,
+    ).toBe('https://github.com/tree/skills/commits/main/a');
+  });
+
+  it('links the history of a GitLab skill', () => {
+    expect(sourcePage(unit('a', {}, 'gitlab.com/acme/skills/a'), 'commits')?.url).toBe(
+      'https://gitlab.com/acme/skills/-/commits/HEAD/a',
     );
+  });
+});
+
+describe('compareUrl', () => {
+  it.each([
+    ['https://github.com/acme/team.git', 'https://github.com/acme/team/compare/a1...b2'],
+    ['https://gitlab.com/acme/team.git', 'https://gitlab.com/acme/team/-/compare/a1...b2'],
+    ['https://bitbucket.org/acme/team.git', 'https://bitbucket.org/acme/team'],
+  ])('%s', (url, expected) => {
+    const r = { ...repo('_team'), source: url };
+    r.items = [{ ...r.items[0], repoUrl: url }];
+    expect(compareUrl(r, 'a1', 'b2')).toBe(expected);
   });
 });

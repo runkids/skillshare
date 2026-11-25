@@ -33,11 +33,11 @@ import { folderOf, formatTrackedRepoName } from '../lib/resourceNames';
 import { countLabel, repoOf, SOURCE_LABEL } from '../lib/resourceGrouping';
 import {
   foldsAway,
-  githubPage,
   hasUpstreamPreview,
   matchesFilters,
   NO_FILTERS,
   repeatedLabels,
+  sourcePage,
   unitFolder,
   unitSource,
   statusGroup,
@@ -871,7 +871,7 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
     return {
       check: kind === 'skill' && !busy,
       update: !busy && !run.has(unit.name) && c !== 'up-to-date' && c !== 'checking',
-      page: githubPage(unit),
+      page: sourcePage(unit),
     };
   };
   const menuItems = (unit: UpdateUnit): ContextMenuItem[] => {
@@ -900,10 +900,10 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
       ...(page
         ? [
             {
-              key: 'github',
-              label: t('update.row.openGithub'),
+              key: 'source',
+              label: t('update.row.openOn', { host: page.host }),
               icon: <ExternalLink size={14} />,
-              onSelect: () => window.open(page, '_blank', 'noopener,noreferrer'),
+              onSelect: () => window.open(page.url, '_blank', 'noopener,noreferrer'),
             },
           ]
         : []),

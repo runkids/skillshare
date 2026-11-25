@@ -3,7 +3,7 @@ import { ExternalLink, X } from 'lucide-react';
 import { api, ApiError } from '../api/client';
 import type { RepoUpstreamChanges } from '../api/client';
 import { queryKeys } from '../lib/queryKeys';
-import { githubPage, type FilterUnit } from '../lib/updateFilters';
+import { compareUrl, sourcePage, type FilterUnit } from '../lib/updateFilters';
 import { formatNumber, formatRelativeTime, plural, useI18n, useT } from '../i18n';
 import Button from './Button';
 import DialogShell from './DialogShell';
@@ -114,9 +114,10 @@ function LoadFailed({ error }: { error: Error }) {
   return <div className="ss-note bad">{reason}</div>;
 }
 
-function GitHubLink({ href }: { href: string | null }) {
+function SourceLink({ link }: { link: { url: string; host: string } | null }) {
   const t = useT();
-  if (!href) return null;
+  if (!link) return null;
+  const href = link.url;
   return (
     <a
       className="ss-btn sm ghost self-start"
@@ -126,7 +127,7 @@ function GitHubLink({ href }: { href: string | null }) {
       title={href}
     >
       <ExternalLink size={14} />
-      {t('update.preview.github')}
+      {t('update.preview.viewOn', { host: link.host })}
     </a>
   );
 }
@@ -142,7 +143,7 @@ function SkillChanges({ unit }: { unit: FilterUnit }) {
   });
   if (isPending) return <Loading />;
   if (error) return <LoadFailed error={error} />;
-  const page = githubPage(unit, 'commits');
+  const page = sourcePage(unit, 'commits');
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -156,7 +157,7 @@ function SkillChanges({ unit }: { unit: FilterUnit }) {
               })
             : t('update.preview.noFileChanges')}
         </span>
-        <GitHubLink href={page} />
+        <SourceLink link={page} />
       </div>
       <FileDiffList files={data.files} />
     </div>
@@ -172,13 +173,18 @@ function RepoChanges({ unit }: { unit: FilterUnit }) {
   });
   if (isPending) return <Loading />;
   if (error) return <LoadFailed error={error} />;
-  const home = githubPage(unit);
-  return (
-    <RepoChangeList data={data} compare={home && `${home}/compare/${data.from}...${data.to}`} />
-  );
+  const page = sourcePage(unit);
+  const url = compareUrl(unit, data.from, data.to);
+  return <RepoChangeList data={data} compare={page && url ? { url, host: page.host } : null} />;
 }
 
-function RepoChangeList({ data, compare }: { data: RepoUpstreamChanges; compare: string | null }) {
+function RepoChangeList({
+  data,
+  compare,
+}: {
+  data: RepoUpstreamChanges;
+  compare: { url: string; host: string } | null;
+}) {
   const t = useT();
   const { locale } = useI18n();
   const more = data.total_commits - data.commits.length;
@@ -194,7 +200,7 @@ function RepoChangeList({ data, compare }: { data: RepoUpstreamChanges; compare:
             count: formatNumber(data.files.length, locale),
           })}
         </span>
-        <GitHubLink href={compare} />
+        <SourceLink link={compare} />
       </div>
       <div className="ss-list">
         {data.commits.map((c) => (

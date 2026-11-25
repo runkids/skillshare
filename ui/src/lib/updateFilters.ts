@@ -113,24 +113,72 @@ export function repeatedLabels(units: FilterUnit[]): Set<string> {
   return repeated;
 }
 
-/**
- * The GitHub page of what a unit installs from: a tracked repo's home, or the folder of a
- * skill installed from a subdirectory, as its file tree or its commit history. null for anything
- * not hosted on github.com.
- */
-export function githubPage(unit: FilterUnit, view: 'tree' | 'commits' = 'tree'): string | null {
-  const raw = unit.isRepo ? (unit.items[0]?.repoUrl ?? unit.source) : unit.source;
-  if (!raw) return null;
-  const path = raw
+/** Hosts whose web pages follow a known layout, with the name the link shows. */
+const HOSTS: Record<
+  string,
+  { host: string; tree: string; commits: string; compare: string | null }
+> = {
+  'github.com': { host: 'GitHub', tree: 'tree', commits: 'commits', compare: 'compare' },
+  'gitlab.com': { host: 'GitLab', tree: '-/tree', commits: '-/commits', compare: '-/compare' },
+  // Bitbucket's history page takes no folder, so both views open the folder, and a range of
+  // commits opens the repository.
+  'bitbucket.org': { host: 'Bitbucket', tree: 'src', commits: 'src', compare: null },
+};
+
+/** A git URL or source as path segments, host first: scheme, user and `git@host:` removed. */
+const segments = (raw: string) =>
+  raw
     .trim()
-    .replace(/^git@github\.com:/, 'github.com/')
+    .replace(/^[^@/:]+@([^:/]+):/, '$1/')
     .replace(/^[a-z+]+:\/\/(?:[^@/]+@)?/i, '')
-    .replace(/\.git$/, '');
-  const [host, owner, repo, ...rest] = path.split('/').filter(Boolean);
-  if (host !== 'github.com' || !owner || !repo) return null;
-  const home = `https://github.com/${owner}/${repo.replace(/\.git$/, '')}`;
-  if (unit.isRepo || rest.length === 0) return home;
-  // A source written as a browser URL already names its ref: github.com/o/r/tree/<ref>/<dir>.
-  if (rest[0] === 'tree' && rest.length > 1) return `${home}/${view}/${rest.slice(1).join('/')}`;
-  return `${home}/${view}/${unit.items[0]?.branch || 'HEAD'}/${rest.join('/')}`;
+    .split('/')
+    .filter(Boolean);
+
+const bare = (segment: string) => segment.replace(/\.git$/, '');
+
+/** The unit's repository on a known host, and the folder and ref its source names, if any. */
+function locate(unit: FilterUnit) {
+  const item = unit.items[0];
+  const parts = segments((unit.isRepo ? item?.repoUrl : undefined) ?? unit.source ?? '');
+  const site = HOSTS[parts[0] ?? ''];
+  if (!site || parts.length < 3) return null;
+  // The clone URL says where the repository path ends, which matters for GitLab subgroups;
+  // without it, a ".git" segment marks the end, and otherwise owner/repo is assumed.
+  const known = item?.repoUrl ? segments(item.repoUrl).map(bare) : [];
+  const fromUrl =
+    known.length > 2 && known.every((p, i) => bare(parts[i] ?? '') === p) ? known.length : 0;
+  const marker = parts.findIndex((p, i) => i > 1 && p.endsWith('.git')) + 1;
+  const end = fromUrl || marker || 3;
+  const home = `https://${parts[0]}/${parts.slice(1, end).map(bare).join('/')}`;
+  let rest = parts.slice(end);
+  let ref = item?.branch || 'HEAD';
+  // A source written as a browser URL already names its ref: …/tree/<ref>/<dir>, …/-/tree/…, …/src/….
+  if (rest[0] === '-') rest = rest.slice(1);
+  if (['tree', 'blob', 'src'].includes(rest[0]) && rest.length > 1) {
+    ref = rest[1];
+    rest = rest.slice(2);
+  }
+  return { site, home, ref, path: unit.isRepo ? '' : rest.join('/') };
+}
+
+/**
+ * The web page of a unit's source on GitHub, GitLab or Bitbucket: its folder, or with view
+ * 'commits' the history of that folder. Other hosts lay their pages out in ways this cannot
+ * know, so they get no link.
+ */
+export function sourcePage(
+  unit: FilterUnit,
+  view: 'tree' | 'commits' = 'tree',
+): { url: string; host: string } | null {
+  const at = locate(unit);
+  if (!at) return null;
+  const url = at.path ? `${at.home}/${at.site[view]}/${at.ref}/${at.path}` : at.home;
+  return { url, host: at.site.host };
+}
+
+/** The page comparing two commits of a tracked repo; Bitbucket's falls back to the repo. */
+export function compareUrl(unit: FilterUnit, from: string, to: string): string | null {
+  const at = locate(unit);
+  if (!at) return null;
+  return at.site.compare ? `${at.home}/${at.site.compare}/${from}...${to}` : at.home;
 }
