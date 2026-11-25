@@ -1,12 +1,13 @@
 package server
 
 import (
+	"bytes"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -34,10 +35,14 @@ func gitSkillRepo(t *testing.T) (repoDir, source string) {
 	return repoDir, "file://" + repoDir
 }
 
-func postJSON(t *testing.T, s *Server, path, body string) *httptest.ResponseRecorder {
+func postJSON(t *testing.T, s *Server, path string, body any) *httptest.ResponseRecorder {
 	t.Helper()
+	payload, err := json.Marshal(body)
+	if err != nil {
+		t.Fatal(err)
+	}
 	rr := httptest.NewRecorder()
-	s.mux.ServeHTTP(rr, httptest.NewRequest(http.MethodPost, path, strings.NewReader(body)))
+	s.mux.ServeHTTP(rr, httptest.NewRequest(http.MethodPost, path, bytes.NewReader(payload)))
 	return rr
 }
 
@@ -48,13 +53,16 @@ func TestHandleInstallBatch_InstallsFromTheDiscoverClone(t *testing.T) {
 	t.Cleanup(s.discoveries.close)
 	repoDir, source := gitSkillRepo(t)
 
-	if rr := postJSON(t, s, "/api/discover", `{"source":"`+source+`"}`); rr.Code != http.StatusOK {
+	if rr := postJSON(t, s, "/api/discover", map[string]any{"source": source}); rr.Code != http.StatusOK {
 		t.Fatalf("discover: %d %s", rr.Code, rr.Body.String())
 	}
 	if err := os.RemoveAll(repoDir); err != nil {
 		t.Fatal(err)
 	}
-	rr := postJSON(t, s, "/api/install/batch", `{"source":"`+source+`","skills":[{"name":"demo","path":"demo"}]}`)
+	rr := postJSON(t, s, "/api/install/batch", map[string]any{
+		"source": source,
+		"skills": []map[string]string{{"name": "demo", "path": "demo"}},
+	})
 	if rr.Code != http.StatusOK {
 		t.Fatalf("install: %d %s", rr.Code, rr.Body.String())
 	}
