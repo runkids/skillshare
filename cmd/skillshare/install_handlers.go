@@ -230,8 +230,7 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 			if errors.Is(err, install.ErrSkipSameRepo) {
 				ui.Warning("%s: %s", skill.Name, firstWarningLine(err.Error()))
 				logSummary.SkippedSkills = append(logSummary.SkippedSkills, skill.Name)
-				installDiscoveredAgents(discovery, cfg, opts, &logSummary)
-				return logSummary, nil
+				return logSummary, installDiscoveredAgents(discovery, cfg, opts, &logSummary)
 			}
 			if errors.Is(err, audit.ErrBlocked) {
 				return logSummary, renderBlockedAuditError(err)
@@ -249,8 +248,7 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 			logSummary.InstalledSkills = append(logSummary.InstalledSkills, skill.Name)
 			logSummary.SkillCount = len(logSummary.InstalledSkills)
 		}
-		installDiscoveredAgents(discovery, cfg, opts, &logSummary)
-		return logSummary, nil
+		return logSummary, installDiscoveredAgents(discovery, cfg, opts, &logSummary)
 	}
 
 	// Step 3: Show found resources
@@ -316,8 +314,7 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 			if errors.Is(err, install.ErrSkipSameRepo) {
 				ui.Warning("%s: %s", skill.Name, firstWarningLine(err.Error()))
 				logSummary.SkippedSkills = append(logSummary.SkippedSkills, skill.Name)
-				installDiscoveredAgents(discovery, cfg, opts, &logSummary)
-				return logSummary, nil
+				return logSummary, installDiscoveredAgents(discovery, cfg, opts, &logSummary)
 			}
 			if errors.Is(err, audit.ErrBlocked) {
 				return logSummary, renderBlockedAuditError(err)
@@ -335,9 +332,7 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 			logSummary.InstalledSkills = append(logSummary.InstalledSkills, skill.Name)
 			logSummary.SkillCount = len(logSummary.InstalledSkills)
 		}
-		installDiscoveredAgents(discovery, cfg, opts, &logSummary)
-
-		return logSummary, nil
+		return logSummary, installDiscoveredAgents(discovery, cfg, opts, &logSummary)
 	}
 
 	// Non-interactive path: --skill or --all/--yes
@@ -371,8 +366,8 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 		logSummary.FailedSkills = append(logSummary.FailedSkills, batchSummary.FailedSkills...)
 		logSummary.SkippedSkills = append(logSummary.SkippedSkills, batchSummary.SkippedSkills...)
 		logSummary.SkillCount = len(logSummary.InstalledSkills)
-		installDiscoveredAgents(discovery, cfg, opts, &logSummary)
-		return logSummary, allSkillsFailedError(len(batchSummary.InstalledSkills)+len(batchSummary.SkippedSkills), batchSummary.Failures)
+		agentErr := installDiscoveredAgents(discovery, cfg, opts, &logSummary)
+		return logSummary, firstError(allSkillsFailedError(len(batchSummary.InstalledSkills)+len(batchSummary.SkippedSkills), batchSummary.Failures), agentErr)
 	}
 
 	if opts.DryRun {
@@ -414,9 +409,9 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 	logSummary.FailedSkills = append(logSummary.FailedSkills, batchSummary.FailedSkills...)
 	logSummary.SkippedSkills = append(logSummary.SkippedSkills, batchSummary.SkippedSkills...)
 	logSummary.SkillCount = len(logSummary.InstalledSkills)
-	installDiscoveredAgents(discovery, cfg, opts, &logSummary)
+	agentErr := installDiscoveredAgents(discovery, cfg, opts, &logSummary)
 
-	return logSummary, allSkillsFailedError(len(batchSummary.InstalledSkills)+len(batchSummary.SkippedSkills), batchSummary.Failures)
+	return logSummary, firstError(allSkillsFailedError(len(batchSummary.InstalledSkills)+len(batchSummary.SkippedSkills), batchSummary.Failures), agentErr)
 }
 
 func resolveSkillUpdateNames(skills []install.SkillInfo, source *install.Source, cfg *config.Config, opts install.InstallOptions) error {
@@ -1126,7 +1121,7 @@ func handleAgentInstall(discovery *install.DiscoveryResult, agentsDir string, op
 		logSummary.FailedSkills = append(logSummary.FailedSkills, batchSummary.FailedSkills...)
 		logSummary.SkippedSkills = append(logSummary.SkippedSkills, batchSummary.SkippedSkills...)
 		logSummary.SkillCount = len(logSummary.InstalledSkills)
-		return logSummary, nil
+		return logSummary, agentsFailedError(batchSummary.Failures)
 	}
 
 	// Non-TTY fallback
@@ -1152,20 +1147,20 @@ func handleAgentInstall(discovery *install.DiscoveryResult, agentsDir string, op
 	logSummary.FailedSkills = append(logSummary.FailedSkills, batchSummary.FailedSkills...)
 	logSummary.SkippedSkills = append(logSummary.SkippedSkills, batchSummary.SkippedSkills...)
 	logSummary.SkillCount = len(logSummary.InstalledSkills)
-	return logSummary, nil
+	return logSummary, agentsFailedError(batchSummary.Failures)
 }
 
 // installDiscoveredAgents installs agents from a mixed repo after skills have been installed.
-func installDiscoveredAgents(discovery *install.DiscoveryResult, cfg *config.Config, opts install.InstallOptions, summary *installLogSummary) {
+func installDiscoveredAgents(discovery *install.DiscoveryResult, cfg *config.Config, opts install.InstallOptions, summary *installLogSummary) error {
 	if len(discovery.Agents) == 0 {
-		return
+		return nil
 	}
 	// Don't auto-install the repo's agents when the user scoped the install to
 	// specific skills (--kind skill or -s/--skill) without also requesting
 	// agents via -a. Agents only come along on --all/--yes or an explicit
 	// agent request. (issue #183)
 	if opts.Kind == "skill" || (opts.HasSkillFilter() && !opts.HasAgentFilter()) {
-		return
+		return nil
 	}
 
 	// Honor agent selection: -a/--agent installs only the named agents,
@@ -1173,10 +1168,10 @@ func installDiscoveredAgents(discovery *install.DiscoveryResult, cfg *config.Con
 	selected, err := selectAgents(discovery.Agents, opts)
 	if err != nil {
 		ui.ErrorMsg("%v", err)
-		return
+		return err
 	}
 	if len(selected) == 0 {
-		return
+		return nil
 	}
 
 	agentsRoot := cfg.EffectiveAgentsSource()
@@ -1184,6 +1179,7 @@ func installDiscoveredAgents(discovery *install.DiscoveryResult, cfg *config.Con
 	agentOpts := opts
 	agentOpts.SourceDir = agentsRoot
 	ui.Section("Agents")
+	var failures []install.SkillFailure
 	for _, agent := range selected {
 		spinner := ui.StartSpinner(fmt.Sprintf("Installing agent %s...", agent.Name))
 		result, err := install.InstallAgentFromDiscovery(discovery, agent, agentsDir, agentOpts)
@@ -1191,6 +1187,8 @@ func installDiscoveredAgents(discovery *install.DiscoveryResult, cfg *config.Con
 		switch {
 		case err != nil:
 			ui.StepFail(agent.Name, err.Error())
+			summary.FailedSkills = append(summary.FailedSkills, agent.Name)
+			failures = append(failures, install.SkillFailure{Name: agent.Name, Err: err})
 		case result.Action == "skipped":
 			summary.SkippedSkills = append(summary.SkippedSkills, agent.Name)
 			ui.StepSkip(agent.Name, strings.Join(result.Warnings, "; "))
@@ -1200,6 +1198,7 @@ func installDiscoveredAgents(discovery *install.DiscoveryResult, cfg *config.Con
 			ui.StepDone(agent.Name, "installed")
 		}
 	}
+	return agentsFailedError(failures)
 }
 
 // agentInstallResult tracks the outcome of a single agent install.
@@ -1208,6 +1207,7 @@ type agentInstallResult struct {
 	success bool
 	skipped bool
 	message string
+	err     error
 }
 
 // installSelectedAgents installs a batch of agents with progress display.
@@ -1235,7 +1235,7 @@ func installSelectedAgents(selected []install.AgentInfo, discovery *install.Disc
 
 		result, err := install.InstallAgentFromDiscovery(discovery, agent, agentsDir, opts)
 		if err != nil {
-			results = append(results, agentInstallResult{agent: agent, message: err.Error()})
+			results = append(results, agentInstallResult{agent: agent, message: err.Error(), err: err})
 		} else if result.Action == "skipped" {
 			results = append(results, agentInstallResult{agent: agent, skipped: true, message: strings.Join(result.Warnings, "; ")})
 		} else {
@@ -1261,6 +1261,7 @@ func installSelectedAgents(selected []install.AgentInfo, discovery *install.Disc
 			summary.SkippedSkills = append(summary.SkippedSkills, r.agent.Name)
 		} else {
 			summary.FailedSkills = append(summary.FailedSkills, r.agent.Name)
+			summary.Failures = append(summary.Failures, install.SkillFailure{Name: r.agent.Name, Err: r.err})
 		}
 	}
 	return summary
