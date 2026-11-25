@@ -124,7 +124,7 @@ skillshare upgrade --dry-run    # Preview
 is requested. `init --skill` also opts in explicitly.
 
 **Disabled built-in skill:** when `.skillignore` disables it, sync leaves it out of
-every target and `doctor` and `status` warn. Run `skillshare enable skillshare && skillshare sync`.
+every target and `doctor` and `status` warn. Run `skillshare enable skillshare -g && skillshare sync -g`.
 
 **Nix installs:** the CLI binary is never replaced, even with `--force`; `upgrade` prints
 `nix profile upgrade skillshare` or says to rebuild the Nix configuration. The skill still updates.

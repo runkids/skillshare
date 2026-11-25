@@ -37,7 +37,7 @@ func TestCheckVersionDoctor_DisabledSkillCountsAsWarning(t *testing.T) {
 		isProject bool
 		want      string
 	}{
-		{false, "skillshare enable skillshare && skillshare sync"},
+		{false, "skillshare enable skillshare -g && skillshare sync -g"},
 		{true, "skillshare enable skillshare -p && skillshare sync -p"},
 	} {
 		result := checkDisabledSkillDoctor(t, tt.isProject)

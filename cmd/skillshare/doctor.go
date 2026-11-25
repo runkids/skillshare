@@ -1667,7 +1667,8 @@ func checkVersionDoctor(cfg *config.Config, result *doctorResult, isProject bool
 
 	if versioncheck.LocalSkillDisabled(cfg.EffectiveSkillsSource()) {
 		ui.Row(ui.MarkWarn, "Skill", localVersion+" (disabled)", doctorWidth)
-		enable := "skillshare enable skillshare && skillshare sync"
+		// Name the mode: without it, both commands pick project mode inside a project folder.
+		enable := "skillshare enable skillshare -g && skillshare sync -g"
 		if isProject {
 			enable = "skillshare enable skillshare -p && skillshare sync -p"
 		}
