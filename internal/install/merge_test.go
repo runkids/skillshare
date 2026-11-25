@@ -56,10 +56,15 @@ func readSkillFile(t *testing.T, dir, rel string) string {
 }
 
 // editSkillFile replaces old with new in a file of the installed skill, the
-// way an editor would.
+// way an editor would: it keeps the line endings, which a Windows checkout
+// with core.autocrlf makes CRLF.
 func editSkillFile(t *testing.T, dir, rel, old, new string) {
 	t.Helper()
-	content := readSkillFile(t, dir, rel)
+	data, err := os.ReadFile(filepath.Join(dir, rel))
+	if err != nil {
+		t.Fatal(err)
+	}
+	content := string(data)
 	if !strings.Contains(content, old) {
 		t.Fatalf("%s has no %q", rel, old)
 	}
