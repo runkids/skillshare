@@ -74,13 +74,17 @@ nix profile upgrade skillshare
 
 ## PyPI 使用者 {#pypi-users}
 
-如果透過 uv、pipx 或 pip 安裝，`skillshare upgrade` 不會更動 CLI，因為安裝工具記錄了已安裝的版本，替換執行檔會讓該記錄失準。有新版本時，它會改為提示對應安裝工具的更新指令：
+如果透過 uv、pipx 或 pip 安裝，`skillshare upgrade` 不會更動 CLI，因為安裝工具記錄了已安裝的版本，替換執行檔會讓該記錄失準。PyPI 上有新版本時，它會改為提示對應安裝工具的更新指令：
 
 ```bash
-uv tool upgrade skillshare-cli        # uv
-pipx upgrade skillshare-cli           # pipx
-pip install --upgrade skillshare-cli  # pip
+uv tool upgrade skillshare-cli                # uv tool install
+pipx upgrade skillshare-cli                   # pipx
+pip install --upgrade skillshare-cli          # pip
+uv pip install --upgrade skillshare-cli       # uv pip, in a uv venv without pip
+uvx --from skillshare-cli@latest skillshare   # uvx
 ```
+
+它是與 PyPI 而非 GitHub 比較，因此不會提示安裝工具尚無法取得的版本。
 
 儀表板的更新按鈕也會顯示相同的提示，`skillshare upgrade --skill` 仍會更新內建 skill。
 

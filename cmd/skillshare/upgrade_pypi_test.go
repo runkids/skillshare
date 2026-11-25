@@ -36,11 +36,16 @@ func TestUpgradeCLIBinary_PyPIKeepsManagedBinary(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			oldVersion, oldPath, oldFetch := version, upgradeExecPath, fetchLatestRelease
-			t.Cleanup(func() { version, upgradeExecPath, fetchLatestRelease = oldVersion, oldPath, oldFetch })
+			oldVersion, oldPath, oldFetch := version, upgradeExecPath, fetchLatestVersion
+			t.Cleanup(func() { version, upgradeExecPath, fetchLatestVersion = oldVersion, oldPath, oldFetch })
 			version = "1.0.0"
 			upgradeExecPath = func() (string, error) { return binary, nil }
-			fetchLatestRelease = func() (*versionpkg.Release, error) { return &versionpkg.Release{Version: tt.latest}, nil }
+			fetchLatestVersion = func(method versionpkg.InstallMethod) (string, error) {
+				if method != versionpkg.InstallUV {
+					t.Fatalf("asked for the latest version of %v, want InstallUV", method)
+				}
+				return tt.latest, nil
+			}
 
 			var got string
 			var err error

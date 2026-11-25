@@ -167,9 +167,20 @@ func parseVersionParts(ver string) ([]int, error) {
 	return parts, nil
 }
 
-// Check checks if a new version is available.
-// method determines where to look: InstallBrew queries Homebrew,
-// InstallDirect queries the GitHub Release API.
+// FetchLatestVersionFor asks the source the install updates from: Homebrew
+// for a brew install, PyPI for a wheel, and GitHub releases otherwise.
+func FetchLatestVersionFor(method InstallMethod) (string, error) {
+	switch {
+	case method == InstallBrew:
+		return FetchBrewLatestVersion()
+	case method.IsPyPI():
+		return FetchPyPILatestVersion()
+	}
+	return FetchLatestVersionOnly()
+}
+
+// Check checks if a new version is available, asking the source that
+// FetchLatestVersionFor picks for method.
 // Returns nil if no check is needed or if there's no update.
 func Check(currentVersion string, method InstallMethod) *CheckResult {
 	// Don't check for dev builds
@@ -201,15 +212,7 @@ func Check(currentVersion string, method InstallMethod) *CheckResult {
 	needsFetch := cache == nil || time.Since(cache.LastChecked) > checkInterval
 
 	if needsFetch {
-		var latestVersion string
-		var err error
-
-		switch method {
-		case InstallBrew:
-			latestVersion, err = FetchBrewLatestVersion()
-		default:
-			latestVersion, err = FetchLatestVersionOnly()
-		}
+		latestVersion, err := FetchLatestVersionFor(method)
 
 		if err != nil {
 			// Silently fail - don't bother user with network errors
