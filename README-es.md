@@ -124,6 +124,14 @@ nix profile add github:runkids/skillshare
 
 Actualiza con `nix profile upgrade skillshare`. Requiere Nix 2.30+ con flakes habilitados; con Nix más antiguo o Lix, usa `nix profile install`. Las configuraciones de NixOS y Home Manager pueden usar el `overlays.default` del flake.
 
+### CLI: PyPI
+
+```bash
+uv tool install skillshare-cli
+```
+
+También funciona con `pipx install skillshare-cli`, o ejecútalo una vez sin instalarlo: `uvx --from skillshare-cli skillshare`. Actualiza con `uv tool upgrade skillshare-cli` (o `pipx upgrade skillshare-cli`); `skillshare upgrade` te muestra ese comando en lugar de reemplazar el binario.
+
 ### GitHub Actions
 
 ```yaml

@@ -363,6 +363,8 @@ Next
 
 透過 `nix profile` 安裝時，Next 行顯示 `nix profile upgrade skillshare`。由 NixOS 或 Home Manager 提供 skillshare 時，Update 行會提示更新 Nix 設定並重新建置，不顯示對應的 Next 行。
 
+透過 uv、pipx 或 pip 安裝時，Next 行顯示對應安裝工具的指令，例如 `uv tool upgrade skillshare-cli`。
+
 ## JSON 輸出
 
 在 CI pipelines 與自動化中使用 `--json` 取得機器可讀輸出：
