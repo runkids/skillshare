@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from '../api/client';
+import { api, isConnectionLost } from '../api/client';
 import type { ConfigEntry, InstallFromConfigResult } from '../api/client';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { invalidate } from '../lib/queryEvents';
@@ -65,10 +65,15 @@ export function useInstallFromConfig() {
       setPhase('done');
       void invalidate(queryClient, 'configInstalled');
     } catch (err) {
-      setError((err as Error).message);
+      if (isConnectionLost(err)) {
+        setError(t('common.connectionLost'));
+        void invalidate(queryClient, 'configInstalled');
+      } else {
+        setError((err as Error).message);
+      }
       setPhase('idle');
     }
-  }, [live, queryClient]);
+  }, [live, queryClient, t]);
 
   /** Collapses the finished panel, then hands the list back to the query. */
   const dismiss = useCallback(() => {

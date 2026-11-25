@@ -13,7 +13,7 @@ import { systemApi } from './system';
 import { targetsApi } from './targets';
 import { updateApi } from './update';
 
-export { ApiError, parseApiErrorPayload, apiFetch } from './http';
+export { ApiError, isConnectionLost, parseApiErrorPayload, apiFetch } from './http';
 export * from './types/audit';
 export * from './types/backups';
 export * from './types/config';

@@ -25,6 +25,7 @@ import {
 import {
   api,
   ApiError,
+  isConnectionLost,
   type BatchInstallResult,
   type DiscoverResult,
   type DiscoveredSkill,
@@ -318,9 +319,9 @@ export default function InstallDialog({
 
   // The server keeps installing after a dropped connection, so show what it installed.
   const installLost = (e: unknown) => {
-    if (!(e instanceof ApiError && e.code === 'connection_lost')) return false;
+    if (!isConnectionLost(e)) return false;
     refresh();
-    toast(t('install.toast.connectionLost'), 'error');
+    toast(t('common.connectionLost'), 'error');
     return true;
   };
 

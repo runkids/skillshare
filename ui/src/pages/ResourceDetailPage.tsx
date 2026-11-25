@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import {
   api,
+  isConnectionLost,
   type AuditResult,
   type DiffTarget,
   type Skill,
@@ -289,7 +290,12 @@ export default function ResourceDetailPage() {
       }
     } catch (e) {
       setSwitchTo(null);
-      toast((e as Error).message, 'error');
+      if (isConnectionLost(e)) {
+        toast(t('common.connectionLost'), 'error');
+        void refreshResource();
+      } else {
+        toast((e as Error).message, 'error');
+      }
     } finally {
       setUpdating(false);
     }

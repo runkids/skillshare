@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { api } from '../api/client';
+import { api, isConnectionLost } from '../api/client';
 import type { CheckResult } from '../api/client';
 import { queryKeys } from '../lib/queryKeys';
 import { clearAuditCache } from '../lib/auditCache';
@@ -43,7 +43,12 @@ export function useRepoUpdate() {
       clearAuditCache(queryClient);
       await invalidate(queryClient, 'reposChanged');
     } catch (e: unknown) {
-      toast((e as Error).message, 'error');
+      if (isConnectionLost(e)) {
+        toast(t('common.connectionLost'), 'error');
+        void invalidate(queryClient, 'reposChanged');
+      } else {
+        toast((e as Error).message, 'error');
+      }
     } finally {
       setUpdating(null);
     }
