@@ -78,6 +78,7 @@ func (s *Server) handleVersionCheck(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	skillVersion := versioncheck.ReadLocalSkillVersion(skillSourceDir)
+	skillDisabled := skillVersion != "" && versioncheck.LocalSkillDisabled(skillSourceDir)
 
 	// Skill version (remote) — uses 24h cache, network call with 3s timeout
 	var skillLatest *string
@@ -116,6 +117,7 @@ func (s *Server) handleVersionCheck(w http.ResponseWriter, r *http.Request) {
 		"cliDevMode":           cliDevMode,
 		"nixUpgradeCommand":    nixUpgradeCommand,
 		"skillVersion":         skillVersion,
+		"skillDisabled":        skillDisabled,
 		"skillLatest":          skillLatest,
 		"skillUpdateAvailable": skillUpdateAvailable,
 	})

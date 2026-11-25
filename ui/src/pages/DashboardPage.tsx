@@ -907,6 +907,7 @@ function TrackedRepos({ repos }: { repos: Overview['trackedRepos'] }) {
 
 function Versions({ data }: { data: Overview }) {
   const t = useT();
+  const { isProjectMode } = useAppContext();
   const policy = useUpdatePolicy();
   const { data: v, isPending } = useQuery({
     queryKey: queryKeys.versionCheck,
@@ -944,8 +945,16 @@ function Versions({ data }: { data: Overview }) {
               <span className="w-[120px] font-semibold">{t('dashboard.version.builtInSkill')}</span>
               <span className="flex-1 font-mono text-[13px]">
                 {formatVersion(v.skillVersion) || '—'}
+                {/* Project mode still reads the global source, the only place the built-in skill lives. */}
+                {isProjectMode && v.skillVersion && (
+                  <span className="font-sans text-ink-3"> · {t('app.global')}</span>
+                )}
               </span>
-              {policy.data?.enabled === true &&
+              {/* Disabled is read from the local .skillignore, so it shows even with update checks off. */}
+              {v.skillDisabled ? (
+                <span className="ss-st off">{t('resources.status.disabled')}</span>
+              ) : (
+                policy.data?.enabled === true &&
                 (!v.skillVersion ? (
                   <span className="ss-st off">{t('dashboard.version.notInstalled')}</span>
                 ) : v.skillUpdateAvailable ? (
@@ -956,7 +965,8 @@ function Versions({ data }: { data: Overview }) {
                   <span className="ss-st ok">{t('dashboard.version.upToDate')}</span>
                 ) : (
                   <span className="ss-st off">{t('dashboard.version.checkFailed')}</span>
-                ))}
+                ))
+              )}
             </div>
           </>
         )}

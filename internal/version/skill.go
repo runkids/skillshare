@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"skillshare/internal/config"
+	"skillshare/internal/skillignore"
 )
 
 // SkillSourceURL is the raw URL to the official skillshare skill's SKILL.md.
@@ -19,6 +20,12 @@ const SkillSourceURL = "https://raw.githubusercontent.com/runkids/skillshare/mai
 func ReadLocalSkillVersion(sourceDir string) string {
 	skillFile := filepath.Join(sourceDir, "skillshare", "SKILL.md")
 	return strings.TrimPrefix(ParseMetadataVersion(skillFile), "v")
+}
+
+// LocalSkillDisabled reports whether .skillignore in sourceDir disables the
+// built-in skill, so sync leaves it out of every target.
+func LocalSkillDisabled(sourceDir string) bool {
+	return skillignore.ReadMatcher(sourceDir).Match("skillshare", true)
 }
 
 // ParseMetadataVersion reads the version from a metadata block in YAML frontmatter,

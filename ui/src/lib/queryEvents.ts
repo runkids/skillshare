@@ -7,7 +7,7 @@ const keys = (...list: QueryKey[]): InvalidateQueryFilters[] =>
 
 /** Everything that shows a target's config or its effect. */
 const targets = [k.targets.all, k.projects, k.config, k.overview, k.diff(), k.syncMatrix()];
-const sourceLinks = [k.skills.all, k.overview, k.config, k.diff(), k.syncMatrix()];
+const sourceLinks = [k.skills.all, k.overview, k.config, k.diff(), k.syncMatrix(), k.versionCheck];
 const ignoreFile = [k.diff(), k.overview, k.skills.all, k.doctor];
 
 /**
@@ -17,25 +17,42 @@ const ignoreFile = [k.diff(), k.overview, k.skills.all, k.doctor];
  */
 const events = {
   // Skills and agents
-  skillsChanged: () => keys(k.skills.all, k.overview, k.diff()),
+  skillsChanged: () => keys(k.skills.all, k.overview, k.diff(), k.versionCheck),
   // A project's config.yaml declares the branch, so the config editor reloads too.
   skillBranchSwitched: () => keys(k.skills.all, k.overview, k.diff(), k.config),
   // The list shows frontmatter (description, manual only), so an edit refreshes it too.
   skillEdited: (name: string) => keys(k.skills.all, k.skills.detail(name)),
-  installDialogClosed: () => keys(k.skills.all),
+  // The version card reads the built-in skill and .skillignore from the source, so events that add, remove or disable a skill refresh it.
+  installDialogClosed: () => keys(k.skills.all, k.versionCheck),
   reposChanged: () => keys(k.overview, k.skills.all, k.trash, k.missingConfigEntries),
-  skillsMoved: () => keys(k.skills.all, k.overview, k.syncMatrixAll, k.diff()),
-  skillsUninstalled: () => keys(k.skills.all, k.overview, k.trash, k.syncMatrixAll, k.diff()),
-  trashChanged: () => keys(k.trash, k.skills.all, k.syncMatrixAll),
-  skillSyncChanged: () => keys(k.skills.all, k.syncMatrixAll),
-  skillsToggled: () => keys(k.skills.all, k.syncMatrixAll, k.overview),
+  skillsMoved: () => keys(k.skills.all, k.overview, k.syncMatrixAll, k.diff(), k.versionCheck),
+  skillsUninstalled: () =>
+    keys(k.skills.all, k.overview, k.trash, k.syncMatrixAll, k.diff(), k.versionCheck),
+  trashChanged: () => keys(k.trash, k.skills.all, k.syncMatrixAll, k.versionCheck),
+  skillSyncChanged: () => keys(k.skills.all, k.syncMatrixAll, k.versionCheck),
+  skillsToggled: () => keys(k.skills.all, k.syncMatrixAll, k.overview, k.versionCheck),
   skillTargetFilterChanged: () => keys(k.targets.all, k.syncMatrixAll, k.diffAll),
   sourceLinked: () => keys(...sourceLinks),
   sourceUnlinked: () => keys(...sourceLinks, k.trash, k.missingConfigEntries),
   collected: (target?: string) =>
-    keys(k.skills.all, k.overview, k.targets.all, k.diff(), k.syncMatrix(), k.collectScan(target)),
+    keys(
+      k.skills.all,
+      k.overview,
+      k.targets.all,
+      k.diff(),
+      k.syncMatrix(),
+      k.collectScan(target),
+      k.versionCheck,
+    ),
   configInstalled: () =>
-    keys(k.missingConfigEntries, k.skills.all, k.overview, k.syncMatrixAll, k.diff()),
+    keys(
+      k.missingConfigEntries,
+      k.skills.all,
+      k.overview,
+      k.syncMatrixAll,
+      k.diff(),
+      k.versionCheck,
+    ),
 
   // Targets, projects and sync
   targetsChanged: () => keys(...targets, k.instructions.all),
@@ -70,7 +87,7 @@ const events = {
     ),
   updatePolicyChanged: () => keys(k.versionCheck, k.doctor),
   settingsSaved: () => keys(k.updatePolicy, k.config, k.versionCheck, k.doctor),
-  skillignoreSaved: () => keys(k.skillignore, ...ignoreFile),
+  skillignoreSaved: () => keys(k.skillignore, ...ignoreFile, k.versionCheck),
   agentignoreSaved: () => keys(k.agentignore, ...ignoreFile),
   extensionsChanged: () => keys(k.extensions, k.extrasExtensions),
   auditRulesChanged: () => keys(k.audit.rules, k.audit.compiled),
@@ -105,7 +122,16 @@ const events = {
   logsCleared: () => keys(k.logAll, k.logStatsAll),
   gitFetched: () => keys(k.gitStatus),
   gitChanged: () =>
-    keys(k.gitStatus, k.gitBranches, k.skills.all, k.overview, k.config, k.targets.all, k.diff()),
+    keys(
+      k.gitStatus,
+      k.gitBranches,
+      k.skills.all,
+      k.overview,
+      k.config,
+      k.targets.all,
+      k.diff(),
+      k.versionCheck,
+    ),
   // Root scope can change any of the source resources shown elsewhere.
   sourceDiscarded: (): InvalidateQueryFilters[] => [{}],
   appUpgraded: () => keys(k.versionCheck),

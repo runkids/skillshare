@@ -9,6 +9,8 @@ export interface VersionCheck {
   /** Set for a Nix install: the command that updates the CLI, or "" when a Nix configuration provides it. */
   nixUpgradeCommand?: string | null;
   skillVersion: string;
+  /** .skillignore disables the built-in skill, so sync leaves it out of every target. */
+  skillDisabled?: boolean;
   skillLatest?: string;
   skillUpdateAvailable: boolean;
 }

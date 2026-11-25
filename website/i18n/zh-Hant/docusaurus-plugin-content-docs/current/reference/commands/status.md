@@ -108,7 +108,7 @@ Extras
 
 ### Version
 
-顯示 CLI 與 skill 的版本。有更新的 skill 發布時，會多一行說明如何更新。（僅限 global 模式）
+顯示 CLI 與 skill 的版本。有更新的 skill 發布時，會多一行說明如何更新。`.skillignore` 停用了該 skill、sync 不會把它放進任何 target 時，會多一行說明如何啟用。（僅限 global 模式）
 
 ## 選項
 

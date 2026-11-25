@@ -440,6 +440,11 @@ func checkSkillVersion(cfg *config.Config) {
 	}
 
 	skill := cli + theme.Dim().Render(" · ") + "skill " + localVersion
+	if versioncheck.LocalSkillDisabled(cfg.EffectiveSkillsSource()) {
+		fmt.Println(statusLine("Version", skill+" "+theme.Dim().Render("(disabled)")))
+		ui.Warning("The skillshare skill is disabled %s %s", theme.Dim().Render("— run"), theme.Accent().Render("skillshare enable skillshare && skillshare sync"))
+		return
+	}
 	if !config.AutoUpdateCheckEnabled() {
 		fmt.Println(statusLine("Version", skill))
 		return

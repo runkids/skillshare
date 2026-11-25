@@ -39,6 +39,13 @@ func TestHandleVersionCheckDevModeExposesSimulatedUpdate(t *testing.T) {
 // built-in skill at local, with remote already in the skill version cache.
 func versionCheckWithSkill(t *testing.T, local, remote string) map[string]any {
 	t.Helper()
+	return versionCheckWithSkillIgnore(t, local, remote, "")
+}
+
+// versionCheckWithSkillIgnore is versionCheckWithSkill with ignore written to
+// the source's .skillignore when it is not empty.
+func versionCheckWithSkillIgnore(t *testing.T, local, remote, ignore string) map[string]any {
+	t.Helper()
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
 	versioncheck.SaveRemoteSkillVersion(remote)
 
@@ -50,6 +57,11 @@ func versionCheckWithSkill(t *testing.T, local, remote string) map[string]any {
 	skill := "---\nname: skillshare\nmetadata:\n  version: " + local + "\n---\n"
 	if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(skill), 0o644); err != nil {
 		t.Fatal(err)
+	}
+	if ignore != "" {
+		if err := os.WriteFile(filepath.Join(source, ".skillignore"), []byte(ignore), 0o644); err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	s := &Server{cfg: &config.Config{Source: source}}
@@ -76,6 +88,14 @@ func TestHandleVersionCheckNewerLocalSkillIsNotAnUpdate(t *testing.T) {
 
 	if body["skillUpdateAvailable"] != false {
 		t.Fatalf("skillUpdateAvailable = %v, want false when the local skill is newer", body["skillUpdateAvailable"])
+	}
+}
+
+func TestHandleVersionCheckReportsDisabledSkill(t *testing.T) {
+	body := versionCheckWithSkillIgnore(t, "1.0.0", "1.0.0", "skillshare\n")
+
+	if body["skillVersion"] != "1.0.0" || body["skillDisabled"] != true {
+		t.Fatalf("skill fields = version %v, disabled %v; want 1.0.0 reported as disabled", body["skillVersion"], body["skillDisabled"])
 	}
 }
 

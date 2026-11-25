@@ -67,6 +67,28 @@ func TestReadLocalSkillVersion_NoSkillDir(t *testing.T) {
 	}
 }
 
+func TestLocalSkillDisabled(t *testing.T) {
+	tests := []struct {
+		ignore string // "" writes no .skillignore
+		want   bool
+	}{
+		{ignore: "", want: false},
+		{ignore: "skillshare\n", want: true},
+		{ignore: "other-skill\n", want: false},
+	}
+	for _, tt := range tests {
+		sourceDir := t.TempDir()
+		if tt.ignore != "" {
+			if err := os.WriteFile(filepath.Join(sourceDir, ".skillignore"), []byte(tt.ignore), 0644); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if got := LocalSkillDisabled(sourceDir); got != tt.want {
+			t.Errorf("LocalSkillDisabled() with .skillignore %q = %v, want %v", tt.ignore, got, tt.want)
+		}
+	}
+}
+
 func TestSkillOutdated(t *testing.T) {
 	tests := []struct {
 		local, remote string

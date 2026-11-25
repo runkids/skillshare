@@ -108,7 +108,7 @@ Extras
 
 ### Version
 
-CLI と skill のバージョンを表示します。新しい skill がリリースされている場合は、更新方法を示す行が加わります。（global mode のみ）
+CLI と skill のバージョンを表示します。新しい skill がリリースされている場合は、更新方法を示す行が加わります。`.skillignore` で skill が無効になっていて sync がどの target にも配置しない場合は、有効にする方法を示す行が加わります。（global mode のみ）
 
 ## オプション
 

@@ -196,7 +196,7 @@ OpenCode를 다른 환경(예: 데스크톱 런처)에서 실행한다면 그쪽
 ### Version
 
 - CLI 버전
-- skillshare skill 버전 (더 새로운 skill이 공개되면 경고, `skillshare upgrade --skill`)
+- skillshare skill 버전 (더 새로운 skill이 공개되면 경고, `skillshare upgrade --skill`; `.skillignore`가 비활성화한 경우에도 경고, `skillshare enable skillshare`)
 - 사용 가능한 업데이트 확인
 
 ### Skill Integrity

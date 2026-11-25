@@ -1665,6 +1665,18 @@ func checkVersionDoctor(cfg *config.Config, result *doctorResult, isProject bool
 		return
 	}
 
+	if versioncheck.LocalSkillDisabled(cfg.EffectiveSkillsSource()) {
+		ui.Row(ui.MarkWarn, "Skill", localVersion+" (disabled)", doctorWidth)
+		enable := "skillshare enable skillshare && skillshare sync"
+		if isProject {
+			enable = "skillshare enable skillshare -p && skillshare sync -p"
+		}
+		result.suggest(enable, "sync the built-in skill to your tools again")
+		result.addCheck("skill_version", checkWarning, fmt.Sprintf("Skill: %s (disabled)", localVersion), nil)
+		result.addWarning()
+		return
+	}
+
 	if remote := <-remoteSkill; config.AutoUpdateCheckEnabled() && versioncheck.SkillOutdated(localVersion, remote) {
 		ui.Row(ui.MarkWarn, "Skill", localVersion+" → "+remote+" available", doctorWidth)
 		result.suggestUpdate("skillshare upgrade --skill", "update the built-in skill")

@@ -108,7 +108,7 @@ One line with the active audit policy (from CLI flags, project config, or global
 
 ### Version
 
-Shows the CLI and skill versions. When a newer skill is released, a line says how to update it. (Global mode only.)
+Shows the CLI and skill versions. When a newer skill is released, a line says how to update it. When `.skillignore` disables the skill, so sync leaves it out of every target, a line says how to enable it. (Global mode only.)
 
 ## Options
 
