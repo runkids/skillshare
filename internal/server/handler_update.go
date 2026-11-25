@@ -98,6 +98,10 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "force and merge cannot be combined")
 		return
 	}
+	if body.Branch != "" && body.Merge {
+		writeError(w, http.StatusBadRequest, "branch and merge cannot be combined")
+		return
+	}
 	if body.Branch != "" && (body.All || body.Kind == "agent") {
 		writeError(w, http.StatusBadRequest, "branch applies to a single skill only")
 		return

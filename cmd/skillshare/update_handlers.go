@@ -259,6 +259,13 @@ func updateRegularSkill(uc *updateContext, skillName string) (updateResult, erro
 
 		// Stale skill: subdir deleted from upstream
 		if isStaleError(err) {
+			// A merge reaches here with an edited skill, which only --force may discard.
+			if modified {
+				printUpdateRow(ui.MarkWarn, skillName, "stale — deleted upstream · kept for its local changes", 0)
+				ui.Next("skillshare check "+skillName+" --diff", "see your changes",
+					"skillshare update "+skillName+" --prune --force", "discard them and remove the skill")
+				return updateResult{skipped: 1}, nil
+			}
 			if uc.opts.prune {
 				if pruneErr := pruneSkill(skillPath, skillName, uc); pruneErr == nil {
 					pruneRegistry([]string{skillName}, uc)

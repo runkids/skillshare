@@ -75,10 +75,17 @@ func TestHandleUpdate_MergeConflictOffersForce(t *testing.T) {
 	}
 }
 
-func TestHandleUpdate_ForceAndMergeAreExclusive(t *testing.T) {
+// A branch switch replaces the skill with another branch, so there is no
+// upstream of the installed version to merge into.
+func TestHandleUpdate_MergeExcludesForceAndBranch(t *testing.T) {
 	s, _ := newTestServer(t)
-	if rr := postUpdate(s, `{"name":"foo","force":true,"merge":true}`); rr.Code != http.StatusBadRequest {
-		t.Fatalf("status = %d, want 400", rr.Code)
+	for _, body := range []string{
+		`{"name":"foo","force":true,"merge":true}`,
+		`{"name":"foo","branch":"main","merge":true}`,
+	} {
+		if rr := postUpdate(s, body); rr.Code != http.StatusBadRequest {
+			t.Errorf("%s: status = %d, want 400", body, rr.Code)
+		}
 	}
 }
 

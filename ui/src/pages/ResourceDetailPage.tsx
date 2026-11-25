@@ -572,7 +572,7 @@ export default function ResourceDetailPage() {
           message={
             <>
               {t('resourceDetail.modified.message', { name: resource.name })}
-              {canMerge && ` ${t('resourceDetail.modified.mergeHint')}`}
+              {canMerge && !switchTo && ` ${t('resourceDetail.modified.mergeHint')}`}
               {/* Local changes can be listed for skills only. */}
               {modified && resource.kind === 'skill' && <LocalChanges relPath={resource.relPath} />}
             </>
@@ -582,7 +582,8 @@ export default function ResourceDetailPage() {
           wide
           loading={updating}
           extraAction={
-            canMerge
+            // A branch switch replaces the skill with another branch: nothing to merge into.
+            canMerge && !switchTo
               ? {
                   label: t('update.updating.merge'),
                   onClick: () =>

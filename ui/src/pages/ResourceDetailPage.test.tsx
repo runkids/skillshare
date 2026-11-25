@@ -317,3 +317,63 @@ it.each([
     '"status":"up-to-date"',
   );
 });
+
+// A branch switch replaces the skill with another branch, so there is no
+// upstream of the installed version to merge into: only force applies.
+it('offers no merge when a branch switch hits local edits', async () => {
+  const user = userEvent.setup();
+  const remote: Skill = {
+    name: 'foo',
+    kind: 'skill',
+    flatName: 'foo',
+    relPath: 'foo',
+    sourcePath: '/skills/foo',
+    isInRepo: false,
+    source: 'git@git.example.com:o/r.git//skills/foo',
+    repoUrl: 'git@git.example.com:o/r.git',
+    branch: 'dev',
+  };
+  vi.mocked(api.getResource).mockResolvedValue({ resource: remote, skillMdContent: '', files: [] });
+  vi.mocked(api.listSkills).mockResolvedValue({ resources: [remote] });
+  vi.mocked(api.listTargets).mockResolvedValue({ targets: [], sourceSkillCount: 1 });
+  vi.mocked(api.getSyncMatrix).mockResolvedValue({ entries: [] } as never);
+  vi.mocked(api.diff).mockResolvedValue({ diffs: [] } as never);
+  vi.mocked(api.auditSkill).mockResolvedValue({ result: { findings: [] } } as never);
+  vi.mocked(gitRefs).mockResolvedValue({
+    pinnable: false,
+    current: '',
+    defaultBranch: 'main',
+    branches: ['dev', 'main'],
+    tags: [],
+  });
+  vi.mocked(api.update).mockResolvedValue({
+    results: [
+      {
+        name: 'foo',
+        action: 'skipped',
+        message: 'has local changes since install (try force update)',
+      },
+    ],
+  } as never);
+  render(
+    <MemoryRouter initialEntries={['/skills/foo']}>
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+      >
+        <I18nProvider>
+          <ToastProvider>
+            <Routes>
+              <Route path="/skills/:name" element={<ResourceDetailPage />} />
+            </Routes>
+          </ToastProvider>
+        </I18nProvider>
+      </QueryClientProvider>
+    </MemoryRouter>,
+  );
+  await user.click(await screen.findByRole('combobox', { name: 'Branch' }));
+  await user.click(await screen.findByRole('option', { name: /^Default branch/ }));
+  const switchDialog = await screen.findByRole('dialog', { name: 'Switch branch' });
+  await user.click(within(switchDialog).getByRole('button', { name: 'Switch and reinstall' }));
+  const dialog = await screen.findByRole('dialog', { name: 'Modified locally' });
+  expect(within(dialog).queryByRole('button', { name: 'Merge' })).not.toBeInTheDocument();
+});

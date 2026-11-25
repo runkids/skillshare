@@ -270,3 +270,26 @@ func TestUpdate_MergeIsAudited(t *testing.T) {
 		t.Errorf("notes.md = %q, want the local file kept", got)
 	}
 }
+
+// A modified skill deleted upstream is kept by --merge --prune, as by
+// --prune alone: only --force discards the edits.
+func TestUpdate_MergePruneKeepsModifiedStaleSkill(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	setupGlobalConfig(sb)
+	_, work := setupGroupedSkills(t, sb, "alpha", "beta")
+	edited := "---\nname: alpha\n---\n# my edit\n"
+	if err := os.WriteFile(filepath.Join(sb.SourcePath, "alpha", "SKILL.md"), []byte(edited), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.RemoveAll(filepath.Join(work, "skills", "alpha")); err != nil {
+		t.Fatal(err)
+	}
+	gitAddCommit(t, work, "delete alpha")
+	gitPush(t, work)
+
+	sb.RunCLI("update", "alpha", "--merge", "--prune", "--skip-audit").AssertAnyOutputContains(t, "stale")
+	if got := readSourceFile(t, sb, "alpha/SKILL.md"); got != edited {
+		t.Errorf("alpha/SKILL.md = %q, want the edited skill kept", got)
+	}
+}
