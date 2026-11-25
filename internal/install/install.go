@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path"
 	"strings"
 
 	"skillshare/internal/sourcewalk"
@@ -300,6 +301,9 @@ func (e *TrackKindAmbiguousError) Error() string {
 func InferTrackedKind(source *Source, explicitKind string) (string, error) {
 	if err := normalizeTrackSource(source); err != nil {
 		return "", err
+	}
+	if scopeToAgentFile(source); source.AgentFile != "" {
+		return "", fmt.Errorf("--track needs a repository or directory, not the agent file '%s'", path.Join(source.Subdir, source.AgentFile))
 	}
 
 	if explicitKind == "skill" || explicitKind == "agent" {

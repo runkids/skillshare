@@ -137,6 +137,10 @@ type Source struct {
 	// ExplicitSkill is true when the user pointed directly at a SKILL.md file.
 	// That intent should resolve to exactly one skill, not a pack/discovery view.
 	ExplicitSkill bool
+	// AgentFile is the agent file the source's path ended in (demo.md for
+	// repo/agents/demo.md). Discovery reads Subdir, the file's directory,
+	// and returns only that agent.
+	AgentFile string
 	// webRef is the {ref}/{path} tail of a tree/, blob/ or src/ web URL,
 	// kept so a ref containing "/" can be resolved at install time.
 	webRef webRef

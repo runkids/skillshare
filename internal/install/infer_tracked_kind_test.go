@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -91,6 +92,20 @@ func TestInferTrackedKind_ExplicitKindSkipsDiscovery(t *testing.T) {
 		}
 		if got != kind {
 			t.Errorf("kind=%q: got %q", kind, got)
+		}
+	}
+}
+
+// Regression for #1013: a tracked install of one agent file is refused, with
+// or without --kind, instead of tracking the whole repository.
+func TestInferTrackedKind_AgentFileRefused(t *testing.T) {
+	for _, kind := range []string{"", "agent", "skill"} {
+		source, err := ParseSource("github.com/you/repo/agents/demo.md")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := InferTrackedKind(source, kind); err == nil || !strings.Contains(err.Error(), "not the agent file 'agents/demo.md'") {
+			t.Errorf("kind %q: expected the agent file to be refused, got %v", kind, err)
 		}
 	}
 }
