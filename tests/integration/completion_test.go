@@ -670,3 +670,20 @@ func TestCompletion_AuditDisplayFloor_AllShells(t *testing.T) {
 		}
 	}
 }
+
+func TestCompletion_UpdateMerge_AllShells(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	for shell, want := range map[string]string{
+		"bash":       "--force -f --merge --skip-audit",
+		"zsh":        "'--merge[Merge upstream changes into local edits]'",
+		"fish":       "using_command update' -l merge",
+		"powershell": "'--force', '-f', '--merge'",
+		"nushell":    "--merge                  # Merge upstream changes into local edits",
+	} {
+		result := sb.RunCLI("completion", shell)
+		result.AssertSuccess(t)
+		result.AssertOutputContains(t, want)
+	}
+}

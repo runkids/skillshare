@@ -185,7 +185,7 @@ When a skill's subdirectory was renamed or deleted upstream, `check` reports it 
 :::
 
 :::info Locally modified skills
-A skill you edited after installing it is reported as **modified**, even when upstream has a newer version; its `message` then ends with `update available upstream`. `update` leaves it alone until you run `skillshare update <name> --force`, which discards your changes and reinstalls it. OS metadata files (`.DS_Store`, `Thumbs.db`, `desktop.ini`) do not count as local changes.
+A skill you edited after installing it is reported as **modified**, even when upstream has a newer version; its `message` then ends with `update available upstream` and `--json` sets `"upstream_changed": true`. `update` leaves it alone until you run `skillshare update <name> --merge`, which keeps your changes and merges upstream's into them, or `skillshare update <name> --force`, which discards your changes and reinstalls it. OS metadata files (`.DS_Store`, `Thumbs.db`, `desktop.ini`) do not count as local changes.
 
 To see the changes first, run `skillshare check <name> --diff`. It fetches the commit the skill was installed at, so the diff shows only your edits even when upstream has moved on:
 
@@ -224,7 +224,7 @@ skillshare check agents -p           # Check project agents
 skillshare check --all               # Check skills and agents together
 ```
 
-Each agent is compared with the branch it was installed from. An agent whose recorded source was lost by an earlier `update agents` reports `error` and asks you to reinstall it; see [Troubleshooting](/docs/troubleshooting/common-errors#agent-source-lost).
+Each agent is compared with the branch it was installed from. An agent you edited since install is reported as drifted; when upstream also has a newer version, its `message` ends with `update available upstream`, `--json` sets `"upstreamChanged": true`, and `skillshare update agents <name> --merge` merges it. An agent whose recorded source was lost by an earlier `update agents` reports `error` and asks you to reinstall it; see [Troubleshooting](/docs/troubleshooting/common-errors#agent-source-lost).
 
 Without the `agents` argument or `--all`, `check` operates on skills only (default behavior). See [Agents](/docs/understand/agents) for background.
 

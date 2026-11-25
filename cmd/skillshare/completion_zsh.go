@@ -492,6 +492,7 @@ _skillshare() {
                         '-n[Preview changes]' \
                         '--force[Force update]' \
                         '-f[Force update]' \
+                        '--merge[Merge upstream changes into local edits]' \
                         '--skip-audit[Skip security audit]' \
                         '--audit-threshold[Set audit threshold]:level:(low medium high critical)' \
                         '--threshold[Set audit threshold]:level:(low medium high critical)' \

@@ -5,7 +5,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from '../i18n';
 import { ToastProvider } from '../components/Toast';
-import UpdatePage, { countUpdates, isForceRetryable, updateUnits } from './UpdatePage';
+import UpdatePage, { countUpdates, isForceRetryable, isMergeable, updateUnits } from './UpdatePage';
 import { api } from '../api/client';
 import type { UpdateResultItem } from '../api/client';
 import { queryKeys } from '../lib/queryKeys';
@@ -238,6 +238,57 @@ describe('UpdatePage', () => {
     await user.click(await screen.findByRole('button', { name: /update all/i }));
 
     expect(await screen.findByText(/1 up to date/)).toBeInTheDocument();
+  });
+
+  it('retries a skill skipped for local edits with merge, not force', async () => {
+    vi.mocked(api.listSkills).mockResolvedValue({ resources: [nestedSkill] });
+    streamResult({
+      name: nestedSkill.relPath,
+      action: 'skipped',
+      message: 'has local changes since install (try force update)',
+      isRepo: false,
+    });
+
+    const user = userEvent.setup();
+    renderUpdatePage('skill');
+    await user.click(await screen.findByRole('button', { name: /update all/i }));
+    await user.click(await screen.findByRole('button', { name: 'Merge' }));
+
+    expect(vi.mocked(api.updateAllStream).mock.calls[1][4]).toEqual({
+      names: ['tools/agent-browser'],
+      kind: 'skill',
+      merge: true,
+    });
+  });
+
+  it('keeps a merged skill marked as modified', async () => {
+    vi.mocked(api.listSkills).mockResolvedValue({ resources: [nestedSkill] });
+    cacheStatus('tools/agent-browser', 'dirty');
+    streamResult({
+      name: nestedSkill.relPath,
+      action: 'skipped',
+      message: 'has local changes since install (try force update)',
+      isRepo: false,
+    });
+
+    const user = userEvent.setup();
+    renderUpdatePage('skill');
+    await user.click(await screen.findByRole('button', { name: /update all/i }));
+    const merge = await screen.findByRole('button', { name: 'Merge' });
+    streamResult({
+      name: nestedSkill.relPath,
+      action: 'updated',
+      message: 'merged local changes',
+      isRepo: false,
+    });
+    await user.click(merge);
+
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'Merge' })).not.toBeInTheDocument(),
+    );
+    expect(localStorage.getItem('skillshare.updateCheckCache.global')).not.toContain(
+      '"tools/agent-browser":{"status":"up-to-date"',
+    );
   });
 
   it('purges an agent deleted upstream as an agent', async () => {
@@ -512,5 +563,13 @@ describe('update failure message helpers', () => {
       ),
     ).toBe(false);
     expect(isForceRetryable(undefined)).toBe(false);
+  });
+
+  it('offers merge only for the skip caused by local changes', () => {
+    expect(isMergeable('has local changes since install (try force update)')).toBe(true);
+    expect(isMergeable(auditBlocked)).toBe(false);
+    expect(
+      isMergeable('conflicting changes in SKILL.md; kept the local version (try force update)'),
+    ).toBe(false);
   });
 });

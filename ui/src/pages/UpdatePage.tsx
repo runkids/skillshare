@@ -457,8 +457,9 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
     [kind, patchRun, applyUpdateResults, invalidateSkillData, toast],
   );
 
-  const retryForce = useCallback(
-    (name: string) => {
+  // Force overwrites local edits; merge keeps them and applies the upstream changes.
+  const retryUpdate = useCallback(
+    (name: string, mode: 'force' | 'merge') => {
       setRetried((prev) => new Set(prev).add(name));
       patchRun(name, { status: 'in-progress' });
       esRef.current = api.updateAllStream(
@@ -470,11 +471,12 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
             auditRiskLabel: item.auditRiskLabel,
           }),
         (data) => {
-          applyUpdateResults(data.results);
+          // A merged item still differs from its install, so its check result stands.
+          if (mode === 'force') applyUpdateResults(data.results);
           invalidateSkillData();
         },
         (err) => patchRun(name, { status: 'error', message: err.message }),
-        { names: [name], kind, force: true },
+        { names: [name], kind, [mode]: true },
       );
     },
     [kind, patchRun, applyUpdateResults, invalidateSkillData],
@@ -679,9 +681,20 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
         // A skill skipped for its local changes can be overwritten from its row.
         if (isForceRetryable(r.message)) {
           return (
-            <Button variant="secondary" size="sm" onClick={() => retryForce(unit.name)}>
-              {t('update.updating.forceRetry')}
-            </Button>
+            <span className="inline-flex flex-wrap justify-end gap-2">
+              {isMergeable(r.message) && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => retryUpdate(unit.name, 'merge')}
+                >
+                  {t('update.updating.merge')}
+                </Button>
+              )}
+              <Button variant="secondary" size="sm" onClick={() => retryUpdate(unit.name, 'force')}>
+                {t('update.updating.forceRetry')}
+              </Button>
+            </span>
           );
         }
         return <span className="ss-st off">{t('update.status.skipped')}</span>;
@@ -751,7 +764,7 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
     const r = run.get(unit.name);
     if (r?.status === 'blocked' || (r?.status === 'error' && isForceRetryable(r.message))) {
       return (
-        <Button variant="secondary" size="sm" onClick={() => retryForce(unit.name)}>
+        <Button variant="secondary" size="sm" onClick={() => retryUpdate(unit.name, 'force')}>
           {t('update.updating.forceRetry')}
         </Button>
       );
@@ -1293,6 +1306,12 @@ export function isForceRetryable(message?: string): boolean {
   if (!message) return false;
   if (message.includes('post-update audit failed')) return false;
   return message.includes('blocked by security audit') || message.includes('(try force update)');
+}
+
+// Merge is offered only for the local-changes skip. A merge that conflicted or an
+// audit block ends in a different message, where merging again would not help.
+export function isMergeable(message?: string): boolean {
+  return !!message?.includes('has local changes since install');
 }
 
 // Backend errors carry CLI-only hints that are meaningless in the web UI, where

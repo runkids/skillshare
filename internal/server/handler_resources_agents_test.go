@@ -221,7 +221,7 @@ func TestUpdateSingleByKind_Agent(t *testing.T) {
 	}
 	s.agentsStore = store
 
-	result := s.updateSingleByKind("demo__reviewer.md", "agent", false, true)
+	result := s.updateSingleByKind("demo__reviewer.md", "agent", false, true, false)
 	if result.Action != "updated" {
 		t.Fatalf("expected updated, got %+v", result)
 	}

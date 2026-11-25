@@ -185,7 +185,7 @@ skill의 하위 디렉터리가 업스트림에서 이름이 바뀌거나 삭제
 :::
 
 :::info 로컬에서 수정된 skills
-설치한 뒤 편집한 skill은 upstream에 더 새로운 버전이 있어도 **modified**로 보고되며, 이때 `message`는 `update available upstream`으로 끝납니다. `update`는 `skillshare update <name> --force`를 실행하기 전까지 이 skill을 건드리지 않습니다. 이 명령은 변경 사항을 버리고 다시 설치합니다. OS 메타데이터 파일(`.DS_Store`, `Thumbs.db`, `desktop.ini`)은 로컬 변경으로 보지 않습니다.
+설치한 뒤 편집한 skill은 upstream에 더 새로운 버전이 있어도 **modified**로 보고되며, 이때 `message`는 `update available upstream`으로 끝나고 `--json`에서는 `"upstream_changed": true`가 설정됩니다. `update`는 `skillshare update <name> --merge`(변경 사항을 유지한 채 upstream 변경 사항을 병합) 또는 `skillshare update <name> --force`(변경 사항을 버리고 다시 설치)를 실행하기 전까지 이 skill을 건드리지 않습니다. OS 메타데이터 파일(`.DS_Store`, `Thumbs.db`, `desktop.ini`)은 로컬 변경으로 보지 않습니다.
 
 먼저 변경 사항을 보려면 `skillshare check <name> --diff`를 실행하세요. skill이 설치된 commit을 가져오므로 upstream이 앞서 나가 있어도 diff에는 직접 수정한 내용만 표시됩니다:
 
@@ -224,7 +224,7 @@ skillshare check agents -p           # Check project agents
 skillshare check --all               # Check skills and agents together
 ```
 
-각 agent는 설치한 branch와 비교됩니다. 이전 `update agents`로 기록된 source를 잃은 agent는 `error`를 보고하고 다시 설치하라고 안내합니다. [문제 해결](/docs/troubleshooting/common-errors#agent-source-lost)을 참고하세요.
+각 agent는 설치한 branch와 비교됩니다. 설치 후 편집한 agent는 drifted로 보고됩니다. upstream에도 더 새로운 버전이 있으면 `message`가 `update available upstream`으로 끝나고, `--json`에는 `"upstreamChanged": true`가 설정되며, `skillshare update agents <name> --merge`로 병합할 수 있습니다. 이전 `update agents`로 기록된 source를 잃은 agent는 `error`를 보고하고 다시 설치하라고 안내합니다. [문제 해결](/docs/troubleshooting/common-errors#agent-source-lost)을 참고하세요.
 
 `agents` 인자나 `--all` 없이 실행하면 `check`는 skill에 대해서만 동작합니다(기본 동작). 배경 지식은 [Agents](/docs/understand/agents)를 참고하세요.
 

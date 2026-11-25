@@ -600,6 +600,7 @@ export extern "skillshare update" [
     --all(-a)                # Update all
     --dry-run(-n)            # Preview changes
     --force(-f)              # Force update
+    --merge                  # Merge upstream changes into local edits
     --skip-audit             # Skip security audit
     --audit-threshold: string@"nu-complete skillshare audit-threshold"
     --threshold(-T): string@"nu-complete skillshare audit-threshold"

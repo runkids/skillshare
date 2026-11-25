@@ -289,7 +289,25 @@ func batchUpdateAgents(agentsDir string, agents []check.AgentCheckResult, opts *
 				AuditProjectRoot: projectRoot,
 				SourceDir:        agentsDir,
 			}
-			if _, err := install.UpdateAgentFromDiscovery(discovery, *target, destDir, installOpts); err != nil {
+			if m.UpstreamChanged {
+				installOpts.MergeBase = store.GetByPath(m.Name)
+			}
+			res, err := install.UpdateAgentFromDiscovery(discovery, *target, destDir, installOpts)
+			var conflict *install.MergeConflictError
+			switch {
+			case errors.As(err, &conflict):
+				items = append(items, agentUpdateItem{
+					Name:    m.Name,
+					Source:  m.Source,
+					Status:  "conflict",
+					Message: "conflicting changes; kept the local version",
+					Error:   err.Error(),
+				})
+				if verbose {
+					ui.StepFail(m.Name, "conflicting changes · kept the local version")
+				}
+				failed++
+			case err != nil:
 				items = append(items, agentUpdateItem{
 					Name:    m.Name,
 					Source:  m.Source,
@@ -301,15 +319,24 @@ func batchUpdateAgents(agentsDir string, agents []check.AgentCheckResult, opts *
 					ui.StepFail(m.Name, err.Error())
 				}
 				failed++
-			} else {
+			case res.Action == "up-to-date":
+				items = append(items, agentUpdateItem{Name: m.Name, Source: m.Source, Status: "up_to_date", Message: "no upstream changes to merge"})
+				if verbose {
+					ui.StepDone(m.Name, "no upstream changes to merge")
+				}
+			default:
+				status, message := "updated", "updated"
+				if res.Action == "merged" {
+					status, message = "merged", "merged local changes"
+				}
 				items = append(items, agentUpdateItem{
 					Name:    m.Name,
 					Source:  m.Source,
-					Status:  "updated",
-					Message: "updated",
+					Status:  status,
+					Message: message,
 				})
 				if verbose {
-					ui.StepDone(m.Name, "updated")
+					ui.StepDone(m.Name, message)
 				}
 				updated++
 			}
@@ -419,6 +446,7 @@ type updateAgentArgs struct {
 	all        bool
 	dryRun     bool
 	force      bool
+	merge      bool
 	skipAudit  bool
 	threshold  string
 	jsonOutput bool
@@ -435,6 +463,8 @@ func parseUpdateAgentArgs(args []string) (*updateAgentArgs, bool, error) {
 			opts.dryRun = true
 		case arg == "--force" || arg == "-f":
 			opts.force = true
+		case arg == "--merge":
+			opts.merge = true
 		case arg == "--skip-audit":
 			opts.skipAudit = true
 		case arg == "--audit-threshold" || arg == "--threshold" || arg == "-T":
@@ -462,6 +492,9 @@ func parseUpdateAgentArgs(args []string) (*updateAgentArgs, bool, error) {
 		default:
 			opts.names = append(opts.names, arg)
 		}
+	}
+	if opts.merge && opts.force {
+		return nil, false, fmt.Errorf("--merge cannot be used with --force")
 	}
 
 	if !opts.all && len(opts.names) == 0 && len(opts.groups) == 0 {
@@ -567,7 +600,7 @@ func filterDiscoveredAgentsByGroups(discovered []resource.DiscoveredResource, gr
 	return filtered, nil
 }
 
-func logUpdateAgentOp(cfgPath string, total, updated, failed int, dryRun bool, start time.Time) {
+func logUpdateAgentOp(cfgPath string, total, updated, failed int, dryRun, merge bool, start time.Time) {
 	status := "ok"
 	if failed > 0 && updated > 0 {
 		status = "partial"
@@ -581,6 +614,7 @@ func logUpdateAgentOp(cfgPath string, total, updated, failed int, dryRun bool, s
 		"agents_updated": updated,
 		"agents_failed":  failed,
 		"dry_run":        dryRun,
+		"merge":          merge,
 	}
 	oplog.WriteWithLimit(cfgPath, oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
 }
@@ -771,14 +805,22 @@ func runAgentUpdates(scope agentUpdateScope, results []check.AgentCheckResult, o
 	}
 	mergeTrackedAgentResults(results, tracked)
 
-	var updatable []check.AgentCheckResult
+	var updatable, modified []check.AgentCheckResult
 	for _, r := range tracked {
-		if r.Status == "update_available" {
+		switch {
+		case r.Status == "update_available":
 			updatable = append(updatable, r)
+		case r.UpstreamChanged && opts.merge:
+			updatable = append(updatable, r)
+		case r.UpstreamChanged:
+			modified = append(modified, r)
 		}
 	}
 	items := agentUpdateItemsFromCheckResults(results)
 	unchecked := reportUncheckedAgents(results, !opts.jsonOutput)
+	if !opts.jsonOutput {
+		printModifiedAgents(modified)
+	}
 
 	if len(updatable) == 0 {
 		if err := agentUpdateError(0, unchecked); err != nil || opts.jsonOutput {
@@ -802,7 +844,7 @@ func runAgentUpdates(scope agentUpdateScope, results []check.AgentCheckResult, o
 		}
 	}
 
-	logUpdateAgentOp(scope.configPath, len(updatable), updated, failed, opts.dryRun, start)
+	logUpdateAgentOp(scope.configPath, len(updatable), updated, failed, opts.dryRun, opts.merge, start)
 	return finish(items, agentUpdateError(failed, unchecked))
 }
 
@@ -839,6 +881,24 @@ func agentUpdateError(failed, unchecked int) error {
 	return errors.New(strings.Join(parts, "; "))
 }
 
+// printModifiedAgents lists agents with an upstream update that update
+// leaves alone because they were edited since install.
+func printModifiedAgents(modified []check.AgentCheckResult) {
+	if len(modified) == 0 {
+		return
+	}
+	ui.Section("Modified locally")
+	names := make([]string, len(modified))
+	for i, r := range modified {
+		names[i] = r.Name
+	}
+	width := ui.RowWidth(names...)
+	for _, r := range modified {
+		ui.Row(ui.MarkWarn, r.Name, r.Message, width)
+	}
+	ui.Note("Update with --merge to keep the changes and merge upstream changes into them")
+}
+
 // printAgentUpdatesAvailable lists what a dry run would update.
 func printAgentUpdatesAvailable(updatable []check.AgentCheckResult) {
 	names := make([]string, len(updatable))
@@ -847,7 +907,11 @@ func printAgentUpdatesAvailable(updatable []check.AgentCheckResult) {
 	}
 	width := ui.RowWidth(names...)
 	for _, r := range updatable {
-		ui.Row(ui.MarkNone, r.Name, "update available from "+sourceLabel(r.Source), width)
+		action := "update available from "
+		if r.UpstreamChanged {
+			action = "would merge upstream changes from "
+		}
+		ui.Row(ui.MarkNone, r.Name, action+sourceLabel(r.Source), width)
 	}
 	fmt.Println()
 	ui.DryRun()

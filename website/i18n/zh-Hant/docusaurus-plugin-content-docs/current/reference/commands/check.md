@@ -185,7 +185,7 @@ skillshare check --json
 :::
 
 :::info 本機修改過的 skills
-安裝後被你編輯過的 skill 會被回報為 **modified**，即使 upstream 已有更新版本；此時其 `message` 以 `update available upstream` 結尾。在你執行 `skillshare update <name> --force` 之前，`update` 不會動它；該指令會捨棄你的變更並重新安裝。作業系統的 metadata 檔案（`.DS_Store`、`Thumbs.db`、`desktop.ini`）不算本機修改。
+安裝後被你編輯過的 skill 會被回報為 **modified**，即使 upstream 已有更新版本；此時其 `message` 以 `update available upstream` 結尾，`--json` 會設定 `"upstream_changed": true`。在你執行 `skillshare update <name> --merge`（保留你的變更並把 upstream 的變更合併進去）或 `skillshare update <name> --force`（捨棄你的變更並重新安裝）之前，`update` 不會動它。作業系統的 metadata 檔案（`.DS_Store`、`Thumbs.db`、`desktop.ini`）不算本機修改。
 
 如需先查看變更內容，請執行 `skillshare check <name> --diff`。它會取得該 skill 安裝時所在的 commit，因此即使 upstream 已經前進，diff 也只顯示你自己的修改：
 
@@ -224,7 +224,7 @@ skillshare check agents -p           # 檢查 project agents
 skillshare check --all               # 同時檢查 skills 與 agents
 ```
 
-每個 agent 都會與安裝時的分支比對。記錄的 source 被先前的 `update agents` 弄丟的 agent 會回報 `error` 並提示重新安裝，請參閱[疑難排解](/docs/troubleshooting/common-errors#agent-source-lost)。
+每個 agent 都會與安裝時的分支比對。安裝後被你編輯過的 agent 會被回報為 drifted；當 upstream 也有更新版本時，其 `message` 以 `update available upstream` 結尾，`--json` 會設定 `"upstreamChanged": true`，並且可用 `skillshare update agents <name> --merge` 合併。記錄的 source 被先前的 `update agents` 弄丟的 agent 會回報 `error` 並提示重新安裝，請參閱[疑難排解](/docs/troubleshooting/common-errors#agent-source-lost)。
 
 若不加 `agents` 參數或 `--all`，`check` 僅針對 skills 運作（預設行為）。詳見 [Agents](/docs/understand/agents) 了解背景概念。
 

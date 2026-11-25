@@ -250,3 +250,70 @@ it('reinstalls from the default branch by name only after confirming', async () 
     }),
   );
 });
+
+// A merge keeps the local edits, so the skill still counts as modified afterwards.
+it.each([
+  { action: 'updated', message: 'merged local changes' },
+  { action: 'up-to-date', message: undefined },
+])('merges into a locally edited skill instead of overwriting it ($action)', async (result) => {
+  localStorage.clear();
+  const user = userEvent.setup();
+  const edited: Skill = {
+    name: 'foo',
+    kind: 'skill',
+    flatName: 'foo',
+    relPath: 'foo',
+    sourcePath: '/skills/foo',
+    isInRepo: false,
+    source: 'git@git.example.com:o/r.git//skills/foo',
+    repoUrl: 'git@git.example.com:o/r.git',
+  };
+  vi.mocked(api.getResource).mockResolvedValue({ resource: edited, skillMdContent: '', files: [] });
+  vi.mocked(api.listSkills).mockResolvedValue({ resources: [edited] });
+  vi.mocked(api.listTargets).mockResolvedValue({ targets: [], sourceSkillCount: 1 });
+  vi.mocked(api.getSyncMatrix).mockResolvedValue({ entries: [] } as never);
+  vi.mocked(api.diff).mockResolvedValue({ diffs: [] } as never);
+  vi.mocked(api.auditSkill).mockResolvedValue({ result: { findings: [] } } as never);
+  vi.mocked(gitRefs).mockResolvedValue({
+    pinnable: false,
+    current: '',
+    defaultBranch: 'main',
+    branches: ['main'],
+    tags: [],
+  });
+  vi.mocked(api.update).mockResolvedValue({
+    results: [{ name: 'foo', ...result }],
+  } as never);
+  render(
+    <MemoryRouter initialEntries={['/skills/foo?changes=1']}>
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+      >
+        <I18nProvider>
+          <ToastProvider>
+            <Routes>
+              <Route path="/skills/:name" element={<ResourceDetailPage />} />
+            </Routes>
+          </ToastProvider>
+        </I18nProvider>
+      </QueryClientProvider>
+    </MemoryRouter>,
+  );
+  const dialog = await screen.findByRole('dialog', { name: 'Modified locally' });
+  await user.click(within(dialog).getByRole('button', { name: 'Merge' }));
+  await waitFor(() =>
+    expect(api.update).toHaveBeenCalledWith({
+      name: 'foo',
+      kind: 'skill',
+      skipAudit: false,
+      force: false,
+      merge: true,
+    }),
+  );
+  await waitFor(() =>
+    expect(screen.queryByRole('dialog', { name: 'Modified locally' })).not.toBeInTheDocument(),
+  );
+  expect(localStorage.getItem('skillshare.updateCheckCache.global') ?? '').not.toContain(
+    '"status":"up-to-date"',
+  );
+});

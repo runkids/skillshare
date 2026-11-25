@@ -20,6 +20,9 @@ type AgentCheckResult struct {
 	RepoPath string `json:"repoPath,omitempty"`
 	Status   string `json:"status"` // "up_to_date", "drifted", "dirty", "local", "error", "update_available"
 	Message  string `json:"message,omitempty"`
+	// UpstreamChanged marks a drifted agent whose remote has moved on, so
+	// update agents --merge has upstream changes to merge into it.
+	UpstreamChanged bool `json:"upstreamChanged,omitempty"`
 }
 
 // CheckAgents scans the agents source directory for installed agents and
@@ -203,9 +206,16 @@ func EnrichAgentResultsWithRemote(results []AgentCheckResult, onDone func(), par
 				continue
 			}
 			// The remote hash is abbreviated; a tracked repo records the full one.
-			if out.RemoteHash != "" && !strings.HasPrefix(results[idx].Version, out.RemoteHash) && results[idx].Status == "up_to_date" {
+			if out.RemoteHash == "" || strings.HasPrefix(results[idx].Version, out.RemoteHash) {
+				continue
+			}
+			switch results[idx].Status {
+			case "up_to_date":
 				results[idx].Status = "update_available"
 				results[idx].Message = "newer version available"
+			case "drifted":
+				results[idx].UpstreamChanged = true
+				results[idx].Message += UpstreamChangedNote
 			}
 		}
 	}
