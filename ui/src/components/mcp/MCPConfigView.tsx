@@ -35,18 +35,29 @@ export default function MCPConfigView({ mutation }: { mutation: MCPMutation }) {
   const sourcePath = useMcpQuery().data?.source.path;
   const targets = mutation.server?.targets ?? [];
   const [picked, setPicked] = useState<string>();
-  const items = [SOURCE, ...targets];
-  const shown = picked !== undefined && items.includes(picked) ? picked : (targets[0] ?? SOURCE);
   // Pi previews read native settings and ownership; keep the previous view while refreshing.
   const view = useQuery({
     queryKey: queryKeys.mcpRender(JSON.stringify(mutation)),
     queryFn: () => mcpApi.render(mutation),
     placeholderData: keepPreviousData,
   });
-  const renderedFor = (target: string) => view.data?.rendered.find((r) => r.target === target);
   const files = view.data?.rendered.filter((r) => r.content !== undefined && !r.error).length ?? 0;
 
   const root = mutation.project ?? (isProjectMode ? projectRoot : undefined);
+  // A shared server has a file in each project that uses it, each with that project's targets
+  // and overrides, so its list is every file rendered rather than one per target.
+  const shared = mutation.server?.global === false && !root;
+  const entries = shared
+    ? (view.data?.rendered ?? []).map((r) => ({ key: r.path || r.target, target: r.target, r }))
+    : targets.map((target) => ({
+        key: target,
+        target,
+        r: view.data?.rendered.find((r) => r.target === target),
+      }));
+  const items = [SOURCE, ...entries.map((e) => e.key)];
+  const shown =
+    picked !== undefined && items.includes(picked) ? picked : (entries[0]?.key ?? SOURCE);
+  const current = entries.find((e) => e.key === shown);
   // Paths in the list are relative to the scope: the project root, or home for the global config.
   // Claude Code's off list sits in ~/.claude.json even for a project, so it keeps its ~.
   const relative = (path: string) =>
@@ -115,7 +126,7 @@ export default function MCPConfigView({ mutation }: { mutation: MCPMutation }) {
     </button>
   );
 
-  const rendered = shown === SOURCE ? undefined : renderedFor(shown);
+  const rendered = current?.r;
   const path = shown === SOURCE ? sourcePath : rendered?.path;
   const content = shown === SOURCE ? sourceJSON : rendered?.content;
   const format = shown !== SOURCE && path ? formatOf(path) : undefined;
@@ -157,31 +168,30 @@ export default function MCPConfigView({ mutation }: { mutation: MCPMutation }) {
             sourcePath,
           )}
           <div className="mx-2.5 my-1 border-t border-line-soft" role="separator" />
-          {targets.map((target) => {
-            const r = renderedFor(target);
-            return item(
-              target,
+          {entries.map(({ key, target, r }) =>
+            item(
+              key,
               <AgentIcon target={target} size={18} />,
               targetLabel(target),
               r ? relative(r.path) : '',
               r?.path,
               r?.error,
-            );
-          })}
+            ),
+          )}
         </div>
         <div className="flex min-w-0 flex-1 flex-col gap-2.5">
           <div className="flex min-h-8 items-center gap-2.5">
             {shown === SOURCE ? (
               <Folder size={16} className="shrink-0 text-ink-2" aria-hidden="true" />
             ) : (
-              <AgentIcon target={shown} size={18} />
+              <AgentIcon target={current?.target ?? shown} size={18} />
             )}
             <span className="min-w-0 flex-1 truncate font-mono text-xs" title={path}>
               {path
                 ? shortenHome(path)
                 : shown === SOURCE
                   ? t('mcp.sourceConfig')
-                  : targetLabel(shown)}
+                  : targetLabel(current?.target ?? shown)}
             </span>
             {format && <span className="ss-tag">{format}</span>}
             {content !== undefined && <CopyButton value={content} />}
