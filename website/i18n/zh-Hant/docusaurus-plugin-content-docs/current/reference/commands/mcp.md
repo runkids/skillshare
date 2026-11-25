@@ -567,6 +567,42 @@ root，寫入該 root 的 `targets`，除非 server 自己指定了 `targets`。
 - 移除共用 server，或把它改回 global，會在同一次儲存中從每個 `use` 清單移除它的名稱。
 - 編輯共用 server 時會保留它的 `global: false`，除非該次編輯設定了 `global`。
 
+#### 只在一個 project 修改共用 server {#override-a-shared-server}
+
+root 可以在 `overrides` 下、以 server 名稱為 key，修改它使用的共用 server 的部分設定。
+連線設定（`command`、`args`、`url`、`headers`、`env`）沿用共用 server 的，只需定義一次：
+
+```yaml
+mcp:
+  targets: [pi]
+  servers:
+    internal-docs:
+      global: false
+      url: https://docs.example.com/mcp
+      piOptions:
+        exposure: codemode
+  projects:
+    ~/work/project01:
+      use: [internal-docs]
+    ~/work/project02:
+      use: [internal-docs]
+      overrides:
+        internal-docs:
+          piOptions:
+            exposure: direct     # 只有 project02；project01 維持 codemode
+```
+
+| 欄位 | 在該 root 中 |
+|---|---|
+| `targets` | 取代 server 的 targets；空清單表示該 root 不寫入這個 server |
+| `tools` | 取代 server 的工具政策 |
+| `piOptions` | 依 key 合併進 server 的值 |
+| `options` | 依 Agent 與 key 合併進 server 的值 |
+
+root 實際載入的 server 也必須符合上面所有規則，因此 override 的 `targets` 不能指名
+account，也不能設定 Pi 沒有的 exposure。override 只能指名該 root `use` 中的 server。在該
+root 關閉這個 server、移除它，或把它改回 global，都會在同一次儲存中移除 override。
+
 `skillshare mcp list` 會為每個共用 server 加上一列 `shared`，列出使用它的 projects，
 或顯示 `not used by any project`。`mcp list --json` 有一個頂層的 `shared` 陣列：
 
@@ -576,7 +612,7 @@ root，寫入該 root 的 `targets`，除非 server 自己指定了 `targets`。
 
 互動式清單會顯示使用共用 server 的 projects 的 targets，詳細資訊會列出這些 projects。沒有 project 使用共用 server 時，`mcp check` 會註明。
 
-這個版本不會把既有的個別 project 副本轉換成共用 server，也沒有指令可以編輯 `use`。
+這個版本不會把既有的個別 project 副本轉換成共用 server，也沒有指令可以編輯 `use` 或 `overrides`。
 請編輯 `config.yaml`，或使用 [dashboard](#projects-in-the-dashboard) 中的開關。
 在 `mcp.projects` 內用 YAML anchor 共用的 server 仍然可用，但 dashboard 與
 `skillshare mcp add` 不會把這些副本視為互相連結。

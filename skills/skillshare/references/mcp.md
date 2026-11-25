@@ -491,7 +491,11 @@ mcp:
   - Removing a shared server, or setting it back to global, clears it from every `use` list.
   - `mcp list` adds a `shared` row per shared server with its projects; `mcp list --json` has
     a top-level `shared: [{name, projects}]`.
-  - No command edits `use` and existing per-project copies are not converted. Edit
+  - A root's `overrides: {<name>: {...}}` changes a shared server it uses for that root only:
+    `targets` and `tools` replace the server's, `piOptions` and `options` merge key by key.
+    `command`, `args`, `url`, `headers` and `env` cannot be overridden. Dropping the server from
+    that root's `use`, removing it, or making it global drops the override.
+  - No command edits `use` or `overrides`, and existing per-project copies are not converted. Edit
     `config.yaml`, or use the dashboard: **Loads in** in the server dialog or
     **Projects** in a shared server's expanded row on the **MCP** page, and
     **Opt-in servers** on a project's **MCP** tab.

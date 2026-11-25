@@ -77,10 +77,11 @@ const inGlobalScope = (change: MCPChange) => !change.root;
 function mcpPageModel(data: MCPList | undefined, order: readonly string[]) {
   const servers = data?.source.servers ?? {};
   const defaults = data?.source.targets ?? [];
-  // A shared server that names no targets follows the projects that use it, as sync does.
+  // A shared server goes where each project that uses it sends it, as sync does.
   const targetsOf = (name: string) =>
-    servers[name]?.targets ??
-    (isShared(servers[name]) && data ? sharedTargets(data.source, name) : defaults);
+    isShared(servers[name]) && data
+      ? sharedTargets(data.source, name)
+      : (servers[name]?.targets ?? defaults);
   const changes = data?.plan?.changes ?? [];
   // mcp.projects puts a server of the same name into other folders; this list is the global
   // files only. A project's off switch for Claude Code lands in a global path, so ask the

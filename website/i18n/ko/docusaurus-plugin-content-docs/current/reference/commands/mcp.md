@@ -603,6 +603,44 @@ sync에서 global 파일에 있는 Skillshare의 항목이 제거됩니다.
   제거됩니다.
 - shared 서버를 편집해도 편집에서 `global`을 설정하지 않는 한 `global: false`가 유지됩니다.
 
+#### 한 프로젝트에서만 shared 서버 바꾸기 {#override-a-shared-server}
+
+root는 사용하는 shared 서버의 일부 설정을 `overrides` 아래에서 서버 이름을 key로 바꿀 수
+있습니다. 연결 설정(`command`, `args`, `url`, `headers`, `env`)은 shared 서버의 것을 그대로
+쓰므로 한 곳에만 정의합니다:
+
+```yaml
+mcp:
+  targets: [pi]
+  servers:
+    internal-docs:
+      global: false
+      url: https://docs.example.com/mcp
+      piOptions:
+        exposure: codemode
+  projects:
+    ~/work/project01:
+      use: [internal-docs]
+    ~/work/project02:
+      use: [internal-docs]
+      overrides:
+        internal-docs:
+          piOptions:
+            exposure: direct     # project02만; project01은 codemode 유지
+```
+
+| 필드 | 그 root에서 |
+|---|---|
+| `targets` | 서버의 targets를 대체합니다. 빈 목록이면 그 root에는 서버를 쓰지 않습니다 |
+| `tools` | 서버의 도구 정책을 대체합니다 |
+| `piOptions` | 서버의 값에 key 단위로 병합됩니다 |
+| `options` | 서버의 값에 Agent와 key 단위로 병합됩니다 |
+
+root가 실제로 로드하는 서버도 위의 모든 규칙을 따라야 하므로, override의 `targets`에
+account를 지정하거나 Pi에 없는 exposure를 설정할 수 없습니다. override는 그 root의 `use`에
+있는 서버만 지정할 수 있습니다. 그 root에서 서버를 끄거나, 서버를 제거하거나, global로
+되돌리면 같은 저장에서 override도 제거됩니다.
+
 `skillshare mcp list`는 shared 서버마다 `shared` 행을 추가하며, 이를 사용하는 프로젝트 또는
 `not used by any project`를 표시합니다. `mcp list --json`에는 최상위 `shared` 배열이 있습니다:
 
@@ -612,7 +650,7 @@ sync에서 global 파일에 있는 Skillshare의 항목이 제거됩니다.
 
 대화형 목록은 shared 서버를 사용하는 프로젝트의 target을 표시하고, 상세 정보에 그 프로젝트들을 나열합니다. `mcp check`는 shared 서버를 사용하는 프로젝트가 없으면 그렇게 알려 줍니다.
 
-이 버전은 기존 프로젝트별 사본을 shared 서버로 변환하지 않으며, `use`를 편집하는 명령도
+이 버전은 기존 프로젝트별 사본을 shared 서버로 변환하지 않으며, `use`나 `overrides`를 편집하는 명령도
 없습니다. `config.yaml`을 편집하거나 [대시보드](#projects-in-the-dashboard)의 스위치를
 사용하세요. `mcp.projects` 안에 둔 YAML anchor로 공유한 서버도 여전히 동작하지만,
 대시보드와 `skillshare mcp add`는 그 사본들을 연결된 것으로 취급하지 않습니다.

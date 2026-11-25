@@ -18,8 +18,9 @@ type mcpUIView struct {
 	Source struct {
 		Servers  map[string]json.RawMessage `json:"servers"`
 		Projects map[string]struct {
-			Servers map[string]json.RawMessage `json:"servers"`
-			Use     []string                   `json:"use"`
+			Servers   map[string]json.RawMessage `json:"servers"`
+			Use       []string                   `json:"use"`
+			Overrides map[string]json.RawMessage `json:"overrides"`
 		} `json:"projects"`
 	} `json:"source"`
 	Plan *struct {
@@ -354,6 +355,26 @@ func TestMCPUIContract_PickProjects(t *testing.T) {
 	}
 	if strings.Contains(readOrEmpty(sc.file), "example.com/shared") {
 		t.Fatal("shared server reached the global file")
+	}
+}
+
+// A project that turns a shared server on can change its settings in the same save; sync
+// then writes the server as that project overrides it.
+func TestMCPUIContract_ProjectOverride(t *testing.T) {
+	sc := mcpUIScopes[0](t)
+	root := t.TempDir()
+	mcpUISave(t, sc.s, `{"project":"`+root+`","settings":{"targets":["claude"]}}`)
+	mcpUISave(t, sc.s, `{"name":"docs","server":{"url":"https://example.com/shared","global":false}}`)
+	mcpUISaveBatch(t, sc.s, `[{"project":"`+root+`","name":"docs","using":true,"override":{"targets":["cursor"]}}]`)
+	if got := string(mcpUIList(t, sc.s).Source.Projects[root].Overrides["docs"]); got != `{"targets":["cursor"]}` {
+		t.Fatalf("override = %s", got)
+	}
+	mcpUISync(t, sc.s, "")
+	if !strings.Contains(readOrEmpty(filepath.Join(root, ".cursor", "mcp.json")), "example.com/shared") {
+		t.Fatal("the override's target did not get the server")
+	}
+	if strings.Contains(readOrEmpty(filepath.Join(root, ".mcp.json")), "example.com/shared") {
+		t.Fatal("the project's own target got a server its override moved")
 	}
 }
 

@@ -101,7 +101,11 @@ export function sharedUsers(source?: {
   return users;
 }
 
-/** Where a shared server that names no targets goes: each using project's targets, or the default where it names none. */
+/**
+ * Where a shared server goes: in each project that uses it, the targets that project's
+ * override names, else the server's own, else the project's, else the default. Used by no
+ * project, it goes nowhere yet and shows the targets it names.
+ */
 export function sharedTargets(
   source: {
     targets?: string[] | null;
@@ -110,9 +114,17 @@ export function sharedTargets(
   },
   name: string,
 ): string[] {
+  const users = sharedUsers(source)[name] ?? [];
+  // Used by no project yet, it shows the targets it names, if any.
+  if (users.length === 0) return [...(source.servers[name]?.targets ?? [])];
   const out: string[] = [];
-  for (const root of sharedUsers(source)[name] ?? []) {
-    for (const target of source.projects?.[root].targets ?? source.targets ?? []) {
+  for (const root of users) {
+    const project = source.projects?.[root];
+    for (const target of project?.overrides?.[name]?.targets ??
+      source.servers[name]?.targets ??
+      project?.targets ??
+      source.targets ??
+      []) {
       if (!out.includes(target)) out.push(target);
     }
   }

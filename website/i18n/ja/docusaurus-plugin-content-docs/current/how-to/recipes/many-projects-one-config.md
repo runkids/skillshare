@@ -120,6 +120,7 @@ project の **MCP** タブの **Opt-in servers** からオンにします。
 - **コミットするか無視するか**: `copy` mode では、Skillshare はコピーした内容を追跡するために、Target フォルダーに `.skillshare-manifest.json` も書き込みます。Skill と一緒にコミットするか、`.gitignore` に追加してください。
 - **パス重複の警告**: project のフォルダーが、別の Target がすでに使っているものと同じ場合、`sync` はパス重複の警告を表示します。どの Target が共有しているかは `skillshare doctor` で確認できます。
 - **複数の project で同じサーバーを使う**: project ごとにコピーを置く代わりに、上記のとおり `global: false` と `use` を使います。[選んだ project とサーバーを共有する](/docs/reference/commands/mcp#share-a-server-with-chosen-projects)を参照してください。既存のコピーは変換されないため、手動で移してください。
+- **1 つの project だけ設定を変える**: コピーを置く代わりに、その root の `overrides` に共有サーバーを書きます（Pi の `exposure: direct` など）。接続設定は共有のままです。[1 つの project だけで共有サーバーを変える](/docs/reference/commands/mcp#override-a-shared-server)を参照してください。
 - **共有される project**: project をクローンしたチームメイトには、あなたの global config は渡りません。セットアップをリポジトリと一緒に持ち運ぶ必要がある場合は、[project mode](/docs/how-to/recipes/skill-per-project-workflow) を使ってください。
 
 ## 関連項目

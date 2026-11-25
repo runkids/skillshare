@@ -209,6 +209,20 @@ func TestMCPSharedServerCannotNameAnAccount(t *testing.T) {
 	}
 }
 
+func TestMCPEditorChecksOverrideTargets(t *testing.T) {
+	p1 := strconv.Quote(absPath("/work/p1"))
+	for _, target := range []string{"codx", "claude-work"} {
+		var cfg Config
+		input := "mcp:\n  servers:\n    docs: {command: x, global: false}\n  projects:\n    " + p1 + ":\n      use: [docs]\n      overrides:\n        docs: {targets: [" + target + "]}\n"
+		if err := yaml.Unmarshal([]byte(input), &cfg); err != nil {
+			t.Fatal(err)
+		}
+		if err := ValidateMCP(cfg.MCP, MCPValidation{Accounts: []string{"claude-work"}}); err == nil || !strings.Contains(err.Error(), target) {
+			t.Fatalf("%s: want a refusal naming it, got %v", target, err)
+		}
+	}
+}
+
 func TestMCPEditorChecksSharedServersWhereverTheyAre(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "mcp.yaml"), []byte("servers:\n  docs: {command: x}\n"), 0600); err != nil {

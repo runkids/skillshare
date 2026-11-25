@@ -119,6 +119,7 @@ mcp:
 - **Commit 或忽略**：在 `copy` mode 下，Skillshare 也會在 target 資料夾中寫入 `.skillshare-manifest.json`，用來追蹤它複製了哪些內容。可以把它和 skills 一起 commit，或加入 `.gitignore`。
 - **路徑重疊警告**：若 project 資料夾是另一個 target 已在使用的資料夾，`sync` 會印出路徑重疊警告。執行 `skillshare doctor` 可查看哪些 targets 共用該路徑。
 - **多個 projects 使用同一個 server**：如上所示使用 `global: false` 與 `use`，而不是每個 project 各放一份副本。請參閱[與指定的 projects 共用 server](/docs/reference/commands/mcp#share-a-server-with-chosen-projects)。既有的副本不會被轉換；請手動搬移。
+- **某個 project 需要不同設定**：在該 root 的 `overrides` 下寫上共用 server（例如 Pi 的 `exposure: direct`），而不是放一份副本。連線設定仍然共用。請參閱[只在一個 project 修改共用 server](/docs/reference/commands/mcp#override-a-shared-server)。
 - **共用的 projects**：clone 該 project 的隊友不會拿到你的 global config。當設定必須跟著 repo 走時，請使用 [project mode](/docs/how-to/recipes/skill-per-project-workflow)。
 
 ## 相關

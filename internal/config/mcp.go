@@ -127,6 +127,17 @@ func ValidateMCP(cfg *MCPConfig, opts MCPValidation) error {
 				return err
 			}
 		}
+		for name, override := range project.Overrides {
+			if err := known(override.Targets); err != nil {
+				return err
+			}
+			// Every account of an Agent reads the same project files.
+			for _, target := range override.Targets {
+				if slices.Contains(accounts, target) {
+					return fmt.Errorf("mcp.projects: an override of %s names the account %s; name the Agent", name, target)
+				}
+			}
+		}
 	}
 	if _, _, err := cfg.ServeEdit(); err != nil {
 		return err

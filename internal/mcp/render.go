@@ -222,7 +222,8 @@ func (s *Service) RenderNative(name string, server Server) []Rendered {
 			for _, root := range source.Users(name) {
 				scoped := *s
 				scoped.ProjectRoot = root
-				out = append(out, scoped.RenderNative(name, server)...)
+				// Each root renders the server with what it overrides.
+				out = append(out, scoped.RenderNative(name, source.Projects[root].Overrides[name].apply(server))...)
 			}
 			return out
 		}
