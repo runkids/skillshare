@@ -46,10 +46,10 @@ func mcpListItems(source *mcp.Source, plan *mcp.Plan) []list.Item {
 		server := source.Servers[name]
 		targets := server.Targets
 		switch {
-		case targets != nil:
 		case server.Shared():
-			// It follows the targets of each project that uses it.
+			// Each project that uses it may send it to targets of its own.
 			targets = source.SharedTargets(name)
+		case targets != nil:
 		default:
 			targets = source.Targets
 			// A switch goes only where an Agent has one, which is what sync will write.

@@ -17,10 +17,56 @@ vi.mock('../api/mcp', async (load) => ({
     import: vi.fn().mockResolvedValue({ candidates: [] }),
     save: vi.fn(),
     open: vi.fn().mockResolvedValue({ editor: 'code', path: '/.claude.json', pid: 1 }),
+    render: vi.fn().mockResolvedValue({ rendered: [] }),
   },
 }));
 
 describe('MCP page', () => {
+  it("shows a shared server as saved, so each project's own targets decide its files", async () => {
+    const user = userEvent.setup();
+    vi.mocked(mcpApi.list).mockResolvedValue({
+      source: {
+        path: '',
+        configPath: '',
+        targets: ['claude'],
+        servers: { docs: { url: 'https://docs.example/mcp', global: false, targets: ['cursor'] } },
+        projects: {
+          '/work/api': { use: ['docs'] },
+          '/work/billing': { use: ['docs'], overrides: { docs: { targets: ['pi'] } } },
+        },
+      },
+      projectConfigs: [],
+      paths: {},
+      detected: [],
+      local: false,
+      openable: [],
+      projectPaths: {},
+      projectExisting: {},
+      previewError: '',
+      backups: [],
+      unmanaged: [],
+      plan: null,
+    } as Awaited<ReturnType<typeof mcpApi.list>>);
+    render(
+      <MemoryRouter>
+        <QueryClientProvider client={new QueryClient()}>
+          <I18nProvider>
+            <ToastProvider>
+              <MCPPage />
+            </ToastProvider>
+          </I18nProvider>
+        </QueryClientProvider>
+      </MemoryRouter>,
+    );
+    await user.click(await screen.findByRole('button', { name: 'More actions for docs' }));
+    await user.click(await screen.findByRole('menuitem', { name: /View what each Agent gets/ }));
+    await waitFor(() =>
+      expect(mcpApi.render).toHaveBeenCalledWith(
+        expect.objectContaining({ server: expect.objectContaining({ targets: ['cursor'] }) }),
+      ),
+    );
+  });
+
   it("opens an Agent's config file by target, not by path", async () => {
     const user = userEvent.setup();
     vi.mocked(mcpApi.list).mockResolvedValue({

@@ -118,6 +118,7 @@ See [`mcp`: manage several projects](/docs/reference/commands/mcp#manage-several
 - **Commit or ignore**: in `copy` mode Skillshare also writes `.skillshare-manifest.json` into the target folder to track what it copied. Commit it with the skills, or add it to `.gitignore`.
 - **Path overlap warning**: if a project folder is one another target already uses, `sync` prints a path overlap warning. Run `skillshare doctor` to see which targets share it.
 - **Same server in several projects**: use `global: false` and `use`, as above, instead of a copy per project. See [Share a server with chosen projects](/docs/reference/commands/mcp#share-a-server-with-chosen-projects). Existing copies are not converted; move one by hand.
+- **One project needs a different setting**: list the shared server under that root's `overrides`, such as Pi's `exposure: direct`, instead of a copy. The connection stays shared. See [Change a shared server in one project](/docs/reference/commands/mcp#override-a-shared-server).
 - **Shared projects**: teammates who clone the project do not get your global config. When the setup must travel with the repo, use [project mode](/docs/how-to/recipes/skill-per-project-workflow).
 
 ## Related

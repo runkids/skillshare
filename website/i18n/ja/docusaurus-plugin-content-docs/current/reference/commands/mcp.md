@@ -490,6 +490,44 @@ global だったサーバーの `global` をオフにすると、次の sync で
 - 共有サーバーを削除する、または global に戻すと、同じ保存で、すべての `use` リストからその名前も削除されます。
 - 共有サーバーを編集しても、編集で `global` を設定しない限り `global: false` は維持されます。
 
+#### 1 つの project だけで共有サーバーを変える {#override-a-shared-server}
+
+root は、使っている共有サーバーの一部の設定を、`overrides` の下でサーバー名を key にして
+変更できます。接続設定（`command`、`args`、`url`、`headers`、`env`）は共有サーバーのものを
+そのまま使うため、定義は 1 か所だけです。
+
+```yaml
+mcp:
+  targets: [pi]
+  servers:
+    internal-docs:
+      global: false
+      url: https://docs.example.com/mcp
+      piOptions:
+        exposure: codemode
+  projects:
+    ~/work/project01:
+      use: [internal-docs]
+    ~/work/project02:
+      use: [internal-docs]
+      overrides:
+        internal-docs:
+          piOptions:
+            exposure: direct     # project02 のみ。project01 は codemode のまま
+```
+
+| フィールド | その root での扱い |
+|---|---|
+| `targets` | サーバーの targets を置き換えます。空のリストにすると、その root にはサーバーを書き込みません |
+| `tools` | サーバーのツールポリシーを置き換えます |
+| `piOptions` | サーバーの値に key ごとにマージされます |
+| `options` | サーバーの値に Agent と key ごとにマージされます |
+
+root が実際に読み込むサーバーも上のすべてのルールを満たす必要があるため、override の
+`targets` にアカウントを指定したり、Pi にない exposure を設定したりはできません。override に
+指定できるのは、その root の `use` にあるサーバーだけです。その root でサーバーをオフにする、
+サーバーを削除する、または global に戻すと、同じ保存で override も削除されます。
+
 `skillshare mcp list` は共有サーバーごとに `shared` 行を追加し、それを使う project、または
 `not used by any project` を表示します。`mcp list --json` にはトップレベルの `shared` 配列があります。
 
@@ -499,7 +537,7 @@ global だったサーバーの `global` をオフにすると、次の sync で
 
 インタラクティブな一覧には、共有サーバーを使う project の target が表示され、詳細にはそれらの project が表示されます。`mcp check` は、どの project も共有サーバーを使っていなければそう表示します。
 
-このバージョンでは、既存の project ごとのコピーを共有サーバーに変換することはなく、`use` を編集するコマンドも
+このバージョンでは、既存の project ごとのコピーを共有サーバーに変換することはなく、`use` や `overrides` を編集するコマンドも
 ありません。`config.yaml` を編集するか、[ダッシュボード](#projects-in-the-dashboard)のスイッチを使ってください。
 `mcp.projects` の中に置いた YAML アンカーで共有するサーバーも引き続き機能しますが、ダッシュボードと
 `skillshare mcp add` はそれらのコピーをリンクされたものとして扱いません。

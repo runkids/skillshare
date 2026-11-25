@@ -52,8 +52,10 @@ type Source struct {
 type Project struct {
 	Targets []string `yaml:"targets,omitempty" json:"targets,omitempty"`
 	// Use names servers of the global mcp.servers marked global: false that this root loads.
-	Use     []string          `yaml:"use,omitempty" json:"use,omitempty"`
-	Servers map[string]Server `yaml:"servers,omitempty" json:"servers,omitempty"`
+	Use []string `yaml:"use,omitempty" json:"use,omitempty"`
+	// Overrides change, for this root only, settings of shared servers it uses, by name.
+	Overrides map[string]Override `yaml:"overrides,omitempty" json:"overrides,omitempty"`
+	Servers   map[string]Server   `yaml:"servers,omitempty" json:"servers,omitempty"`
 }
 
 func mapping(node *yaml.Node) *yaml.Node {
@@ -444,6 +446,11 @@ func (s *Source) checkTargets() error {
 				return err
 			}
 		}
+		for _, override := range project.Overrides {
+			if err := check(override.Targets, false); err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }
@@ -493,6 +500,15 @@ func CheckUse(servers map[string]Server, projects map[string]Project) error {
 			}
 			seen[name] = true
 		}
+		for _, name := range sortedKeys(project.Overrides) {
+			if !seen[name] {
+				return fmt.Errorf("mcp.projects: %s overrides %s, which it does not use", root, name)
+			}
+			// The server as this root loads it meets every rule the shared one does.
+			if err := project.Overrides[name].apply(servers[name]).Validate(name); err != nil {
+				return fmt.Errorf("mcp.projects: %s overrides %s: %w", root, name, err)
+			}
+		}
 	}
 	return nil
 }
@@ -534,7 +550,7 @@ func (s *Source) projectScopes() []projectScope {
 		}
 		for _, name := range project.Use {
 			if server, ok := s.Servers[name]; ok {
-				servers[name] = server
+				servers[name] = project.Overrides[name].apply(server)
 			}
 		}
 		out = append(out, projectScope{root, servers, project.defaults(s)})
@@ -553,12 +569,17 @@ func (s *Source) Users(name string) []string {
 	return roots
 }
 
-// SharedTargets is where a shared server that names no targets goes: the targets of each
-// project that uses it.
+// SharedTargets is where a shared server goes: in each project that uses it, the targets
+// that project's override names, else the server's own, else the project's.
 func (s *Source) SharedTargets(name string) TargetList {
 	targets := TargetList{}
-	for _, root := range s.Users(name) {
-		for _, target := range s.Projects[root].defaults(s) {
+	users := s.Users(name)
+	if len(users) == 0 {
+		// Used by no project yet, it shows the targets it names, if any.
+		return append(targets, s.Servers[name].Targets...)
+	}
+	for _, root := range users {
+		for _, target := range s.inRoot(root, name, s.Servers[name]).Targets {
 			if !slices.Contains(targets, target) {
 				targets = append(targets, target)
 			}
@@ -664,7 +685,7 @@ func ParseProjects(node *yaml.Node) (map[string]Project, error) {
 			}
 			reason = strings.Join(typeErr.Errors, "; ")
 		}
-		return nil, fmt.Errorf("mcp.projects: %s; each project root takes only targets, use and servers", reason)
+		return nil, fmt.Errorf("mcp.projects: %s; each project root takes only targets, use, overrides and servers, and an override only targets, tools, piOptions and options", reason)
 	}
 	projects := map[string]Project{}
 	for root, project := range declared {

@@ -222,7 +222,8 @@ func (s *Service) RenderNative(name string, server Server) []Rendered {
 			for _, root := range source.Users(name) {
 				scoped := *s
 				scoped.ProjectRoot = root
-				out = append(out, scoped.RenderNative(name, server)...)
+				// Each root renders the server as it loads it there, with its own targets.
+				out = append(out, scoped.RenderNative(name, source.inRoot(root, name, server))...)
 			}
 			return out
 		}

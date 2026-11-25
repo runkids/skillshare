@@ -614,6 +614,19 @@ describe('sharedTargets', () => {
   it('goes nowhere while no project uses it', () => {
     expect(sharedTargets({ ...source, projects: {} }, 'docs')).toEqual([]);
   });
+
+  it('shows the targets it names while no project uses it', () => {
+    const servers = { docs: { ...source.servers.docs, targets: ['cursor'] } };
+    expect(sharedTargets({ ...source, servers, projects: {} }, 'docs')).toEqual(['cursor']);
+  });
+
+  it("follows a project's override of its targets, as sync does", () => {
+    const projects = {
+      ...source.projects,
+      '~/work/web': { use: ['docs'], overrides: { docs: { targets: ['pi'] } } },
+    };
+    expect(sharedTargets({ ...source, projects }, 'docs')).toEqual(['cursor', 'claude', 'pi']);
+  });
 });
 
 describe('usingChanges', () => {

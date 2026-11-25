@@ -119,6 +119,7 @@ mcp:
 - **提交或忽略**：在 `copy` 模式下，Skillshare 还会在 Target 文件夹中写入 `.skillshare-manifest.json`，用于跟踪它复制了哪些内容。可以将它与 Skill 一起提交，或将它加入 `.gitignore`。
 - **路径重叠警告**：如果某个项目文件夹与另一个 Target 已在使用的文件夹相同，`sync` 会打印路径重叠警告。运行 `skillshare doctor` 查看哪些 Target 共用了该路径。
 - **多个项目使用同一个 server**：如上所述使用 `global: false` 和 `use`，而不是每个项目一份副本。参见[与选定的项目共享 server](/docs/reference/commands/mcp#share-a-server-with-chosen-projects)。已有的副本不会被转换；请手动迁移。
+- **某个项目需要不同设置**：在该根目录的 `overrides` 下写上共享 server（例如 Pi 的 `exposure: direct`），而不是放一份副本。连接设置仍然共享。参见[只在一个项目中修改共享 server](/docs/reference/commands/mcp#override-a-shared-server)。
 - **共享的项目**：clone 该项目的队友不会得到你的 global 配置。当设置必须随仓库一起传递时，请使用 [project mode](/docs/how-to/recipes/skill-per-project-workflow)。
 
 ## Related

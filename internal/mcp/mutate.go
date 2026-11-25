@@ -26,10 +26,13 @@ type Mutation struct {
 	Settings *Settings `json:"settings,omitempty"`
 	// Using, with Project and Name, turns that shared server on or off for the root. It
 	// changes one name, so two edits made from pages loaded at the same time both stay.
-	Using  *bool   `json:"using,omitempty"`
-	Name   string  `json:"name,omitempty"`
-	Server *Server `json:"server,omitempty"`
-	Remove bool    `json:"remove,omitempty"`
+	Using *bool `json:"using,omitempty"`
+	// Override, with Project and Name, replaces what that root changes in a shared server it
+	// uses; an empty one removes it. It may come with Using, so a root turned on gets it too.
+	Override *Override `json:"override,omitempty"`
+	Name     string    `json:"name,omitempty"`
+	Server   *Server   `json:"server,omitempty"`
+	Remove   bool      `json:"remove,omitempty"`
 	// Unmanage, with Remove and a Name, also forgets which Agent entries the server wrote.
 	// No Agent file changes, and sync then leaves those entries alone as the user's own.
 	Unmanage    bool         `json:"unmanage,omitempty"`
@@ -98,10 +101,18 @@ func (s *Source) draftProject(m Mutation) error {
 		project.Use = slices.DeleteFunc(slices.Clone(project.Use), func(name string) bool { return name == m.Name })
 		if *m.Using {
 			project.Use = append(project.Use, m.Name)
+		} else {
+			project.Overrides = setOverride(project.Overrides, m.Name, Override{})
 		}
 		if len(project.Use) == 0 {
 			project.Use = nil
 		}
+	}
+	if m.Override != nil {
+		if !slices.Contains(project.Use, m.Name) {
+			return fmt.Errorf("project %s does not use %s, so there is nothing to override", m.Project, m.Name)
+		}
+		project.Overrides = setOverride(project.Overrides, m.Name, *m.Override)
 	}
 	if m.Settings != nil {
 		if exists && m.Name == "" && !m.Replace {
@@ -139,6 +150,9 @@ func (s *Service) draftMutations(mutations []Mutation) (*Source, error) {
 		}
 		if m.Using != nil && (m.Project == "" || m.Name == "" || m.Server != nil || m.Remove) {
 			return nil, fmt.Errorf("using turns one shared server on or off for a project; give only the project and the name")
+		}
+		if m.Override != nil && (m.Project == "" || m.Name == "" || m.Server != nil || m.Remove) {
+			return nil, fmt.Errorf("override changes one shared server for a project; give the project and the name")
 		}
 		if m.Project != "" {
 			if s.ProjectRoot != "" {
@@ -205,6 +219,7 @@ func (s *Source) dropUse(name string) {
 		if len(project.Use) == 0 {
 			project.Use = nil
 		}
+		project.Overrides = setOverride(project.Overrides, name, Override{})
 		s.Projects[root] = project
 		s.touched[root] = true
 	}
@@ -468,7 +483,7 @@ func (s *Service) MutateBatch(mutations []Mutation, revision string, sync bool) 
 	}
 	changed := false
 	for _, m := range mutations {
-		changed = changed || m.Server != nil || m.Remove || m.Settings != nil || m.Using != nil
+		changed = changed || m.Server != nil || m.Remove || m.Settings != nil || m.Using != nil || m.Override != nil
 	}
 	if changed {
 		if err := source.save(s.configProjectRoot()); err != nil {

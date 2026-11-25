@@ -34,7 +34,16 @@ export interface MCPSettings {
 export interface MCPProject extends MCPSettings {
   /** Shared servers (`global: false` in mcp.servers) this root loads. */
   use?: string[];
+  /** What this root changes in a shared server it uses, keyed by the server's name. */
+  overrides?: Record<string, MCPOverride>;
   servers?: Record<string, MCPServer>;
+}
+/** A root's change to a shared server. targets and tools replace the server's; piOptions and options are merged into it key by key. */
+export interface MCPOverride {
+  targets?: string[];
+  tools?: MCPToolPolicy;
+  piOptions?: Record<string, unknown>;
+  options?: Record<string, Record<string, unknown>>;
 }
 /** Which of a server's tools reach the model, written once and translated per Agent. Names may use `*`. */
 export interface MCPToolPolicy {

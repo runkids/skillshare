@@ -596,6 +596,42 @@ mcp:
 - 移除共享 server，或把它改回 global，会在同一次保存中从每个 `use` 列表里移除它的名称。
 - 编辑共享 server 时会保留它的 `global: false`，除非该次编辑设置了 `global`。
 
+#### 只在一个项目中修改共享 server {#override-a-shared-server}
+
+根目录可以在 `overrides` 下、以 server 名称为 key，修改它所使用的共享 server 的部分设置。
+连接设置（`command`、`args`、`url`、`headers`、`env`）沿用共享 server 的，只需定义一次：
+
+```yaml
+mcp:
+  targets: [pi]
+  servers:
+    internal-docs:
+      global: false
+      url: https://docs.example.com/mcp
+      piOptions:
+        exposure: codemode
+  projects:
+    ~/work/project01:
+      use: [internal-docs]
+    ~/work/project02:
+      use: [internal-docs]
+      overrides:
+        internal-docs:
+          piOptions:
+            exposure: direct     # 仅 project02；project01 保持 codemode
+```
+
+| 字段 | 在该根目录中 |
+|---|---|
+| `targets` | 取代 server 的 targets；空列表表示该 root 不写入这个 server |
+| `tools` | 取代 server 的工具策略 |
+| `piOptions` | 按 key 合并进 server 的值 |
+| `options` | 按 Agent 和 key 合并进 server 的值 |
+
+根目录实际加载的 server 也必须符合上面的所有规则，因此 override 的 `targets` 不能指定账号，
+也不能设置 Pi 没有的 exposure。override 只能指定该根目录 `use` 中的 server。在该根目录关闭
+这个 server、移除它，或把它改回 global，都会在同一次保存中移除 override。
+
 `skillshare mcp list` 会为每个共享 server 增加一个 `shared` 行，列出使用它的项目，
 或显示 `not used by any project`。`mcp list --json` 有一个顶层的 `shared` 数组：
 
@@ -605,7 +641,7 @@ mcp:
 
 交互式列表会显示使用共享 server 的项目的 targets，详情中会列出这些项目。没有项目使用共享 server 时，`mcp check` 会注明。
 
-此版本不会把已有的各项目副本转换成共享 server，也没有命令可以编辑 `use`。请编辑
+此版本不会把已有的各项目副本转换成共享 server，也没有命令可以编辑 `use` 或 `overrides`。请编辑
 `config.yaml`，或使用[仪表盘](#projects-in-the-dashboard)中的开关。通过 `mcp.projects`
 内部的 YAML anchor 共享的 server 仍然可用，但仪表盘和 `skillshare mcp add` 不会把这些副本视为互相关联。
 

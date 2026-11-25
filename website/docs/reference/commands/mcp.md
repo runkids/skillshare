@@ -657,6 +657,44 @@ Rules:
   `use` list in the same save.
 - Editing a shared server keeps its `global: false` unless the edit sets `global`.
 
+#### Change a shared server in one project {#override-a-shared-server}
+
+A root can change some settings of a shared server it uses, under `overrides` keyed by
+the server's name. The connection (`command`, `args`, `url`, `headers`, `env`) stays the
+shared server's, so it is defined once:
+
+```yaml
+mcp:
+  targets: [pi]
+  servers:
+    internal-docs:
+      global: false
+      url: https://docs.example.com/mcp
+      piOptions:
+        exposure: codemode
+  projects:
+    ~/work/project01:
+      use: [internal-docs]
+    ~/work/project02:
+      use: [internal-docs]
+      overrides:
+        internal-docs:
+          piOptions:
+            exposure: direct     # project02 only; project01 keeps codemode
+```
+
+| Field | In that root |
+|---|---|
+| `targets` | Replaces the server's targets; an empty list keeps the server out of that root |
+| `tools` | Replaces the server's tool policy |
+| `piOptions` | Merged into the server's, key by key |
+| `options` | Merged into the server's, per Agent and key |
+
+The server as the root loads it must meet every rule above, so an override cannot name an
+account in `targets` or set an exposure Pi does not have. An override names a server the
+root lists under `use`. Turning the server off for that root, removing it, or setting it
+back to global removes the override in the same save.
+
 `skillshare mcp list` adds a `shared` row per shared server, with the projects that use
 it or `not used by any project`. `mcp list --json` has a top-level `shared` array:
 
@@ -668,7 +706,7 @@ The interactive list shows the targets of the projects that use a shared server,
 details name those projects. `mcp check` says when no project uses a shared server.
 
 This version does not convert existing per-project copies into a shared server, and no
-command edits `use`. Edit `config.yaml`, or use the switches in the
+command edits `use` or `overrides`. Edit `config.yaml`, or use the switches in the
 [dashboard](#projects-in-the-dashboard). A server shared through a YAML anchor kept
 inside `mcp.projects` still works, but the dashboard and `skillshare mcp add` do not
 treat the copies as linked.
