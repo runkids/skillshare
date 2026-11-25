@@ -42,6 +42,9 @@ type Server struct {
 	// pluginStop asks the running plugin batch update to start no further plugins.
 	pluginStop atomic.Bool
 
+	// discoveries keeps the clone a skill listing made for the install that follows.
+	discoveries discoveryCache
+
 	// Project mode fields (empty/nil for global mode)
 	projectRoot string
 	projectCfg  *config.ProjectConfig
@@ -435,6 +438,7 @@ func (s *Server) StartWithContext(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	defer s.discoveries.close()
 
 	if s.basePath != "" {
 		fmt.Printf("Skillshare UI running at http://%s%s/\n", s.addr, s.basePath)
