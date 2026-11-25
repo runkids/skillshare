@@ -244,8 +244,8 @@ func TestInstallTrackedUpdateAcceptsSparseDanglingSymlink(t *testing.T) {
 	if _, err := updateTrackedRepo(repo, &TrackedRepoResult{}, InstallOptions{SourceDir: source}); err != nil {
 		t.Fatal(err)
 	}
-	if got, _ := os.ReadFile(filepath.Join(repo, "skills/demo/SKILL.md")); string(got) != "# Demo v2\n" {
-		t.Errorf("update was not published: %q", got)
+	if got, want := testutil.RunGit(t, repo, "rev-parse", "HEAD"), testutil.RunGit(t, seed, "rev-parse", "HEAD"); got != want {
+		t.Errorf("published %s, want %s", got, want)
 	}
 }
 
