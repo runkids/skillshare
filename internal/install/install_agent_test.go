@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"skillshare/internal/audit"
@@ -175,6 +176,83 @@ func TestDiscoveredAgent_BlockedAuditPreservesInstalledContent(t *testing.T) {
 				t.Fatalf("metadata changed on audit block: %q, %v", data, err)
 			}
 		})
+	}
+}
+
+// Regression for #1013: a source naming one agent file discovers only that
+// agent and records a source from which update discovers it again.
+func TestDiscoverFromGitSubdir_AgentFile(t *testing.T) {
+	writeRepo := func(files ...string) string {
+		repo := initTestRepo(t)
+		for _, p := range files {
+			path := filepath.Join(repo, filepath.FromSlash(p))
+			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(path, []byte("# "+p+"\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+		gitAdd(t, repo, ".")
+		gitCommit(t, repo, "add files")
+		return repo
+	}
+	discover := func(source *Source) *DiscoveryResult {
+		t.Helper()
+		discover := DiscoverFromGit
+		if source.HasSubdir() {
+			discover = DiscoverFromGitSubdir
+		}
+		discovery, err := discover(source)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { CleanupDiscovery(discovery) })
+		return discovery
+	}
+	mixed := writeRepo("agents/demo.md", "agents/group/deep.md", "agents/README.md", "solo.md", "skills/s/SKILL.md")
+	pure := writeRepo("solo.md")
+
+	for _, tt := range []struct{ repo, file, name string }{
+		{mixed, "agents/demo.md", "demo"},
+		{mixed, "agents/group/deep.md", "deep"},
+		{pure, "solo.md", "solo"},
+	} {
+		t.Run(tt.file, func(t *testing.T) {
+			raw := fileURL(tt.repo) + "//" + tt.file
+			source, err := ParseSource(raw)
+			if err != nil {
+				t.Fatal(err)
+			}
+			discovery := discover(source)
+			if len(discovery.Skills) != 0 || len(discovery.Agents) != 1 || discovery.Agents[0].Name != tt.name {
+				t.Fatalf("discovered skills %+v agents %+v, want only agent %q", discovery.Skills, discovery.Agents, tt.name)
+			}
+			meta := NewMetaFromSource(buildDiscoveredAgentSource(discovery, discovery.Agents[0]))
+			if meta.Source != raw {
+				t.Fatalf("recorded source %q, want %q", meta.Source, raw)
+			}
+			repoSource, err := AgentRepoSource(&MetadataEntry{Source: meta.Source, Subdir: meta.Subdir}, ParseOptions{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			again := discover(repoSource)
+			if !slices.ContainsFunc(again.Agents, func(a AgentInfo) bool { return a.Name == tt.name && a.Path == meta.Subdir }) {
+				t.Fatalf("update discovery of %q found %+v, want %q at %q", repoSource.Raw, again.Agents, tt.name, meta.Subdir)
+			}
+		})
+	}
+
+	// Files that `<dir> -a <name>` would not find either.
+	for _, file := range []string{"agents/missing.md", "agents/README.md", "solo.md"} {
+		source, err := ParseSource(fileURL(mixed) + "//" + file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if discovery, err := DiscoverFromGitSubdir(source); err == nil {
+			CleanupDiscovery(discovery)
+			t.Errorf("%s: expected an error, got agents %+v", file, discovery.Agents)
+		}
 	}
 }
 

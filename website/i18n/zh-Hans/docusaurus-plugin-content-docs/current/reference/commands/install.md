@@ -808,11 +808,16 @@ skillshare install github.com/user/repo --kind agent
 # 按名称安装特定 agent（-a 简写）
 skillshare install github.com/user/repo -a tutor,reviewer
 
+# 通过文件路径安装单个 agent
+skillshare install github.com/user/repo/agents/tutor.md
+
 # 与 project mode 结合使用
 skillshare install github.com/user/repo --kind agent -p
 ```
 
 `-a <name>` flag 是 agent 版本的 `-s <name>`（用于 Skill）。Agent 会被安装到 `~/.config/skillshare/agents/`（global）或 `.skillshare/agents/`（project）。完整概念参见 [Agents](/docs/understand/agents)。
+
+指向单个 agent 文件的路径只会安装该 agent，记录的 source 与 `-a` 相同，之后的更新会读取文件所在的目录。这种写法不能与 `--track` 一起使用。
 
 ### 在混合仓库中区分 Skill 与 Agent 的范围
 

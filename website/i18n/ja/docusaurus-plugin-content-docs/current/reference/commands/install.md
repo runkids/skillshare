@@ -808,11 +808,16 @@ skillshare install github.com/user/repo --kind agent
 # 名前で特定の agent をインストール（-a は短縮形）
 skillshare install github.com/user/repo -a tutor,reviewer
 
+# ファイルパスで 1 つの agent をインストール
+skillshare install github.com/user/repo/agents/tutor.md
+
 # プロジェクトモードと組み合わせる
 skillshare install github.com/user/repo --kind agent -p
 ```
 
 `-a <name>` フラグは、Skill の `-s <name>` に相当する agent 用のフラグです。Agent は `~/.config/skillshare/agents/`（グローバル）または `.skillshare/agents/`（プロジェクト）にインストールされます。概念の全体像は [Agents](/docs/understand/agents) を参照してください。
+
+1 つの agent ファイルを指すパスは、その agent だけをインストールし、`-a` と同じ source を記録します。そのため、以降の更新はファイルのあるディレクトリを読み取ります。`--track` とは併用できません。
 
 ### 混在リポジトリでの Skill と agent のスコープ指定
 

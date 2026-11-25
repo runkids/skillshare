@@ -3,6 +3,7 @@ package install
 import (
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -45,7 +46,7 @@ func discoverFromGitWithProgressImpl(source *Source, onProgress ProgressCallback
 
 	// Discover agents (agents/ dir or pure agent repo fallback)
 	agents := discoverAgents(repoPath, len(skills) > 0)
-	skills, agents, err = constrainDiscoveryToExplicitSkill(source, skills, agents)
+	skills, agents, err = constrainDiscoveryToTarget(source, skills, agents)
 	if err != nil {
 		cleanupTempRepo(tempDir)
 		return nil, err
@@ -88,7 +89,7 @@ func discoverLocalImpl(source *Source) (*DiscoveryResult, error) {
 	applySkillInstallNames(skills, source.Path, source.Name)
 
 	agents := discoverAgents(source.Path, len(skills) > 0)
-	skills, agents, err = constrainDiscoveryToExplicitSkill(source, skills, agents)
+	skills, agents, err = constrainDiscoveryToTarget(source, skills, agents)
 	if err != nil {
 		return nil, err
 	}
@@ -141,7 +142,18 @@ func resolveSubdir(repoPath, subdir string) (string, error) {
 	}
 }
 
-func constrainDiscoveryToExplicitSkill(source *Source, skills []SkillInfo, agents []AgentInfo) ([]SkillInfo, []AgentInfo, error) {
+// constrainDiscoveryToTarget narrows discovery to the SKILL.md or agent file
+// the source names, if it names one. The agent must be one discovery found, so
+// an update that rediscovers the file's directory finds it again.
+func constrainDiscoveryToTarget(source *Source, skills []SkillInfo, agents []AgentInfo) ([]SkillInfo, []AgentInfo, error) {
+	if source != nil && source.AgentFile != "" {
+		for _, agent := range agents {
+			if agent.Path == source.AgentFile {
+				return nil, []AgentInfo{agent}, nil
+			}
+		}
+		return nil, nil, fmt.Errorf("'%s' is not an agent file in the repository", path.Join(source.Subdir, source.AgentFile))
+	}
 	if source == nil || !source.TargetsExplicitSkill() {
 		return skills, agents, nil
 	}
@@ -384,6 +396,22 @@ func scanAgentDir(repoRoot, dir string) []AgentInfo {
 	return agents
 }
 
+// scopeToAgentFile points a source whose path ends in a .md file other than
+// SKILL.md (repo/agents/demo.md) at the file's directory and remembers the
+// file. Every discovery path then reads a directory, and the agent is recorded
+// as `install repo/agents -a demo` records it (#1013).
+func scopeToAgentFile(source *Source) {
+	file := path.Base(source.Subdir)
+	if !strings.HasSuffix(strings.ToLower(file), ".md") || strings.EqualFold(file, "SKILL.md") {
+		return
+	}
+	source.AgentFile = file
+	source.Subdir = path.Dir(source.Subdir)
+	if source.Subdir == "." {
+		source.Subdir = ""
+	}
+}
+
 var conventionalAgentExcludes = map[string]bool{
 	"README.md":    true,
 	"CHANGELOG.md": true,
@@ -407,8 +435,9 @@ func discoverFromGitSubdirWithProgressImpl(source *Source, onProgress ProgressCa
 	if err := resolveWebRef(source); err != nil {
 		return nil, err
 	}
+	scopeToAgentFile(source)
 	if !source.HasSubdir() {
-		// The whole path was the ref, e.g. tree/feature/x.
+		// The whole path was the ref, e.g. tree/feature/x, or named a root agent file.
 		return discoverFromGitWithProgressImpl(source, onProgress)
 	}
 
@@ -441,7 +470,7 @@ func discoverFromGitSubdirWithProgressImpl(source *Source, onProgress ProgressCa
 				}
 				skills := discoverSkills(subdirPath, true)
 				agents := discoverAgents(subdirPath, len(skills) > 0)
-				skills, agents, err = constrainDiscoveryToExplicitSkill(source, skills, agents)
+				skills, agents, err = constrainDiscoveryToTarget(source, skills, agents)
 				if err != nil {
 					cleanupTempRepo(tempDir)
 					return nil, err
@@ -475,7 +504,7 @@ func discoverFromGitSubdirWithProgressImpl(source *Source, onProgress ProgressCa
 			commitHash = hash
 			skills := discoverSkills(subdirPath, true)
 			agents := discoverAgents(subdirPath, len(skills) > 0)
-			skills, agents, err = constrainDiscoveryToExplicitSkill(source, skills, agents)
+			skills, agents, err = constrainDiscoveryToTarget(source, skills, agents)
 			if err != nil {
 				cleanupTempRepo(tempDir)
 				return nil, err
@@ -502,7 +531,7 @@ func discoverFromGitSubdirWithProgressImpl(source *Source, onProgress ProgressCa
 			commitHash = hash
 			skills := discoverSkills(subdirPath, true)
 			agents := discoverAgents(subdirPath, len(skills) > 0)
-			skills, agents, err = constrainDiscoveryToExplicitSkill(source, skills, agents)
+			skills, agents, err = constrainDiscoveryToTarget(source, skills, agents)
 			if err != nil {
 				_ = os.RemoveAll(tempDir)
 				return nil, err
@@ -530,7 +559,7 @@ func discoverFromGitSubdirWithProgressImpl(source *Source, onProgress ProgressCa
 			commitHash = hash
 			skills := discoverSkills(subdirPath, true)
 			agents := discoverAgents(subdirPath, len(skills) > 0)
-			skills, agents, err = constrainDiscoveryToExplicitSkill(source, skills, agents)
+			skills, agents, err = constrainDiscoveryToTarget(source, skills, agents)
 			if err != nil {
 				_ = os.RemoveAll(tempDir)
 				return nil, err
@@ -579,7 +608,7 @@ func discoverFromGitSubdirWithProgressImpl(source *Source, onProgress ProgressCa
 
 	skills := discoverSkills(subdirPath, true)
 	agents := discoverAgents(subdirPath, len(skills) > 0)
-	skills, agents, err = constrainDiscoveryToExplicitSkill(source, skills, agents)
+	skills, agents, err = constrainDiscoveryToTarget(source, skills, agents)
 	if err != nil {
 		cleanupTempRepo(tempDir)
 		return nil, err

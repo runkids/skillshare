@@ -160,10 +160,19 @@ func resolveDiscoveredAgentSourcePath(discovery *DiscoveryResult, agent AgentInf
 	return filepath.Join(sourceRoot, agent.Path)
 }
 
+// discoveredAgentSource is the source recorded for agent. A source that named
+// the agent file already ends in it.
+func discoveredAgentSource(source *Source, agent AgentInfo) string {
+	if source.AgentFile != "" {
+		return source.Raw
+	}
+	return buildDiscoverySkillSource(source, agent.Path)
+}
+
 func buildDiscoveredAgentSource(discovery *DiscoveryResult, agent AgentInfo) *Source {
 	return &Source{
 		Type:     discovery.Source.Type,
-		Raw:      buildDiscoverySkillSource(discovery.Source, agent.Path),
+		Raw:      discoveredAgentSource(discovery.Source, agent),
 		CloneURL: discovery.Source.CloneURL,
 		Subdir:   agent.Path,
 		Name:     agent.Name,
@@ -224,7 +233,7 @@ func writeDiscoveredAgentMetadata(discovery *DiscoveryResult, agent AgentInfo, d
 func installAgentFromDiscoveryInternal(discovery *DiscoveryResult, agent AgentInfo, destFile string, opts InstallOptions, update bool) (*InstallResult, error) {
 	result := &InstallResult{
 		SkillName: agent.Name,
-		Source:    buildDiscoverySkillSource(discovery.Source, agent.Path),
+		Source:    discoveredAgentSource(discovery.Source, agent),
 		SkillPath: destFile,
 	}
 

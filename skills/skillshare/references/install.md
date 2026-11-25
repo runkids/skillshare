@@ -46,6 +46,7 @@ git.company.com/team/skills   # Self-hosted
 # Full URLs
 github.com/user/repo          # Discovers skills in repo
 github.com/user/repo/path     # Direct subdirectory
+github.com/user/repo/agents/tutor.md  # One agent file (same record as `agents -a tutor`; not with --track)
 github.com/user/repo/tree/v1.2.0/path  # Pinned to a tag, commit or branch (GitLab -/tree/<ref>/, Bitbucket src/<ref>/)
 https://github.com/...        # HTTPS URL
 git@github.com:...            # SSH URL

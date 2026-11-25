@@ -808,11 +808,16 @@ skillshare install github.com/user/repo --kind agent
 # 이름으로 특정 agent 설치 (-a shorthand)
 skillshare install github.com/user/repo -a tutor,reviewer
 
+# 파일 경로로 agent 하나 설치
+skillshare install github.com/user/repo/agents/tutor.md
+
 # project 모드와 조합
 skillshare install github.com/user/repo --kind agent -p
 ```
 
 `-a <name>` 플래그는 skill의 `-s <name>`에 해당하는 agent용 플래그입니다. Agent는 `~/.config/skillshare/agents/`(global) 또는 `.skillshare/agents/`(project)에 설치됩니다. 전체 개념은 [Agents](/docs/understand/agents)를 참고하세요.
+
+agent 파일 하나를 가리키는 경로는 그 agent만 설치하고 `-a`와 같은 source를 기록하므로, 이후 업데이트는 파일이 있는 디렉터리를 읽습니다. `--track`과 함께 쓸 수 없습니다.
 
 ### 혼합 Repo에서 Skill과 Agent 범위 지정
 

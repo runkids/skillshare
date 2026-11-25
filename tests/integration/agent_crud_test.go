@@ -178,6 +178,34 @@ func TestUpdate_Agents_RepeatedUpdatesKeepSource(t *testing.T) {
 	}
 }
 
+// Regression for #1013: a source naming one agent file installs only that
+// agent, and update reads the next version back from its recorded source.
+func TestInstall_AgentFileSource_InstallsAndUpdates(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	repoDir := filepath.Join(sb.Home, "agent-file-repo")
+	agentFile := filepath.Join(repoDir, "agents", "demo.md")
+	sb.WriteFile(agentFile, "# Demo v1\n")
+	sb.WriteFile(filepath.Join(repoDir, "agents", "other.md"), "# Other\n")
+	initGitRepo(t, repoDir)
+
+	sb.RunCLI("install", "file://"+repoDir+"//agents/demo.md", "--kind", "agent", "--skip-audit").AssertSuccess(t)
+
+	agentsDir := filepath.Join(filepath.Dir(sb.SourcePath), "agents")
+	if sb.FileExists(filepath.Join(agentsDir, "other.md")) {
+		t.Error("only the named agent file should be installed")
+	}
+
+	sb.WriteFile(agentFile, "# Demo v2\n")
+	run(t, repoDir, "git", "commit", "-am", "demo v2")
+	sb.RunCLI("update", "agents", "demo", "--skip-audit").AssertSuccess(t)
+	if got := sb.ReadFile(filepath.Join(agentsDir, "demo.md")); got != "# Demo v2\n" {
+		t.Errorf("update did not arrive, got %q", got)
+	}
+}
+
 // An agent the #777 bug broke, next to one with an update: the update still
 // lands, the broken agent is listed with a reinstall hint, and the command
 // fails, in each mode and output format.

@@ -349,6 +349,7 @@ func TestAgentRepoSource_RoundTripsAgentSource(t *testing.T) {
 		{"ssh repo subdir", "git@github.com:you/repo.git//pack/agents/demo.md", "agents/demo.md", "pack"},
 		{"file whole repo", "file:///tmp/repo//agents/demo.md", "agents/demo.md", ""},
 		{"file repo subdir", "file:///tmp/repo//pack/agents/demo.md", "agents/demo.md", "pack"},
+		{"github blob agent file", "https://github.com/you/repo/blob/main/agents/demo.md", "demo.md", "agents"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -375,6 +376,16 @@ func TestAgentRepoSource_BrokenSources(t *testing.T) {
 	}
 	if got := buildDiscoverySkillSource(source, doubled.Subdir); got != "github.com/you/repo/agents/demo.md" {
 		t.Errorf("doubled path rebuilt as %q", got)
+	}
+
+	// Installing from an agent file before #1013 appended its name again.
+	doubledFile := &MetadataEntry{Source: "github.com/you/repo/agents/demo.md/demo.md", Subdir: "demo.md", RepoURL: "https://github.com/you/repo.git", Type: "github-subdir"}
+	source, err = AgentRepoSource(doubledFile, ParseOptions{})
+	if err != nil || source.Subdir != "agents" {
+		t.Fatalf("doubled agent file: subdir %v, %v", source, err)
+	}
+	if got := buildDiscoverySkillSource(source, doubledFile.Subdir); got != "github.com/you/repo/agents/demo.md" {
+		t.Errorf("doubled agent file rebuilt as %q", got)
 	}
 
 	lost := &MetadataEntry{Source: "/agents/demo.md", Subdir: "agents/demo.md", Type: "unknown-subdir"}

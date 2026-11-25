@@ -816,11 +816,16 @@ skillshare install github.com/user/repo --kind agent
 # Install specific agents by name (-a shorthand)
 skillshare install github.com/user/repo -a tutor,reviewer
 
+# Install one agent by its file path
+skillshare install github.com/user/repo/agents/tutor.md
+
 # Combine with project mode
 skillshare install github.com/user/repo --kind agent -p
 ```
 
 The `-a <name>` flag is the agent equivalent of `-s <name>` for skills. Agents are installed into `~/.config/skillshare/agents/` (global) or `.skillshare/agents/` (project). See [Agents](/docs/understand/agents) for the full concepts.
+
+A path to one agent file installs only that agent and records the same source as `-a`, so later updates read the file's directory. It cannot be combined with `--track`.
 
 ### Scoping skills vs agents in a mixed repo
 
