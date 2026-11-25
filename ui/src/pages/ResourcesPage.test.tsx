@@ -350,6 +350,50 @@ describe('Uninstall a package', () => {
   });
 });
 
+describe('Select a group', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.clearAllMocks();
+    vi.mocked(api.listSkills).mockResolvedValue({
+      resources: [at('local/one'), at('local/two'), at('gamma', { type: 'github' })],
+    } as Awaited<ReturnType<typeof api.listSkills>>);
+    vi.mocked(api.diff).mockResolvedValue({ diffs: [] } as unknown as Awaited<
+      ReturnType<typeof api.diff>
+    >);
+    vi.mocked(api.listTargets).mockResolvedValue({ targets: [], sourceSkillCount: 0 });
+    vi.mocked(api.getSyncMatrix).mockResolvedValue({ entries: [] } as unknown as Awaited<
+      ReturnType<typeof api.getSyncMatrix>
+    >);
+    vi.mocked(api.batchUninstall).mockResolvedValue({
+      results: [],
+      summary: { succeeded: 1, failed: 0 },
+    });
+  });
+
+  /** Uninstalls the selection and returns the names it sent. */
+  async function uninstallSelected() {
+    fireEvent.click(screen.getByRole('button', { name: 'Uninstall' }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Uninstall' }));
+    await waitFor(() => expect(api.batchUninstall).toHaveBeenCalled());
+    return vi.mocked(api.batchUninstall).mock.calls[0][0].names;
+  }
+
+  it('selects only the skills of the group whose box is ticked', async () => {
+    mount();
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'Select all in Local' }));
+    expect(await uninstallSelected()).toEqual(['local__one', 'local__two']);
+  });
+
+  it('keeps the rest of the selection when a group box is unticked', async () => {
+    mount();
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'gamma' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select all in Local' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select all in Local' }));
+    expect(await uninstallSelected()).toEqual(['gamma']);
+  });
+});
+
 /** Link folder sits in the menu beside Install. */
 async function openLinkFolder() {
   fireEvent.click(await screen.findByRole('button', { name: 'More ways to add' }));

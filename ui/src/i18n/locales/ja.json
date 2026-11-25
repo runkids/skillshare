@@ -1025,6 +1025,7 @@
   "skillEditor.underBudget.one": "{tokens} トークン · 予算 {budget} 以内",
   "skillEditor.underBudget.other": "{tokens} トークン · 予算 {budget} 以内",
   "resources.select.selectAll": "すべて選択",
+  "resources.select.group": "{name} をすべて選択",
   "resources.select.clear": "クリア",
   "resources.select.count": "{count} 件選択中",
   "resources.select.hidden": "うち {count} 件は非表示",

@@ -1025,6 +1025,7 @@
   "skillEditor.underBudget.one": "{tokens} token · di bawah anggaran {budget}",
   "skillEditor.underBudget.other": "{tokens} token · di bawah anggaran {budget}",
   "resources.select.selectAll": "Pilih semua",
+  "resources.select.group": "Pilih semua di {name}",
   "resources.select.clear": "Hapus",
   "resources.select.count": "{count} dipilih",
   "resources.select.hidden": "{count} tidak ditampilkan",
