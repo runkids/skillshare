@@ -706,8 +706,8 @@ The interactive list shows the targets of the projects that use a shared server,
 details name those projects. `mcp check` says when no project uses a shared server.
 
 This version does not convert existing per-project copies into a shared server, and no
-command edits `use` or `overrides`. Edit `config.yaml`, or use the switches in the
-[dashboard](#projects-in-the-dashboard). A server shared through a YAML anchor kept
+command edits `use` or `overrides`. Edit `config.yaml`, or use the switches and the
+**Override** dialog in the [dashboard](#projects-in-the-dashboard). A server shared through a YAML anchor kept
 inside `mcp.projects` still works, but the dashboard and `skillshare mcp add` do not
 treat the copies as linked.
 
@@ -735,6 +735,17 @@ project has an **MCP** tab.
   the `mcp.projects` roots with a tick each. **Save** adds or removes the name in the `use`
   of every root ticked or cleared, in one save. **Add folder…** adds a root that is not
   listed yet; it has no `targets` of its own, so it uses `mcp.targets`.
+- A project that uses a shared server can [override](#override-a-shared-server) some of its
+  settings. In the expanded row on the MCP page, each project that uses the server shows
+  its override, or Pi's tool exposure when it inherits one, with **Override** or **Edit
+  override**; the row header counts the overrides. On a project's **MCP** tab, an
+  overridden server is tagged **Overridden**, a line under it names what the project
+  changes, and a pencil button opens the same dialog. The dialog shows the connection as
+  read-only and offers the Agents, Pi's tool exposure and the tool policy, each of which
+  follows the MCP page until you choose a value; **Reset to default** clears one. Saving
+  replaces the root's override and keeps the settings the dialog does not show, such as
+  other `piOptions` or `options`. Tools are locked when the shared server sets Pi's
+  `toolExposure`, because Pi refuses a tool policy next to it.
 - A server that is off shows the logos of the Agents it is off in. A server that is on shows
   the Agents it loads in, and none when a project server of the same name replaces it. When one of the
   project's Agents has no per-project switch, the row says that the server still loads

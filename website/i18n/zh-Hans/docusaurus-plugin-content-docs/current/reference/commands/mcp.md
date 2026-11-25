@@ -642,7 +642,7 @@ mcp:
 交互式列表会显示使用共享 server 的项目的 targets，详情中会列出这些项目。没有项目使用共享 server 时，`mcp check` 会注明。
 
 此版本不会把已有的各项目副本转换成共享 server，也没有命令可以编辑 `use` 或 `overrides`。请编辑
-`config.yaml`，或使用[仪表盘](#projects-in-the-dashboard)中的开关。通过 `mcp.projects`
+`config.yaml`，或使用[仪表盘](#projects-in-the-dashboard)中的开关和 **Override** 对话框。通过 `mcp.projects`
 内部的 YAML anchor 共享的 server 仍然可用，但仪表盘和 `skillshare mcp add` 不会把这些副本视为互相关联。
 
 ### 仪表盘中的项目 {#projects-in-the-dashboard}
@@ -662,6 +662,7 @@ mcp:
   **Only in this project** 列出只存在于该项目中的 server。
 - 在 MCP 页面上，server 的对话框有 **Loads in**：**Every project**，或 **Only
   projects that turn it on**。只要有共享 server，列表就会分成 **Global** 和 **Only in chosen projects** 两区，共享 server 的行会显示 **N projects**。展开该行，或在对话框中选择 **Only projects that turn it on**，会为 `mcp.projects` 的每个根目录列出一个勾选框。**Save** 会一次性在所有勾选或取消勾选的根目录的 `use` 中加入或移除该名称。**Add folder…** 会加入尚未列出的根目录；它没有自己的 `targets`，所以使用 `mcp.targets`。
+- 使用共享 server 的项目可以 [override](#override-a-shared-server) 其中一部分设置。在 MCP 页面展开该行，每个使用该 server 的项目都会显示它的 override；若项目继承了 Pi 的 tool exposure，则显示该值，并带有 **Override** 或 **Edit override**；行标题会统计 override 的数量。在项目的 **MCP** 标签页上，被 override 的 server 会带 **Overridden** 标签，其下一行说明该项目改了什么，铅笔按钮会打开同一个对话框。对话框以只读方式显示连接，并提供 Agents、Pi 的 tool exposure 和 tool policy，三者在你选择值之前都跟随 MCP 页面；**Reset to default** 可清除其中一项。保存会替换该根目录的 override，并保留对话框不显示的设置，例如其他 `piOptions` 或 `options`。当共享 server 设置了 Pi 的 `toolExposure` 时，工具会被锁定，因为 Pi 不接受与它并用的 tool policy。
 - 已关闭的 server 会显示它在哪些 Agent 中被关闭的 logo。已开启的 server 会显示加载它的 Agent；
   被同名的项目 server 取代时则不显示。如果项目的某个 Agent 没有
   按项目的开关，该行会说明这个 server 在那里仍会加载。如果某个条目列出了自己的

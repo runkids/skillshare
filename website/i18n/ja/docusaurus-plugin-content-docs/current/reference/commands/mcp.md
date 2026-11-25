@@ -538,7 +538,7 @@ root が実際に読み込むサーバーも上のすべてのルールを満た
 インタラクティブな一覧には、共有サーバーを使う project の target が表示され、詳細にはそれらの project が表示されます。`mcp check` は、どの project も共有サーバーを使っていなければそう表示します。
 
 このバージョンでは、既存の project ごとのコピーを共有サーバーに変換することはなく、`use` や `overrides` を編集するコマンドも
-ありません。`config.yaml` を編集するか、[ダッシュボード](#projects-in-the-dashboard)のスイッチを使ってください。
+ありません。`config.yaml` を編集するか、[ダッシュボード](#projects-in-the-dashboard)のスイッチと **Override** ダイアログを使ってください。
 `mcp.projects` の中に置いた YAML アンカーで共有するサーバーも引き続き機能しますが、ダッシュボードと
 `skillshare mcp add` はそれらのコピーをリンクされたものとして扱いません。
 
@@ -559,6 +559,7 @@ global mode では、ダッシュボードに **プロジェクト** ページ�
   **Only in this project** には、その project にのみ存在するサーバーが並びます。
 - MCP ページでは、サーバーのダイアログに **Loads in** があり、**Every project** または
   **Only projects that turn it on** を選べます。共有サーバーがあると一覧は **Global** と **Only in chosen projects** に分かれ、共有サーバーの行には **N projects** と表示されます。その行を展開するか、ダイアログで **Only projects that turn it on** を選ぶと、`mcp.projects` のルートごとにチェックボックスが並びます。**Save** はチェックを入れた、または外したすべてのルートの `use` に名前を一度に追加・削除します。**Add folder…** はまだ一覧にないルートを追加します。そのルートには独自の `targets` がないため、`mcp.targets` が使われます。
+- 共有サーバーを使う project は、その設定の一部を [override](#override-a-shared-server) できます。MCP ページで行を展開すると、そのサーバーを使う各 project の override が表示されます。override がなく Pi の tool exposure を継承している場合は、それが表示されます。各行には **Override** または **Edit override** があり、行のヘッダーには override の数が表示されます。project の **MCP** タブでは、override したサーバーに **Overridden** タグが付き、その下の 1 行に project が変更する内容が表示され、鉛筆ボタンで同じダイアログが開きます。ダイアログでは接続を読み取り専用で表示し、Agents、Pi の tool exposure、tool policy を設定できます。どれも値を選ぶまでは MCP ページに従い、**Reset to default** で 1 つずつ元に戻せます。保存すると root の override が置き換えられますが、ダイアログに表示されない設定（ほかの `piOptions` や `options` など）は保持されます。共有サーバーが Pi の `toolExposure` を設定している場合、Pi は tool policy を併用できないため、ツールは固定されます。
 - オフになっているサーバーには、オフになっている Agent のロゴが表示されます。オンのサーバーには読み込まれる Agent が表示され、
   同じ名前の project サーバーに置き換えられている場合は何も表示されません。project の Agent の中に
   project ごとのスイッチを持たないものがある場合、その行にはサーバーがそこでは引き続き読み込まれることが

@@ -21,6 +21,8 @@ interface Props {
   hint?: string;
   /** Actions at the end of the last row. */
   children?: ReactNode;
+  /** What a project that uses the server now has, in place of "In use", such as its override. */
+  detail?: (root: string) => ReactNode;
 }
 
 /**
@@ -35,6 +37,7 @@ export default function MCPProjectPicker({
   disabled = false,
   hint,
   children,
+  detail,
 }: Props) {
   const t = useT();
   const inputId = useId();
@@ -65,7 +68,9 @@ export default function MCPProjectPicker({
   const status = (root: string) => {
     if (picked.includes(root))
       return saved.includes(root) ? (
-        <span className="shrink-0 text-xs text-ink-3">{t('mcp.projectsPick.inUse')}</span>
+        (detail?.(root) ?? (
+          <span className="shrink-0 text-xs text-ink-3">{t('mcp.projectsPick.inUse')}</span>
+        ))
       ) : (
         <span className="ss-tag warn shrink-0">{t('mcp.projectsPick.willAdd')}</span>
       );

@@ -651,8 +651,8 @@ account를 지정하거나 Pi에 없는 exposure를 설정할 수 없습니다. 
 대화형 목록은 shared 서버를 사용하는 프로젝트의 target을 표시하고, 상세 정보에 그 프로젝트들을 나열합니다. `mcp check`는 shared 서버를 사용하는 프로젝트가 없으면 그렇게 알려 줍니다.
 
 이 버전은 기존 프로젝트별 사본을 shared 서버로 변환하지 않으며, `use`나 `overrides`를 편집하는 명령도
-없습니다. `config.yaml`을 편집하거나 [대시보드](#projects-in-the-dashboard)의 스위치를
-사용하세요. `mcp.projects` 안에 둔 YAML anchor로 공유한 서버도 여전히 동작하지만,
+없습니다. `config.yaml`을 편집하거나 [대시보드](#projects-in-the-dashboard)의 스위치와
+**Override** 대화상자를 사용하세요. `mcp.projects` 안에 둔 YAML anchor로 공유한 서버도 여전히 동작하지만,
 대시보드와 `skillshare mcp add`는 그 사본들을 연결된 것으로 취급하지 않습니다.
 
 ### Projects in the dashboard {#projects-in-the-dashboard}
@@ -674,6 +674,7 @@ Global mode에서는 대시보드에 **프로젝트** 페이지가 있습니다.
   **Only in this project**는 해당 프로젝트에만 존재하는 서버를 나열합니다.
 - MCP 페이지에서 서버의 대화상자에는 **Loads in**이 있습니다: **Every project** 또는
   **Only projects that turn it on**. shared 서버가 있으면 목록이 **Global**과 **Only in chosen projects**로 나뉘고, shared 서버의 행에는 **N projects**가 표시됩니다. 그 행을 펼치거나 대화 상자에서 **Only projects that turn it on**을 고르면 `mcp.projects`의 루트마다 체크박스가 나옵니다. **Save**는 체크하거나 해제한 모든 루트의 `use`에서 이름을 한 번에 추가하거나 제거합니다. **Add folder…**는 아직 목록에 없는 루트를 추가하며, 자체 `targets`가 없으므로 `mcp.targets`를 사용합니다.
+- shared 서버를 사용하는 프로젝트는 그 설정 일부를 [override](#override-a-shared-server)할 수 있습니다. MCP 페이지에서 행을 펼치면 그 서버를 쓰는 각 프로젝트의 override가 표시되고, override 없이 Pi의 tool exposure를 상속하면 그 값이 표시됩니다. 각 행에는 **Override** 또는 **Edit override**가 있으며, 행 헤더에는 override 개수가 표시됩니다. 프로젝트의 **MCP** 탭에서는 override한 서버에 **Overridden** 태그가 붙고, 그 아래 한 줄에 프로젝트가 바꾸는 내용이 표시되며, 연필 버튼을 누르면 같은 대화상자가 열립니다. 대화상자는 연결을 읽기 전용으로 보여 주고 Agents, Pi의 tool exposure, tool policy를 설정할 수 있게 하며, 각각 값을 고르기 전까지는 MCP 페이지를 따릅니다. **Reset to default**는 하나를 되돌립니다. 저장하면 root의 override가 교체되지만, 대화상자에 표시되지 않는 설정(다른 `piOptions`나 `options` 등)은 유지됩니다. shared 서버가 Pi의 `toolExposure`를 설정하면 Pi가 tool policy와 함께 쓰는 것을 거부하므로 도구는 잠깁니다.
 - 꺼져 있는 서버는 꺼져 있는 Agent의 로고를 표시합니다. 켜져 있는 서버는 로드되는 Agent를 표시하고,
   같은 이름의 프로젝트 서버로 대체되면 아무것도 표시하지 않습니다. 프로젝트의 Agent 중 하나에
   프로젝트별 스위치가 없으면, 해당 행은 그 Agent에서는 서버가 여전히 로드된다고

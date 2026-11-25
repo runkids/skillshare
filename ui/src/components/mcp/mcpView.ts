@@ -1,5 +1,5 @@
 import { isShared, mcpOffTargets, mcpTargets } from '../../api/mcp';
-import type { MCPPlan, MCPProject, MCPServer, MCPToolPolicy } from '../../api/mcp';
+import type { MCPOverride, MCPPlan, MCPProject, MCPServer, MCPToolPolicy } from '../../api/mcp';
 import { plural } from '../../i18n';
 
 export type MCPChange = MCPPlan['changes'][number];
@@ -119,16 +119,83 @@ export function sharedTargets(
   if (users.length === 0) return [...(source.servers[name]?.targets ?? [])];
   const out: string[] = [];
   for (const root of users) {
-    const project = source.projects?.[root];
-    for (const target of project?.overrides?.[name]?.targets ??
-      source.servers[name]?.targets ??
-      project?.targets ??
-      source.targets ??
-      []) {
+    for (const target of sharedInRoot(source, name, root).targets) {
       if (!out.includes(target)) out.push(target);
     }
   }
   return out;
+}
+
+/**
+ * A shared server as one project that uses it loads it, as sync writes it there: the project's
+ * override applied, and the targets it goes to in that project. Targets and tools replace the
+ * server's; piOptions and options are merged into it key by key.
+ */
+export function sharedInRoot(
+  source: {
+    targets?: string[] | null;
+    servers: Record<string, MCPServer>;
+    projects?: Record<string, MCPProject>;
+  },
+  name: string,
+  root: string,
+): MCPServer & { targets: string[] } {
+  const server = source.servers[name] ?? {};
+  const project = source.projects?.[root];
+  const override = project?.overrides?.[name] ?? {};
+  const options = { ...server.options };
+  for (const [agent, fields] of Object.entries(override.options ?? {})) {
+    options[agent] = { ...options[agent], ...fields };
+  }
+  return {
+    ...server,
+    ...(hasToolPolicy(override.tools) && { tools: override.tools }),
+    ...(Object.keys(override.piOptions ?? {}).length > 0 && {
+      piOptions: { ...server.piOptions, ...override.piOptions },
+    }),
+    ...(Object.keys(override.options ?? {}).length > 0 && { options }),
+    targets: [...(override.targets ?? server.targets ?? project?.targets ?? source.targets ?? [])],
+  };
+}
+
+/** What a project's override changes, a few words each; empty when it changes nothing. */
+export function overrideParts(
+  t: (key: string, params?: Record<string, string | number>, fallback?: string) => string,
+  override?: MCPOverride,
+  /** The shared server, to name the exposure the MCP page gives the other projects. */
+  shared?: MCPServer,
+): string[] {
+  if (!override) return [];
+  const parts: string[] = [];
+  if (override.targets) {
+    parts.push(
+      t('mcp.override.partTargets', {
+        targets: override.targets.length
+          ? override.targets.map(targetLabel).join(', ')
+          : t('mcp.override.noAgents'),
+      }),
+    );
+  }
+  const { exposure, ...otherPi } = override.piOptions ?? {};
+  if (exposure !== undefined) {
+    const short = (x: unknown) => t(`mcp.piExposureShort.${String(x)}`, undefined, String(x));
+    parts.push(
+      shared
+        ? t('mcp.override.partExposureFrom', {
+            value: short(exposure),
+            shared: short(shared.piOptions?.exposure ?? 'codemode'),
+          })
+        : t('mcp.override.partExposure', { value: short(exposure) }),
+    );
+  }
+  if (hasToolPolicy(override.tools)) {
+    parts.push(t('mcp.tools.chip', { summary: toolSummary(t, override.tools) }));
+  }
+  // Settings only config.yaml holds still make the project differ, so they are named too.
+  if (Object.keys(otherPi).length > 0 || Object.keys(override.options ?? {}).length > 0) {
+    parts.push(t('mcp.override.partOther'));
+  }
+  return parts;
 }
 
 /** The mcp.projects root a change belongs to, if any. */

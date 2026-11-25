@@ -26,6 +26,7 @@ import MCPRemoveDialog from './MCPRemoveDialog';
 import MCPServerDialog from './MCPServerDialog';
 import { copyableServers, isServeCommand, type AddMode } from './mcpServerDraft';
 import MCPServerList from './MCPServerList';
+import MCPOverrideDialog from './MCPOverrideDialog';
 import MCPSharedServers from './MCPSharedServers';
 import ProjectSectionHead from './ProjectSectionHead';
 import ProjectServerRow from './ProjectServerRow';
@@ -233,6 +234,7 @@ export default function MCPProjectView({ data, root, offered, onChanged, onRemov
   const [addMode, setAddMode] = useState<AddMode>('form');
   const [addingOff, setAddingOff] = useState(false); // the new entry is a switch, not a server
   const [removing, setRemoving] = useState('');
+  const [overriding, setOverriding] = useState(''); // a shared server this project changes
   const [dropping, setDropping] = useState(false);
   const [importFrom, setImportFrom] = useState(''); // an Agent file of this project to import from
   const [busy, setBusy] = useState(false);
@@ -514,14 +516,14 @@ export default function MCPProjectView({ data, root, offered, onChanged, onRemov
 
         <MCPSharedServers
           root={root}
-          servers={data.source.servers}
+          source={data.source}
           users={users}
           use={use}
           own={own}
-          targets={targets}
           changes={changes}
           busy={busy}
           onToggle={(n, on) => void toggleShared(n, on)}
+          onOverride={setOverriding}
         />
 
         <section className="mt-3 flex flex-col">
@@ -617,6 +619,16 @@ export default function MCPProjectView({ data, root, offered, onChanged, onRemov
             onChanged();
             toast(t('mcp.toast.saved'), 'success');
           }}
+        />
+      )}
+      {overriding && (
+        <MCPOverrideDialog
+          name={overriding}
+          root={root}
+          source={data.source}
+          paths={paths}
+          onClose={() => setOverriding('')}
+          onSaved={onChanged}
         />
       )}
       {importFrom && (
