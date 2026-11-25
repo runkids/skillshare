@@ -94,7 +94,6 @@ export function foldsAway(filters: UpdateFilters, status: string, inRun: boolean
   );
 }
 
-/** Labels shared by more than one unit: those rows need their folder to tell them apart. */
 /**
  * Whether the upstream preview can show this unit's changes: it diffs git commits, so a skill
  * installed from a local path has nothing to compare even when its source changed.
@@ -103,6 +102,7 @@ export function hasUpstreamPreview(unit: FilterUnit): boolean {
   return unit.isRepo || !!unit.items[0]?.repoUrl;
 }
 
+/** Labels shared by more than one unit: those rows need their folder to tell them apart. */
 export function repeatedLabels(units: FilterUnit[]): Set<string> {
   const seen = new Set<string>();
   const repeated = new Set<string>();
@@ -114,15 +114,29 @@ export function repeatedLabels(units: FilterUnit[]): Set<string> {
 }
 
 /** Hosts whose web pages follow a known layout, with the name the link shows. */
+// `refs` are the browser-URL segments that put a ref before a folder on that host, as install
+// reads them (splitGitWebRef and the GitHub parser); anywhere else they are folder names.
 const HOSTS: Record<
   string,
-  { host: string; tree: string; commits: string; compare: string | null }
+  { host: string; tree: string; commits: string; compare: string | null; refs: string[] }
 > = {
-  'github.com': { host: 'GitHub', tree: 'tree', commits: 'commits', compare: 'compare' },
-  'gitlab.com': { host: 'GitLab', tree: '-/tree', commits: '-/commits', compare: '-/compare' },
+  'github.com': {
+    host: 'GitHub',
+    tree: 'tree',
+    commits: 'commits',
+    compare: 'compare',
+    refs: ['tree', 'blob'],
+  },
+  'gitlab.com': {
+    host: 'GitLab',
+    tree: '-/tree',
+    commits: '-/commits',
+    compare: '-/compare',
+    refs: ['-/tree', '-/blob'],
+  },
   // Bitbucket's history page takes no folder, so both views open the folder, and a range of
   // commits opens the repository.
-  'bitbucket.org': { host: 'Bitbucket', tree: 'src', commits: 'src', compare: null },
+  'bitbucket.org': { host: 'Bitbucket', tree: 'src', commits: 'src', compare: null, refs: ['src'] },
 };
 
 /** A git URL or source as path segments, host first: scheme, user and `git@host:` removed. */
@@ -151,14 +165,20 @@ function locate(unit: FilterUnit) {
   const end = fromUrl || marker || 3;
   const home = `https://${parts[0]}/${parts.slice(1, end).map(bare).join('/')}`;
   let rest = parts.slice(end);
-  let ref = item?.branch || 'HEAD';
-  // A source written as a browser URL already names its ref: …/tree/<ref>/<dir>, …/-/tree/…, …/src/….
-  if (rest[0] === '-') rest = rest.slice(1);
-  if (['tree', 'blob', 'src'].includes(rest[0]) && rest.length > 1) {
-    ref = rest[1];
-    rest = rest.slice(2);
+  const branch = item?.branch ?? '';
+  let ref = branch || 'HEAD';
+  // A source written as a browser URL names a ref before its folder: …/tree/<ref>/<dir>,
+  // …/-/tree/…, …/src/…. Updates follow the recorded branch, so it wins over that ref; when the
+  // two match, the branch also says how many segments a ref like feature/x spans.
+  const web = site.refs.find((m) => rest.slice(0, m.split('/').length).join('/') === m);
+  const skip = web ? web.split('/').length : 0;
+  if (web && rest.length > skip) {
+    const own = branch.split('/');
+    const matches = branch !== '' && own.every((p, i) => rest[skip + i] === p);
+    if (!branch) ref = rest[skip];
+    rest = rest.slice(skip + (matches ? own.length : 1));
   }
-  return { site, home, ref, path: unit.isRepo ? '' : rest.join('/') };
+  return { site, home, ref, path: unit.isRepo ? null : rest.join('/') };
 }
 
 /**
@@ -172,13 +192,22 @@ export function sourcePage(
 ): { url: string; host: string } | null {
   const at = locate(unit);
   if (!at) return null;
-  const url = at.path ? `${at.home}/${at.site[view]}/${at.ref}/${at.path}` : at.home;
+  // A tracked repo, or a root skill on the default branch, opens the repository's home.
+  const url =
+    at.path === null || (at.path === '' && at.ref === 'HEAD')
+      ? at.home
+      : `${at.home}/${at.site[view]}/${at.ref}${at.path && `/${at.path}`}`;
   return { url, host: at.site.host };
 }
 
 /** The page comparing two commits of a tracked repo; Bitbucket's falls back to the repo. */
-export function compareUrl(unit: FilterUnit, from: string, to: string): string | null {
+export function compareUrl(
+  unit: FilterUnit,
+  from: string,
+  to: string,
+): { url: string; host: string } | null {
   const at = locate(unit);
   if (!at) return null;
-  return at.site.compare ? `${at.home}/${at.site.compare}/${from}...${to}` : at.home;
+  const url = at.site.compare ? `${at.home}/${at.site.compare}/${from}...${to}` : at.home;
+  return { url, host: at.site.host };
 }

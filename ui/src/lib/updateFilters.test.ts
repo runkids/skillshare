@@ -140,6 +140,45 @@ describe('sourcePage', () => {
     expect(sourcePage(u)?.url ?? null).toBe(expected);
   });
 
+  it.each([
+    [
+      'the recorded branch over the ref in a browser URL',
+      unit('a', { branch: 'main' }, 'github.com/o/r/tree/v1.0/skills/foo'),
+      'https://github.com/o/r/tree/main/skills/foo',
+    ],
+    [
+      'a recorded branch with a slash',
+      unit('a', { branch: 'feature/x' }, 'github.com/o/r/tree/feature/x/skills/foo'),
+      'https://github.com/o/r/tree/feature/x/skills/foo',
+    ],
+    [
+      'a GitLab branch with a slash',
+      unit('a', { branch: 'feature/x' }, 'https://gitlab.com/o/r/-/tree/feature/x/skills/foo'),
+      'https://gitlab.com/o/r/-/tree/feature/x/skills/foo',
+    ],
+    [
+      'a GitHub skill in a folder named src',
+      unit(
+        'x',
+        { repoUrl: 'https://github.com/acme/skills.git' },
+        'github.com/acme/skills/src/skills/x',
+      ),
+      'https://github.com/acme/skills/tree/HEAD/src/skills/x',
+    ],
+    [
+      'a Bitbucket browser URL',
+      unit('a', { branch: 'main' }, 'https://bitbucket.org/o/r/src/main/skills/a'),
+      'https://bitbucket.org/o/r/src/main/skills/a',
+    ],
+    [
+      'a root skill pinned to a tag',
+      unit('r', { branch: 'v1.2.0' }, 'https://github.com/o/r/tree/v1.2.0'),
+      'https://github.com/o/r/tree/v1.2.0',
+    ],
+  ])('links %s', (_, u, expected) => {
+    expect(sourcePage(u)?.url).toBe(expected);
+  });
+
   it('names the host the link opens', () => {
     expect(sourcePage(unit('a', {}, 'gitlab.com/acme/skills/a'))?.host).toBe('GitLab');
   });
@@ -165,6 +204,6 @@ describe('compareUrl', () => {
   ])('%s', (url, expected) => {
     const r = { ...repo('_team'), source: url };
     r.items = [{ ...r.items[0], repoUrl: url }];
-    expect(compareUrl(r, 'a1', 'b2')).toBe(expected);
+    expect(compareUrl(r, 'a1', 'b2')?.url).toBe(expected);
   });
 });

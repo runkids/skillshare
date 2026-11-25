@@ -173,9 +173,7 @@ function RepoChanges({ unit }: { unit: FilterUnit }) {
   });
   if (isPending) return <Loading />;
   if (error) return <LoadFailed error={error} />;
-  const page = sourcePage(unit);
-  const url = compareUrl(unit, data.from, data.to);
-  return <RepoChangeList data={data} compare={page && url ? { url, host: page.host } : null} />;
+  return <RepoChangeList data={data} compare={compareUrl(unit, data.from, data.to)} />;
 }
 
 function RepoChangeList({
