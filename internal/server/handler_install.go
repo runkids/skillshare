@@ -115,7 +115,8 @@ func discoverInstallSource(source *install.Source) (*install.DiscoveryResult, er
 	return install.DiscoverLocal(source)
 }
 
-// handleDiscover clones a git repo to a temp dir, discovers skills, then cleans up.
+// handleDiscover clones a git repo to a temp dir and discovers skills. The
+// clone is kept for the install that follows; see discoveryCache.
 // Returns whether the caller needs to present a selection UI.
 func (s *Server) handleDiscover(w http.ResponseWriter, r *http.Request) {
 	// Snapshot config under RLock, then release before I/O.
@@ -147,12 +148,13 @@ func (s *Server) handleDiscover(w http.ResponseWriter, r *http.Request) {
 		source.Branch = body.Branch
 	}
 
+	key := discoveryKey(source)
 	discovery, err := discoverInstallSource(source)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	defer install.CleanupDiscovery(discovery)
+	defer s.discoveries.keep(key, discovery)
 
 	skills := make([]map[string]string, len(discovery.Skills))
 	for i, sk := range discovery.Skills {
@@ -172,7 +174,8 @@ func (s *Server) handleDiscover(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// handleInstallBatch re-clones a repo and installs each selected skill.
+// handleInstallBatch installs each selected skill from the clone the listing
+// kept, or from a new clone when there is none.
 func (s *Server) handleInstallBatch(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	var body struct {
@@ -227,12 +230,17 @@ func (s *Server) handleInstallBatch(w http.ResponseWriter, r *http.Request) {
 		source.Raw = source.Path
 	}
 
-	discovery, err := discoverInstallSource(source)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "discovery failed: "+err.Error())
-		return
+	discovery, giveBack := s.discoveries.take(discoveryKey(source))
+	if discovery != nil {
+		defer giveBack()
+	} else {
+		discovery, err = discoverInstallSource(source)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "discovery failed: "+err.Error())
+			return
+		}
+		defer install.CleanupDiscovery(discovery)
 	}
-	defer install.CleanupDiscovery(discovery)
 
 	s.mu.Lock()
 	defer s.mu.Unlock()

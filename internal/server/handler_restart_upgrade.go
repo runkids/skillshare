@@ -133,6 +133,8 @@ func (s *Server) handleRestart(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{"ok": true, "restarting": true})
 	go func() {
 		time.Sleep(250 * time.Millisecond)
+		// Exiting skips the deferred cleanup in StartWithContext.
+		s.discoveries.close()
 		processExit(0)
 	}()
 }
