@@ -13,6 +13,7 @@ skillshare check agents --json
 skillshare check agents --exit-code   # exit 1 when an agent is not up to date
 skillshare check --all                # skills and agents in one run
 skillshare update agents reviewer
+skillshare update agents reviewer --merge  # keep local edits, merge upstream changes
 skillshare collect agents claude --dry-run
 skillshare sync agents --dry-run
 skillshare sync agents

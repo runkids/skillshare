@@ -339,6 +339,7 @@ complete -c skillshare -n '__fish_skillshare_using_command update' -a agents -d 
 complete -c skillshare -n '__fish_skillshare_using_command update' -l all -s a -d 'Update all'
 complete -c skillshare -n '__fish_skillshare_using_command update' -l dry-run -s n -d 'Preview changes'
 complete -c skillshare -n '__fish_skillshare_using_command update' -l force -s f -d 'Force update'
+complete -c skillshare -n '__fish_skillshare_using_command update' -l merge -d 'Merge upstream changes into local edits'
 complete -c skillshare -n '__fish_skillshare_using_command update' -l skip-audit -d 'Skip security audit'
 complete -c skillshare -n '__fish_skillshare_using_command update' -l audit-threshold -r -a 'low medium high critical' -d 'Set audit threshold'
 complete -c skillshare -n '__fish_skillshare_using_command update' -l threshold -s T -r -a 'low medium high critical' -d 'Set audit threshold'

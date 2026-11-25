@@ -29,6 +29,9 @@ type SkillResult struct {
 	Status      string // "up_to_date", "update_available", "stale", "modified", "local", "error"
 	Message     string
 	Local       bool // the skill has no remote; Status comes from LocalSourceStatus
+	// UpstreamChanged marks a modified skill whose upstream has also moved on,
+	// so update --merge has changes to merge into it.
+	UpstreamChanged bool
 }
 
 // Remote reports the state of a remote repository. An empty branch means the
@@ -211,6 +214,10 @@ func (g remoteGroup) resolve(remote Remote) []SkillResult {
 	return results
 }
 
+// UpstreamChangedNote ends the message of a modified skill whose upstream
+// has also moved on: update --merge has changes to merge into it.
+const UpstreamChangedNote = "; update available upstream"
+
 // markModified reports skills whose files changed since install as
 // "modified": update skips them unless forced, so they are not counted as
 // updatable. A failed remote check keeps its error.
@@ -221,7 +228,8 @@ func (g remoteGroup) markModified(results []SkillResult) {
 		}
 		results[i].Message = "local changes since install"
 		if results[i].Status == "update_available" {
-			results[i].Message += "; update available upstream"
+			results[i].Message += UpstreamChangedNote
+			results[i].UpstreamChanged = true
 		}
 		results[i].Status = "modified"
 	}

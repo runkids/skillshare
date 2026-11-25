@@ -23,6 +23,7 @@ type updateOptions struct {
 	all          bool
 	dryRun       bool
 	force        bool
+	merge        bool // 3-way merge upstream changes into skills edited since install
 	skipAudit    bool
 	diff         bool
 	threshold    string
@@ -55,7 +56,7 @@ type missingTrackedReposSummary struct {
 type updateJSONItem struct {
 	Name   string `json:"name"`
 	Type   string `json:"type"`   // "repo" or "skill"
-	Status string `json:"status"` // "updated", "skipped", "failed", "security_blocked"
+	Status string `json:"status"` // "updated", "merged", "conflict", "skipped", "failed", "security_blocked"
 	Error  string `json:"error,omitempty"`
 }
 
@@ -73,6 +74,8 @@ func parseUpdateArgs(args []string) (*updateOptions, bool, error) {
 			opts.dryRun = true
 		case arg == "--force" || arg == "-f":
 			opts.force = true
+		case arg == "--merge":
+			opts.merge = true
 		case arg == "--skip-audit":
 			opts.skipAudit = true
 		case arg == "--audit-threshold" || arg == "--threshold" || arg == "-T":
@@ -110,6 +113,9 @@ func parseUpdateArgs(args []string) (*updateOptions, bool, error) {
 
 	if opts.all && (len(opts.names) > 0 || len(opts.groups) > 0) {
 		return nil, false, fmt.Errorf("--all cannot be used with skill names or --group")
+	}
+	if opts.merge && opts.force {
+		return nil, false, fmt.Errorf("--merge cannot be used with --force")
 	}
 
 	if len(opts.names) == 0 && len(opts.groups) == 0 && !opts.all {
@@ -472,6 +478,9 @@ func logUpdateOp(cfgPath string, names []string, opts *updateOptions, mode strin
 		if opts.force {
 			a["force"] = true
 		}
+		if opts.merge {
+			a["merge"] = true
+		}
 		if opts.dryRun {
 			a["dry_run"] = true
 		}
@@ -517,13 +526,14 @@ func logUpdateOp(cfgPath string, names []string, opts *updateOptions, mode strin
 }
 
 func printUpdateHelp() {
-	printHelp("skillshare update <name>... [options]\n       skillshare update [agents] <name|--all> [options]\n       skillshare update --group <group> [options]\n       skillshare update --all [options]", "Update one or more skills or tracked repositories.\n\nFor tracked repos (_repo-name): runs git pull\nFor regular skills: reinstalls from stored source metadata\n(--all, --group, and several names with -p skip skills already at the\nupstream commit)\n\nIf a positional name matches a group directory (not a repo or skill), it is\nautomatically expanded to all updatable skills in that group.\n\nSafety: Tracked repos with uncommitted changes and skills edited since\ninstall are skipped by default, and updates with audit findings at/above\nthe block threshold are blocked before publication. Use --force to override both; --skip-audit skips scanning entirely.",
+	printHelp("skillshare update <name>... [options]\n       skillshare update [agents] <name|--all> [options]\n       skillshare update --group <group> [options]\n       skillshare update --all [options]", "Update one or more skills or tracked repositories.\n\nFor tracked repos (_repo-name): runs git pull\nFor regular skills: reinstalls from stored source metadata\n(--all, --group, and several names with -p skip skills already at the\nupstream commit)\n\nIf a positional name matches a group directory (not a repo or skill), it is\nautomatically expanded to all updatable skills in that group.\n\nSafety: Tracked repos with uncommitted changes and skills edited since\ninstall are skipped by default, and updates with audit findings at/above\nthe block threshold are blocked before publication. Use --force to override\nboth, or --merge to keep a skill's edits and merge upstream changes into it;\n--skip-audit skips scanning entirely.",
 		helpGroup{title: "Arguments", rows: []helpRow{
 			{"name...", "Skill name(s) or tracked repo name(s)\nSupports glob patterns (e.g. \"core-*\", \"_team-?\")"},
 		}},
 		helpGroup{title: "Options", rows: []helpRow{
 			{"-a, --all", "Update all tracked repos + skills with metadata"},
 			{"-G, --group <name>", "Update all updatable skills in a group (repeatable)"},
+			{"--merge", "Merge upstream changes into skills and agents edited since\ninstall, keeping the edits; a conflict leaves them unchanged"},
 			{"-f, --force", "Discard local changes, proceed despite audit findings,\nand reinstall skills already at the upstream commit"},
 			{"-n, --dry-run", "Preview without making changes"},
 			{"--skip-audit", "Skip security audit"},
@@ -547,6 +557,7 @@ func printUpdateHelp() {
 			helpRow{"skillshare update --all", "Update all tracked repos + skills"},
 			helpRow{"skillshare update --all -T high", "Use HIGH threshold for this run"},
 			helpRow{"skillshare update --all --dry-run", "Preview updates"},
+			helpRow{"skillshare update my-skill --merge", "Keep your edits and merge upstream"},
 			helpRow{"skillshare update _team --force", "Discard changes and update"},
 			helpRow{"skillshare update --all --prune", "Update all + remove stale skills"},
 			helpRow{"skillshare update agents --all", "Update all agents"},

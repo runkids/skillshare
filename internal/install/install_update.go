@@ -17,7 +17,16 @@ func handleUpdate(source *Source, destPath string, result *InstallResult, opts I
 	// installs. Legacy installs of repo-root orchestrators (root SKILL.md plus
 	// child skills) used to be full repository clones; migrate those through the
 	// discovery installer so the root skill becomes SKILL.md-only.
-	if source.IsGit() && !source.HasSubdir() && IsGitRepo(destPath) && checkoutOnBranch(destPath, source.Branch) {
+	pullInPlace := source.IsGit() && !source.HasSubdir() && IsGitRepo(destPath) && checkoutOnBranch(destPath, source.Branch)
+	if pullInPlace && opts.MergeBase != nil {
+		// A merge stages the new version and swaps it in like a reinstall, which
+		// would replace a followed checkout: the user's own clone.
+		if _, followed := opts.SourceFollow.Resolve(destPath); followed {
+			return nil, fmt.Errorf("%s is a linked git checkout; merge upstream changes there with git", destPath)
+		}
+		pullInPlace = false
+	}
+	if pullInPlace {
 		if hasDescendantSkillFile(destPath) {
 			migrated, err := updateRepoRootOrchestrator(source, destPath, result, opts)
 			if migrated || err != nil {
@@ -150,6 +159,23 @@ func handleUpdate(source *Source, destPath string, result *InstallResult, opts I
 	if skillFileExists(destPath) && !skillFileExists(tempDest) {
 		return nil, fmt.Errorf("the new version has no SKILL.md; kept the installed skill")
 	}
+	if opts.MergeBase != nil {
+		changed, err := mergeLocalEdits(opts.MergeBase, destPath, tempDest, opts)
+		if err != nil {
+			return nil, err
+		}
+		if !changed {
+			// Upstream left this skill alone: keep the local files, record the
+			// new version.
+			if meta := readTempUpdateMeta(tempDir); meta != nil {
+				if err := WriteMetaToStore(opts.SourceDir, destPath, meta); err != nil {
+					result.Warnings = append(result.Warnings, fmt.Sprintf("failed to write metadata: %v", err))
+				}
+			}
+			result.Action = "up-to-date"
+			return result, nil
+		}
+	}
 
 	// Propagate audit results and warnings from inner install
 	if innerResult != nil {
@@ -177,6 +203,9 @@ func handleUpdate(source *Source, destPath string, result *InstallResult, opts I
 	}
 
 	result.Action = "reinstalled"
+	if opts.MergeBase != nil {
+		result.Action = "merged"
+	}
 	return result, nil
 }
 

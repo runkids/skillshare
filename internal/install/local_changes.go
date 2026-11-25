@@ -58,27 +58,12 @@ func LocalChanges(entry *MetadataEntry, parseOpts ParseOptions, dir string, foll
 	// fetched for files it had.
 	installed := ""
 	if slices.ContainsFunc(changes, func(c FileChange) bool { return c.Status != "added" }) {
-		// Upstream HEAD would show its own changes as the user's.
-		commit := installedCommit(entry)
-		if commit == "" {
-			return nil, errors.New("no recorded commit to compare with")
-		}
-		source, err := RecordedSource(entry, parseOpts)
-		if err != nil {
-			return nil, fmt.Errorf("invalid source: %w", err)
-		}
-		source.ApplyRecordedBranch(entry.Branch)
-		source.Commit = commit
-		tmp, err := os.MkdirTemp("", "skillshare-changes-")
+		tmp, err := installedVersion(entry, parseOpts)
 		if err != nil {
 			return nil, err
 		}
 		defer os.RemoveAll(tmp)
 		installed = filepath.Join(tmp, "skill")
-		// Only read, never used, so the audit gate does not apply.
-		if _, err := Install(source, installed, InstallOptions{SkipAudit: true}); err != nil {
-			return nil, fmt.Errorf("fetch the installed version: %w", err)
-		}
 	}
 	if len(follow) > 0 {
 		if resolved, ok := follow[0].Resolve(dir); ok {
@@ -94,6 +79,33 @@ func LocalChanges(entry *MetadataEntry, parseOpts ParseOptions, dir string, foll
 		changes[i].Diff = textdiff.Files(old, filepath.Join(dir, rel))
 	}
 	return changes, nil
+}
+
+// installedVersion installs the version entry records into "skill" under a
+// new temporary directory, which it returns for the caller to remove. Upstream
+// HEAD would show its own changes as the user's, so it needs the recorded
+// commit.
+func installedVersion(entry *MetadataEntry, parseOpts ParseOptions) (string, error) {
+	commit := installedCommit(entry)
+	if commit == "" {
+		return "", errors.New("no recorded commit to compare with")
+	}
+	source, err := RecordedSource(entry, parseOpts)
+	if err != nil {
+		return "", fmt.Errorf("invalid source: %w", err)
+	}
+	source.ApplyRecordedBranch(entry.Branch)
+	source.Commit = commit
+	tmp, err := os.MkdirTemp("", "skillshare-changes-")
+	if err != nil {
+		return "", err
+	}
+	// Only read, never used, so the audit gate does not apply.
+	if _, err := Install(source, filepath.Join(tmp, "skill"), InstallOptions{SkipAudit: true}); err != nil {
+		os.RemoveAll(tmp)
+		return "", fmt.Errorf("fetch the installed version: %w", err)
+	}
+	return tmp, nil
 }
 
 // installedCommit is the commit the skill was installed at: the full SHA when

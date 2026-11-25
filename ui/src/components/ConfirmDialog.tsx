@@ -14,6 +14,8 @@ interface ConfirmDialogProps {
   variant?: 'default' | 'danger';
   loading?: boolean;
   wide?: boolean;
+  /** A second choice shown before the confirm button. */
+  extraAction?: { label: string; onClick: () => void };
 }
 
 export default function ConfirmDialog({
@@ -27,6 +29,7 @@ export default function ConfirmDialog({
   variant = 'default',
   loading = false,
   wide = false,
+  extraAction,
 }: ConfirmDialogProps) {
   const t = useT();
   const resolvedCancelText = cancelText ?? t('common.cancel');
@@ -48,6 +51,11 @@ export default function ConfirmDialog({
         {resolvedCancelText && (
           <Button variant="ghost" onClick={onCancel} disabled={loading}>
             {resolvedCancelText}
+          </Button>
+        )}
+        {extraAction && (
+          <Button variant="secondary" onClick={extraAction.onClick} disabled={loading}>
+            {extraAction.label}
           </Button>
         )}
         <Button

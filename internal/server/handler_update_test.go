@@ -123,7 +123,7 @@ func TestUpdateRegularSkill_NestedSkillRefreshesRootMetadataStore(t *testing.T) 
 	}
 	s.skillsStore = store
 
-	result := s.updateRegularSkill("tools/agent-browser", localSkill, false, true)
+	result := s.updateRegularSkill("tools/agent-browser", localSkill, false, true, false)
 	if result.Action != "updated" {
 		t.Fatalf("expected updated action, got %q: %s", result.Action, result.Message)
 	}
@@ -174,7 +174,7 @@ func TestUpdateRegularSkill_LocallyModifiedIsSkippedWithoutForce(t *testing.T) {
 		FileHashes: map[string]string{"SKILL.md": "sha256:original"},
 	})
 
-	result := s.updateRegularSkill("edited", skillPath, false, true)
+	result := s.updateRegularSkill("edited", skillPath, false, true, false)
 	if result.Action != "skipped" || !strings.Contains(result.Message, "(try force update)") {
 		t.Fatalf("got %q: %s, want skipped with a force hint", result.Action, result.Message)
 	}
@@ -223,7 +223,7 @@ func TestUpdateAgent_LocallyModifiedIsSkippedWithoutForce(t *testing.T) {
 	s, _ := newTestServer(t)
 	file, _ := addEditedAgent(t, s, "outdated")
 
-	result := s.updateAgent("edited", false, true)
+	result := s.updateAgent("edited", false, true, false)
 	if result.Action != "skipped" || !strings.Contains(result.Message, "(try force update)") {
 		t.Fatalf("got %q: %s, want skipped with a force hint", result.Action, result.Message)
 	}
@@ -237,7 +237,7 @@ func TestUpdateAgent_LocallyModifiedAtTheRemoteVersionIsUpToDate(t *testing.T) {
 	s, _ := newTestServer(t)
 	addEditedAgent(t, s, "")
 
-	if result := s.updateAgent("edited", false, true); result.Action != "up-to-date" {
+	if result := s.updateAgent("edited", false, true, false); result.Action != "up-to-date" {
 		t.Fatalf("got %q: %s, want up-to-date", result.Action, result.Message)
 	}
 }

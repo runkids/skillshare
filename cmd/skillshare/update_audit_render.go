@@ -257,7 +257,25 @@ func displayModifiedWarning(modified []string) {
 	for _, name := range modified {
 		ui.Row(ui.MarkWarn, name, modifiedSkillReason, width)
 	}
-	ui.Note("Run 'skillshare check <name> --diff' to see the changes, or update with --force to discard them and reinstall")
+	ui.Note("Run 'skillshare check <name> --diff' to see the changes. Update with --merge to keep them and merge upstream changes, or --force to discard them and reinstall")
+}
+
+// displayNotMergedSection lists skills an update --merge left unchanged: a
+// conflict, or a base that could not be rebuilt.
+func displayNotMergedSection(entries []batchBlockedEntry) {
+	if len(entries) == 0 {
+		return
+	}
+	ui.Section("Not merged")
+	names := make([]string, len(entries))
+	for i, e := range entries {
+		names[i] = e.name
+	}
+	width := ui.RowWidth(names...)
+	for _, e := range entries {
+		ui.Row(ui.MarkFail, e.name, e.errMsg, width)
+	}
+	ui.Note("Kept the local versions. Run 'skillshare check <name> --diff' to see your changes, or update with --force to discard them and reinstall")
 }
 
 // displayMissingTrackedReposWarning warns about tracked repos declared in

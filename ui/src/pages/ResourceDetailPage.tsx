@@ -71,7 +71,14 @@ import { SkillEditor } from '../components/skill-editor';
 import { UninstallDialog } from '../components/resources/UninstallDialog';
 import { MoveDialog } from '../components/resources/MoveDialog';
 import { canMove } from '../lib/moveFolders';
-import { checkKey, hasUpdate, isForceRetryable, updateUnits, useCheckStatuses } from './UpdatePage';
+import {
+  checkKey,
+  hasUpdate,
+  isForceRetryable,
+  isMergeable,
+  updateUnits,
+  useCheckStatuses,
+} from './UpdatePage';
 import { useDiffQuery, useSkillsQuery } from '../hooks/useSharedQueries';
 import { invalidate } from '../lib/queryEvents';
 
@@ -132,6 +139,8 @@ export default function ResourceDetailPage() {
   const [switchTo, setSwitchTo] = useState<string | null>(null);
   // The Updates tab links a modified skill here with ?changes=1 to show its edits.
   const [modified, setModified] = useState(() => searchParams.get('changes') === '1');
+  // Merge only helps for local edits, not for the other skips force can resolve.
+  const [canMerge, setCanMerge] = useState(true);
   const [raw, setRaw] = useState(false);
 
   const skillMaps = useMemo(() => {
@@ -224,11 +233,23 @@ export default function ResourceDetailPage() {
     });
   };
 
-  const runUpdate = async (skipAudit: boolean, force = false, branch = switchTo ?? undefined) => {
+  const runUpdate = async (
+    skipAudit: boolean,
+    force = false,
+    branch = switchTo ?? undefined,
+    merge = false,
+  ) => {
     setUpdating(true);
     try {
       const target = repoOf(resource) ?? (isAgent ? resource.flatName : resource.relPath);
-      const res = await api.update({ name: target, kind: resource.kind, skipAudit, force, branch });
+      const res = await api.update({
+        name: target,
+        kind: resource.kind,
+        skipAudit,
+        force,
+        branch,
+        merge: merge || undefined,
+      });
       const item = res.results[0];
       const retryable =
         item?.action === 'blocked' ||
@@ -249,17 +270,19 @@ export default function ResourceDetailPage() {
               }),
           'success',
         );
-        markUpToDate();
+        // A merged item still differs from its install, so its check result stands.
+        if (!merge) markUpToDate();
         clearAuditCache(queryClient);
         await (branch ? invalidate(queryClient, 'skillBranchSwitched') : refreshResource());
       } else if (item?.action === 'up-to-date') {
         toast(t('resourceDetail.toast.upToDate', { name: resource.name }), 'info');
-        markUpToDate();
+        if (!merge) markUpToDate();
       } else if (item?.action === 'blocked') {
         setBlocked(item.message ?? '');
       } else if (item?.action === 'error') {
         toast(item.message ?? t('resourceDetail.toast.updateFailed'), 'error');
       } else if (item?.action === 'skipped' && isForceRetryable(item.message)) {
+        setCanMerge(isMergeable(item.message));
         setModified(true);
       } else {
         toast(item?.message ?? t('resourceDetail.toast.skipped'), 'warning');
@@ -549,6 +572,7 @@ export default function ResourceDetailPage() {
           message={
             <>
               {t('resourceDetail.modified.message', { name: resource.name })}
+              {canMerge && !switchTo && ` ${t('resourceDetail.modified.mergeHint')}`}
               {/* Local changes can be listed for skills only. */}
               {modified && resource.kind === 'skill' && <LocalChanges relPath={resource.relPath} />}
             </>
@@ -557,6 +581,16 @@ export default function ResourceDetailPage() {
           variant="danger"
           wide
           loading={updating}
+          extraAction={
+            // A branch switch replaces the skill with another branch: nothing to merge into.
+            canMerge && !switchTo
+              ? {
+                  label: t('update.updating.merge'),
+                  onClick: () =>
+                    void runUpdate(false, false, undefined, true).then(() => setModified(false)),
+                }
+              : undefined
+          }
           onConfirm={() => runUpdate(false, true).then(() => setModified(false))}
           onCancel={() => {
             setModified(false);

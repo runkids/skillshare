@@ -190,7 +190,7 @@ result lists the skipped ones in `warnings`.
 
 - **Tracked repos:** Fetches from origin, shows commits behind
 - **Remote skills:** Compares installed version with remote HEAD
-- **Modified skills:** Remote skills edited since install are `modified`; `update` skips them until `--force`. `check <name> --diff` shows the edits
+- **Modified skills:** Remote skills edited since install are `modified`; `update` skips them unless given `--merge` (keep edits, merge upstream) or `--force` (discard edits). `check <name> --diff` shows the edits
 - **Local skills:** Shown as "local source"
 - **Targets validation:** Warns about unknown target names in skill-level `targets` field
 
@@ -213,6 +213,7 @@ skillshare update --group front  # Update all in a group
 skillshare update --all          # All tracked repos + skills
 skillshare update --all -n       # Preview updates
 skillshare update --all --diff   # Show file-level change summary
+skillshare update my-skill --merge  # Keep local edits, merge upstream changes
 
 # Project
 skillshare update my-skill -p       # Update project skill
@@ -228,6 +229,7 @@ skillshare update _repo --force -p  # Discard local changes
 | `--all, -a` | Update all tracked repos and skills with metadata |
 | `--group, -G <name>` | Update all updatable skills in a group (repeatable) |
 | `--force, -f` | Discard local changes and force update |
+| `--merge` | 3-way merge upstream changes into a locally modified skill or agent; a conflict changes nothing and exits non-zero |
 | `--dry-run, -n` | Preview without making changes |
 | `--skip-audit` | Skip security audit gate |
 | `--json` | JSON output |
@@ -236,7 +238,7 @@ skillshare update _repo --force -p  # Discard local changes
 With `follow_source_links: true`, `update --all` skips followed Git checkouts,
 even with `--force`; update them by name instead.
 
-**Safety:** Tracked repos with uncommitted changes are skipped, and repos whose git status cannot be read fail. A remote skill whose files changed since install is skipped too; `check` reports it as `modified`. Use `--force` to override all three.
+**Safety:** Tracked repos with uncommitted changes are skipped, and repos whose git status cannot be read fail. A remote skill whose files changed since install is skipped too; `check` reports it as `modified`. Use `--force` to override all three, or `--merge` to keep a modified skill's edits and merge upstream's changes into them. After a clean merge the skill stays `modified`, so later updates need `--merge` again.
 
 Only one skillshare process updates a Git checkout at a time; another waits up to a minute, then fails with `another skillshare process is still updating <path>`.
 

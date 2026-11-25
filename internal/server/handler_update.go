@@ -19,11 +19,14 @@ import (
 )
 
 type updateRequest struct {
-	Name      string `json:"name"`
-	Kind      string `json:"kind,omitempty"`
-	Force     bool   `json:"force"`
-	All       bool   `json:"all"`
-	SkipAudit bool   `json:"skipAudit"`
+	Name  string `json:"name"`
+	Kind  string `json:"kind,omitempty"`
+	Force bool   `json:"force"`
+	// Merge 3-way merges upstream changes into a skill or agent with local
+	// edits instead of skipping it.
+	Merge     bool `json:"merge"`
+	All       bool `json:"all"`
+	SkipAudit bool `json:"skipAudit"`
 	// Branch reinstalls one skill from this branch of its recorded source.
 	Branch string `json:"branch,omitempty"`
 }
@@ -41,6 +44,25 @@ type updateResultItem struct {
 // locallyModifiedMessage is the reason a skill or agent edited since install is skipped;
 // the dashboard offers Force Retry on its "(try force update)" hint.
 const locallyModifiedMessage = "has local changes since install (try force update)"
+
+// updateFailure reports a failed skill or agent update. A merge conflict keeps
+// the force hint: discarding the local edits is the other way to update.
+func updateFailure(name, kind string, err error) updateResultItem {
+	message := err.Error()
+	var conflict *install.MergeConflictError
+	if errors.As(err, &conflict) {
+		message += "; kept the local version (try force update)"
+	}
+	return updateResultItem{Name: name, Kind: kind, Action: "error", Message: message}
+}
+
+// updatedMessage describes a successful reinstall or merge.
+func updatedMessage(result *install.InstallResult) string {
+	if result != nil && result.Action == "merged" {
+		return "merged local changes"
+	}
+	return "reinstalled from source"
+}
 
 func (s *Server) updateAuditThreshold() string {
 	if s.IsProjectMode() && s.projectCfg != nil {
@@ -72,13 +94,21 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if body.Force && body.Merge {
+		writeError(w, http.StatusBadRequest, "force and merge cannot be combined")
+		return
+	}
+	if body.Branch != "" && body.Merge {
+		writeError(w, http.StatusBadRequest, "branch and merge cannot be combined")
+		return
+	}
 	if body.Branch != "" && (body.All || body.Kind == "agent") {
 		writeError(w, http.StatusBadRequest, "branch applies to a single skill only")
 		return
 	}
 
 	if body.All {
-		results := s.updateAll(body.Force, body.SkipAudit)
+		results := s.updateAll(body.Force, body.SkipAudit, body.Merge)
 		total := len(results)
 		failed := 0
 		blocked := 0
@@ -106,6 +136,7 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		s.writeOpsLog("update", status, start, map[string]any{
 			"name":            "--all",
 			"force":           body.Force,
+			"merge":           body.Merge,
 			"skip_audit":      body.SkipAudit,
 			"results_total":   total,
 			"results_failed":  failed,
@@ -133,7 +164,7 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	if body.Branch != "" {
 		result = s.switchSkillBranch(body.Name, body.Branch, body.Force, body.SkipAudit)
 	} else {
-		result = s.updateSingleByKind(body.Name, body.Kind, body.Force, body.SkipAudit)
+		result = s.updateSingleByKind(body.Name, body.Kind, body.Force, body.SkipAudit, body.Merge)
 	}
 	status := "ok"
 	msg := ""
@@ -150,6 +181,7 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	logArgs := map[string]any{
 		"name":       body.Name,
 		"force":      body.Force,
+		"merge":      body.Merge,
 		"skip_audit": body.SkipAudit,
 		"scope":      "ui",
 	}
@@ -161,13 +193,13 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) updateSingle(name string, force, skipAudit bool) updateResultItem {
-	return s.updateSingleByKind(name, "", force, skipAudit)
+	return s.updateSingleByKind(name, "", force, skipAudit, false)
 }
 
-func (s *Server) updateSingleByKind(name, kind string, force, skipAudit bool) updateResultItem {
+func (s *Server) updateSingleByKind(name, kind string, force, skipAudit, merge bool) updateResultItem {
 	name = path.Clean(filepath.ToSlash(name)) // "org/team/" names the same item as "org/team"
 	if kind == "agent" {
-		return s.updateAgent(name, force, skipAudit)
+		return s.updateAgent(name, force, skipAudit, merge)
 	}
 	walk := s.skillsWalk()
 	// Try exact skill path first (prevents basename collision with nested repos)
@@ -182,7 +214,7 @@ func (s *Server) updateSingleByKind(name, kind string, force, skipAudit bool) up
 		if entry.Tracked && utils.IsTrackedRepoDir(filepath.Base(name)) {
 			return updateResultItem{Name: name, Action: "error", Message: fmt.Sprintf("tracked repo '%s' is declared in metadata but missing on disk", name)}
 		}
-		return s.updateRegularSkill(name, skillPath, force, skipAudit, walk.Follow)
+		return s.updateRegularSkill(name, skillPath, force, skipAudit, merge, walk.Follow)
 	}
 
 	// Try tracked repo (flat, nested, or basename fallback)
@@ -201,7 +233,7 @@ func (s *Server) updateSingleByKind(name, kind string, force, skipAudit bool) up
 	}
 }
 
-func (s *Server) updateAgent(name string, force, skipAudit bool) updateResultItem {
+func (s *Server) updateAgent(name string, force, skipAudit, merge bool) updateResultItem {
 	agentsSource := s.agentsSource()
 	if agentsSource == "" {
 		return updateResultItem{Name: name, Kind: "agent", Action: "error", Message: "agents source is not configured"}
@@ -279,7 +311,8 @@ func (s *Server) updateAgent(name string, force, skipAudit bool) updateResultIte
 	}
 
 	// Checked only once there is a new version to write over the local edits.
-	if !force && entry.AgentLocallyModified(localAgent.SourcePath) {
+	modified := !force && entry.AgentLocallyModified(localAgent.SourcePath)
+	if modified && !merge {
 		return updateResultItem{Name: metaKey, Kind: "agent", Action: "skipped", Message: locallyModifiedMessage}
 	}
 
@@ -295,17 +328,25 @@ func (s *Server) updateAgent(name string, force, skipAudit bool) updateResultIte
 	if s.IsProjectMode() {
 		opts.AuditProjectRoot = s.projectRoot
 	}
+	if modified {
+		opts.MergeBase = entry
+	}
 	res, err := install.UpdateAgentFromDiscovery(discovery, *target, destDir, opts)
 	if err != nil {
-		return updateResultItem{Name: metaKey, Kind: "agent", Action: "error", Message: err.Error()}
+		return updateFailure(metaKey, "agent", err)
 	}
 
 	if st, loadErr := install.LoadMetadataWithMigration(agentsSource, install.MetadataKindAgent); loadErr == nil && st != nil {
 		s.agentsStore = st
 	}
 
+	if res.Action == "up-to-date" {
+		return updateResultItem{Name: metaKey, Kind: "agent", Action: "up-to-date"}
+	}
 	message := res.Action
-	if message == "" {
+	if message == "merged" {
+		message = updatedMessage(res)
+	} else if message == "" {
 		message = "updated"
 	}
 	return updateResultItem{
@@ -417,7 +458,7 @@ func (s *Server) switchSkillBranch(name, branch string, force, skipAudit bool) u
 		return updateResultItem{Name: name, Action: "error", Message: "only a skill installed from a remote source can switch branch"}
 	}
 	walk := s.skillsWalk()
-	result := s.reinstallRegularSkill(name, skillPath, branch, force, skipAudit, walk.Follow)
+	result := s.reinstallRegularSkill(name, skillPath, branch, force, skipAudit, false, walk.Follow)
 	if result.Action == "updated" && s.IsProjectMode() {
 		// config.yaml declares the branch teammates install from, so it follows
 		// the switch; other declarations stay as the shared file has them.
@@ -434,13 +475,13 @@ func (s *Server) switchSkillBranch(name, branch string, force, skipAudit bool) u
 	return result
 }
 
-func (s *Server) updateRegularSkill(name, skillPath string, force, skipAudit bool, follow ...*sourcewalk.Follow) updateResultItem {
-	return s.reinstallRegularSkill(name, skillPath, "", force, skipAudit, follow...)
+func (s *Server) updateRegularSkill(name, skillPath string, force, skipAudit, merge bool, follow ...*sourcewalk.Follow) updateResultItem {
+	return s.reinstallRegularSkill(name, skillPath, "", force, skipAudit, merge, follow...)
 }
 
 // reinstallRegularSkill reinstalls a skill from its recorded source, from
 // branch when set and from the recorded branch otherwise.
-func (s *Server) reinstallRegularSkill(name, skillPath, branch string, force, skipAudit bool, follow ...*sourcewalk.Follow) updateResultItem {
+func (s *Server) reinstallRegularSkill(name, skillPath, branch string, force, skipAudit, merge bool, follow ...*sourcewalk.Follow) updateResultItem {
 	if refusal := s.refuseFollowedCheckout(name, skillPath, follow); refusal != nil {
 		return *refusal
 	}
@@ -448,7 +489,8 @@ func (s *Server) reinstallRegularSkill(name, skillPath, branch string, force, sk
 	if entry == nil {
 		return updateResultItem{Name: name, Action: "error", Message: "no metadata found"}
 	}
-	if !force && entry.LocallyModified(skillPath, follow...) {
+	modified := !force && entry.LocallyModified(skillPath, follow...)
+	if modified && !merge {
 		return updateResultItem{Name: name, Action: "skipped", Message: locallyModifiedMessage}
 	}
 	source, err := install.RecordedSource(entry, s.parseOpts())
@@ -469,23 +511,25 @@ func (s *Server) reinstallRegularSkill(name, skillPath, branch string, force, sk
 	if len(follow) > 0 {
 		opts.SourceFollow = follow[0]
 	}
+	if modified {
+		opts.MergeBase = entry
+	}
 	result, err := install.Install(source, skillPath, opts)
 	if err != nil {
-		return updateResultItem{
-			Name:    name,
-			Action:  "error",
-			Message: err.Error(),
-		}
+		return updateFailure(name, "", err)
 	}
 
 	if st, loadErr := install.LoadMetadataWithMigration(sourceDir, ""); loadErr == nil && st != nil {
 		s.skillsStore = st
 	}
 
+	if result != nil && result.Action == "up-to-date" {
+		return updateResultItem{Name: name, Action: "up-to-date"}
+	}
 	item := updateResultItem{
 		Name:    name,
 		Action:  "updated",
-		Message: "reinstalled from source",
+		Message: updatedMessage(result),
 	}
 	if result != nil && result.AuditRiskLabel != "" {
 		item.AuditRiskScore = result.AuditRiskScore
@@ -494,7 +538,7 @@ func (s *Server) reinstallRegularSkill(name, skillPath, branch string, force, sk
 	return item
 }
 
-func (s *Server) updateAll(force, skipAudit bool) []updateResultItem {
+func (s *Server) updateAll(force, skipAudit, merge bool) []updateResultItem {
 	var results []updateResultItem
 
 	// Update tracked repos
@@ -510,7 +554,7 @@ func (s *Server) updateAll(force, skipAudit bool) []updateResultItem {
 	// Update regular skills with source metadata
 	skills, err := getServerUpdatableSkills(s.cfg.EffectiveSkillsSource(), s.skillsStore, walk)
 	if err == nil {
-		batch := s.newSkillBatch(skills, force, skipAudit, walk.Follow)
+		batch := s.newSkillBatch(skills, force, skipAudit, merge, walk.Follow)
 		for _, skill := range skills {
 			results = append(results, batch.update(skill))
 		}
@@ -546,12 +590,13 @@ type skillBatch struct {
 	names     []string // every regular skill the request updates
 	force     bool
 	skipAudit bool
+	merge     bool
 	follow    *sourcewalk.Follow
 	done      map[string]updateResultItem // results of the repositories already fetched
 }
 
-func (s *Server) newSkillBatch(names []string, force, skipAudit bool, follow *sourcewalk.Follow) *skillBatch {
-	return &skillBatch{s: s, names: names, force: force, skipAudit: skipAudit, follow: follow, done: make(map[string]updateResultItem)}
+func (s *Server) newSkillBatch(names []string, force, skipAudit, merge bool, follow *sourcewalk.Follow) *skillBatch {
+	return &skillBatch{s: s, names: names, force: force, skipAudit: skipAudit, merge: merge, follow: follow, done: make(map[string]updateResultItem)}
 }
 
 // update returns the result for one skill. The first skill of a repository
@@ -563,7 +608,7 @@ func (b *skillBatch) update(name string) updateResultItem {
 	entry := b.s.skillsStore.GetByPath(name)
 	if entry == nil || entry.RepoURL == "" {
 		skillPath := filepath.Join(b.s.cfg.EffectiveSkillsSource(), name)
-		return b.s.updateRegularSkill(name, skillPath, b.force, b.skipAudit, b.follow)
+		return b.s.updateRegularSkill(name, skillPath, b.force, b.skipAudit, b.merge, b.follow)
 	}
 	b.updateRepo(entry.RepoURL, entry.Branch)
 	return b.done[name]
@@ -589,7 +634,7 @@ func (b *skillBatch) updateRepo(repoURL, branch string) {
 		if install.IsGitRepo(skillPath) {
 			// A skill kept as a checkout updates by pulling; a copy from the
 			// shared fetch would replace its repository.
-			b.done[name] = s.updateRegularSkill(name, skillPath, b.force, b.skipAudit, b.follow)
+			b.done[name] = s.updateRegularSkill(name, skillPath, b.force, b.skipAudit, b.merge, b.follow)
 			continue
 		}
 		if refusal := s.refuseFollowedCheckout(name, skillPath, []*sourcewalk.Follow{b.follow}); refusal != nil {
@@ -597,7 +642,8 @@ func (b *skillBatch) updateRepo(repoURL, branch string) {
 			continue
 		}
 		if !b.force && entry.LocallyModified(skillPath, b.follow) {
-			b.done[name] = updateResultItem{Name: name, Action: "skipped", Message: locallyModifiedMessage}
+			// A merge needs this skill's own base, not the shared fetch.
+			b.done[name] = b.s.updateRegularSkill(name, skillPath, b.force, b.skipAudit, b.merge, b.follow)
 			continue
 		}
 		subdir := entry.Subdir
@@ -609,7 +655,7 @@ func (b *skillBatch) updateRepo(repoURL, branch string) {
 		}
 		if _, taken := targets[subdir]; taken {
 			// A second local copy of the same repo path updates on its own.
-			b.done[name] = s.updateRegularSkill(name, skillPath, b.force, b.skipAudit, b.follow)
+			b.done[name] = s.updateRegularSkill(name, skillPath, b.force, b.skipAudit, b.merge, b.follow)
 			continue
 		}
 		targets[subdir] = skillPath

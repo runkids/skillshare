@@ -47,6 +47,11 @@ type InstallOptions struct {
 	// A git-installed skill is reset to upstream instead of pulled, discarding
 	// local edits.
 	Reinstall bool
+	// MergeBase makes an update 3-way merge the local edits onto the new
+	// version instead of replacing them (update --merge). It is the record
+	// of the installed version, which the merge uses as its base. The record
+	// written afterwards is the upstream one, so the skill stays modified.
+	MergeBase *MetadataEntry
 	// AuditAcceptRoot/AuditAcceptPath override where accepted audit findings
 	// are looked up and recorded. Staged installs audit a temp directory, so
 	// they point these at the final destination to keep metadata keys stable.

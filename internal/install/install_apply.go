@@ -217,14 +217,16 @@ func AgentRepoSource(entry *MetadataEntry, opts ParseOptions) (*Source, error) {
 	return source, nil
 }
 
-func writeDiscoveredAgentMetadata(discovery *DiscoveryResult, agent AgentInfo, destFile, sourceDir string) error {
+// writeDiscoveredAgentMetadata records the agent at destFile, with the hash of
+// hashFile: the upstream version it was installed or updated from.
+func writeDiscoveredAgentMetadata(discovery *DiscoveryResult, agent AgentInfo, destFile, hashFile, sourceDir string) error {
 	source := buildDiscoveredAgentSource(discovery, agent)
 	meta := NewMetaFromSource(source)
 	meta.Kind = "agent"
 	if discovery.CommitHash != "" {
 		meta.Version = discovery.CommitHash
 	}
-	if hash, hashErr := computeSingleFileHash(destFile); hashErr == nil {
+	if hash, hashErr := computeSingleFileHash(hashFile); hashErr == nil {
 		meta.FileHashes = map[string]string{filepath.Base(destFile): hash}
 	}
 	return WriteMetaToStore(sourceDir, destFile, meta)
@@ -297,19 +299,34 @@ func installAgentFromDiscoveryInternal(discovery *DiscoveryResult, agent AgentIn
 		return nil, err
 	}
 
+	written, upstreamChanged := data, true
+	if update && opts.MergeBase != nil {
+		if written, upstreamChanged, err = mergeAgentEdits(opts.MergeBase, discovery, agent, destFile, data); err != nil {
+			return nil, err
+		}
+	}
+
 	if err := src.MkdirAll(filepath.Dir(rel), 0o755); err != nil {
 		return nil, fmt.Errorf("failed to create agents directory: %w", err)
 	}
-	if err := src.WriteFileAtomic(rel, data, 0o644); err != nil {
+	if err := src.WriteFileAtomic(rel, written, 0o644); err != nil {
 		return nil, fmt.Errorf("failed to write agent %s: %w", agent.FileName, err)
 	}
-	if err := writeDiscoveredAgentMetadata(discovery, agent, destFile, opts.SourceDir); err != nil {
+	// Hash the staged upstream file: after a merge the agent must still read
+	// as modified, or the next update would overwrite the local edits.
+	if err := writeDiscoveredAgentMetadata(discovery, agent, destFile, filepath.Join(tempDir, tempName), opts.SourceDir); err != nil {
 		result.Warnings = append(result.Warnings, fmt.Sprintf("failed to write metadata: %v", err))
 	}
 
 	result.Action = "installed"
 	if update {
 		result.Action = "updated"
+		if opts.MergeBase != nil {
+			result.Action = "merged"
+			if !upstreamChanged {
+				result.Action = "up-to-date"
+			}
+		}
 	}
 	return result, nil
 }

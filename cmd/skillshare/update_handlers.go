@@ -184,7 +184,8 @@ func updateRegularSkill(uc *updateContext, skillName string) (updateResult, erro
 		return updateResult{skipped: 1}, fmt.Errorf("skill '%s' has no source metadata, cannot update", skillName)
 	}
 
-	if !uc.opts.force && meta.LocallyModified(skillPath, uc.follow) {
+	modified := !uc.opts.force && meta.LocallyModified(skillPath, uc.follow)
+	if modified && !uc.opts.merge {
 		if uc.opts.dryRun {
 			printUpdateRow(ui.MarkWarn, skillName, "would skip — "+modifiedSkillReason, 0)
 			fmt.Println()
@@ -194,19 +195,21 @@ func updateRegularSkill(uc *updateContext, skillName string) (updateResult, erro
 		// Only a skill named on purpose fails; --all and --group skip it as the batch path does.
 		if uc.opts.all || len(uc.opts.groups) > 0 {
 			printUpdateRow(ui.MarkWarn, skillName, modifiedSkillReason, 0)
-			ui.Next("skillshare check "+skillName+" --diff", "see the changes",
-				"skillshare update "+skillName+" --force", "discard them and reinstall")
+			printModifiedSkillNext(skillName)
 			return updateResult{skipped: 1}, nil
 		}
 		printUpdateRow(ui.MarkFail, skillName, modifiedSkillReason, 0)
-		ui.Next("skillshare check "+skillName+" --diff", "see the changes",
-			"skillshare update "+skillName+" --force", "discard them and reinstall")
+		printModifiedSkillNext(skillName)
 		return updateResult{skipped: 1}, fmt.Errorf("local changes in skill")
 	}
 
 	from := "from " + sourceLabel(meta.Source)
 	if uc.opts.dryRun {
-		printUpdateRow(ui.MarkNone, skillName, "would reinstall "+from, 0)
+		action := "would reinstall "
+		if modified {
+			action = "would merge upstream changes "
+		}
+		printUpdateRow(ui.MarkNone, skillName, action+from, 0)
 		fmt.Println()
 		ui.DryRun()
 		return updateResult{skipped: 1}, nil
@@ -235,13 +238,34 @@ func updateRegularSkill(uc *updateContext, skillName string) (updateResult, erro
 			spinner.Update(line)
 		}
 	}
+	if modified {
+		installOpts.MergeBase = meta
+	}
 
 	result, err := install.Install(source, skillPath, installOpts)
 	if err != nil {
 		spinner.Stop()
 
+		var conflict *install.MergeConflictError
+		if errors.As(err, &conflict) {
+			printUpdateRow(ui.MarkFail, skillName, "conflicting changes · kept the local version", 0)
+			for _, f := range conflict.Files {
+				ui.Note(f)
+			}
+			ui.Next("skillshare check "+skillName+" --diff", "see your changes",
+				"skillshare update "+skillName+" --force", "discard them and reinstall")
+			return updateResult{skipped: 1, items: []updateJSONItem{mergeConflictItem(skillName, err)}}, fmt.Errorf("merge conflicts in %s", skillName)
+		}
+
 		// Stale skill: subdir deleted from upstream
 		if isStaleError(err) {
+			// A merge reaches here with an edited skill, which only --force may discard.
+			if modified {
+				printUpdateRow(ui.MarkWarn, skillName, "stale — deleted upstream · kept for its local changes", 0)
+				ui.Next("skillshare check "+skillName+" --diff", "see your changes",
+					"skillshare update "+skillName+" --prune --force", "discard them and remove the skill")
+				return updateResult{skipped: 1}, nil
+			}
 			if uc.opts.prune {
 				if pruneErr := pruneSkill(skillPath, skillName, uc); pruneErr == nil {
 					pruneRegistry([]string{skillName}, uc)
@@ -263,6 +287,13 @@ func updateRegularSkill(uc *updateContext, skillName string) (updateResult, erro
 	}
 
 	spinner.Stop()
+	if result.Action == "up-to-date" {
+		printUpdateRow(ui.MarkOK, skillName, "no upstream changes to merge", time.Since(startUpdate))
+		return updateResult{upToDate: 1}, nil
+	}
+	if modified {
+		from = "merged local changes · " + from
+	}
 	printUpdateRow(ui.MarkOK, skillName, from, time.Since(startUpdate))
 	renderInstallWarningsWithResult("", result.Warnings, uc.opts.auditVerbose, result)
 
@@ -273,7 +304,23 @@ func updateRegularSkill(uc *updateContext, skillName string) (updateResult, erro
 
 	ui.Next("skillshare sync", "link the changes into your targets")
 
+	if modified {
+		return updateResult{updated: 1, items: []updateJSONItem{{Name: skillName, Type: "skill", Status: "merged"}}}, nil
+	}
 	return updateResult{updated: 1}, nil
+}
+
+// printModifiedSkillNext suggests what to do with a skill update skipped
+// because of its local edits.
+func printModifiedSkillNext(name string) {
+	ui.Next("skillshare check "+name+" --diff", "see the changes",
+		"skillshare update "+name+" --merge", "keep them and merge upstream changes",
+		"skillshare update "+name+" --force", "discard them and reinstall")
+}
+
+// mergeConflictItem is the --json item for an update --merge that conflicted.
+func mergeConflictItem(name string, err error) updateJSONItem {
+	return updateJSONItem{Name: name, Type: "skill", Status: "conflict", Error: err.Error()}
 }
 
 // updateTrackedRepoQuick updates a single tracked repo in batch mode.
@@ -295,8 +342,9 @@ func updateTrackedRepoQuick(uc *updateContext, repoPath string) (bool, *audit.Re
 // updateSkillFromMeta updates a skill using its metadata in batch mode.
 // Output is suppressed; caller handles display via progress bar.
 // If cachedMeta is non-nil it is used directly; otherwise metadata is loaded from the store.
+// merge merges the skill's local edits into the update (update --merge).
 // Returns (updated, installResult, error).
-func updateSkillFromMeta(uc *updateContext, skillPath string, cachedMeta *install.MetadataEntry) (bool, *install.InstallResult, error) {
+func updateSkillFromMeta(uc *updateContext, skillPath string, cachedMeta *install.MetadataEntry, merge bool) (bool, *install.InstallResult, error) {
 	if uc.opts.dryRun {
 		return false, nil, nil
 	}
@@ -323,7 +371,11 @@ func updateSkillFromMeta(uc *updateContext, skillPath string, cachedMeta *instal
 	}
 	source.ApplyRecordedBranch(meta.Branch)
 
-	result, err := install.Install(source, skillPath, uc.makeInstallOpts())
+	opts := uc.makeInstallOpts()
+	if merge {
+		opts.MergeBase = meta
+	}
+	result, err := install.Install(source, skillPath, opts)
 	if err != nil {
 		return false, nil, err
 	}

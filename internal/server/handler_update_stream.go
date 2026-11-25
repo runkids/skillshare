@@ -16,12 +16,16 @@ import (
 //   - "result" → updateResultItem                 after each item is updated
 //   - "done"   → {"results":…,"summary":…}       final payload
 //
-// Query params: names (comma-separated), kind (skill or agent), force, skipAudit
+// Query params: names (comma-separated), kind (skill or agent), force, merge, skipAudit
 func (s *Server) handleUpdateStream(w http.ResponseWriter, r *http.Request) {
 	// Agents are updated by name only; nothing updates them all at once.
 	kind := r.URL.Query().Get("kind")
 	if kind != "" && kind != "skill" && kind != "agent" {
 		writeError(w, http.StatusBadRequest, "invalid kind: "+kind)
+		return
+	}
+	if r.URL.Query().Get("force") == "true" && r.URL.Query().Get("merge") == "true" {
+		writeError(w, http.StatusBadRequest, "force and merge cannot be combined")
 		return
 	}
 	if kind == "agent" && r.URL.Query().Get("names") == "" {
@@ -38,6 +42,7 @@ func (s *Server) handleUpdateStream(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	force := r.URL.Query().Get("force") == "true"
+	merge := r.URL.Query().Get("merge") == "true"
 	skipAudit := r.URL.Query().Get("skipAudit") == "true"
 
 	// Snapshot source under RLock, then release before slow I/O.
@@ -111,7 +116,7 @@ func (s *Server) handleUpdateStream(w http.ResponseWriter, r *http.Request) {
 			skillNames = append(skillNames, item.name)
 		}
 	}
-	batch := s.newSkillBatch(skillNames, force, skipAudit, walk.Follow)
+	batch := s.newSkillBatch(skillNames, force, skipAudit, merge, walk.Follow)
 
 	safeSend("start", map[string]int{"total": len(items)})
 
@@ -140,7 +145,7 @@ func (s *Server) handleUpdateStream(w http.ResponseWriter, r *http.Request) {
 		case item.invalid:
 			result = updateResultItem{Name: item.name, Action: "error", Message: "invalid skill name: " + item.name}
 		case item.agent:
-			result = s.updateSingleByKind(item.name, "agent", force, skipAudit)
+			result = s.updateSingleByKind(item.name, "agent", force, skipAudit, merge)
 		case item.isRepo:
 			result = s.updateTrackedRepo(item.name, item.path, s.cfg.EffectiveSkillsSource(), force, skipAudit, walk.Follow)
 		default:
@@ -187,6 +192,7 @@ func (s *Server) handleUpdateStream(w http.ResponseWriter, r *http.Request) {
 	s.writeOpsLog("update", status, start, map[string]any{
 		"name":            "--all-stream",
 		"force":           force,
+		"merge":           merge,
 		"skip_audit":      skipAudit,
 		"results_total":   len(results),
 		"results_failed":  summary.Errors,
