@@ -1025,6 +1025,7 @@
   "skillEditor.underBudget.one": "{tokens} tokens · 在 {budget} 预算内",
   "skillEditor.underBudget.other": "{tokens} tokens · 在 {budget} 预算内",
   "resources.select.selectAll": "全选",
+  "resources.select.group": "全选 {name}",
   "resources.select.clear": "清除",
   "resources.select.count": "已选择 {count} 项",
   "resources.select.hidden": "其中 {count} 个当前未显示",

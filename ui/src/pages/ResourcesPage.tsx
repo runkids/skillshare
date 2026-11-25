@@ -746,6 +746,16 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
     });
   const selectAll = (on: boolean) =>
     setSelected(on ? new Set(filtered.map((s) => s.flatName)) : new Set());
+  /** Ticks or unticks one group's skills and keeps the rest of the selection. */
+  const selectGroup = (list: Skill[], on: boolean) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      for (const s of list) {
+        if (on) next.add(s.flatName);
+        else next.delete(s.flatName);
+      }
+      return next;
+    });
   const selectNode = (id: string, mode: SelectMode) => {
     if (mode === 'range') {
       setTreeSel(new Set(rangeIds(shownTreeRows, anchor, id)));
@@ -872,6 +882,20 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
       onChange={() => toggle(s.flatName)}
     />
   );
+  // A group head's box selects the skills the group shows; a linked folder with none has no box.
+  const groupBox = (list: Skill[], name: string) => {
+    if (list.length === 0) return null;
+    const n = list.filter((s) => selected.has(s.flatName)).length;
+    return (
+      <Checkbox
+        hideLabel
+        label={t('resources.select.group', { name })}
+        checked={n === list.length}
+        indeterminate={n > 0 && n < list.length}
+        onChange={(on) => selectGroup(list, on)}
+      />
+    );
+  };
 
   const repoActions = (repo: string) => (
     <button
@@ -928,6 +952,7 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
 
   const groupHead = (g: Group, asLabel: boolean) => {
     const Icon = g.link ? Link2 : SOURCE_ICON[g.source];
+    const name = g.link?.name ?? formatTrackedRepoName(g.repo ?? SOURCE_LABEL[g.source]);
     const meta = [
       g.link?.warning ?? groupCount(`g:${g.key}`, g.items.length),
       g.repo && !g.link ? g.items[0].branch : '',
@@ -938,11 +963,8 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
         className={asLabel ? 'ss-gl' : 'ss-gh'}
         onContextMenu={g.link ? undefined : (e) => openGroupMenu(e, g.repo)}
       >
-        {!asLabel &&
-          groupToggle(
-            g.key,
-            g.link?.name ?? formatTrackedRepoName(g.repo ?? SOURCE_LABEL[g.source]),
-          )}
+        {groupBox(g.items, name)}
+        {!asLabel && groupToggle(g.key, name)}
         <Icon size={15} className="shrink-0 text-ink-2" />
         {g.link ? (
           <b className="font-mono">{g.link.name}</b>
@@ -968,6 +990,8 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
   const folderName = (key: string) =>
     key === '' ? t('resources.folder.root') : formatTrackedRepoName(key);
 
+  const folderLabel = (g: FolderGroup) => (g.link ? g.link.name : folderName(g.key));
+
   // A plain folder: not the source root, a tracked repo or a followed link.
   const movable = (g: FolderGroup) => !isAgent && canMoveFolder(g.key, g, linkNames);
 
@@ -977,13 +1001,14 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
       className={asLabel ? 'ss-gl' : 'ss-gh'}
       onContextMenu={movable(g) ? (e) => openFolderMenu(e, g.key) : undefined}
     >
-      {!asLabel && groupToggle(folderKey(g.key), g.link ? g.link.name : folderName(g.key))}
+      {groupBox(g.items, folderLabel(g))}
+      {!asLabel && groupToggle(folderKey(g.key), folderLabel(g))}
       {g.link ? (
         <Link2 size={15} className="shrink-0 text-ink-2" />
       ) : (
         <Folder size={15} className="shrink-0 text-ink-2" />
       )}
-      <b className={g.key ? 'font-mono' : ''}>{g.link ? g.link.name : folderName(g.key)}</b>
+      <b className={g.key ? 'font-mono' : ''}>{folderLabel(g)}</b>
       {g.repo && !g.link && <span className="ss-tag">tracked</span>}
       {g.repo && !g.link && repoOrigin(g.key, g.items)}
       {g.link && (
@@ -1338,25 +1363,28 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
         />
       );
   } else if (view === 'cards') {
+    // Pages the tiles; each head still selects and counts its whole group, as in the list.
+    const tiles = <G extends { key: string; items: Skill[] }>(
+      list: G[],
+      head: (g: G) => React.ReactNode,
+    ) => {
+      const byKey = new Map(list.map((g) => [g.key, g]));
+      return (
+        <div className="flex flex-col gap-6">
+          {limitGroups(list, limit).map((p) => (
+            <div key={p.key}>
+              {head(byKey.get(p.key)!)}
+              <div className="ss-tiles mt-3">{p.items.map(card)}</div>
+            </div>
+          ))}
+        </div>
+      );
+    };
     content =
       group === 'source' ? (
-        <div className="flex flex-col gap-6">
-          {limitGroups(groups, limit).map((g) => (
-            <div key={g.key}>
-              {groupHead(g, true)}
-              <div className="ss-tiles mt-3">{g.items.map(card)}</div>
-            </div>
-          ))}
-        </div>
+        tiles(groups, (g) => groupHead(g, true))
       ) : group === 'folder' ? (
-        <div className="flex flex-col gap-6">
-          {limitGroups(folderGroups, limit).map((g) => (
-            <div key={g.key}>
-              {folderHead(g, true)}
-              <div className="ss-tiles mt-3">{g.items.map(card)}</div>
-            </div>
-          ))}
-        </div>
+        tiles(folderGroups, (g) => folderHead(g, true))
       ) : (
         <>
           {groups.filter((g) => g.link && g.items.length === 0).map((g) => groupHead(g, true))}

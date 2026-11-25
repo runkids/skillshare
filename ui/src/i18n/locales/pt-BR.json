@@ -1025,6 +1025,7 @@
   "skillEditor.underBudget.one": "{tokens} token · dentro do orçamento de {budget}",
   "skillEditor.underBudget.other": "{tokens} tokens · dentro do orçamento de {budget}",
   "resources.select.selectAll": "Selecionar tudo",
+  "resources.select.group": "Selecionar tudo em {name}",
   "resources.select.clear": "Limpar",
   "resources.select.count": "{count} selecionados",
   "resources.select.hidden": "{count} não exibido(s)",

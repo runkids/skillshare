@@ -1025,6 +1025,7 @@
   "tour.steps.targets-grid.description": "The AI tools skillshare writes to. Each keeps its own path and sync mode.",
   "tour.steps.targets-grid.title": "Targets",
   "resources.select.selectAll": "Select all",
+  "resources.select.group": "Select all in {name}",
   "resources.select.clear": "Clear",
   "resources.select.count": "{count} selected",
   "resources.select.hidden": "{count} not shown",

@@ -1025,6 +1025,7 @@
   "skillEditor.underBudget.one": "{tokens} 토큰 · 예산 {budget} 이내",
   "skillEditor.underBudget.other": "{tokens} 토큰 · 예산 {budget} 이내",
   "resources.select.selectAll": "전체 선택",
+  "resources.select.group": "{name} 모두 선택",
   "resources.select.clear": "지우기",
   "resources.select.count": "{count}개 선택됨",
   "resources.select.hidden": "그중 {count}개는 표시되지 않음",
