@@ -103,6 +103,12 @@ These results come from runs on Linux with Claude Code 2.1.278, Codex 0.155.1, P
 
 Claude Code and Codex run `SessionStart` when a session starts. Without a matcher, Claude Code also runs it on resume, `/clear` and compaction. Pi runs `session_start` on startup, reload, `/new`, resume and fork. The OpenCode plugins run the script before the session's first model request and keep the result for the rest of that session.
 
+## What to commit
+
+Commit `scripts/status.mjs`. If teammates want the same setup, share the `session-status` Entry as an example and have each person add it to their global config under their clone's absolute path. Run the preview and sync in each clone rather than committing the generated extension, plugin or hook registrations. Matching content in a fresh clone does not establish Skillshare ownership.
+
+If you already track `.claude/settings.json`, keep tracking it. Stage your shared settings, but leave the `session-status` hook out of the commit; other hooks in that file can stay. Review the staged diff rather than ignoring the whole file. Apply the same rule to a tracked `.codex/hooks.json` or `.opencode/opencode.json`. In particular, the OpenCode v2 plugin registration contains an absolute `file://` URL pointing into the clone where sync ran.
+
 ## Verification
 
 ```bash
