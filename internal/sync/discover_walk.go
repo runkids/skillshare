@@ -303,7 +303,7 @@ func discoverSourceSkillsInternal(sourcePath string, opts discoverOptions) ([]Di
 							Message:  fmt.Sprintf("frontmatter YAML is malformed: %v", yamlErr),
 						})
 					}
-					lintResults, err := LintSkill(ctx.Name, ctx.Description, ctx.BodyChars)
+					lintResults, err := LintSkill(ctx.Name, ctx.Description, ctx.BodyChars, ctx.BodyLines)
 					if err != nil {
 						return fmt.Errorf("lint skill %s: %w", relPath, err)
 					}

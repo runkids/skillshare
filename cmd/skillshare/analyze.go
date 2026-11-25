@@ -54,6 +54,8 @@ type analyzeTargetEntry struct {
 
 type analyzeOutput struct {
 	Targets []analyzeTargetEntry `json:"targets"`
+	// MCP is per MCP target, a list separate from the skill targets above.
+	MCP *mcpToolCostsJSON `json:"mcp,omitempty"`
 }
 
 type analyzeLoadResult struct {
@@ -212,10 +214,12 @@ func runAnalyze(opts *analyzeOptions) error {
 		}
 		return runAnalyzeTUI(loadFn, "global", opts.filter)
 	}
-	return runAnalyzeCore(cfg.EffectiveSkillsSource(), cfg.SkillsWalk(), cfg.Targets, cfg.Mode, cfg.ContextBudget, opts)
+	return runAnalyzeCore(cfg.EffectiveSkillsSource(), cfg.SkillsWalk(), cfg.Targets, cfg.Mode, cfg.ContextBudget, "-g", opts)
 }
 
-func runAnalyzeCore(sourcePath string, walk sourcewalk.Options, targets map[string]config.TargetConfig, defaultMode string, budget config.ContextBudgetConfig, opts *analyzeOptions) error {
+// runAnalyzeCore reports the skill targets and, for a whole-source run, the MCP targets of
+// the config mcpScope ("-g" or "-p") selects.
+func runAnalyzeCore(sourcePath string, walk sourcewalk.Options, targets map[string]config.TargetConfig, defaultMode string, budget config.ContextBudgetConfig, mcpScope string, opts *analyzeOptions) error {
 	var sp *ui.Spinner
 	if !opts.json {
 		sp = ui.StartSpinner("Analyzing skills...")
@@ -232,14 +236,29 @@ func runAnalyzeCore(sourcePath string, walk sourcewalk.Options, targets map[stri
 		return err
 	}
 
+	// A whole-source run also reports the MCP targets, which need no skill.
+	wantMCP := opts.targetName == "" && opts.filter == ""
+	mcpJSON := func() *mcpToolCostsJSON {
+		if costs, err := loadMCPToolCosts(mcpScope); err == nil && costs != nil {
+			return &mcpToolCostsJSON{Budget: budget.MCPToolThreshold(), Groups: costs.Groups}
+		}
+		return nil
+	}
 	if len(discovered) == 0 {
 		if sp != nil {
 			sp.Stop()
 		}
 		if opts.json {
-			return writeJSON(&analyzeOutput{})
+			out := &analyzeOutput{}
+			if wantMCP {
+				out.MCP = mcpJSON()
+			}
+			return writeJSON(out)
 		}
 		ui.Done(ui.MarkNone, "No skills to analyze", 0)
+		if wantMCP {
+			printAnalyzeMCP(mcpScope, budget.MCPToolThreshold())
+		}
 		return nil
 	}
 
@@ -269,7 +288,11 @@ func runAnalyzeCore(sourcePath string, walk sourcewalk.Options, targets map[stri
 		} else if opts.filter != "" {
 			return writeJSON(&analyzeFilteredOutput{Filter: opts.filter})
 		}
-		return writeJSON(&analyzeOutput{Targets: entries})
+		out := &analyzeOutput{Targets: entries}
+		if wantMCP {
+			out.MCP = mcpJSON()
+		}
+		return writeJSON(out)
 	}
 
 	if opts.filter != "" {
@@ -289,6 +312,9 @@ func runAnalyzeCore(sourcePath string, walk sourcewalk.Options, targets map[stri
 		} else {
 			ui.Done(ui.MarkNone, "No skills reach any target", 0)
 		}
+		if wantMCP {
+			printAnalyzeMCP(mcpScope, budget.MCPToolThreshold())
+		}
 		return nil
 	}
 	printAnalyze(entries, opts.verbose)
@@ -298,7 +324,27 @@ func runAnalyzeCore(sourcePath string, walk sourcewalk.Options, targets map[stri
 		printBudgetWarning(violations, false)
 	}
 
+	if wantMCP {
+		printAnalyzeMCP(mcpScope, budget.MCPToolThreshold())
+	}
 	return nil
+}
+
+// printAnalyzeMCP lists the MCP targets' tool definitions after the skill targets.
+func printAnalyzeMCP(scope string, budget int) {
+	costs, err := loadMCPToolCosts(scope)
+	if err != nil {
+		fmt.Println()
+		ui.Note("MCP tool definitions were not counted: " + err.Error())
+		return
+	}
+	if costs == nil {
+		return
+	}
+	fmt.Println()
+	if !printMCPToolCosts(costs, budget) {
+		ui.Note("MCP tool definitions have not been counted yet; run skillshare mcp check --live")
+	}
 }
 
 func buildAnalyzeEntries(

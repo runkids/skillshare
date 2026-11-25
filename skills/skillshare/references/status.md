@@ -86,7 +86,9 @@ skillshare doctor
 
 Use `skillshare analyze --json` to inspect description/body size and estimated context
 cost per target. Estimates describe loaded skill text, not measured billing or cache savings.
-Use `--no-tui` for plain terminal output.
+Use `--no-tui` for plain terminal output. A whole-source run also lists MCP tool-definition
+tokens per MCP target (and `--json` adds `mcp`) once `skillshare mcp check --live` has counted
+servers. The lint warns when a SKILL.md body passes 500 lines (`body-too-long`).
 
 ## updates
 

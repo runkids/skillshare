@@ -773,7 +773,7 @@ skillshare mcp check docs --live --timeout 30s --json
 
 | 結果 | 等級 |
 |---|---|
-| server 有回應：它的名稱與版本、protocol 版本以及工具數量 | info |
+| server 有回應：它的名稱與版本、protocol 版本、工具數量與估計的 tokens | info |
 | 遠端 server 需要登入（HTTP 401） | warning |
 | 指令無法啟動、提早結束，或未在時限內回應 | error |
 | protocol error、不支援的 protocol 版本，或任何其他 HTTP 狀態 | error |
@@ -784,7 +784,7 @@ skillshare mcp check docs --live --timeout 30s --json
 本機 server 失敗時，訊息結尾會附上最多五行它的 stderr。`env`、`headers` 與 `bearerToken` 的值會從每則
 訊息中移除；短於四個字元的值則維持原樣。值會照原樣傳遞：Skillshare 永遠不會執行 Pi 的 `!command` 值，
 也不會讀取 `piOptions`。結束代碼遵循相同規則，只要發現任何 error 就是 1。`--live` 不會寫入任何設定檔，
-也不會留下操作紀錄項目；它只會在 state 目錄中保存[工具釘選](#pin-tool-definitions)。
+也不會留下操作紀錄項目；它只會在 state 目錄中保存[工具釘選](#pin-tool-definitions)與[工具 token 數](#count-tool-tokens)。
 
 使用 `--json` 時，有回應的 server 還會多一個 `live` 物件：
 
@@ -793,9 +793,9 @@ skillshare mcp check docs --live --timeout 30s --json
   "name": "docs",
   "ok": true,
   "findings": [
-    { "level": "info", "check": "live", "target": "", "message": "responds: docs-server 1.4.0, protocol 2026-07-28, 12 tool(s)", "subject": "docs-server" }
+    { "level": "info", "check": "live", "target": "", "message": "responds: docs-server 1.4.0, protocol 2026-07-28, 12 tool(s), ~4810 tokens", "subject": "docs-server" }
   ],
-  "live": { "protocolVersion": "2026-07-28", "serverInfo": { "name": "docs-server", "version": "1.4.0" }, "tools": 12 }
+  "live": { "protocolVersion": "2026-07-28", "serverInfo": { "name": "docs-server", "version": "1.4.0" }, "tools": 12, "toolTokens": 4810 }
 }
 ```
 
@@ -803,7 +803,13 @@ skillshare mcp check docs --live --timeout 30s --json
 
 dashboard 的 **檢查** 按鈕只執行靜態檢查。dashboard 只在一個地方探測 server：server 對話框
 [工具區塊](#tool-policy-dashboard)中的 **載入工具**，它會依對話框目前的欄位啟動 server 一次，
-列出它的工具。搭配 `--json` 時，`live` 也會包含 `toolNames`，即 `tools/list` 回傳的名稱。
+列出它的工具。搭配 `--json` 時，`live` 也會包含 `toolNames`（`tools/list` 回傳的名稱）與 `toolTokens`（每個工具的名稱、描述與輸入 schema 的估計 tokens，參見[計算工具 tokens](#count-tool-tokens)）。
+
+### 計算工具 tokens {#count-tool-tokens}
+
+Agent 在呼叫任何工具之前，就會把每個工具的名稱、描述與輸入 schema 載入模型的 context。`--live` 會依 server 估算這項成本，使用與 [`analyze`](/docs/reference/commands/analyze) 相同的估算方式：約每 4 個 ASCII 字元，或每個寬字元，算一個 token。info 訊息會顯示它（`~4810 tokens`），`--json` 則以 `live.toolTokens` 提供。報告之後，文字輸出還會加總每個 MCP target 載入的量，摘要與預算警告和 [`analyze`](/docs/reference/commands/analyze#mcp-tool-definitions) 相同。
+
+每次成功的探測，都會把工具數量、tokens 與檢查時間，依範圍與 server 名稱存進 state 目錄的 `mcp/tool-costs.json`，與 `tool-pins.json` 放在一起。它是快取，下一次即時檢查會重寫；無法讀取的檔案視為空。[`analyze`](/docs/reference/commands/analyze#mcp-tool-definitions)、`sync` 與 dashboard 的 **Context** 頁面會依 MCP target 加總這些數字，超過 [`context_budget.warn_mcp_tool_tokens`](/docs/reference/targets/configuration#context_budget) 時發出警告；它們不會啟動任何 server。尚未被即時檢查計算過的 server 會顯示為未計算。沒有 `--live` 時，`mcp check` 既不讀取也不寫入這些數字。編輯過的 server 會沿用同名的數字，直到下一次即時檢查。
 
 ### 釘選工具定義 {#pin-tool-definitions}
 
@@ -829,7 +835,7 @@ server 第一次回應時釘選每個工具，並把之後每次探測都與該�
 未搭配 `--live` 時既不會讀取也不會寫入釘選。你編輯過的 server（換了指令或 URL），或刪除後再新增的
 server，會以同一名稱保留它的釘選：如果它的工具確實有變化，接受一次新定義即可。
 `GET /api/mcp/check?live=1`（dashboard **檢查** 按鈕呼叫的端點，按鈕不會送出 `live`）
-也會釘選並比較，但不能接受。
+也會釘選、比較並儲存工具 tokens 數，但不能接受。dashboard **Context** 頁面的 **Check live** 按鈕會呼叫它。
 
 ## 停止管理某個 server {#stop-managing-a-server}
 
@@ -1102,7 +1108,8 @@ export default defineApp({ app: { accounts: { skillshare } } }, async (ctx) => (
   會以未解析的原始值送達 server。
 - 本機操作紀錄存放在 Skillshare state 目錄的 `mcp/` 下：
   `state.json`、寫入期間的 `pending.json`、`tool-pins.json`（`mcp check --live` 的
-  [工具釘選](#pin-tool-definitions)），以及 `backups/`（每個
+  [工具釘選](#pin-tool-definitions)）、`tool-costs.json`（其
+  [工具 tokens 數](#count-tool-tokens)），以及 `backups/`（每個
   Agent 檔案保留最新 20 份）。請勿把這個
   目錄當作可攜式清單分享出去。
 

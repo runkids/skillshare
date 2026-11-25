@@ -44,6 +44,7 @@ const cached = {
   targetFilesCodex: k.targetFiles.list('codex'),
   mcp: k.mcp,
   mcpRender: k.mcpRender('{}'),
+  mcpCosts: k.mcpCosts,
   pi: k.piExtensions('pi'),
   pi2: k.piExtensions('pi2'),
   omp: k.ompExtensions('omp'),
@@ -63,7 +64,7 @@ type Label = keyof typeof cached;
 const S: Label[] = ['skills', 'skill'];
 const T: Label[] = ['targets', 'targetsAvailable'];
 const X: Label[] = ['extras', 'extrasExtensions'];
-const M: Label[] = ['mcp', 'mcpRender'];
+const M: Label[] = ['mcp', 'mcpRender', 'mcpCosts'];
 const H: Label[] = ['hooks', 'hooksCatalog'];
 const P: Label[] = ['plugins', 'pluginPackages'];
 const SM: Label[] = ['syncMatrix', 'syncMatrixClaude'];
@@ -138,6 +139,7 @@ const stale: Record<QueryEvent, Label[] | { args: string[]; stale: Label[] }> = 
 
   mcpChanged: [...M, 'config'],
   mcpSynced: [...M, 'log'],
+  mcpToolsCounted: ['mcpCosts'],
   mcpRestored: M,
   hooksChanged: [...H, 'config'],
   hooksSynced: [...H, 'log'],

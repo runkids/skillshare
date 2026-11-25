@@ -70,13 +70,14 @@ token 估算使用 `chars / 4` 作为近似值。
 | `description-too-short` | warning | 描述不足 50 个字符 |
 | `description-too-long` | warning | 描述超过 1024 字符的目标上限 |
 | `description-near-limit` | warning | 描述介于 900–1024 字符之间 |
+| `body-too-long` | warning | Skill 正文（front matter 之后）超过 500 行；请把细节移到参考文件中 |
 | `no-trigger-phrase` | warning | 描述缺少触发短语（例如 "Use when…"） |
 
 在 TUI 中，存在 lint 问题的 skills 会在名称旁显示 ✗（error）或 ⚠（warning）图标。详情面板包含一个 **Quality** 区块，列出所有 findings。
 
 ## 交互式 TUI
 
-在 TTY 上，`analyze` 会打开交互式界面，一次查看一个 target：左侧是按 token 用量排序的 skills，右侧是所选 skill 的 token 明细、lint 问题和描述。打开 skill 会显示文件原文（含 front matter），可以直接对照 lint 问题。按键列在界面底部。使用 `--no-tui` 改为输出纯文本。
+在 TTY 上，`analyze` 会打开交互式界面，一次查看一个 target：左侧是按 token 用量排序的 skills，右侧是所选 skill 的 token 明细、lint 问题和描述。打开 skill 会显示文件原文（含 front matter），可以直接对照 lint 问题。按键列在界面底部。使用 `--no-tui` 改为输出纯文本。TUI 不显示 MCP 工具定义；请用 `--no-tui` 或 `--json` 查看。
 
 ### 颜色编码
 
@@ -99,6 +100,20 @@ claude · 7 skills
 
   Add -v for the 10 largest descriptions
 ```
+
+### MCP 工具定义 {#mcp-tool-definitions}
+
+对整个 source 运行（不带 target 参数，也不带 `--filter`）时，还会加上 MCP server 的工具定义，按 MCP target 分别统计（即 `mcp.targets` 中的 Agent，例如 `claude`、`codex` 或 `cursor`，它们与 skill target 是两个独立的列表）：
+
+```
+MCP tool definitions (upper bound)  claude ~6.8K · codex ~5.7K
+
+! claude: MCP tool definitions are ~6,750 tokens (budget: 5,000)
+   Largest: github ~3,276, playwright ~1,932, sentry ~1,092
+  1 MCP server not counted yet; run skillshare mcp check --live
+```
+
+数值来自 [`mcp check --live`](/docs/reference/commands/mcp#probe-servers-live)，它会估算每个 server 的工具名称、描述和输入 schema；`analyze` 不会启动任何 server。没有被任何 live 检查统计过的 server 会列为未统计，绝不会算作 0。一次都没有统计过时，`analyze` 会输出 `MCP tool definitions have not been counted yet; run skillshare mcp check --live`。每个位置各自成组：全局列表，以及每个 `mcp.projects` 根目录，该根目录的分组还包含该项目没有关闭的全局 server，因为 Agent 在那里也会载入它们。工具策略不会被套用，因此总数是上限值。警告使用 [`context_budget.warn_mcp_tool_tokens`](/docs/reference/targets/configuration#context_budget)。
 
 ### Verbose
 
@@ -194,6 +209,24 @@ skillshare analyze --json
 
 没有 lint 问题的 skills 会省略 `lint_issues` 字段。
 
+对整个 source 运行时还会加上一个 `mcp` 对象；没有任何 MCP target 接收 server 时省略：
+
+```json
+"mcp": {
+  "budget": 30000,
+  "groups": [
+    {
+      "target": "claude", "agent": "claude", "tokens": 6750, "measured": 4,
+      "servers": [
+        { "name": "github", "tools": 26, "tokens": 3276, "checked": "2026-11-25T08:30:00Z" }
+      ]
+    }
+  ]
+}
+```
+
+`root`（`mcp.projects` 文件夹）会设在项目分组上。来自项目的 server 带有 `project`；只有 live 检查统计过它时才有 `checked`，没有 `checked` 时 `tokens` 不是统计值。分组的 `tokens` 是已统计 server 的总和，`measured` 是这类 server 的数量。
+
 ## Project Mode
 
 ```bash
@@ -233,7 +266,7 @@ skillshare analyze -p --json           # JSON 输出
 
 ## Budget Warnings
 
-当配置了 `context_budget` 阈值时，如果任何 target 超出预算，`analyze` 会显示一条警告。配置细节参见 [sync — Context Cost](/docs/reference/commands/sync#context-cost)。
+当配置了 `context_budget` 阈值时，如果任何 target 超出预算（MCP 工具定义看 `warn_mcp_tool_tokens`），`analyze` 会显示一条警告。配置细节参见 [sync — Context Cost](/docs/reference/commands/sync#context-cost)。
 
 ## 另请参阅
 

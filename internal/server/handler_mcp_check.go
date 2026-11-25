@@ -12,7 +12,8 @@ import (
 // check that cannot run fails the request. ?dns=0 skips host lookups. ?live=1 also probes
 // the servers, as `mcp check --live` does, and each server's live result lists the tool
 // names it reported; it also pins and compares tool definitions as the CLI does, which
-// writes mcp/tool-pins.json, but never accepts a change. Repeated ?name= limits the check
+// writes mcp/tool-pins.json, but never accepts a change, and records the tool token counts
+// in mcp/tool-costs.json. Repeated ?name= limits the check
 // to those servers.
 func (s *Server) handleMCPCheck(w http.ResponseWriter, r *http.Request) {
 	// Release s.mu before the lookups and probes: every other API request waits on it.
@@ -31,6 +32,24 @@ func (s *Server) handleMCPCheck(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, report)
+}
+
+// handleMCPCosts answers, per MCP target, what the synced servers' tool definitions cost as
+// the last live check counted them, with the warn_mcp_tool_tokens budget. It probes nothing.
+func (s *Server) handleMCPCosts(w http.ResponseWriter, r *http.Request) {
+	s.mu.RLock()
+	service := s.mcpService()
+	budget := s.cfg.ContextBudget
+	if s.IsProjectMode() && s.projectCfg != nil {
+		budget = s.projectCfg.ContextBudget
+	}
+	s.mu.RUnlock()
+	report, err := service.ToolCosts()
+	if err != nil {
+		writeError(w, 400, err.Error())
+		return
+	}
+	writeJSON(w, map[string]any{"budget": budget.MCPToolThreshold(), "groups": report.Groups})
 }
 
 // handleMCPProbe probes the server in the request, as the dashboard's form describes it

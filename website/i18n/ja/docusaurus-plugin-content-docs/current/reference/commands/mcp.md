@@ -703,7 +703,7 @@ error になります。
 
 | 結果 | レベル |
 |---|---|
-| サーバーが応答した: その名前とバージョン、プロトコルバージョン、ツール数 | info |
+| サーバーが応答した: その名前とバージョン、プロトコルバージョン、ツール数、その推定トークン数 | info |
 | リモートサーバーがサインインを必要とする (HTTP 401) | warning |
 | コマンドを起動できなかった、早期に終了した、または時間内に応答しなかった | error |
 | プロトコルエラー、未対応のプロトコルバージョン、またはその他の HTTP ステータス | error |
@@ -715,7 +715,7 @@ error になります。
 `bearerToken` の値はすべてのメッセージから取り除かれます。4 文字未満の値はそのまま残ります。値は書かれた
 とおりに渡されます。Skillshare は Pi の `!command` の値を実行せず、`piOptions` も読みません。終了コードは
 同じ規則に従い、error が 1 件でもあれば 1 です。`--live` は設定ファイルも操作ログのエントリも書き込みません。
-書き込むのは state ディレクトリの[ツール定義の固定](#pin-tool-definitions)だけです。
+書き込むのは state ディレクトリの[ツール定義の固定](#pin-tool-definitions)と[ツールのトークン数](#count-tool-tokens)だけです。
 
 `--json` を指定すると、応答したサーバーには `live` オブジェクトも付きます:
 
@@ -724,9 +724,9 @@ error になります。
   "name": "docs",
   "ok": true,
   "findings": [
-    { "level": "info", "check": "live", "target": "", "message": "responds: docs-server 1.4.0, protocol 2026-07-28, 12 tool(s)", "subject": "docs-server" }
+    { "level": "info", "check": "live", "target": "", "message": "responds: docs-server 1.4.0, protocol 2026-07-28, 12 tool(s), ~4810 tokens", "subject": "docs-server" }
   ],
-  "live": { "protocolVersion": "2026-07-28", "serverInfo": { "name": "docs-server", "version": "1.4.0" }, "tools": 12 }
+  "live": { "protocolVersion": "2026-07-28", "serverInfo": { "name": "docs-server", "version": "1.4.0" }, "tools": 12, "toolTokens": 4810 }
 }
 ```
 
@@ -736,7 +736,13 @@ error になります。
 ダッシュボードの **チェック** ボタンは静的チェックだけを実行します。ダッシュボードがサーバーをプローブするのは
 1 か所だけで、サーバーダイアログの[ツールセクション](#tool-policy-dashboard)にある **ツールを読み込む** です。
 これはダイアログの現在の入力内容でサーバーを一度起動してツールを一覧にします。`--json` では、`live` に `toolNames`
-（`tools/list` が返した名前）も含まれます。
+（`tools/list` が返した名前）と、`toolTokens`（すべてのツールの名前、説明、入力スキーマの推定トークン数。[ツールのトークンを数える](#count-tool-tokens)を参照）も含まれます。
+
+### ツールのトークンを数える {#count-tool-tokens}
+
+Agent は、ツールを呼び出す前にすべてのツールの名前、説明、入力スキーマをモデルのコンテキストに読み込みます。`--live` はそのコストをサーバーごとに、[`analyze`](/docs/reference/commands/analyze) と同じ見積もり方式（ASCII 約 4 文字、または全角文字 1 文字で 1 トークン）で推定します。info 行にそれが表示され（`~4810 tokens`）、`--json` では `live.toolTokens` に入ります。レポートの後、テキスト出力では各 MCP Target が読み込む合計も表示され、要約と予算の警告は [`analyze`](/docs/reference/commands/analyze#mcp-tool-definitions) と同じです。
+
+プローブが成功するたびに、ツール数、トークン数、チェック時刻が、スコープとサーバー名ごとに state ディレクトリの `mcp/tool-costs.json` に保存されます。`tool-pins.json` の隣のファイルです。これはキャッシュで、次のライブチェックが書き直し、読めないファイルは空として扱われます。[`analyze`](/docs/reference/commands/analyze#mcp-tool-definitions)、`sync`、ダッシュボードの **Context** ページはこの数を MCP Target ごとに合計し、[`context_budget.warn_mcp_tool_tokens`](/docs/reference/targets/configuration#context_budget) を超えると警告します。これらはサーバーを起動しません。ライブチェックがまだ数えていないサーバーは「未カウント」と表示されます。`--live` なしでは、`mcp check` はこの数を読むことも書くこともありません。編集したサーバーは、次のライブチェックまで同じ名前の数を使い続けます。
 
 ### ツール定義を固定する {#pin-tool-definitions}
 
@@ -768,7 +774,7 @@ error になります。
 削除してから追加し直したサーバーは、同じ名前のまま 固定内容を引き継ぎます。ツールが正当に変わった場合は、
 新しい定義を一度受け入れてください。
 `GET /api/mcp/check?live=1`（ダッシュボードの **チェック** ボタンが呼ぶエンドポイントで、
-ボタンは `live` を付けません）も 固定内容と比較を行いますが、受け入れはできません。
+ボタンは `live` を付けません）も固定内容の保存と比較に加えてツールのトークン数も保存しますが、受け入れはできません。ダッシュボードの **Context** ページの **Check live** ボタンがこれを呼びます。
 
 ## サーバーの管理をやめる {#stop-managing-a-server}
 
@@ -1007,7 +1013,8 @@ export default defineApp({ app: { accounts: { skillshare } } }, async (ctx) => (
   そのため、VS Code に同期されたヘッダーと `bearerToken` の参照は、それが修正されるまで解決されないままサーバーに届きます。
 - ローカルの操作記録は Skillshare の state ディレクトリの `mcp/` 配下にあります。
   `state.json`、書き込み中の `pending.json`、`tool-pins.json`（`mcp check --live` の
-  [ツール定義の固定](#pin-tool-definitions)）、そして `backups/`（Agent ファイルごとに最新 20 件）です。この
+  [ツール定義の固定](#pin-tool-definitions)）、`tool-costs.json`（その
+  [ツールのトークン数](#count-tool-tokens)）、そして `backups/`（Agent ファイルごとに最新 20 件）です。この
   ディレクトリをポータブルなマニフェストとして共有しないでください。
 
 

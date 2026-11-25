@@ -713,6 +713,7 @@ Configure warning thresholds in your config:
 context_budget:
   warn_always_loaded_tokens: 10000   # default; 0 = disabled
   warn_on_demand_tokens: 100000      # default; 0 = disabled
+  warn_mcp_tool_tokens: 30000        # default; 0 = disabled
 ```
 
 When a threshold is exceeded, a warning appears with the top 3 offenders:
@@ -724,6 +725,16 @@ When a threshold is exceeded, a warning appears with the top 3 offenders:
      • another-verbose-skill           ~6,400 tokens
      • chatgpt-system-prompt           ~5,100 tokens
    Run `skillshare analyze` for details.
+```
+
+### MCP Tool Definitions
+
+`skillshare sync mcp` and `skillshare sync --all` also print, after the MCP step (even when no file changed), what each MCP target's tool definitions cost, and warn when a target (or an `mcp.projects` root) passes `warn_mcp_tool_tokens`. The counts come from [`mcp check --live`](/docs/reference/commands/mcp#count-tool-tokens), so nothing is printed until a live check has counted a server; servers not counted yet are named, never counted as 0:
+
+```
+MCP tool definitions (upper bound)  claude ~6.8K · codex ~5.7K
+! claude: MCP tool definitions are ~6,750 tokens (budget: 5,000)
+   Largest: github ~3,276, playwright ~1,932, sentry ~1,092
 ```
 
 ### Quiet Mode

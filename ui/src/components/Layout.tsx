@@ -19,6 +19,7 @@ import {
   Compass,
   Menu,
   X,
+  Gauge,
 } from 'lucide-react';
 import { api, type AuditAllResponse } from '../api/client';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
@@ -84,6 +85,7 @@ const navGroups: { labelKey?: string; items: NavItem[] }[] = [
   {
     labelKey: 'layout.group.maintain',
     items: [
+      { to: '/context', icon: Gauge, labelKey: 'layout.nav.context' },
       { to: '/audit', icon: ShieldCheck, labelKey: 'layout.nav.audit' },
       {
         to: '/settings',

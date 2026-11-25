@@ -900,7 +900,7 @@ an error.
 
 | Result | Level |
 |---|---|
-| The server answered: its name and version, protocol version and number of tools | info |
+| The server answered: its name and version, protocol version, number of tools and their estimated tokens | info |
 | A remote server needs sign-in (HTTP 401) | warning |
 | The command could not start, exited early, or did not answer in time | error |
 | A protocol error, an unsupported protocol version, or any other HTTP status | error |
@@ -913,8 +913,8 @@ values of `env`, `headers` and `bearerToken` are removed from every message; val
 shorter than four characters are left as they are. Values are passed as written:
 Skillshare never runs a Pi `!command` value and does not read `piOptions`. The exit
 code follows the same rule, 1 when any error is found. `--live` writes no config file
-and no operation log entry; it keeps only the [tool pins](#pin-tool-definitions) in the
-state directory.
+and no operation log entry; it keeps only the [tool pins](#pin-tool-definitions) and the
+[tool token counts](#count-tool-tokens) in the state directory.
 
 With `--json`, a server that answered also gets a `live` object:
 
@@ -923,9 +923,9 @@ With `--json`, a server that answered also gets a `live` object:
   "name": "docs",
   "ok": true,
   "findings": [
-    { "level": "info", "check": "live", "target": "", "message": "responds: docs-server 1.4.0, protocol 2026-07-28, 12 tool(s)", "subject": "docs-server" }
+    { "level": "info", "check": "live", "target": "", "message": "responds: docs-server 1.4.0, protocol 2026-07-28, 12 tool(s), ~4810 tokens", "subject": "docs-server" }
   ],
-  "live": { "protocolVersion": "2026-07-28", "serverInfo": { "name": "docs-server", "version": "1.4.0" }, "tools": 12 }
+  "live": { "protocolVersion": "2026-07-28", "serverInfo": { "name": "docs-server", "version": "1.4.0" }, "tools": 12, "toolTokens": 4810 }
 }
 ```
 
@@ -935,7 +935,13 @@ omitted when the server was not probed or the probe failed.
 The dashboard's **Check** button runs the static check only. The dashboard probes a
 server in one place: **Load tools** in the server dialog's
 [Tools section](#tool-policy-dashboard), which starts the server once, as the dialog's
-fields describe it, to list its tools. With `--json`, `live` also holds `toolNames`, the names `tools/list` returned.
+fields describe it, to list its tools. With `--json`, `live` also holds `toolNames`, the names `tools/list` returned, and `toolTokens`, the estimated tokens of every tool's name, description and input schema (see [Count tool tokens](#count-tool-tokens)).
+
+### Count tool tokens {#count-tool-tokens}
+
+An Agent loads every tool's name, description and input schema into the model's context before it calls any tool. `--live` estimates that cost per server with the same estimator as [`analyze`](/docs/reference/commands/analyze): about 4 ASCII characters, or one wide character, per token. The info line shows it (`~4810 tokens`), and `--json` has it as `live.toolTokens`. After the report, the text output also adds up what each MCP target loads, with the same summary and budget warnings as [`analyze`](/docs/reference/commands/analyze#mcp-tool-definitions).
+
+Each successful probe saves its tool count, tokens and check time by scope and server name in `mcp/tool-costs.json` in the state directory, beside `tool-pins.json`. It is a cache that the next live check rewrites, and an unreadable file is treated as empty. [`analyze`](/docs/reference/commands/analyze#mcp-tool-definitions), `sync` and the dashboard's **Context** page add these counts up per MCP target and warn above [`context_budget.warn_mcp_tool_tokens`](/docs/reference/targets/configuration#context_budget); they start no server. A server no live check has counted is shown as not counted. Without `--live` the counts are neither read nor written by `mcp check`. A server you edit keeps its count under the same name until the next live check.
 
 ### Pin tool definitions {#pin-tool-definitions}
 
@@ -968,7 +974,8 @@ Without `--live` the pins are neither read nor written. A server you edit (anoth
 command, another URL), or remove and add again, keeps its pins under the same name:
 accept the new definitions once if its tools legitimately differ.
 `GET /api/mcp/check?live=1` (the endpoint behind the dashboard's **Check** button, which
-does not send `live`) also pins and compares, but cannot accept.
+does not send `live`) also pins, compares and saves the tool token counts, but cannot accept. The
+**Check live** button on the dashboard's **Context** page calls it.
 
 ## Stop managing a server {#stop-managing-a-server}
 
@@ -1287,7 +1294,8 @@ stderr when it starts.
   unresolved until that is fixed.
 - Local operation records live under the Skillshare state directory's `mcp/`:
   `state.json`, `pending.json` during a write, `tool-pins.json` (the
-  [tool pins](#pin-tool-definitions) of `mcp check --live`), and `backups/` (the newest 20
+  [tool pins](#pin-tool-definitions) of `mcp check --live`), `tool-costs.json` (its
+  [tool token counts](#count-tool-tokens)), and `backups/` (the newest 20
   per Agent file). Do not share this
   directory as a portable manifest.
 

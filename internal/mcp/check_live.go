@@ -44,6 +44,9 @@ type CheckLive struct {
 	Tools           int            `json:"tools"`
 	// ToolNames are the names tools/list returned, for choosing a tool policy.
 	ToolNames []string `json:"toolNames,omitempty"`
+	// ToolTokens estimates what every listed tool's name, description and input schema
+	// cost a model's context before it calls any of them.
+	ToolTokens int `json:"toolTokens"`
 }
 
 type LiveServerInfo struct {
@@ -59,6 +62,7 @@ func (s *Service) checkLive(source *Source, report *CheckReport, opts CheckOptio
 	}
 	slots := make(chan struct{}, liveConcurrency)
 	baseline := s.loadToolBaseline(len(report.Servers), opts.AcceptTools)
+	costs := make([]*ToolCost, len(report.Servers))
 	var wg sync.WaitGroup
 	for i := range report.Servers {
 		result := &report.Servers[i]
@@ -83,11 +87,13 @@ func (s *Service) checkLive(source *Source, report *CheckReport, opts CheckOptio
 			result.Findings = append(result.Findings, finding)
 			if live != nil {
 				result.Findings = append(result.Findings, baseline.compare(i, result.Project, result.Name, p.toolHashes)...)
+				costs[i] = &ToolCost{Tools: live.Tools, Tokens: live.ToolTokens, Checked: time.Now().UTC()}
 			}
 		}()
 	}
 	wg.Wait()
 	baseline.save(s, report)
+	s.saveToolCosts(report, costs)
 }
 
 func liveSkipReason(server Server, findings []CheckFinding) string {
@@ -183,7 +189,7 @@ func (p *liveProbe) run() (*CheckLive, CheckFinding) {
 		who = "unnamed server"
 	}
 	return live, CheckFinding{Level: "info", Check: "live", Subject: live.ServerInfo.Name,
-		Message: fmt.Sprintf("responds: %s, protocol %s, %d tool(s)", who, live.ProtocolVersion, live.Tools)}
+		Message: fmt.Sprintf("responds: %s, protocol %s, %d tool(s), ~%d tokens", who, live.ProtocolVersion, live.Tools, live.ToolTokens)}
 }
 
 // probe returns what the server reported about itself, with configured values redacted.
@@ -411,7 +417,7 @@ func (p *liveProbe) discover(ctx context.Context, conn rpcConn, wait time.Durati
 	}
 	live := &CheckLive{ProtocolVersion: liveProtocolVersion, ServerInfo: result.Meta.ServerInfo}
 	if _, ok := result.Capabilities["tools"]; ok {
-		live.ToolNames, p.toolHashes, err = listTools(ctx, conn, p.modernParams)
+		live.ToolNames, p.toolHashes, live.ToolTokens, err = listTools(ctx, conn, p.modernParams)
 		live.Tools = len(live.ToolNames)
 	}
 	return live, err
@@ -439,7 +445,7 @@ func (p *liveProbe) initialize(ctx context.Context, conn rpcConn) (*CheckLive, e
 	live := &CheckLive{ProtocolVersion: result.ProtocolVersion, ServerInfo: result.ServerInfo}
 	if _, ok := result.Capabilities["tools"]; ok {
 		var err error
-		live.ToolNames, p.toolHashes, err = listTools(ctx, conn, func(cursor string) map[string]any {
+		live.ToolNames, p.toolHashes, live.ToolTokens, err = listTools(ctx, conn, func(cursor string) map[string]any {
 			if cursor == "" {
 				return map[string]any{}
 			}
@@ -453,27 +459,29 @@ func (p *liveProbe) initialize(ctx context.Context, conn rpcConn) (*CheckLive, e
 	return live, nil
 }
 
-// listTools returns the tool names and, by name, a hash of each tool's definition.
-func listTools(ctx context.Context, conn rpcConn, params func(cursor string) map[string]any) ([]string, map[string]string, error) {
-	names, hashes, cursor := []string{}, map[string]string{}, ""
+// listTools returns the tool names, by name a hash of each tool's definition, and the tokens
+// all the definitions cost together.
+func listTools(ctx context.Context, conn rpcConn, params func(cursor string) map[string]any) ([]string, map[string]string, int, error) {
+	names, hashes, tokens, cursor := []string{}, map[string]string{}, 0, ""
 	for range liveMaxPages {
 		var page struct {
 			Tools      []liveTool `json:"tools"`
 			NextCursor string     `json:"nextCursor"`
 		}
 		if err := callResult(ctx, conn, "tools/list", params(cursor), &page); err != nil {
-			return nil, nil, fmt.Errorf("tools/list: %w", err)
+			return nil, nil, 0, fmt.Errorf("tools/list: %w", err)
 		}
 		for _, tool := range page.Tools {
 			names = append(names, tool.Name)
 			hashes[tool.Name] = tool.hash()
+			tokens += tool.tokens()
 		}
 		if page.NextCursor == "" {
 			break
 		}
 		cursor = page.NextCursor
 	}
-	return names, hashes, nil
+	return names, hashes, tokens, nil
 }
 
 // stdio starts the server, probes it over stdin/stdout, and always stops it again.

@@ -34,6 +34,7 @@ import Tooltip from '../components/Tooltip';
 import { useToast } from '../components/Toast';
 import { hookLabel, hookMessage, rootName } from '../components/hooks/hooksView';
 import MCPNotices from '../components/mcp/MCPNotices';
+import MCPBudgetWarnings from '../components/context/MCPBudgetWarnings';
 import { describeMessage, mcpClient, targetLabel } from '../components/mcp/mcpView';
 import {
   changeSets,
@@ -818,11 +819,13 @@ export default function SyncPage() {
                       .join(', '),
                   })}
               </span>
-              <Link to="/skills?tab=analyze" className="ss-btn sm">
+              <Link to="/context" className="ss-btn sm">
                 {t('sync.budget.analyze')}
               </Link>
             </div>
           ))}
+
+          {outcome && <MCPBudgetWarnings />}
 
           {!loading && (ignored.length > 0 || skipped.length > 0 || local.length > 0) && (
             <div className="ss-list">

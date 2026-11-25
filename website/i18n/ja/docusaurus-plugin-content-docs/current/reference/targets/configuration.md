@@ -978,14 +978,16 @@ audit:
 context_budget:
   warn_always_loaded_tokens: 10000
   warn_on_demand_tokens: 100000
+  warn_mcp_tool_tokens: 30000
 ```
 
 | フィールド | 型 | デフォルト | 説明 |
 |-------|------|---------|--------------|
 | `warn_always_loaded_tokens` | 整数 | `10000` | 常時ロードされるトークンがこの値を超えた場合に警告する。`0` で無効化 |
 | `warn_on_demand_tokens` | 整数 | `100000` | オンデマンドのトークンがこの値を超えた場合に警告する。`0` で無効化 |
+| `warn_mcp_tool_tokens` | 整数 | `30000` | 1 つの MCP Target（Skill の Target ではなく、`claude` などの `mcp.targets` の Agent）の MCP ツール定義が、1 か所（global の一覧、または各 `mcp.projects` ルート）でこの値を超えた場合に警告する。数は `mcp check --live` から取得し、まだ数えていないサーバーは含まれない。`0` で無効化 |
 
-省略した場合、デフォルトが適用されます（10K / 100K）。警告を抑制するには `skillshare sync --quiet` を
+省略した場合、デフォルトが適用されます（10K / 100K / 30K）。警告を抑制するには `skillshare sync --quiet` を
 使用してください。出力フォーマットは [sync — Context Cost](/docs/reference/commands/sync#context-cost)
 を参照してください。
 

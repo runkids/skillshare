@@ -14,7 +14,7 @@ import (
 const mcpCheckUsage = "skillshare mcp check [name...] [--json] [--no-dns] [--live [--timeout <duration>] [--accept-tools]]"
 
 // runMCPCheck writes no config file. Only --live starts servers or sends requests to them, and
-// only --live reads or writes the tool baseline in the state dir. Only --accept-tools, which
+// only --live reads or writes the tool baseline and the tool token counts in the state dir. Only --accept-tools, which
 // approves changed tool definitions, writes an operation log entry.
 func runMCPCheck(service *mcp.Service, args []string) error {
 	opts := mcp.CheckOptions{ClientVersion: version}
@@ -77,6 +77,11 @@ func runMCPCheck(service *mcp.Service, args []string) error {
 		return writeJSONResult(report, failed)
 	}
 	printMCPCheck(report)
+	if opts.Live && service.HasToolCosts() {
+		// What each Agent loads in total, from this check's counts and earlier ones.
+		fmt.Println()
+		printServiceMCPToolCosts(service)
+	}
 	if failed != nil {
 		// The summary line already says so.
 		return &jsonSilentError{cause: failed}

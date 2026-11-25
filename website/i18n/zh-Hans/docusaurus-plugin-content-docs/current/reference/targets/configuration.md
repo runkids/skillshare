@@ -931,14 +931,16 @@ Token 预算警告阈值。当 token 数量超过预算时，会在 `sync` 和 `
 context_budget:
   warn_always_loaded_tokens: 10000
   warn_on_demand_tokens: 100000
+  warn_mcp_tool_tokens: 30000
 ```
 
 | 字段 | 类型 | 默认值 | 说明 |
 |-------|------|---------|-------------|
 | `warn_always_loaded_tokens` | integer | `10000` | 当始终加载的 token 超过此值时警告。`0` 表示禁用 |
 | `warn_on_demand_tokens` | integer | `100000` | 当按需加载的 token 超过此值时警告。`0` 表示禁用 |
+| `warn_mcp_tool_tokens` | integer | `30000` | 当某个 MCP target（`mcp.targets` 中的 Agent，例如 `claude`，不是 skill target）的 MCP 工具定义在同一个位置超过此值时警告：全局列表，或每个 `mcp.projects` 根目录。数值来自 `mcp check --live`；尚未统计的 server 不计入。`0` 表示禁用 |
 
-省略时，采用默认值（10K / 100K）。使用 `skillshare sync --quiet` 可抑制警告。输出格式参见 [sync — Context Cost](/docs/reference/commands/sync#context-cost)。
+省略时，采用默认值（10K / 100K / 30K）。使用 `skillshare sync --quiet` 可抑制警告。输出格式参见 [sync — Context Cost](/docs/reference/commands/sync#context-cost)。
 
 ### `preserve_tilde_on_save`
 

@@ -102,6 +102,8 @@ export const queryKeys = {
     content: (name: string, path: string) => ['target-files', name, 'content', path] as const,
   },
   mcp: ['mcp'] as const,
+  // Under `mcp`, so every MCP change refreshes it too.
+  mcpCosts: ['mcp', 'costs'] as const,
   mcpRender: (mutation: string) => ['mcp', 'render', mutation] as const,
   mcpRemovePreview: (project: string | undefined, name: string) =>
     ['mcp-remove-preview', project, name] as const,
