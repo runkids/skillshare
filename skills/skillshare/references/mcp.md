@@ -492,7 +492,8 @@ mcp:
   - `mcp list` adds a `shared` row per shared server with its projects; `mcp list --json` has
     a top-level `shared: [{name, projects}]`.
   - No command edits `use` and existing per-project copies are not converted. Edit
-    `config.yaml`, or use the dashboard: **Loads in** in the server dialog, and
+    `config.yaml`, or use the dashboard: **Loads in** in the server dialog or
+    **Projects** in a shared server's expanded row on the **MCP** page, and
     **Opt-in servers** on a project's **MCP** tab.
 - The preview names the file when one server appears in several places.
 

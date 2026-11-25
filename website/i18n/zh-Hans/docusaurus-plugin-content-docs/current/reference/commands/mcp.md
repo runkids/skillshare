@@ -625,7 +625,7 @@ mcp:
   默认关闭；它的开关会在项目的 `use` 中添加或移除该名称。
   **Only in this project** 列出只存在于该项目中的 server。
 - 在 MCP 页面上，server 的对话框有 **Loads in**：**Every project**，或 **Only
-  projects that turn it on**。只要有共享 server，列表就会分成 **Global** 和 **Only in chosen projects** 两区，共享 server 的行会显示 **N projects**。
+  projects that turn it on**。只要有共享 server，列表就会分成 **Global** 和 **Only in chosen projects** 两区，共享 server 的行会显示 **N projects**。展开该行，或在对话框中选择 **Only projects that turn it on**，会为 `mcp.projects` 的每个根目录列出一个勾选框。**Save** 会一次性在所有勾选或取消勾选的根目录的 `use` 中加入或移除该名称。**Add folder…** 会加入尚未列出的根目录；它没有自己的 `targets`，所以使用 `mcp.targets`。
 - 已关闭的 server 会显示它在哪些 Agent 中被关闭的 logo。已开启的 server 会显示加载它的 Agent；
   被同名的项目 server 取代时则不显示。如果项目的某个 Agent 没有
   按项目的开关，该行会说明这个 server 在那里仍会加载。如果某个条目列出了自己的

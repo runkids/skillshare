@@ -635,7 +635,7 @@ Global mode에서는 대시보드에 **프로젝트** 페이지가 있습니다.
   이 스위치는 프로젝트의 `use`에 이름을 추가하거나 제거합니다.
   **Only in this project**는 해당 프로젝트에만 존재하는 서버를 나열합니다.
 - MCP 페이지에서 서버의 대화상자에는 **Loads in**이 있습니다: **Every project** 또는
-  **Only projects that turn it on**. shared 서버가 있으면 목록이 **Global**과 **Only in chosen projects**로 나뉘고, shared 서버의 행에는 **N projects**가 표시됩니다.
+  **Only projects that turn it on**. shared 서버가 있으면 목록이 **Global**과 **Only in chosen projects**로 나뉘고, shared 서버의 행에는 **N projects**가 표시됩니다. 그 행을 펼치거나 대화 상자에서 **Only projects that turn it on**을 고르면 `mcp.projects`의 루트마다 체크박스가 나옵니다. **Save**는 체크하거나 해제한 모든 루트의 `use`에서 이름을 한 번에 추가하거나 제거합니다. **Add folder…**는 아직 목록에 없는 루트를 추가하며, 자체 `targets`가 없으므로 `mcp.targets`를 사용합니다.
 - 꺼져 있는 서버는 꺼져 있는 Agent의 로고를 표시합니다. 켜져 있는 서버는 로드되는 Agent를 표시하고,
   같은 이름의 프로젝트 서버로 대체되면 아무것도 표시하지 않습니다. 프로젝트의 Agent 중 하나에
   프로젝트별 스위치가 없으면, 해당 행은 그 Agent에서는 서버가 여전히 로드된다고

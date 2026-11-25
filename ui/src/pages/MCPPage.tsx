@@ -61,6 +61,7 @@ import {
   sharedTargets,
   sharedUsers,
   targetLabel,
+  usingChanges,
   writes,
   type MCPChange,
 } from '../components/mcp/mcpView';
@@ -240,6 +241,7 @@ interface ContentProps {
   onShowAll: () => void;
   busy: boolean;
   onToggle: (name: string, target: string, on: boolean) => void;
+  onProjects: (name: string, picked: string[]) => void;
   onMenu: (e: React.MouseEvent<HTMLButtonElement>, name: string) => void;
   onImport: (request: ImportRequest) => void;
   onAdd: () => void;
@@ -259,6 +261,7 @@ function MCPContent({
   onShowAll,
   busy,
   onToggle,
+  onProjects,
   onMenu,
   onImport,
   onAdd,
@@ -304,6 +307,8 @@ function MCPContent({
       disabled={busy}
       problems={problemsByServer(check.report)}
       users={users}
+      roots={roots}
+      onProjects={onProjects}
     />
   );
   const actions = {
@@ -479,7 +484,7 @@ function MCPEditDialog({
   addMode: AddMode;
   onMode: (mode: AddMode) => void;
   onClose: () => void;
-  onSaved: (server?: MCPServer) => void;
+  onSaved: (server?: MCPServer, users?: string[]) => void;
 }) {
   const { servers, defaults, files, users } = model;
   const server = editing ? servers[editing] : undefined;
@@ -506,6 +511,7 @@ function MCPEditDialog({
       existingNames={Object.keys(servers)}
       availableTargets={files}
       users={editing ? users[editing] : undefined}
+      roots={model.roots}
       onMode={editing === '' ? onMode : undefined}
       onClose={onClose}
       onSaved={onSaved}
@@ -702,6 +708,19 @@ export default function MCPPage() {
     void toggleTarget(name, target, on).finally(() => setBusy(false));
   };
 
+  // Every project ticked or cleared at once is one save, so a sync never finds half of them.
+  const saveProjects = async (name: string, picked: string[]) => {
+    setBusy(true);
+    try {
+      await mcpApi.saveBatch(usingChanges(name, model.users[name] ?? [], picked));
+    } catch (e) {
+      toast(describeError(t, (e as Error).message), 'error');
+    } finally {
+      setBusy(false);
+    }
+    refresh();
+  };
+
   const saveSettings = async (settings: MCPSettings) => {
     try {
       await mcpApi.save({ settings, replace: true });
@@ -810,6 +829,7 @@ export default function MCPPage() {
               onShowAll={() => setAllFiles(!allFiles)}
               busy={busy}
               onToggle={(n, x, on) => toggle(n, x, on)}
+              onProjects={(n, picked) => void saveProjects(n, picked)}
               onMenu={openMenu}
               onImport={setImporting}
               onAdd={() => {
@@ -839,10 +859,9 @@ export default function MCPPage() {
               addMode={addMode}
               onMode={setAddMode}
               onClose={() => setEditing(null)}
-              onSaved={(server) => {
+              onSaved={(server, users) => {
                 // An edit of a shared server reaches every project that uses it.
-                const count =
-                  editing && server?.global === false ? (model.users[editing]?.length ?? 0) : 0;
+                const count = editing && server?.global === false ? (users?.length ?? 0) : 0;
                 done(
                   count > 0
                     ? t(plural('mcp.shared.saved', count), { count })

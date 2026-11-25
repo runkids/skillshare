@@ -693,6 +693,10 @@ project has an **MCP** tab.
 - On the MCP page, a server's dialog has **Loads in**: **Every project**, or **Only
   projects that turn it on**. Once a shared server exists, the list splits into **Global**
   and **Only in chosen projects**, and a shared server's row shows **N projects**.
+  Expanding that row, or choosing **Only projects that turn it on** in the dialog, lists
+  the `mcp.projects` roots with a tick each. **Save** adds or removes the name in the `use`
+  of every root ticked or cleared, in one save. **Add folder…** adds a root that is not
+  listed yet; it has no `targets` of its own, so it uses `mcp.targets`.
 - A server that is off shows the logos of the Agents it is off in. A server that is on shows
   the Agents it loads in, and none when a project server of the same name replaces it. When one of the
   project's Agents has no per-project switch, the row says that the server still loads

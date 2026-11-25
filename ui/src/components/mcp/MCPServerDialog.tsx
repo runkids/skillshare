@@ -15,7 +15,14 @@ import PiSettingsFields from './PiSettingsFields';
 import ToolPolicyFields from './ToolPolicyFields';
 import MCPConfigView from './MCPConfigView';
 import RadioOption from '../projects/RadioOption';
-import { cleanToolPolicy, describeError, hasToolPolicy, targetLabel } from './mcpView';
+import MCPProjectPicker from './MCPProjectPicker';
+import {
+  cleanToolPolicy,
+  describeError,
+  hasToolPolicy,
+  targetLabel,
+  usingChanges,
+} from './mcpView';
 import { MCPAccountAgents, MCPTargetOrder } from './targetOrder';
 import {
   initialServerDraft,
@@ -167,11 +174,14 @@ interface Props {
   copyFrom?: CopyableServer[];
   /** The projects that use this server, when it loads only in those (`global: false`). */
   users?: string[];
+  /** The mcp.projects roots; given, a server that loads only in chosen projects has them ticked here. */
+  roots?: string[];
   /** The copy tab is open: pick a server to fill the fields with. */
   copy?: boolean;
   onClose: () => void;
   /** Gets the server as saved. */
-  onSaved: (server: MCPServer) => void;
+  /** `users`: the projects that use the server after the save. */
+  onSaved: (server: MCPServer, users: string[]) => void;
 }
 
 interface ServerFormProps {
@@ -188,6 +198,8 @@ interface ServerFormProps {
   users: string[];
   /** Saved as loading only in the projects that use it. */
   wasShared: boolean;
+  /** The projects to tick, when the dialog offers them. */
+  pick?: ProjectPick;
   serve: boolean;
   copyFrom: CopyableServer[];
   copy: boolean;
@@ -203,16 +215,24 @@ interface ServerFormProps {
   mutation?: MCPMutation;
 }
 
+interface ProjectPick {
+  roots: string[];
+  picked: string[];
+  onChange: (picked: string[]) => void;
+}
+
 /** Every folder through the Agents' global files, or only the projects that turn it on. */
 function LoadsIn({
   shared,
   wasShared,
   users,
+  pick,
   disabled,
   onChange,
 }: {
   shared: boolean;
   wasShared: boolean;
+  pick?: ProjectPick;
   users: string[];
   disabled: boolean;
   onChange: (shared: boolean) => void;
@@ -236,10 +256,19 @@ function LoadsIn({
           onSelect={() => onChange(true)}
           disabled={disabled}
           title={t('mcp.shared.chosen')}
-          hint={t('mcp.shared.chosenHint')}
+          hint={t(pick ? 'mcp.shared.chosenPickHint' : 'mcp.shared.chosenHint')}
         />
       </div>
-      {wasShared && users.length > 0 && (
+      {shared && pick && (
+        <MCPProjectPicker
+          roots={pick.roots}
+          saved={users}
+          picked={pick.picked}
+          onChange={pick.onChange}
+          disabled={disabled}
+        />
+      )}
+      {!pick && wasShared && users.length > 0 && (
         <span className="flex flex-wrap items-center gap-1.5 text-xs text-ink-3">
           {t('mcp.shared.usedBy')}
           {users.map((root) => (
@@ -273,6 +302,7 @@ function ServerForm({
   project,
   users,
   wasShared,
+  pick,
   serve,
   copyFrom,
   copy,
@@ -424,6 +454,7 @@ function ServerForm({
           shared={draft.shared}
           wasShared={wasShared}
           users={users}
+          pick={pick}
           disabled={saving}
           onChange={(shared) => patch({ shared })}
         />
@@ -671,6 +702,7 @@ export default function MCPServerDialog({
   copyFrom = [],
   copy = false,
   users = [],
+  roots,
   onClose,
   onSaved,
 }: Props) {
@@ -701,6 +733,7 @@ export default function MCPServerDialog({
   };
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [picked, setPicked] = useState(users);
   const validation = validateServerDraft(draft, off, Boolean(initial), existingNames, t);
   const { trimmed, words, options, agentOptions, title } = validation;
   const canSave = validation.canSave && !saving;
@@ -758,8 +791,11 @@ export default function MCPServerDialog({
     setSaving(true);
     setError('');
     try {
-      await mcpApi.save({ project, name: trimmed, server: next, replace: Boolean(initial) });
-      onSaved(next);
+      const saved = { project, name: trimmed, server: next, replace: Boolean(initial) };
+      // The server comes first, so a new one exists for the projects that turn it on.
+      const using = roots && !isProject && draft.shared ? usingChanges(trimmed, users, picked) : [];
+      await (using.length > 0 ? mcpApi.saveBatch([saved, ...using]) : mcpApi.save(saved));
+      onSaved(next, picked);
     } catch (e) {
       setError(describeError(t, (e as Error).message));
       setSaving(false);
@@ -806,6 +842,7 @@ export default function MCPServerDialog({
           project={project}
           users={users}
           wasShared={server?.global === false}
+          pick={roots && { roots, picked, onChange: setPicked }}
           serve={serve}
           copyFrom={copyFrom}
           copy={copy}
