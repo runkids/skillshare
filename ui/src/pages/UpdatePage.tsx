@@ -34,6 +34,7 @@ import { countLabel, repoOf, SOURCE_LABEL } from '../lib/resourceGrouping';
 import {
   foldsAway,
   githubPage,
+  hasUpstreamPreview,
   matchesFilters,
   NO_FILTERS,
   repeatedLabels,
@@ -1485,7 +1486,10 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
                     const r = run.get(unit.name);
                     const c = unitCheck(statuses, unit).status;
                     const hasPreview =
-                      !r && kind === 'skill' && hasUpdate(unitCheck(statuses, unit));
+                      !r &&
+                      kind === 'skill' &&
+                      hasUpstreamPreview(unit) &&
+                      hasUpdate(unitCheck(statuses, unit));
                     const hasChanges = !r && kind === 'skill' && !unit.isRepo && c === 'dirty';
                     const rowState =
                       r?.status === 'in-progress'

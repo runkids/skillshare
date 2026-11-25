@@ -95,6 +95,14 @@ export function foldsAway(filters: UpdateFilters, status: string, inRun: boolean
 }
 
 /** Labels shared by more than one unit: those rows need their folder to tell them apart. */
+/**
+ * Whether the upstream preview can show this unit's changes: it diffs git commits, so a skill
+ * installed from a local path has nothing to compare even when its source changed.
+ */
+export function hasUpstreamPreview(unit: FilterUnit): boolean {
+  return unit.isRepo || !!unit.items[0]?.repoUrl;
+}
+
 export function repeatedLabels(units: FilterUnit[]): Set<string> {
   const seen = new Set<string>();
   const repeated = new Set<string>();

@@ -3,6 +3,7 @@ import type { Skill } from '../api/client';
 import {
   foldsAway,
   githubPage,
+  hasUpstreamPreview,
   matchesFilters,
   NO_FILTERS,
   repeatedLabels,
@@ -78,6 +79,20 @@ describe('foldsAway', () => {
     ['a row an update run reports on', NO_FILTERS, 'up-to-date', true, false],
   ])('%s', (_, filters, status, inRun, expected) => {
     expect(foldsAway(filters, status, inRun)).toBe(expected);
+  });
+});
+
+describe('hasUpstreamPreview', () => {
+  it.each([
+    [
+      'a skill installed from git',
+      unit('a', { repoUrl: 'https://github.com/acme/skills.git' }),
+      true,
+    ],
+    ['a skill installed from a local path', unit('a', { type: 'local', source: '/src/a' }), false],
+    ['a tracked repo', repo('_team'), true],
+  ])('%s', (_, u, expected) => {
+    expect(hasUpstreamPreview(u)).toBe(expected);
   });
 });
 
