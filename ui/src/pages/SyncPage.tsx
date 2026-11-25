@@ -34,7 +34,7 @@ import Tooltip from '../components/Tooltip';
 import { useToast } from '../components/Toast';
 import { hookLabel, hookMessage, rootName } from '../components/hooks/hooksView';
 import MCPNotices from '../components/mcp/MCPNotices';
-import MCPBudgetWarnings from '../components/analyze/MCPBudgetWarnings';
+import MCPBudgetWarnings from '../components/context/MCPBudgetWarnings';
 import { describeMessage, mcpClient, targetLabel } from '../components/mcp/mcpView';
 import {
   changeSets,

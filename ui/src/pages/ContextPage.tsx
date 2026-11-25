@@ -1,6 +1,6 @@
 import { useSearchParams } from 'react-router-dom';
-import AnalyzePanel from '../components/analyze/AnalyzePanel';
-import MCPCostPanel from '../components/analyze/MCPCostPanel';
+import SkillCostPanel from '../components/context/SkillCostPanel';
+import MCPCostPanel from '../components/context/MCPCostPanel';
 import PageHeader from '../components/PageHeader';
 import { useT } from '../i18n';
 import { segSlide } from '../lib/segSlide';
@@ -39,7 +39,7 @@ export default function ContextPage() {
       </div>
       {/* Keyed, so switching tabs fades the new content in. */}
       <div key={tab} className="animate-page-in">
-        {tab === 'mcp' ? <MCPCostPanel /> : <AnalyzePanel />}
+        {tab === 'mcp' ? <MCPCostPanel /> : <SkillCostPanel />}
       </div>
     </div>
   );

@@ -31,7 +31,7 @@ import PageHeader from '../components/PageHeader';
 import SourcePathButton from '../components/SourcePathButton';
 import { PageSkeleton } from '../components/Skeleton';
 import { RailGroup, RailLayout, RailRow, RailSection } from '../components/StatusRail';
-import MCPContextCard from '../components/analyze/MCPContextCard';
+import MCPContextCard from '../components/context/MCPContextCard';
 import { SkillContextMenu, type ContextMenuItem } from '../components/TargetMenu';
 import { useToast } from '../components/Toast';
 import MCPDefaults from '../components/mcp/MCPDefaults';

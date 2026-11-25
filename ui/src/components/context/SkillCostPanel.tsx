@@ -37,7 +37,7 @@ function pickTarget(targets: AnalyzeTarget[], want: string) {
 }
 
 /** Context cost of the skills a target loads: descriptions always, bodies on demand. */
-export default function AnalyzePanel() {
+export default function SkillCostPanel() {
   const t = useT();
   const { data, isPending, error } = useQuery({
     queryKey: queryKeys.analyze,
