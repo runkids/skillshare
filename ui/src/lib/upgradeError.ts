@@ -15,6 +15,12 @@ export function nixUpdateNote(data: VersionCheck, t: T): string | null {
   return nixAdvice(data.nixUpgradeCommand, t);
 }
 
+/** The PyPI note the update dialog adds when pip, uv or pipx must install a newer CLI, or null. */
+export function pypiUpdateNote(data: VersionCheck, t: T): string | null {
+  if (!data.cliUpdateAvailable || typeof data.pypiUpgradeCommand !== 'string') return null;
+  return t('updateDialog.pypi', { command: data.pypiUpgradeCommand });
+}
+
 /** Turns a failed POST /api/upgrade into the message to show. */
 export function upgradeErrorMessage(err: unknown, t: T): string {
   if (err instanceof ApiError && err.code === 'upgrade.needs_sudo')
@@ -22,6 +28,10 @@ export function upgradeErrorMessage(err: unknown, t: T): string {
   if (err instanceof ApiError && err.code === 'upgrade.nix') {
     const command = typeof err.params?.command === 'string' ? err.params.command : '';
     return nixAdvice(command, t);
+  }
+  if (err instanceof ApiError && err.code === 'upgrade.pypi') {
+    const command = typeof err.params?.command === 'string' ? err.params.command : '';
+    return t('updateDialog.pypi', { command });
   }
   return (err as Error).message;
 }
