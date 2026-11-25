@@ -3,6 +3,7 @@ package mcp
 import (
 	"maps"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -96,7 +97,7 @@ func TestToolCostsProjectGroupIncludesGlobalServersItKeeps(t *testing.T) {
         noisy:
           disabled: true
 `)
-	web := tmp + "/web"
+	web := filepath.Join(tmp, "web")
 	counted := func(n int) ToolCost { return ToolCost{Tools: 1, Tokens: n, Checked: time.Now()} }
 	if err := writeJSONFile(s.toolCostsPath(), toolCostFile{Version: 1, Servers: map[string]map[string]ToolCost{
 		"":  {"plain": counted(100), "noisy": counted(1000), "docs": counted(10)},
@@ -147,7 +148,7 @@ func TestToolCostsProjectThatOnlyTurnsAServerOff(t *testing.T) {
 	for _, g := range report.Groups {
 		totals[g.Root+"@"+g.Target] = g.Tokens
 	}
-	if want := map[string]int{"@claude": 41000, tmp + "/web@claude": 40000}; !maps.Equal(totals, want) {
+	if want := map[string]int{"@claude": 41000, filepath.Join(tmp, "web") + "@claude": 40000}; !maps.Equal(totals, want) {
 		t.Fatalf("totals = %v, want %v", totals, want)
 	}
 }
