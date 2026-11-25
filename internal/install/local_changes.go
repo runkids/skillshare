@@ -101,7 +101,12 @@ func installedVersion(entry *MetadataEntry, parseOpts ParseOptions) (string, err
 		return "", err
 	}
 	// Only read, never used, so the audit gate does not apply.
-	if _, err := Install(source, filepath.Join(tmp, "skill"), InstallOptions{SkipAudit: true}); err != nil {
+	dir := filepath.Join(tmp, "skill")
+	_, err = Install(source, dir, InstallOptions{SkipAudit: true})
+	if err == nil {
+		_, err = keepInstalledShape(entry, source, dir)
+	}
+	if err != nil {
 		os.RemoveAll(tmp)
 		return "", fmt.Errorf("fetch the installed version: %w", err)
 	}
