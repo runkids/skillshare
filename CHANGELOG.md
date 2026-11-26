@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.33.0](https://github.com/runkids/skillshare/compare/v0.32.1...v0.33.0) (2026-11-26)
+
+
+### New Features
+
+* **hooks:** review project Codex hook trust per account ([#1067](https://github.com/runkids/skillshare/issues/1067)) ([ffcac93](https://github.com/runkids/skillshare/commit/ffcac934f114aa05b6d26fcbecee79a593090f3b))
+* **targets:** add MiniMax Code as built-in target ([#1062](https://github.com/runkids/skillshare/issues/1062)) ([7dd2dff](https://github.com/runkids/skillshare/commit/7dd2dffe89e6f9c20afec3d8794169855d93738c))
+* **ui:** retune Playful, inset Clean, and add a Custom theme editor ([#1066](https://github.com/runkids/skillshare/issues/1066)) ([bb290c6](https://github.com/runkids/skillshare/commit/bb290c6ed770a5e34f1edcba2becf1bba7024d0c))
+
+
+### Bug Fixes
+
+* **ui:** let the MCP and Plugins rail scroll with the page ([#1064](https://github.com/runkids/skillshare/issues/1064)) ([c9bae06](https://github.com/runkids/skillshare/commit/c9bae061b31baf693d67bac4cfa702a89a91a073)), closes [#1053](https://github.com/runkids/skillshare/issues/1053)
+* **ui:** put the Context tabs at the top right, above the picker ([fb00162](https://github.com/runkids/skillshare/commit/fb001629b30d88e707637fbb987c7cd062eade99))
+* **wsl:** find explorer.exe when C: is mounted outside /mnt ([#1065](https://github.com/runkids/skillshare/issues/1065)) ([c7b92d1](https://github.com/runkids/skillshare/commit/c7b92d15bbf24b967d2c4bab11d7332607762f66)), closes [#1053](https://github.com/runkids/skillshare/issues/1053)
+
 ## [0.32.1] - 2026-11-26
 
 ### New Features
