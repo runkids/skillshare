@@ -90,6 +90,8 @@ export interface SkillCheckResult {
   status: string;
   installed_at?: string;
   message?: string;
+  /** The branch the remote HEAD points at, for a source that recorded no branch. */
+  default_branch?: string;
 }
 
 export interface ConfigEntry {

@@ -61,11 +61,14 @@ func wantDashboardSkills(versions map[string]string) []skillCheckResult {
 	want := []skillCheckResult{{Name: "plain", Status: "local"}}
 	for name, status := range statuses {
 		r := skillCheckResult{Name: name, Source: "src/" + name, Version: versions[name], Status: status}
-		if name == "current" {
+		// "current" records its branch, and "broken" never reaches its remote.
+		switch name {
+		case "current":
 			r.InstalledAt = "2024-05-06"
-		}
-		if name == "broken" {
+		case "broken":
 			r.Message = "Could not read from remote repository."
+		default:
+			r.DefaultBranch = "main"
 		}
 		want = append(want, r)
 	}

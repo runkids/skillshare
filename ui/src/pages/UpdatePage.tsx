@@ -36,6 +36,7 @@ import {
   hasUpstreamPreview,
   matchesFilters,
   NO_FILTERS,
+  recordDefaultBranches,
   repeatedLabels,
   sourcePage,
   unitFolder,
@@ -43,6 +44,7 @@ import {
   statusGroup,
   UPDATE_SOURCES,
   UPDATE_STATUSES,
+  type DefaultBranches,
   type UpdateFilters,
   type UpdateStatus,
 } from '../lib/updateFilters';
@@ -154,6 +156,47 @@ export function useCheckStatuses() {
   return [data ?? NO_STATUSES, setStatuses] as const;
 }
 
+const DEFAULT_BRANCHES_KEY = 'skillshare.defaultBranches';
+const NO_BRANCHES: DefaultBranches = {};
+
+/** The default branches checks found, kept like check results: query cache and localStorage. */
+function useDefaultBranches() {
+  const queryClient = useQueryClient();
+  const { data } = useQuery({
+    queryKey: queryKeys.defaultBranches,
+    queryFn: readDefaultBranches,
+    initialData: readDefaultBranches,
+    staleTime: Infinity,
+  });
+  const record = useCallback(
+    (reports: Parameters<typeof recordDefaultBranches>[1]) => {
+      const prev = queryClient.getQueryData<DefaultBranches>(queryKeys.defaultBranches) ?? {};
+      const next = recordDefaultBranches(prev, reports);
+      queryClient.setQueryData(queryKeys.defaultBranches, next);
+      try {
+        window.localStorage.setItem(DEFAULT_BRANCHES_KEY, JSON.stringify(next));
+      } catch {
+        // Best-effort UI cache only.
+      }
+    },
+    [queryClient],
+  );
+  return [data ?? NO_BRANCHES, record] as const;
+}
+
+function readDefaultBranches(): DefaultBranches {
+  if (typeof window === 'undefined') return {};
+  try {
+    const parsed: unknown = JSON.parse(window.localStorage.getItem(DEFAULT_BRANCHES_KEY) ?? '{}');
+    if (!parsed || typeof parsed !== 'object') return {};
+    return Object.fromEntries(
+      Object.entries(parsed).filter(([, branch]) => typeof branch === 'string'),
+    );
+  } catch {
+    return {};
+  }
+}
+
 export function updateUnits(
   resources: Skill[],
   kind: Kind,
@@ -232,6 +275,7 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
   );
 
   const [statuses, setStatuses] = useCheckStatuses();
+  const [branches, recordBranches] = useDefaultBranches();
   const [checking, setChecking] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [force, setForce] = useState(false);
@@ -281,6 +325,8 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
         (prev) =>
           prev ? { ...prev, linked_repos: result.linked_repos ?? prev.linked_repos } : prev,
       );
+      // Filled while matching results to items below; setStatuses runs its update right away.
+      const reports: Parameters<typeof recordDefaultBranches>[1] = [];
       setStatuses((prev) => {
         const next = new Map(prev);
         const pending = new Set(updatable.map(checkKey));
@@ -323,6 +369,7 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
             (i) => i.kind === 'skill' && !i.isInRepo && matchesCheckSkill(i, skill.name),
           );
           if (!item) continue;
+          reports.push({ repoUrl: item.repoUrl, defaultBranch: skill.default_branch });
           next.set(checkKey(item), {
             status:
               skill.status === 'update_available'
@@ -344,6 +391,7 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
         for (const agent of result.agents ?? []) {
           const item = updatable.find((i) => agentKey(i) === agent.name);
           if (!item) continue;
+          reports.push({ repoUrl: item.repoUrl, defaultBranch: agent.default_branch });
           const edited = agent.status === 'drifted' || agent.status === 'dirty';
           next.set(checkKey(item), {
             status:
@@ -366,8 +414,9 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
         }
         return next;
       });
+      recordBranches(reports);
     },
-    [updatable, setStatuses, queryClient],
+    [updatable, setStatuses, recordBranches, queryClient],
   );
 
   // Checks the given units, leaving every other result as it is; all of them when omitted.
@@ -871,7 +920,7 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
     return {
       check: kind === 'skill' && !busy,
       update: !busy && !run.has(unit.name) && c !== 'up-to-date' && c !== 'checking',
-      page: sourcePage(unit),
+      page: sourcePage(unit, 'tree', branches),
     };
   };
   const menuItems = (unit: UpdateUnit): ContextMenuItem[] => {
@@ -1587,6 +1636,7 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
       />
       <UpdatePreviewDialog
         unit={preview?.unit ?? null}
+        branches={branches}
         mode={preview?.mode ?? 'upstream'}
         onClose={() => setPreview(null)}
         onUpdate={({ force: forced, merge }) => {
