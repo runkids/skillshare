@@ -66,8 +66,9 @@ skillshare sync --all
 서브커맨드 없이 실행하면 `mcp`는 대화형 터미널에서 검색 가능한 관리자를 열거나,
 noninteractive mode에서는 상태를 출력합니다. 이름 없이 noninteractive import를 실행하면
 선택할 수 있도록 파싱된 후보 목록을 표시하며 저장하지 않습니다. 후보는 이식 가능한
-정의를 포함하며, 인식 가능한 시크릿은 참조로 변환됩니다. Agent 고유 필드는 경고로
-표시되고 제외되며, 비활성화된 서버와 지원되지 않는 전송 방식은 후보를 차단합니다.
+정의를 포함하며, 인식 가능한 시크릿은 참조로 변환됩니다. Agent 고유 필드는 해당 Agent의 [`options`](#agent-options)에
+들어가며, `options`가 담을 수 없는 필드는 경고로 표시되고 제외됩니다.
+비활성화된 서버와 지원되지 않는 전송 방식은 후보를 차단합니다.
 `restore`는 적용 전에 항상 다시 미리보기를 표시하며, 적용하지 않고 확인하려면
 `--dry-run`을 사용하세요.
 
@@ -164,6 +165,7 @@ servers:
   있으므로 평문이나 참조 앞뒤에 글자가 붙은 값은 거부됩니다. Codex, Antigravity, Claude Desktop, Goose, Junie, LM Studio, Warp는
   그곳의 참조를 읽지 않으므로 해당 options에는 자격 증명을 둘 수 없습니다.
 - 서버가 도달하지 않는 client의 options는 유지되며 작성되지 않습니다.
+- import는 여기에 이식 가능한 형태가 없는 Agent의 네이티브 필드를 해당 Agent의 ID 아래에 넣습니다. 예를 들어 Claude Code의 `alwaysLoad`는 `options.claude` 아래에 들어갑니다. 이름(또는 내부 이름)이 자격 증명을 나타내는 필드(`auth`, `key`, `token`, `secret`, `bearer`, `cookie` 등)와 위 규칙이 거부하는 필드는 경고와 함께 제외됩니다. `--from` 없이 가져온 파일이나 붙여넣은 텍스트는 형식을 추측하므로, 그 네이티브 필드는 경고로 표시되고 제외됩니다.
 - sync는 이름 변경 후처럼 항목을 다시 만들 때 해당 필드를 다시 작성합니다.
   source에서 option을 빼면 다음 sync가 작성했던 필드를 제거합니다. 단, 그 뒤 Agent가 변경했다면 제거하지 않으며, 이는 import 또는 replace로 해결할 충돌입니다.
 - 대시보드에서는 서버 대화 상자의 **기타 Agent 설정**에서 편집합니다. Agent를 고른 뒤 필드를 JSON
@@ -231,7 +233,7 @@ client에서 동작합니다.
 | [Windsurf (Cascade)](https://docs.devin.ai/desktop/cascade/mcp) | `~/.codeium/windsurf/mcp_config.json` | Global only | `mcpServers` |
 | [Oh My Pi (OMP)](https://github.com/can1357/oh-my-pi/blob/v18.6.1/docs/mcp-config.md) | `~/.omp/agent/mcp.json` | `.omp/mcp.json` | `mcpServers` |
 
-Hermes는 Global MCP만 지원하며 `mcp_servers`(YAML)를 사용합니다. stdio와 Streamable HTTP를 지원하고 SSE 가져오기는 거부합니다. 절대 경로 `HERMES_HOME`으로 다른 home/profile을 선택할 수 있습니다. 지정하지 않으면 default profile(Windows: `%LOCALAPPDATA%/hermes`)을 사용하며 active profile, `--profile`, `HERMES_DATA_DIR_SUFFIX`는 추적하지 않습니다. `fromEnv`는 `${VAR}`를 출력하고 env/header 가져오기는 `${env:VAR}`도 허용합니다. OAuth는 `options.hermes: {auth: oauth}`로 설정합니다. 가져오기는 `auth`/`oauth`를 유지하지만 일반 텍스트 자격 증명은 거부하므로 전체 값을 `${VAR}` 참조로 바꾸세요. 다른 매핑되지 않은 필드는 경고합니다. 로그인, `.env`, token 및 refresh state는 Hermes가 관리합니다. 같은 profile에서 `hermes mcp login NAME`을 실행하세요. YAML 보존 규칙과 제한은 Goose와 같습니다.
+Hermes는 Global MCP만 지원하며 `mcp_servers`(YAML)를 사용합니다. stdio와 Streamable HTTP를 지원하고 SSE 가져오기는 거부합니다. 절대 경로 `HERMES_HOME`으로 다른 home/profile을 선택할 수 있습니다. 지정하지 않으면 default profile(Windows: `%LOCALAPPDATA%/hermes`)을 사용하며 active profile, `--profile`, `HERMES_DATA_DIR_SUFFIX`는 추적하지 않습니다. `fromEnv`는 `${VAR}`를 출력하고 env/header 가져오기는 `${env:VAR}`도 허용합니다. OAuth는 `options.hermes: {auth: oauth}`로 설정합니다. 가져오기는 `auth`/`oauth`를 유지하지만 일반 텍스트 자격 증명은 거부하므로 전체 값을 `${VAR}` 참조로 바꾸세요. 다른 네이티브 필드는 모든 Agent와 마찬가지로 `options.hermes` 아래에 들어갑니다. 로그인, `.env`, token 및 refresh state는 Hermes가 관리합니다. 같은 profile에서 `hermes mcp login NAME`을 실행하세요. YAML 보존 규칙과 제한은 Goose와 같습니다.
 
 대시보드의 서버 폼은 `fromEnv` 참조를 포함해 HTTP 헤더를 환경 변수와 동일한 방식으로
 편집합니다. 서버 메뉴와 폼의 파일 개수 옆에 있는 **View what each Agent gets**는,
@@ -268,7 +270,7 @@ mode에서는 프로젝트에 MCP 파일이 있거나 client가 전역적으로 
   프로젝트에서만 `.codex/config.toml`을 읽습니다. 신뢰하지 않는 프로젝트에서는
   동기화된 서버가 오류 없이 로드되지 않습니다. `cwd`, `http_headers_helper`, 승인
   모드, 타임아웃, `oauth` 테이블은 이식 가능한 형태가 없습니다: import는
-  이를 경고와 함께 제외하고, sync는 기존 항목에 그대로 유지합니다. source에서 설정하려면 [`options.codex`](#agent-options)를 사용합니다. `enabled_tools`와
+  이를 [`options.codex`](#agent-options) 아래에 넣고 sync가 다시 작성합니다. 단, `oauth` 테이블처럼 자격 증명을 담을 수 있는 필드는 경고와 함께 제외됩니다. `enabled_tools`와
   `disabled_tools`는 [도구 정책](#tool-policy)에서 만들어지며, import 시 도구 정책으로
   가져옵니다. Codex 플러그인이
   번들하는 MCP 서버는 `plugins.<plugin>.mcp_servers` 아래에 구성되며 여기서 관리되지
@@ -354,9 +356,10 @@ Kilo Code는 프로젝트 구성을 신뢰할 수 없는 것으로 취급합니�
 OpenCode와 Kilo Code는 `local`/`remote` 유형과 `{env:VARIABLE}` 참조를 사용하며,
 Grok은 `${VARIABLE}` 참조를 사용합니다. Skillshare가 이를 자동으로 변환합니다.
 Claude의 `"type": "streamable-http"`는 HTTP로 import됩니다. 비활성화된 연결은
-import를 차단합니다. Codex의 `startup_timeout_sec`나 `envFile`처럼 이식 가능한
-대응 항목이 없는 다른 네이티브 옵션은 경고와 함께 import에서 제외되며, sync는
-Agent의 기존 항목에 이를 유지합니다. Pi는 내장 MCP를 사용합니다.
+import를 차단합니다. Codex의 `startup_timeout_sec`나 Claude Code의 `alwaysLoad`처럼 이식 가능한
+대응 항목이 없는 다른 네이티브 옵션은 해당 Agent의 [`options`](#agent-options) 아래로 import되므로,
+sync가 이를 해당 Agent에만 다시 작성합니다. 일반 텍스트 자격 증명이나 `null`처럼 `options`가 담을 수 없는 필드는
+경고와 함께 import에서 제외되며, sync는 Agent의 기존 항목에 이를 유지합니다. Pi는 내장 MCP를 사용합니다.
 [아래](#pi)를 참고하세요.
 
 VS Code Stable의 기본 사용자 파일은 다음과 같습니다.
@@ -1291,7 +1294,7 @@ sync는 `$schema`, `disabledServers`, `enabledServers`와 관련 없는 서버�
 기존 연결을 업데이트할 때 `enabled`, `timeout`, `instructions`, `requestIdFormat`, `cwd`,
 `auth`, `oauth` 같은 서버별 네이티브 필드도 유지합니다. 이 필드는 `piOptions`가 아니며,
 Pi 전용 설정은 OMP로 전달되지 않습니다. import는 이식 가능한 모델로 표현할 수 없는
-네이티브 필드에 대해 경고합니다. 그런 필드는 OMP의 파일에 유지하세요. 이식 가능한 모델은
+네이티브 필드를 `options.omp`에 넣고, `options`가 담을 수 없는 필드는 경고합니다. 이식 가능한 모델은
 stdio와 Streamable HTTP를 지원하지만 OMP의 레거시 SSE 전송은 지원하지 않습니다.
 지원되지 않는 import는 변환하지 않고 거부합니다.
 

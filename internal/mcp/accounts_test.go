@@ -444,14 +444,15 @@ func TestImportFromAccountReadsItsFile(t *testing.T) {
 	if err := os.MkdirAll(filepath.Dir(workFile), 0700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(workFile, []byte(`{"mcpServers":{"work":{"url":"https://work.example.com/mcp"}}}`), 0600); err != nil {
+	if err := os.WriteFile(workFile, []byte(`{"mcpServers":{"work":{"url":"https://work.example.com/mcp","alwaysLoad":true}}}`), 0600); err != nil {
 		t.Fatal(err)
 	}
 	items, err := s.ImportClient("claude-work")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(items) != 1 || items[0].Name != "work" || items[0].From != "claude-work" {
+	// Options are keyed by the Agent, which every account of that Agent reads.
+	if len(items) != 1 || items[0].Name != "work" || items[0].From != "claude-work" || items[0].Server.Options["claude"]["alwaysLoad"] != true {
 		t.Fatalf("candidates: %+v", items)
 	}
 }

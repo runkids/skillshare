@@ -63,7 +63,7 @@ skillshare sync --all
 | `--global`, `-g` | 使用 global Skillshare 設定 |
 | `--project`, `-p` | 使用 project Skillshare 設定 |
 
-不帶任何 subcommand 時，`mcp` 會在互動式終端機中開啟可搜尋的管理介面，或在非互動模式下印出狀態。不帶名稱的非互動式匯入，會列出解析出的候選項供選擇，且不會儲存。候選項包含可攜式定義，可識別的機密資料會轉換為參照。Agent 專屬欄位會列為警告並被省略；已停用的 servers 與不支援的傳輸方式會擋下該候選項。`restore` 一律會先重新預覽再套用；使用 `--dry-run` 可只檢視而不套用。
+不帶任何 subcommand 時，`mcp` 會在互動式終端機中開啟可搜尋的管理介面，或在非互動模式下印出狀態。不帶名稱的非互動式匯入，會列出解析出的候選項供選擇，且不會儲存。候選項包含可攜式定義，可識別的機密資料會轉換為參照。Agent 專屬欄位會放入該 Agent 的 [`options`](#agent-options)；`options` 無法容納的欄位會列為警告並被省略。已停用的 servers 與不支援的傳輸方式會擋下該候選項。`restore` 一律會先重新預覽再套用；使用 `--dry-run` 可只檢視而不套用。
 
 `--pi-extension`、`--pi-options-prune` 與 `--direct-tools` 已在 0.23.0 移除，現在使用時會失敗，並以訊息說明應改用什麼。參見[從 0.22 升級 Pi](#pi-migration)。
 
@@ -135,6 +135,7 @@ servers:
   `{env:VAR}`，且整個值必須就是參照。Agent 的檔案可能會被 commit，因此明文或參照前後帶有文字的值會被拒絕。
   Codex、Antigravity、Claude Desktop、Goose、Junie、LM Studio 與 Warp 不會讀取那裡的參照，所以它們的 options 不能放憑證。
 - 該 server 觸及不到的 client 的 options 會被保留，但不會寫入。
+- import 會把 Agent 的原生欄位中此處沒有可攜式形式的部分，放在該 Agent 的 ID 下，例如 Claude Code 的 `alwaysLoad` 會放在 `options.claude` 下。名稱（或其內部名稱）看起來是憑證的欄位（`auth`、`key`、`token`、`secret`、`bearer`、`cookie` 等），以及上述規則拒絕的欄位，會顯示警告並被省略。未指定 `--from` 匯入的檔案或貼上的文字，格式是推測出來的，因此原生欄位會列為警告並被省略。
 - 當 sync 重新建立項目時，例如重新命名之後，會再次寫入這些欄位。
   當 source 移除某個 option 時，下一次 sync 會移除它寫入的欄位，除非 Agent 在那之後改過它；那屬於需要 import 或 replace 的衝突。
 - 在儀表板中，server 對話框的 **其他 Agent 設定** 可以編輯它們：選擇 Agent，再以 JSON 物件輸入欄位。
@@ -202,7 +203,7 @@ skillshare mcp edit docs --target claude   # 恢復同步
 | [Windsurf (Cascade)](https://docs.devin.ai/desktop/cascade/mcp) | `~/.codeium/windsurf/mcp_config.json` | 僅限 Global | `mcpServers` |
 | [Oh My Pi (OMP)](https://github.com/can1357/oh-my-pi/blob/v18.6.1/docs/mcp-config.md) | `~/.omp/agent/mcp.json` | `.omp/mcp.json` | `mcpServers` |
 
-Hermes 僅支援 Global MCP，使用 `mcp_servers`（YAML）；支援 stdio 與 Streamable HTTP，拒絕匯入 SSE。絕對路徑 `HERMES_HOME` 可選擇其他 home/profile；未指定時使用 default profile，Windows 預設為 `%LOCALAPPDATA%/hermes`。不自動追蹤 active profile、`--profile` 或 `HERMES_DATA_DIR_SUFFIX`。`fromEnv` 寫為 `${VAR}`，env/header 匯入也接受 `${env:VAR}`。使用 `options.hermes: {auth: oauth}` 啟用原生 OAuth；匯入會保留 `auth`／`oauth`，其中的明文憑證會阻擋匯入，請先改為完整的 `${VAR}` 參照。其他未映射欄位會產生警告。登入、`.env`、token 與 refresh state 由 Hermes 管理，在相同 profile 執行 `hermes mcp login NAME`。YAML 保留規則與限制同 Goose。
+Hermes 僅支援 Global MCP，使用 `mcp_servers`（YAML）；支援 stdio 與 Streamable HTTP，拒絕匯入 SSE。絕對路徑 `HERMES_HOME` 可選擇其他 home/profile；未指定時使用 default profile，Windows 預設為 `%LOCALAPPDATA%/hermes`。不自動追蹤 active profile、`--profile` 或 `HERMES_DATA_DIR_SUFFIX`。`fromEnv` 寫為 `${VAR}`，env/header 匯入也接受 `${env:VAR}`。使用 `options.hermes: {auth: oauth}` 啟用原生 OAuth；匯入會保留 `auth`／`oauth`，其中的明文憑證會阻擋匯入，請先改為完整的 `${VAR}` 參照。其他原生欄位與任何 Agent 一樣，放在 `options.hermes` 下。登入、`.env`、token 與 refresh state 由 Hermes 管理，在相同 profile 執行 `hermes mcp login NAME`。YAML 保留規則與限制同 Goose。
 
 Dashboard 的 server 表單編輯 HTTP headers 的方式與環境變數相同，
 包括 `fromEnv` 參照。Server 選單中的 **View what each Agent gets**，以及其表單中檔案數量旁的同名選項，
@@ -237,8 +238,8 @@ Dashboard 只會提供目前 scope 與主機平台可用的目的地。每個 se
   Codex 只會在受信任的 project 中讀取 `.codex/config.toml`；在不受信任的
   project 中，已同步的 servers 不會載入，且不會顯示錯誤。`cwd`、
   `http_headers_helper`、核准模式、逾時，以及 `oauth` 表格
-  都沒有可攜式對應形式：import 會將它們省略並顯示警告，sync 則會將它們保留在
-  既有項目中。若要從 source 設定它們，請使用 [`options.codex`](#agent-options)。`enabled_tools` 與 `disabled_tools` 來自[工具政策](#tool-policy)，
+  都沒有可攜式對應形式：import 會將它們放入 [`options.codex`](#agent-options)，sync 會寫回；
+  但 `oauth` 表格這類可能含有憑證的欄位除外，會顯示警告並被省略。`enabled_tools` 與 `disabled_tools` 來自[工具政策](#tool-policy)，
   匯入時也會讀回政策中。由 Codex plugin 包裝的 MCP servers，會設定在
   `plugins.<plugin>.mcp_servers` 下，不受此處管理。
 - Claude Desktop 的檔案同步僅支援 **stdio**，僅限 macOS 與 Windows。
@@ -323,8 +324,9 @@ OpenCode 與 Kilo Code 使用 `local`/`remote` 類型與 `{env:VARIABLE}` 參照
 `${VARIABLE}` 參照。Skillshare 會自動轉換這些格式。Claude 的
 `"type": "streamable-http"` 會匯入為 HTTP。已停用的連線會擋下 import。
 其他沒有可攜式對應形式的原生選項，例如 Codex 的
-`startup_timeout_sec` 或 `envFile`，會在 import 時被省略並顯示警告；
-sync 會將它們保留在 Agent 既有的項目中。Pi 使用其內建 MCP；詳見
+`startup_timeout_sec` 或 Claude Code 的 `alwaysLoad`，會 import 到該 Agent 的 [`options`](#agent-options) 下，
+因此 sync 會把它們寫回該 Agent，而不會寫入其他 Agent。`options` 無法容納的欄位，例如明文憑證或 `null`，
+會在 import 時被省略並顯示警告；sync 會將它們保留在 Agent 既有的項目中。Pi 使用其內建 MCP；詳見
 [下方說明](#pi)。
 
 VS Code Stable 的預設 user 檔案為：
@@ -1223,8 +1225,8 @@ skillshare mcp import docs --from omp --target omp -g --replace --dry-run --json
 同步會保留 `$schema`、`disabledServers`、`enabledServers` 與不相關的 servers。
 更新既有連線時，也會保留原生的單一 server 欄位，例如 `enabled`、`timeout`、`instructions`、
 `requestIdFormat`、`cwd`、`auth` 與 `oauth`。這些欄位不是 `piOptions`：Pi 專屬設定
-永遠不會送給 OMP。匯入時，可攜式模型無法表示的原生欄位會顯示警告；請把它們保留在
-OMP 的檔案中。可攜式模型支援 stdio 與 Streamable HTTP，不支援 OMP 的舊版 SSE
+永遠不會送給 OMP。匯入時，可攜式模型無法表示的原生欄位會放入
+`options.omp`；`options` 無法容納的欄位會顯示警告。可攜式模型支援 stdio 與 Streamable HTTP，不支援 OMP 的舊版 SSE
 傳輸方式；不支援的匯入會被拒絕，而不會被轉換。
 
 `disabledServers` 優先於 `enabledServers` 以及項目的 `enabled` 值。

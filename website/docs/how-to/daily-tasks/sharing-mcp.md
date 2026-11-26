@@ -230,9 +230,10 @@ Codex forwards local variables by name, so `env.KEY.fromEnv` must also be `KEY`
 when Codex is selected. A target that cannot represent a setting blocks the
 preview instead of dropping it. Client-specific placeholders and input prompts must
 be resolved explicitly before import. Agent-specific fields such as Codex
-`startup_timeout_sec` or `cwd` are not imported; import lists them as warnings, and
-sync keeps them in that Agent's existing entry. To manage them from the source, set them
-under the server's [`options`](../../reference/commands/mcp.md#agent-options).
+`startup_timeout_sec` or `cwd` are imported under the server's
+[`options`](../../reference/commands/mcp.md#agent-options) for that Agent, so sync writes
+them back to it and to no other Agent. A field `options` cannot hold, such as a plain-text
+credential, is listed as a warning and left out.
 
 ## Import existing connections
 
