@@ -1,8 +1,10 @@
 package install
 
 import (
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -37,10 +39,18 @@ func copyDirWithin(src, dst, boundary string, excludes map[string]bool) error {
 		}
 	}
 
-	return copyDirWithState(src, dst, canonicalDst, resolvedBoundary, "", excludes, map[string]bool{})
+	if resolvedBoundary != "" {
+		// Walked once without writing, so a refused link leaves nothing half copied.
+		if err := copyDirWithState(src, dst, canonicalDst, resolvedBoundary, "", excludes, map[string]bool{}, true); err != nil {
+			return err
+		}
+	}
+	return copyDirWithState(src, dst, canonicalDst, resolvedBoundary, "", excludes, map[string]bool{}, false)
 }
 
-func copyDirWithState(src, dst, canonicalDst, resolvedBoundary, relPrefix string, excludes, active map[string]bool) error {
+// copyDirWithState copies src into dst; with checkOnly it walks the same
+// links and checks them without writing.
+func copyDirWithState(src, dst, canonicalDst, resolvedBoundary, relPrefix string, excludes, active map[string]bool, checkOnly bool) error {
 	resolvedSrc, err := resolveCopyRoot(src)
 	if err != nil {
 		return err
@@ -91,12 +101,20 @@ func copyDirWithState(src, dst, canonicalDst, resolvedBoundary, relPrefix string
 		}
 
 		if info.IsDir() {
+			if checkOnly {
+				return nil
+			}
 			return os.MkdirAll(dstPath, info.Mode().Perm()|0700)
 		}
 
 		if utils.IsLinkMode(path, info.Mode()) {
 			resolvedTarget, resolveErr := resolveCopyRoot(path)
 			if resolveErr != nil {
+				if resolvedBoundary != "" && errors.Is(resolveErr, fs.ErrNotExist) {
+					if err := danglingWithin(resolvedBoundary, path, fullRel); err != nil {
+						return err
+					}
+				}
 				return fmt.Errorf("failed to resolve symlink %s: %w", fullRel, resolveErr)
 			}
 			if err := checkCopyBoundary(resolvedTarget, resolvedBoundary, fullRel); err != nil {
@@ -116,11 +134,17 @@ func copyDirWithState(src, dst, canonicalDst, resolvedBoundary, relPrefix string
 				if len(excludes) > 0 && fullRel != "" && excludes[fullRel] {
 					return nil
 				}
-				return copyDirWithState(resolvedTarget, dstPath, canonicalDst, resolvedBoundary, fullRel, excludes, active)
+				return copyDirWithState(resolvedTarget, dstPath, canonicalDst, resolvedBoundary, fullRel, excludes, active, checkOnly)
+			}
+			if checkOnly {
+				return nil
 			}
 			return copyFile(resolvedTarget, dstPath)
 		}
 
+		if checkOnly {
+			return nil
+		}
 		return copyFile(path, dstPath)
 	})
 }
@@ -140,11 +164,8 @@ func checkCopyBoundary(resolvedTarget, resolvedBoundary, relPath string) error {
 	if label == "" {
 		label = resolvedTarget
 	}
-	if !pathSameOrDescendant(resolvedTarget, resolvedBoundary) {
-		return fmt.Errorf("symlink %s escapes repository boundary", label)
-	}
-	if pathSameOrDescendant(resolvedTarget, filepath.Join(resolvedBoundary, ".git")) {
-		return fmt.Errorf("symlink %s targets .git directory", label)
+	if !pathSameOrDescendant(resolvedTarget, resolvedBoundary) || inGitDir(resolvedBoundary, resolvedTarget) {
+		return fmt.Errorf("%s %w", label, ErrLinkOutside)
 	}
 	return nil
 }

@@ -129,7 +129,7 @@ $ skillshare install anthropics/skills
 
 Discovery 会扫描所有目录以查找 `SKILL.md` 文件，但会跳过 `.git` 以及 `.claude/`、`.agents/` 等目标目录，这些目录通常存放仓库中 Skill 的副本。其他隐藏目录（如 `.curated/` 或 `.system/`）会被扫描，其中的 Skill 也会被自动发现。如果仓库没有其他 Skill，则改为扫描根目录的 `.agents/skills/`。Discovery 还会跟随指向仓库内文件夹的 link，但不会进入 `.git`，也不会跟随 Skill 文件夹内的 link（那是该 Skill 的一部分）。同一个 Skill 既能直接到达、又能经由 link 到达时，只会以直接路径列出一次。`--track` 安装不跟随这些 link，与 `sync` 看到的一致。当发现多个 Skill 时，选择提示会把同一文件夹中的 Skill 排在一起，并显示每个 Skill 的描述和所在文件夹；列表较长时按 `/` 筛选。
 
-`.agents/skills/` 回退要求 `.agents` 和 `skills` 均为真实目录，即使启用 `follow_source_links: true` 也不接受符号链接或 junction。仍支持有意跟随的仓库根目录。发现的 agent 在安装和更新时会拒绝目标路径中间或末尾的链接，并在发布前审核；审核阻止操作时，现有 agent 内容保持不变。
+`.agents/skills/` 回退要求 `.agents` 和 `skills` 均为真实目录，即使启用 `follow_source_links: true` 也不接受符号链接或 junction。仍支持有意跟随的仓库根目录。发现的 agent 在安装和更新时会拒绝目标路径中间或末尾的链接，并在发布前审核；审核阻止操作时，现有 agent 内容保持不变。从 Git 来源安装的 skill、agent 或跟踪仓库中，符号链接指向仓库之外或其 `.git` 文件夹时，安装和更新会报错停止，不会装入该仓库或该 commit 的任何内容，因此仓库无法把你机器上其他位置的文件复制进 skill 或 copy 模式的 Target。指向同一仓库内其他文件或文件夹的链接，会以该文件或文件夹的形式复制；只安装仓库中的单个文件夹时也一样。若同一个文件夹经由第二个链接再次到达，或有链接指回正在复制的文件夹，安装会报错停止。
 
 如果仓库根目录下存在 `.skillignore` 文件，匹配的 Skill 会被自动从 discovery 中排除。参见下方的 [.skillignore](#skillignore)。
 

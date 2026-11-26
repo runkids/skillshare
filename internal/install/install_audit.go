@@ -449,6 +449,13 @@ func auditTrackedRepoUpdate(candidate *GitUpdateCandidate, result *TrackedRepoRe
 	if err != nil {
 		return err
 	}
+	// Checked before the audit, whose block offers --force and --skip-audit,
+	// neither of which lets such a link through.
+	if revision != beforeHash {
+		if err := candidate.LinksWithin(); err != nil {
+			return err
+		}
+	}
 	if opts.SkipAudit {
 		result.AuditSkipped = true
 		result.AuditThreshold = opts.AuditThreshold

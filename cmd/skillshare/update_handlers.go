@@ -130,7 +130,7 @@ func updateTrackedRepo(uc *updateContext, repoName string) (updateResult, error)
 		return updateResult{skipped: 1}, err
 	case errors.As(err, &opErr):
 		msg := opErr.Error()
-		if !uc.opts.force {
+		if !uc.opts.force && !errors.Is(err, install.ErrLinkOutside) {
 			msg += " (try --force)"
 		}
 		printUpdateRow(ui.MarkFail, repoName, msg, 0)
@@ -329,8 +329,9 @@ func mergeConflictItem(name string, err error) updateJSONItem {
 func updateTrackedRepoQuick(uc *updateContext, repoPath string) (bool, *audit.Result, error) {
 	res, err := runTrackedRepoUpdate(uc, repoPath, nil, nil)
 	var opErr *update.Error
-	if errors.As(err, &opErr) {
-		// A failed discard or pull counts as skipped in a batch.
+	if errors.As(err, &opErr) && !errors.Is(err, install.ErrLinkOutside) {
+		// A failed discard or pull counts as skipped in a batch; a refused
+		// link is reported, since the repository will not update until fixed.
 		return false, nil, nil
 	}
 	if err != nil {

@@ -394,7 +394,7 @@ func (s *Server) updateTrackedRepo(name, repoPath, sourceDir string, force, skip
 	case errors.As(err, &opErr) && opErr.Stage == update.StagePull:
 		item.Action = "error"
 		item.Message = opErr.Err.Error()
-		if !force {
+		if !force && !errors.Is(err, install.ErrLinkOutside) {
 			item.Message += " (try force update)"
 		}
 		return item

@@ -320,7 +320,7 @@ skillshare update --all --skip-audit
 ```
 
 :::caution
-`--skip-audit` disables the security scan entirely. Use it only when you trust the source or have an external audit process.
+`--skip-audit` disables the security scan entirely. Use it only when you trust the source or have an external audit process. It does not let a tracked repository or a whole-repository skill take a new commit with a symlink that leads outside the repository or into its `.git` folder: that update stops with an error, and `--force` does not override it.
 :::
 
 ### Accepted Findings {#accepted-findings}

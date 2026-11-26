@@ -264,9 +264,23 @@ func gitCandidateState(repoPath string) (state [3]string, err error) {
 	return state, nil
 }
 
+// LinksWithin fails with ErrLinkOutside when a link committed in the candidate
+// leads outside it or into its .git folder.
+func (c *GitUpdateCandidate) LinksWithin() error {
+	return checkoutLinksWithin(c.Path)
+}
+
 // Publish imports precisely revision from the local candidate, not upstream.
 // The active checkout must still match the state used to prepare the candidate.
 func (c *GitUpdateCandidate) Publish(revision string) error {
+	// Checked here, not in the audit, so an update with the audit skipped
+	// cannot publish a link that leaves the repository either. An update with
+	// nothing new publishes nothing, so it is not checked.
+	if revision != c.BeforeHash {
+		if err := c.LinksWithin(); err != nil {
+			return err
+		}
+	}
 	head, err := getGitFullHash(c.repoPath)
 	if err != nil {
 		return err

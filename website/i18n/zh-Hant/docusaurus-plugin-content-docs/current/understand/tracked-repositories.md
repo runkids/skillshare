@@ -158,7 +158,7 @@ skillshare sync
 
 **更新期間的安全行為：**
 - 在隔離候選中拉取與稽核；既有 target 連結繼續讀取正式 checkout。
-- 保留 sparse-checkout 的選取範圍與既有 integrity hashes。目標在候選內但不存在的 symlink 會被接受，例如根目錄檔案指向被 sparse checkout 排除的目錄。指向候選之外，或因其他原因（例如循環）無法解析的 symlink，會視為掃描錯誤拒絕更新。
+- 保留 sparse-checkout 的選取範圍與既有 integrity hashes。目標在候選內但不存在的 symlink 會被接受，例如根目錄檔案指向被 sparse checkout 排除的目錄。指向候選之外，或因其他原因（例如循環）無法解析的 symlink，會視為掃描錯誤拒絕更新。指向候選之外或其 `.git` 資料夾的連結，即使指定 `--skip-audit` 也會拒絕更新，與首次安裝相同。
 - 封鎖與否依生效門檻決定（預設為 `audit.block_threshold`，或依指令覆寫的 `--threshold`/`-T`）。
 - 在 TTY 模式下，`skillshare update` 會在發現達到門檻時提示確認；非 TTY 模式下預設拒絕候選。
 - 拒絕候選或掃描出錯時，正式 checkout 與 metadata 保持不變。`--force` 不能覆寫掃描錯誤；`--skip-audit` 停用掃描。

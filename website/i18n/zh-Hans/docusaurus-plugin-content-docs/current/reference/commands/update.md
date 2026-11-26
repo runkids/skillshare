@@ -320,7 +320,7 @@ skillshare update --all --skip-audit
 ```
 
 :::caution
-`--skip-audit` 会完全禁用安全扫描。仅在你信任来源或已有外部审计流程时使用它。
+`--skip-audit` 会完全禁用安全扫描。仅在你信任来源或已有外部审计流程时使用它。但它不会让 tracked repository 或整个仓库作为 skill 的安装，接收含有指向仓库之外或其 `.git` 文件夹的 symlink 的新 commit：这样的 update 会报错停止，`--force` 也无法覆盖。
 :::
 
 ### Accepted Findings {#accepted-findings}

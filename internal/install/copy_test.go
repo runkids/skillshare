@@ -309,7 +309,7 @@ func TestCopyDirWithin_RejectsEscapingSymlinks(t *testing.T) {
 			if err == nil {
 				t.Fatalf("expected error for escaping %s, got nil", tc.name)
 			}
-			if !strings.Contains(err.Error(), "escapes repository boundary") {
+			if !errors.Is(err, ErrLinkOutside) {
 				t.Errorf("expected boundary error, got: %v", err)
 			}
 		})
@@ -334,7 +334,7 @@ func TestCopyDirWithin_RejectsGitDirSymlink(t *testing.T) {
 	}
 
 	err := copyDirWithin(skillDir, filepath.Join(t.TempDir(), "dest"), repo, nil)
-	if err == nil || !strings.Contains(err.Error(), "targets .git directory") {
+	if !errors.Is(err, ErrLinkOutside) {
 		t.Fatalf("expected .git target rejection, got: %v", err)
 	}
 }
@@ -526,7 +526,7 @@ func TestInstallFromDiscovery_RejectsEscapingDirSymlinkInRepo(t *testing.T) {
 	_, err = InstallFromDiscovery(discovery, discovery.Skills[0], destPath, InstallOptions{
 		SourceDir: sourceDir,
 	})
-	if err == nil || !strings.Contains(err.Error(), "escapes repository boundary") {
+	if !errors.Is(err, ErrLinkOutside) {
 		t.Fatalf("expected repository boundary error, got: %v", err)
 	}
 }
@@ -553,7 +553,7 @@ func TestCopyDirWithin_RejectsNestedEscapingSymlink(t *testing.T) {
 	}
 
 	err := copyDirWithin(skillDir, filepath.Join(t.TempDir(), "dest"), repo, nil)
-	if err == nil || !strings.Contains(err.Error(), "escapes repository boundary") {
+	if !errors.Is(err, ErrLinkOutside) {
 		t.Fatalf("expected boundary error for nested escape, got: %v", err)
 	}
 }
@@ -650,5 +650,45 @@ func TestInstallFromLocal_SymlinkedDir(t *testing.T) {
 	}
 	if string(data) != "local shared" {
 		t.Errorf("refs/guide.md = %q, want %q", string(data), "local shared")
+	}
+}
+
+// A descendant skill the copy leaves out does not block its parent.
+func TestCopyDirWithin_IgnoresLinksInExcludedFolders(t *testing.T) {
+	repo := t.TempDir()
+	child := filepath.Join(repo, "a", "b")
+	if err := os.MkdirAll(child, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(repo, "a", "SKILL.md"), []byte("# a"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(t.TempDir(), "secret"), filepath.Join(child, "leak")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+
+	if err := copyDirWithin(filepath.Join(repo, "a"), filepath.Join(t.TempDir(), "dest"), repo, map[string]bool{"b": true}); err != nil {
+		t.Fatalf("copyDirWithin() = %v; the excluded folder's link must not count", err)
+	}
+}
+
+// A link out of the repository is refused even when its target is missing.
+func TestCopyDirWithin_RefusesDanglingLinkOutside(t *testing.T) {
+	repo := t.TempDir()
+	skill := filepath.Join(repo, "skill")
+	if err := os.MkdirAll(skill, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(t.TempDir(), "missing"), filepath.Join(skill, "leak")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+
+	dest := filepath.Join(t.TempDir(), "dest")
+	err := copyDirWithin(skill, dest, repo, nil)
+	if !errors.Is(err, ErrLinkOutside) {
+		t.Fatalf("copyDirWithin() = %v; want ErrLinkOutside", err)
+	}
+	if _, statErr := os.Lstat(dest); !os.IsNotExist(statErr) {
+		t.Fatalf("dest stat = %v; want nothing written", statErr)
 	}
 }

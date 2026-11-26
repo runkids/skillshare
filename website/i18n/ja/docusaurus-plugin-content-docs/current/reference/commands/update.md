@@ -320,7 +320,7 @@ skillshare update --all --skip-audit
 ```
 
 :::caution
-`--skip-audit` は security scan を完全に無効化します。source を信頼している場合、または外部の audit プロセスがある場合にのみ使用してください。
+`--skip-audit` は security scan を完全に無効化します。source を信頼している場合、または外部の audit プロセスがある場合にのみ使用してください。ただし、tracked repository やリポジトリ全体の Skill が、リポジトリの外や `.git` フォルダを指す symlink を含む新しい commit を取り込むことは許可しません。その update はエラーで止まり、`--force` でも上書きできません。
 :::
 
 ### 承認済みの検出結果 {#accepted-findings}

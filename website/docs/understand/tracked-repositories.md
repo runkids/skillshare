@@ -158,7 +158,7 @@ Isolated candidate → git pull → audit → publish approved commit
 
 **Security behavior during updates:**
 - Pull and audit run in an isolated candidate; existing target links keep reading the active checkout.
-- Sparse-checkout selection and existing integrity hashes are preserved. A symlink whose target is missing inside the candidate, such as a root file pointing into a directory that sparse checkout excludes, is accepted. Links that escape the candidate, or that cannot be resolved for another reason such as a loop, reject the update as a scan error.
+- Sparse-checkout selection and existing integrity hashes are preserved. A symlink whose target is missing inside the candidate, such as a root file pointing into a directory that sparse checkout excludes, is accepted. Links that escape the candidate, or that cannot be resolved for another reason such as a loop, reject the update as a scan error. A link that leaves the candidate or enters its `.git` folder rejects the update even with `--skip-audit`, as it rejects a first install.
 - Blocking uses the active threshold (`audit.block_threshold` by default, or per-command `--threshold`/`-T` override).
 - In TTY mode, `skillshare update` prompts when findings hit threshold; in non-TTY mode it rejects the candidate unless overridden.
 - Rejection or a scan error leaves the active checkout and metadata unchanged. `--force` cannot override scan errors; `--skip-audit` disables scanning.

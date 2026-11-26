@@ -171,6 +171,14 @@ func relockGitRepo(repoPath, sha string, opts InstallOptions) error {
 	if err := resetTrackedToCommit(repoPath, sha, AuthEnvForURL(getRemoteURL(repoPath), opts.ParseOptions)); err != nil {
 		return err
 	}
+	if after, _ := getGitFullHash(repoPath); after != before {
+		if err := checkoutLinksWithin(repoPath); err != nil {
+			if resetErr := gitResetHard(repoPath, before); resetErr != nil {
+				return fmt.Errorf("%w; rolling back to %s failed: %v", err, before, resetErr)
+			}
+			return fmt.Errorf("%w; rolled back to %s", err, before)
+		}
+	}
 	if opts.SkipAudit {
 		return nil
 	}

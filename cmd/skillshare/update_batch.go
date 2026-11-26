@@ -63,6 +63,7 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 	var prunedNames []string
 	var missingRepoNames []string
 	var statusFailedEntries []batchBlockedEntry
+	var linkRefusedEntries []batchBlockedEntry
 	var fetchFailedEntries []batchBlockedEntry
 
 	// Group skills by RepoURL to optimize updates
@@ -127,6 +128,9 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 				result.securityFailed++
 				blockedEntries = append(blockedEntries, batchBlockedEntry{name: t.name, errMsg: err.Error()})
 				result.items = append(result.items, updateJSONItem{Name: t.name, Type: "repo", Status: "security_blocked", Error: err.Error()})
+			} else if errors.Is(err, install.ErrLinkOutside) {
+				linkRefusedEntries = append(linkRefusedEntries, batchBlockedEntry{name: t.name, errMsg: err.Error()})
+				result.items = append(result.items, updateJSONItem{Name: t.name, Type: "repo", Status: "failed", Error: err.Error()})
 			} else if errors.As(err, &statusErr) {
 				statusFailedEntries = append(statusFailedEntries, batchBlockedEntry{name: t.name, errMsg: err.Error()})
 				result.items = append(result.items, updateJSONItem{Name: t.name, Type: "repo", Status: "failed", Error: err.Error()})
@@ -342,7 +346,7 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 		for _, e := range fetchFailedEntries {
 			ui.Warning("Could not fetch %s: %s", e.name, e.errMsg)
 		}
-		for _, e := range statusFailedEntries {
+		for _, e := range append(statusFailedEntries, linkRefusedEntries...) {
 			ui.Error("%s: %s", e.name, e.errMsg)
 		}
 		displayPrunedSection(prunedNames)
@@ -391,6 +395,9 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 	}
 	if len(statusFailedEntries) > 0 {
 		errs = append(errs, fmt.Errorf("%d repo(s) failed to check git status", len(statusFailedEntries)))
+	}
+	if len(linkRefusedEntries) > 0 {
+		errs = append(errs, fmt.Errorf("%d repo(s) refused: links outside the repository", len(linkRefusedEntries)))
 	}
 	if len(notMergedEntries) > 0 {
 		errs = append(errs, fmt.Errorf("%s could not be merged", plural(len(notMergedEntries), "skill")))

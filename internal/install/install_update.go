@@ -73,10 +73,18 @@ func handleUpdate(source *Source, destPath string, result *InstallResult, opts I
 		if err := pull(destPath, source.authEnv(), opts.OnProgress); err != nil {
 			return nil, fmt.Errorf("failed to update: %w", err)
 		}
+		afterHash, _ := getGitFullHash(destPath)
+		if afterHash != beforeHash {
+			if err := checkoutLinksWithin(destPath); err != nil {
+				if resetErr := gitResetHard(destPath, beforeHash); resetErr != nil {
+					return nil, fmt.Errorf("%w; rolling back to %s failed: %v", err, beforeHash, resetErr)
+				}
+				return nil, fmt.Errorf("%w; rolled back to %s", err, beforeHash)
+			}
+		}
 
 		// Post-pull audit gate: rollback on findings at/above threshold unless skipped.
 		if !opts.SkipAudit {
-			afterHash, _ := getGitFullHash(destPath)
 			if afterHash != beforeHash {
 				scanResult, err := auditGateFailClosed(opts.SourceDir, destPath, beforeHash, threshold, opts.AuditProjectRoot, opts.AuditOverride, opts.SourceFollow)
 				if err != nil {

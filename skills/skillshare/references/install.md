@@ -20,7 +20,7 @@ the repository (not into `.git`, and not from inside a skill folder); a skill re
 both directly and through a link is listed once, under its direct path. `--track`
 installs do not follow these links.
 
-The `.agents/skills/` fallback requires both `.agents` and `skills` to be real directories, not symlinks or junctions, even with `follow_source_links: true`. An intentionally followed repository root remains supported. Discovered agent installs and updates reject intermediate or final destination links; audits run before publication, and a blocked audit leaves existing agent contents unchanged.
+The `.agents/skills/` fallback requires both `.agents` and `skills` to be real directories, not symlinks or junctions, even with `follow_source_links: true`. An intentionally followed repository root remains supported. Discovered agent installs and updates reject intermediate or final destination links; audits run before publication, and a blocked audit leaves existing agent contents unchanged. When a symlink in a skill, agent or tracked repository from a Git source leads outside the repository or into its `.git` folder, install and update stop with an error and leave nothing from that repository or commit installed, so a repository cannot copy a file from elsewhere on your machine into a skill or a copy-mode target. A link to another file or folder in the same repository is copied as that file or folder, also when you install a single folder of the repository. A folder reached through a second link, or a link back into a folder being copied, stops the install with an error.
 
 For an explicit, untracked skill source, `install <source> --dry-run --json`
 returns `planned: [{name, path}]`: canonical install names and repository-relative

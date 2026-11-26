@@ -105,6 +105,15 @@ func discoverySourceRoot(discovery *DiscoveryResult) string {
 	return filepath.Join(discovery.RepoPath, "repo")
 }
 
+// fetchedRoot is the checkout a git source was fetched into, which bounds where
+// its symlinks may lead. It is empty for a local path the user named.
+func fetchedRoot(discovery *DiscoveryResult) string {
+	if discovery.Source == nil || !discovery.Source.IsGit() {
+		return ""
+	}
+	return discoverySourceRoot(discovery)
+}
+
 // descendantSkillPaths returns the set of slash-normalized paths (relative to
 // the source root of `skill`) of every other discovered skill that lives
 // strictly inside `skill`. The returned map is suitable as the excludes
@@ -310,7 +319,13 @@ func installAgentFromDiscoveryInternal(discovery *DiscoveryResult, agent AgentIn
 		return nil, fmt.Errorf("failed to check agent destination: %w", err)
 	}
 
-	data, err := os.ReadFile(resolveDiscoveredAgentSourcePath(discovery, agent))
+	agentPath := resolveDiscoveredAgentSourcePath(discovery, agent)
+	if root := fetchedRoot(discovery); root != "" {
+		if err := resolveWithin(root, agentPath); err != nil {
+			return nil, fmt.Errorf("failed to read agent %s: %w", agent.FileName, err)
+		}
+	}
+	data, err := os.ReadFile(agentPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read agent %s: %w", agent.FileName, err)
 	}
@@ -533,6 +548,12 @@ func installFromGit(source *Source, destPath string, result *InstallResult, opts
 	if err := cloneRepoForSource(source, destPath, source.Branch, true, opts.OnProgress); err != nil {
 		return nil, fmt.Errorf("failed to clone repository: %w", err)
 	}
+	if err := checkoutLinksWithin(destPath); err != nil {
+		if removeErr := removeAll(destPath); removeErr != nil {
+			return nil, fmt.Errorf("%w; the clone is left at %s: %v", err, destPath, removeErr)
+		}
+		return nil, err
+	}
 
 	// Check for SKILL.md
 	checkSkillFile(destPath, result)
@@ -666,6 +687,12 @@ func installFromDiscoveryInternal(discovery *DiscoveryResult, skill SkillInfo, d
 
 	if rootIsRepoRoot && excludes != nil {
 		// Repo-root orchestrator: copy only SKILL.md (no directory boundary).
+		if boundary != "" {
+			// Checked before creating the destination, so a refusal writes nothing.
+			if err := resolveWithin(boundary, filepath.Join(srcPath, "SKILL.md")); err != nil {
+				return nil, fmt.Errorf("failed to copy SKILL.md: %w", err)
+			}
+		}
 		if err := os.MkdirAll(workDest, 0755); err != nil {
 			return nil, fmt.Errorf("failed to create destination: %w", err)
 		}

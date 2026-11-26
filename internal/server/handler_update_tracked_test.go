@@ -174,6 +174,22 @@ func TestUpdateTrackedRepo_PullErrorSuggestsForce(t *testing.T) {
 	}
 }
 
+// --force cannot accept a link that leaves the repository, so the refusal
+// must not suggest it.
+func TestUpdateTrackedRepo_OutsideLinkDoesNotSuggestForce(t *testing.T) {
+	f := newTrackedUpdateFixture(t)
+	if err := os.Symlink(filepath.Join(t.TempDir(), "id_ed25519"), filepath.Join(f.seed, "child", "notes.md")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	f.push(t, trackedCleanSkill+"More help.\n")
+
+	// With the audit on, its own candidate check rejects the link first.
+	got := f.s.updateSingle("_team", false, true)
+	if got.Action != "error" || !strings.Contains(got.Message, "links outside the repository") || strings.Contains(got.Message, "force") {
+		t.Fatalf("got %+v, want the link refusal without a force hint", got)
+	}
+}
+
 func TestUpdateTrackedRepo_UnreadableStatusIsError(t *testing.T) {
 	f := newTrackedUpdateFixture(t)
 	f.push(t, trackedCleanSkill+"More help.\n")

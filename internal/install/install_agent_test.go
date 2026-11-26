@@ -36,9 +36,6 @@ func TestInstallAgentFromDiscovery_TrackedDestinationEscape(t *testing.T) {
 	}
 	repo := initTestRepo(t)
 	outside := t.TempDir()
-	if err := os.Symlink(outside, filepath.Join(repo, "escape")); err != nil {
-		t.Fatal(err)
-	}
 	agentPath := "agents/_trap/escape/CLAUDE.md"
 	path := filepath.Join(repo, filepath.FromSlash(agentPath))
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
@@ -48,7 +45,7 @@ func TestInstallAgentFromDiscovery_TrackedDestinationEscape(t *testing.T) {
 		t.Fatal(err)
 	}
 	gitAdd(t, repo, ".")
-	gitCommit(t, repo, "add agent and destination link")
+	gitCommit(t, repo, "add agent")
 	source, err := ParseSource(fileURL(repo))
 	if err != nil {
 		t.Fatal(err)
@@ -59,9 +56,10 @@ func TestInstallAgentFromDiscovery_TrackedDestinationEscape(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	link := filepath.Join(root, "_trap", "escape")
-	if info, err := os.Lstat(link); err != nil || info.Mode()&os.ModeSymlink == 0 {
-		t.Fatalf("tracked fixture did not plant destination link: %v, %v", info, err)
+	// A tracked install now refuses a link out of the repository, so plant the
+	// destination link as a repository installed before that check left it.
+	if err := os.Symlink(outside, filepath.Join(root, "_trap", "escape")); err != nil {
+		t.Fatal(err)
 	}
 	discovery, err := DiscoverFromGit(source)
 	if err != nil {
