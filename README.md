@@ -48,7 +48,7 @@
 </p>
 
 > [!NOTE]
-> **Latest**: v0.32.0 — Keep your edits when a skill updates: `skillshare update my-skill --merge` merges upstream's changes into a skill or agent you changed since install, file by file like `git merge`. When both sides changed the same lines, nothing is written and `update` lists the conflicting files. `skillshare analyze` now also estimates the tokens your MCP servers' tool definitions add to each Agent's context, and warns past `context_budget.warn_mcp_tool_tokens`. [Merge guide →](https://skillshare.runkids.cc/docs/reference/commands/update#merging-upstream-changes) · [All releases →](https://github.com/runkids/skillshare/releases)
+> **Latest**: v0.33.0 — Make the dashboard your own: **Settings → Appearance** has a Custom theme editor with 14 presets, or your own accent, background tint, corners and font. Dark mode is derived for you, every text color stays readable at 4.5:1, and a theme can be shared as a link or JSON file. Clean and Playful are restyled too. `skillshare hooks sync -p --trust` now records Codex trust for a project's hooks, and MiniMax Code is a built-in target. [Theme guide →](https://skillshare.runkids.cc/docs/reference/commands/ui#theme-system) · [All releases →](https://github.com/runkids/skillshare/releases)
 
 ## Why skillshare
 
@@ -430,6 +430,7 @@ Thank you to everyone who has reported a bug, suggested an improvement, or helpe
 <a href="https://github.com/raphaelbahat"><img src="https://github.com/raphaelbahat.png" width="50" style="border-radius:50%" alt="raphaelbahat"></a>
 <a href="https://github.com/dev-seahouse"><img src="https://github.com/dev-seahouse.png" width="50" style="border-radius:50%" alt="dev-seahouse"></a>
 <a href="https://github.com/cazador481"><img src="https://github.com/cazador481.png" width="50" style="border-radius:50%" alt="cazador481"></a>
+<a href="https://github.com/SaladDay"><img src="https://github.com/SaladDay.png" width="50" style="border-radius:50%" alt="SaladDay"></a>
 
 ---
 

@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **최신 버전**: v0.32.0 — skill을 업데이트해도 직접 고친 내용을 지킬 수 있습니다. `skillshare update my-skill --merge`는 설치 후 수정한 skill이나 agent에 upstream 변경을 `git merge`처럼 파일 단위로 병합합니다. 양쪽이 같은 줄을 바꿨다면 아무것도 쓰지 않고 `update`가 충돌한 파일을 나열합니다. `skillshare analyze`는 이제 MCP 서버의 tool 정의가 각 Agent의 컨텍스트에 더하는 토큰도 추정하고, `context_budget.warn_mcp_tool_tokens`를 넘으면 경고합니다. [병합 가이드 →](https://skillshare.runkids.cc/ko/docs/reference/commands/update#merging-upstream-changes) · [변경 기록 →](https://skillshare.runkids.cc/changelog)
+> **최신 버전**: v0.33.0 — dashboard를 내 취향대로 꾸미세요. **Settings → Appearance**의 커스텀 테마 편집기에서 14가지 프리셋을 고르거나 강조 색, 배경 색조, 모서리, 글꼴을 직접 정할 수 있습니다. 다크 모드는 자동으로 만들어지고, 모든 글자 색은 4.5:1 이상으로 읽기 쉽게 유지되며, 테마는 링크나 JSON 파일로 공유할 수 있습니다. Clean과 Playful 디자인도 다듬었습니다. `skillshare hooks sync -p --trust`는 이제 project의 hook에 대해서도 Codex trust를 기록하고, MiniMax Code가 내장 target으로 추가되었습니다. [테마 가이드 →](https://skillshare.runkids.cc/ko/docs/reference/commands/ui#테마-시스템) · [변경 기록 →](https://skillshare.runkids.cc/changelog)
 
 ## skillshare를 쓰는 이유
 

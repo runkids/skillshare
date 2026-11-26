@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **最新版本**：v0.32.0 — 更新 skill 時保留你的修改：`skillshare update my-skill --merge` 會像 `git merge` 一樣，逐個檔案把 upstream 的變更合併進你安裝後改過的 skill 或 agent。兩邊改到同一行時不會寫入任何內容，`update` 會列出衝突的檔案。`skillshare analyze` 現在也會估算 MCP server 的 tool 定義占用每個 Agent 上下文的 token，超過 `context_budget.warn_mcp_tool_tokens` 時發出警告。 [合併指南 →](https://skillshare.runkids.cc/zh-Hant/docs/reference/commands/update#merging-upstream-changes) · [更新紀錄 →](https://skillshare.runkids.cc/changelog)
+> **最新版本**：v0.33.0 — 把 dashboard 改成你喜歡的樣子：**Settings → Appearance** 新增自訂主題編輯器，可以從 14 個預設開始，也可以自己選強調色、背景色調、圓角和字型。深色模式會自動推導，所有文字顏色都維持 4.5:1 以上的可讀性，主題還能用連結或 JSON 檔分享。Clean 和 Playful 的設計也重新調整了。`skillshare hooks sync -p --trust` 現在也能為 project 的 hook 記錄 Codex trust，MiniMax Code 也成為內建 target。 [主題指南 →](https://skillshare.runkids.cc/zh-Hant/docs/reference/commands/ui#主題系統) · [更新紀錄 →](https://skillshare.runkids.cc/changelog)
 
 ## 為什麼用 skillshare
 

@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **Última versión**: v0.32.0 — Conserva tus cambios al actualizar un skill: `skillshare update my-skill --merge` fusiona los cambios de upstream en un skill o agent que modificaste desde la instalación, archivo por archivo como `git merge`. Si ambos lados cambiaron las mismas líneas, no se escribe nada y `update` lista los archivos en conflicto. `skillshare analyze` ahora también estima los tokens que las definiciones de herramientas de tus servidores MCP añaden al contexto de cada Agent, y avisa al superar `context_budget.warn_mcp_tool_tokens`. [Guía de merge →](https://skillshare.runkids.cc/docs/reference/commands/update#merging-upstream-changes) · [Todas las versiones →](https://github.com/runkids/skillshare/releases)
+> **Última versión**: v0.33.0 — Haz tuyo el dashboard: **Settings → Appearance** tiene un editor de temas personalizados con 14 presets, o eliges tú el color de acento, el tono de fondo, las esquinas y la fuente. El modo oscuro se deriva solo, cada color de texto se mantiene legible a 4.5:1 y un tema se puede compartir como enlace o archivo JSON. Clean y Playful también se renovaron. `skillshare hooks sync -p --trust` ahora registra la confianza de Codex para los hooks de un proyecto, y MiniMax Code es un target integrado. [Guía de temas →](https://skillshare.runkids.cc/docs/reference/commands/ui#theme-system) · [Todas las versiones →](https://github.com/runkids/skillshare/releases)
 
 ## Por qué skillshare
 

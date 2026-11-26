@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **最新バージョン**：v0.32.0 — Skill を更新しても自分の編集を残せます。`skillshare update my-skill --merge` は、インストール後に編集した Skill や Agent に upstream の変更を `git merge` のようにファイルごとにマージします。両方が同じ行を変更していた場合は何も書き込まず、`update` が競合したファイルを一覧表示します。`skillshare analyze` は、MCP サーバーのツール定義が各 Agent のコンテキストに加えるトークン数も見積もり、`context_budget.warn_mcp_tool_tokens` を超えると警告します。 [マージガイド →](https://skillshare.runkids.cc/ja/docs/reference/commands/update#merging-upstream-changes) · [変更履歴 →](https://skillshare.runkids.cc/changelog)
+> **最新バージョン**：v0.33.0 — dashboard を自分好みに。**Settings → Appearance** のカスタムテーマエディタで、14 種類のプリセットから選ぶか、アクセントカラー、背景の色味、角丸、フォントを自分で決められます。ダークモードは自動で導き出され、すべての文字色は 4.5:1 以上で読みやすく保たれます。テーマはリンクや JSON ファイルで共有できます。Clean と Playful のデザインも見直しました。`skillshare hooks sync -p --trust` は project の hook についても Codex の trust を記録するようになり、MiniMax Code が組み込み target に加わりました。 [テーマガイド →](https://skillshare.runkids.cc/ja/docs/reference/commands/ui#テーマシステム) · [変更履歴 →](https://skillshare.runkids.cc/changelog)
 
 ## skillshare を使う理由
 
