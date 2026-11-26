@@ -892,10 +892,10 @@ func GetRemoteHeadHash(repoURL string) (string, error) {
 	return GetRemoteHeadHashWithEnv(repoURL, nil)
 }
 
-// GetRemoteHeadHashWithAuth returns remote HEAD hash with HTTPS token auth
-// injection when token env vars are available.
-func GetRemoteHeadHashWithAuth(repoURL string, opts install.ParseOptions) (string, error) {
-	return GetRemoteHeadHashWithEnv(repoURL, install.AuthEnvForURL(repoURL, opts))
+// GetRemoteHeadWithAuth returns the remote HEAD hash and the branch HEAD
+// points at, with HTTPS token auth injection when token env vars are available.
+func GetRemoteHeadWithAuth(repoURL string, opts install.ParseOptions) (hash, branch string, err error) {
+	return GetRemoteHeadWithEnv(repoURL, install.AuthEnvForURL(repoURL, opts))
 }
 
 // remoteHashTimeout bounds lightweight remote probes used by check/status flows.
@@ -903,11 +903,35 @@ var remoteHashTimeout = 15 * time.Second
 
 // GetRemoteHeadHashWithEnv is like GetRemoteHeadHash but with additional env vars.
 func GetRemoteHeadHashWithEnv(repoURL string, extraEnv []string) (string, error) {
-	out, err := runRemoteLsRemote([]string{repoURL, "HEAD"}, extraEnv)
+	hash, _, err := GetRemoteHeadWithEnv(repoURL, extraEnv)
+	return hash, err
+}
+
+// GetRemoteHeadWithEnv returns the remote HEAD hash and the branch HEAD points
+// at; branch is empty when the remote names none, as with a detached HEAD.
+// --symref only prints what git already asks the remote for, so it adds no
+// round trip.
+func GetRemoteHeadWithEnv(repoURL string, extraEnv []string) (hash, branch string, err error) {
+	out, err := runRemoteLsRemote([]string{"--symref", repoURL, "HEAD"}, extraEnv)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
-	return parseRemoteHash(out, "")
+	hash, err = parseRemoteHash(out, "")
+	return hash, remoteHeadBranch(out), err
+}
+
+// remoteHeadBranch reads the branch from ls-remote --symref's
+// "ref: refs/heads/<branch>\tHEAD" line.
+func remoteHeadBranch(out string) string {
+	for _, line := range strings.Split(out, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) == 3 && fields[0] == "ref:" && fields[2] == "HEAD" {
+			if branch, ok := strings.CutPrefix(fields[1], "refs/heads/"); ok {
+				return branch
+			}
+		}
+	}
+	return ""
 }
 
 // GetRemoteRefHash returns the hash of a specific branch on a remote repo.
@@ -980,7 +1004,8 @@ func parseRemoteHash(out, branch string) (string, error) {
 	var hash string
 	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
 		fields := strings.Fields(line)
-		if len(fields) == 0 {
+		// A --symref line names a ref, not a commit.
+		if len(fields) == 0 || fields[0] == "ref:" {
 			continue
 		}
 		ref := ""

@@ -198,9 +198,14 @@ func TestEnrichAgentResultsWithRemote_ComparesEachAgentAtItsBranch(t *testing.T)
 	EnrichAgentResultsWithRemote(results, nil, install.ParseOptions{})
 
 	want := map[string]string{"current": "up_to_date", "stale": "update_available", "on-dev": "up_to_date"}
+	// Only agents that follow the remote HEAD learn the branch it points at.
+	wantDefault := map[string]string{"current": "main", "stale": "main", "on-dev": ""}
 	for _, r := range results {
 		if r.Status != want[r.Name] {
 			t.Errorf("%s: status %q, want %q (%s)", r.Name, r.Status, want[r.Name], r.Message)
+		}
+		if r.DefaultBranch != wantDefault[r.Name] {
+			t.Errorf("%s: default branch %q, want %q", r.Name, r.DefaultBranch, wantDefault[r.Name])
 		}
 	}
 }
