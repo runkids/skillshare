@@ -39,7 +39,7 @@ func discoverFromGitWithProgressImpl(source *Source, onProgress ProgressCallback
 	}
 
 	// Discover skills (include root to support single-skill-at-root repos)
-	skills := discoverSkillsByDirectory(repoPath, true)
+	skills := discoverSkillsIn(repoPath, repoPath, true)
 
 	// Use the source name rather than the temporary clone directory for the root.
 	applySkillInstallNames(skills, repoPath, source.Name)
@@ -85,7 +85,7 @@ func discoverLocalImpl(source *Source) (*DiscoveryResult, error) {
 		return nil, fmt.Errorf("source path is not a directory: %s", source.Path)
 	}
 
-	skills := discoverSkillsByDirectory(source.Path, true)
+	skills := discoverSkillsIn(source.Path, source.Path, true)
 	applySkillInstallNames(skills, source.Path, source.Name)
 
 	agents := discoverAgents(source.Path, len(skills) > 0)
@@ -224,8 +224,14 @@ func ExistingSkillInstallName(sourceDir string, source *Source, skill SkillInfo,
 // discoverSkills finds directories containing SKILL.md
 // If includeRoot is true, root-level SKILL.md is also included (with Path=".")
 func discoverSkills(repoPath string, includeRoot bool) []SkillInfo {
-	skills := discoverSkillsByDirectory(repoPath, includeRoot)
-	applySkillInstallNames(skills, repoPath, filepath.Base(repoPath))
+	return discoverSkillsWithin(repoPath, repoPath, includeRoot)
+}
+
+// discoverSkillsWithin is discoverSkills for dir inside a clone at root: it
+// also finds skills behind links to folders that stay inside root.
+func discoverSkillsWithin(root, dir string, includeRoot bool) []SkillInfo {
+	skills := discoverSkillsIn(dir, root, includeRoot)
+	applySkillInstallNames(skills, dir, filepath.Base(dir))
 	return skills
 }
 
@@ -252,8 +258,19 @@ func applySkillInstallNames(skills []SkillInfo, repoPath, rootName string) {
 	}
 }
 
+// discoverSkillsByDirectory finds skills without following links, as sync
+// sees a tracked repository.
 func discoverSkillsByDirectory(repoPath string, includeRoot bool) []SkillInfo {
-	var skills []SkillInfo
+	return discoverSkillsIn(repoPath, "", includeRoot)
+}
+
+// discoverSkillsIn finds directories under repoPath that contain SKILL.md.
+// With linkRoot set, it also descends into links to folders that stay inside
+// linkRoot, listing their skills under the link's path. A skill reachable both
+// directly and through a link is listed once, under its direct path.
+func discoverSkillsIn(repoPath, linkRoot string, includeRoot bool) []SkillInfo {
+	var found []discoveredSkill
+	canonicalRepo := sourcewalk.Canonical(repoPath)
 
 	visit := func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -275,51 +292,157 @@ func discoverSkillsByDirectory(repoPath string, includeRoot bool) []SkillInfo {
 		if !info.IsDir() && info.Name() == "SKILL.md" {
 			skillDir := filepath.Dir(path)
 			relPath, _ := filepath.Rel(repoPath, skillDir)
-			fm := utils.ParseFrontmatterFields(path, []string{"description", "license"})
-
-			// Handle root level SKILL.md
-			if relPath == "." {
-				if includeRoot {
-					skills = append(skills, SkillInfo{
-						Name:        filepath.Base(repoPath),
-						Path:        ".",
-						License:     fm["license"],
-						Description: fm["description"],
-					})
-				}
-			} else {
-				skills = append(skills, SkillInfo{
-					Name:        filepath.Base(skillDir),
-					Path:        strings.ReplaceAll(relPath, "\\", "/"),
-					License:     fm["license"],
-					Description: fm["description"],
-				})
+			if relPath == "." && !includeRoot {
+				return nil
 			}
+			fm := utils.ParseFrontmatterFields(path, []string{"description", "license"})
+			skill := discoveredSkill{SkillInfo: SkillInfo{
+				Name:        filepath.Base(skillDir),
+				Path:        strings.ReplaceAll(relPath, "\\", "/"),
+				License:     fm["license"],
+				Description: fm["description"],
+			}}
+			if relPath == "." {
+				skill.Name = filepath.Base(repoPath)
+			}
+			if linkRoot != "" {
+				skill.folder = sourcewalk.Canonical(skillDir)
+				skill.direct = skill.folder == filepath.Join(canonicalRepo, relPath)
+			}
+			found = append(found, skill)
 		}
 
 		return nil
 	}
-	filepath.Walk(repoPath, visit)
-	if len(skills) == 0 {
-		if dir, ok := sourcewalk.AgentsSkillsDir(repoPath, TargetDotDirs); ok {
+	walk := func(dir string) {
+		if linkRoot == "" {
 			filepath.Walk(dir, visit)
+			return
+		}
+		walkFollowingLinksWithin(linkRoot, dir, visit)
+	}
+	walk(repoPath)
+	if len(found) == 0 {
+		if dir, ok := sourcewalk.AgentsSkillsDir(repoPath, TargetDotDirs); ok {
+			walk(dir)
 		}
 	}
 
-	// Apply .skillignore filtering.
+	// Apply .skillignore filtering before dropping link duplicates, so an
+	// ignored direct path leaves the skill listed under its link.
 	// Skill paths are directories (they contain SKILL.md), so pass isDir=true.
 	matcher := skillignore.ReadMatcher(repoPath)
 	if matcher.HasRules() {
-		filtered := skills[:0]
-		for _, s := range skills {
+		filtered := found[:0]
+		for _, s := range found {
 			if !matcher.Match(s.Path, true) {
 				filtered = append(filtered, s)
 			}
 		}
-		skills = filtered
+		found = filtered
+	}
+	if linkRoot != "" {
+		found = dropLinkedDuplicates(found)
 	}
 
+	var skills []SkillInfo
+	for _, s := range found {
+		skills = append(skills, s.SkillInfo)
+	}
 	return skills
+}
+
+// discoveredSkill is a skill found while following links.
+type discoveredSkill struct {
+	SkillInfo
+	folder string // the skill folder after links
+	direct bool   // reached without a link
+}
+
+// dropLinkedDuplicates keeps one entry per skill folder, preferring the path
+// that reaches it without a link, so a convenience link does not list a skill
+// twice or move it from the path it was installed from.
+func dropLinkedDuplicates(found []discoveredSkill) []discoveredSkill {
+	index := make(map[string]int, len(found))
+	var out []discoveredSkill
+	for _, s := range found {
+		if j, ok := index[s.folder]; ok {
+			if !out[j].direct && s.direct {
+				out[j] = s
+			}
+			continue
+		}
+		index[s.folder] = len(out)
+		out = append(out, s)
+	}
+	return out
+}
+
+// walkFollowingLinksWithin walks dir like filepath.Walk, and also walks the
+// folders that links under it point to when they stay inside root and out of
+// its .git folder. A link inside a skill folder is part of that skill and is
+// not followed. A followed folder is reported under the link's path. Each link
+// is followed once, and a link back to a folder the walk is inside is not
+// followed, so cycles stop and the walk stays linear in the number of links.
+// Two links to one folder are both walked; the caller drops duplicates after
+// .skillignore.
+func walkFollowingLinksWithin(root, dir string, fn filepath.WalkFunc) {
+	canonicalRoot := sourcewalk.Canonical(root)
+	gitDir := filepath.Join(canonicalRoot, ".git")
+	inside := func(path string) bool {
+		return pathSameOrDescendant(path, canonicalRoot) && !pathSameOrDescendant(path, gitDir)
+	}
+	inWalk := map[string]bool{}
+	followedLinks := map[string]bool{}
+	var walk func(logical, real string)
+	walk = func(logical, real string) {
+		inWalk[real] = true
+		defer delete(inWalk, real)
+		filepath.Walk(real, func(path string, info os.FileInfo, err error) error {
+			logicalPath := logical + path[len(real):]
+			if err == nil && path != real && utils.IsLinkMode(path, info.Mode()) {
+				// Canonical, not EvalSymlinks: on Windows EvalSymlinks leaves a
+				// junction unresolved.
+				target := sourcewalk.Canonical(path)
+				if !inWalk[target] && !followedLinks[path] && inside(target) && !skillAbove(filepath.Dir(path), real) {
+					if targetInfo, statErr := os.Stat(target); statErr == nil && targetInfo.IsDir() {
+						if r := fn(logicalPath, sourcewalk.NamedInfo(targetInfo, info.Name()), nil); r != nil {
+							if r == filepath.SkipDir {
+								return nil
+							}
+							return r
+						}
+						followedLinks[path] = true
+						walk(logicalPath, target)
+						return nil
+					}
+				}
+			}
+			if path == real && logical != real && err == nil {
+				// The walk root reached through a link: report it under the
+				// link's name too.
+				info = sourcewalk.NamedInfo(info, filepath.Base(logical))
+			}
+			return fn(logicalPath, info, err)
+		})
+	}
+	if real := sourcewalk.Canonical(dir); inside(real) {
+		walk(dir, real)
+	}
+}
+
+// skillAbove reports whether dir, or a folder above it up to top, holds
+// SKILL.md.
+func skillAbove(dir, top string) bool {
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "SKILL.md")); err == nil {
+			return true
+		}
+		if dir == top || filepath.Dir(dir) == dir {
+			return false
+		}
+		dir = filepath.Dir(dir)
+	}
 }
 
 // discoverAgents finds .md files in an agents/ convention directory.
@@ -472,7 +595,7 @@ func discoverFromGitSubdirWithProgressImpl(source *Source, onProgress ProgressCa
 				if hash, hashErr := getGitCommit(repoPath); hashErr == nil {
 					commitHash = hash
 				}
-				skills := discoverSkills(subdirPath, true)
+				skills := discoverSkillsWithin(repoPath, subdirPath, true)
 				agents := discoverAgents(subdirPath, len(skills) > 0)
 				skills, agents, err = constrainDiscoveryToTarget(source, skills, agents)
 				if err != nil {
@@ -610,7 +733,7 @@ func discoverFromGitSubdirWithProgressImpl(source *Source, onProgress ProgressCa
 		commitHash = hash
 	}
 
-	skills := discoverSkills(subdirPath, true)
+	skills := discoverSkillsWithin(repoPath, subdirPath, true)
 	agents := discoverAgents(subdirPath, len(skills) > 0)
 	skills, agents, err = constrainDiscoveryToTarget(source, skills, agents)
 	if err != nil {

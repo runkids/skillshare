@@ -127,7 +127,7 @@ $ skillshare install anthropics/skills
   ↑↓ move · space toggle · ctrl+a all · enter confirm · / filter · esc cancel
 ```
 
-Discovery는 `.git`과, 보통 저장소 skill의 복사본을 담는 `.claude/`, `.agents/` 같은 타깃 디렉터리를 제외한 모든 디렉터리에서 `SKILL.md` 파일을 스캔합니다. `.curated/`나 `.system/`과 같은 그 밖의 숨김 디렉터리는 스캔되므로 그 안의 skill도 자동으로 발견됩니다. 다른 skill이 없는 저장소는 대신 루트의 `.agents/skills/`를 스캔합니다. 여러 skill이 발견되면, 선택 화면은 같은 폴더의 skill을 함께 나열하고 각 skill의 설명과 폴더를 보여 줍니다. 목록이 길면 `/`로 필터링할 수 있습니다.
+Discovery는 `.git`과, 보통 저장소 skill의 복사본을 담는 `.claude/`, `.agents/` 같은 타깃 디렉터리를 제외한 모든 디렉터리에서 `SKILL.md` 파일을 스캔합니다. `.curated/`나 `.system/`과 같은 그 밖의 숨김 디렉터리는 스캔되므로 그 안의 skill도 자동으로 발견됩니다. 다른 skill이 없는 저장소는 대신 루트의 `.agents/skills/`를 스캔합니다. Discovery는 저장소 안의 폴더를 가리키는 링크도 따라가지만, `.git` 안으로는 따라가지 않고, skill 폴더 안의 링크는 그 skill의 일부이므로 따라가지 않습니다. 직접 경로와 링크 양쪽으로 도달할 수 있는 skill은 직접 경로로 한 번만 표시됩니다. `--track` 설치는 이 링크를 따라가지 않으며, `sync`가 보는 내용과 일치합니다. 여러 skill이 발견되면, 선택 화면은 같은 폴더의 skill을 함께 나열하고 각 skill의 설명과 폴더를 보여 줍니다. 목록이 길면 `/`로 필터링할 수 있습니다.
 
 `.agents/skills/` 폴백은 `.agents`와 `skills` 모두 실제 디렉터리여야 하며, `follow_source_links: true`여도 symlink나 junction은 허용하지 않습니다. 의도적으로 따라가는 저장소 루트는 계속 지원됩니다. 발견한 agent 설치 및 업데이트는 중간 또는 최종 대상 링크를 거부하고 게시 전에 감사합니다. 감사가 차단되면 기존 agent 내용은 유지됩니다.
 

@@ -15,7 +15,10 @@ preserve existing install names. Tracked repository naming is unchanged.
 
 Discovery skips target directories such as `.claude/` and `.agents/`, which usually
 hold copies of a repository's skills. A repository with no other skills has its
-root `.agents/skills/` discovered instead.
+root `.agents/skills/` discovered instead. Discovery follows links to folders inside
+the repository (not into `.git`, and not from inside a skill folder); a skill reached
+both directly and through a link is listed once, under its direct path. `--track`
+installs do not follow these links.
 
 The `.agents/skills/` fallback requires both `.agents` and `skills` to be real directories, not symlinks or junctions, even with `follow_source_links: true`. An intentionally followed repository root remains supported. Discovered agent installs and updates reject intermediate or final destination links; audits run before publication, and a blocked audit leaves existing agent contents unchanged.
 

@@ -127,7 +127,7 @@ $ skillshare install anthropics/skills
   ↑↓ move · space toggle · ctrl+a all · enter confirm · / filter · esc cancel
 ```
 
-Discovery 會掃描所有目錄尋找 `SKILL.md` 檔案，但會跳過 `.git` 以及 `.claude/`、`.agents/` 等 target 目錄，這些目錄通常放的是 repo 中 skills 的副本。其他隱藏目錄（如 `.curated/` 或 `.system/`）會被掃描，其中的 skills 也會被自動發現。如果 repo 沒有其他 skills，則改為掃描根目錄的 `.agents/skills/`。當找到多個 skills 時，選擇提示會把同一個資料夾的 skills 排在一起，並顯示每個 skill 的說明與所在資料夾；清單很長時按 `/` 篩選。
+Discovery 會掃描所有目錄尋找 `SKILL.md` 檔案，但會跳過 `.git` 以及 `.claude/`、`.agents/` 等 target 目錄，這些目錄通常放的是 repo 中 skills 的副本。其他隱藏目錄（如 `.curated/` 或 `.system/`）會被掃描，其中的 skills 也會被自動發現。如果 repo 沒有其他 skills，則改為掃描根目錄的 `.agents/skills/`。Discovery 也會跟隨指向 repo 內資料夾的 link，但不會進入 `.git`，也不會跟隨 skill 資料夾內的 link（那是該 skill 的一部分）。同一個 skill 既能直接到達、也能經由 link 到達時，只會以直接路徑列出一次。`--track` 安裝不跟隨這些 link，與 `sync` 看到的一致。當找到多個 skills 時，選擇提示會把同一個資料夾的 skills 排在一起，並顯示每個 skill 的說明與所在資料夾；清單很長時按 `/` 篩選。
 
 `.agents/skills/` fallback 要求 `.agents` 和 `skills` 均為實際目錄，即使啟用 `follow_source_links: true` 也不接受符號連結或 junction。仍支援刻意跟隨的儲存庫根目錄。探索到的 agent 在安裝及更新時會拒絕目標路徑中間或末尾的連結，並在發佈前稽核；稽核阻擋操作時，現有 agent 內容保持不變。
 
