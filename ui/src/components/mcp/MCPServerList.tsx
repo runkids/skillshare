@@ -80,7 +80,13 @@ export default function MCPServerList({
     [],
   );
   const anyUnsaved = unsavedRows.length > 0;
-  useEffect(() => onUnsavedChange?.(anyUnsaved), [anyUnsaved, onUnsavedChange]);
+  // Only a list holding unsaved ticks speaks, and it takes them back when they go or it unmounts,
+  // so a clean list shown beside it never clears them.
+  useEffect(() => {
+    if (!anyUnsaved || !onUnsavedChange) return;
+    onUnsavedChange(true);
+    return () => onUnsavedChange(false);
+  }, [anyUnsaved, onUnsavedChange]);
   const overridden = (name: string) =>
     (users[name] ?? []).filter(
       (root) =>

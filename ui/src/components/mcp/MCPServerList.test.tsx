@@ -69,6 +69,38 @@ describe('MCP server list', () => {
     expect(onUnsavedChange).toHaveBeenLastCalledWith(true);
   });
 
+  it('keeps reporting unsaved ticks when another list mounts or the dirty list goes away', async () => {
+    const user = userEvent.setup();
+    const onUnsavedChange = vi.fn();
+    const server = { url: 'https://docs.example/mcp', targets: ['claude'], global: false };
+    const list = (name: string, rowServer: typeof server) => (
+      <MCPServerList
+        key={name}
+        rows={[{ name, server: rowServer, cells: {} }]}
+        targets={['claude']}
+        targetsOf={() => ['claude']}
+        onToggle={vi.fn()}
+        onMenu={vi.fn()}
+        users={{ docs: ['/work/api'] }}
+        roots={['/work/api', '/work/web']}
+        onProjects={vi.fn()}
+        onUnsavedChange={onUnsavedChange}
+      />
+    );
+    const { rerender } = render(<I18nProvider>{list('docs', server)}</I18nProvider>);
+    await user.click(screen.getByRole('button', { name: 'Choose which agents get docs' }));
+    await user.click(screen.getByRole('checkbox', { name: '/work/web' }));
+    rerender(
+      <I18nProvider>
+        {list('docs', server)}
+        {list('everywhere', { ...server, global: true })}
+      </I18nProvider>,
+    );
+    expect(onUnsavedChange).toHaveBeenLastCalledWith(true);
+    rerender(<I18nProvider>{list('everywhere', { ...server, global: true })}</I18nProvider>);
+    expect(onUnsavedChange).toHaveBeenLastCalledWith(false);
+  });
+
   it('keeps Save off until a tick changes', async () => {
     const user = userEvent.setup();
     renderList();
