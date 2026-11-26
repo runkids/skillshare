@@ -1,5 +1,44 @@
 # Changelog
 
+## [0.32.0](https://github.com/runkids/skillshare/compare/v0.31.0...v0.32.0) (2026-11-26)
+
+
+### New Features
+
+* install from PyPI with uv, pipx or pip ([#1026](https://github.com/runkids/skillshare/issues/1026)) ([324de68](https://github.com/runkids/skillshare/commit/324de6849feb80ad6fd6f2df5be54c4a3392f2e7))
+* **mcp:** let a project override a shared server's settings ([#1010](https://github.com/runkids/skillshare/issues/1010)) ([d71ea71](https://github.com/runkids/skillshare/commit/d71ea7168caaaa3aaff403d64783bcc0974f5455)), closes [#1007](https://github.com/runkids/skillshare/issues/1007)
+* show what MCP tool definitions and skills cost in context ([#1012](https://github.com/runkids/skillshare/issues/1012)) ([96af335](https://github.com/runkids/skillshare/commit/96af335f466dc5309daeb15c8641c963266c19eb))
+* **ui:** pick a shared MCP server's projects from the MCP page ([#1009](https://github.com/runkids/skillshare/issues/1009)) ([c30f52b](https://github.com/runkids/skillshare/commit/c30f52bb6f63f9f30dae0af3f8d78562343e7242)), closes [#1006](https://github.com/runkids/skillshare/issues/1006)
+* **ui:** search, filter and preview pending updates ([#1033](https://github.com/runkids/skillshare/issues/1033)) ([9147653](https://github.com/runkids/skillshare/commit/9147653b819075b937a0e665f08fad8db38a90c9))
+* **ui:** select a whole group from its heading ([#1017](https://github.com/runkids/skillshare/issues/1017)) ([71e11fe](https://github.com/runkids/skillshare/commit/71e11feaccade9987047bdb6f29657bb21db5612)), closes [#1014](https://github.com/runkids/skillshare/issues/1014)
+* **ui:** show and edit a project's override of a shared MCP server ([#1011](https://github.com/runkids/skillshare/issues/1011)) ([78d3fa2](https://github.com/runkids/skillshare/commit/78d3fa27bc02041494d9407084a1174e21d3ca83)), closes [#1007](https://github.com/runkids/skillshare/issues/1007)
+* **ui:** split the MCP page into global and chosen-project sections ([#1008](https://github.com/runkids/skillshare/issues/1008)) ([fe53e45](https://github.com/runkids/skillshare/commit/fe53e45c9efa07ff2a53a422e2135f07c1c29e93)), closes [#1006](https://github.com/runkids/skillshare/issues/1006)
+* **update:** merge upstream changes into locally edited skills and agents ([#1018](https://github.com/runkids/skillshare/issues/1018)) ([ca5854d](https://github.com/runkids/skillshare/commit/ca5854db553e4ec358b82afa0565ee800dc558f0))
+
+
+### Bug Fixes
+
+* **agents:** keep agent metadata when upstream moves without changing the file ([#1047](https://github.com/runkids/skillshare/issues/1047)) ([9d321ee](https://github.com/runkids/skillshare/commit/9d321ee2d40b8c955df0a151efd601bc082b261e))
+* **check:** compare a skill installed through a link by its target's tree ([#1048](https://github.com/runkids/skillshare/issues/1048)) ([81c61bd](https://github.com/runkids/skillshare/commit/81c61bdc4fa25f266992df5f74c70962c77d90a9))
+* find the built-in skill in a folder, and show when it is disabled ([#1031](https://github.com/runkids/skillshare/issues/1031)) ([4d4812f](https://github.com/runkids/skillshare/commit/4d4812f99db924f01beae76818c480a8ba014096))
+* install from the clone the skill listing already made ([#1024](https://github.com/runkids/skillshare/issues/1024)) ([4cd177d](https://github.com/runkids/skillshare/commit/4cd177df956ad2345bb51fe780eb4fd0dff37405))
+* **install:** accept dangling links inside a checkout on Windows ([#1051](https://github.com/runkids/skillshare/issues/1051)) ([1241487](https://github.com/runkids/skillshare/commit/1241487d250f07f70ed664a3d68976dc902b3f57))
+* **install:** copy directory symlinks within repository boundary ([#1040](https://github.com/runkids/skillshare/issues/1040)) ([9b50838](https://github.com/runkids/skillshare/commit/9b50838f218ab6b8f3f4f5eccf3b493c896e3396))
+* **install:** fall back to a full clone when a subdir's links point outside it ([#1044](https://github.com/runkids/skillshare/issues/1044)) ([9df2352](https://github.com/runkids/skillshare/commit/9df2352accb0963b12cb13be632057129c92b897))
+* **install:** find skills behind links to folders inside the repository ([#1046](https://github.com/runkids/skillshare/issues/1046)) ([cca4e21](https://github.com/runkids/skillshare/commit/cca4e211805093d9a15802e3ed81525b4701190c))
+* **install:** keep a fetched repository's symlinks inside it ([a21c41c](https://github.com/runkids/skillshare/commit/a21c41c36c7ebf3794d47f57bb4122071aedca9c))
+* **install:** keep the skill when --force fails, exit non-zero when an agent fails ([#1039](https://github.com/runkids/skillshare/issues/1039)) ([d39c24a](https://github.com/runkids/skillshare/commit/d39c24a9c18483b1bbcbbcc7fd0c13f1f5cbcf98))
+* **install:** materialize in-repo symlink targets during subdir install ([#1043](https://github.com/runkids/skillshare/issues/1043)) ([f1f80a7](https://github.com/runkids/skillshare/commit/f1f80a78792c34027eaf13704cc021b68e8c209d))
+* **install:** record an agent installed from its file path ([#1016](https://github.com/runkids/skillshare/issues/1016)) ([3869b57](https://github.com/runkids/skillshare/commit/3869b57a0013d9743842f3dea863af9c919a7516)), closes [#1013](https://github.com/runkids/skillshare/issues/1013)
+* keep dashboard installs from dropping on slow networks ([#1022](https://github.com/runkids/skillshare/issues/1022)) ([fccd421](https://github.com/runkids/skillshare/commit/fccd42190a86793b12f20784281ac1e8452b460d))
+* **mcp:** import Agent-specific fields as that Agent's options ([#1052](https://github.com/runkids/skillshare/issues/1052)) ([ad5ffa0](https://github.com/runkids/skillshare/commit/ad5ffa066be26cd12f5e8250b963d46914f1a54b)), closes [#1049](https://github.com/runkids/skillshare/issues/1049)
+* **plugins:** retry OpenCode updates until it has loaded its plugins ([#1004](https://github.com/runkids/skillshare/issues/1004)) ([bd8f8e8](https://github.com/runkids/skillshare/commit/bd8f8e8d6bc57cf2d26a875e6d5901cbf59a1099)), closes [#1003](https://github.com/runkids/skillshare/issues/1003)
+* **ui:** remember the Skills and Agents page grouping ([b3857f8](https://github.com/runkids/skillshare/commit/b3857f813ded061f88c2fcf90747cfd7619d6ad8)), closes [#1050](https://github.com/runkids/skillshare/issues/1050)
+* **update:** accept candidate links left dangling by sparse checkout ([#1034](https://github.com/runkids/skillshare/issues/1034)) ([9685925](https://github.com/runkids/skillshare/commit/968592535cae70d29a6d83537acdc388c73aef47))
+* **update:** keep metadata when an update brings nothing new ([#1045](https://github.com/runkids/skillshare/issues/1045)) ([c7bb3ae](https://github.com/runkids/skillshare/commit/c7bb3ae28f13037de6be5934dcd413937065f44a))
+* **update:** keep the layout a discovery install gave a git skill ([#1021](https://github.com/runkids/skillshare/issues/1021)) ([c9631e3](https://github.com/runkids/skillshare/commit/c9631e32bb99ed3bbd5a8a38a5a1a8905770df7c)), closes [#1019](https://github.com/runkids/skillshare/issues/1019)
+* **version:** check PyPI and give uvx and uv venv their own upgrade command ([#1032](https://github.com/runkids/skillshare/issues/1032)) ([d0fb094](https://github.com/runkids/skillshare/commit/d0fb09416efc8db8494157f2acb5443929092856))
+
 ## [0.31.0] - 2026-11-24
 
 ### New Features
