@@ -48,7 +48,7 @@ result=$(skillshare check --json)
 `check`는 source 디렉터리를 검사하여 다음 항목의 업데이트 상태를 보고합니다.
 
 1. **추적 중인 저장소** — origin에서 fetch하고, 몇 커밋 뒤처져 있는지 표시
-2. **메타데이터가 있는 설치된 skill** — 설치된 버전을 remote HEAD와 비교
+2. **메타데이터가 있는 설치된 skill** — 설치된 버전을 remote HEAD와 비교. 서로 달라도 저장소 하위 폴더에서 설치한 skill은 그 폴더가 바뀌지 않았다면 up to date입니다
 3. **오래된(stale) skill** — 업스트림 저장소에서 하위 디렉터리가 삭제된 skill 감지
 4. **로컬에서 수정된 skill** — 저장소에서 설치한 skill의 파일을 설치 시 기록된 파일과 비교하고, 파일을 편집·추가·삭제했다면 `"status": "modified"`로 보고
 5. **로컬 경로 설치** — 설치한 경로의 파일을 설치 시 기록된 파일과 비교([로컬 경로 설치](#local-path-installs) 참고)

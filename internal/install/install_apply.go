@@ -178,6 +178,7 @@ func buildDiscoveredAgentSource(discovery *DiscoveryResult, agent AgentInfo) *So
 		Name:     agent.Name,
 		Branch:   discovery.Source.Branch,
 		Commit:   discovery.Source.Commit,
+		Locked:   discovery.Source.Locked,
 	}
 }
 
@@ -670,6 +671,7 @@ func writeDiscoveredSkillMetadata(discovery *DiscoveryResult, skill SkillInfo, d
 		Name:     skill.Name,
 		Branch:   discovery.Source.Branch,
 		Commit:   discovery.Source.Commit,
+		Locked:   discovery.Source.Locked,
 	}
 	meta := NewMetaFromSource(source)
 	meta.Layout = discoveredLocalLayout(discovery, skill)

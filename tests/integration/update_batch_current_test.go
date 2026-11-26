@@ -179,3 +179,33 @@ func TestUpdateProject_TreeMatchKeepsLockPin(t *testing.T) {
 		t.Fatalf("lock changed on an unrelated upstream commit:\nbefore: %s\nafter:  %s", before, after)
 	}
 }
+
+// A skills source under version control must not change when an update
+// brings nothing new (#1041). A single installed skill takes the one-skill
+// path, which reinstalls instead of skipping.
+func TestUpdate_NothingNewKeepsMetadata(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	setupGlobalConfig(sb)
+	_, work := setupGroupedSkills(t, sb, "alpha")
+	metaPath := filepath.Join(sb.SourcePath, install.MetadataFileName)
+	before := sb.ReadFile(metaPath)
+	assertUnchanged := func(step string) {
+		t.Helper()
+		if after := sb.ReadFile(metaPath); after != before {
+			t.Fatalf("%s rewrote metadata:\nbefore: %s\nafter:  %s", step, before, after)
+		}
+	}
+
+	runUpdateAllJSON(t, sb)
+	assertUnchanged("update --all, unchanged upstream")
+
+	writeGroupedSkill(t, work, "unrelated", "v1")
+	gitAddCommit(t, work, "add an unrelated skill")
+	gitPush(t, work)
+	runUpdateAllJSON(t, sb)
+	assertUnchanged("update --all, unrelated upstream commit")
+
+	sb.RunCLI("update", "alpha", "--force", "--skip-audit").AssertSuccess(t)
+	assertUnchanged("update --force")
+}

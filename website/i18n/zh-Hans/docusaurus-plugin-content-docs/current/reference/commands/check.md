@@ -48,7 +48,7 @@ result=$(skillshare check --json)
 `check` 会检查你的 source 目录，并报告以下内容的更新状态：
 
 1. **已跟踪仓库**——从 origin 拉取，显示落后多少个 commit
-2. **已安装 skills（带 metadata）**——将已安装版本与 remote HEAD 进行比较
+2. **已安装 skills（带 metadata）**——将已安装版本与 remote HEAD 进行比较。两者不同时，从仓库子文件夹安装的 skill 只要该子文件夹没有变化，仍算 up to date
 3. **过时的 skills**——检测哪些 skill 的子目录已在 upstream 仓库中被删除
 4. **本地修改过的 skills**——将从仓库安装的 skill 的文件与安装时记录的文件进行比较，如果你编辑、添加或删除了其中任何文件，则报告 `"status": "modified"`
 5. **从本地路径安装的 skills**——将安装来源路径中的文件与安装时记录的文件进行比较（参见[从本地路径安装](#local-path-installs)）

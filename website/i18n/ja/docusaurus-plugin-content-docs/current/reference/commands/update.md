@@ -226,7 +226,7 @@ skillshare update --all
 1. すべての tracked repositories（git pull）
 2. source metadata を持つすべての skill（upstream が変わったときに再インストール）
 
-`update --all` と `update --group` はリモート skill をリポジトリごとにまとめ、各リポジトリを 1 回だけ clone します。フォルダが upstream で変わっていない skill には手を付けず、up to date として数えます。ただし、フォルダに symlink を含む skill は例外です。フォルダが変わらなくてもファイルが変わることがあるため、upstream の commit が進むたびに再インストールします。プロジェクトモード（`-p`）で複数の skill を名前で指定した場合も同じです。すべてを再インストールするには `--force` を使います。skill が 1 つだけのときと、グローバルモードで名前を指定したときは常に再インストールします。インストール後にファイルを変更した skill は、いずれの場合も `--merge` か `--force` を付けるまでスキップされます（[コンフリクトの処理](#コンフリクトの処理)を参照）。リポジトリを取得できなかった場合、その skill は skipped として数え、リポジトリ名とエラーを示す警告を表示します。URL に含まれる認証情報は取り除かれます。
+`update --all` と `update --group` はリモート skill をリポジトリごとにまとめ、各リポジトリを 1 回だけ clone します。フォルダが upstream で変わっていない skill には手を付けず、up to date として数えます。ただし、フォルダに symlink を含む skill は例外です。フォルダが変わらなくてもファイルが変わることがあるため、upstream の commit が進むたびに再インストールします。プロジェクトモード（`-p`）で複数の skill を名前で指定した場合も同じです。すべてを再インストールするには `--force` を使います。skill が 1 つだけのときと、グローバルモードで名前を指定したときは常に再インストールします。リポジトリのサブフォルダから同じファイルを再インストールした場合は `.metadata.json` を変更しないため、Git で管理している skills source はクリーンなままです。インストール後にファイルを変更した skill は、いずれの場合も `--merge` か `--force` を付けるまでスキップされます（[コンフリクトの処理](#コンフリクトの処理)を参照）。リポジトリを取得できなかった場合、その skill は skipped として数え、リポジトリ名とエラーを示す警告を表示します。URL に含まれる認証情報は取り除かれます。
 
 skillshare は 1 つの git checkout を同時に 1 つのプロセスだけで更新します。同じ tracked repo や git でインストールした skill を別の `update` やダッシュボードが更新中の場合、その完了を待ちます。1 分経っても終わらなければ `another skillshare process is still updating <path>` で中止します。
 

@@ -5,6 +5,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -181,15 +182,15 @@ func TestMergeUpdate_ConflictLeavesSkillUntouched(t *testing.T) {
 	}
 }
 
-// A commit that leaves the skill alone has nothing to merge: the files stay,
-// and the record moves to the new version so check stops reporting it.
+// A commit that leaves the skill alone has nothing to merge: the files and
+// the record stay, and check matches the record by its tree hash.
 func TestMergeUpdate_UpstreamUnchangedIsUpToDate(t *testing.T) {
 	repo, dest, sourceDir := installMergeFixture(t, "skills/alpha", "//skills/alpha")
 	editSkillFile(t, dest, "SKILL.md", "one", "one (mine)")
 	writeRepoFile(t, repo, "README.md", "elsewhere\n")
 	gitAdd(t, repo, ".")
 	gitCommit(t, repo, "v2")
-	before := LoadMetadataOrNew(sourceDir).Get("alpha").Version
+	before := *LoadMetadataOrNew(sourceDir).Get("alpha")
 
 	source, err := ParseSource("file://" + repo + "//skills/alpha")
 	if err != nil {
@@ -205,8 +206,8 @@ func TestMergeUpdate_UpstreamUnchangedIsUpToDate(t *testing.T) {
 	if got := readSkillFile(t, dest, "SKILL.md"); !strings.Contains(got, "one (mine)") {
 		t.Errorf("SKILL.md lost the local edit:\n%s", got)
 	}
-	if entry := LoadMetadataOrNew(sourceDir).Get("alpha"); entry.Version == before || !entry.LocallyModified(dest) {
-		t.Errorf("record = %+v, want the new version and still modified", entry)
+	if entry := LoadMetadataOrNew(sourceDir).Get("alpha"); !reflect.DeepEqual(*entry, before) || !entry.LocallyModified(dest) {
+		t.Errorf("record = %+v, want it unchanged and still modified", entry)
 	}
 }
 

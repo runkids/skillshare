@@ -297,39 +297,6 @@ func TestIsSkillCurrentAtRepoState_SymlinkTargetChangeIsNotCurrent(t *testing.T)
 	}
 }
 
-func TestRefreshSkillMetaVersionIfNeeded(t *testing.T) {
-	dest := t.TempDir()
-	meta := &SkillMeta{
-		Source:      "https://example.com/repo/skills/my-skill",
-		Type:        "github",
-		InstalledAt: time.Now(),
-		Version:     "old-commit",
-		TreeHash:    "tree-hash",
-		Subdir:      "skills/my-skill",
-	}
-	if err := WriteMeta(dest, meta); err != nil {
-		t.Fatalf("WriteMeta failed: %v", err)
-	}
-
-	if err := refreshSkillMetaVersionIfNeeded(dest, "new-commit"); err != nil {
-		t.Fatalf("refreshSkillMetaVersionIfNeeded failed: %v", err)
-	}
-
-	updated, err := ReadMeta(dest)
-	if err != nil {
-		t.Fatalf("ReadMeta failed: %v", err)
-	}
-	if updated == nil {
-		t.Fatal("expected metadata to exist")
-	}
-	if updated.Version != "new-commit" {
-		t.Fatalf("expected version to be refreshed, got %q", updated.Version)
-	}
-	if updated.TreeHash != "tree-hash" {
-		t.Fatalf("expected tree hash to be preserved, got %q", updated.TreeHash)
-	}
-}
-
 func TestLookupSkillSubdir(t *testing.T) {
 	repo := t.TempDir()
 	skillDir := filepath.Join(repo, ".claude", "skills", "my-skill")
