@@ -186,6 +186,8 @@ interface Filters {
   status: StatusFilter;
   target: string;
   folder: string | null;
+  /** Unset until chosen: Skills group by source and Agents not at all. */
+  group?: GroupBy;
 }
 const FILTER_DEFAULTS: Filters = { source: 'all', status: 'all', target: 'all', folder: null };
 /** One JSON entry holds every page's filters: { skill: Filters, agent: Filters }. */
@@ -363,12 +365,12 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
   const [target, setTarget] = useState(saved.target);
   // null = all folders; '' is the source root.
   const [folder, setFolder] = useState<string | null>(saved.folder);
-  useEffect(
-    () => saveFilters(kind, { source, status, target, folder }),
-    [kind, source, status, target, folder],
-  );
   const [sort, setSort] = useState<SortType>('name-asc');
-  const [group, setGroup] = useState<GroupBy>(isAgent ? 'none' : 'source');
+  const [group, setGroup] = useState<GroupBy>(saved.group ?? (isAgent ? 'none' : 'source'));
+  useEffect(
+    () => saveFilters(kind, { source, status, target, folder, group }),
+    [kind, source, status, target, folder, group],
+  );
   const [view, setView] = useState<ViewType>(loadView);
   const [limit, setLimit] = useState(STEP);
   const [collapsed, setCollapsed] = useState<Set<string>>(loadCollapsed);
