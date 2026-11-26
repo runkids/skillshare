@@ -15,7 +15,7 @@ flowchart LR
     TGT_CURSOR["cursor &nbsp; ~/.cursor/skills"]
     TGT_CODEX["codex &nbsp; ~/.agents/skills"]
     TGT_GEMINI["gemini &nbsp; ~/.gemini/skills"]
-    TGT_MORE["... &nbsp; 支持 79 个"]
+    TGT_MORE["... &nbsp; 支持 80 个"]
 
     SRC -->|sync| TGT_CLAUDE
     SRC -->|sync| TGT_CURSOR
@@ -36,7 +36,7 @@ flowchart LR
 
 | 主题 | 说明 |
 |-------|-------------|
-| [Supported Targets](./supported-targets.md) | 79 个支持的 AI CLI 完整列表 |
+| [Supported Targets](./supported-targets.md) | 80 个支持的 AI CLI 完整列表 |
 | [Adding Custom Targets](./adding-custom-targets.md) | 添加任何拥有 Skill 目录的工具 |
 | [Configuration](./configuration.md) | 配置文件参考 |
 

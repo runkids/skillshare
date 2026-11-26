@@ -215,7 +215,7 @@ Target은 skillshare가 sync하는 AI CLI skill 디렉터리입니다.
 - `~/.gemini/config/skills/` — Antigravity (앱)
 - `~/.gemini/antigravity-cli/skills/` — Antigravity CLI
 - `~/.gemini/skills/` — Gemini CLI
-- 전체 [79개 target](/docs/reference/targets/supported-targets)
+- 전체 [80개 target](/docs/reference/targets/supported-targets)
 
 **자동 감지:** `skillshare init`을 실행하면 설치된 AI CLI를 자동으로 감지하여 target으로 추가합니다.
 

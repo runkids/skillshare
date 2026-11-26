@@ -15,7 +15,7 @@ flowchart LR
     TGT_CURSOR["cursor &nbsp; ~/.cursor/skills"]
     TGT_CODEX["codex &nbsp; ~/.agents/skills"]
     TGT_GEMINI["gemini &nbsp; ~/.gemini/skills"]
-    TGT_MORE["... &nbsp; 79 supported"]
+    TGT_MORE["... &nbsp; 80 supported"]
 
     SRC -->|sync| TGT_CLAUDE
     SRC -->|sync| TGT_CURSOR
@@ -36,7 +36,7 @@ flowchart LR
 
 | トピック | 説明 |
 |-------|-------------|
-| [対応する Target](./supported-targets.md) | 79 の対応 AI CLI の完全なリスト |
+| [対応する Target](./supported-targets.md) | 80 の対応 AI CLI の完全なリスト |
 | [カスタム Target の追加](./adding-custom-targets.md) | Skill ディレクトリを持つ任意のツールを追加する |
 | [Configuration](./configuration.md) | Config ファイルリファレンス |
 
