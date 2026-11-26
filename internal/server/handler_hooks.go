@@ -231,16 +231,12 @@ type hooksTrustRequest struct {
 
 // handleHooksCodexTrustPreview lists the Codex hooks Skillshare owns and which need trust.
 func (s *Server) handleHooksCodexTrustPreview(w http.ResponseWriter, r *http.Request) {
-	if s.IsProjectMode() {
-		writeError(w, http.StatusBadRequest, "Codex trust is recorded in global Codex homes only")
-		return
-	}
 	// Codex can be slow to answer, so the server lock is held only to read the config.
 	s.mu.RLock()
 	service := s.hooksService()
 	s.mu.RUnlock()
 	plan, err := service.PreviewCodexTrust()
-	if err != nil {
+	if err != nil && !(plan != nil && plan.Project != "" && len(plan.Failed) > 0) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -254,10 +250,6 @@ func (s *Server) handleHooksCodexTrust(w http.ResponseWriter, r *http.Request) {
 	if !decodeHooksRequest(w, r, &body) {
 		return
 	}
-	if s.IsProjectMode() {
-		writeError(w, http.StatusBadRequest, "Codex trust is recorded in global Codex homes only")
-		return
-	}
 	if body.Revision == "" {
 		writeError(w, http.StatusBadRequest, "review the Codex hooks before trusting them")
 		return
@@ -269,6 +261,12 @@ func (s *Server) handleHooksCodexTrust(w http.ResponseWriter, r *http.Request) {
 	s.writeOpsLog("hooks trust", opStatus(err), start, map[string]any{"scope": "ui"}, "")
 	if err != nil {
 		status := http.StatusBadRequest
+		if plan != nil && plan.Project != "" && slices.ContainsFunc(plan.Hooks, func(h hooks.CodexTrust) bool { return h.Action == "trusted" }) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusMultiStatus)
+			writeJSON(w, plan)
+			return
+		}
 		if errors.Is(err, hooks.ErrStaleRevision) {
 			status = http.StatusConflict
 		}

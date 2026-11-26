@@ -199,7 +199,7 @@ func printHooksHelp() {
 			{"--sync", "Save and synchronize (default: save the source only)"},
 			{"--replace", "Replace an existing entry, or take over its conflicting\nAgent entries (unmanaged duplicates or outside edits)"},
 			{"--keep-files", "remove only: stop managing the hook; its Agent entries stay"},
-			{"--trust", "sync only, global: list the Codex hooks Skillshare owns that\nneed trust, with their commands, and record it once you confirm"},
+			{"--trust", "sync only: list the Codex hooks Skillshare owns that\nneed trust, with their commands, and record it once you confirm"},
 			{"-y, --yes", "with --trust: record trust without asking"},
 			{"-n, --dry-run", "Preview without writing"},
 			{"--json", "Machine-readable output"},

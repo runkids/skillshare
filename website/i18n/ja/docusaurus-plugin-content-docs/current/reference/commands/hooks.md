@@ -42,7 +42,7 @@ skillshare hooks restore BACKUP_ID
 | `--sync` | 保存して同期 |
 | `--keep-files` | `remove` と併用: hook の管理をやめ、ネイティブのエントリはそのまま残す。`--sync` とは併用できない。[下記](#stop-managing-a-hook)を参照 |
 | `--replace` | 既存ソース entry またはその entry の競合出力を明示的に置換 |
-| `--trust` | グローバルモードの `hooks sync` のみ：Skillshare が管理する hooks の Codex 信頼も記録。[Codex の信頼](#codex-trust)を参照 |
+| `--trust` | `hooks sync` のみ：Skillshare が管理する hooks の Codex 信頼も記録。[Codex の信頼](#codex-trust)を参照 |
 | `--yes`, `-y` | `--trust` と併用：確認を省略し、一覧の hooks を信頼。[Codex の信頼](#codex-trust)を参照 |
 | `--dry-run, -n` | 書き込まずプレビュー |
 | `--json` | 構造化出力 |
@@ -147,7 +147,7 @@ command binding のスクリプトは Agent 設定ディレクトリの `hooks/s
 | [Amp](https://ampcode.com/docs/plugin-api) | `~/.config/amp/plugins/skillshare-NAME.ts` | `.amp/plugins/skillshare-NAME.ts` | Native plugin code |
 | [OpenCode](https://opencode.ai/docs/plugins/) | `~/.config/opencode/plugins/skillshare-NAME[.ts]` | `.opencode/plugins/skillshare-NAME[.ts]` | v1 file; v2 directory package (see below) |
 
-アカウント target の `config_dir` を指す場合を除き、global scope はネイティブ設定ディレクトリの環境変数 override を使います。project scope はプロジェクト内にのみ書き込み、global にフォールバックしません。Codex inline TOML など他のソースは別のままです。Antigravity とその CLI（`agy`）は同じ `hooks.json` を読みます。各 hook は名前付きの 1 ブロックで、インポートしても名前は変わりません。CLI の `~/.gemini/antigravity-cli/settings.json` にある hooks は別のままです。Droid の独立 hooks ファイルは読み込むソースを変えるため、既存 inline hooks を先に確認してください。 Copilot は `.github/hooks` のプロジェクト hooks を信頼済みフォルダーでのみ読み込みます。
+アカウント target の `config_dir` を指す場合を除き、global scope はネイティブ設定ディレクトリの環境変数 override を使います。プロジェクトのネイティブ hook ファイルはプロジェクト内に書き込みます。`--trust` を確認すると、信頼は検証済みの各 Codex home に記録されます。Codex inline TOML など他のソースは別のままです。Antigravity とその CLI（`agy`）は同じ `hooks.json` を読みます。各 hook は名前付きの 1 ブロックで、インポートしても名前は変わりません。CLI の `~/.gemini/antigravity-cli/settings.json` にある hooks は別のままです。Droid の独立 hooks ファイルは読み込むソースを変えるため、既存 inline hooks を先に確認してください。 Copilot は `.github/hooks` のプロジェクト hooks を信頼済みフォルダーでのみ読み込みます。
 
 
 Droid の inline hooks が有効な場合、同期は独立ファイルの作成を拒否します。インポートして確認し、元の inline hooks を削除してから同期してください。
@@ -218,11 +218,11 @@ Codex trust
 ✓ stop  trusted  codex  /home/me/.codex/hooks.json:stop:1:0
 ```
 
-`--yes`（`-y`）は確認を省略します。Codex の確認は、実行前に人が command を目にするためにあります。端末がない場合に `--yes` がなければ、何も信頼せず、hooks を一覧表示して `--yes` を示すエラーで終了します。`--json` も確認を行いません。`--yes` がなければ hooks を `needed` として出力し、エラー文なしで非ゼロ終了します。`--yes` は `--trust` と併用する場合のみ有効です。`--json` の出力には `codexTrust` のリストがあります。各項目は `target`、`entry`、`key`、`command`、`action`（`needed`、`trusted`、`unchanged`）を持ち、無効の場合は `disabled` も持ちます。
+`--yes`（`-y`）は確認を省略します。Codex の確認は、実行前に人が command を目にするためにあります。端末がない場合に `--yes` がなければ、何も信頼せず、hooks を一覧表示して `--yes` を示すエラーで終了します。`--json` も確認を行いません。`--yes` がなければ hooks を `needed` として出力し、非ゼロ終了します。プロジェクトの JSON には理由を示す `codexTrustError` と各 hook の保存先 `home` が含まれます。`--yes` は `--trust` と併用する場合のみ有効です。`--json` の出力には `codexTrust` のリストがあります。各項目は `target`、`entry`、`key`、`command`、`action`（`needed`、`trusted`、`unchanged`）を持ち、無効の場合は `disabled` も持ちます。
 
 書き込むのは `trusted_hash` だけで、追加のみです。Codex で無効にした hook は無効のまま報告されます。`enabled`、`config.toml` のその他の部分、Skillshare が所有しない hooks には触れません。hook が移動または削除されると、古いエントリは `config.toml` に残ります。このエントリは、その位置で event、matcher、handler が同じ hook にしか一致しないため、別の hook を信頼することはありません。
 
-`codex` が `PATH` にない場合や Codex が失敗した場合も hook ファイルは書き込まれ、コマンドは "hook files were written, but Codex trust was not recorded" で失敗します。Codex home が複数ある場合、Codex が一覧できない home や書き込みに失敗した home があっても他の home の記録は続行され、エラーには記録できた home とできなかった home が示されます。`--trust` なしの `hooks sync` は Codex を起動せず、信頼も変更しません。`--trust` はグローバルモードのみで、`sync hooks`、`hooks list`、プロジェクトモードでは拒否されます。`hooks.projects` がプロジェクトに書き込む hook は対象外なので、Codex の `/hooks` で信頼してください。Dashboard の Hooks ページ（global scope）にも同じ操作があり、信頼が必要な hooks を command とともに一覧表示し、ダイアログで確認した後にのみ信頼を記録します。
+`codex` が `PATH` にない場合や Codex が失敗した場合も hook ファイルは書き込まれ、コマンドは "hook files were written, but Codex trust was not recorded" で失敗します。Codex home が複数ある場合、Codex が一覧できない home や書き込みに失敗した home があっても他の home の記録は続行され、エラーには記録できた home とできなかった home が示されます。`--trust` なしの `hooks sync` は Codex を起動せず、信頼も変更しません。`hooks sync -p --trust` は現在のプロジェクトのコマンドを確認し、各ユーザーの Codex home に信頼を記録します。フォルダーの信頼設定は変更しません。検証できないアカウントをスキップし、一部のみ完了した場合はエラーを返します。`sync hooks` と `hooks list` は `--trust` に対応しません。`hooks.projects` がプロジェクトに書き込む hook は対象外なので、Codex の `/hooks` で信頼してください。Dashboard の Hooks ページ（グローバル・プロジェクト両モード）にも同じ操作があり、信頼が必要な hooks を command とともに一覧表示し、ダイアログで確認した後にのみ信頼を記録します。
 
 ## Git hooks {#git-hooks}
 

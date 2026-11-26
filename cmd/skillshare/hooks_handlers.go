@@ -34,9 +34,6 @@ func runHooks(service *hooks.Service, sub string, o hooksOptions) error {
 		}
 		return finishHooksMutation(service, "hooks remove", hooks.Mutation{Name: o.name, Remove: true, Replace: o.replace, Unmanage: o.keepFiles}, o)
 	case "sync":
-		if o.trust && service.ProjectRoot != "" {
-			return fmt.Errorf("--trust records trust in global Codex homes only; run it with -g")
-		}
 		o.sync = true
 		// A name only scopes --replace; the sync itself covers every entry.
 		return finishHooksMutation(service, "hooks sync", hooks.Mutation{Name: o.name, Replace: o.replace}, o)
@@ -233,6 +230,9 @@ func finishHooksMutation(service *hooks.Service, command string, mutation hooks.
 		}
 	}
 	if o.json {
+		if service.ProjectRoot != "" && err != nil {
+			result.CodexTrustError = err.Error()
+		}
 		return writeJSONResult(result, err)
 	}
 	if !declined {

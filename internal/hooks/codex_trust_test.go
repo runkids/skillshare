@@ -54,7 +54,7 @@ func (s *fakeCodexServer) state() map[string]map[string]any {
 	return doc.Hooks.State
 }
 
-func (s *fakeCodexServer) ListHooks() ([]CodexHook, error) {
+func (s *fakeCodexServer) ListHooks(cwd string) ([]CodexHook, error) {
 	if s.f.beforeList != nil {
 		s.f.beforeList(s.home)
 	}
@@ -62,6 +62,10 @@ func (s *fakeCodexServer) ListHooks() ([]CodexHook, error) {
 		return nil, fmt.Errorf("hooks/list failed")
 	}
 	path := filepath.Join(s.home, "hooks.json")
+	source := "user"
+	if cwd != s.home {
+		path, source = filepath.Join(cwd, ".codex", "hooks.json"), "project"
+	}
 	if !exists(path) {
 		return nil, nil
 	}
@@ -78,7 +82,8 @@ func (s *fakeCodexServer) ListHooks() ([]CodexHook, error) {
 				if trusted, ok := state[key]["trusted_hash"].(string); ok {
 					status = map[bool]string{true: "trusted", false: "modified"}[trusted == hash]
 				}
-				out = append(out, CodexHook{Key: key, SourcePath: path, Enabled: !s.f.disabled[key], CurrentHash: hash, TrustStatus: status})
+				command, _ := handler.(map[string]any)["command"].(string)
+				out = append(out, CodexHook{Command: command, Source: source, HandlerType: "command", Key: key, SourcePath: path, Enabled: !s.f.disabled[key], CurrentHash: hash, TrustStatus: status})
 			}
 		}
 	}
@@ -249,11 +254,77 @@ func TestCodexTrustReportsDisabled(t *testing.T) {
 	}
 }
 
-func TestCodexTrustRefusesProjectScope(t *testing.T) {
-	e, _ := trustEnv(t)
-	_, err := e.project(filepath.Join(t.TempDir(), "repo")).PreviewCodexTrust()
-	if err == nil || !strings.Contains(err.Error(), "-g") {
-		t.Fatalf("err = %v", err)
+func TestCodexTrustProjectPartial(t *testing.T) {
+	e, f := trustEnv(t)
+	s := e.project(t.TempDir())
+	s.Accounts = map[string]Account{"codex-2": e.service.Accounts["codex-2"]}
+	s.CodexAppServer = f.start
+	save(t, s, Mutation{Name: "k", Entry: accountEntry(t, "codex")})
+	f.listErrHome = s.Accounts["codex-2"].Dir
+	must(t, os.MkdirAll(filepath.Join(e.home, ".codex"), 0755))
+	p, err := s.PreviewCodexTrust()
+	must(t, err)
+	if len(p.Needed()) != 1 || len(p.Failed) != 1 || p.Failed[0].Target != "codex-2" {
+		t.Fatalf("preview = %+v", p)
+	}
+	// Both homes now return the same project key and hash. The previously
+	// skipped account must not inherit the first home's confirmation.
+	f.listErrHome = ""
+	result, err := s.TrustCodex(p.Revision)
+	if err == nil || len(result.Failed) != 1 || result.Failed[0].Target != "codex-2" ||
+		len(f.writes) != 1 || exists(filepath.Join(s.Accounts["codex-2"].Dir, "config.toml")) ||
+		result.Hooks[0].Action != "trusted" || result.Hooks[1].Action != "needed" {
+		t.Fatalf("partial result = %+v, err = %v", result, err)
+	}
+}
+
+func TestCodexTrustProjectSkipsCheckoutHomeAndRemovedAccount(t *testing.T) {
+	e, f := trustEnv(t)
+	s := e.project(t.TempDir())
+	inside := filepath.Join(s.ProjectRoot, "local-account")
+	must(t, os.MkdirAll(inside, 0755))
+	must(t, os.MkdirAll(filepath.Join(e.home, ".codex"), 0755))
+	s.Accounts = map[string]Account{"local": {Agent: "codex", Dir: inside}, "codex-2": e.service.Accounts["codex-2"]}
+	s.CodexAppServer = f.start
+	save(t, s, Mutation{Name: "ready", Entry: accountEntry(t, "codex")})
+	p, err := s.PreviewCodexTrust()
+	must(t, err)
+	if len(p.Needed()) != 2 || len(p.Failed) != 1 || p.Failed[0].Target != "local" {
+		t.Fatalf("preview = %+v", p)
+	}
+	delete(s.Accounts, "codex-2")
+	result, err := s.TrustCodex(p.Revision)
+	if !errors.Is(err, ErrStaleRevision) || len(result.Failed) != 2 || len(f.writes) != 1 || exists(filepath.Join(inside, "config.toml")) {
+		t.Fatalf("result = %+v, err = %v", result, err)
+	}
+}
+
+func TestProjectTrustReportsRemovalWhenAllRemainingHomesFail(t *testing.T) {
+	e, f := trustEnv(t)
+	s := e.project(t.TempDir())
+	s.Accounts = map[string]Account{"codex-2": e.service.Accounts["codex-2"]}
+	s.CodexAppServer = f.start
+	f.listErrHome = filepath.Join(e.home, ".codex")
+	save(t, s, Mutation{Name: "ready", Entry: accountEntry(t, "codex")})
+	p, err := s.PreviewCodexTrust()
+	must(t, err)
+	delete(s.Accounts, "codex-2")
+	result, err := s.TrustCodex(p.Revision)
+	if !errors.Is(err, ErrStaleRevision) || len(result.Failed) != 2 || len(f.writes) != 0 {
+		t.Fatalf("result = %+v, err = %v", result, err)
+	}
+}
+
+func TestProjectTrustCheckoutCaseAlias(t *testing.T) {
+	base := t.TempDir()
+	root := filepath.Join(base, "Checkout")
+	must(t, os.MkdirAll(root, 0755))
+	alias := filepath.Join(base, "checkout")
+	if _, err := os.Stat(alias); os.IsNotExist(err) {
+		t.Skip("case-sensitive filesystem")
+	}
+	if !projectTrustDestinationInside(root, filepath.Join(alias, ".codex")) {
+		t.Fatal("case alias must still be recognized as the checkout")
 	}
 }
 

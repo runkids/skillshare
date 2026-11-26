@@ -134,6 +134,9 @@ func printHooksTrust(trust []hooks.CodexTrust) {
 		if t.Disabled {
 			mark, value = ui.MarkWarn, value+", disabled in Codex"
 		}
+		if t.Home != "" {
+			value += "  " + t.Home
+		}
 		ui.Row(mark, hooksTrustLabel(t), value+"  "+ui.DimText(t.Target+"  "+t.Key), width)
 		if t.Action == "needed" && t.Command != "" {
 			ui.Note(t.Command)

@@ -200,6 +200,7 @@ export interface HookGitInfo {
 
 /** One Codex hook Skillshare owns. `needed`: not trusted yet or its command changed; `unchanged`: already trusted; `trusted`: recorded by this call. */
 export interface CodexTrustHook {
+  home?: string;
   target: string;
   entry: string;
   key: string;
@@ -208,6 +209,7 @@ export interface CodexTrustHook {
   disabled?: boolean;
 }
 export interface CodexTrustPlan {
+  project?: string;
   hooks: CodexTrustHook[];
   revision: string;
   /** Homes Codex could not list; their hooks are left out. */ failed?: {

@@ -42,7 +42,7 @@ skillshare hooks restore BACKUP_ID
 | `--sync` | 保存并同步 |
 | `--keep-files` | 配合 `remove` 使用：停止管理该 hook，并让它的原生条目保持原样。不能与 `--sync` 同时使用。参见[下文](#stop-managing-a-hook) |
 | `--replace` | 明确替换已有来源 entry 或该 entry 冲突的原生输出 |
-| `--trust` | 仅用于全局模式的 `hooks sync`：同时为 Skillshare 管理的 hooks 记录 Codex 信任。见 [Codex 信任](#codex-trust) |
+| `--trust` | 仅用于 `hooks sync`：同时为 Skillshare 管理的 hooks 记录 Codex 信任。见 [Codex 信任](#codex-trust) |
 | `--yes`, `-y` | 与 `--trust` 一起使用：跳过询问并信任列出的 hooks。见 [Codex 信任](#codex-trust) |
 | `--dry-run, -n` | 仅预览，不保存或写入 |
 | `--json` | 结构化输出 |
@@ -145,7 +145,7 @@ command binding 的脚本位于 Agent 配置目录的 `hooks/skillshare/NAME/`�
 | [Amp](https://ampcode.com/docs/plugin-api) | `~/.config/amp/plugins/skillshare-NAME.ts` | `.amp/plugins/skillshare-NAME.ts` | Native plugin code |
 | [OpenCode](https://opencode.ai/docs/plugins/) | `~/.config/opencode/plugins/skillshare-NAME[.ts]` | `.opencode/plugins/skillshare-NAME[.ts]` | v1 file; v2 directory package (see below) |
 
-global scope 使用原生配置目录的环境变量 override，但指向账号 `config_dir` 时除外；project scope 只写入项目，不回退到 global。Codex inline TOML 等其他来源仍独立存在。Antigravity 及其 CLI（`agy`）读取同一份 `hooks.json`；每个 hook 是一个以其名称命名的 block，导入时保留原名。CLI 的 `~/.gemini/antigravity-cli/settings.json` 中的 hooks 保持独立。Droid 发布独立 hooks 文件会影响原生加载来源，请先检查已有 inline hooks。Copilot 只在受信任的文件夹中加载 `.github/hooks` 的项目 hooks。
+global scope 使用原生配置目录的环境变量 override，但指向账号 `config_dir` 时除外；项目同步将原生 hook 文件写入项目目录。确认 `--trust` 后，信任会另行写入各个已验证的 Codex 账号目录。Codex inline TOML 等其他来源仍独立存在。Antigravity 及其 CLI（`agy`）读取同一份 `hooks.json`；每个 hook 是一个以其名称命名的 block，导入时保留原名。CLI 的 `~/.gemini/antigravity-cli/settings.json` 中的 hooks 保持独立。Droid 发布独立 hooks 文件会影响原生加载来源，请先检查已有 inline hooks。Copilot 只在受信任的文件夹中加载 `.github/hooks` 的项目 hooks。
 
 
 Droid 存在有效 inline hooks 时，同步会拒绝创建独立文件。先导入并检查，移除原 inline hooks 后再同步。
@@ -216,11 +216,11 @@ Codex trust
 ✓ stop  trusted  codex  /home/me/.codex/hooks.json:stop:1:0
 ```
 
-`--yes`（`-y`）跳过询问。Codex 的审核存在的原因，是让人在 command 运行之前看到它。没有终端且没有 `--yes` 时，不会信任任何 hook：命令会列出这些 hooks，并以提到 `--yes` 的错误退出。`--json` 同样不会询问：没有 `--yes` 时，它把这些 hooks 输出为 `needed`，并以非零状态退出，不输出错误文字。`--yes` 只能与 `--trust` 一起使用。`--json` 输出包含 `codexTrust` 列表。每一项有 `target`、`entry`、`key`、`command`、`action`（`needed`、`trusted` 或 `unchanged`），为 true 时还有 `disabled`。
+`--yes`（`-y`）跳过询问。Codex 的审核存在的原因，是让人在 command 运行之前看到它。没有终端且没有 `--yes` 时，不会信任任何 hook：命令会列出这些 hooks，并以提到 `--yes` 的错误退出。`--json` 同样不会询问：没有 `--yes` 时，它把这些 hooks 输出为 `needed`，并以非零状态退出。项目 JSON 的 `codexTrustError` 会说明原因，每个 hook 的 `home` 是写入目录。`--yes` 只能与 `--trust` 一起使用。`--json` 输出包含 `codexTrust` 列表。每一项有 `target`、`entry`、`key`、`command`、`action`（`needed`、`trusted` 或 `unchanged`），为 true 时还有 `disabled`。
 
 只写入 `trusted_hash`，而且只会新增。你在 Codex 中停用的 hook 保持停用并会被报告。`enabled`、`config.toml` 的其余部分以及不属于 Skillshare 的 hooks 都不会改动。hook 移动或删除后，旧条目仍留在 `config.toml` 中。它只匹配该位置上 event、matcher 和 handler 都相同的 hook，因此不会让另一个 hook 变成已信任。
 
-`codex` 不在 `PATH` 上或 Codex 失败时，hook 文件仍会写入，命令以 "hook files were written, but Codex trust was not recorded" 失败。有多个 Codex home 时，Codex 无法列出或写入失败的 home 不会中止其他 home：错误会列出已记录和未记录的 home。不带 `--trust` 的 `hooks sync` 不会启动 Codex，也不会改变信任。`--trust` 只能用于全局模式；`sync hooks`、`hooks list` 和项目模式会拒绝它。`hooks.projects` 写入项目的 hook 不在其列，请在 Codex 的 `/hooks` 中信任。Dashboard 的 Hooks 页面（global scope）有相同的操作：它列出需要信任的 hooks 及其 command，只有在你于对话框中确认后才记录信任。
+`codex` 不在 `PATH` 上或 Codex 失败时，hook 文件仍会写入，命令以 "hook files were written, but Codex trust was not recorded" 失败。有多个 Codex home 时，Codex 无法列出或写入失败的 home 不会中止其他 home：错误会列出已记录和未记录的 home。不带 `--trust` 的 `hooks sync` 不会启动 Codex，也不会改变信任。`hooks sync -p --trust` 审核当前项目的命令，将信任写入各用户的 Codex home，不改变目录信任。无法验证的账号会跳过；若部分完成则以非零状态退出。`sync hooks` 和 `hooks list` 不支持 `--trust`。`hooks.projects` 写入项目的 hook 不在其列，请在 Codex 的 `/hooks` 中信任。Dashboard 的 Hooks 页面（全局及项目模式）有相同的操作：它列出需要信任的 hooks 及其 command，只有在你于对话框中确认后才记录信任。
 
 ## Git hooks {#git-hooks}
 

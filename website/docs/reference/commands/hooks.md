@@ -71,7 +71,7 @@ not one transaction.
 | `--sync` | Save and synchronize the mutation |
 | `--keep-files` | With `remove`: stop managing the hook and leave its native entries as they are. Not with `--sync`. See [below](#stop-managing-a-hook) |
 | `--replace` | Explicitly replace an existing source entry or conflicting native output for that entry |
-| `--trust` | With `hooks sync` in global mode: also record Codex trust for the hooks Skillshare owns. See [Codex trust](#codex-trust) |
+| `--trust` | With `hooks sync`: also record Codex trust for the hooks Skillshare owns. See [Codex trust](#codex-trust) |
 | `--yes`, `-y` | With `--trust`: skip the question and trust the listed hooks. See [Codex trust](#codex-trust) |
 | `--dry-run`, `-n` | Preview without saving or writing native configuration |
 | `--json` | Structured output |
@@ -228,8 +228,7 @@ you provide. Inspect the exact paths in the preview.
 | [OpenCode](https://opencode.ai/docs/plugins/) | `~/.config/opencode/plugins/skillshare-NAME[.ts]` | `.opencode/plugins/skillshare-NAME[.ts]` | v1 file; v2 directory package (see below) |
 
 Native config-directory environment overrides apply in global scope, unless
-they point at an account's `config_dir`. Project
-operations write inside that project and never fall back to a global path.
+they point at an account's `config_dir`. Project sync writes native hook files inside the checkout. Confirming `--trust` separately records trust in each verified user’s Codex home.
 Other native sources, such as Codex inline TOML declarations, remain separate.
 Antigravity and its CLI (`agy`) read the same `hooks.json`; each hook is one
 block named after it, so importing a block keeps its name. Hooks in the CLI's
@@ -327,11 +326,11 @@ Codex trust
 ✓ stop  trusted  codex  /home/me/.codex/hooks.json:stop:1:0
 ```
 
-`--yes` (`-y`) skips the question. Codex's review exists so that a person sees the command before it runs. Without a terminal and without `--yes`, nothing is trusted: the command lists the hooks and exits with an error that names `--yes`. `--json` never asks either: without `--yes` it reports the hooks as `needed` and exits non-zero, with no error text. `--yes` is only valid with `--trust`. The `--json` output has a `codexTrust` list. Each item has `target`, `entry`, `key`, `command`, `action` (`needed`, `trusted` or `unchanged`), and `disabled` when true.
+`--yes` (`-y`) skips the question. Codex's review exists so that a person sees the command before it runs. Without a terminal and without `--yes`, nothing is trusted: the command lists the hooks and exits with an error that names `--yes`. `--json` never asks either: without `--yes` it reports the hooks as `needed` and exits non-zero. Project JSON includes the reason in `codexTrustError` and the destination `home` on each verified hook. `--yes` is only valid with `--trust`. The `--json` output has a `codexTrust` list. Each item has `target`, `entry`, `key`, `command`, `action` (`needed`, `trusted` or `unchanged`), and `disabled` when true.
 
 Only `trusted_hash` is written, and only ever added. A hook you disabled in Codex stays disabled and is reported. `enabled`, the rest of `config.toml` and hooks Skillshare does not own are left alone. When a hook moves or is removed, its old entry stays in `config.toml`. It matches only a hook with the same event, matcher and handler at that position, so it cannot trust a different hook.
 
-If `codex` is not on `PATH` or Codex fails, the hook files are still written and the command fails with "hook files were written, but Codex trust was not recorded". With several Codex homes, a home that Codex cannot list, or whose write fails, does not stop the others: the error names the homes that were recorded and the ones that were not. Plain `hooks sync` never starts Codex and never changes trust. `--trust` works in global mode only; `sync hooks`, `hooks list` and project mode reject it. Hooks that `hooks.projects` writes into a project are not included; trust them in Codex's `/hooks`. The dashboard's Hooks page (global scope) has the same action: it lists the hooks that need trust with their commands and records trust only after you confirm in the dialog.
+If `codex` is not on `PATH` or Codex fails, the hook files are still written and the command fails with "hook files were written, but Codex trust was not recorded". With several Codex homes, a home that Codex cannot list, or whose write fails, does not stop the others: the error names the homes that were recorded and the ones that were not. Plain `hooks sync` never starts Codex and never changes trust. Use `skillshare hooks sync -p --trust` to review this checkout’s owned hooks. Trust is recorded in the listed user homes, not in the checkout. Each home must already trust the folder in Codex. A home that cannot verify every owned command is skipped; use its native `/hooks` to review. If other homes were updated, the result reports partial completion (non-zero exit; `codexTrustError` in project JSON output). `sync hooks` and `hooks list` reject `--trust`. Hooks that `hooks.projects` writes into a project are not included; trust them in Codex's `/hooks`. The dashboard's Hooks page (global or project mode) has the same action: it lists the hooks that need trust with their commands and records trust only after you confirm in the dialog.
 
 ## Git hooks
 
