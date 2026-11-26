@@ -74,7 +74,7 @@ The CLI ships on PyPI as `skillshare-cli`, because `skillshare` there is an unre
 
 One-time setup:
 
-1. On PyPI, under **Your account > Publishing > Add a new pending publisher > GitHub**, enter project `skillshare-cli`, owner `runkids`, repository `skillshare`, workflow `publish-release.yml`, environment `pypi`. The project is created on the first upload. Until then the name is unclaimed, so the README does not mention PyPI yet. Once the first release is on PyPI, restore its install section in `README.md` and the translated READMEs with `git show 324de6849 -- 'README*.md' | git apply -3`.
+1. On PyPI, under **Your account > Publishing > Add a new pending publisher > GitHub**, enter project `skillshare-cli`, owner `runkids`, repository `skillshare`, workflow `publish-release.yml`, environment `pypi`. The project is created on the first upload. v0.32.0 was the first release on PyPI, and `README.md` and the translated READMEs list it as an install option.
 2. In **Settings > Environments**, create `pypi`. Under **Deployment branches and tags**, allow only `main`, so a workflow edited on another branch cannot publish. Adding yourself as a required reviewer is optional.
 
 Until both exist, only the `pypi` job fails; the release, Homebrew, Docker and website jobs do not depend on it.
