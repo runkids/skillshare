@@ -62,6 +62,46 @@ func TestGetRemoteRefHash(t *testing.T) {
 	})
 }
 
+func TestGetRemoteHeadWithEnv_NamesDefaultBranch(t *testing.T) {
+	bareRepo := filepath.Join(t.TempDir(), "test.git")
+	run(t, "", "git", "init", "--bare", bareRepo)
+	run(t, bareRepo, "git", "symbolic-ref", "HEAD", "refs/heads/trunk")
+	workDir := filepath.Join(t.TempDir(), "work")
+	run(t, "", "git", "clone", bareRepo, workDir)
+	run(t, workDir, "git", "config", "user.email", "test@test.com")
+	run(t, workDir, "git", "config", "user.name", "Test")
+	os.WriteFile(filepath.Join(workDir, "a.txt"), []byte("a"), 0644)
+	run(t, workDir, "git", "add", ".")
+	run(t, workDir, "git", "commit", "-m", "trunk commit")
+	run(t, workDir, "git", "push", "origin", "HEAD:trunk")
+	out, err := exec.Command("git", "-C", workDir, "rev-parse", "HEAD").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tip := strings.TrimSpace(string(out))
+
+	t.Run("symbolic HEAD names its branch", func(t *testing.T) {
+		hash, branch, err := GetRemoteHeadWithEnv(bareRepo, nil)
+		if err != nil {
+			t.Fatalf("GetRemoteHeadWithEnv: %v", err)
+		}
+		if hash != tip[:7] || branch != "trunk" {
+			t.Fatalf("got (%q, %q), want (%q, %q)", hash, branch, tip[:7], "trunk")
+		}
+	})
+
+	t.Run("detached HEAD names no branch", func(t *testing.T) {
+		run(t, bareRepo, "git", "update-ref", "--no-deref", "HEAD", tip)
+		hash, branch, err := GetRemoteHeadWithEnv(bareRepo, nil)
+		if err != nil {
+			t.Fatalf("GetRemoteHeadWithEnv: %v", err)
+		}
+		if hash != tip[:7] || branch != "" {
+			t.Fatalf("got (%q, %q), want (%q, %q)", hash, branch, tip[:7], "")
+		}
+	})
+}
+
 func TestGetRemoteHeadHashWithEnv_DisablesPrompts(t *testing.T) {
 	binDir := t.TempDir()
 	gitPath := filepath.Join(binDir, "git")

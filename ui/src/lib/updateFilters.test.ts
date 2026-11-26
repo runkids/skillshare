@@ -6,6 +6,7 @@ import {
   hasUpstreamPreview,
   matchesFilters,
   NO_FILTERS,
+  recordDefaultBranches,
   repeatedLabels,
   sourcePage,
   type FilterUnit,
@@ -179,6 +180,61 @@ describe('sourcePage', () => {
     expect(sourcePage(u)?.url).toBe(expected);
   });
 
+  describe('with a default branch from a check', () => {
+    const branches = {
+      'https://github.com/acme/skills.git': 'main',
+      'https://github.com/acme/a.git': 'main',
+    };
+    const from = (repoUrl: string, source: string, extra: Partial<Skill> = {}) =>
+      unit('a', { repoUrl, ...extra }, source);
+
+    it.each([
+      [
+        'a folder by that branch',
+        from('https://github.com/acme/skills.git', 'github.com/acme/skills/frontend/a'),
+        'https://github.com/acme/skills/tree/main/frontend/a',
+      ],
+      [
+        'a root skill at the repository home',
+        from('https://github.com/acme/a.git', 'github.com/acme/a'),
+        'https://github.com/acme/a',
+      ],
+      [
+        'a recorded branch over it',
+        from('https://github.com/acme/skills.git', 'github.com/acme/skills/a', { branch: 'dev' }),
+        'https://github.com/acme/skills/tree/dev/a',
+      ],
+      [
+        'the ref in a browser URL over it',
+        from('https://github.com/acme/skills.git', 'https://github.com/acme/skills/tree/v1.0/a'),
+        'https://github.com/acme/skills/tree/v1.0/a',
+      ],
+      [
+        'a folder whose browser URL names HEAD by that branch',
+        from('https://github.com/acme/skills.git', 'https://github.com/acme/skills/tree/HEAD/a'),
+        'https://github.com/acme/skills/tree/main/a',
+      ],
+      [
+        'a root skill whose browser URL names HEAD at the repository home',
+        from('https://github.com/acme/a.git', 'https://github.com/acme/a/tree/HEAD'),
+        'https://github.com/acme/a',
+      ],
+      [
+        'HEAD for a skill now installed from another repository',
+        from('https://github.com/other/skills.git', 'github.com/other/skills/a'),
+        'https://github.com/other/skills/tree/HEAD/a',
+      ],
+    ])('links %s', (_, u, expected) => {
+      expect(sourcePage(u, 'tree', branches)?.url).toBe(expected);
+    });
+  });
+
+  it('encodes a branch name that would end the path', () => {
+    expect(sourcePage(unit('a', { branch: 'release#1' }, 'github.com/o/r/a'))?.url).toBe(
+      'https://github.com/o/r/tree/release%231/a',
+    );
+  });
+
   it('names the host the link opens', () => {
     expect(sourcePage(unit('a', {}, 'gitlab.com/acme/skills/a'))?.host).toBe('GitLab');
   });
@@ -205,5 +261,23 @@ describe('compareUrl', () => {
     const r = { ...repo('_team'), source: url };
     r.items = [{ ...r.items[0], repoUrl: url }];
     expect(compareUrl(r, 'a1', 'b2')?.url).toBe(expected);
+  });
+});
+
+describe('recordDefaultBranches', () => {
+  const prev = { 'https://github.com/acme/a.git': 'master' };
+
+  it('takes the branch a result names', () => {
+    expect(
+      recordDefaultBranches(prev, [
+        { repoUrl: 'https://github.com/acme/a.git', defaultBranch: 'main' },
+      ]),
+    ).toEqual({ 'https://github.com/acme/a.git': 'main' });
+  });
+
+  it('keeps what an earlier check found when a result names none', () => {
+    expect(recordDefaultBranches(prev, [{ repoUrl: 'https://github.com/acme/a.git' }])).toEqual(
+      prev,
+    );
   });
 });

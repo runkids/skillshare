@@ -33,7 +33,7 @@ func (s *Server) handleSkillUpstreamChanges(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	// The same lookup the update check uses, so the preview shows the update it reported.
-	latest, err := check.GitRemote{ParseOptions: parseOpts}.Hash(entry.RepoURL, entry.Branch)
+	latest, _, err := check.GitRemote{ParseOptions: parseOpts}.Hash(entry.RepoURL, entry.Branch)
 	if err != nil {
 		writeError(w, http.StatusBadGateway, "resolve the latest commit: "+err.Error())
 		return
