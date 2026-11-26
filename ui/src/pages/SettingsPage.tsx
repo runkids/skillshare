@@ -128,7 +128,7 @@ export default function SettingsPage() {
       />
       <SettingsTabs current="general" />
 
-      <div className="flex max-w-[860px] flex-col gap-8">
+      <div className="flex flex-col gap-8">
         <section>
           <div className="ss-sec">
             <h2 className="ss-h2">{t('settings.source.title')}</h2>

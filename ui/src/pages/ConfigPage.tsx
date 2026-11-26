@@ -725,7 +725,7 @@ function ExtensionsSection({ isProjectMode }: { isProjectMode: boolean }) {
       {isPending ? (
         <PageSkeleton />
       ) : (
-        <div className="flex max-w-[860px] flex-col gap-8">
+        <div className="flex flex-col gap-8">
           <section>
             <div className="ss-sec">
               <h2>{t('config.extensions.installedHeading', {}, 'Installed')}</h2>

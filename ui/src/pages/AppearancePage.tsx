@@ -26,7 +26,7 @@ export default function AppearancePage() {
       />
       <SettingsTabs current="appearance" />
 
-      <div className="flex max-w-[860px] flex-col gap-8">
+      <div className="flex flex-col gap-8">
         <section>
           <SharedThemeNote />
           <div className="ss-list">
