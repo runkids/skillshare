@@ -124,6 +124,14 @@ nix profile add github:runkids/skillshare
 
 更新には `nix profile upgrade skillshare` を使います。flakes を有効にした Nix 2.30 以降が必要です。古い Nix や Lix では `nix profile install` を使ってください。NixOS や Home Manager の設定では flake の `overlays.default` を使えます。
 
+### CLI：PyPI
+
+```bash
+uv tool install skillshare-cli
+```
+
+`pipx install skillshare-cli` や `pip install skillshare-cli` でもインストールできます。インストールせずに試すには `uvx --from skillshare-cli skillshare` を実行します。更新はインストーラーで行います（`uv tool upgrade skillshare-cli` や `pipx upgrade skillshare-cli` など）。
+
 ### GitHub Actions
 
 ```yaml
