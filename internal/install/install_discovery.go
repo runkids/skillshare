@@ -457,7 +457,11 @@ func discoverFromGitSubdirWithProgressImpl(source *Source, onProgress ProgressCa
 	// Fast path 1: sparse checkout (preferred for speed if git is modern)
 	// Works for GitHub and non-GitHub hosts.
 	if gitSupportsSparseCheckout() {
-		if err := sparseCloneSubdir(source.CloneURL, source.Subdir, repoPath, source.ref(), source.authEnv(), onProgress); err == nil {
+		err := sparseCloneSubdir(source.CloneURL, source.Subdir, repoPath, source.ref(), source.authEnv(), onProgress)
+		if err == nil {
+			err = sparseLinksFetched(repoPath, source.Subdir, source.authEnv())
+		}
+		if err == nil {
 			if err := submoduleError(repoPath, source.Subdir, source.authEnv()); err != nil {
 				cleanupTempRepo(tempDir)
 				return nil, err
