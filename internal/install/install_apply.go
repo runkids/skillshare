@@ -716,7 +716,11 @@ func installFromGitSubdir(source *Source, destPath string, result *InstallResult
 	// Works for GitHub and non-GitHub hosts.
 	if gitSupportsSparseCheckout() {
 		resolved = source.Subdir
-		if err := sparseCloneSubdir(source.CloneURL, resolved, tempRepoPath, source.ref(), source.authEnv(), opts.OnProgress); err == nil {
+		err := sparseCloneSubdir(source.CloneURL, resolved, tempRepoPath, source.ref(), source.authEnv(), opts.OnProgress)
+		if err == nil {
+			err = sparseLinksFetched(tempRepoPath, resolved, source.authEnv())
+		}
+		if err == nil {
 			if err := submoduleError(tempRepoPath, resolved, source.authEnv()); err != nil {
 				return nil, err
 			}

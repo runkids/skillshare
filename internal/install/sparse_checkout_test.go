@@ -117,34 +117,6 @@ func mustRunGit(t *testing.T, dir string, args ...string) {
 	}
 }
 
-func TestResolveRepoRelativeLink(t *testing.T) {
-	tests := []struct {
-		linkPath   string
-		linkTarget string
-		want       string
-		wantOK     bool
-	}{
-		{"skills/demo/ref.md", "../../shared/ref.md", "shared/ref.md", true},
-		{"skills/demo/refs", "../../shared/refs/", "shared/refs", true},
-		{"skills/demo/root.md", "../../ROOT.md", "ROOT.md", true},
-		{"skills/demo/local.md", "./sub/local.md", "skills/demo/sub/local.md", true},
-		{"skills/demo/escape", "../../../outside/secret.txt", "", false},
-		{"skills/demo/abs", "/etc/passwd", "", false},
-		{"skills/demo/rootdir", "../..", "", false},
-		{"skills/demo/gitcfg", "../../.git/config", "", false},
-		{"skills/demo/gitdir", "../../.git", "", false},
-		{"skills/demo/empty", "", "", false},
-	}
-
-	for _, tc := range tests {
-		got, ok := resolveRepoRelativeLink(tc.linkPath, tc.linkTarget)
-		if ok != tc.wantOK || got != tc.want {
-			t.Errorf("resolveRepoRelativeLink(%q, %q) = (%q, %v), want (%q, %v)",
-				tc.linkPath, tc.linkTarget, got, ok, tc.want, tc.wantOK)
-		}
-	}
-}
-
 func TestParseLsTreeEntries(t *testing.T) {
 	raw := []byte("100644 blob aaaa\tskills/demo/SKILL.md\x00120000 blob bbbb\tskills/demo/ref with space.md\x00040000 tree cccc\tshared/refs\x00")
 	entries := parseLsTreeEntries(raw)
@@ -159,28 +131,10 @@ func TestParseLsTreeEntries(t *testing.T) {
 	}
 }
 
-func TestDirCoveredBy(t *testing.T) {
-	checked := map[string]bool{"skills/demo": true, "shared/refs": true}
-	if !dirCoveredBy("skills/demo", checked) {
-		t.Error("expected exact match to be covered")
-	}
-	if !dirCoveredBy("skills/demo/sub", checked) {
-		t.Error("expected descendant to be covered")
-	}
-	if dirCoveredBy("skills/demo2", checked) {
-		t.Error("prefix sibling must not match")
-	}
-	if dirCoveredBy("shared", checked) {
-		t.Error("parent dir must not match child")
-	}
-}
-
 // sparseSymlinkFixtureRemote creates a bare repo where skills/demo links to:
 //   - ../../shared/ref.md (file outside subdir)
 //   - ../../shared/refs (directory outside subdir, containing a chained link to ../extra/deep.md)
 //   - ../../ROOT.md (repo-root file)
-//
-// And keeps an unrelated/big.txt directory that should remain unmaterialized.
 func sparseSymlinkFixtureRemote(t *testing.T) string {
 	t.Helper()
 	tmp := t.TempDir()
@@ -191,7 +145,6 @@ func sparseSymlinkFixtureRemote(t *testing.T) string {
 		filepath.Join(work, "skills", "demo"),
 		filepath.Join(work, "shared", "refs"),
 		filepath.Join(work, "shared", "extra"),
-		filepath.Join(work, "unrelated"),
 	} {
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			t.Fatal(err)
@@ -203,7 +156,6 @@ func sparseSymlinkFixtureRemote(t *testing.T) string {
 		"shared/ref.md":        "shared file body",
 		"shared/refs/guide.md": "shared dir guide",
 		"shared/extra/deep.md": "chained extra doc",
-		"unrelated/big.txt":    "do not fetch",
 	}
 	for rel, content := range files {
 		if err := os.WriteFile(filepath.Join(work, filepath.FromSlash(rel)), []byte(content), 0644); err != nil {
@@ -232,7 +184,7 @@ func sparseSymlinkFixtureRemote(t *testing.T) string {
 	return remote
 }
 
-func TestSparseCloneSubdir_MaterializesExternalSymlinks(t *testing.T) {
+func TestSparseLinksFetched(t *testing.T) {
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git not available")
 	}
@@ -241,24 +193,23 @@ func TestSparseCloneSubdir_MaterializesExternalSymlinks(t *testing.T) {
 	}
 
 	remote := sparseSymlinkFixtureRemote(t)
-	dest := filepath.Join(t.TempDir(), "clone")
-
-	if err := sparseCloneSubdir(fileURL(remote), "skills/demo", dest, "", nil, nil); err != nil {
-		t.Fatalf("sparseCloneSubdir() error = %v", err)
+	tests := []struct {
+		subdir  string
+		wantErr bool
+	}{
+		{"skills/demo", true}, // links to shared/ and ROOT.md, which the checkout left out
+		{"shared", false},     // refs/deep.md links to extra/, inside shared
 	}
-
-	for _, rel := range []string{
-		"skills/demo/ref.md",
-		"skills/demo/refs/guide.md",
-		"skills/demo/refs/deep.md",
-		"skills/demo/root.md",
-	} {
-		if _, err := os.Stat(filepath.Join(dest, filepath.FromSlash(rel))); err != nil {
-			t.Errorf("expected materialized target for %s: %v", rel, err)
-		}
-	}
-	if _, err := os.Stat(filepath.Join(dest, "unrelated", "big.txt")); err == nil {
-		t.Error("expected unrelated directory to stay excluded from sparse checkout")
+	for _, tt := range tests {
+		t.Run(tt.subdir, func(t *testing.T) {
+			dest := filepath.Join(t.TempDir(), "clone")
+			if err := sparseCloneSubdir(fileURL(remote), tt.subdir, dest, "", nil, nil); err != nil {
+				t.Fatalf("sparseCloneSubdir() error = %v", err)
+			}
+			if err := sparseLinksFetched(dest, tt.subdir, nil); (err != nil) != tt.wantErr {
+				t.Fatalf("sparseLinksFetched() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
 	}
 }
 

@@ -5,9 +5,7 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path"
 	"path/filepath"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -83,19 +81,30 @@ func sparseCloneSubdir(url, subdir, destPath, branch string, extraEnv []string, 
 		if err := runGitCommandWithProgress([]string{"fetch", "--quiet", "--depth", "1", "--filter=blob:none", "origin", branch}, destPath, extraEnv, nil); err != nil {
 			return err
 		}
-		if err := runGitCommandWithProgress([]string{"checkout", "--quiet", "--detach", "FETCH_HEAD"}, destPath, extraEnv, nil); err != nil {
-			return err
-		}
-	} else {
-		if err := runGitCommandWithProgress([]string{"checkout"}, destPath, extraEnv, nil); err != nil {
-			return err
-		}
+		return runGitCommandWithProgress([]string{"checkout", "--quiet", "--detach", "FETCH_HEAD"}, destPath, extraEnv, nil)
 	}
-
-	return materializeSparseSymlinkTargets(destPath, subdir, extraEnv)
+	return runGitCommandWithProgress([]string{"checkout"}, destPath, extraEnv, nil)
 }
 
-const maxSparseSymlinkHops = 16
+// sparseLinksFetched fails when a link under subdir points to something the
+// sparse checkout left out, such as ../../shared/ref.md, so a caller that
+// copies subdir falls back to a full clone where the link resolves. A
+// tracked checkout keeps such links instead (#1030).
+func sparseLinksFetched(repoPath, subdir string, extraEnv []string) error {
+	entries, err := gitLsTree(repoPath, extraEnv, strings.Trim(subdir, "/"))
+	if err != nil {
+		return err
+	}
+	for _, e := range entries {
+		if e.mode != "120000" {
+			continue
+		}
+		if _, err := os.Stat(filepath.Join(repoPath, filepath.FromSlash(e.path))); err != nil {
+			return fmt.Errorf("%s links to something the sparse checkout did not fetch", e.path)
+		}
+	}
+	return nil
+}
 
 type gitTreeEntry struct {
 	mode string
@@ -104,176 +113,8 @@ type gitTreeEntry struct {
 	path string
 }
 
-// materializeSparseSymlinkTargets expands a sparse checkout when symlinks in
-// subdir point to other files or folders inside the same repository.
-func materializeSparseSymlinkTargets(repoPath, subdir string, extraEnv []string) error {
-	cleanSubdir := normalizeGitTreePath(subdir)
-	if cleanSubdir == "" {
-		return nil
-	}
-
-	checkedDirs := map[string]bool{cleanSubdir: true}
-	scannedPaths := map[string]bool{cleanSubdir: true}
-	visitedLinks := map[string]bool{}
-	pendingPaths := []string{cleanSubdir}
-
-	for hop := 0; hop < maxSparseSymlinkHops && len(pendingPaths) > 0; hop++ {
-		entries, err := gitLsTree(repoPath, extraEnv, true, pendingPaths...)
-		if err != nil {
-			return err
-		}
-
-		toAddSet := map[string]bool{}
-		nextPendingSet := map[string]bool{}
-
-		// If the initial subdir path itself traverses a symlinked ancestor,
-		// resolve it so its target directory is checked out too.
-		if hop == 0 && len(entries) == 0 {
-			dirs, inspect, err := resolveGitTreePath(repoPath, extraEnv, cleanSubdir)
-			if err != nil {
-				return err
-			}
-			for _, d := range dirs {
-				if !dirCoveredBy(d, checkedDirs) {
-					toAddSet[d] = true
-				}
-			}
-			for _, p := range inspect {
-				if !scannedPaths[p] {
-					nextPendingSet[p] = true
-				}
-			}
-		}
-
-		for _, e := range entries {
-			if e.mode != "120000" || e.kind != "blob" {
-				continue
-			}
-			if visitedLinks[e.path] {
-				continue
-			}
-			visitedLinks[e.path] = true
-
-			targetBytes, err := gitBytesOutput(repoPath, extraEnv, "cat-file", "blob", e.oid)
-			if err != nil {
-				return err
-			}
-			targetRel, ok := resolveRepoRelativeLink(e.path, string(targetBytes))
-			if !ok {
-				continue
-			}
-
-			dirs, inspect, err := resolveGitTreePath(repoPath, extraEnv, targetRel)
-			if err != nil {
-				return err
-			}
-			for _, d := range dirs {
-				if !dirCoveredBy(d, checkedDirs) {
-					toAddSet[d] = true
-				}
-			}
-			for _, p := range inspect {
-				if !scannedPaths[p] {
-					nextPendingSet[p] = true
-				}
-			}
-		}
-
-		if len(toAddSet) > 0 {
-			toAdd := make([]string, 0, len(toAddSet))
-			for d := range toAddSet {
-				toAdd = append(toAdd, d)
-			}
-			sort.Strings(toAdd)
-			args := append([]string{"sparse-checkout", "add", "--"}, toAdd...)
-			if err := runGitCommandWithProgress(args, repoPath, extraEnv, nil); err != nil {
-				return err
-			}
-			for _, d := range toAdd {
-				checkedDirs[d] = true
-			}
-		}
-
-		pendingPaths = pendingPaths[:0]
-		for p := range nextPendingSet {
-			scannedPaths[p] = true
-			pendingPaths = append(pendingPaths, p)
-		}
-		sort.Strings(pendingPaths)
-	}
-
-	return nil
-}
-
-// resolveGitTreePath walks path components in HEAD, following any intermediate
-// symlinks inside the repository, and returns directories to add to
-// sparse-checkout plus target paths to inspect for further symlinks.
-func resolveGitTreePath(repoPath string, extraEnv []string, targetRel string) (dirsToAdd []string, inspectPaths []string, err error) {
-	cur := normalizeGitTreePath(targetRel)
-	for hop := 0; hop < maxSparseSymlinkHops && cur != ""; hop++ {
-		parts := strings.Split(cur, "/")
-		followed := false
-		for i := range parts {
-			prefix := strings.Join(parts[:i+1], "/")
-			entries, lsErr := gitLsTree(repoPath, extraEnv, false, prefix)
-			if lsErr != nil {
-				return nil, nil, lsErr
-			}
-			if len(entries) == 0 {
-				return dirsToAdd, inspectPaths, nil
-			}
-			e := entries[0]
-			if e.mode == "120000" && e.kind == "blob" {
-				if parent := path.Dir(e.path); parent != "." {
-					dirsToAdd = append(dirsToAdd, parent)
-				} else if _, statErr := os.Lstat(filepath.Join(repoPath, e.path)); os.IsNotExist(statErr) {
-					dirsToAdd = append(dirsToAdd, e.path)
-				}
-				targetBytes, catErr := gitBytesOutput(repoPath, extraEnv, "cat-file", "blob", e.oid)
-				if catErr != nil {
-					return nil, nil, catErr
-				}
-				linkTarget := string(targetBytes)
-				if i+1 < len(parts) {
-					linkTarget = strings.TrimRight(linkTarget, "/") + "/" + strings.Join(parts[i+1:], "/")
-				}
-				next, ok := resolveRepoRelativeLink(e.path, linkTarget)
-				if !ok {
-					return dirsToAdd, inspectPaths, nil
-				}
-				cur = next
-				followed = true
-				break
-			}
-			if i == len(parts)-1 {
-				switch e.kind {
-				case "tree":
-					dirsToAdd = append(dirsToAdd, e.path)
-					inspectPaths = append(inspectPaths, e.path)
-				case "blob":
-					if parent := path.Dir(e.path); parent != "." {
-						dirsToAdd = append(dirsToAdd, parent)
-					} else if _, statErr := os.Lstat(filepath.Join(repoPath, e.path)); os.IsNotExist(statErr) {
-						dirsToAdd = append(dirsToAdd, e.path)
-					}
-				}
-				return dirsToAdd, inspectPaths, nil
-			}
-		}
-		if !followed {
-			break
-		}
-	}
-	return dirsToAdd, inspectPaths, nil
-}
-
-func gitLsTree(repoPath string, extraEnv []string, recursive bool, paths ...string) ([]gitTreeEntry, error) {
-	args := []string{"ls-tree"}
-	if recursive {
-		args = append(args, "-r")
-	}
-	args = append(args, "-z", "HEAD", "--")
-	args = append(args, paths...)
+func gitLsTree(repoPath string, extraEnv []string, paths ...string) ([]gitTreeEntry, error) {
+	args := append([]string{"ls-tree", "-r", "-z", "HEAD", "--"}, paths...)
 	out, err := gitBytesOutput(repoPath, extraEnv, args...)
 	if err != nil {
 		return nil, err
@@ -313,48 +154,4 @@ func parseLsTreeEntries(raw []byte) []gitTreeEntry {
 		})
 	}
 	return entries
-}
-
-func normalizeGitTreePath(p string) string {
-	p = strings.ReplaceAll(strings.TrimSpace(p), "\\", "/")
-	p = strings.Trim(path.Clean(p), "/")
-	if p == "." || p == ".." || strings.HasPrefix(p, "../") {
-		return ""
-	}
-	return p
-}
-
-// resolveRepoRelativeLink resolves linkTarget relative to linkPath within the
-// repository root. Returns ("", false) for absolute links, links escaping the
-// repository, links targeting `.git`, or links pointing to the repo root.
-func resolveRepoRelativeLink(linkPath, linkTarget string) (string, bool) {
-	if linkTarget == "" ||
-		strings.HasPrefix(linkTarget, "/") ||
-		strings.HasPrefix(linkTarget, "\\") ||
-		filepath.IsAbs(linkTarget) ||
-		filepath.VolumeName(linkTarget) != "" {
-		return "", false
-	}
-	normLink := strings.ReplaceAll(linkPath, "\\", "/")
-	normTarget := strings.ReplaceAll(linkTarget, "\\", "/")
-	resolved := path.Clean(path.Join(path.Dir(normLink), normTarget))
-	if resolved == "" || resolved == "." || resolved == ".." || strings.HasPrefix(resolved, "../") {
-		return "", false
-	}
-	if resolved == ".git" || strings.HasPrefix(resolved, ".git/") {
-		return "", false
-	}
-	return resolved, true
-}
-
-func dirCoveredBy(dir string, checked map[string]bool) bool {
-	if checked[dir] {
-		return true
-	}
-	for existing := range checked {
-		if strings.HasPrefix(dir, existing+"/") {
-			return true
-		}
-	}
-	return false
 }
