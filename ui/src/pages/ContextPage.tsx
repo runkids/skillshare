@@ -28,23 +28,27 @@ export default function ContextPage() {
       <PageHeader
         title={t('context.title')}
         subtitle={t(tab === 'mcp' ? 'context.mcp.intro' : 'analyze.intro')}
-        beside={
-          <div ref={segSlide} className="ss-seg" role="tablist">
-            {(['skills', 'mcp'] as const).map((key) => (
-              <button
-                key={key}
-                type="button"
-                role="tab"
-                aria-selected={tab === key}
-                className={tab === key ? 'on' : ''}
-                onClick={() => setTab(key)}
-              >
-                {t(key === 'mcp' ? 'context.tab.mcp' : 'context.tab.skills')}
-              </button>
-            ))}
-          </div>
+        actionsOnTitleRow
+        actions={
+          <>
+            {/* Tabs on the title row, each tab's picker under them: the tabs stay put whatever the picker's width. */}
+            <div ref={segSlide} className="ss-seg" role="tablist">
+              {(['skills', 'mcp'] as const).map((key) => (
+                <button
+                  key={key}
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === key}
+                  className={tab === key ? 'on' : ''}
+                  onClick={() => setTab(key)}
+                >
+                  {t(key === 'mcp' ? 'context.tab.mcp' : 'context.tab.skills')}
+                </button>
+              ))}
+            </div>
+            <div ref={setActions} className="flex flex-wrap items-center justify-end gap-2" />
+          </>
         }
-        actions={<div ref={setActions} className="flex items-center gap-2" />}
       />
       {/* Keyed, so switching tabs fades the new content in. */}
       <div key={tab} className="animate-page-in">
