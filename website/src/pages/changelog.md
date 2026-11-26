@@ -11,19 +11,27 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ## [0.33.0] - 2026-11-26
 
-
 ### New Features
 
-* **hooks:** review project Codex hook trust per account ([#1067](https://github.com/runkids/skillshare/issues/1067)) ([ffcac93](https://github.com/runkids/skillshare/commit/ffcac934f114aa05b6d26fcbecee79a593090f3b))
-* **targets:** add MiniMax Code as built-in target ([#1062](https://github.com/runkids/skillshare/issues/1062)) ([7dd2dff](https://github.com/runkids/skillshare/commit/7dd2dffe89e6f9c20afec3d8794169855d93738c))
-* **ui:** retune Playful, inset Clean, and add a Custom theme editor ([#1066](https://github.com/runkids/skillshare/issues/1066)) ([bb290c6](https://github.com/runkids/skillshare/commit/bb290c6ed770a5e34f1edcba2becf1bba7024d0c))
-
+- **Design your own dashboard theme** — the dashboard had two fixed styles, so there was no way to make it your own. **Settings → Appearance** now has a third style, **Custom**, with a theme editor. Start from one of 14 presets (ten on Clean, four on Playful), or choose the base style, accent color, background tint, corners and font yourself; **Advanced** adds a separate link color and, on a Clean base, the layout, heading and button styles. Dark mode colors are derived from the accent unless you set your own dark accent. Every text color is adjusted until it reads at 4.5:1 or better on the surfaces it sits on, and the editor says when it changed a color you picked. A preview stays in view while you edit and briefly highlights the part each change affects. **Share** exports the theme as a small JSON file, imports one, or copies a link that opens **Settings → Appearance** with the theme offered to apply. The font changes Latin letters and numbers; when the interface is in Chinese, Japanese or Korean, a switch also applies the matching Noto Sans to that text. Fonts other than System load from Google Fonts. The theme is kept in this browser, and a URL can pick the style and mode. See [Theme System](https://skillshare.runkids.cc/docs/reference/commands/ui#theme-system). Thanks to @WslzGmzs for the request. Refs: #1028, #1066.
+  ```text
+  http://localhost:19420/?style=custom&mode=dark
+  ```
+- **Calmer Playful, inset Clean** — Playful uses a quieter palette (a terracotta primary and softer pastels), thinner borders, softer shadows and a reworked dark mode. At desktop width, Clean now sits on an inset panel, and the browser's theme color follows the page edge. The **General**, **Appearance** and **Files** settings tabs now fill the page width like the other tabs. Refs: #1066.
+- **Trust a project's Codex hooks** — `hooks sync --trust` worked in global mode only, so the hooks Skillshare wrote into a checkout had to be trusted one by one in Codex's `/hooks`. `skillshare hooks sync -p --trust` now lists the hooks Skillshare owns in this checkout with their commands and, after you confirm, records trust in each Codex home that verifies them, account homes included. Trust is written to each user's Codex home, never to the checkout, and each home must already trust the folder in Codex. A home that cannot verify every owned command is skipped, to be reviewed in its own `/hooks`; when other homes were updated, the command reports partial completion and exits non-zero, and `--json` gives the reason in `codexTrustError` and the `home` of each verified hook. The dashboard's **Hooks** page offers the same action in project mode. See [Codex trust](https://skillshare.runkids.cc/docs/reference/commands/hooks#codex-trust). Refs: #1067.
+  ```bash
+  skillshare hooks sync -p --trust
+  ```
+- **MiniMax Code is a built-in target** — `minimax-code` syncs skills to `~/.minimax/skills`, or `.minimax/skills` in a project, and `init` detects it. MiniMax Code also reads the Claude, Codex and `.agents` skills folders, so skills synced to both are reported as overlaps. See [Supported Targets](https://skillshare.runkids.cc/docs/reference/targets/supported-targets#target-minimax-code). Thanks to @SaladDay for the request and the contribution. Refs: #1061, #1062.
+  ```bash
+  skillshare init --targets minimax-code
+  ```
 
 ### Bug Fixes
 
-* **ui:** let the MCP and Plugins rail scroll with the page ([#1064](https://github.com/runkids/skillshare/issues/1064)) ([c9bae06](https://github.com/runkids/skillshare/commit/c9bae061b31baf693d67bac4cfa702a89a91a073)), closes [#1053](https://github.com/runkids/skillshare/issues/1053)
-* **ui:** put the Context tabs at the top right, above the picker ([fb00162](https://github.com/runkids/skillshare/commit/fb001629b30d88e707637fbb987c7cd062eade99))
-* **wsl:** find explorer.exe when C: is mounted outside /mnt ([#1065](https://github.com/runkids/skillshare/issues/1065)) ([c7b92d1](https://github.com/runkids/skillshare/commit/c7b92d15bbf24b967d2c4bab11d7332607762f66)), closes [#1053](https://github.com/runkids/skillshare/issues/1053)
+- **The MCP and Plugins rails scroll with the page** — the right-hand rail on the **MCP** and **Plugins** pages scrolled inside its own box, so on a short window the **Agents** list shrank to a few rows, or to none with many servers, and the page itself could not scroll. The rail now scrolls with the page, so every Agent can be reached. Thanks to @WslzGmzs. Refs: #1053, #1064.
+- **Open folder works under WSL when C: is not mounted at `/mnt/c`** — under WSL, **Open folder**, **Open in editor** and **Open directory** under **Settings → Extensions** failed with `xdg-open` exit status 3 when `/etc/wsl.conf` mounts drives somewhere other than `/mnt` and leaves Windows folders off `PATH`, for example with `root = /` and `appendWindowsPath = false`. skillshare now asks `wslpath` where `C:` is and opens File Explorer from there. If a WSL kernel still has no `explorer.exe` within reach, the error says so, which points to Windows interop being off or skillshare running in a container. Thanks to @WslzGmzs. Refs: #1053, #1065.
+- **The Context page tabs sit at the top right** — the **Skills** and **MCP** tabs on the **Context** page now sit at the top right with the tab's picker under them, and no longer move when you switch tabs. On a narrow window the picker wraps under the tabs instead of overflowing the page.
 
 ## [0.32.1] - 2026-11-26
 
