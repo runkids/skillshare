@@ -201,7 +201,7 @@ skillshare check --json
 :::
 
 :::tip Monorepo 感知
-對於從子目錄安裝的 skills，`check` 只有在該特定目錄有變更時才回報「update available」— 而不是儲存庫其他不相關部分有新 commits 時。
+對於從子目錄安裝的 skills，`check` 只有在該特定目錄有變更時才回報「update available」— 而不是儲存庫其他不相關部分有新 commits 時。對於透過指向資料夾的 link 安裝的 skill（例如 `.agents/skills/<name>`），比對的是 link 指向的資料夾。
 :::
 
 ## Project 模式

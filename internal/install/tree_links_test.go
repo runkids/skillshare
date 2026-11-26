@@ -53,3 +53,41 @@ func TestGetSubdirTreeHash_LinkSubdirHashesTarget(t *testing.T) {
 		t.Fatalf("tree hash through the link = %q, want the target's %q", got, want)
 	}
 }
+
+func TestGetSubdirTreeHash_LinkedParentFolder(t *testing.T) {
+	repo := initTestRepo(t)
+	writeCommit(t, repo, "store/foo", "# foo\n")
+	if err := os.Symlink("store", filepath.Join(repo, "pack")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	gitAdd(t, repo, ".")
+	gitCommit(t, repo, "link pack")
+
+	want := getSubdirTreeHash(repo, "store/foo")
+	if got := getSubdirTreeHash(repo, "pack/foo"); want == "" || got != want {
+		t.Fatalf("tree hash through the linked parent = %q, want %q", got, want)
+	}
+}
+
+func TestGetSubdirTreeHash_LinkTargetHoldingLinkComparesByCommit(t *testing.T) {
+	repo := initTestRepo(t)
+	writeCommit(t, repo, "store/foo", "# foo\n")
+	writeCommit(t, repo, "shared", "# shared\n")
+	if err := os.MkdirAll(filepath.Join(repo, ".agents", "skills"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	for link, target := range map[string]string{
+		".agents/skills/foo": filepath.Join("..", "..", "store", "foo"),
+		"store/foo/ref.md":   filepath.Join("..", "..", "shared", "SKILL.md"),
+	} {
+		if err := os.Symlink(target, filepath.Join(repo, link)); err != nil {
+			t.Skipf("symlinks unavailable: %v", err)
+		}
+	}
+	gitAdd(t, repo, ".")
+	gitCommit(t, repo, "publish foo")
+
+	if got := getSubdirTreeHash(repo, ".agents/skills/foo"); got != "" {
+		t.Fatalf("tree hash = %q, want empty: the target holds a link", got)
+	}
+}

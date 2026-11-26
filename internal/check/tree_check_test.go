@@ -132,6 +132,35 @@ func TestFetchRemoteTreeHashes_StableAfterUnrelatedChange(t *testing.T) {
 	}
 }
 
+func TestRemoteTreesHash(t *testing.T) {
+	trees := &RemoteTrees{
+		Hashes: map[string]string{"store/foo": "t1", "skills/plain": "t2"},
+		Links:  map[string]string{".agents/skills/foo": "../../store/foo", ".agents/skills/gone": "../../store/gone", "out": "../x"},
+	}
+	tests := []struct {
+		subdir, want string
+		ok           bool
+	}{
+		{"skills/plain", "t2", true},
+		{".agents/skills/foo", "t1", true},
+		{".agents/skills/gone", "", false},
+		{"out", "", false},
+		{"skills/missing", "", false},
+	}
+	unread := &RemoteTrees{Hashes: trees.Hashes, LinksUnread: map[string]bool{".agents/skills/foo": true}}
+	if got, ok := unread.Hash(".agents/skills/foo"); got != "" || !ok {
+		t.Errorf("Hash through an unread link = %q, %v; want \"\", true so it compares by commit", got, ok)
+	}
+	if got, ok := unread.Hash("skills/plain"); got != "t2" || !ok {
+		t.Errorf("Hash(skills/plain) with an unread link elsewhere = %q, %v; want t2, true", got, ok)
+	}
+	for _, tt := range tests {
+		if got, ok := trees.Hash(tt.subdir); got != tt.want || ok != tt.ok {
+			t.Errorf("Hash(%q) = %q, %v; want %q, %v", tt.subdir, got, ok, tt.want, tt.ok)
+		}
+	}
+}
+
 func TestFetchRemoteTreeHashes_LinkSubdirResolvesToTarget(t *testing.T) {
 	dir := t.TempDir()
 	work := filepath.Join(dir, "work")

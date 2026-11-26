@@ -201,7 +201,7 @@ skill의 하위 디렉터리가 업스트림에서 이름이 바뀌거나 삭제
 :::
 
 :::tip Monorepo awareness
-하위 디렉터리에서 설치된 skill의 경우, `check`는 해당 특정 디렉터리가 변경되었을 때만 "update available"로 보고합니다 — 저장소의 관련 없는 부분에 새 커밋이 있는 경우는 해당하지 않습니다.
+하위 디렉터리에서 설치된 skill의 경우, `check`는 해당 특정 디렉터리가 변경되었을 때만 "update available"로 보고합니다 — 저장소의 관련 없는 부분에 새 커밋이 있는 경우는 해당하지 않습니다. `.agents/skills/<name>`처럼 폴더를 가리키는 링크로 설치한 skill은 링크가 가리키는 폴더가 기준입니다.
 :::
 
 ## Project Mode

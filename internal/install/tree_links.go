@@ -3,43 +3,40 @@ package install
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"path"
+	"sort"
 	"strconv"
 	"strings"
-
-	"skillshare/internal/gitenv"
 )
 
-// TreeLinks maps the path of every symlink in treeish, in the repository at
-// dir, to the link's text. In a blobless repository, reading the link blobs
-// fetches them from the promisor remote.
-func TreeLinks(dir, treeish string, extraEnv []string) (map[string]string, error) {
-	ls := gitenv.Command("ls-tree", "-r", "-z", treeish)
-	ls.Dir = dir
-	ls.Env = append(ls.Env, extraEnv...)
-	out, err := ls.Output()
-	if err != nil {
-		return nil, err
-	}
-	var paths, oids []string
-	for _, e := range parseLsTreeEntries(out) {
-		if e.mode == "120000" {
-			paths = append(paths, e.path)
-			oids = append(oids, e.oid)
-		}
-	}
-	links := make(map[string]string, len(paths))
+// LinkTexts reads the text of each link, given as its path mapped to its blob
+// id, from the repository at dir. In a blobless repository, reading a blob
+// that is not there yet fetches it from the promisor remote.
+func LinkTexts(dir string, oids map[string]string, extraEnv []string) (map[string]string, error) {
+	links := make(map[string]string, len(oids))
 	if len(oids) == 0 {
 		return links, nil
 	}
+	paths := make([]string, 0, len(oids))
+	var stdin strings.Builder
+	for p := range oids {
+		paths = append(paths, p)
+	}
+	sort.Strings(paths)
+	for _, p := range paths {
+		stdin.WriteString(oids[p] + "\n")
+	}
 
-	cat := gitenv.Command("cat-file", "--batch")
+	ctx, cancel := context.WithTimeout(context.Background(), gitCommandTimeout)
+	defer cancel()
+	cat := gitCommand(ctx, "cat-file", "--batch")
 	cat.Dir = dir
 	cat.Env = append(cat.Env, extraEnv...)
-	cat.Stdin = strings.NewReader(strings.Join(oids, "\n") + "\n")
-	out, err = cat.Output()
+	cat.Stdin = strings.NewReader(stdin.String())
+	out, err := cat.Output()
 	if err != nil {
 		return nil, err
 	}

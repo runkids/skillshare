@@ -570,33 +570,83 @@ func getSubdirTreeHash(repoPath, subdir string) string {
 	}
 	// Strip leading "/" from subdir — git rev-parse doesn't accept absolute paths
 	subdir = strings.TrimPrefix(subdir, "/")
+	if hash, isTree := treeHashAt(repoPath, subdir); isTree {
+		return hash
+	}
+	// A skill discovered through a link records the link's path: hash the
+	// folder it leads to, as check does.
+	resolved, ok := resolveSubdirLinks(repoPath, subdir)
+	if !ok || resolved == subdir {
+		return ""
+	}
+	hash, _ := treeHashAt(repoPath, resolved)
+	return hash
+}
+
+// resolveSubdirLinks follows the links along subdir at HEAD. It reads only the
+// entries on that path, whose blobs a checkout of subdir already holds, so a
+// blobless clone fetches nothing.
+func resolveSubdirLinks(repoPath, subdir string) (string, bool) {
+	links := map[string]string{}
+	for hops := 0; hops <= maxSubdirLinkHops; hops++ {
+		args := []string{"ls-tree", "-z", "HEAD", "--"}
+		parts := strings.Split(subdir, "/")
+		for i := range parts {
+			args = append(args, strings.Join(parts[:i+1], "/"))
+		}
+		out, err := gitBytesOutput(repoPath, nil, args...)
+		if err != nil {
+			return "", false
+		}
+		oids := map[string]string{}
+		for _, e := range parseLsTreeEntries(out) {
+			if _, known := links[e.path]; e.mode == "120000" && !known {
+				oids[e.path] = e.oid
+			}
+		}
+		texts, err := LinkTexts(repoPath, oids, nil)
+		if err != nil {
+			return "", false
+		}
+		for p, text := range texts {
+			links[p] = text
+		}
+		resolved, ok := ResolveTreeLinks(subdir, links)
+		if !ok || resolved == subdir {
+			return resolved, ok
+		}
+		subdir = resolved
+	}
+	return "", false
+}
+
+// maxSubdirLinkHops bounds resolveSubdirLinks on links that keep pointing at
+// further links.
+const maxSubdirLinkHops = 40
+
+// treeHashAt returns the tree hash of subdir at HEAD, or "" when it holds a
+// symlink. isTree is false when subdir is not a folder at HEAD.
+func treeHashAt(repoPath, subdir string) (hash string, isTree bool) {
 	// "<oid> <type> <size>", or "<name> missing".
 	cmd := gitenv.Command("cat-file", "--batch-check")
 	cmd.Dir = repoPath
 	cmd.Stdin = strings.NewReader("HEAD:" + subdir + "\n")
 	out, err := cmd.Output()
 	if err != nil {
-		return ""
+		return "", false
 	}
 	fields := strings.Fields(string(out))
 	if len(fields) != 3 || fields[1] != "tree" {
-		// A skill discovered through a link records the link's path: hash the
-		// folder it leads to, as check does.
-		links, linkErr := TreeLinks(repoPath, "HEAD", nil)
-		resolved, ok := ResolveTreeLinks(subdir, links)
-		if linkErr != nil || !ok || resolved == subdir {
-			return ""
-		}
-		return getSubdirTreeHash(repoPath, resolved)
+		return "", false
 	}
 	// shortcut: a symlink whose target stays inside the subdir also disables the tree hash, resolve link targets if that costs too many reinstalls.
 	lsCmd := gitenv.Command("ls-tree", "-r", "HEAD:"+subdir)
 	lsCmd.Dir = repoPath
 	entries, err := lsCmd.Output()
 	if err != nil || hasSymlinkEntry(string(entries)) {
-		return ""
+		return "", true
 	}
-	return fields[0]
+	return fields[0], true
 }
 
 // hasSymlinkEntry reports whether `git ls-tree` output lists a symlink.

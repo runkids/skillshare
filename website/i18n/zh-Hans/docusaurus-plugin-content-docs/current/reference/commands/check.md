@@ -201,7 +201,7 @@ skillshare check --json
 :::
 
 :::tip Monorepo 感知
-对于从子目录安装的 skills，`check` 只有在该特定目录发生变化时才会报告 "update available"——而不是仓库中其他不相关部分有新 commit 时。
+对于从子目录安装的 skills，`check` 只有在该特定目录发生变化时才会报告 "update available"——而不是仓库中其他不相关部分有新 commit 时。对于通过指向文件夹的 link 安装的 skill（例如 `.agents/skills/<name>`），比较的是 link 指向的文件夹。
 :::
 
 ## Project Mode

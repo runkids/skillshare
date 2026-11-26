@@ -1,9 +1,11 @@
 package check
 
 import (
+	"context"
 	"os"
 	"path"
 	"strings"
+	"time"
 
 	"skillshare/internal/gitenv"
 	"skillshare/internal/install"
@@ -14,13 +16,22 @@ import (
 type RemoteTrees struct {
 	Hashes map[string]string
 	Links  map[string]string
+	// LinksUnread holds the link paths whose text could not be read.
+	LinksUnread map[string]bool
 }
 
 // Hash returns the tree hash of subdir, following the links along it as
-// install does when it records a skill installed through a link.
+// install does when it records a skill installed through a link. A subdir
+// through a link whose text could not be read hashes to "", so it is
+// compared by commit rather than reported as removed.
 func (t *RemoteTrees) Hash(subdir string) (string, bool) {
 	if hash, ok := t.Hashes[subdir]; ok {
 		return hash, true
+	}
+	for p := subdir; p != "." && p != "/"; p = path.Dir(p) {
+		if t.LinksUnread[p] {
+			return "", true
+		}
 	}
 	resolved, ok := install.ResolveTreeLinks(subdir, t.Links)
 	if !ok || resolved == subdir {
@@ -82,40 +93,59 @@ func FetchRemoteTreeHashesForRef(repoURL, ref string, opts install.ParseOptions)
 		return nil
 	}
 
-	links, err := fetchLinkTexts(tmpDir, repoURL, extraEnv, string(out))
+	trees := &RemoteTrees{Hashes: parseLsTreeOutput(string(out))}
+	oids := linkOids(string(out))
+	links, err := fetchLinkTexts(tmpDir, repoURL, extraEnv, oids)
 	if err != nil {
-		// Without the link texts a skill installed through a link would look
-		// removed upstream; compare by commit instead.
-		return nil
+		trees.LinksUnread = make(map[string]bool, len(oids))
+		for p := range oids {
+			trees.LinksUnread[p] = true
+		}
+		return trees
 	}
-	return &RemoteTrees{Hashes: parseLsTreeOutput(string(out)), Links: links}
+	trees.Links = links
+	return trees
 }
 
-// fetchLinkTexts reads the text of every link in the ls-tree output. The
-// blobless fetch left the link blobs out, so they are fetched in one request
-// first; reading them one by one would fetch each on its own.
-func fetchLinkTexts(dir, repoURL string, extraEnv []string, lsTree string) (map[string]string, error) {
-	var oids []string
+// linkOids maps each link path in ls-tree -z output to its blob id.
+func linkOids(lsTree string) map[string]string {
+	oids := map[string]string{}
 	for _, line := range strings.Split(lsTree, "\x00") {
-		if fields := strings.Fields(line); len(fields) >= 3 && fields[0] == "120000" {
-			oids = append(oids, fields[2])
+		meta, p, ok := strings.Cut(line, "\t")
+		if fields := strings.Fields(meta); ok && len(fields) == 3 && fields[0] == "120000" {
+			oids[p] = fields[2]
 		}
 	}
+	return oids
+}
+
+// linkFetchTimeout bounds the fetch of link blobs.
+const linkFetchTimeout = 3 * time.Minute
+
+// fetchLinkTexts reads the text of each link, given as its path mapped to its
+// blob id. The blobless fetch left the link blobs out, so they are fetched in
+// one request first, ids on stdin; reading them one by one would fetch each
+// on its own.
+func fetchLinkTexts(dir, repoURL string, extraEnv []string, oids map[string]string) (map[string]string, error) {
 	if len(oids) == 0 {
 		return nil, nil
 	}
-	// The fetch below moves FETCH_HEAD to the blobs, so pin the commit first.
-	revCmd := gitenv.Command("rev-parse", "FETCH_HEAD")
-	revCmd.Dir = dir
-	commit, err := revCmd.Output()
-	if err != nil {
-		return nil, err
+	want := map[string]bool{}
+	var stdin strings.Builder
+	for _, oid := range oids {
+		if !want[oid] {
+			want[oid] = true
+			stdin.WriteString(oid + "\n")
+		}
 	}
-	fetchCmd := gitenv.Command(append([]string{"fetch", "--quiet", "--filter=blob:none", "--depth=1", repoURL}, oids...)...)
+	ctx, cancel := context.WithTimeout(context.Background(), linkFetchTimeout)
+	defer cancel()
+	fetchCmd := gitenv.CommandContext(ctx, "fetch", "--quiet", "--filter=blob:none", "--depth=1", "--stdin", repoURL)
 	fetchCmd.Dir = dir
 	fetchCmd.Env = append(fetchCmd.Env, extraEnv...)
-	_ = fetchCmd.Run() // a server that refuses blob ids leaves TreeLinks to fetch each
-	return install.TreeLinks(dir, strings.TrimSpace(string(commit)), extraEnv)
+	fetchCmd.Stdin = strings.NewReader(stdin.String())
+	_ = fetchCmd.Run() // a server that refuses blob ids leaves LinkTexts to fetch each
+	return install.LinkTexts(dir, oids, extraEnv)
 }
 
 // parseLsTreeOutput parses `git ls-tree -r -t` output into a map[path]treeHash.
