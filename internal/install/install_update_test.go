@@ -358,3 +358,50 @@ func TestUpdate_CandidateWithoutSkillFileKeepsTheInstall(t *testing.T) {
 		t.Fatalf("SKILL.md = %q, want the installed version kept", got)
 	}
 }
+
+func TestUpdate_SkillDiscoveredThroughLinkUpdates(t *testing.T) {
+	orig := TargetDotDirs
+	TargetDotDirs = map[string]bool{".agents": true, ".skillshare": true}
+	t.Cleanup(func() { TargetDotDirs = orig })
+	repo := initTestRepo(t)
+	writeCommit(t, repo, ".skillshare/skills/foo", "---\nname: foo\n---\n# v1\n")
+	if err := os.MkdirAll(filepath.Join(repo, ".agents", "skills"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join("..", "..", ".skillshare", "skills", "foo"), filepath.Join(repo, ".agents", "skills", "foo")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	gitAdd(t, repo, ".")
+	gitCommit(t, repo, "publish foo")
+	discovery, err := DiscoverFromGitSubdir(&Source{
+		Type: SourceTypeGitHTTPS, CloneURL: localFileURL(repo),
+		Raw: localFileURL(repo) + "/.agents/skills", Subdir: ".agents/skills", Name: "skills",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer CleanupDiscovery(discovery)
+	if len(discovery.Skills) != 1 {
+		t.Fatalf("skills = %+v, want foo", discovery.Skills)
+	}
+	sourceDir := t.TempDir()
+	dest := filepath.Join(sourceDir, "foo")
+	if _, err := InstallFromDiscovery(discovery, discovery.Skills[0], dest, InstallOptions{SourceDir: sourceDir, SkipAudit: true}); err != nil {
+		t.Fatalf("install failed: %v", err)
+	}
+	if store, err := LoadMetadata(sourceDir); err != nil || store.Get("foo") == nil || store.Get("foo").Subdir != ".agents/skills/foo" {
+		t.Fatalf("metadata for foo = %+v, %v; want subdir .agents/skills/foo", store, err)
+	}
+
+	writeCommit(t, repo, ".skillshare/skills/foo", "---\nname: foo\n---\n# v2\n")
+	update := &Source{
+		Type: SourceTypeGitHTTPS, CloneURL: localFileURL(repo),
+		Raw: localFileURL(repo) + "/.agents/skills/foo", Subdir: ".agents/skills/foo", Name: "foo",
+	}
+	if _, err := Install(update, dest, InstallOptions{Update: true, Force: true, SourceDir: sourceDir, SkipAudit: true}); err != nil {
+		t.Fatalf("update failed: %v", err)
+	}
+	if got, _ := os.ReadFile(filepath.Join(dest, "SKILL.md")); !strings.Contains(string(got), "# v2") {
+		t.Fatalf("SKILL.md = %q, want upstream v2", got)
+	}
+}

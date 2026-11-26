@@ -345,7 +345,7 @@ func discoverSkillsIn(repoPath, linkRoot string, includeRoot bool) []SkillInfo {
 		found = dropLinkedDuplicates(found)
 	}
 
-	skills := make([]SkillInfo, 0, len(found))
+	var skills []SkillInfo
 	for _, s := range found {
 		skills = append(skills, s.SkillInfo)
 	}
