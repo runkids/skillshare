@@ -249,6 +249,7 @@ interface ContentProps {
   onProjects: (name: string, picked: string[]) => void;
   onOverride: (name: string, root: string) => void;
   onOpenProject: (root: string) => void;
+  onUnsavedChange: (unsaved: boolean) => void;
   onMenu: (e: React.MouseEvent<HTMLButtonElement>, name: string) => void;
   onImport: (request: ImportRequest) => void;
   onAdd: () => void;
@@ -271,6 +272,7 @@ function MCPContent({
   onProjects,
   onOverride,
   onOpenProject,
+  onUnsavedChange,
   onMenu,
   onImport,
   onAdd,
@@ -320,6 +322,7 @@ function MCPContent({
       onProjects={onProjects}
       shared={{ ...sharedLookup(data.source), onOverride }}
       onOpenProject={onOpenProject}
+      onUnsavedChange={onUnsavedChange}
     />
   );
   const actions = {
@@ -496,6 +499,7 @@ function MCPEditDialog({
   addMode,
   onMode,
   onOpenProject,
+  othersUnsaved,
   onClose,
   onSaved,
 }: {
@@ -506,6 +510,7 @@ function MCPEditDialog({
   addMode: AddMode;
   onMode: (mode: AddMode) => void;
   onOpenProject: (root: string) => void;
+  othersUnsaved: boolean;
   onClose: () => void;
   onSaved: (server?: MCPServer, users?: string[]) => void;
 }) {
@@ -544,6 +549,7 @@ function MCPEditDialog({
           : undefined
       }
       onOpenProject={editing ? onOpenProject : undefined}
+      othersUnsaved={othersUnsaved}
       onMode={editing === '' ? onMode : undefined}
       onClose={onClose}
       onSaved={onSaved}
@@ -694,6 +700,8 @@ export default function MCPPage() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const openProject = (root: string) => void navigate(projectUrl(root, 'mcp'));
+  // Project ticks not saved in an expanded row; the Edit dialog's project links wait for them too.
+  const [rowsUnsaved, setRowsUnsaved] = useState(false);
   const { data, error, isPending } = useMcpQuery();
   const { isProjectMode } = useAppContext();
   const [addingOff, setAddingOff] = useState(false); // the new entry is a switch, not a server
@@ -867,6 +875,7 @@ export default function MCPPage() {
               onProjects={(n, picked) => void saveProjects(n, picked)}
               onOverride={(name, root) => setOverriding({ name, root })}
               onOpenProject={openProject}
+              onUnsavedChange={setRowsUnsaved}
               onMenu={openMenu}
               onImport={setImporting}
               onAdd={() => {
@@ -896,6 +905,7 @@ export default function MCPPage() {
               addMode={addMode}
               onMode={setAddMode}
               onOpenProject={openProject}
+              othersUnsaved={rowsUnsaved}
               onClose={() => setEditing(null)}
               onSaved={(server, users) => {
                 // An edit of a shared server reaches every project that uses it.

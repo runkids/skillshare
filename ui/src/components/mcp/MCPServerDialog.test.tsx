@@ -297,6 +297,18 @@ describe('MCP server dialog', () => {
     expect(screen.getByRole('button', { name: "Open /work/api's MCP tab" })).toBeDisabled();
   });
 
+  it("waits to open a project's MCP tab while the page has unsaved ticks", () => {
+    const server = { url: 'https://docs.example/mcp', targets: ['claude'], global: false };
+    renderDialog({
+      initial: { name: 'docs', server },
+      users: ['/work/api'],
+      roots: ['/work/api'],
+      onOpenProject: vi.fn(),
+      othersUnsaved: true,
+    });
+    expect(screen.getByRole('button', { name: "Open /work/api's MCP tab" })).toBeDisabled();
+  });
+
   it('keeps an added folder listed after Loads in is switched away and back', async () => {
     const user = userEvent.setup();
     const server = { url: 'https://docs.example/mcp', targets: ['claude'], global: false };

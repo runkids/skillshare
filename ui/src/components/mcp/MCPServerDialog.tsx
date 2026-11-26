@@ -179,6 +179,8 @@ interface Props {
   projectStatus?: (root: string, using: boolean) => ReactNode;
   /** Opens a listed project's MCP tab. */
   onOpenProject?: (root: string) => void;
+  /** The page behind has unsaved project ticks, so opening a project waits for them too. */
+  othersUnsaved?: boolean;
   /** The copy tab is open: pick a server to fill the fields with. */
   copy?: boolean;
   onClose: () => void;
@@ -714,6 +716,7 @@ export default function MCPServerDialog({
   roots,
   projectStatus,
   onOpenProject,
+  othersUnsaved = false,
   onClose,
   onSaved,
 }: Props) {
@@ -863,7 +866,7 @@ export default function MCPServerDialog({
               onChange: setPicked,
               detail: projectStatus,
               onOpen: onOpenProject,
-              locked: edited,
+              locked: edited || othersUnsaved,
             }
           }
           serve={serve}

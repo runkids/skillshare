@@ -1,5 +1,5 @@
 import { scalarText } from '../../lib/scalarText';
-import { Fragment, useState, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Ellipsis, Pencil } from 'lucide-react';
 import { useT, plural } from '../../i18n';
 import { shortenHome } from '../../lib/paths';
@@ -43,6 +43,8 @@ interface Props {
   shared?: SharedLookup & { onOverride: (name: string, root: string) => void };
   /** Opens a project's MCP tab from the projects listed under a shared server. */
   onOpenProject?: (root: string) => void;
+  /** Hears whether any row has project ticks not saved yet, which leaving the page would drop. */
+  onUnsavedChange?: (unsaved: boolean) => void;
 }
 
 /**
@@ -63,9 +65,22 @@ export default function MCPServerList({
   onProjects,
   shared,
   onOpenProject,
+  onUnsavedChange,
 }: Props) {
   const t = useT();
   const [open, setOpen] = useState<string[]>([]);
+  // Rows whose project ticks are not saved; any of them keeps every project link waiting.
+  const [unsavedRows, setUnsavedRows] = useState<string[]>([]);
+  const markUnsaved = useCallback(
+    (name: string, unsaved: boolean) =>
+      setUnsavedRows((prev) => {
+        const rest = prev.filter((x) => x !== name);
+        return unsaved ? [...rest, name] : rest;
+      }),
+    [],
+  );
+  const anyUnsaved = unsavedRows.length > 0;
+  useEffect(() => onUnsavedChange?.(anyUnsaved), [anyUnsaved, onUnsavedChange]);
   const overridden = (name: string) =>
     (users[name] ?? []).filter(
       (root) =>
@@ -214,6 +229,8 @@ export default function MCPServerList({
                     onSave={(picked) => onProjects(row.name, picked)}
                     detail={shared && ((root, using) => detail(row.name, root, using))}
                     onOpen={onOpenProject}
+                    locked={anyUnsaved}
+                    onUnsaved={markUnsaved}
                   />
                 )}
               </div>
@@ -234,6 +251,8 @@ function RowProjects({
   onSave,
   detail,
   onOpen,
+  locked,
+  onUnsaved,
 }: {
   name: string;
   roots: string[];
@@ -242,10 +261,17 @@ function RowProjects({
   onSave: (picked: string[]) => void;
   detail?: (root: string, using: boolean) => ReactNode;
   onOpen?: (root: string) => void;
+  locked: boolean;
+  onUnsaved: (name: string, unsaved: boolean) => void;
 }) {
   const t = useT();
   const [picked, setPicked] = useState(saved);
   const changed = usingChanges(name, saved, picked).length > 0;
+  useEffect(() => {
+    if (!changed) return;
+    onUnsaved(name, true);
+    return () => onUnsaved(name, false);
+  }, [changed, name, onUnsaved]);
   return (
     <div className="basis-full pt-3.5 [border-top:var(--sep)]">
       <MCPProjectPicker
@@ -257,6 +283,7 @@ function RowProjects({
         hint={t('mcp.projectsPick.hint')}
         detail={detail}
         onOpen={onOpen}
+        locked={locked}
       >
         <Button
           size="sm"
