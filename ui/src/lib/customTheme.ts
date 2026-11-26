@@ -786,13 +786,22 @@ export function styleVars(theme: CustomTheme, vars: Record<string, string>) {
     : vars;
 }
 
-export function themeCss(theme: CustomTheme): string {
+/** The custom properties a theme sets in each mode, without the leading `--`: what `themeCss`
+ *  writes, and what an embedding app paints its own window with. */
+export function themeVars(theme: CustomTheme): Record<'light' | 'dark', Record<string, string>> {
   const d = deriveTheme(theme);
   const common = shared(theme);
-  const pick = (vars: Record<string, string>) => styleVars(theme, vars);
+  return {
+    light: { ...styleVars(theme, d.light), ...common },
+    dark: { ...styleVars(theme, d.dark), ...common },
+  };
+}
+
+export function themeCss(theme: CustomTheme): string {
+  const vars = themeVars(theme);
   const parts: string[] = [];
-  parts.push(block(LIGHT, { ...pick(d.light), ...common }));
-  parts.push(block(DARK, { ...pick(d.dark), ...common }));
+  parts.push(block(LIGHT, vars.light));
+  parts.push(block(DARK, vars.dark));
   if (theme.base === 'clean') {
     // Reduce transparency: the glass turns back into the solid colour it floats over.
     parts.push(

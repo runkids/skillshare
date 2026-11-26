@@ -4,11 +4,13 @@ import { themeFromSearch } from '../lib/themeParams';
 import { isFromApp, postToApp } from '../lib/embeddingApp';
 import {
   DEFAULT_CUSTOM_THEME,
+  decodeShare,
   fontUrl,
   parseCustomTheme,
   rootAttributes,
   serializeCustomTheme,
   themeCss,
+  themeVars,
   type CustomTheme,
 } from '../lib/customTheme';
 
@@ -76,6 +78,11 @@ function getInitialStyle(): Style {
 }
 
 function getInitialCustomTheme(): CustomTheme {
+  // An embedding app keeps the theme (its webview may not keep this page's storage) and hands it
+  // over in the URL. Only an app's: in a plain tab the share link on Appearance asks first.
+  const handed = new URLSearchParams(window.location.search).get('custom-theme');
+  const fromApp = handed && window.parent !== window ? decodeShare(handed) : null;
+  if (fromApp) return fromApp;
   try {
     return (
       parseCustomTheme(JSON.parse(localStorage.getItem(CUSTOM_KEY) ?? 'null')) ??
@@ -187,9 +194,16 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('skillshare-style', style);
     const json = serializeCustomTheme(customTheme);
     localStorage.setItem(CUSTOM_KEY, json);
+    // For Custom the app gets the theme to keep and hand back (`?custom-theme=`, `theme-push`),
+    // and each mode's custom properties to paint its own window with.
     postToApp(
       style === 'custom'
-        ? { type: 'theme-change', theme: style, custom: JSON.parse(json) }
+        ? {
+            type: 'theme-change',
+            theme: style,
+            custom: JSON.parse(json),
+            vars: themeVars(customTheme),
+          }
         : { type: 'theme-change', theme: style },
     );
   }, [style, customTheme]);

@@ -16,6 +16,7 @@ import {
   styleVars,
   themeCss,
   themeName,
+  themeVars,
   toOklch,
   type CustomTheme,
 } from './customTheme';
@@ -203,6 +204,18 @@ describe('themeCss', () => {
     const rule = (mode: string) =>
       css.indexOf(`.ss-mini[data-mode='${mode}'] .ss-btn.pri`) > css.indexOf('.dark .ss-btn.pri');
     expect([rule('light'), rule('dark')]).toEqual([true, true]);
+  });
+});
+
+describe('themeVars', () => {
+  it('gives an embedding app the values the stylesheet sets in each mode', () => {
+    const theme: CustomTheme = { ...PRESETS.indigo, corners: 'round', font: 'plex' };
+    const css = themeCss(theme);
+    const { light, dark } = themeVars(theme);
+    const missing = [...Object.entries(light), ...Object.entries(dark)].filter(
+      ([k, v]) => !css.includes(`--${k}: ${v};`),
+    );
+    expect(missing).toEqual([]);
   });
 });
 

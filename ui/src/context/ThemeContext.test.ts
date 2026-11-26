@@ -1,7 +1,7 @@
 import { createElement } from 'react';
 import { act, cleanup, render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { PRESETS } from '../lib/customTheme';
+import { PRESETS, encodeShare, themeVars } from '../lib/customTheme';
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -91,6 +91,41 @@ describe('the saved custom theme', () => {
     expect(document.getElementById('ss-kalam')).toBeNull();
     await push({ type: 'theme-push', style: 'playful' });
     expect(document.getElementById('ss-kalam')).not.toBeNull();
+  });
+
+  it('tells an embedding app the colours of each mode', async () => {
+    const post = vi.fn();
+    vi.spyOn(window, 'parent', 'get').mockReturnValue({ postMessage: post } as unknown as Window);
+    await mount();
+    expect(post).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'theme-change', theme: 'custom', vars: themeVars(ember) }),
+      '*',
+    );
+  });
+
+  it('starts with the theme an embedding app hands over in the URL', async () => {
+    vi.spyOn(window, 'parent', 'get').mockReturnValue({
+      postMessage: vi.fn(),
+    } as unknown as Window);
+    window.history.replaceState(
+      {},
+      '',
+      `/?style=custom&custom-theme=${encodeShare(PRESETS.indigo)}`,
+    );
+    await mount();
+    window.history.replaceState({}, '', '/');
+    expect(saved()).toEqual(PRESETS.indigo);
+  });
+
+  it('ignores a theme in the URL when no app embeds the page', async () => {
+    window.history.replaceState(
+      {},
+      '',
+      `/?style=custom&custom-theme=${encodeShare(PRESETS.indigo)}`,
+    );
+    await mount();
+    window.history.replaceState({}, '', '/');
+    expect(saved()).toMatchObject({ name: 'Mine' });
   });
 
   it('is not replaced by an invalid theme from an app', async () => {
