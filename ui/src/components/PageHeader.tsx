@@ -16,8 +16,8 @@ interface PageHeaderProps {
   crumbs?: { label: string; to?: string; onClick?: () => void }[];
   /** Set the title in monospace, for resource names */
   mono?: boolean;
-  /** Shown on the title row, after the title: tabs that switch the page's content */
-  beside?: React.ReactNode;
+  /** Start the actions on the title row and stack them at the right, instead of beside the subtitle's last line */
+  actionsOnTitleRow?: boolean;
 }
 
 export default function PageHeader({
@@ -28,14 +28,9 @@ export default function PageHeader({
   backTo,
   crumbs,
   mono,
-  beside,
+  actionsOnTitleRow,
 }: PageHeaderProps) {
   const t = useT();
-  const heading = (
-    <h1 className="ss-h1">
-      <span className={mono ? 'm' : undefined}>{title}</span>
-    </h1>
-  );
   return (
     <div className={`ss-pgh flex flex-col gap-3 ${className}`}>
       {backTo && (
@@ -64,20 +59,26 @@ export default function PageHeader({
           ))}
         </nav>
       )}
-      {/* With something beside the title, the actions line up with the title row, not the subtitle. */}
-      <div className={beside ? 'ss-ph !items-start' : 'ss-ph'}>
+      <div className={actionsOnTitleRow ? 'ss-ph !items-start' : 'ss-ph'}>
         <div className="tt min-w-0">
-          {beside ? (
-            <div className="flex flex-wrap items-center gap-4">
-              {heading}
-              {beside}
-            </div>
-          ) : (
-            heading
-          )}
+          <h1 className="ss-h1">
+            <span className={mono ? 'm' : undefined}>{title}</span>
+          </h1>
           {subtitle && <p>{subtitle}</p>}
         </div>
-        {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+        {actions && (
+          // Stacked at the right, starting on the title row. The column takes the room the title leaves, down
+          // to its narrowest item, so it stays beside the title on narrow screens too.
+          <div
+            className={
+              actionsOnTitleRow
+                ? 'ml-auto flex min-w-min max-w-max grow-[9999] basis-0 flex-col items-end gap-2'
+                : 'flex shrink-0 items-center gap-2'
+            }
+          >
+            {actions}
+          </div>
+        )}
       </div>
     </div>
   );
