@@ -987,6 +987,7 @@
   "updateDialog.nixConfig": "skillshare ist mit Nix installiert. Aktualisiere skillshare in deiner Nix-Konfiguration und baue neu.",
   "updateDialog.nixProfile": "skillshare ist mit Nix installiert. Führe {command} in einem Terminal aus.",
   "updateDialog.pypi": "skillshare wurde von PyPI installiert. Führe {command} in einem Terminal aus.",
+  "updateDialog.pixi": "skillshare wurde mit pixi installiert. Führe {command} in einem Terminal aus.",
   "updateDialog.newVersion": "Neue Version verfügbar",
   "updateDialog.restartDev": "DEV-Modus-Neustart simuliert.",
   "updateDialog.restartManual": "Aktualisiert. Starte mit skillshare ui start neu, falls diese Seite keine Verbindung herstellt.",

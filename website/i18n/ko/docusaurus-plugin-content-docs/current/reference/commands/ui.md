@@ -192,8 +192,8 @@ project mode(`-p`)로 실행할 때 대시보드는 다음과 같이 달라집�
 | GET | `/api/doctor` | 모든 상태 검사 실행(JSON) |
 | GET | `/api/doctor/stream` | 모든 상태 검사를 Server-Sent Events로 실행: 검사가 끝날 때마다 `check` 이벤트를 보냅니다. 오래 걸리는 검사는 먼저 `pending` 상태로 오고, 이름이 같은 이후 `check` 이벤트가 이를 대체합니다. 그 결과가 필요 없는 검사는 먼저 옵니다. 마지막에 `/api/doctor`와 같은 JSON을 담은 `done`을 보냅니다 |
 | GET | `/api/health` | liveness probe. 서버가 준비되면 `200`을 반환합니다 |
-| GET | `/api/version` | 현재/최신 버전 + 업그레이드 가능 여부 + Nix 또는 PyPI 설치의 경우 CLI를 업데이트하는 명령(`nixUpgradeCommand` 또는 `pypiUpgradeCommand`) + `.skillignore`가 내장 스킬을 비활성화하면 `skillDisabled`가 true |
-| POST | `/api/upgrade` | 제자리에서 `skillshare upgrade` 실행(바이너리가 dev build인 경우 `devMode: true` 반환, Nix 또는 PyPI 설치에서 새 CLI가 대기 중이면 코드 `upgrade.nix` 또는 `upgrade.pypi`와 함께 `409` 반환) |
+| GET | `/api/version` | 현재/최신 버전 + 업그레이드 가능 여부 + Nix, PyPI 또는 pixi 설치의 경우 CLI를 업데이트하는 명령(`nixUpgradeCommand`, `pypiUpgradeCommand` 또는 `pixiUpgradeCommand`) + `.skillignore`가 내장 스킬을 비활성화하면 `skillDisabled`가 true |
+| POST | `/api/upgrade` | 제자리에서 `skillshare upgrade` 실행(바이너리가 dev build인 경우 `devMode: true` 반환, Nix, PyPI 또는 pixi 설치에서 새 CLI가 대기 중이면 코드 `upgrade.nix`, `upgrade.pypi` 또는 `upgrade.pixi`와 함께 `409` 반환) |
 | POST | `/api/restart` | 로컬 UI 서버 재시작. 선택적으로 `{ "clearCache": true }` body를 전달하면 먼저 캐시된 UI 자산을 지웁니다 |
 
 ## 제자리 업그레이드
@@ -206,7 +206,9 @@ project mode(`-p`)로 실행할 때 대시보드는 다음과 같이 달라집�
 
 skillshare를 Nix로 설치한 경우에도 엔드포인트는 내장된 skillshare skill을 업데이트하지만 CLI 업데이트는 Nix에 맡깁니다. 새 CLI가 있으면 `409`(`upgrade.nix`)를 반환하고, 대화상자에 Nix로 업데이트하는 방법이 표시됩니다. 클릭하기 전부터 대화상자에 Nix로 CLI를 업데이트하는 방법이 표시됩니다. `nix profile` 설치에서는 `nix profile upgrade skillshare`, 그 외에는 Nix 구성 다시 빌드입니다. [upgrade](./upgrade.md#nix-users)를 참고하세요.
 
-uv, pipx 또는 pip으로 설치한 경우도 같습니다. 엔드포인트는 내장 skill을 업데이트하고, 새 CLI가 있으면 `409`(`upgrade.pypi`)를 반환하며, 대화상자는 클릭 전후에 `uv tool upgrade skillshare-cli`처럼 해당 설치 도구의 명령을 보여 줍니다. [upgrade](./upgrade.md#pypi-users)를 참고하세요.
+`skillshare-cli`를 uv, pipx, pip 또는 pixi로 설치한 경우도 같습니다. 엔드포인트는 내장 skill을 업데이트하고, 새 CLI가 있으면 `409`(`upgrade.pypi`)를 반환하며, 대화상자는 클릭 전후에 `uv tool upgrade skillshare-cli`처럼 해당 설치 도구의 명령을 보여 줍니다. [upgrade](./upgrade.md#pypi-users)를 참고하세요.
+
+pixi로 설치한 `skillshare` conda 패키지도 같은 방식으로 `409`(`upgrade.pixi`)를 반환하며, `pixi global update skillshare` 또는 `pixi upgrade skillshare`를 안내합니다. [upgrade](./upgrade.md#pixi-users)를 참고하세요.
 
 실행 중인 바이너리가 개발 빌드(`version == "dev"`)인 경우, upgrade 엔드포인트는 `devMode: true`를 반환하고 UI는 디스크의 어떤 것도 수정하지 않은 채 재시작을 시뮬레이션합니다.
 

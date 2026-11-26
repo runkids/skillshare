@@ -192,8 +192,8 @@ Web dashboard 在 `/api/` 上提供 REST API。所有端點皆回傳 JSON。
 | GET | `/api/doctor` | 執行所有健康檢查（JSON） |
 | GET | `/api/doctor/stream` | 以 Server-Sent Events 執行所有健康檢查：每完成一項送出一個 `check` 事件。較慢的檢查會先以狀態 `pending` 送出，之後同名的 `check` 事件會取代它，不需要它結果的檢查會先送出；最後以 `done` 送出與 `/api/doctor` 相同的 JSON |
 | GET | `/api/health` | 存活探測；伺服器就緒後回傳 `200` |
-| GET | `/api/version` | 目前/最新版本 + 是否有可用升級 + Nix 或 PyPI 安裝時更新 CLI 的指令（`nixUpgradeCommand` 或 `pypiUpgradeCommand`）+ `.skillignore` 停用內建 Skill 時 `skillDisabled` 為 true |
-| POST | `/api/upgrade` | 就地執行 `skillshare upgrade`（若執行檔為開發版本則回傳 `devMode: true`；透過 Nix 或 PyPI 安裝且有較新的 CLI 待安裝時回傳 `409`，錯誤碼為 `upgrade.nix` 或 `upgrade.pypi`） |
+| GET | `/api/version` | 目前/最新版本 + 是否有可用升級 + Nix、PyPI 或 pixi 安裝時更新 CLI 的指令（`nixUpgradeCommand`、`pypiUpgradeCommand` 或 `pixiUpgradeCommand`）+ `.skillignore` 停用內建 Skill 時 `skillDisabled` 為 true |
+| POST | `/api/upgrade` | 就地執行 `skillshare upgrade`（若執行檔為開發版本則回傳 `devMode: true`；透過 Nix、PyPI 或 pixi 安裝且有較新的 CLI 待安裝時回傳 `409`，錯誤碼為 `upgrade.nix`、`upgrade.pypi` 或 `upgrade.pixi`） |
 | POST | `/api/restart` | 重啟本機 UI 伺服器；可選的 `{ "clearCache": true }` body 會先清除快取的 UI 資源 |
 
 ## 就地升級
@@ -206,7 +206,9 @@ Web dashboard 在 `/api/` 上提供 REST API。所有端點皆回傳 JSON。
 
 如果 skillshare 透過 Nix 安裝，該端點仍會更新內建的 skillshare skill，但 CLI 交由 Nix 更新。有較新的 CLI 時，它會回傳 `409`（`upgrade.nix`），對話框接著說明如何透過 Nix 更新。點擊之前，對話框就會說明如何透過 Nix 更新 CLI：`nix profile` 安裝為 `nix profile upgrade skillshare`，否則為重新建置 Nix 設定。參見 [upgrade](./upgrade.md#nix-users)。
 
-透過 uv、pipx 或 pip 安裝時處理方式相同：該端點會更新內建 skill，有較新的 CLI 時回傳 `409`（`upgrade.pypi`），對話框在點擊前後都會顯示對應安裝工具的指令，例如 `uv tool upgrade skillshare-cli`。參見 [upgrade](./upgrade.md#pypi-users)。
+透過 uv、pipx、pip 或 pixi 安裝 `skillshare-cli` 時處理方式相同：該端點會更新內建 skill，有較新的 CLI 時回傳 `409`（`upgrade.pypi`），對話框在點擊前後都會顯示對應安裝工具的指令，例如 `uv tool upgrade skillshare-cli`。參見 [upgrade](./upgrade.md#pypi-users)。
+
+由 pixi 安裝的 `skillshare` conda 套件同樣回傳 `409`（`upgrade.pixi`），並提示 `pixi global update skillshare` 或 `pixi upgrade skillshare`。參見 [upgrade](./upgrade.md#pixi-users)。
 
 如果正在執行的是開發版本（`version == "dev"`），upgrade 端點會回傳 `devMode: true`，UI 會模擬重啟而不修改磁碟上的任何內容。
 

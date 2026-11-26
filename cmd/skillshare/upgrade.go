@@ -197,12 +197,14 @@ func upgradeCLIBinary(dryRun, force bool) (string, error) {
 	}
 
 	// Replacing a file in the Nix store would corrupt it, and replacing a
-	// wheel's binary would leave pip, uv or pipx recording the old version,
-	// so the package manager updates it instead.
+	// wheel's or conda package's binary would leave pip, uv, pipx or pixi
+	// recording the old version, so the package manager updates it instead.
 	if method.IsPackageManaged() {
 		source := "with Nix"
 		if method.IsPyPI() {
 			source = "from PyPI"
+		} else if method.IsPixi() {
+			source = "with pixi"
 		}
 		printUpgradeRow(ui.MarkWarn, "CLI", fmt.Sprintf("%s → v%s available · installed %s, %s", current, latestVersion, source, method.UpgradeInstruction()), time.Time{})
 		return "", nil
