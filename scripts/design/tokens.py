@@ -25,6 +25,7 @@ DARK = LIGHT + ".dark"
 COLOR_USAGE = {
     "bg": "Page background behind every screen.",
     "side": "Sidebar background.",
+    "shell": "Desktop frame behind the sidebar and the inset content panel; the sidebar is transparent on it.",
     "surface": "Cards, lists, inputs, dialogs: anything framed on top of bg.",
     "sunken": "Recessed areas inside a surface: list headers, group headers, notes, tags, icon tiles.",
     "ink": "Primary text and headings on bg, surface or sunken.",

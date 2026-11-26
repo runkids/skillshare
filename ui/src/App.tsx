@@ -43,6 +43,7 @@ const AuditRulesPage = lazy(() => import('./pages/AuditRulesPage'));
 const LogPage = lazy(() => import('./pages/LogPage'));
 const ConfigPage = lazy(() => import('./pages/ConfigPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+const AppearancePage = lazy(() => import('./pages/AppearancePage'));
 const TargetDetailPage = lazy(() => import('./pages/TargetDetailPage'));
 const ProjectsPage = lazy(() => import('./pages/ProjectsPage'));
 const ProjectDetailPage = lazy(() => import('./pages/ProjectDetailPage'));
@@ -294,6 +295,14 @@ function AppRoutes() {
               element={
                 <Lazy>
                   <SettingsPage />
+                </Lazy>
+              }
+            />
+            <Route
+              path="appearance"
+              element={
+                <Lazy>
+                  <AppearancePage />
                 </Lazy>
               }
             />

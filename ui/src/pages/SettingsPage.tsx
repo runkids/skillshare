@@ -10,9 +10,8 @@ import { useUpdatePolicy } from '../hooks/useUpdatePolicy';
 import { Select } from '../components/Select';
 import { useToast } from '../components/Toast';
 import { useAppContext } from '../context/AppContext';
-import { useTheme, type ModePreference, type Style } from '../context/ThemeContext';
 import { Download, RotateCw } from 'lucide-react';
-import { formatDateTime, supportedLocales, useI18n, useT, type Locale } from '../i18n';
+import { formatDateTime, useI18n, useT } from '../i18n';
 import { shortenHome } from '../lib/paths';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { useOverviewQuery } from '../hooks/useSharedQueries';
@@ -32,6 +31,7 @@ interface ConfigShape {
 
 export const SETTINGS_TABS = [
   { key: 'general', to: '/settings', labelKey: 'settings.tab.general' },
+  { key: 'appearance', to: '/appearance', labelKey: 'settings.appearance.title' },
   { key: 'backup', to: '/backup', labelKey: 'settings.tab.backup' },
   { key: 'log', to: '/log', labelKey: 'settings.tab.log' },
   { key: 'doctor', to: '/doctor', labelKey: 'settings.tab.doctor' },
@@ -42,7 +42,11 @@ export const SETTINGS_TABS = [
 export function SettingsTabs({ current }: { current: string }) {
   const t = useT();
   return (
-    <nav className="ss-tabs" aria-label={t('layout.nav.settings')}>
+    // Seven tabs are wider than a phone, so the row scrolls there instead of widening the page.
+    <nav
+      className="ss-tabs max-sm:overflow-x-auto max-sm:pb-px max-sm:whitespace-nowrap"
+      aria-label={t('layout.nav.settings')}
+    >
       {SETTINGS_TABS.map((tab) => (
         <Link
           key={tab.key}
@@ -59,9 +63,8 @@ export function SettingsTabs({ current }: { current: string }) {
 
 export default function SettingsPage() {
   const t = useT();
-  const { locale, setLocale } = useI18n();
+  const { locale } = useI18n();
   const { toast } = useToast();
-  const { style, setStyle, modePreference, setModePreference } = useTheme();
   const { isProjectMode, projectRoot } = useAppContext();
   const queryClient = useQueryClient();
 
@@ -289,74 +292,6 @@ export default function SettingsPage() {
           {manualUpgrade && (
             <UpdateDialog manualData={manualUpgrade} onDismiss={() => setManualUpgrade(null)} />
           )}
-        </section>
-
-        <section>
-          <div className="ss-sec">
-            <h2 className="ss-h2">{t('settings.appearance.title')}</h2>
-          </div>
-          <div className="ss-list">
-            <div className="ss-setrow">
-              <div className="l">
-                <b>{t('settings.appearance.style')}</b>
-                <span>{t('settings.appearance.styleHint')}</span>
-              </div>
-              <div
-                ref={segSlide}
-                className="ss-seg shrink-0"
-                role="radiogroup"
-                aria-label={t('settings.appearance.style')}
-              >
-                {(['clean', 'playful'] as Style[]).map((s) => (
-                  <button
-                    key={s}
-                    type="button"
-                    role="radio"
-                    aria-checked={style === s}
-                    className={style === s ? 'on' : ''}
-                    onClick={() => setStyle(s)}
-                  >
-                    {t(`settings.appearance.style.${s}`)}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="ss-setrow">
-              <div className="l">
-                <b>{t('settings.appearance.theme')}</b>
-              </div>
-              <div
-                ref={segSlide}
-                className="ss-seg shrink-0"
-                role="radiogroup"
-                aria-label={t('settings.appearance.theme')}
-              >
-                {(['light', 'dark', 'system'] as ModePreference[]).map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    role="radio"
-                    aria-checked={modePreference === m}
-                    className={modePreference === m ? 'on' : ''}
-                    onClick={() => setModePreference(m)}
-                  >
-                    {t(`settings.appearance.theme.${m}`)}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="ss-setrow">
-              <div className="l">
-                <b>{t('settings.appearance.language')}</b>
-              </div>
-              <Select
-                value={locale}
-                onChange={(v) => setLocale(v as Locale)}
-                className="w-[190px] shrink-0"
-                options={supportedLocales.map((l) => ({ value: l.code, label: l.nativeName }))}
-              />
-            </div>
-          </div>
         </section>
 
         <section>

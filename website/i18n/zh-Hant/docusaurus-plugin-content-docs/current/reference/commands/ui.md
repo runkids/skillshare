@@ -101,7 +101,7 @@ skillshare ui start --clear-cache
 | **Projects** | 僅限 global mode。global config 會同步進去的 project 資料夾，來自 `config.yaml` 中的 [`projects`](/docs/reference/targets/configuration#projects)、只儲存在本機的專案（標示為 **此機器**）與 [`mcp.projects`](./mcp.md#projects-in-the-dashboard)。同樣的專案也可以在終端機中透過 [`skillshare project`](./project.md) 管理。**新增專案** 會要求填入資料夾、它的 targets 與要同步的內容，除非在對話框底部的 **儲存到** 選擇 **只存在這台機器**，否則會儲存到 `config.yaml`（當 [`projects_storage`](/docs/reference/targets/configuration#projects-storage) 為 `machine-local` 時預設選擇只存在這台機器）。**一併加入這個資料夾裡的每個 checkout** 的效果和 [`project add --scan`](./project.md#scan) 相同：在**搜尋位置**列出 `.worktrees` 這類資料夾，按**檢查**後會先列出每個資料夾是 Added、Kept 還是 Skipped 以及原因，確認後才寫入。有勾選 MCP 與 Hooks 時，會為每個新增的專案設定。編輯會儲存在專案所在的位置。要移動已儲存的專案，請使用 `skillshare project localize` 或 `share`。移除一個被本機覆寫的專案時，會詢問是只移除本機的副本，還是連 `config.yaml` 中的一併移除。移除專案後，它在 `mcp.projects` 和 `hooks.projects` 的設定會保留，所以資料夾仍會列出；再移除一次就會刪掉這些設定。每個 project 都有 **Skills** 與 **Agents** 分頁，附帶篩選條件、預覽畫面與會被寫入的資料夾，還有一個 **MCP** 分頁可在該資料夾中關閉 global servers 或給它專屬的 servers，並有 **檢查** 可檢查這些 servers。**Sync project** 會先預覽，再只同步該 project 的 skills、agents 與 MCP。已經指向某個 project 資料夾的 target 可以被轉換。project 的 **MCP** 分頁還能在 **選用** 中打開[共用 server](./mcp.md#share-a-server-with-chosen-projects)，其中的鉛筆按鈕可修改該專案[覆寫](./mcp.md#override-a-shared-server)的內容，被覆寫的 server 會帶 **已覆寫** 標籤，**載入流程** 會畫出 server 從哪來、sync 會寫入哪些 Agent 檔案。**Skills** 與 **Agents** 分頁會顯示目標、開關、可分開看同步與略過項目的預覽和篩選、會寫入的資料夾以及同步模式。**Hooks** 分頁列出該 project 的 hook，**停止管理這裡的 hook** 會把資料夾從 `hooks.projects` 移除，下次同步時會刪掉 Skillshare 寫在那裡的 hook |
 | **Context** | 位於 **Maintain** 之下、**Audit** 之上。**Skills** 分頁會針對你選的 skill target（`?target=`）估算每個 skill 為該 target 的 context 增加多少 tokens，與 [`analyze`](./analyze.md) 相同。**MCP** 分頁（`?tab=mcp&agent=<target>`，project 則為 `<root>@<target>`）有 Agent 選擇器，並顯示已計算的 tokens 與 [`warn_mcp_tool_tokens`](/docs/reference/targets/configuration#context_budget) 的對照、工具數量、已計算的 server 數、超出預算的警告，以及每個 server 一條長條；尚未被即時檢查計算過的 server 會標上 **not counted**。**Check live** 會執行 [`mcp check --live`](./mcp.md#count-tool-tokens)（它會啟動每個 server）並更新數字。**Sync** 頁面在同步後會針對每個超出預算的 MCP target 顯示警告，並附 **Open Context**，**MCP** 頁面右側欄則有 **Context cost** 卡片，顯示 tokens 最多的全域 target（只有專案載入 server 時，顯示最重的專案 target） |
 | **Audit** | 對 skills 與 agents 進行安全掃描，依嚴重程度列出發現項目。[跟進的 source 連結](/docs/reference/targets/configuration#follow_source_links)無法讀取時，Skills / Agents 分頁旁會標出 **掃描不完整**，以免把部分掃描誤認為完整掃描；此時掃描完成後會顯示警告而不是一切正常，dashboard 的 **Needs attention** 中也會列出。**Rules** 分頁可依分類瀏覽每一項規則：關閉某項、變更其嚴重程度、對整個分類套用嚴重程度、選擇掃描設定檔（`default`、`strict`、`permissive`），或開啟編輯器自訂 `audit-rules.yaml` |
-| **Settings** | 分頁式：**General**（source 路徑、同步模式、外觀）、**Backup**（target 資料夾快照、`AGENTS.md` 這類檔案的較早版本，以及 MCP 設定備份；參見 [`backup`](./backup.md#dashboard)）、**Log**（操作歷史）、**Health**（與 [`doctor`](/docs/reference/commands/doctor) 相同的檢查）、**Extensions**（同步時的檔案轉換）、**Files**（直接編輯 `config.yaml`、`.skillignore` 與 `.agentignore`；有 `.skillignore.local` 或 `.agentignore.local` 時，因為它在該檔案之後套用、可以覆蓋它，編輯器會在上方顯示它的規則） |
+| **Settings** | 分頁式：**General**（source 路徑、同步模式）、**Appearance**（風格、模式、語言與自訂主題編輯器）、**Backup**（target 資料夾快照、`AGENTS.md` 這類檔案的較早版本，以及 MCP 設定備份；參見 [`backup`](./backup.md#dashboard)）、**Log**（操作歷史）、**Health**（與 [`doctor`](/docs/reference/commands/doctor) 相同的檢查）、**Extensions**（同步時的檔案轉換）、**Files**（直接編輯 `config.yaml`、`.skillignore` 與 `.agentignore`；有 `.skillignore.local` 或 `.agentignore.local` 時，因為它在該檔案之後套用、可以覆蓋它，編輯器會在上方顯示它的規則） |
 
 變更清單旁的 **捨棄變更** 會在確認後，將所選 Git 範圍內所有已追蹤的檔案與暫存區還原至最後一次提交，並刪除未追蹤的檔案與資料夾。被 Git 忽略的檔案、巢狀 Git 儲存庫，以及 `root` 範圍的 `config.yaml` 都會保留。此操作不會更動提交紀錄，也不會推送至遠端，且無法復原。**試跑** 只會預覽，不會變更檔案。儲存庫必須已有第一次提交，才能捨棄變更。
 
@@ -115,14 +115,18 @@ Git 衝突比較使用完整檔案版本。可以逐個檔案選擇本機或遠�
 
 ### 主題系統
 
-Dashboard 支援兩種視覺風格與三種色彩模式，可透過側邊欄的 **Theme** 按鈕切換：
+Dashboard 有三種視覺風格與三種色彩模式，可透過側邊欄的 **Theme** 按鈕或 **Settings -> Appearance** 切換：
 
 | 設定 | 選項 | 預設值 |
 |---------|---------|---------|
-| **Style** | `Clean`（專業風格）、`Playful`（粗體外框、硬陰影、手寫標題） | Playful |
+| **Style** | `Clean`（安靜、緊湊；桌面寬度下頁面會置於內嵌面板之上）、`Playful`（墨色外框、偏移陰影、手寫標題）、`Custom`（在 Clean 或 Playful 之上使用你自己的顏色） | Clean |
 | **Mode** | `Light`、`Dark`、`System`（跟隨作業系統偏好設定） | Light |
 
-主題偏好設定會持久保存在 localStorage 中，跨 session 保留。
+**Custom** 會在 **Settings -> Appearance** 下開啟主題編輯器。你可以從 14 個預設（Clean 10 個、Playful 4 個）中選一個開始，也可以自行選擇基礎風格、強調色、背景色調、圓角與字型；**Advanced** 另外提供獨立的連結顏色；基礎風格為 Clean 時，還有版面配置、標題與按鈕樣式。除非你自行設定深色強調色，否則深色模式的顏色會由強調色推導而來。所有文字顏色都會調整到在其所在表面上達到 4.5:1 以上的對比，若編輯器更動了你選擇的顏色，會提示你。字型只會改變英文字母和數字，中日韓文字仍使用系統字型；介面是這三種語言時會多一個開關，打開後會載入對應的 Noto Sans。System 以外的字型會從 Google Fonts 載入。編輯器頂端的預覽會在你調整選項時一直保持可見，並短暫標亮每次變更影響的部分；修改過的預設會標示為已修改，再選一次即可還原。每個色碼欄位也能開啟系統的取色器。
+
+**Share** 可以將主題匯出為小型 JSON 檔案、匯入 JSON 檔案，或複製一個連結；開啟該連結會進入 **Settings -> Appearance**，並詢問是否套用該主題。連結會在複製它時所用的同一個 dashboard 位址上開啟。
+
+主題偏好設定（包括自訂主題）會持久保存在此瀏覽器的 localStorage 中。在 dashboard URL 加上 `?style=clean|playful|custom` 與 `?mode=light|dark`，即可為該瀏覽器指定風格或模式。
 
 ### Project Mode 的差異
 

@@ -252,7 +252,7 @@ export default function HooksSyncBox({
   onTakeover?: (name: string) => void;
 }) {
   const t = useT();
-  const { style } = useTheme();
+  const { baseStyle: style } = useTheme();
   const [reviewing, setReviewing] = useState(false);
   const [trusting, setTrusting] = useState(false);
   const pending = plan.changes.filter(writes);

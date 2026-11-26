@@ -101,7 +101,7 @@ skillshare ui start --clear-cache
 | **프로젝트** | Global mode 전용. global 설정이 동기화하는 프로젝트 폴더이며, `config.yaml`의 [`projects`](/docs/reference/targets/configuration#projects), 이 기기에만 보관한 프로젝트(**이 기기**으로 표시), [`mcp.projects`](./mcp.md#projects-in-the-dashboard)에서 옵니다. 같은 프로젝트는 터미널에서 [`skillshare project`](./project.md)로도 관리할 수 있습니다. **프로젝트 추가**는 폴더, 그 target, 동기화할 항목을 받고, 대화 상자 아래쪽 **저장 위치**에서 **이 기기에만**을 고르지 않으면 `config.yaml`에 저장합니다([`projects_storage`](/docs/reference/targets/configuration#projects-storage)가 `machine-local`이면 이것이 기본값입니다). **이 폴더 안의 각 checkout도 추가**는 [`project add --scan`](./project.md#scan)과 같습니다. **찾을 위치**에 `.worktrees` 같은 폴더를 적고 **검토**를 누르면, 저장하기 전에 각 폴더가 Added, Kept, Skipped 중 무엇인지와 이유를 보여 줍니다. MCP와 Hooks를 고르면 추가된 각 프로젝트에 설정합니다. 편집은 프로젝트가 저장된 곳에 저장됩니다. 저장된 프로젝트를 옮기려면 `skillshare project localize` 또는 `share`를 사용하세요. 이 기기가 재정의한 프로젝트를 제거하면 이 기기의 사본만 제거할지 `config.yaml`의 항목도 함께 제거할지 묻습니다. 제거한 프로젝트의 `mcp.projects`와 `hooks.projects` 항목은 남으므로 폴더는 목록에 계속 표시됩니다. 한 번 더 제거하면 이 항목들도 삭제됩니다. 각 프로젝트에는 필터, 미리보기, 기록될 폴더를 보여주는 **Skills**와 **Agents** 탭, 그리고 해당 폴더에서 global 서버를 끄거나 프로젝트 자체 서버를 부여하며 그 서버를 위한 **검사**가 있는 **MCP** 탭이 있습니다. **Sync project**는 미리 본 뒤 해당 프로젝트의 skill, agent, MCP만 동기화합니다. 이미 프로젝트 폴더를 가리키는 Target은 변환할 수 있습니다. 프로젝트의 **MCP** 탭은 **선택형 서버**에서 [shared 서버](./mcp.md#share-a-server-with-chosen-projects)를 켜며, 연필 버튼으로 이 프로젝트가 [재정의](./mcp.md#override-a-shared-server)하는 내용을 바꾸고 재정의한 서버에는 **재정의됨** 태그가 붙고, **로드 흐름**는 서버가 어디서 오는지와 sync가 쓰는 Agent 파일을 그림으로 보여 줍니다. **Skills**와 **Agents** 탭은 target, 스위치, 동기화되는 항목과 건너뛰는 항목을 나눠 보여 주는 미리보기가 딸린 필터, 기록될 폴더와 동기화 모드를 보여 줍니다. **Hooks** 탭은 프로젝트의 hook을 나열하며, **여기서 hook 관리 중지**는 폴더를 `hooks.projects`에서 뺍니다. 다음 sync 때 Skillshare가 거기에 쓴 hook이 지워집니다 |
 | **Context** | **Maintain** 아래, **Audit** 위에 있습니다. **Skills** 탭은 선택한 skill target(`?target=`)에 대해 각 skill이 target의 context에 추가하는 토큰 수를 [`analyze`](./analyze.md)처럼 추정합니다. **MCP** 탭(`?tab=mcp&agent=<target>`, project는 `<root>@<target>`)에는 Agent 선택기가 있으며, 집계된 토큰 수를 [`warn_mcp_tool_tokens`](/docs/reference/targets/configuration#context_budget)와 비교해 보여주고, 도구 수, 집계된 서버 수, 예산 초과 경고, 서버별 막대를 표시합니다. 어떤 live 검사로도 집계되지 않은 서버에는 **not counted** 태그가 붙습니다. **Check live**는 모든 서버를 시작하는 [`mcp check --live`](./mcp.md#count-tool-tokens)를 실행해 집계 값을 갱신합니다. **Sync** 페이지는 sync 후 예산을 초과한 각 MCP target을 **Open Context**와 함께 경고하고, **MCP** 페이지의 오른쪽 레일에는 토큰이 가장 많은 global target(서버를 불러오는 것이 project뿐이면 가장 무거운 project target)의 **Context cost** 카드가 있습니다 |
 | **Audit** | skill과 agent에 대한 보안 스캔이며, 심각도별로 findings를 표시합니다. [따라가는 source link](/docs/reference/targets/configuration#follow_source_links)를 읽지 못하면 Skills / Agents 탭 옆에 **스캔 미완료**가 표시되어 부분 스캔이 전체 스캔으로 오인되지 않습니다. 이때 스캔 후에는 문제 없음 대신 경고를 표시하고, 대시보드의 **Needs attention**에도 표시됩니다. **Rules** 탭에서는 카테고리별로 모든 rule을 탐색할 수 있습니다: rule을 끄거나, 심각도를 변경하거나, 카테고리 전체에 심각도를 적용하거나, 스캔 profile(`default`, `strict`, `permissive`)을 선택하거나, 사용자 지정 `audit-rules.yaml` 편집기를 엽니다 |
-| **Settings** | 탭으로 구성: **General**(source 경로, sync mode, 외관), **Backup**(대상 폴더 스냅샷, `AGENTS.md` 같은 파일의 이전 버전, MCP 설정 백업. [`backup`](./backup.md#dashboard) 참고), **Log**(작업 이력), **Health**([`doctor`](/docs/reference/commands/doctor)와 동일한 검사), **Extensions**(sync 시점의 파일 변환), **Files**(`config.yaml`, `.skillignore`, `.agentignore`를 위한 직접 편집기. `.skillignore.local`이나 `.agentignore.local`이 있으면 파일 뒤에 적용되어 덮어쓸 수 있으므로 편집기 위에 그 규칙을 보여 줍니다) |
+| **Settings** | 탭으로 구성: **General**(source 경로, sync mode), **Appearance**(스타일, 모드, 언어, 사용자 지정 테마 편집기), **Backup**(대상 폴더 스냅샷, `AGENTS.md` 같은 파일의 이전 버전, MCP 설정 백업. [`backup`](./backup.md#dashboard) 참고), **Log**(작업 이력), **Health**([`doctor`](/docs/reference/commands/doctor)와 동일한 검사), **Extensions**(sync 시점의 파일 변환), **Files**(`config.yaml`, `.skillignore`, `.agentignore`를 위한 직접 편집기. `.skillignore.local`이나 `.agentignore.local`이 있으면 파일 뒤에 적용되어 덮어쓸 수 있으므로 편집기 위에 그 규칙을 보여 줍니다) |
 
 변경 목록 옆의 **변경 사항 버리기**는 확인 후 선택한 Git 범위 내의 추적 중인 파일과 스테이징 영역을 마지막 커밋으로 복원하고 추적되지 않은 파일과 폴더를 삭제합니다. Git에서 무시한 파일, 중첩된 Git 저장소 및 `root` 범위의 `config.yaml`은 유지됩니다. 커밋 기록을 변경하거나 원격 저장소로 푸시하지 않으며, 이 작업은 되돌릴 수 없습니다. **시험 실행**은 파일을 변경하지 않고 미리 봅니다. 변경 사항을 버리려면 저장소에 첫 번째 커밋이 있어야 합니다.
 
@@ -115,14 +115,18 @@ Git 충돌 비교에서는 파일 전체 버전을 선택합니다. 파일마다
 
 ### 테마 시스템
 
-대시보드는 두 가지 시각적 스타일과 세 가지 색상 모드를 지원하며, 사이드바의 **Theme** 버튼으로 전환할 수 있습니다:
+대시보드는 세 가지 스타일과 세 가지 색상 모드를 제공하며, 사이드바의 **Theme** 버튼 또는 **Settings -> Appearance**에서 전환할 수 있습니다:
 
 | Setting | Options | 기본값 |
 |---------|---------|---------|
-| **Style** | `Clean`(전문적인 느낌), `Playful`(굵은 외곽선, 강한 그림자, 손글씨 스타일 제목) | Playful |
+| **Style** | `Clean`(차분하고 밀도 높은 느낌, 데스크톱 너비에서는 페이지가 안쪽으로 들어간 패널 위에 놓임), `Playful`(잉크 느낌의 외곽선, 오프셋 그림자, 손글씨 스타일 제목), `Custom`(Clean 또는 Playful 위에 직접 고른 색상 적용) | Clean |
 | **Mode** | `Light`, `Dark`, `System`(OS 설정을 따름) | Light |
 
-테마 설정은 세션 간에도 localStorage에 유지됩니다.
+**Custom**을 선택하면 **Settings -> Appearance**에 테마 편집기가 열립니다. 14가지 프리셋(Clean 10개, Playful 4개) 중 하나에서 시작하거나, 기본 스타일, 강조 색상, 배경 색조, 모서리, 글꼴을 직접 고를 수 있습니다. **Advanced**에서는 별도의 링크 색상을, 기본 스타일이 Clean이면 레이아웃, 제목과 버튼 스타일도 설정할 수 있습니다. 다크 모드 색상은 다크용 강조 색상을 직접 지정하지 않는 한 강조 색상에서 자동으로 만들어집니다. 모든 텍스트 색상은 놓이는 표면 위에서 4.5:1 이상의 대비로 읽힐 때까지 조정되며, 선택한 색상을 바꾸면 편집기가 알려 줍니다. 글꼴은 라틴 문자와 숫자에만 적용되며, 한국어·중국어·일본어 텍스트는 시스템 글꼴을 유지합니다. 인터페이스가 이 언어 중 하나이면 스위치가 나타나며, 켜면 해당 Noto Sans도 불러옵니다. System 외의 글꼴은 Google Fonts에서 불러옵니다. 편집기 위쪽의 미리 보기는 옵션을 바꾸는 동안 계속 보이고 바뀐 부분을 잠깐 강조해 보여 주며, 수정한 프리셋은 수정됨으로 표시되고 다시 선택하면 원래대로 돌아갑니다. 각 색상 코드 칸에서 시스템 색상 선택기도 열 수 있습니다.
+
+**Share**는 테마를 작은 JSON 파일로 내보내거나, JSON 파일을 가져오거나, 링크를 복사합니다. 링크를 열면 **Settings -> Appearance**가 열리고 테마를 적용할지 묻습니다. 링크는 복사한 것과 같은 대시보드 주소에서 열립니다.
+
+커스텀 테마를 포함한 테마 설정은 이 브라우저의 localStorage에 유지됩니다. 대시보드 URL에 `?style=clean|playful|custom`과 `?mode=light|dark`를 붙이면 해당 브라우저에서 스타일이나 모드를 지정할 수 있습니다.
 
 ### Project Mode 차이점
 
