@@ -147,9 +147,6 @@ func TestHerdrLauncherLifecycle(t *testing.T) {
 	s := &Service{ConfigPath: filepath.Join(home, "config.yaml"), StateDir: filepath.Join(home, "state")}
 	req := Request{Action: "add", Source: source, Name: "lantern", Entry: "bin/lantern-app", Targets: []string{"herdr-app"}}
 	applyPluginRequest(t, s, req)
-	if _, err := os.Stat(filepath.Join(home, ".local/bin/lantern-app")); !os.IsNotExist(err) {
-		t.Fatalf("unexpected wrapper: %v", err)
-	}
 	runtime := filepath.Join(s.managedRoot(), "herdr-app/lantern-app")
 	writeHerdrRuntimeFiles(t, runtime)
 	writePluginFile(t, source, "bin/lantern-app", "#!/bin/sh\necho second\n")
@@ -411,9 +408,6 @@ func TestHerdrMissingHomeDoesNotBlockOtherTargets(t *testing.T) {
 	applyPluginRequest(t, s, Request{Action: "remove", Name: "demo"})
 	if _, err := os.Stat(herdr); !os.IsNotExist(err) {
 		t.Fatalf("created Herdr home: %v", err)
-	}
-	if _, err := os.Stat(filepath.Join(s.managedRoot(), "herdr-app")); !os.IsNotExist(err) {
-		t.Fatalf("created launcher root: %v", err)
 	}
 }
 

@@ -238,6 +238,10 @@ func TestPluginTargetCompletionsIncludeHerdr(t *testing.T) {
 	script := shells["powershell"].script
 	condition := "if ($cmd -eq 'plugin' -and $previousIndex -ge 0 -and $elements[$previousIndex] -eq '--target')"
 	if strings.Count(script, condition) != 1 {
-		t.Fatal("PowerShell plugin target completion is shadowed")
+		t.Fatal("PowerShell plugin target completion branch missing or duplicated")
+	}
+	shadow := "if ($cmd -eq 'plugin' -and $previousIndex -ge 0 -and $elements[$previousIndex] -in @('--target', '--from'))"
+	if strings.Contains(script, shadow) {
+		t.Fatal("PowerShell plugin target completion is shadowed by the combined branch")
 	}
 }
