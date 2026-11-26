@@ -4,7 +4,7 @@ import { Ellipsis, Pencil } from 'lucide-react';
 import { useT, plural } from '../../i18n';
 import { shortenHome } from '../../lib/paths';
 import Reveal from '../Reveal';
-import { mcpOffTargets, type MCPOverride, type MCPServer } from '../../api/mcp';
+import { mcpOffTargets } from '../../api/mcp';
 import {
   describeEndpoint,
   hasToolPolicy,
@@ -19,6 +19,7 @@ import type { MCPCheckFinding } from '../../api/mcpCheck';
 import MCPCheckFindings, { MCPCheckTag } from './MCPCheckFindings';
 import MCPProjectPicker from './MCPProjectPicker';
 import Button from '../Button';
+import SharedStatus, { type SharedLookup } from './SharedStatus';
 
 interface Props {
   rows: MatrixRow[];
@@ -39,14 +40,9 @@ interface Props {
   /** Saves the projects ticked for such a server; left out, they are not offered. */
   onProjects?: (name: string, picked: string[]) => void;
   /** How each project that uses such a server loads it, and where to change that. */
-  shared?: {
-    /** The server as that project loads it, with the targets it goes to there. */
-    loadedIn: (name: string, root: string) => MCPServer & { targets: string[] };
-    overrideOf: (name: string, root: string) => MCPOverride | undefined;
-    /** The project has its own server of this name, which loads in place of the shared one. */
-    replaced: (name: string, root: string) => boolean;
-    onOverride: (name: string, root: string) => void;
-  };
+  shared?: SharedLookup & { onOverride: (name: string, root: string) => void };
+  /** Opens a project's MCP tab from the projects listed under a shared server. */
+  onOpenProject?: (root: string) => void;
 }
 
 /**
@@ -66,6 +62,7 @@ export default function MCPServerList({
   roots = [],
   onProjects,
   shared,
+  onOpenProject,
 }: Props) {
   const t = useT();
   const [open, setOpen] = useState<string[]>([]);
@@ -76,34 +73,26 @@ export default function MCPServerList({
         !shared.replaced(name, root) &&
         overrideParts(t, shared.overrideOf(name, root)).length > 0,
     ).length;
-  // A project that uses the server: what it changes, or Pi's mode it inherits, and the way to change it.
-  const detail = (name: string, root: string) => {
-    if (!shared || shared.replaced(name, root)) return undefined;
-    const parts = overrideParts(t, shared.overrideOf(name, root));
-    const loaded = shared.loadedIn(name, root);
-    const exposure = scalarText(loaded.piOptions?.exposure ?? 'codemode');
+  // A project's own server, or what it changes in this one or inherits, and the way to change that.
+  const detail = (name: string, root: string, using: boolean) => {
+    if (!shared) return undefined;
+    const own = shared.replaced(name, root);
+    if (!using && !own) return undefined;
+    const parts = own ? [] : overrideParts(t, shared.overrideOf(name, root));
     return (
       <span className="flex shrink-0 items-center gap-2">
-        {parts.length > 0 ? (
-          <span className="ss-tag inf">{parts.join(t('mcp.tools.partSeparator'))}</span>
-        ) : (
-          <span className="text-xs text-ink-3">
-            {loaded.targets.includes('pi')
-              ? t('mcp.override.piDefault', {
-                  value: t(`mcp.piExposureShort.${exposure}`, undefined, exposure),
-                })
-              : t('mcp.projectsPick.inUse')}
-          </span>
+        <SharedStatus name={name} root={root} using={using} shared={shared} />
+        {using && !own && (
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={disabled}
+            onClick={() => shared.onOverride(name, root)}
+          >
+            <Pencil size={13} />
+            {t(parts.length > 0 ? 'mcp.override.edit' : 'mcp.override.add')}
+          </Button>
         )}
-        <Button
-          size="sm"
-          variant="ghost"
-          disabled={disabled}
-          onClick={() => shared.onOverride(name, root)}
-        >
-          <Pencil size={13} />
-          {t(parts.length > 0 ? 'mcp.override.edit' : 'mcp.override.add')}
-        </Button>
       </span>
     );
   };
@@ -223,7 +212,8 @@ export default function MCPServerList({
                     saved={users[row.name]}
                     disabled={disabled}
                     onSave={(picked) => onProjects(row.name, picked)}
-                    detail={shared && ((root) => detail(row.name, root))}
+                    detail={shared && ((root, using) => detail(row.name, root, using))}
+                    onOpen={onOpenProject}
                   />
                 )}
               </div>
@@ -243,13 +233,15 @@ function RowProjects({
   disabled,
   onSave,
   detail,
+  onOpen,
 }: {
   name: string;
   roots: string[];
   saved: string[];
   disabled: boolean;
   onSave: (picked: string[]) => void;
-  detail?: (root: string) => ReactNode;
+  detail?: (root: string, using: boolean) => ReactNode;
+  onOpen?: (root: string) => void;
 }) {
   const t = useT();
   const [picked, setPicked] = useState(saved);
@@ -264,6 +256,7 @@ function RowProjects({
         disabled={disabled}
         hint={t('mcp.projectsPick.hint')}
         detail={detail}
+        onOpen={onOpen}
       >
         <Button
           size="sm"

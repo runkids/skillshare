@@ -17,4 +17,20 @@ describe('MCP project picker', () => {
     await user.type(screen.getByLabelText('Project folder'), '/home/bob/repo{Enter}');
     expect(onChange).toHaveBeenCalledWith(['/home/bob/repo']);
   });
+
+  it('waits to open a project while a tick is not saved', () => {
+    render(
+      <I18nProvider>
+        <MCPProjectPicker
+          roots={['/work/api', '/work/web']}
+          saved={['/work/api']}
+          picked={['/work/api', '/work/web']}
+          onChange={vi.fn()}
+          onOpen={vi.fn()}
+        />
+      </I18nProvider>,
+    );
+    for (const button of screen.getAllByRole('button', { name: /MCP tab$/ }))
+      expect(button).toBeDisabled();
+  });
 });

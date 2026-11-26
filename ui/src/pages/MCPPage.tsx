@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Navigate, useSearchParams } from 'react-router-dom';
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   AlertCircle,
@@ -50,6 +50,7 @@ import MCPOverrideDialog from '../components/mcp/MCPOverrideDialog';
 import MCPRemoveDialog from '../components/mcp/MCPRemoveDialog';
 import MCPRestoreDialog from '../components/mcp/MCPRestoreDialog';
 import MCPServerDialog from '../components/mcp/MCPServerDialog';
+import SharedStatus, { type SharedLookup } from '../components/mcp/SharedStatus';
 import { isServeCommand, type AddMode } from '../components/mcp/mcpServerDraft';
 import {
   buildMatrix,
@@ -247,6 +248,7 @@ interface ContentProps {
   onToggle: (name: string, target: string, on: boolean) => void;
   onProjects: (name: string, picked: string[]) => void;
   onOverride: (name: string, root: string) => void;
+  onOpenProject: (root: string) => void;
   onMenu: (e: React.MouseEvent<HTMLButtonElement>, name: string) => void;
   onImport: (request: ImportRequest) => void;
   onAdd: () => void;
@@ -268,6 +270,7 @@ function MCPContent({
   onToggle,
   onProjects,
   onOverride,
+  onOpenProject,
   onMenu,
   onImport,
   onAdd,
@@ -315,12 +318,8 @@ function MCPContent({
       users={users}
       roots={roots}
       onProjects={onProjects}
-      shared={{
-        loadedIn: (name, root) => sharedInRoot(data.source, name, root),
-        overrideOf: (name, root) => data.source.projects?.[root]?.overrides?.[name],
-        replaced: (name, root) => Boolean(data.source.projects?.[root]?.servers?.[name]),
-        onOverride,
-      }}
+      shared={{ ...sharedLookup(data.source), onOverride }}
+      onOpenProject={onOpenProject}
     />
   );
   const actions = {
@@ -480,6 +479,15 @@ function MCPContent({
   );
 }
 
+/** How each project loads the shared servers, from the MCP page's config. */
+function sharedLookup(source: MCPList['source']): SharedLookup {
+  return {
+    loadedIn: (name, root) => sharedInRoot(source, name, root),
+    overrideOf: (name, root) => source.projects?.[root]?.overrides?.[name],
+    replaced: (name, root) => Boolean(source.projects?.[root]?.servers?.[name]),
+  };
+}
+
 function MCPEditDialog({
   data,
   model,
@@ -487,6 +495,7 @@ function MCPEditDialog({
   addingOff,
   addMode,
   onMode,
+  onOpenProject,
   onClose,
   onSaved,
 }: {
@@ -496,6 +505,7 @@ function MCPEditDialog({
   addingOff: boolean;
   addMode: AddMode;
   onMode: (mode: AddMode) => void;
+  onOpenProject: (root: string) => void;
   onClose: () => void;
   onSaved: (server?: MCPServer, users?: string[]) => void;
 }) {
@@ -503,6 +513,7 @@ function MCPEditDialog({
   const server = editing ? servers[editing] : undefined;
   // skillshare mcp serve has its own tab; an edit of such a server opens it again.
   const serve = editing === '' ? addMode === 'serve' : isServeCommand(server);
+  const shared = sharedLookup(data.source);
   return editing === '' && addMode === 'paste' ? (
     <MCPImportDialog
       source="paste"
@@ -525,6 +536,14 @@ function MCPEditDialog({
       availableTargets={files}
       users={editing ? users[editing] : undefined}
       roots={model.roots}
+      projectStatus={
+        editing
+          ? (root, using) => (
+              <SharedStatus name={editing} root={root} using={using} shared={shared} />
+            )
+          : undefined
+      }
+      onOpenProject={editing ? onOpenProject : undefined}
       onMode={editing === '' ? onMode : undefined}
       onClose={onClose}
       onSaved={onSaved}
@@ -673,6 +692,8 @@ export default function MCPPage() {
   const { toast } = useToast();
   const cache = useQueryClient();
   const [params] = useSearchParams();
+  const navigate = useNavigate();
+  const openProject = (root: string) => void navigate(projectUrl(root, 'mcp'));
   const { data, error, isPending } = useMcpQuery();
   const { isProjectMode } = useAppContext();
   const [addingOff, setAddingOff] = useState(false); // the new entry is a switch, not a server
@@ -845,6 +866,7 @@ export default function MCPPage() {
               onToggle={(n, x, on) => toggle(n, x, on)}
               onProjects={(n, picked) => void saveProjects(n, picked)}
               onOverride={(name, root) => setOverriding({ name, root })}
+              onOpenProject={openProject}
               onMenu={openMenu}
               onImport={setImporting}
               onAdd={() => {
@@ -873,6 +895,7 @@ export default function MCPPage() {
               addingOff={addingOff}
               addMode={addMode}
               onMode={setAddMode}
+              onOpenProject={openProject}
               onClose={() => setEditing(null)}
               onSaved={(server, users) => {
                 // An edit of a shared server reaches every project that uses it.

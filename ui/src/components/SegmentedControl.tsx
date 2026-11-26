@@ -20,6 +20,8 @@ interface SegmentedControlProps<T extends string> {
   /** Custom active text colour per option (for severity tabs, etc.) */
   colorFn?: (value: T) => string | undefined;
   className?: string;
+  /** Id of the visible label that names the group for screen readers. */
+  labelledBy?: string;
 }
 
 export default function SegmentedControl<T extends string>({
@@ -28,9 +30,15 @@ export default function SegmentedControl<T extends string>({
   options,
   colorFn,
   className = '',
+  labelledBy,
 }: SegmentedControlProps<T>) {
   return (
-    <div ref={segSlide} className={`ss-seg flex-wrap ${className}`}>
+    <div
+      ref={segSlide}
+      className={`ss-seg flex-wrap ${className}`}
+      role={labelledBy ? 'group' : undefined}
+      aria-labelledby={labelledBy}
+    >
       {options.map((opt) => {
         const on = value === opt.value;
         const color = on ? colorFn?.(opt.value) : undefined;

@@ -637,9 +637,9 @@ root 關閉這個 server、移除它，或把它改回 global，都會在同一�
   重新開啟則會移除該項目。**Opt-in servers** 列出[共用 server](#share-a-server-with-chosen-projects)，
   預設為關閉；它的開關會在 project 的 `use` 中加入或移除該名稱。
   **Only in this project** 則列出只存在於該 project 的 servers。
-- 在 MCP 頁面中，server 的對話框有 **Loads in**：**Every project**，或 **Only
-  projects that turn it on**。只要有共用 server，清單就會分成 **Global** 與 **Only in chosen projects** 兩區，共用 server 的列會顯示 **N projects**。展開該列，或在對話框選擇 **Only projects that turn it on**，會為 `mcp.projects` 的每個根目錄列出一個勾選框。**Save** 會一次在所有勾選或取消勾選的根目錄的 `use` 中加入或移除該名稱。**Add folder…** 會加入尚未列出的根目錄；它沒有自己的 `targets`，所以使用 `mcp.targets`。
-- 使用共用 server 的 project 可以 [override](#override-a-shared-server) 其中一部分設定。在 MCP 頁面展開該列，每個使用該 server 的 project 都會顯示它的 override；若 project 繼承了 Pi 的 tool exposure，則顯示該值，並附有 **Override** 或 **Edit override**；列標題會統計 override 的數量。在 project 的 **MCP** 分頁上，被 override 的 server 會帶 **Overridden** 標籤，其下一行說明該 project 改了什麼，鉛筆按鈕會開啟同一個對話框。對話框以唯讀方式顯示連線，並提供 Agents、Pi 的 tool exposure 和 tool policy，三者在你選擇值之前都跟隨 MCP 頁面；**Reset to default** 可清除其中一項。儲存會取代該 root 的 override，並保留對話框不顯示的設定，例如其他 `piOptions` 或 `options`。當共用 server 設定了 Pi 的 `toolExposure` 時，工具會被鎖定，因為 Pi 不接受與它並用的 tool policy。
+- 在 MCP 頁面中，server 的對話框有 **Loads in**：**Every project**，或 **Chosen
+  projects**。只要有共用 server，清單就會分成 **Global** 與 **Only in chosen projects** 兩區，共用 server 的列會顯示 **N projects**。展開該列，或在對話框選擇 **Chosen projects**，會為 `mcp.projects` 的每個根目錄列出一個勾選框。**Save** 會一次在所有勾選或取消勾選的根目錄的 `use` 中加入或移除該名稱。**Add folder…** 會加入尚未列出的根目錄；它沒有自己的 `targets`，所以使用 `mcp.targets`。若某個根目錄自己定義了同名 server，會標上 **Has its own** 與該名稱。每個列出的根目錄上的箭頭會開啟該 project 的 **MCP** 分頁；它會等到勾選（在對話框中還包括其他欄位）已儲存或放棄後才執行。
+- 使用共用 server 的 project 可以 [override](#override-a-shared-server) 其中一部分設定。在 MCP 頁面展開該列，每個使用該 server 的 project 都會顯示它的 override；若 project 繼承了 Pi 的 tool exposure，則顯示該值，並附有 **Override** 或 **Edit override**；列標題會統計 override 的數量。server 對話框中的 project 清單也顯示相同內容，但沒有按鈕。在 project 的 **MCP** 分頁上，被 override 的 server 會帶 **Overridden** 標籤，其下一行說明該 project 改了什麼，鉛筆按鈕會開啟同一個對話框。對話框以唯讀方式顯示連線，並提供 Agents、Pi 的 tool exposure 和 tool policy，三者在你選擇值之前都跟隨 MCP 頁面；**Reset to default** 可清除其中一項。儲存會取代該 root 的 override，並保留對話框不顯示的設定，例如其他 `piOptions` 或 `options`。當共用 server 設定了 Pi 的 `toolExposure` 時，工具會被鎖定，因為 Pi 不接受與它並用的 tool policy。
 - 已關閉的 server 會顯示它在哪些 Agents 中被關閉的 logo。已開啟的 server 會顯示載入它的 Agents；
   被同名的 project server 取代時則不顯示。當 project 的某個 Agent
   不支援個別 project 開關時，該列會說明這個 server 在那裡仍會載入。如果項目列出了
