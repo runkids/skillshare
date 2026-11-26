@@ -1,7 +1,7 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from '../i18n';
 import { ThemeProvider } from '../context/ThemeContext';
 import { ToastProvider } from './Toast';
@@ -25,6 +25,35 @@ function mount(theme: CustomTheme) {
 }
 const saved = () => JSON.parse(localStorage.getItem('skillshare-custom-theme') ?? 'null');
 
+// Reports the preview's sentinel at `top`, with the visible area starting at 0.
+function stubIntersection() {
+  let report: IntersectionObserverCallback = () => {};
+  vi.stubGlobal(
+    'IntersectionObserver',
+    class {
+      constructor(cb: IntersectionObserverCallback) {
+        report = cb;
+      }
+      observe() {}
+      disconnect() {}
+    },
+  );
+  return (top: number) =>
+    act(() =>
+      report(
+        [
+          {
+            isIntersecting: false,
+            boundingClientRect: { top },
+            rootBounds: { top: 0 },
+          } as unknown as IntersectionObserverEntry,
+        ],
+        {} as IntersectionObserver,
+      ),
+    );
+}
+const preview = () => document.querySelector('.ss-ministick');
+
 async function typeAccent(text: string) {
   const field = screen.getByLabelText('Accent hex color');
   await userEvent.clear(field);
@@ -35,6 +64,21 @@ describe('CustomThemeSettings', () => {
   afterEach(() => {
     cleanup();
     localStorage.clear();
+    vi.unstubAllGlobals();
+  });
+
+  it('widens the preview once it has scrolled up to the top', () => {
+    const report = stubIntersection();
+    mount(PRESETS.pine);
+    report(-40);
+    expect(preview()).toHaveClass('stuck');
+  });
+
+  it('keeps the preview narrow while it is still below the visible area', () => {
+    const report = stubIntersection();
+    mount(PRESETS.pine);
+    report(600);
+    expect(preview()).not.toHaveClass('stuck');
   });
 
   it('restores the preset when it is picked again', async () => {

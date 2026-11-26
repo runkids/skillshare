@@ -409,11 +409,14 @@ export default function CustomThemeSettings() {
     setPreviewMode(resolvedMode);
   }
   const fileInput = useRef<HTMLInputElement>(null);
-  // The preview is marked stuck once it pins to the top.
+  // The preview is marked stuck once it pins to the top: its sentinel has scrolled out above,
+  // not merely out of view below.
   const [stuck, setStuck] = useState(false);
   const sentinel = useCallback((el: HTMLDivElement | null) => {
     if (!el || typeof IntersectionObserver === 'undefined') return;
-    const io = new IntersectionObserver(([e]) => setStuck(!e.isIntersecting));
+    const io = new IntersectionObserver(([e]) =>
+      setStuck(!e.isIntersecting && e.boundingClientRect.top < (e.rootBounds?.top ?? 0)),
+    );
     io.observe(el);
     return () => io.disconnect();
   }, []);
