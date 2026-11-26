@@ -141,6 +141,8 @@ func downloadDirRecursive(client *http.Client, owner, repo, apiBase, path, destD
 				if err := downloadFile(client, item.DownloadURL, target); err != nil {
 					return err
 				}
+			case "symlink":
+				return fmt.Errorf("symlink %q requires git clone", item.Path)
 			}
 		}
 		return nil

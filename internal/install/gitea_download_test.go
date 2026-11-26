@@ -150,3 +150,27 @@ func TestForgeFallbackPreservesCredentialOrigin(t *testing.T) {
 		})
 	}
 }
+
+func TestGiteaDownloadDir_RejectsSymlinkForCloneFallback(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, `[{"type":"symlink","name":"ref.md","path":"skills/demo/ref.md"}]`)
+	}))
+	defer srv.Close()
+
+	err := giteaDownloadDirRecursive(srv.Client(), nil, srv.URL+"/api/v1", "o", "r", "skills/demo", t.TempDir(), nil)
+	if err == nil || !strings.Contains(err.Error(), "requires git clone") {
+		t.Fatalf("expected symlink fallback error, got: %v", err)
+	}
+}
+
+func TestCNBDownloadDir_RejectsLinkForCloneFallback(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, `{"type":"tree","name":"demo","path":"skills/demo","entries":[{"type":"link","name":"ref.md","path":"skills/demo/ref.md"}]}`)
+	}))
+	defer srv.Close()
+
+	err := cnbDownloadDirRecursive(srv.Client(), nil, srv.URL, "org/repo", "skills/demo", t.TempDir(), nil)
+	if err == nil || !strings.Contains(err.Error(), "requires git clone") {
+		t.Fatalf("expected symlink fallback error, got: %v", err)
+	}
+}
