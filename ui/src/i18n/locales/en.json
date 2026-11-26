@@ -994,6 +994,7 @@
   "updateDialog.nixConfig": "skillshare is installed with Nix. Update skillshare in your Nix configuration and rebuild.",
   "updateDialog.nixProfile": "skillshare is installed with Nix. Run {command} in a terminal.",
   "updateDialog.pypi": "skillshare was installed from PyPI. Run {command} in a terminal.",
+  "updateDialog.pixi": "skillshare was installed with pixi. Run {command} in a terminal.",
   "updateDialog.newVersion": "New version available",
   "updateDialog.restartDev": "DEV mode restart simulated.",
   "updateDialog.restartManual": "Updated. Restart with skillshare ui start if this page does not reconnect.",

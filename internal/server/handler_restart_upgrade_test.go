@@ -232,6 +232,15 @@ func TestHandleUpgradePyPIReportsPendingCLI(t *testing.T) {
 	}
 }
 
+func TestHandleUpgradePixiReportsPendingCLI(t *testing.T) {
+	_, skillOnly := stubNixUpgrade(t, versioncheck.InstallPixiGlobal, true)
+	rec := postUpgrade()
+	body := rec.Body.String()
+	if rec.Code != http.StatusConflict || !*skillOnly || !strings.Contains(body, `"error_code":"upgrade.pixi"`) || !strings.Contains(body, `"command":"pixi global update skillshare"`) {
+		t.Fatalf("status = %d skillOnly = %v body = %s", rec.Code, *skillOnly, body)
+	}
+}
+
 func TestHandleUpgradeOtherInstallsUpgradeTheCLI(t *testing.T) {
 	_, skillOnly := stubNixUpgrade(t, versioncheck.InstallDirect, true)
 	if rec := postUpgrade(); rec.Code != http.StatusOK || *skillOnly {

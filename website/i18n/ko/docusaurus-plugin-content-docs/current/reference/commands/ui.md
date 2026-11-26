@@ -107,7 +107,7 @@ skillshare ui start --clear-cache
 
 Git 충돌 비교에서는 파일 전체 버전을 선택합니다. 파일마다 로컬 또는 원격을 고르거나 **모두 로컬 유지**／**모두 원격 유지**로 한 번에 선택한 뒤 적용 전에 개별 선택을 바꿀 수 있습니다. 삭제된 쪽을 선택하면 병합에서 해당 파일이 삭제됩니다. 양쪽 커밋 기록은 유지되며 취소하면 파일은 바뀌지 않습니다.
 
-**Updates** 탭의 진행률 표시줄은 업데이트 진행 상황을 보여 주며 업데이트 중인 행도 표시됩니다. 차단되거나 실패한 업데이트는 별도 섹션에 표시됩니다. 같은 저장소의 skill은 한 번만 가져오며, upstream에서 바뀌지 않은 skill은 그대로 두고 최신 상태로 표시합니다. 업데이트가 성공하면 해당 종류에 적용할 동기화 변경 사항이 있는지 확인합니다. **Sync Now**는 적용할 변경 사항이 있을 때만 표시되며, 없으면 동기화가 필요 없다고 안내합니다. 기존 symlink는 이미 갱신된 source 내용을 읽습니다. 동기화 확인에 실패하면 최신 상태라고 표시하는 대신 오류와 **Retry**를 표시합니다. 링크를 따라 발견한 Git 체크아웃은 링크 이름과 대상 경로가 있는 정보 행으로 표시됩니다. `skillshare update --all`처럼 이 탭에서는 확인, 업데이트 또는 강제 재시도를 하지 않습니다. 체크아웃을 직접 관리하거나 CLI에서 이름을 지정해 업데이트하세요. **Check for updates**는 설치된 skill, agent, 추적 저장소를 확인합니다. Skills 탭에서 행을 선택하면 **Check N selected**가 나타나며, 선택한 skill과 추적 저장소만 확인합니다. 다른 행은 이전 결과를 유지합니다. 검색 상자에는 텍스트나 `pr-*` 같은 glob을 입력할 수 있으며, 이름과 폴더와 일치시킵니다(glob이 아닌 텍스트는 source와도 일치시킵니다). **Source**, **Status**, **Folder** 필터로 목록을 좁힐 수 있고, 각 옵션에는 선택했을 때 남는 행 수가 표시됩니다. 검색이나 상태 필터를 설정하지 않은 동안에는 최신 상태인 행이 **Show N up to date**로 접혀 있습니다. 확인에 실패하면 행 이름 아래에 이유가 표시되며, 탭 제목 아래의 실패 횟수를 누르면 해당 행만 필터링됩니다. Skills 탭에서는 Git source에서 업데이트가 있는 행에 **Preview**가 있어 실행하기 전에 가져올 내용을 보여 줍니다. skill은 변경된 파일마다 설치된 커밋과 최신 커밋 사이의 diff를, 추적 저장소는 새 커밋과 그 커밋이 건드리는 파일을 보여 줍니다. 로컬에서 편집한 skill에는 **View changes**가 있어 해당 편집 내용을 보여 주고 **Merge** 또는 **Force overwrite local edits**를 선택할 수 있습니다. 각 행의 `⋯` 메뉴에는 그 행에 해당하는 작업으로 **Check for updates**(skill만), **Update**, 그리고 GitHub, GitLab, Bitbucket에 있는 source의 경우 **Open on GitHub**(또는 GitLab, Bitbucket)가 있습니다.
+**Updates** 탭의 진행률 표시줄은 업데이트 진행 상황을 보여 주며 업데이트 중인 행도 표시됩니다. 차단되거나 실패한 업데이트는 별도 섹션에 표시됩니다. 같은 저장소의 skill은 한 번만 가져오며, upstream에서 바뀌지 않은 skill은 그대로 두고 최신 상태로 표시합니다. 업데이트가 성공하면 해당 종류에 적용할 동기화 변경 사항이 있는지 확인합니다. **Sync Now**는 적용할 변경 사항이 있을 때만 표시되며, 없으면 동기화가 필요 없다고 안내합니다. 기존 symlink는 이미 갱신된 source 내용을 읽습니다. 동기화 확인에 실패하면 최신 상태라고 표시하는 대신 오류와 **Retry**를 표시합니다. 링크를 따라 발견한 Git 체크아웃은 링크 이름과 대상 경로가 있는 정보 행으로 표시됩니다. `skillshare update --all`처럼 이 탭에서는 확인, 업데이트 또는 강제 재시도를 하지 않습니다. 체크아웃을 직접 관리하거나 CLI에서 이름을 지정해 업데이트하세요. **Check for updates**는 설치된 skill, agent, 추적 저장소를 확인합니다. Skills 탭에서 행을 선택하면 **Check N selected**가 나타나며, 선택한 skill과 추적 저장소만 확인합니다. 다른 행은 이전 결과를 유지합니다. 검색 상자에는 텍스트나 `pr-*` 같은 glob을 입력할 수 있으며, 이름과 폴더와 일치시킵니다(glob이 아닌 텍스트는 source와도 일치시킵니다). **Source**, **Status**, **Folder** 필터로 목록을 좁힐 수 있고, 각 옵션에는 선택했을 때 남는 행 수가 표시됩니다. 검색이나 상태 필터를 설정하지 않은 동안에는 최신 상태인 행이 **Show N up to date**로 접혀 있습니다. 확인에 실패하면 행 이름 아래에 이유가 표시되며, 탭 제목 아래의 실패 횟수를 누르면 해당 행만 필터링됩니다. Skills 탭에서는 Git source에서 업데이트가 있는 행에 **Preview**가 있어 실행하기 전에 가져올 내용을 보여 줍니다. skill은 변경된 파일마다 설치된 커밋과 최신 커밋 사이의 diff를, 추적 저장소는 새 커밋과 그 커밋이 건드리는 파일을 보여 줍니다. 로컬에서 편집한 skill에는 **View changes**가 있어 해당 편집 내용을 보여 주고 **Merge** 또는 **Force overwrite local edits**를 선택할 수 있습니다. 각 행의 `⋯` 메뉴에는 그 행에 해당하는 작업으로 **Check for updates**(skill만), **Update**, 그리고 GitHub, GitLab, Bitbucket에 있는 source의 경우 **Open on GitHub**(또는 GitLab, Bitbucket)가 있습니다. 링크는 source가 따르는 브랜치를 엽니다. 브랜치 없이 설치한 source는 확인으로 원격의 기본 브랜치를 알게 되면 그 브랜치 이름으로 열고, 확인 전에는 `HEAD`를 엽니다.
 
 `/collect`, `/install`, `/search`, `/trash`, `/backup`, `/log`, `/doctor`와 같은 이전 링크는 새 위치로 리디렉션되며, `/analyze`와 `/skills?tab=analyze`는 `target`을 유지한 채 `/context`의 **Context** 페이지로 리디렉션됩니다.
 
@@ -192,8 +192,8 @@ project mode(`-p`)로 실행할 때 대시보드는 다음과 같이 달라집�
 | GET | `/api/doctor` | 모든 상태 검사 실행(JSON) |
 | GET | `/api/doctor/stream` | 모든 상태 검사를 Server-Sent Events로 실행: 검사가 끝날 때마다 `check` 이벤트를 보냅니다. 오래 걸리는 검사는 먼저 `pending` 상태로 오고, 이름이 같은 이후 `check` 이벤트가 이를 대체합니다. 그 결과가 필요 없는 검사는 먼저 옵니다. 마지막에 `/api/doctor`와 같은 JSON을 담은 `done`을 보냅니다 |
 | GET | `/api/health` | liveness probe. 서버가 준비되면 `200`을 반환합니다 |
-| GET | `/api/version` | 현재/최신 버전 + 업그레이드 가능 여부 + Nix 또는 PyPI 설치의 경우 CLI를 업데이트하는 명령(`nixUpgradeCommand` 또는 `pypiUpgradeCommand`) + `.skillignore`가 내장 스킬을 비활성화하면 `skillDisabled`가 true |
-| POST | `/api/upgrade` | 제자리에서 `skillshare upgrade` 실행(바이너리가 dev build인 경우 `devMode: true` 반환, Nix 또는 PyPI 설치에서 새 CLI가 대기 중이면 코드 `upgrade.nix` 또는 `upgrade.pypi`와 함께 `409` 반환) |
+| GET | `/api/version` | 현재/최신 버전 + 업그레이드 가능 여부 + Nix, PyPI 또는 pixi 설치의 경우 CLI를 업데이트하는 명령(`nixUpgradeCommand`, `pypiUpgradeCommand` 또는 `pixiUpgradeCommand`) + `.skillignore`가 내장 스킬을 비활성화하면 `skillDisabled`가 true |
+| POST | `/api/upgrade` | 제자리에서 `skillshare upgrade` 실행(바이너리가 dev build인 경우 `devMode: true` 반환, Nix, PyPI 또는 pixi 설치에서 새 CLI가 대기 중이면 코드 `upgrade.nix`, `upgrade.pypi` 또는 `upgrade.pixi`와 함께 `409` 반환) |
 | POST | `/api/restart` | 로컬 UI 서버 재시작. 선택적으로 `{ "clearCache": true }` body를 전달하면 먼저 캐시된 UI 자산을 지웁니다 |
 
 ## 제자리 업그레이드
@@ -206,7 +206,9 @@ project mode(`-p`)로 실행할 때 대시보드는 다음과 같이 달라집�
 
 skillshare를 Nix로 설치한 경우에도 엔드포인트는 내장된 skillshare skill을 업데이트하지만 CLI 업데이트는 Nix에 맡깁니다. 새 CLI가 있으면 `409`(`upgrade.nix`)를 반환하고, 대화상자에 Nix로 업데이트하는 방법이 표시됩니다. 클릭하기 전부터 대화상자에 Nix로 CLI를 업데이트하는 방법이 표시됩니다. `nix profile` 설치에서는 `nix profile upgrade skillshare`, 그 외에는 Nix 구성 다시 빌드입니다. [upgrade](./upgrade.md#nix-users)를 참고하세요.
 
-uv, pipx 또는 pip으로 설치한 경우도 같습니다. 엔드포인트는 내장 skill을 업데이트하고, 새 CLI가 있으면 `409`(`upgrade.pypi`)를 반환하며, 대화상자는 클릭 전후에 `uv tool upgrade skillshare-cli`처럼 해당 설치 도구의 명령을 보여 줍니다. [upgrade](./upgrade.md#pypi-users)를 참고하세요.
+`skillshare-cli`를 uv, pipx, pip 또는 pixi로 설치한 경우도 같습니다. 엔드포인트는 내장 skill을 업데이트하고, 새 CLI가 있으면 `409`(`upgrade.pypi`)를 반환하며, 대화상자는 클릭 전후에 `uv tool upgrade skillshare-cli`처럼 해당 설치 도구의 명령을 보여 줍니다. [upgrade](./upgrade.md#pypi-users)를 참고하세요.
+
+pixi로 설치한 `skillshare` conda 패키지도 같은 방식으로 `409`(`upgrade.pixi`)를 반환하며, `pixi global update skillshare` 또는 `pixi upgrade skillshare`를 안내합니다. [upgrade](./upgrade.md#pixi-users)를 참고하세요.
 
 실행 중인 바이너리가 개발 빌드(`version == "dev"`)인 경우, upgrade 엔드포인트는 `devMode: true`를 반환하고 UI는 디스크의 어떤 것도 수정하지 않은 채 재시작을 시뮬레이션합니다.
 

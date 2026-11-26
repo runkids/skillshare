@@ -23,6 +23,10 @@ type AgentCheckResult struct {
 	// UpstreamChanged marks a drifted agent whose remote has moved on, so
 	// update agents --merge has upstream changes to merge into it.
 	UpstreamChanged bool `json:"upstreamChanged,omitempty"`
+	// DefaultBranch is the branch the remote HEAD points at, for an agent that
+	// recorded no branch. Only the dashboard links with it, so check --json
+	// leaves it out.
+	DefaultBranch string `json:"-"`
 	// treeHash is the git blob hash of the agent file it was installed from.
 	treeHash string
 }
@@ -206,6 +210,7 @@ func EnrichAgentResultsWithRemote(results []AgentCheckResult, onDone func(), par
 		var trees *RemoteTrees
 		fetched := false
 		for _, idx := range groups[refs[i]] {
+			results[idx].DefaultBranch = out.DefaultBranch
 			if out.Err != nil {
 				results[idx].Status = "error"
 				results[idx].Message = out.Err.Error()

@@ -107,7 +107,7 @@ skillshare ui start --clear-cache
 
 Git 冲突比较使用完整文件版本。可以逐个文件选择本机或远端，也能用 **全部保留本机**／**全部保留远端** 一次选择，再在应用前调整个别文件。选择已删除的一方会在合并中删除该文件。双方的提交历史都会保留；取消不会修改文件。
 
-在 **Updates** 标签页中，进度条会显示更新进度，正在更新的行也会标记出来。被阻止或失败的更新会显示在单独的区域。同一仓库的 skill 只获取一次，在 upstream 中没有变化的 skill 保持不变，并显示为已是最新。更新成功后，标签页会检查该类型是否有待同步变更。只有有变更可应用时才会显示 **Sync Now**；没有差异时会提示无需同步。现有 symlink 已能读取更新后的 source 内容。同步检查失败时会显示错误与 **Retry**，不会误报全部为最新状态。 链接指向的 Git checkout 会以信息行显示链接名称和目标路径。与 `skillshare update --all` 一样，此标签页不会检查、更新或强制重试这些 checkout；请自行管理，或在 CLI 中按名称明确更新。 **Check for updates** 会检查已安装的 skill、agent 和追踪的仓库。在 Skills 标签页勾选行后会出现 **Check N selected**，只检查选中的 skill 和追踪仓库；其他行保留上次的结果。 搜索框可输入文本或 `pr-*` 这样的 glob，与名称和目录匹配（不含 glob 的文字也会与 source 匹配）；**Source**、**Status** 和 **Folder** 筛选器可进一步缩小列表，每个选项都会显示选中后剩下的行数。在未设置搜索或状态筛选时，已是最新的行会折叠到 **Show N up to date** 中。检查失败的行会在名称下方说明原因，点击标签页标题下的失败数量，即可只筛选出这些行。在 Skills 标签页，来自 Git source 且有更新的行带有 **Preview**，可在运行前查看更新会带来什么：对 skill 显示每个变更文件在已安装 commit 与最新 commit 之间的 diff；对追踪的仓库显示新的 commit 及其涉及的文件。有本地修改的 skill 带有 **View changes**，可查看这些修改，并可选择 **Merge** 或 **Force overwrite local edits**。每一行的 `⋯` 菜单包含适用于该行的操作：**Check for updates**（仅限 skill）、**Update**，以及对于位于 GitHub、GitLab 或 Bitbucket 的 source 的 **Open on GitHub**（或 GitLab、Bitbucket）。
+在 **Updates** 标签页中，进度条会显示更新进度，正在更新的行也会标记出来。被阻止或失败的更新会显示在单独的区域。同一仓库的 skill 只获取一次，在 upstream 中没有变化的 skill 保持不变，并显示为已是最新。更新成功后，标签页会检查该类型是否有待同步变更。只有有变更可应用时才会显示 **Sync Now**；没有差异时会提示无需同步。现有 symlink 已能读取更新后的 source 内容。同步检查失败时会显示错误与 **Retry**，不会误报全部为最新状态。 链接指向的 Git checkout 会以信息行显示链接名称和目标路径。与 `skillshare update --all` 一样，此标签页不会检查、更新或强制重试这些 checkout；请自行管理，或在 CLI 中按名称明确更新。 **Check for updates** 会检查已安装的 skill、agent 和追踪的仓库。在 Skills 标签页勾选行后会出现 **Check N selected**，只检查选中的 skill 和追踪仓库；其他行保留上次的结果。 搜索框可输入文本或 `pr-*` 这样的 glob，与名称和目录匹配（不含 glob 的文字也会与 source 匹配）；**Source**、**Status** 和 **Folder** 筛选器可进一步缩小列表，每个选项都会显示选中后剩下的行数。在未设置搜索或状态筛选时，已是最新的行会折叠到 **Show N up to date** 中。检查失败的行会在名称下方说明原因，点击标签页标题下的失败数量，即可只筛选出这些行。在 Skills 标签页，来自 Git source 且有更新的行带有 **Preview**，可在运行前查看更新会带来什么：对 skill 显示每个变更文件在已安装 commit 与最新 commit 之间的 diff；对追踪的仓库显示新的 commit 及其涉及的文件。有本地修改的 skill 带有 **View changes**，可查看这些修改，并可选择 **Merge** 或 **Force overwrite local edits**。每一行的 `⋯` 菜单包含适用于该行的操作：**Check for updates**（仅限 skill）、**Update**，以及对于位于 GitHub、GitLab 或 Bitbucket 的 source 的 **Open on GitHub**（或 GitLab、Bitbucket）。链接会打开 source 所跟随的分支。未指定分支安装的 source，检查得知远端的默认分支后，链接会以该分支名称打开；检查之前则打开 `HEAD`。
 
 旧链接如 `/collect`、`/install`、`/search`、`/trash`、`/backup`、`/log` 和 `/doctor` 会重定向到新位置，`/analyze` 和 `/skills?tab=analyze` 会重定向到位于 `/context` 的 **Context** 页面，并保留 `target`。
 
@@ -192,8 +192,8 @@ web dashboard 在 `/api/` 下暴露一个 REST API。所有端点都返回 JSON�
 | GET | `/api/doctor` | 运行所有健康检查（JSON） |
 | GET | `/api/doctor/stream` | 以 Server-Sent Events 运行所有健康检查：每完成一项发送一个 `check` 事件。较慢的检查会先以状态 `pending` 发送，之后同名的 `check` 事件会取代它，不需要它结果的检查会先发送；最后以 `done` 发送与 `/api/doctor` 相同的 JSON |
 | GET | `/api/health` | 存活探针；server 就绪后返回 `200` |
-| GET | `/api/version` | 当前/最新版本、是否有可用升级，以及 Nix 或 PyPI 安装时更新 CLI 的命令（`nixUpgradeCommand` 或 `pypiUpgradeCommand`）；`.skillignore` 禁用内置技能时 `skillDisabled` 为 true |
-| POST | `/api/upgrade` | 就地运行 `skillshare upgrade`（当二进制文件为开发构建时返回 `devMode: true`；通过 Nix 或 PyPI 安装且有更新的 CLI 待安装时返回 `409`，错误码为 `upgrade.nix` 或 `upgrade.pypi`） |
+| GET | `/api/version` | 当前/最新版本、是否有可用升级，以及 Nix、PyPI 或 pixi 安装时更新 CLI 的命令（`nixUpgradeCommand`、`pypiUpgradeCommand` 或 `pixiUpgradeCommand`）；`.skillignore` 禁用内置技能时 `skillDisabled` 为 true |
+| POST | `/api/upgrade` | 就地运行 `skillshare upgrade`（当二进制文件为开发构建时返回 `devMode: true`；通过 Nix、PyPI 或 pixi 安装且有更新的 CLI 待安装时返回 `409`，错误码为 `upgrade.nix`、`upgrade.pypi` 或 `upgrade.pixi`） |
 | POST | `/api/restart` | 重启本地 UI server；可选的 `{ "clearCache": true }` body 会先清除缓存的 UI 资源 |
 
 ## 就地升级
@@ -206,7 +206,9 @@ web dashboard 在 `/api/` 下暴露一个 REST API。所有端点都返回 JSON�
 
 如果 skillshare 通过 Nix 安装，该端点仍会更新内置的 skillshare skill，但 CLI 交给 Nix 更新。有更新的 CLI 时，它会返回 `409`（`upgrade.nix`），对话框随后说明如何通过 Nix 更新。点击之前，对话框就会说明如何通过 Nix 更新 CLI：`nix profile` 安装为 `nix profile upgrade skillshare`，否则为重新构建 Nix 配置。参见 [upgrade](./upgrade.md#nix-users)。
 
-通过 uv、pipx 或 pip 安装时处理方式相同：该端点会更新内置 skill，有更新的 CLI 时返回 `409`（`upgrade.pypi`），对话框在点击前后都会显示对应安装工具的命令，例如 `uv tool upgrade skillshare-cli`。参见 [upgrade](./upgrade.md#pypi-users)。
+通过 uv、pipx、pip 或 pixi 安装 `skillshare-cli` 时处理方式相同：该端点会更新内置 skill，有更新的 CLI 时返回 `409`（`upgrade.pypi`），对话框在点击前后都会显示对应安装工具的命令，例如 `uv tool upgrade skillshare-cli`。参见 [upgrade](./upgrade.md#pypi-users)。
+
+由 pixi 安装的 `skillshare` conda 包同样返回 `409`（`upgrade.pixi`），并提示 `pixi global update skillshare` 或 `pixi upgrade skillshare`。参见 [upgrade](./upgrade.md#pixi-users)。
 
 如果运行中的二进制文件是开发构建（`version == "dev"`），upgrade 端点会返回
 `devMode: true`，UI 会模拟一次重启而不修改磁盘上的任何内容。

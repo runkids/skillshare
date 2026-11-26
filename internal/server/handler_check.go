@@ -26,6 +26,9 @@ type skillCheckResult struct {
 	InstalledAt string `json:"installed_at,omitempty"`
 	Kind        string `json:"kind,omitempty"`
 	Message     string `json:"message,omitempty"`
+	// DefaultBranch names the branch the remote HEAD points at, so a source
+	// link can open that branch instead of HEAD.
+	DefaultBranch string `json:"default_branch,omitempty"`
 }
 
 // checkNames reads the names query param (comma-separated): the tracked repos
@@ -73,12 +76,13 @@ func dashboardSkillResults(results []check.SkillResult) []skillCheckResult {
 			continue
 		}
 		out = append(out, skillCheckResult{
-			Name:        r.Name,
-			Source:      r.Source,
-			Version:     r.Version,
-			Status:      r.Status,
-			InstalledAt: r.InstalledAt,
-			Message:     r.Message,
+			Name:          r.Name,
+			Source:        r.Source,
+			Version:       r.Version,
+			Status:        r.Status,
+			InstalledAt:   r.InstalledAt,
+			Message:       r.Message,
+			DefaultBranch: r.DefaultBranch,
 		})
 	}
 	return out
@@ -88,7 +92,7 @@ func dashboardSkillResults(results []check.SkillResult) []skillCheckResult {
 func dashboardAgentResults(results []check.AgentCheckResult) []skillCheckResult {
 	out := make([]skillCheckResult, 0, len(results))
 	for _, r := range results {
-		out = append(out, skillCheckResult{Name: r.Name, Source: r.Source, Version: r.Version, Status: r.Status, Message: r.Message})
+		out = append(out, skillCheckResult{Name: r.Name, Source: r.Source, Version: r.Version, Status: r.Status, Message: r.Message, DefaultBranch: r.DefaultBranch})
 	}
 	return out
 }

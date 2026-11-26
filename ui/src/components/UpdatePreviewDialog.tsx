@@ -3,7 +3,12 @@ import { ExternalLink, X } from 'lucide-react';
 import { api, ApiError } from '../api/client';
 import type { RepoUpstreamChanges } from '../api/client';
 import { queryKeys } from '../lib/queryKeys';
-import { compareUrl, sourcePage, type FilterUnit } from '../lib/updateFilters';
+import {
+  compareUrl,
+  sourcePage,
+  type DefaultBranches,
+  type FilterUnit,
+} from '../lib/updateFilters';
 import { formatNumber, formatRelativeTime, plural, useI18n, useT } from '../i18n';
 import Button from './Button';
 import DialogShell from './DialogShell';
@@ -15,6 +20,8 @@ interface UpdatePreviewDialogProps {
   unit: FilterUnit | null;
   /** upstream: what updating brings in. local: what was edited since install. */
   mode: 'upstream' | 'local';
+  /** The default branches checks found, for the history link. */
+  branches?: DefaultBranches;
   onClose: () => void;
   onUpdate: (opts: { force?: boolean; merge?: boolean }) => void;
 }
@@ -23,6 +30,7 @@ interface UpdatePreviewDialogProps {
 export default function UpdatePreviewDialog({
   unit,
   mode,
+  branches,
   onClose,
   onUpdate,
 }: UpdatePreviewDialogProps) {
@@ -59,7 +67,7 @@ export default function UpdatePreviewDialog({
             ) : unit.isRepo ? (
               <RepoChanges unit={unit} />
             ) : (
-              <SkillChanges unit={unit} />
+              <SkillChanges unit={unit} branches={branches} />
             )}
           </div>
           <div className="df flex-wrap">
@@ -133,7 +141,7 @@ function SourceLink({ link }: { link: { url: string; host: string } | null }) {
 }
 
 /** A skill installed from a repo: its files at the installed commit against the latest. */
-function SkillChanges({ unit }: { unit: FilterUnit }) {
+function SkillChanges({ unit, branches }: { unit: FilterUnit; branches?: DefaultBranches }) {
   const t = useT();
   const { locale } = useI18n();
   const { data, error, isPending } = useQuery({
@@ -143,7 +151,7 @@ function SkillChanges({ unit }: { unit: FilterUnit }) {
   });
   if (isPending) return <Loading />;
   if (error) return <LoadFailed error={error} />;
-  const page = sourcePage(unit, 'commits');
+  const page = sourcePage(unit, 'commits', branches);
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">

@@ -68,6 +68,8 @@ export const queryKeys = {
   missingConfigEntries: ['missing-config-entries'] as const,
   // Last update check, kept client-side (see UpdatePage) and shared by the Updates tab and its count.
   updateCheck: ['update-check'] as const,
+  // The default branch of each remote a check reached, kept client-side (see UpdatePage).
+  defaultBranches: ['default-branches'] as const,
   syncMatrix: (target?: string) => ['sync-matrix', target ?? '__all'] as const,
   // Prefix: every target's matrix, where `syncMatrix()` is only the all-targets one.
   syncMatrixAll: ['sync-matrix'] as const,

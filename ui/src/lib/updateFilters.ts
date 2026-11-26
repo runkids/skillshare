@@ -150,7 +150,10 @@ const segments = (raw: string) =>
 
 const bare = (segment: string) => segment.replace(/\.git$/, '');
 
-/** The unit's repository on a known host, and the folder and ref its source names, if any. */
+/**
+ * The unit's repository on a known host, and the folder and ref its source names, if any. An
+ * empty ref means the source follows the remote HEAD.
+ */
 function locate(unit: FilterUnit) {
   const item = unit.items[0];
   const parts = segments((unit.isRepo ? item?.repoUrl : undefined) ?? unit.source ?? '');
@@ -166,16 +169,17 @@ function locate(unit: FilterUnit) {
   const home = `https://${parts[0]}/${parts.slice(1, end).map(bare).join('/')}`;
   let rest = parts.slice(end);
   const branch = item?.branch ?? '';
-  let ref = branch || 'HEAD';
+  let ref = branch;
   // A source written as a browser URL names a ref before its folder: …/tree/<ref>/<dir>,
   // …/-/tree/…, …/src/…. Updates follow the recorded branch, so it wins over that ref; when the
-  // two match, the branch also says how many segments a ref like feature/x spans.
+  // two match, the branch also says how many segments a ref like feature/x spans. A HEAD ref is
+  // the default branch, as install reads it, so it names no ref of its own.
   const web = site.refs.find((m) => rest.slice(0, m.split('/').length).join('/') === m);
   const skip = web ? web.split('/').length : 0;
   if (web && rest.length > skip) {
     const own = branch.split('/');
     const matches = branch !== '' && own.every((p, i) => rest[skip + i] === p);
-    if (!branch) ref = rest[skip];
+    if (!branch && rest[skip] !== 'HEAD') ref = rest[skip];
     rest = rest.slice(skip + (matches ? own.length : 1));
   }
   return { site, home, ref, path: unit.isRepo ? null : rest.join('/') };
@@ -189,15 +193,38 @@ function locate(unit: FilterUnit) {
 export function sourcePage(
   unit: FilterUnit,
   view: 'tree' | 'commits' = 'tree',
+  branches: DefaultBranches = {},
 ): { url: string; host: string } | null {
   const at = locate(unit);
   if (!at) return null;
-  // A tracked repo, or a root skill on the default branch, opens the repository's home.
+  // A tracked repo, or a root skill on the default branch, opens the repository's home. A folder
+  // on the default branch opens that branch by name once a check has found it: HEAD opens the
+  // commit it points at.
+  const ref = at.ref || branches[unit.items[0]?.repoUrl ?? ''] || 'HEAD';
   const url =
-    at.path === null || (at.path === '' && at.ref === 'HEAD')
+    at.path === null || (at.path === '' && !at.ref)
       ? at.home
-      : `${at.home}/${at.site[view]}/${at.ref}${at.path && `/${at.path}`}`;
+      : `${at.home}/${at.site[view]}/${ref.split('/').map(encodeURIComponent).join('/')}${at.path && `/${at.path}`}`;
   return { url, host: at.site.host };
+}
+
+/** The branch each remote's HEAD points at, by clone URL, as update checks found it. */
+export type DefaultBranches = Record<string, string>;
+
+/**
+ * The default branches after a check reported some. A branch belongs to its repository, so a
+ * skill reinstalled from another one never inherits it. Only a result that names a branch changes
+ * anything: an error, a pinned branch or a tracked repo reports none, and leaves what an earlier
+ * check found.
+ */
+export function recordDefaultBranches(
+  prev: DefaultBranches,
+  reports: { repoUrl?: string; defaultBranch?: string }[],
+): DefaultBranches {
+  const next = { ...prev };
+  for (const { repoUrl, defaultBranch } of reports)
+    if (repoUrl && defaultBranch) next[repoUrl] = defaultBranch;
+  return next;
 }
 
 /** The page comparing two commits of a tracked repo; Bitbucket's falls back to the repo. */

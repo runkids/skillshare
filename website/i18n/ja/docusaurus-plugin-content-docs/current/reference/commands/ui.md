@@ -107,7 +107,7 @@ skillshare ui start --clear-cache
 
 Git の競合比較ではファイル全体のバージョンを選びます。ファイルごとにローカルかリモートを選ぶか、**すべてローカルを保持**／**すべてリモートを保持**で一括選択し、適用前に個別の選択を変更できます。削除された側を選ぶと、そのファイルはマージで削除されます。両方のコミット履歴は保持され、キャンセルしてもファイルは変わりません。
 
-**Updates** タブでは、プログレスバーに更新の進行状況が表示され、更新中の行が示されます。ブロックされた更新や失敗した更新は別のセクションに表示されます。同じリポジトリの skill は 1 回の取得でまとめて更新され、upstream で変更のない skill はそのまま残り、最新と表示されます。更新が成功すると、その種類の同期に未反映の変更があるか確認します。**Sync Now** は適用する変更がある場合にだけ表示され、変更がなければ同期不要と表示されます。既存の symlink は更新された source の内容をすでに読み取れます。同期の確認に失敗した場合は、最新状態と表示する代わりにエラーと **Retry** が表示されます。 たどられた Git チェックアウトは、リンク名とターゲットパスを含む情報行として表示されます。`skillshare update --all` と同様、このタブではチェック、更新、強制再試行を行いません。チェックアウトは自分で管理するか、CLI で名前を指定して更新してください。 **Check for updates** は、インストール済みの skill、agent、追跡リポジトリをチェックします。Skills タブで行にチェックを入れると **Check N selected** が表示され、選んだ skill と追跡リポジトリだけをチェックします。ほかの行は前回の結果を保ちます。 検索ボックスにはテキストまたは `pr-*` のような glob を入力でき、名前とフォルダと照合されます（glob でない文字列は source とも照合されます）。**Source**、**Status**、**Folder** フィルターで一覧を絞り込めます。各オプションには、選ぶと残る行数が表示されます。検索やステータスフィルターを設定していない間、最新の行は **Show N up to date** にまとめて折りたたまれます。チェックに失敗した行には、名前の下に理由が表示され、タブの見出しの下にある失敗件数をクリックすると、それらの行だけに絞り込まれます。Skills タブでは、Git の source から更新のある行に **Preview** があり、実行前に取り込まれる内容を表示します。skill の場合は、変更されたファイルごとに、インストール済みのコミットと最新のコミットとの diff を表示し、追跡リポジトリの場合は、新しいコミットとそれらが触れるファイルを表示します。ローカルで編集した skill には **View changes** があり、その編集内容を表示して、**Merge** または **Force overwrite local edits** を選べます。各行の `⋯` メニューには、その行に当てはまる操作として **Check for updates**（skill のみ）、**Update**、そして GitHub、GitLab、Bitbucket 上の source では **Open on GitHub**（または GitLab、Bitbucket）があります。
+**Updates** タブでは、プログレスバーに更新の進行状況が表示され、更新中の行が示されます。ブロックされた更新や失敗した更新は別のセクションに表示されます。同じリポジトリの skill は 1 回の取得でまとめて更新され、upstream で変更のない skill はそのまま残り、最新と表示されます。更新が成功すると、その種類の同期に未反映の変更があるか確認します。**Sync Now** は適用する変更がある場合にだけ表示され、変更がなければ同期不要と表示されます。既存の symlink は更新された source の内容をすでに読み取れます。同期の確認に失敗した場合は、最新状態と表示する代わりにエラーと **Retry** が表示されます。 たどられた Git チェックアウトは、リンク名とターゲットパスを含む情報行として表示されます。`skillshare update --all` と同様、このタブではチェック、更新、強制再試行を行いません。チェックアウトは自分で管理するか、CLI で名前を指定して更新してください。 **Check for updates** は、インストール済みの skill、agent、追跡リポジトリをチェックします。Skills タブで行にチェックを入れると **Check N selected** が表示され、選んだ skill と追跡リポジトリだけをチェックします。ほかの行は前回の結果を保ちます。 検索ボックスにはテキストまたは `pr-*` のような glob を入力でき、名前とフォルダと照合されます（glob でない文字列は source とも照合されます）。**Source**、**Status**、**Folder** フィルターで一覧を絞り込めます。各オプションには、選ぶと残る行数が表示されます。検索やステータスフィルターを設定していない間、最新の行は **Show N up to date** にまとめて折りたたまれます。チェックに失敗した行には、名前の下に理由が表示され、タブの見出しの下にある失敗件数をクリックすると、それらの行だけに絞り込まれます。Skills タブでは、Git の source から更新のある行に **Preview** があり、実行前に取り込まれる内容を表示します。skill の場合は、変更されたファイルごとに、インストール済みのコミットと最新のコミットとの diff を表示し、追跡リポジトリの場合は、新しいコミットとそれらが触れるファイルを表示します。ローカルで編集した skill には **View changes** があり、その編集内容を表示して、**Merge** または **Force overwrite local edits** を選べます。各行の `⋯` メニューには、その行に当てはまる操作として **Check for updates**（skill のみ）、**Update**、そして GitHub、GitLab、Bitbucket 上の source では **Open on GitHub**（または GitLab、Bitbucket）があります。リンクは source が追うブランチを開きます。ブランチを指定せずにインストールした source では、チェックでリモートのデフォルトブランチがわかると、そのブランチ名で開きます。チェック前は `HEAD` を開きます。
 
 `/collect`、`/install`、`/search`、`/trash`、`/backup`、`/log`、`/doctor` などの古いリンクは新しい場所にリダイレクトされ、`/analyze` と `/skills?tab=analyze` は `target` を保ったまま `/context` の **Context** ページにリダイレクトされます。
 
@@ -192,8 +192,8 @@ Web ダッシュボードは `/api/` に REST API を公開しています。す
 | GET | `/api/doctor` | すべてのヘルスチェックを実行（JSON） |
 | GET | `/api/doctor/stream` | すべてのヘルスチェックを Server-Sent Events で実行。チェックが見つかるたびに `check` イベントを送る。時間のかかるチェックはまず状態 `pending` で届き、同じ名前の後続の `check` イベントで置き換えられる。その結果を必要としないチェックは先に届く。最後に `/api/doctor` と同じ JSON を `done` で送る |
 | GET | `/api/health` | 死活監視プローブ。サーバーの準備ができると `200` を返す |
-| GET | `/api/version` | 現在/最新バージョン、アップグレードの可否、Nix または PyPI でのインストールでは CLI を更新するコマンド（`nixUpgradeCommand` または `pypiUpgradeCommand`）。`.skillignore` で組み込みスキルが無効なら `skillDisabled` が true |
-| POST | `/api/upgrade` | `skillshare upgrade` をその場で実行（バイナリが開発ビルドの場合は `devMode: true` を返し、Nix または PyPI でのインストールで新しい CLI が待機中の場合はコード `upgrade.nix` または `upgrade.pypi` の `409` を返す） |
+| GET | `/api/version` | 現在/最新バージョン、アップグレードの可否、Nix、PyPI、pixi でのインストールでは CLI を更新するコマンド（`nixUpgradeCommand`、`pypiUpgradeCommand`、`pixiUpgradeCommand`）。`.skillignore` で組み込みスキルが無効なら `skillDisabled` が true |
+| POST | `/api/upgrade` | `skillshare upgrade` をその場で実行（バイナリが開発ビルドの場合は `devMode: true` を返し、Nix、PyPI、pixi でのインストールで新しい CLI が待機中の場合はコード `upgrade.nix`、`upgrade.pypi`、`upgrade.pixi` の `409` を返す） |
 | POST | `/api/restart` | ローカル UI サーバーを再起動。任意の `{ "clearCache": true }` ボディでキャッシュされた UI アセットを先にクリア |
 
 ## インプレースアップグレード
@@ -206,7 +206,9 @@ Web ダッシュボードは `/api/` に REST API を公開しています。す
 
 skillshare を Nix でインストールしている場合も、エンドポイントは組み込みの skillshare Skill を更新しますが、CLI の更新は Nix に任せます。新しい CLI がある場合は `409`（`upgrade.nix`）を返し、ダイアログに Nix での更新方法が表示されます。クリックする前から、ダイアログには Nix で CLI を更新する方法が表示されます。`nix profile` でのインストールでは `nix profile upgrade skillshare`、それ以外では Nix 設定の再ビルドです。[upgrade](./upgrade.md#nix-users) を参照してください。
 
-uv、pipx、pip でインストールした場合も同様です。エンドポイントは組み込みの Skill を更新し、新しい CLI がある場合は `409`（`upgrade.pypi`）を返します。ダイアログはクリックの前後に `uv tool upgrade skillshare-cli` のようなインストーラーのコマンドを表示します。[upgrade](./upgrade.md#pypi-users) を参照してください。
+`skillshare-cli` を uv、pipx、pip、pixi でインストールした場合も同様です。エンドポイントは組み込みの Skill を更新し、新しい CLI がある場合は `409`（`upgrade.pypi`）を返します。ダイアログはクリックの前後に `uv tool upgrade skillshare-cli` のようなインストーラーのコマンドを表示します。[upgrade](./upgrade.md#pypi-users) を参照してください。
+
+pixi でインストールした `skillshare` conda パッケージも同様に `409`（`upgrade.pixi`）を返し、`pixi global update skillshare` または `pixi upgrade skillshare` を案内します。[upgrade](./upgrade.md#pixi-users) を参照してください。
 
 実行中のバイナリが開発ビルド（`version == "dev"`）である場合、upgrade エンドポイントは `devMode: true` を返し、UI はディスク上の何も変更せずに再起動をシミュレートします。
 

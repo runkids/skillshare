@@ -74,7 +74,7 @@ nix profile upgrade skillshare
 
 ## PyPI 用户 {#pypi-users}
 
-如果通过 uv、pipx 或 pip 安装，`skillshare upgrade` 不会改动 CLI，因为安装工具记录了已安装的版本，替换二进制文件会让该记录失真。PyPI 上有新版本时，它会改为提示对应安装工具的更新命令：
+如果通过 uv、pipx、pip 或 pixi 安装 `skillshare-cli` 包，`skillshare upgrade` 不会改动 CLI，因为安装工具记录了已安装的版本，替换二进制文件会让该记录失真。PyPI 上有新版本时，它会改为提示对应安装工具的更新命令：
 
 ```bash
 uv tool upgrade skillshare-cli                # uv tool install
@@ -82,6 +82,7 @@ pipx upgrade skillshare-cli                   # pipx
 pip install --upgrade skillshare-cli          # pip
 uv pip install --upgrade skillshare-cli       # uv pip, in a uv venv without pip
 uvx --from skillshare-cli@latest skillshare   # uvx
+pixi upgrade skillshare-cli                   # pixi add --pypi, in a pixi project
 ```
 
 它与 PyPI 而非 GitHub 比较，因此不会提示安装工具尚无法获取的版本。
@@ -89,6 +90,17 @@ uvx --from skillshare-cli@latest skillshare   # uvx
 仪表板的更新按钮也会显示同样的提示，`skillshare upgrade --skill` 仍会更新内置 skill。
 
 在 Windows 上，uv 和 pipx 会把 `skillshare.exe` 的副本放到 PATH 中，skillshare 无法将其与手动安装区分，因此 `skillshare upgrade` 会直接更新该副本。请改为运行安装工具的更新命令，以保持其记录准确。
+
+## pixi 用户 {#pixi-users}
+
+`skillshare` conda 包来自 prefix.dev 实验性的 [`github-releases`](https://prefix.dev/channels/github-releases/packages/skillshare) 渠道，该渠道会重新打包 GitHub release 的可执行文件，但不一定收录每个版本。如果由 pixi 安装，`skillshare upgrade` 不会改动 CLI，因为 pixi 记录了已安装的版本，它会改为提示 pixi 的命令：
+
+```bash
+pixi global update skillshare   # pixi global install; use your environment's name if you chose one
+pixi upgrade skillshare         # pixi add, in a pixi project
+```
+
+它与 GitHub releases 比较，而渠道会在发布一段时间后才收录，因此 pixi 可能不会立刻看到最新版本。仪表板的更新按钮也会显示同样的提示，`skillshare upgrade --skill` 仍会更新内置 skill。
 
 ## 示例
 
