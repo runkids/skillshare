@@ -70,6 +70,7 @@ const events = {
   // Config
   configSaved: () =>
     keys(
+      k.plugins,
       k.updatePolicy,
       k.versionCheck,
       k.config,

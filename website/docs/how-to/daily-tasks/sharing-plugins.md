@@ -127,8 +127,9 @@ components are not also copied into standalone Skillshare sources.
 
 ## Updates and recovery {#updates-and-recovery}
 
-The Plugins page checks for updates when it opens, and **Check updates** checks
-again on demand. Plugins are checked at the same time: each row shows its result
+On a return visit, Plugins reuses checks completed in the last two minutes.
+If cached results are older, they stay visible during the new check.
+Use the refresh button in **Tools** to refresh inventory and check updates immediately. Plugins are checked at the same time: each row shows its result
 as soon as its own check finishes, and the header counts the plugins checked so
 far. A plugin that cannot be checked shows **Check failed**, including one whose
 Agent's CLI does not answer within 60 seconds; hover it for the reason. A row whose source has a newer version shows `old → new`, and

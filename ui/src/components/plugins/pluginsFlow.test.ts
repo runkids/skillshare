@@ -1,6 +1,9 @@
-import { act, renderHook } from '@testing-library/react';
+import { createElement, type ReactNode } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { pluginsApi } from '../../api/plugins';
+import { invalidate } from '../../lib/queryEvents';
 import { ApiError } from '../../api/client';
 import type {
   PluginCheckEvent,
@@ -66,10 +69,17 @@ const streams = (...ends: Omit<Extract<PluginUpdateEvent, { event: 'result' }>, 
     on({ event: 'done', failure: '' });
   });
 
+function queryWrapper(client = new QueryClient()) {
+  return ({ children }: { children: ReactNode }) =>
+    createElement(QueryClientProvider, { client }, children);
+}
+
 function flow() {
   const refresh = vi.fn();
   const onPreviewed = vi.fn();
-  const hook = renderHook(() => usePluginsFlow({ t, refresh, onPreviewed }));
+  const hook = renderHook(() => usePluginsFlow({ t, refresh, onPreviewed }), {
+    wrapper: queryWrapper(),
+  });
   return { hook, refresh, onPreviewed, now: () => hook.result.current };
 }
 
@@ -217,7 +227,7 @@ describe('plugins flow', () => {
     });
     const { now, onPreviewed } = flow();
     await act(() => now().check());
-    expect(now().updates).toEqual({ driver: { pi: observed } });
+    await waitFor(() => expect(now().updates).toEqual({ driver: { pi: observed } }));
     expect(now().review).toBeNull();
     expect(onPreviewed).not.toHaveBeenCalled();
     await act(() => now().updateMany([{ name: 'driver', targets: ['pi'] }]));
@@ -362,18 +372,79 @@ describe('plugins flow', () => {
       targetDefinitions: [],
       packages: { driver: { bindings: {} }, tail: { bindings: {} }, guard: { bindings: {} } },
     };
-    const { result } = renderHook(() =>
-      usePluginsFlow({ t, inventory, refresh: vi.fn(), onPreviewed: vi.fn() }),
+    const { result } = renderHook(
+      () => usePluginsFlow({ t, inventory, refresh: vi.fn(), onPreviewed: vi.fn() }),
+      { wrapper: queryWrapper() },
     );
-    await act(() => result.current.check(true));
-    expect(result.current.updates).toEqual({
-      driver: { pi: { version: '1.1.0', id: 'npm:driver' } },
-    });
+    await waitFor(() =>
+      expect(result.current.updates).toEqual({
+        driver: { pi: { version: '1.1.0', id: 'npm:driver' } },
+      }),
+    );
     expect(result.current.checkFailures).toEqual({
       tail: 'plugins.error.timeout',
       guard: 'plugins.note.accountChanged',
     });
     expect(result.current.checkProgress).toEqual({ done: 3, total: 3 });
+  });
+
+  const inventory = { packages: { demo: { bindings: {} } }, hosts: [], targetDefinitions: [] };
+  const mountChecks = (client: QueryClient) =>
+    renderHook(
+      () =>
+        usePluginsFlow({
+          t,
+          inventory,
+          refresh: vi.fn(),
+          onPreviewed: vi.fn(),
+        }),
+      { wrapper: queryWrapper(client) },
+    );
+  const available = {
+    name: 'demo',
+    plan: plan('old', { action: 'update-available', binding: { id: 'demo', version: '2' } }),
+  };
+
+  it.each([0, 120000])('reuses completed checks until stale (freshness %i)', async (staleTime) => {
+    const client = new QueryClient({ defaultOptions: { queries: { staleTime } } });
+    checks(available);
+    const first = mountChecks(client);
+    await waitFor(() => expect(first.result.current.updates.demo.codex.version).toBe('2'));
+    first.unmount();
+    let finish!: () => void;
+    vi.mocked(pluginsApi.check).mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const revisit = mountChecks(client);
+    expect(revisit.result.current.updates.demo.codex.version).toBe('2');
+    expect(pluginsApi.check).toHaveBeenCalledTimes(staleTime ? 1 : 2);
+    if (staleTime)
+      act(() => {
+        void invalidate(client, 'pluginsChanged');
+      });
+    await act(async () => finish());
+    await waitFor(() => expect(revisit.result.current.updates).toEqual({}));
+  });
+
+  it('replaces a cold check invalidated before its first answer', async () => {
+    let oldAnswer!: (e: PluginCheckEvent) => void;
+    vi.mocked(pluginsApi.check).mockImplementationOnce(
+      (on, signal) =>
+        new Promise<void>((_, reject) => {
+          oldAnswer = on;
+          signal!.addEventListener('abort', () => reject(signal!.reason));
+        }),
+    );
+    checks(available);
+    const client = new QueryClient();
+    const current = mountChecks(client);
+    await act(() => invalidate(client, 'pluginsChanged'));
+    act(() => oldAnswer({ name: 'demo', plan: null }));
+    await waitFor(() => expect(current.result.current.updates.demo.codex.version).toBe('2'));
+    expect(pluginsApi.check).toHaveBeenCalledTimes(2);
   });
 
   it('keeps what the last check found for plugins a broken-off check never answered for', async () => {
@@ -394,7 +465,7 @@ describe('plugins flow', () => {
     const { now } = flow();
     await act(() => now().check());
     await act(() => now().check());
-    expect(Object.keys(now().updates)).toEqual(['tail']);
+    await waitFor(() => expect(Object.keys(now().updates)).toEqual(['tail']));
   });
 
   it('keeps an update the last check found on an Agent this check could not reach', async () => {
@@ -430,10 +501,12 @@ describe('plugins flow', () => {
     const { now } = flow();
     await act(() => now().check());
     await act(() => now().check());
-    expect(now().updates).toEqual({
-      driver: { 'claude-work': expect.anything() },
-      tail: { pi: expect.anything() },
-    });
+    await waitFor(() =>
+      expect(now().updates).toEqual({
+        driver: { 'claude-work': expect.anything() },
+        tail: { pi: expect.anything() },
+      }),
+    );
   });
 
   const offered = (p: PluginPlan | null) =>
@@ -456,7 +529,7 @@ describe('plugins flow', () => {
     });
     const { now } = flow();
     await act(() => now().check());
-    expect(offered(now().checked)).toEqual(['driver:claude']);
+    await waitFor(() => expect(offered(now().checked)).toEqual(['driver:claude']));
   });
 
   it('offers in the update dialog an update kept for an Agent the check could not reach', async () => {
@@ -486,7 +559,7 @@ describe('plugins flow', () => {
     const { now } = flow();
     await act(() => now().check());
     await act(() => now().check());
-    expect(offered(now().checked)).toEqual(['driver:claude-work']);
+    await waitFor(() => expect(offered(now().checked)).toEqual(['driver:claude-work']));
   });
 
   it('tells whether a check came back, so a check the user asked for can open its result', async () => {
