@@ -137,6 +137,8 @@ func TestHandleVersionCheckReportsPyPIUpgradeCommand(t *testing.T) {
 		{method: versioncheck.InstallNixProfile, want: nil},
 		{method: versioncheck.InstallUV, want: "uv tool upgrade skillshare-cli"},
 		{method: versioncheck.InstallPip, want: "pip install --upgrade skillshare-cli"},
+		{method: versioncheck.InstallPixiPyPI, want: "pixi upgrade skillshare-cli"},
+		{method: versioncheck.InstallPixiGlobal, want: nil},
 	}
 	oldVersion, oldDetect := versioncheck.Version, detectUIInstallMethod
 	defer func() { versioncheck.Version, detectUIInstallMethod = oldVersion, oldDetect }()
@@ -152,6 +154,34 @@ func TestHandleVersionCheckReportsPyPIUpgradeCommand(t *testing.T) {
 		}
 		if body["pypiUpgradeCommand"] != tt.want {
 			t.Errorf("method %v: pypiUpgradeCommand = %#v, want %#v", tt.method, body["pypiUpgradeCommand"], tt.want)
+		}
+	}
+}
+
+func TestHandleVersionCheckReportsPixiUpgradeCommand(t *testing.T) {
+	tests := []struct {
+		method versioncheck.InstallMethod
+		want   any // nil: not a conda package from pixi
+	}{
+		{method: versioncheck.InstallDirect, want: nil},
+		{method: versioncheck.InstallPixiPyPI, want: nil},
+		{method: versioncheck.InstallPixiGlobal, want: "pixi global update skillshare"},
+		{method: versioncheck.InstallPixi, want: "pixi upgrade skillshare"},
+	}
+	oldVersion, oldDetect := versioncheck.Version, detectUIInstallMethod
+	defer func() { versioncheck.Version, detectUIInstallMethod = oldVersion, oldDetect }()
+	versioncheck.Version = "dev" // skips the network lookup
+	for _, tt := range tests {
+		detectUIInstallMethod = func() versioncheck.InstallMethod { return tt.method }
+		rec := httptest.NewRecorder()
+		(&Server{cfg: &config.Config{Source: t.TempDir()}}).handleVersionCheck(rec, httptest.NewRequest(http.MethodGet, "/api/version", nil))
+
+		var body map[string]any
+		if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+			t.Fatalf("decode response: %v", err)
+		}
+		if body["pixiUpgradeCommand"] != tt.want {
+			t.Errorf("method %v: pixiUpgradeCommand = %#v, want %#v", tt.method, body["pixiUpgradeCommand"], tt.want)
 		}
 	}
 }

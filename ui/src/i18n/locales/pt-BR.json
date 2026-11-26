@@ -992,6 +992,7 @@
   "updateDialog.nixConfig": "O skillshare foi instalado com Nix. Atualize o skillshare na sua configuração do Nix e reconstrua.",
   "updateDialog.nixProfile": "O skillshare foi instalado com Nix. Execute {command} em um terminal.",
   "updateDialog.pypi": "O skillshare foi instalado pelo PyPI. Execute {command} em um terminal.",
+  "updateDialog.pixi": "O skillshare foi instalado com o pixi. Execute {command} em um terminal.",
   "updateDialog.newVersion": "Nova versão disponível",
   "updateDialog.restartDev": "Reinicialização em modo DEV simulada.",
   "updateDialog.restartManual": "Atualizado. Reinicie com skillshare ui start se esta página não reconectar.",

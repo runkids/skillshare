@@ -129,8 +129,11 @@ every target and `doctor` and `status` warn. Run `skillshare enable skillshare -
 **Nix installs:** the CLI binary is never replaced, even with `--force`; `upgrade` prints
 `nix profile upgrade skillshare` or says to rebuild the Nix configuration. The skill still updates.
 
-**PyPI installs** (`skillshare-cli` from uv, pipx or pip): the CLI binary is never replaced, even with
+**PyPI installs** (`skillshare-cli` from uv, pipx, pip or pixi): the CLI binary is never replaced, even with
 `--force`; `upgrade` prints the installer's command, such as `uv tool upgrade skillshare-cli`. The skill still updates.
+
+**pixi installs** (the `skillshare` conda package): the CLI binary is never replaced, even with `--force`;
+`upgrade` prints `pixi global update skillshare`, or `pixi upgrade skillshare` in a pixi project. The skill still updates.
 
 **After upgrading skill:** `skillshare sync`
 

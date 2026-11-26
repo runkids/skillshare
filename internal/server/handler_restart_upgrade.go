@@ -40,7 +40,7 @@ func (s *Server) handleUpgrade(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
-	// Only the package manager may replace a Nix-store or PyPI binary, so
+	// Only the package manager may replace a Nix-store, PyPI or pixi binary, so
 	// update just the skill there.
 	method := detectUIInstallMethod()
 	result, err := runUIUpgrade(method.IsPackageManaged())
@@ -63,6 +63,12 @@ func (s *Server) handleUpgrade(w http.ResponseWriter, r *http.Request) {
 	if method.IsPyPI() && uiCLIUpdateAvailable(method) {
 		writeCodedError(w, http.StatusConflict, "upgrade.pypi",
 			"skillshare is installed from PyPI; "+method.UpgradeInstruction(),
+			map[string]string{"command": method.UpgradeCommand()})
+		return
+	}
+	if method.IsPixi() && uiCLIUpdateAvailable(method) {
+		writeCodedError(w, http.StatusConflict, "upgrade.pixi",
+			"skillshare is installed with pixi; "+method.UpgradeInstruction(),
 			map[string]string{"command": method.UpgradeCommand()})
 		return
 	}

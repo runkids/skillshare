@@ -180,7 +180,7 @@ func TestFetchLatestVersionForPyPIAsksPyPI(t *testing.T) {
 	pypiJSONURL = srv.URL
 	t.Cleanup(func() { pypiJSONURL = old })
 
-	for _, method := range []InstallMethod{InstallUV, InstallPipx, InstallPip, InstallUVPip, InstallUVX} {
+	for _, method := range []InstallMethod{InstallUV, InstallPipx, InstallPip, InstallUVPip, InstallUVX, InstallPixiPyPI} {
 		if got, err := FetchLatestVersionFor(method); err != nil || got != "0.0.7" {
 			t.Errorf("FetchLatestVersionFor(%v) = %q, %v; want PyPI's 0.0.7", method, got, err)
 		}

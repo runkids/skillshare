@@ -992,6 +992,7 @@
   "updateDialog.nixConfig": "skillshare 透過 Nix 安裝。請在 Nix 設定中更新 skillshare 並重新建置。",
   "updateDialog.nixProfile": "skillshare 透過 Nix 安裝。請在終端機執行 {command}。",
   "updateDialog.pypi": "skillshare 透過 PyPI 安裝。請在終端機執行 {command}。",
+  "updateDialog.pixi": "skillshare 透過 pixi 安裝。請在終端機執行 {command}。",
   "updateDialog.newVersion": "有新版本可用",
   "updateDialog.restartDev": "已模擬 DEV 模式重新啟動。",
   "updateDialog.restartManual": "已更新。如果此頁面沒有重新連線，請執行 skillshare ui start 重新啟動。",
