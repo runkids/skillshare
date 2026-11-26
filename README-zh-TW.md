@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **最新版本**：v0.31.0 — 一個 MCP server 只給需要的專案用：在 `mcp.servers` 裡把 server 設成 `global: false`，再列進各專案 root 的 `use`，改一次就會在下次 `skillshare sync mcp` 更新所有專案。在 dashboard 裡，可以從專案「MCP」分頁的「選用」開啟它；「從其他專案」選單現在可以搜尋，多個專案共用的 server 只列一次。dashboard 也會把 skill 的 `metadata.version` 顯示成標籤，例如 `v1.2.0`。 [MCP 指南 →](https://skillshare.runkids.cc/zh-Hant/docs/reference/commands/mcp#share-a-server-with-chosen-projects) · [更新紀錄 →](https://skillshare.runkids.cc/changelog)
+> **最新版本**：v0.32.0 — 更新 skill 時保留你的修改：`skillshare update my-skill --merge` 會像 `git merge` 一樣，逐個檔案把 upstream 的變更合併進你安裝後改過的 skill 或 agent。兩邊改到同一行時不會寫入任何內容，`update` 會列出衝突的檔案。`skillshare analyze` 現在也會估算 MCP server 的 tool 定義占用每個 Agent 上下文的 token，超過 `context_budget.warn_mcp_tool_tokens` 時發出警告。 [合併指南 →](https://skillshare.runkids.cc/zh-Hant/docs/reference/commands/update#merging-upstream-changes) · [更新紀錄 →](https://skillshare.runkids.cc/changelog)
 
 ## 為什麼用 skillshare
 

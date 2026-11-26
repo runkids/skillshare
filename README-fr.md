@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **Dernière version** : v0.31.0 — Partagez un serveur MCP avec les seuls projets qui en ont besoin : donnez `global: false` à un serveur de `mcp.servers` et ajoutez-le à `use` dans la racine de chaque projet ; une seule modification met à jour tous les projets au prochain `skillshare sync mcp`. Dans le tableau de bord, activez-le depuis l'onglet **MCP** d'un projet, sous **Serveurs à activer**, et le sélecteur **Depuis un autre projet** permet désormais de chercher et n'affiche qu'une fois un serveur partagé par plusieurs projets. Le tableau de bord affiche aussi le `metadata.version` d'un skill sous forme d'étiquette, par exemple `v1.2.0`. [Guide MCP →](https://skillshare.runkids.cc/docs/reference/commands/mcp#share-a-server-with-chosen-projects) · [Toutes les versions →](https://github.com/runkids/skillshare/releases)
+> **Dernière version** : v0.32.0 — Gardez vos modifications quand un skill se met à jour : `skillshare update my-skill --merge` fusionne les changements de l'amont dans un skill ou un agent que vous avez modifié depuis l'installation, fichier par fichier comme `git merge`. Si les deux côtés ont changé les mêmes lignes, rien n'est écrit et `update` liste les fichiers en conflit. `skillshare analyze` estime aussi les tokens que les définitions d'outils de vos serveurs MCP ajoutent au contexte de chaque Agent, et avertit au-delà de `context_budget.warn_mcp_tool_tokens`. [Guide du merge →](https://skillshare.runkids.cc/docs/reference/commands/update#merging-upstream-changes) · [Toutes les versions →](https://github.com/runkids/skillshare/releases)
 
 ## Pourquoi skillshare
 

@@ -138,7 +138,7 @@ or `--kind agent` to choose which resource to manage.
 | `--kind <skill\|agent>` | Restrict resource discovery |
 | `--agent, -a <names>` | Select agents by name (comma-separated) |
 | `--branch, -b <name>` | Select a Git branch, tag or commit SHA (overrides a ref in a web URL) |
-| `--force, -f` | Overwrite existing and explicitly override audit blocking from findings (not a failed scan) |
+| `--force, -f` | Overwrite existing and explicitly override audit blocking from findings (not a failed scan); if the new version fails to install or is blocked, the installed skill is kept |
 | `--update, -u` | Update if exists |
 | `--track, -t` | Track for updates (preserves .git); a local path works if it is a git repository. Rejects `--all`, `--yes`, `--skill`, and `--agent` |
 | `--skill, -s <names>` | Select specific skills from multi-skill repo (comma-separated). Rejects `--track`, `--all`, and `--yes` |

@@ -287,7 +287,7 @@ skillshare sync
 |------|-------|-------------|
 | `--name <name>` | | 只安裝一個 skill 時覆寫其安裝名稱 |
 | `--into <dir>` | | 安裝到子目錄中（例如 `--into frontend` 或 `--into frontend/react`） |
-| `--force` | `-f` | 覆蓋既有 skill；略過 audit 發現項目的阻擋（掃描失敗除外）與跨路徑重複檢查 |
+| `--force` | `-f` | 覆蓋既有 skill；略過 audit 發現項目的阻擋（掃描失敗除外）與跨路徑重複檢查。新版本安裝失敗或被阻擋時，已安裝的 skill 保持不變 |
 | `--update` | `-u` | 若已存在則更新（git pull 或重新安裝） |
 | `--branch <ref>` | `-b` | 要安裝的 git branch、tag 或 commit SHA（預設：remote 的預設分支） |
 | `--track` | `-t` | 保留 tracked repos 的 `.git`。不能與 `--all`、`--yes`、`--skill` 或 `--agent` 同時使用。 |

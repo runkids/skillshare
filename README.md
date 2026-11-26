@@ -48,7 +48,7 @@
 </p>
 
 > [!NOTE]
-> **Latest**: v0.31.0 — Share one MCP server with only the projects that need it: give a server in `mcp.servers` `global: false` and list it under `use` in each project root, and editing it once updates every project on the next `skillshare sync mcp`. In the dashboard, a project's **MCP** tab turns it on under **Opt-in servers**, and the **From another project** picker can now search and lists a server that several projects share only once. The dashboard also shows a skill's `metadata.version` as a tag, such as `v1.2.0`. [MCP guide →](https://skillshare.runkids.cc/docs/reference/commands/mcp#share-a-server-with-chosen-projects) · [All releases →](https://github.com/runkids/skillshare/releases)
+> **Latest**: v0.32.0 — Keep your edits when a skill updates: `skillshare update my-skill --merge` merges upstream's changes into a skill or agent you changed since install, file by file like `git merge`. When both sides changed the same lines, nothing is written and `update` lists the conflicting files. `skillshare analyze` now also estimates the tokens your MCP servers' tool definitions add to each Agent's context, and warns past `context_budget.warn_mcp_tool_tokens`. [Merge guide →](https://skillshare.runkids.cc/docs/reference/commands/update#merging-upstream-changes) · [All releases →](https://github.com/runkids/skillshare/releases)
 
 ## Why skillshare
 
@@ -416,6 +416,12 @@ Thank you to everyone who has reported a bug, suggested an improvement, or helpe
 <a href="https://github.com/eirikc"><img src="https://github.com/eirikc.png" width="50" style="border-radius:50%" alt="eirikc"></a>
 <a href="https://github.com/AlexisSerneels"><img src="https://github.com/AlexisSerneels.png" width="50" style="border-radius:50%" alt="AlexisSerneels"></a>
 <a href="https://github.com/digitalflex-io"><img src="https://github.com/digitalflex-io.png" width="50" style="border-radius:50%" alt="digitalflex-io"></a>
+<a href="https://github.com/WslzGmzs"><img src="https://github.com/WslzGmzs.png" width="50" style="border-radius:50%" alt="WslzGmzs"></a>
+<a href="https://github.com/NieZhuZhu"><img src="https://github.com/NieZhuZhu.png" width="50" style="border-radius:50%" alt="NieZhuZhu"></a>
+<a href="https://github.com/vivekkushalch"><img src="https://github.com/vivekkushalch.png" width="50" style="border-radius:50%" alt="vivekkushalch"></a>
+<a href="https://github.com/raphaelbahat"><img src="https://github.com/raphaelbahat.png" width="50" style="border-radius:50%" alt="raphaelbahat"></a>
+<a href="https://github.com/dev-seahouse"><img src="https://github.com/dev-seahouse.png" width="50" style="border-radius:50%" alt="dev-seahouse"></a>
+<a href="https://github.com/cazador481"><img src="https://github.com/cazador481.png" width="50" style="border-radius:50%" alt="cazador481"></a>
 
 ---
 

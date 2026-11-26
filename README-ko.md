@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **최신 버전**: v0.31.0 — MCP 서버 하나를 필요한 프로젝트에만 공유하세요. `mcp.servers`의 서버에 `global: false`를 설정하고 각 프로젝트 root의 `use`에 넣으면, 한 번 고친 내용이 다음 `skillshare sync mcp`에서 모든 프로젝트에 반영됩니다. 대시보드에서는 프로젝트의 「MCP」 탭에 있는 「선택형 서버」에서 켤 수 있고, 「다른 프로젝트에서」 선택기는 이제 검색할 수 있으며 여러 프로젝트가 공유하는 서버를 한 번만 보여 줍니다. 대시보드는 스킬의 `metadata.version`도 `v1.2.0` 같은 태그로 표시합니다. [MCP 가이드 →](https://skillshare.runkids.cc/ko/docs/reference/commands/mcp#share-a-server-with-chosen-projects) · [변경 기록 →](https://skillshare.runkids.cc/changelog)
+> **최신 버전**: v0.32.0 — skill을 업데이트해도 직접 고친 내용을 지킬 수 있습니다. `skillshare update my-skill --merge`는 설치 후 수정한 skill이나 agent에 upstream 변경을 `git merge`처럼 파일 단위로 병합합니다. 양쪽이 같은 줄을 바꿨다면 아무것도 쓰지 않고 `update`가 충돌한 파일을 나열합니다. `skillshare analyze`는 이제 MCP 서버의 tool 정의가 각 Agent의 컨텍스트에 더하는 토큰도 추정하고, `context_budget.warn_mcp_tool_tokens`를 넘으면 경고합니다. [병합 가이드 →](https://skillshare.runkids.cc/ko/docs/reference/commands/update#merging-upstream-changes) · [변경 기록 →](https://skillshare.runkids.cc/changelog)
 
 ## skillshare를 쓰는 이유
 

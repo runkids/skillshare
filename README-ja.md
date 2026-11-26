@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **最新バージョン**：v0.31.0 — MCP サーバーを必要なプロジェクトだけで共有できます。`mcp.servers` のサーバーに `global: false` を設定し、各プロジェクトの root の `use` に並べれば、一度の編集が次の `skillshare sync mcp` ですべてのプロジェクトに反映されます。ダッシュボードでは、プロジェクトの「MCP」タブの「オプトインのサーバー」でオンにでき、「他のプロジェクトから」のピッカーは検索でき、複数のプロジェクトが共有するサーバーを 1 行にまとめます。ダッシュボードはスキルの `metadata.version` も `v1.2.0` のようなタグで表示します。 [MCP ガイド →](https://skillshare.runkids.cc/ja/docs/reference/commands/mcp#share-a-server-with-chosen-projects) · [変更履歴 →](https://skillshare.runkids.cc/changelog)
+> **最新バージョン**：v0.32.0 — Skill を更新しても自分の編集を残せます。`skillshare update my-skill --merge` は、インストール後に編集した Skill や Agent に upstream の変更を `git merge` のようにファイルごとにマージします。両方が同じ行を変更していた場合は何も書き込まず、`update` が競合したファイルを一覧表示します。`skillshare analyze` は、MCP サーバーのツール定義が各 Agent のコンテキストに加えるトークン数も見積もり、`context_budget.warn_mcp_tool_tokens` を超えると警告します。 [マージガイド →](https://skillshare.runkids.cc/ja/docs/reference/commands/update#merging-upstream-changes) · [変更履歴 →](https://skillshare.runkids.cc/changelog)
 
 ## skillshare を使う理由
 

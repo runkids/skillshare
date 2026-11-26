@@ -293,7 +293,7 @@ See [Project Setup](/docs/how-to/sharing/project-setup) for the full guide.
 |------|-------|-------------|
 | `--name <name>` | | Override installed name when exactly one skill is installed |
 | `--into <dir>` | | Install into subdirectory (e.g. `--into frontend` or `--into frontend/react`) |
-| `--force` | `-f` | Overwrite existing skill; override audit blocking from findings (not a failed scan) and cross-path duplicate check |
+| `--force` | `-f` | Overwrite existing skill; override audit blocking from findings (not a failed scan) and cross-path duplicate check. If the new version fails to install or is blocked, the installed skill is kept |
 | `--update` | `-u` | Update if exists (git pull or reinstall) |
 | `--branch <ref>` | `-b` | Git branch, tag, or commit SHA to install from (default: remote default branch) |
 | `--track` | `-t` | Keep `.git` for tracked repos. Cannot combine with `--all`, `--yes`, `--skill`, or `--agent`. |

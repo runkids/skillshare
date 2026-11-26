@@ -287,7 +287,7 @@ skillshare sync
 |------|-------|-------------|
 | `--name <name>` | | 정확히 하나의 skill이 설치될 때 설치된 이름을 재정의 |
 | `--into <dir>` | | 하위 디렉터리에 설치 (예: `--into frontend` 또는 `--into frontend/react`) |
-| `--force` | `-f` | 기존 skill을 덮어쓰기; audit findings 차단(스캔 실패 제외) 및 cross-path 중복 검사를 재정의 |
+| `--force` | `-f` | 기존 skill을 덮어쓰기; audit findings 차단(스캔 실패 제외) 및 cross-path 중복 검사를 재정의. 새 버전 설치가 실패하거나 차단되면 설치된 skill은 그대로 유지됨 |
 | `--update` | `-u` | 존재하면 업데이트 (git pull 또는 재설치) |
 | `--branch <ref>` | `-b` | 설치할 git branch, tag 또는 commit SHA (기본값: remote 기본 브랜치) |
 | `--track` | `-t` | tracked repo용으로 `.git`을 유지. `--all`, `--yes`, `--skill`, `--agent`와 함께 사용할 수 없습니다. |
