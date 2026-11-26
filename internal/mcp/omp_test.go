@@ -183,8 +183,8 @@ func TestOMPImportSafety(t *testing.T) {
 			if tc.name == "bare reference" && c.Server.Env["API_TOKEN"].FromEnv != "API_TOKEN" {
 				t.Fatalf("bare reference became a literal: %+v", c)
 			}
-			if tc.name == "native fields" && len(c.Warnings) != 2 {
-				t.Fatalf("native fields silently dropped: %+v", c)
+			if tc.name == "native fields" && (len(c.Server.Options["omp"]) != 2 || len(c.Warnings) != 0) {
+				t.Fatalf("native fields not kept as options.omp: %+v", c)
 			}
 		})
 	}

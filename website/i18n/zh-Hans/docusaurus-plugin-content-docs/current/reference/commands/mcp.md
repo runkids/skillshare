@@ -67,7 +67,7 @@ skillshare sync --all
 或在非交互模式下打印状态。不带名称的非交互式 import 会列出
 已解析的候选项以供选择，并不会保存。候选项包含可移植的
 定义，可识别的密钥会被转换为引用。Agent 专属的
-字段会作为警告列出并被省略；已禁用的 server 和不受支持的
+字段会放入该 Agent 的 [`options`](#agent-options)；`options` 无法容纳的字段会作为警告列出并被省略。已禁用的 server 和不受支持的
 传输方式会阻止该候选项。`restore` 在应用之前总会再次预览；
 使用 `--dry-run` 可以在不应用的情况下查看预览。
 
@@ -166,6 +166,7 @@ servers:
   `{env:VAR}`，且整个值必须就是引用。Agent 的文件可能会被提交，因此明文或引用前后带有文字的值会被拒绝。
   Codex、Antigravity、Claude Desktop、Goose、Junie、LM Studio 和 Warp 不会读取那里的引用，所以它们的 options 不能放凭据。
 - 该 server 触达不到的 client 的 options 会被保留，但不会写入。
+- import 会把 Agent 的原生字段中此处没有可移植形式的部分，放在该 Agent 的 ID 下，例如 Claude Code 的 `alwaysLoad` 会放在 `options.claude` 下。名称（或其内部名称）看起来是凭据的字段（`auth`、`key`、`token`、`secret`、`bearer`、`cookie` 等），以及上述规则拒绝的字段，会显示 warning 并被省略。未指定 `--from` 导入的文件或粘贴的文本，其格式是推测的，因此原生字段会列为 warning 并被省略。
 - 当 sync 重新创建条目时，例如重命名之后，会再次写入这些字段。
   当 source 删掉某个 option 时，下一次 sync 会移除它写入的字段，除非 Agent 在此之后改过它；那属于需要 import 或 replace 的冲突。
 - 在仪表板中，server 对话框的 **其他 Agent 设置** 可以编辑它们：选择 Agent，再以 JSON 对象输入字段。
@@ -233,7 +234,7 @@ skillshare mcp edit docs --target claude   # 把它加回来
 | [Windsurf (Cascade)](https://docs.devin.ai/desktop/cascade/mcp) | `~/.codeium/windsurf/mcp_config.json` | 仅限 Global | `mcpServers` |
 | [Oh My Pi (OMP)](https://github.com/can1357/oh-my-pi/blob/v18.6.1/docs/mcp-config.md) | `~/.omp/agent/mcp.json` | `.omp/mcp.json` | `mcpServers` |
 
-Hermes 仅支持 Global MCP，使用 `mcp_servers`（YAML）；支持 stdio 和 Streamable HTTP，拒绝导入 SSE。绝对路径 `HERMES_HOME` 可选择其他 home/profile；未指定时使用 default profile，Windows 默认为 `%LOCALAPPDATA%/hermes`。不自动跟踪 active profile、`--profile` 或 `HERMES_DATA_DIR_SUFFIX`。`fromEnv` 写为 `${VAR}`，env/header 导入也接受 `${env:VAR}`。使用 `options.hermes: {auth: oauth}` 启用原生 OAuth；导入会保留 `auth`／`oauth`，其中的明文凭据会阻止导入，请先改为完整的 `${VAR}` 引用。其他未映射字段会产生警告。登录、`.env`、token 和 refresh state 由 Hermes 管理，在相同 profile 执行 `hermes mcp login NAME`。YAML 保留规则与限制同 Goose。
+Hermes 仅支持 Global MCP，使用 `mcp_servers`（YAML）；支持 stdio 和 Streamable HTTP，拒绝导入 SSE。绝对路径 `HERMES_HOME` 可选择其他 home/profile；未指定时使用 default profile，Windows 默认为 `%LOCALAPPDATA%/hermes`。不自动跟踪 active profile、`--profile` 或 `HERMES_DATA_DIR_SUFFIX`。`fromEnv` 写为 `${VAR}`，env/header 导入也接受 `${env:VAR}`。使用 `options.hermes: {auth: oauth}` 启用原生 OAuth；导入会保留 `auth`／`oauth`，其中的明文凭据会阻止导入，请先改为完整的 `${VAR}` 引用。其他原生字段与任何 Agent 一样，放在 `options.hermes` 下。登录、`.env`、token 和 refresh state 由 Hermes 管理，在相同 profile 执行 `hermes mcp login NAME`。YAML 保留规则与限制同 Goose。
 
 仪表盘的 server 表单编辑 HTTP header 的方式与编辑环境变量相同，
 包括 `fromEnv` 引用。**View what each Agent gets** 位于某个 server 的菜单中，
@@ -270,8 +271,8 @@ client 还没写入文件时，打开最近一个已存在的文件夹。这样�
   Codex 只有在信任某个项目时才会读取 `.codex/config.toml`；在不受信任的
   项目中，同步的 server 不会被加载，也不会报错。`cwd`、
   `http_headers_helper`、审批模式、超时以及 `oauth` 表
-  都没有可移植的形式：import 会将它们省略并给出警告，sync 则会将它们保留在
-  现有条目中。若要从 source 设置它们，请使用 [`options.codex`](#agent-options)。`enabled_tools` 和 `disabled_tools` 来自
+  都没有可移植的形式：import 会将它们放入 [`options.codex`](#agent-options)，sync 会写回；
+  但 `oauth` 表这类可能含有凭据的字段除外，会显示 warning 并被省略。`enabled_tools` 和 `disabled_tools` 来自
   [工具策略](#tool-policy)，导入时也会读回策略中。由 Codex 插件捆绑的 MCP server 配置在
   `plugins.<plugin>.mcp_servers` 下，不由此处管理。
 - Claude Desktop 的文件同步**仅支持 stdio**，仅限 macOS 和 Windows。
@@ -356,8 +357,9 @@ OpenCode 和 Kilo Code 使用 `local`/`remote` 类型以及 `{env:VARIABLE}` 引
 `${VARIABLE}` 引用。Skillshare 会自动转换这些格式。Claude 的
 `"type": "streamable-http"` 会作为 HTTP 导入。已禁用的连接会阻止导入。
 其他没有可移植等价形式的原生选项，例如 Codex 的
-`startup_timeout_sec` 或 `envFile`，会在导入时被省略并给出警告；
-sync 会将它们保留在 Agent 现有的条目中。Pi 使用它的内置 MCP；参见
+`startup_timeout_sec` 或 Claude Code 的 `alwaysLoad`，会导入到该 Agent 的 [`options`](#agent-options) 下，
+因此 sync 会把它们写回该 Agent，而不会写入其他 Agent。`options` 无法容纳的字段，例如明文凭据或 `null`，
+会在导入时被省略并给出警告；sync 会将它们保留在 Agent 现有的条目中。Pi 使用它的内置 MCP；参见
 [下文](#pi)。
 
 VS Code Stable 的默认用户文件是：
@@ -1245,7 +1247,7 @@ skillshare mcp import docs --from omp --target omp -g --replace --dry-run --json
 同步会保留 `$schema`、`disabledServers`、`enabledServers` 和不相关的 server。更新现有连接时，
 也会保留原生的单个 server 字段，例如 `enabled`、`timeout`、`instructions`、`requestIdFormat`、
 `cwd`、`auth` 和 `oauth`。这些字段不是 `piOptions`：Pi 专属设置永远不会发送给 OMP。导入时，
-对无法用可移植模型表示的原生字段会给出 warning；请把它们保留在 OMP 的文件中。可移植模型支持
+无法用可移植模型表示的原生字段会放入 `options.omp`；`options` 无法容纳的字段会给出 warning。可移植模型支持
 stdio 和 Streamable HTTP，不支持 OMP 旧版的 SSE 传输；不支持的导入会被拒绝，而不是被转换。
 
 `disabledServers` 优先于 `enabledServers` 以及条目的 `enabled` 值。同步不会为了启用某个 server

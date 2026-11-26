@@ -142,8 +142,10 @@ export SKILLSHARE_CONFIG="$MCP_CASE/config.yaml"
 export CODEX_HOME="$MCP_CASE/codex"
 mkdir -p "$CODEX_HOME"
 printf 'targets: {}\n' > "$SKILLSHARE_CONFIG"
-printf '[mcp_servers.docs]\nurl = "https://example.com/mcp"\nstartup_timeout_sec = 30\n' > "$CODEX_HOME/config.toml"
+printf '[mcp_servers.docs]\nurl = "https://example.com/mcp"\n' > "$CODEX_HOME/config.toml"
 ss mcp import docs --from codex --target codex --sync -g >/dev/null
+# Added after import, so the field is not in the source: sync must keep it.
+printf 'startup_timeout_sec = 30\n' >> "$CODEX_HOME/config.toml"
 ss mcp add docs --url https://changed.example/mcp --target codex --replace --sync -g >/dev/null
 grep -q 'startup_timeout_sec = 30' "$CODEX_HOME/config.toml"
 sed -i 's/changed.example/pulled.example/' "$SKILLSHARE_CONFIG" "$CODEX_HOME/config.toml"

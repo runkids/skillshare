@@ -67,7 +67,8 @@ With no subcommand, `mcp` opens the searchable manager in an interactive termina
 or prints status in noninteractive mode. Noninteractive import without a name lists
 parsed candidates for selection and does not save. Candidates contain portable
 definitions, with recognizable secrets converted to references. Agent-specific
-fields are listed as warnings and left out; disabled servers and unsupported
+fields go under that Agent's [`options`](#agent-options); a field `options` cannot
+hold is listed as a warning and left out. Disabled servers and unsupported
 transports block the candidate. `restore` always previews again before applying;
 use `--dry-run` to inspect it without applying.
 
@@ -172,6 +173,12 @@ servers:
   file may be committed. Codex, Antigravity, Claude Desktop, Goose, Junie, LM Studio and Warp
   read no references there, so their options cannot hold a credential.
 - Options for a client the server does not reach are kept and not written.
+- Import puts an Agent's native fields that have no portable form here, under that
+  Agent's ID, such as `alwaysLoad` from Claude Code under `options.claude`. A field whose
+  name, or a name inside it, suggests a credential (`auth`, `key`, `token`, `secret`,
+  `bearer`, `cookie`…) is left out with a warning, as is any field these rules refuse. A file or
+  pasted text imported without `--from` has a guessed format, so its native fields are
+  listed as warnings and left out instead.
 - Sync writes the fields again when it recreates an entry, for example after a rename.
   When the source drops an option, the next sync removes the field it wrote, unless
   the Agent changed it since; that is a conflict to import or replace.
@@ -279,8 +286,8 @@ Additional client details:
   Codex reads `.codex/config.toml` only in a project it trusts; in an untrusted
   project the synced servers do not load, without an error. `cwd`,
   `http_headers_helper`, approval modes, timeouts and the `oauth` table
-  have no portable form: import leaves them out with a warning and sync keeps them in
-  the existing entry. To set them from the source, use [`options.codex`](#agent-options). `enabled_tools` and `disabled_tools` come from the
+  have no portable form: import puts them under [`options.codex`](#agent-options), which
+  sync writes back, except a field that may hold a credential, such as the `oauth` table, which is left out with a warning. `enabled_tools` and `disabled_tools` come from the
   [tool policy](#tool-policy) and are imported into it. MCP servers that a Codex plugin bundles are configured under
   `plugins.<plugin>.mcp_servers` and are not managed here.
 - Claude Desktop file sync supports **stdio only**, on macOS and Windows.
@@ -312,7 +319,7 @@ Additional client details:
   Set `options.hermes.auth: oauth` for native OAuth. Import keeps `auth` and
   `oauth` under `options.hermes`; literal credentials there block import, so
   replace them with whole-value `${VAR}` references first. Other native fields
-  are reported as not imported. Login, tokens, `.env` and refresh state stay
+  go under `options.hermes`, like any Agent's. Login, tokens, `.env` and refresh state stay
   managed by Hermes; complete `hermes mcp login NAME` in the same Hermes profile.
 
   ```yaml
@@ -392,8 +399,10 @@ OpenCode and Kilo Code use `local`/`remote` types and `{env:VARIABLE}` reference
 `${VARIABLE}` references. Skillshare converts these automatically. Claude's
 `"type": "streamable-http"` imports as HTTP. Disabled connections block import.
 Other native options without a portable equivalent, such as Codex
-`startup_timeout_sec` or `envFile`, are left out of the import with a warning;
-sync keeps them in the Agent's existing entry. Pi uses its built-in MCP; see
+`startup_timeout_sec` or Claude Code `alwaysLoad`, are imported under that Agent's
+[`options`](#agent-options), so sync writes them back to it and to nothing else. A field
+`options` cannot hold, such as a plain-text credential or a `null`, is left out with a
+warning, and sync keeps it in the Agent's existing entry. Pi uses its built-in MCP; see
 [below](#pi).
 
 VS Code Stable's default user file is:
@@ -1422,8 +1431,8 @@ Sync preserves `$schema`, `disabledServers`, `enabledServers` and unrelated serv
 It also keeps native per-server fields such as `enabled`, `timeout`, `instructions`,
 `requestIdFormat`, `cwd`, `auth` and `oauth` when updating an existing connection.
 These fields are not `piOptions`: Pi-only settings are never sent to OMP. Import
-warns about native fields that cannot be represented by the portable model; keep
-them in OMP's file. The portable model supports stdio and Streamable HTTP, not
+puts native fields the portable model cannot represent under `options.omp`, and warns
+about one `options` cannot hold. The portable model supports stdio and Streamable HTTP, not
 OMP's legacy SSE transport; unsupported imports are refused rather than converted.
 
 `disabledServers` wins over `enabledServers` and an entry's `enabled` value.

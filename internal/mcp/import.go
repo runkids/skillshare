@@ -24,6 +24,33 @@ type Candidate struct {
 }
 
 var sensitiveKey = regexp.MustCompile(`(?i)(token|secret|password|api.?key|authorization|credential)`)
+
+// credentialName widens sensitiveKey for fields copied from a native file, where a
+// credential can sit under any name, such as auth.key; such a field is not imported.
+var credentialName = regexp.MustCompile(`(?i)(auth|key|bearer|cookie|jwt|private|session)`)
+
+// namesCredential reports whether key, or a name nested in value, matches credentialName.
+func namesCredential(key string, value any) bool {
+	if credentialName.MatchString(key) {
+		return true
+	}
+	switch v := value.(type) {
+	case []any:
+		for _, item := range v {
+			if namesCredential("", item) {
+				return true
+			}
+		}
+	case map[string]any:
+		for name, item := range v {
+			if namesCredential(name, item) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 var variableReference = regexp.MustCompile(`^\$\{(?:env:)?([A-Za-z_][A-Za-z0-9_]*)\}$`)
 var openCodeReference = regexp.MustCompile(`^\{env:([A-Za-z_][A-Za-z0-9_]*)\}$`)
 
@@ -142,7 +169,9 @@ func DetectImportFormat(data []byte) string {
 // mcp-adapter.json, whose !! escapes a literal beginning with !. piProject marks a project's
 // .pi/mcp.json, the only file where Pi reads a connection-less entry as an override.
 func importNative(target string, data []byte, singleName string, adapter, piProject bool) ([]Candidate, error) {
-	if target == "" {
+	// A guessed format may belong to another client, so its native fields stay out of options.
+	guessed := target == ""
+	if guessed {
 		target = detectJSONFormat(data)
 	}
 	native, err := ParseNative(target, data)
@@ -321,11 +350,23 @@ func importNative(target string, data []byte, singleName string, adapter, piProj
 				}
 			}
 		}
-		// Agent-only fields such as timeouts stay in existing Agent entries on sync.
+		// Other native fields, such as timeouts, become options.<target>, which sync writes
+		// back into that Agent's entry; a field options cannot hold is left out.
 		for _, key := range sortedKeys(entry) {
-			if !allowed[key] {
-				c.Warnings = append(c.Warnings, "Agent-specific field not imported: "+key)
+			if allowed[key] {
+				continue
 			}
+			if guessed || namesCredential(key, entry[key]) || optionError(target, key, entry[key]) != nil {
+				c.Warnings = append(c.Warnings, "Agent-specific field not imported: "+key)
+				continue
+			}
+			if c.Server.Options == nil {
+				c.Server.Options = map[string]map[string]any{}
+			}
+			if c.Server.Options[target] == nil {
+				c.Server.Options[target] = map[string]any{}
+			}
+			c.Server.Options[target][key] = entry[key]
 		}
 		for key, dest := range map[string]*string{"command": &c.Server.Command, "url": &c.Server.URL} {
 			if value, ok := entry[key]; ok {

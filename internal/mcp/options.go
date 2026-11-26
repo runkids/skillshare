@@ -23,20 +23,28 @@ func (s Server) validateOptions(name string) error {
 			return fmt.Errorf("MCP %s: options.%s is not an Agent; use an Agent name such as codex or claude", name, agent)
 		}
 		for _, key := range sortedKeys(s.Options[agent]) {
-			// Some Agents rename the portable fields, such as OpenCode's environment, so both names are refused.
-			if slices.Contains(additionalManagedFields(agent), key) || slices.Contains(portableFields, key) {
-				return fmt.Errorf("MCP %s: options.%s cannot set %s; Skillshare writes that field from the server's own settings", name, agent, key)
-			}
-			if !optionValue(s.Options[agent][key], false) {
-				return fmt.Errorf("MCP %s: options.%s.%s must be a string, number, boolean, list of those, or a mapping of them", name, agent, key)
-			}
-			if field := literalSecret(agent, key, s.Options[agent][key], false); field != "" {
-				if prefix := envRefPrefix(agent); prefix != "" {
-					return fmt.Errorf("MCP %s: options.%s.%s holds a credential as plain text; make the whole value an environment reference, %sVAR}", name, agent, field, prefix)
-				}
-				return fmt.Errorf("MCP %s: options.%s.%s holds a credential, and %s cannot read an environment reference there; keep it out of options", name, agent, field, agent)
+			if err := optionError(agent, key, s.Options[agent][key]); err != nil {
+				return fmt.Errorf("MCP %s: %w", name, err)
 			}
 		}
+	}
+	return nil
+}
+
+// optionError says why options.<agent>.<key> cannot hold value, or returns nil.
+func optionError(agent, key string, value any) error {
+	// Some Agents rename the portable fields, such as OpenCode's environment, so both names are refused.
+	if slices.Contains(additionalManagedFields(agent), key) || slices.Contains(portableFields, key) {
+		return fmt.Errorf("options.%s cannot set %s; Skillshare writes that field from the server's own settings", agent, key)
+	}
+	if !optionValue(value, false) {
+		return fmt.Errorf("options.%s.%s must be a string, number, boolean, list of those, or a mapping of them", agent, key)
+	}
+	if field := literalSecret(agent, key, value, false); field != "" {
+		if prefix := envRefPrefix(agent); prefix != "" {
+			return fmt.Errorf("options.%s.%s holds a credential as plain text; make the whole value an environment reference, %sVAR}", agent, field, prefix)
+		}
+		return fmt.Errorf("options.%s.%s holds a credential, and %s cannot read an environment reference there; keep it out of options", agent, field, agent)
 	}
 	return nil
 }

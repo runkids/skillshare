@@ -63,7 +63,7 @@ skillshare sync --all
 | `--global`, `-g` | global の Skillshare 設定を使う |
 | `--project`, `-p` | project の Skillshare 設定を使う |
 
-サブコマンドを指定しない場合、`mcp` はインタラクティブなターミナルで検索可能なマネージャーを開くか、非インタラクティブモードではステータスを表示します。名前を指定しない非インタラクティブなインポートは、解析済みの候補を選択のために一覧表示し、保存は行いません。候補にはポータブルな定義が含まれ、認識可能な secret は参照に変換されます。Agent 固有のフィールドは警告として一覧表示され除外されます。無効化されたサーバーと非対応のトランスポートは候補をブロックします。`restore` は適用前に必ず再度プレビューします。適用せずに確認するには `--dry-run` を使ってください。
+サブコマンドを指定しない場合、`mcp` はインタラクティブなターミナルで検索可能なマネージャーを開くか、非インタラクティブモードではステータスを表示します。名前を指定しない非インタラクティブなインポートは、解析済みの候補を選択のために一覧表示し、保存は行いません。候補にはポータブルな定義が含まれ、認識可能な secret は参照に変換されます。Agent 固有のフィールドはその Agent の [`options`](#agent-options) に入ります。`options` に保持できないフィールドは警告として一覧表示され除外されます。無効化されたサーバーと非対応のトランスポートは候補をブロックします。`restore` は適用前に必ず再度プレビューします。適用せずに確認するには `--dry-run` を使ってください。
 
 `--pi-extension`、`--pi-options-prune`、`--direct-tools` は 0.23.0 で削除され、現在は代わりに何を使うべきかを示すメッセージとともに失敗します。[0.22 からの Pi のアップグレード](#pi-migration)を参照してください。
 
@@ -138,6 +138,7 @@ servers:
   Agent のファイルはコミットされることがあるため、平文や参照の前後に文字がある値は拒否されます。
   Codex、Antigravity、Claude Desktop、Goose、Junie、LM Studio、Warp はそこで参照を読まないため、その options に認証情報は置けません。
 - サーバーが届かないクライアントの options は保持され、書き込まれません。
+- Import は、ここにポータブルな形式がない Agent のネイティブフィールドを、その Agent の ID の下に置きます。たとえば Claude Code の `alwaysLoad` は `options.claude` の下に入ります。名前（または内部の名前）が認証情報を示すフィールド（`auth`、`key`、`token`、`secret`、`bearer`、`cookie` など）と、上記のルールで拒否されるフィールドは、警告付きで除外されます。`--from` を指定せずにインポートしたファイルや貼り付けたテキストは形式を推測するため、そのネイティブフィールドは警告として一覧表示され、除外されます。
 - sync は、リネームの後などにエントリを作り直すとき、そのフィールドを再び書き込みます。
   source から option を外すと、次の sync は書き込んだフィールドを削除します。ただし、その後に Agent が変更していた場合は除きます。それは import または replace で解決する競合です。
 - ダッシュボードでは、サーバーダイアログの **その他の Agent 設定** で編集できます。Agent を選び、
@@ -204,7 +205,7 @@ Grok の場合、名前は文字またはアンダースコアで始まり、文
 | [Windsurf (Cascade)](https://docs.devin.ai/desktop/cascade/mcp) | `~/.codeium/windsurf/mcp_config.json` | Global のみ | `mcpServers` |
 | [Oh My Pi (OMP)](https://github.com/can1357/oh-my-pi/blob/v18.6.1/docs/mcp-config.md) | `~/.omp/agent/mcp.json` | `.omp/mcp.json` | `mcpServers` |
 
-Hermes は Global MCP のみ対応し、`mcp_servers`（YAML）を使用します。stdio と Streamable HTTP に対応し、SSE のインポートは拒否します。絶対パスの `HERMES_HOME` で別の home/profile を選択できます。未指定時は default profile（Windows は `%LOCALAPPDATA%/hermes`）を使い、active profile、`--profile`、`HERMES_DATA_DIR_SUFFIX` は追跡しません。`fromEnv` は `${VAR}` を出力し、env/header のインポートは `${env:VAR}` も受け付けます。OAuth は `options.hermes: {auth: oauth}` で指定します。インポートでは `auth`／`oauth` を保持しますが、平文の認証情報は拒否するため、値全体を `${VAR}` 参照に置き換えてください。その他の未対応フィールドは警告されます。ログイン、`.env`、token、refresh state は Hermes が管理します。同じ profile で `hermes mcp login NAME` を実行してください。YAML の保持と制限は Goose と同じです。
+Hermes は Global MCP のみ対応し、`mcp_servers`（YAML）を使用します。stdio と Streamable HTTP に対応し、SSE のインポートは拒否します。絶対パスの `HERMES_HOME` で別の home/profile を選択できます。未指定時は default profile（Windows は `%LOCALAPPDATA%/hermes`）を使い、active profile、`--profile`、`HERMES_DATA_DIR_SUFFIX` は追跡しません。`fromEnv` は `${VAR}` を出力し、env/header のインポートは `${env:VAR}` も受け付けます。OAuth は `options.hermes: {auth: oauth}` で指定します。インポートでは `auth`／`oauth` を保持しますが、平文の認証情報は拒否するため、値全体を `${VAR}` 参照に置き換えてください。その他のネイティブフィールドは、他の Agent と同様に `options.hermes` の下に入ります。ログイン、`.env`、token、refresh state は Hermes が管理します。同じ profile で `hermes mcp login NAME` を実行してください。YAML の保持と制限は Goose と同じです。
 
 ダッシュボードのサーバーフォームは、HTTP ヘッダーを環境変数と同じ方法で編集し、`fromEnv` 参照にも対応します。サーバーのメニューとフォーム内のファイル数の横にある **View what each Agent gets** は、選択したクライアントに対して Sync が書き込む予定のネイティブテキストを読み取り専用で表示します。フォーム内では、まだ保存されていない編集内容が反映されます。secret は参照のままです。
 
@@ -217,7 +218,7 @@ JSON エントリは、そのファイル自体のインデントに合わせて
 
 - `codex` の送信先は、Codex CLI、Codex IDE 拡張機能、ChatGPT デスクトップアプリが共有する 1 つの `config.toml` です。そのため、`codex` に同期したサーバーはこの 3 つすべてに表示されます。ChatGPT デスクトップアプリでは **Settings → MCP servers** の下に表示されます。
   Codex は、trust している project でのみ `.codex/config.toml` を読み込みます。trust していない project では、同期されたサーバーはエラーなく読み込まれません。`cwd`、
-  `http_headers_helper`、承認モード、タイムアウト、`oauth` テーブルにはポータブルな形式がありません。インポートではこれらを警告付きで除外し、sync は既存のエントリ内にそれらを維持します。source から設定するには [`options.codex`](#agent-options) を使います。`enabled_tools` と `disabled_tools` は[ツールポリシー](#tool-policy)から書き込まれ、インポート時もそこに取り込まれます。Codex の plugin が同梱する MCP サーバーは `plugins.<plugin>.mcp_servers` の下に設定され、ここでは管理されません。
+  `http_headers_helper`、承認モード、タイムアウト、`oauth` テーブルにはポータブルな形式がありません。インポートではこれらを [`options.codex`](#agent-options) の下に置き、sync がそれを書き戻します。ただし、`oauth` テーブルのように認証情報を含みうるフィールドは警告付きで除外されます。`enabled_tools` と `disabled_tools` は[ツールポリシー](#tool-policy)から書き込まれ、インポート時もそこに取り込まれます。Codex の plugin が同梱する MCP サーバーは `plugins.<plugin>.mcp_servers` の下に設定され、ここでは管理されません。
 - Claude Desktop のファイル sync は macOS と Windows で **stdio のみ**に対応します。
   ディレクトリは macOS では `~/Library/Application Support/Claude`、
   Windows では `%APPDATA%/Claude` です。リモートコネクタはアプリケーション内で設定してください。
@@ -266,8 +267,8 @@ mode では、Skillshare は `fromEnv` または `bearerToken` を使う Kilo Co
 OpenCode と Kilo Code は `local`/`remote` タイプと `{env:VARIABLE}` 参照を使用し、Grok は
 `${VARIABLE}` 参照を使用します。Skillshare はこれらを自動的に変換します。Claude の
 `"type": "streamable-http"` は HTTP としてインポートされます。無効化された接続はインポートをブロックします。
-Codex の `startup_timeout_sec` や `envFile` のような、ポータブルな対応形式がないその他のネイティブオプションは、
-警告付きでインポートから除外されます。sync はそれらを Agent の既存エントリ内に維持します。Pi は内蔵 MCP を使います。
+Codex の `startup_timeout_sec` や Claude Code の `alwaysLoad` のような、ポータブルな対応形式がないその他のネイティブオプションは、
+その Agent の [`options`](#agent-options) の下にインポートされるため、sync はそれを書き戻しますが、他の Agent には書き込みません。平文の認証情報や `null` のように `options` に保持できないフィールドは、警告付きでインポートから除外され、sync は Agent の既存エントリ内にそれを維持します。Pi は内蔵 MCP を使います。
 [下記](#pi)を参照してください。
 
 VS Code Stable のデフォルトのユーザーファイルは以下のとおりです。
@@ -1134,7 +1135,7 @@ sync は `$schema`、`disabledServers`、`enabledServers`、無関係なサー�
 既存の接続を更新する際は、`enabled`、`timeout`、`instructions`、
 `requestIdFormat`、`cwd`、`auth`、`oauth` などのネイティブなサーバー別フィールドも保持します。
 これらのフィールドは `piOptions` ではなく、Pi 専用の設定が OMP に送られることはありません。インポートは
-ポータブルなモデルで表現できないネイティブフィールドについて警告します。それらは OMP のファイルに残してください。ポータブルなモデルは stdio と Streamable HTTP に対応し、
+ポータブルなモデルで表現できないネイティブフィールドを `options.omp` に入れ、`options` に保持できないフィールドについては警告します。ポータブルなモデルは stdio と Streamable HTTP に対応し、
 OMP のレガシー SSE トランスポートには対応しません。非対応のインポートは変換されずに拒否されます。
 
 `disabledServers` は `enabledServers` やエントリの `enabled` の値より優先されます。

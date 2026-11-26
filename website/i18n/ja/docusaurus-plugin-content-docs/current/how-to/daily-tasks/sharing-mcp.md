@@ -216,9 +216,9 @@ Codex はローカル変数を名前で転送するため、Codex を選択す�
 一致している必要があります。設定を表現できない Target は、それを黙って落とすのではなくプレビューを
 ブロックします。クライアント固有のプレースホルダーと入力プロンプトは、Import の前に明示的に解決して
 おく必要があります。Codex の `startup_timeout_sec` や `cwd` のような Agent 固有のフィールドは
-Import されません。Import はそれらを警告として一覧表示し、Sync はその Agent の既存エントリ内にそれらを
-維持します。source から管理するには、サーバーの
-[`options`](../../reference/commands/mcp.md#agent-options) に設定します。
+サーバーの
+[`options`](../../reference/commands/mcp.md#agent-options) の下にその Agent 用として Import されるため、Sync はそれをその Agent にだけ書き戻します。
+平文の認証情報のように `options` に保持できないフィールドは、警告として一覧表示され除外されます。
 
 ## 既存の接続をインポートする
 
