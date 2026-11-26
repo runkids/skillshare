@@ -271,7 +271,11 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (*Result, e
 				if c.Action == "remove" || c.Action == "uninstall" {
 					outcome.Message = "Removed."
 				} else if b.Entry != "" {
-					outcome.Message = "Installed at " + filepath.Join(s.managedRoot(), "herdr-app", b.ID, filepath.FromSlash(b.Entry)) + ". Close " + b.ID + " before updating; reopen it after."
+					if c.Action == "update" {
+						outcome.Message = "Updated " + b.ID + "; close and reopen it to use the updated version."
+					} else {
+						outcome.Message = "Installed at " + filepath.Join(s.managedRoot(), "herdr-app", b.ID, filepath.FromSlash(b.Entry)) + "."
+					}
 				} else {
 					outcome.Message = "Installed in " + filepath.Join(herdrHome(), "mods", b.ID) + "; Herdr reloads the mod when files change. A mod with `place: none` needs a layout entry."
 				}

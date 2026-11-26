@@ -85,9 +85,10 @@ func validateSourceLinks(root string, ignore func(string, bool) bool) (map[strin
 	var visit func(string) error
 	visit = func(path string) error {
 		rel, _ := filepath.Rel(root, path)
-		pathInfo, statErr := os.Lstat(path)
-		if statErr == nil && rel != "." && ignore != nil && ignore(filepath.ToSlash(rel), pathInfo.IsDir()) {
-			return nil
+		if ignore != nil && rel != "." {
+			if pathInfo, statErr := os.Lstat(path); statErr == nil && ignore(filepath.ToSlash(rel), pathInfo.IsDir()) {
+				return nil
+			}
 		}
 		count++
 		if count > 20000 {

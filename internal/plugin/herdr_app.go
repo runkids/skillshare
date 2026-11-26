@@ -17,9 +17,12 @@ func herdrHome() string {
 }
 
 func herdrIgnore(rel string, dir bool) bool {
+	return herdrCommonIgnore(rel, dir) || (!dir && !strings.Contains(rel, "/") && (rel == "jsconfig.json" || strings.HasSuffix(rel, ".d.ts")))
+}
+
+func herdrCommonIgnore(rel string, _ bool) bool {
 	name := path.Base(rel)
-	return (!dir && !strings.Contains(rel, "/") && (rel == "jsconfig.json" || strings.HasSuffix(rel, ".d.ts"))) ||
-		strings.HasPrefix(name, ".") || name == "node_modules" || name == "__pycache__"
+	return strings.HasPrefix(name, ".") || name == "node_modules" || name == "__pycache__"
 }
 func herdrCandidate(name, path, component string) Candidate {
 	return Candidate{Name: name, Path: path, Targets: []string{"herdr-app"}, Components: []string{component}, TargetInfo: map[string]TargetPackage{"herdr-app": {Components: []string{component}}}}
@@ -55,9 +58,8 @@ func herdrLauncher(root, entry string) *Candidate {
 		return nil
 	}
 	c := herdrCandidate(filepath.Base(clean), ".", "launcher")
-	c.Entry = filepath.ToSlash(clean)
 	infoForTarget := c.TargetInfo["herdr-app"]
-	infoForTarget.Entry = c.Entry
+	infoForTarget.Entry = filepath.ToSlash(clean)
 	c.TargetInfo["herdr-app"] = infoForTarget
 
 	return &c
@@ -78,21 +80,22 @@ func (s *Service) herdrHost(target string) Host {
 	if os.IsNotExist(err) {
 		h.Status = HostMissing
 		h.Note = "Herdr app home " + herdrHome() + " is absent; Herdr bindings are skipped on this machine"
-		return h
-	}
-	if err != nil {
+	} else if err != nil {
 		h.fail(err)
 		return h
 	}
-	if !info.IsDir() {
+	if info != nil && !info.IsDir() {
 		h.fail(fmt.Errorf("Herdr app home is not a directory: %s", herdrHome()))
 		return h
 	}
 	var fingerprint []byte
-	for _, layout := range []localFolderLayout{
+	for i, layout := range []localFolderLayout{
 		{filepath.Join(herdrHome(), "mods"), herdrHome(), herdrHome(), herdrIgnore},
-		{filepath.Join(s.managedRoot(), "herdr-app"), s.managedRoot(), filepath.Join(s.managedRoot(), "herdr-app"), herdrIgnore},
+		{filepath.Join(s.managedRoot(), "herdr-app"), s.managedRoot(), filepath.Join(s.managedRoot(), "herdr-app"), herdrCommonIgnore},
 	} {
+		if i == 0 && h.Status == HostMissing {
+			continue
+		}
 		if err := noSymlink(layout.base, layout.root); err != nil {
 			h.fail(err)
 			return h
@@ -120,7 +123,7 @@ func (s *Service) herdrHost(target string) Host {
 }
 
 func (s *Service) applyHerdr(c Change, b Binding, source string) error {
-	if c.Action == "remove" || c.Action == "uninstall" {
+	if b.Entry == "" && (c.Action == "remove" || c.Action == "uninstall") {
 		if _, err := os.Lstat(herdrHome()); os.IsNotExist(err) {
 			return nil
 		}
@@ -129,7 +132,7 @@ func (s *Service) applyHerdr(c Change, b Binding, source string) error {
 	layout := localFolderLayout{filepath.Join(home, "mods"), home, home, herdrIgnore}
 	if b.Entry != "" {
 		root := filepath.Join(s.managedRoot(), "herdr-app")
-		layout = localFolderLayout{root, s.managedRoot(), root, herdrIgnore}
+		layout = localFolderLayout{root, s.managedRoot(), root, herdrCommonIgnore}
 	}
 	return s.applyLocalIn(layout, c, b, source)
 }

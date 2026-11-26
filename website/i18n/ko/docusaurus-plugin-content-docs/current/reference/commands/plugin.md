@@ -133,7 +133,7 @@ skillshare plugin add owner/lantern --entry bin/lantern-app --target herdr-app -
 
 Lantern 같은 launcher 앱에는 source 안의 실행 파일 경로인 `--entry`가 필요합니다. 명령 이름은 entry 파일 이름을 따르므로 `bin/lantern-app`은 `lantern-app`이 됩니다. Skillshare는 source를 state 디렉터리에 복사하고 관리되는 entry 경로를 출력합니다. 명령이 이 경로를 가리키게 하세요. 경로는 update 후에도 바뀌지 않습니다. launcher는 macOS와 Linux에서만 동작합니다.
 
-Skillshare는 설치된 폴더 전체를 관리하고 업데이트할 때 교체합니다. 로컬 수정은 보존할 때까지 업데이트와 제거를 차단합니다. 설치된 폴더의 숨김 파일, `node_modules`, `__pycache__`, 루트의 `jsconfig.json`과 `.d.ts` 파일은 수정 검사에서 제외하며 업데이트할 때 유지하지 않습니다. source에 있으면 복사합니다. 제거는 생성 파일을 포함한 폴더 전체를 삭제합니다. 교체가 중단되면 다시 시도하기 전에 표시된 백업을 확인하세요.
+Skillshare는 설치된 폴더 전체를 관리하고 업데이트할 때 교체합니다. 로컬 수정은 보존할 때까지 업데이트와 제거를 차단합니다. 설치된 폴더의 숨김 파일, `node_modules`, `__pycache__`는 수정 검사에서 제외하며, mod 루트의 `jsconfig.json`과 `.d.ts` 파일도 제외하고 업데이트할 때 유지하지 않습니다. source에 있으면 복사합니다. 제거는 생성 파일을 포함한 폴더 전체를 삭제합니다. 교체가 중단되면 다시 시도하기 전에 표시된 백업을 확인하세요.
 
 Skillshare는 자신이 설치하지 않은 mod나 launcher를 인계하지 않으며 `import`도 지원하지 않습니다. 같은 이름의 mod나 launcher가 이미 있으면 `add`가 거부됩니다. 먼저 옮겨 둔 뒤 다시 add하세요.
 

@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -419,4 +420,133 @@ func TestHerdrMissingHomeDoesNotBlockOtherTargets(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(s.managedRoot(), "herdr-app")); !os.IsNotExist(err) {
 		t.Fatalf("created launcher root: %v", err)
 	}
+}
+
+func TestHerdrLauncherRemoveWithMissingHome(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("launchers require POSIX")
+	}
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	herdr := filepath.Join(home, "herdr")
+	t.Setenv("HERDR_APP_HOME", herdr)
+	if err := os.Mkdir(herdr, 0755); err != nil {
+		t.Fatal(err)
+	}
+	source := t.TempDir()
+	writePluginFile(t, source, "bin/app", "#!/bin/sh\n")
+	if err := os.Chmod(filepath.Join(source, "bin/app"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	s := &Service{ConfigPath: filepath.Join(home, "config.yaml"), StateDir: filepath.Join(home, "state")}
+	applyPluginRequest(t, s, Request{Action: "add", Source: source, Entry: "bin/app", Targets: []string{"herdr-app"}})
+	root := filepath.Join(s.managedRoot(), "herdr-app")
+	if err := os.Remove(herdr); err != nil {
+		t.Fatal(err)
+	}
+	applyPluginRequest(t, s, Request{Action: "remove", Name: "app"})
+	for _, p := range []string{filepath.Join(root, "app"), filepath.Join(root, ".skillshare-app.json")} {
+		if _, err := os.Lstat(p); !os.IsNotExist(err) {
+			t.Fatalf("launcher artifact remains: %s: %v", p, err)
+		}
+	}
+}
+
+func TestHerdrLauncherGeneratedNamesAreEdits(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("launchers require POSIX")
+	}
+	for _, file := range []string{"jsconfig.json", "types.d.ts"} {
+		t.Run(file, func(t *testing.T) {
+			home := t.TempDir()
+			t.Setenv("HOME", home)
+			herdr := filepath.Join(home, "herdr")
+			t.Setenv("HERDR_APP_HOME", herdr)
+			if err := os.Mkdir(herdr, 0755); err != nil {
+				t.Fatal(err)
+			}
+			source := t.TempDir()
+			writePluginFile(t, source, "bin/app", "#!/bin/sh\n")
+			if err := os.Chmod(filepath.Join(source, "bin/app"), 0755); err != nil {
+				t.Fatal(err)
+			}
+			s := &Service{ConfigPath: filepath.Join(home, "config.yaml"), StateDir: filepath.Join(home, "state")}
+			applyPluginRequest(t, s, Request{Action: "add", Source: source, Entry: "bin/app", Targets: []string{"herdr-app"}})
+			dest := filepath.Join(s.managedRoot(), "herdr-app/app")
+			writePluginFile(t, dest, file, "local edit")
+			r := Request{Action: "remove", Name: "app"}
+			p, err := s.Preview(context.Background(), r)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := s.Apply(context.Background(), r, p.Revision); err == nil {
+				t.Fatal("removed launcher with local edit")
+			}
+			if data, err := os.ReadFile(filepath.Join(dest, file)); err != nil || string(data) != "local edit" {
+				t.Fatalf("lost edit: %q %v", data, err)
+			}
+		})
+	}
+}
+
+func TestHerdrModDisableEnableSync(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("isolated HOME does not override Windows profile")
+	}
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	herdr := filepath.Join(home, "herdr")
+	t.Setenv("HERDR_APP_HOME", herdr)
+	if err := os.Mkdir(herdr, 0755); err != nil {
+		t.Fatal(err)
+	}
+	source := t.TempDir()
+	writePluginFile(t, source, "mods/demo/main.js", "demo")
+	s := &Service{ConfigPath: filepath.Join(home, "config.yaml"), StateDir: filepath.Join(home, "state")}
+	applyPluginRequest(t, s, Request{Action: "add", Source: source, Targets: []string{"herdr-app"}})
+	installed := filepath.Join(herdr, "mods/demo/main.js")
+	applyPluginRequest(t, s, Request{Action: "disable", Name: "demo"})
+	applyPluginRequest(t, s, Request{Action: "sync"})
+	if _, err := os.Stat(installed); !os.IsNotExist(err) {
+		t.Fatalf("disabled mod remains: %v", err)
+	}
+	applyPluginRequest(t, s, Request{Action: "enable", Name: "demo"})
+	applyPluginRequest(t, s, Request{Action: "sync"})
+	if data, err := os.ReadFile(installed); err != nil || string(data) != "demo" {
+		t.Fatalf("mod not restored: %q %v", data, err)
+	}
+}
+
+func TestHerdrLauncherOutcomeMessages(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("launchers require POSIX")
+	}
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	herdr := filepath.Join(home, "herdr")
+	t.Setenv("HERDR_APP_HOME", herdr)
+	if err := os.Mkdir(herdr, 0755); err != nil {
+		t.Fatal(err)
+	}
+	source := t.TempDir()
+	writePluginFile(t, source, "bin/app", "#!/bin/sh\n")
+	if err := os.Chmod(filepath.Join(source, "bin/app"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	s := &Service{ConfigPath: filepath.Join(home, "config.yaml"), StateDir: filepath.Join(home, "state")}
+	apply := func(r Request, want string) {
+		t.Helper()
+		p, err := s.Preview(context.Background(), r)
+		if err != nil || p.Blocked {
+			t.Fatalf("preview: %+v %v", p, err)
+		}
+		result, err := s.Apply(context.Background(), r, p.Revision)
+		if err != nil || len(result.Results) != 1 || !strings.Contains(result.Results[0].Message, want) {
+			t.Fatalf("outcome: %+v %v", result, err)
+		}
+	}
+	apply(Request{Action: "add", Source: source, Entry: "bin/app", Targets: []string{"herdr-app"}}, "Installed at ")
+	writePluginFile(t, source, "bin/app", "#!/bin/sh\necho updated\n")
+	apply(Request{Action: "update", Name: "app"}, "Updated app; close and reopen")
+	apply(Request{Action: "remove", Name: "app"}, "Removed.")
 }

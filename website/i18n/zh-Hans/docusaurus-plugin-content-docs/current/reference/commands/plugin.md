@@ -152,7 +152,7 @@ skillshare plugin add owner/lantern --entry bin/lantern-app --target herdr-app -
 
 Lantern 这类启动器应用需要 `--entry`，即 source 中可执行文件的路径。命令名取自 entry 文件名：`bin/lantern-app` 对应 `lantern-app`。Skillshare 把 source 复制到自己的 state 目录并显示受管理的入口路径。将命令指向该路径；更新后路径保持不变。启动器只支持 macOS 和 Linux。
 
-Skillshare 管理整个安装文件夹，并在更新时替换它。本地修改会阻止更新和删除，直到你保存这些修改。安装文件夹中的隐藏文件、`node_modules`、`__pycache__`、根目录的 `jsconfig.json` 和 `.d.ts` 文件不计入修改检查；更新不会保留它们。source 包含这些文件时仍会复制。删除会移除整个文件夹，包括生成的文件。替换中断时，请在重试前检查提示的备份。
+Skillshare 管理整个安装文件夹，并在更新时替换它。本地修改会阻止更新和删除，直到你保存这些修改。安装文件夹中的隐藏文件、`node_modules`、`__pycache__`不计入修改检查；mod 根目录的 `jsconfig.json` 和 `.d.ts` 文件也不计入；更新不会保留它们。source 包含这些文件时仍会复制。删除会移除整个文件夹，包括生成的文件。替换中断时，请在重试前检查提示的备份。
 
 Skillshare 不会接管不是它安装的 mod 或启动器，也不提供 `import`。如果同名 mod 或启动器已存在，`add` 会拒绝。先把它移开，再重新 add：
 

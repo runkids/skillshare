@@ -182,8 +182,7 @@ the source. The command takes the entry file's name: `bin/lantern-app` becomes
 path. Point your command at that path; it stays the same across updates. Launchers work on macOS and Linux only.
 
 Skillshare owns the whole installed folder and replaces it on update. A local edit
-blocks update and remove until you preserve it. Hidden files, `node_modules`, `__pycache__`, root `jsconfig.json` and root
-`.d.ts` files in an installed folder are ignored when checking for edits; an
+blocks update and remove until you preserve it. Hidden files, `node_modules` and `__pycache__` in an installed folder are ignored when checking for edits, as are root `jsconfig.json` and root `.d.ts` files in a mod; an
 update does not keep them. Source files with those names are still copied.
 Removal deletes the whole folder,
 including generated files. If a replacement was interrupted, inspect the backup
