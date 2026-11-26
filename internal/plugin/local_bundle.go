@@ -45,7 +45,7 @@ func (s *Service) localRoot(target string) (string, string, error) {
 
 type localFolderLayout struct {
 	root, base, scratch string
-	ignore              func(string, bool) bool
+	ignore              func(string) bool
 }
 
 // Native configuration and installation paths must not redirect writes elsewhere.
@@ -122,7 +122,8 @@ func (s *Service) localInventory(target string) ([]Installed, string, error) {
 }
 
 func (s *Service) applyLocal(c Change, b Binding, source string) error {
-	root, base, err := s.localRoot(c.Target)
+	target := c.Target
+	root, base, err := s.localRoot(target)
 	if err != nil {
 		return err
 	}
@@ -160,7 +161,7 @@ func (s *Service) applyLocalIn(layout localFolderLayout, c Change, b Binding, so
 		if readErr != nil || json.Unmarshal(data, &owner) != nil || owner.Config != config {
 			return fmt.Errorf("Local plugin directory is not owned by this Skillshare configuration")
 		}
-		digest, err := treeDigestIgnoring(dest, layout.ignore)
+		digest, _, err := hashTree(dest, layout.ignore)
 		if err != nil {
 			return err
 		}
@@ -191,18 +192,16 @@ func (s *Service) applyLocalIn(layout localFolderLayout, c Change, b Binding, so
 	if err = copyTree(source, temp); err != nil {
 		return err
 	}
-	digest, err := treeDigestIgnoring(temp, layout.ignore)
+	digest, _, err := hashTree(temp, layout.ignore)
 	if err != nil {
 		return err
 	}
-
 	backup := filepath.Join(layout.scratch, ".skillshare-previous-"+b.ID)
 	if _, err = os.Lstat(backup); err == nil {
 		return fmt.Errorf("unfinished local plugin replacement at %s; inspect before retrying", backup)
 	} else if !os.IsNotExist(err) {
 		return err
 	}
-
 	if existed {
 		if err = os.Rename(dest, backup); err != nil {
 			return err

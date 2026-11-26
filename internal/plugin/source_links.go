@@ -70,7 +70,7 @@ func resolveSourcePath(root, path string) (string, error) {
 // validateSourceLinks returns the links, relative to root, that are broken, point outside the
 // source or into .git, or close a cycle. Callers leave them out of digests and snapshots, so an
 // unrelated bad link does not block the rest of a source and is never followed.
-func validateSourceLinks(root string, ignore func(string, bool) bool) (map[string]bool, error) {
+func validateSourceLinks(root string, ignore func(string) bool) (map[string]bool, error) {
 	root, err := filepath.Abs(root)
 	if err != nil {
 		return nil, err
@@ -84,11 +84,8 @@ func validateSourceLinks(root string, ignore func(string, bool) bool) (map[strin
 	count := 0
 	var visit func(string) error
 	visit = func(path string) error {
-		rel, _ := filepath.Rel(root, path)
-		if ignore != nil && rel != "." {
-			if pathInfo, statErr := os.Lstat(path); statErr == nil && ignore(filepath.ToSlash(rel), pathInfo.IsDir()) {
-				return nil
-			}
+		if rel, _ := filepath.Rel(root, path); ignore != nil && rel != "." && ignore(filepath.ToSlash(rel)) {
+			return nil
 		}
 		count++
 		if count > 20000 {

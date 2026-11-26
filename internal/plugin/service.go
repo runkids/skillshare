@@ -296,9 +296,6 @@ func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval) (
 				b.ID = c.Name
 			case "herdr-app":
 				b.ID, b.Entry = c.Name, c.TargetInfo[agent].Entry
-				if b.Entry != "" {
-					b.ID = filepath.Base(filepath.FromSlash(b.Entry))
-				}
 			case "omp":
 				// omp caps marketplace names at 64 characters, so the plugin name is left out.
 				b.ID = c.Name + "@skillshare-" + digest

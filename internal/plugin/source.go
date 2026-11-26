@@ -92,16 +92,13 @@ func acquireRef(ctx context.Context, source, ref string) (string, string, func()
 // treeDigest includes safe relative links, leaves out unsafe ones and rejects special files.
 // The entire package tree is retained, including scripts and referenced assets.
 func treeDigest(root string) (string, error) {
-	return treeDigestIgnoring(root, nil)
-}
-
-func treeDigestIgnoring(root string, ignore func(string, bool) bool) (string, error) {
-	digest, _, err := hashTree(root, ignore)
+	digest, _, err := hashTree(root, nil)
 	return digest, err
 }
 
-// hashTree is treeDigest plus the links it left out, relative to root.
-func hashTree(root string, ignore func(string, bool) bool) (string, map[string]bool, error) {
+// hashTree is treeDigest plus the links it left out, relative to root. ignore, when set, names
+// slash-separated relative paths to leave out; an ignored directory is not descended.
+func hashTree(root string, ignore func(string) bool) (string, map[string]bool, error) {
 	skipped, err := validateSourceLinks(root, ignore)
 	if err != nil {
 		return "", nil, err
@@ -114,7 +111,7 @@ func hashTree(root string, ignore func(string, bool) bool) (string, map[string]b
 			return err
 		}
 		rel, _ := filepath.Rel(root, path)
-		if rel != "." && ignore != nil && ignore(filepath.ToSlash(rel), d.IsDir()) {
+		if rel != "." && ignore != nil && ignore(filepath.ToSlash(rel)) {
 			if d.IsDir() {
 				return filepath.SkipDir
 			}

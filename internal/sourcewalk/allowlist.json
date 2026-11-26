@@ -633,7 +633,7 @@
   },
   {
     "file": "internal/plugin/herdr_app.go",
-    "function": "herdrMods",
+    "function": "herdrCandidates",
     "callee": "os.ReadDir",
     "root": "filepath.Join(root, \"mods\")",
     "reason": "plugin",

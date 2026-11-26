@@ -268,20 +268,20 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (*Result, e
 				}
 			}
 			if s.agentOf(c.Target) == "herdr-app" {
-				if c.Action == "remove" || c.Action == "uninstall" {
-					outcome.Message = "Removed."
-					outcome.MessageKey, outcome.MessageArgs = "plugins.outcome.herdrRemoved", nil
-				} else if b.Entry != "" {
-					if c.Action == "update" {
-						outcome.Message = "Updated " + b.ID + "; close and reopen it to use the updated version."
-						outcome.MessageKey, outcome.MessageArgs = "plugins.outcome.herdrLauncherUpdated", map[string]string{"id": b.ID}
-					} else {
-						outcome.Message = "Installed at " + filepath.Join(s.managedRoot(), "herdr-app", b.ID, filepath.FromSlash(b.Entry)) + "."
-						outcome.MessageKey, outcome.MessageArgs = "plugins.outcome.herdrLauncherInstalled", map[string]string{"path": filepath.Join(s.managedRoot(), "herdr-app", b.ID, filepath.FromSlash(b.Entry))}
-					}
-				} else {
-					outcome.Message = "Installed in " + filepath.Join(herdrHome(), "mods", b.ID) + "; Herdr reloads the mod when files change. A mod with `place: none` needs a layout entry."
-					outcome.MessageKey, outcome.MessageArgs = "plugins.outcome.herdrModInstalled", map[string]string{"path": filepath.Join(herdrHome(), "mods", b.ID)}
+				mod, launcher := s.herdrLayouts()
+				switch {
+				case c.Action == "remove" || c.Action == "uninstall":
+					outcome.Message, outcome.MessageKey, outcome.MessageArgs = "Removed.", "plugins.outcome.herdrRemoved", nil
+				case b.Entry != "" && c.Action == "update":
+					outcome.Message = "Updated " + b.ID + "; close and reopen it to use the updated version."
+					outcome.MessageKey, outcome.MessageArgs = "plugins.outcome.herdrLauncherUpdated", map[string]string{"id": b.ID}
+				case b.Entry != "":
+					path := filepath.Join(launcher.root, b.ID, filepath.FromSlash(b.Entry))
+					outcome.Message, outcome.MessageKey, outcome.MessageArgs = "Installed at "+path+".", "plugins.outcome.herdrLauncherInstalled", map[string]string{"path": path}
+				default:
+					path := filepath.Join(mod.root, b.ID)
+					outcome.Message = "Installed in " + path + "; Herdr reloads the mod when files change. A mod with `place: none` needs a layout entry."
+					outcome.MessageKey, outcome.MessageArgs = "plugins.outcome.herdrModInstalled", map[string]string{"path": path}
 				}
 			}
 			if s.agentOf(c.Target) == "omp" && (c.Action == "remove" || c.Action == "forget" || c.Action == "uninstall") {

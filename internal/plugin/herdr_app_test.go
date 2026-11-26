@@ -210,26 +210,18 @@ func TestHerdrPackageJSONLauncherDiscovery(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("launchers require a POSIX shell")
 	}
-	for _, name := range []string{"app"} {
-		t.Run(name, func(t *testing.T) {
-			root := t.TempDir()
-			writePluginFile(t, root, "package.json", `{"name":"app","version":"1.0.0"}`)
-			writePluginFile(t, root, "bin/"+name, "#!/bin/sh\n")
-			if err := os.Chmod(filepath.Join(root, "bin", name), 0755); err != nil {
-				t.Fatal(err)
-			}
-			d, err := DiscoverOptions(context.Background(), root, "", "bin/"+name)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if len(d.Candidates) != 1 || !slices.Contains(d.Candidates[0].Targets, "herdr-app") {
-				t.Fatalf("candidate: %+v", d.Candidates)
-			}
-			if d.Candidates[0].TargetInfo["herdr-app"].Entry != "bin/"+name {
-				t.Fatalf("lost launcher entry: %+v", d.Candidates[0])
-			}
-
-		})
+	root := t.TempDir()
+	writePluginFile(t, root, "package.json", `{"name":"app","version":"1.0.0"}`)
+	writePluginFile(t, root, "bin/app", "#!/bin/sh\n")
+	if err := os.Chmod(filepath.Join(root, "bin/app"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	d, err := DiscoverOptions(context.Background(), root, "", "bin/app")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(d.Candidates) != 1 || !slices.Contains(d.Candidates[0].Targets, "herdr-app") || d.Candidates[0].TargetInfo["herdr-app"].Entry != "bin/app" {
+		t.Fatalf("candidate: %+v", d.Candidates)
 	}
 }
 

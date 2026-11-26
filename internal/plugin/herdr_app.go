@@ -16,87 +16,72 @@ func herdrHome() string {
 	return filepath.Join(home, ".config", "herdr-app")
 }
 
-func herdrIgnore(rel string, dir bool) bool {
-	return herdrCommonIgnore(rel, dir) || (!dir && !strings.Contains(rel, "/") && (rel == "jsconfig.json" || strings.HasSuffix(rel, ".d.ts")))
-}
-
-func herdrCommonIgnore(rel string, _ bool) bool {
+// herdrCommonIgnore names what Herdr and the apps it runs write into an installed folder; the
+// digest of an installed folder leaves them out, and an update does not keep them.
+func herdrCommonIgnore(rel string) bool {
 	name := path.Base(rel)
 	return strings.HasPrefix(name, ".") || name == "node_modules" || name == "__pycache__"
 }
-func herdrCandidate(name, path, component string) Candidate {
-	return Candidate{Name: name, Path: path, Targets: []string{"herdr-app"}, Components: []string{component}, TargetInfo: map[string]TargetPackage{"herdr-app": {Components: []string{component}}}}
+
+// herdrIgnore adds the type files Herdr writes at a mod's root.
+func herdrIgnore(rel string) bool {
+	return herdrCommonIgnore(rel) || (!strings.Contains(rel, "/") && (rel == "jsconfig.json" || strings.HasSuffix(rel, ".d.ts")))
 }
-func herdrMods(root string) []Candidate {
-	entries, _ := os.ReadDir(filepath.Join(root, "mods"))
+
+// herdrLayouts are where mods and launchers live. A mod's lock, marker, copy and backup sit in
+// the home, not in mods/, so Herdr never loads a half-built folder.
+func (s *Service) herdrLayouts() (mod, launcher localFolderLayout) {
+	home, launchers := herdrHome(), filepath.Join(s.managedRoot(), "herdr-app")
+	return localFolderLayout{filepath.Join(home, "mods"), home, home, herdrIgnore}, localFolderLayout{launchers, s.managedRoot(), launchers, herdrCommonIgnore}
+}
+
+func herdrCandidate(name, path, component, entry string) Candidate {
+	return Candidate{Name: name, Path: path, Targets: []string{"herdr-app"}, Components: []string{component}, TargetInfo: map[string]TargetPackage{"herdr-app": {Components: []string{component}, Entry: entry}}}
+}
+
+// herdrCandidates reads Herdr's own layout when no manifest names a package: with an entry, one
+// launcher that is an executable file in the repository; without one, each root mods/<id>/main.js.
+func herdrCandidates(root, entry string) []Candidate {
 	var out []Candidate
-	for _, e := range entries {
-		if !e.IsDir() || !namePattern.MatchString(e.Name()) {
-			continue
+	if entry != "" {
+		path := filepath.Join(root, entry)
+		if filepath.IsLocal(entry) && namePattern.MatchString(filepath.Base(entry)) && noSymlink(root, path) == nil {
+			if info, err := os.Lstat(path); err == nil && info.Mode().IsRegular() && info.Mode()&0111 != 0 {
+				out = append(out, herdrCandidate(filepath.Base(entry), ".", "launcher", filepath.ToSlash(filepath.Clean(entry))))
+			}
 		}
+		return out
+	}
+	entries, _ := os.ReadDir(filepath.Join(root, "mods"))
+	for _, e := range entries {
 		info, err := os.Lstat(filepath.Join(root, "mods", e.Name(), "main.js"))
-		if err == nil && info.Mode().IsRegular() {
-			out = append(out, herdrCandidate(e.Name(), filepath.ToSlash(filepath.Join("mods", e.Name())), "mods"))
+		if e.IsDir() && namePattern.MatchString(e.Name()) && err == nil && info.Mode().IsRegular() {
+			out = append(out, herdrCandidate(e.Name(), "mods/"+e.Name(), "mods", ""))
 		}
 	}
 	return out
 }
-func herdrLauncher(root, entry string) *Candidate {
-	if entry == "" {
-		return nil
-	}
-	clean := filepath.Clean(entry)
-	if filepath.IsAbs(clean) || clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) || !namePattern.MatchString(filepath.Base(clean)) {
-		return nil
-	}
-	path := filepath.Join(root, clean)
-	if noSymlink(root, path) != nil {
-		return nil
-	}
-	info, err := os.Lstat(path)
-	if err != nil || !info.Mode().IsRegular() || info.Mode()&0111 == 0 {
-		return nil
-	}
-	c := herdrCandidate(filepath.Base(clean), ".", "launcher")
-	infoForTarget := c.TargetInfo["herdr-app"]
-	infoForTarget.Entry = filepath.ToSlash(clean)
-	c.TargetInfo["herdr-app"] = infoForTarget
-
-	return &c
-}
-func herdrCandidates(root, entry string) []Candidate {
-	if entry != "" {
-		if c := herdrLauncher(root, entry); c != nil {
-			return []Candidate{*c}
-		}
-		return nil
-	}
-	return herdrMods(root)
-}
 
 func (s *Service) herdrHost(target string) Host {
 	h := Host{Target: target, Status: HostReady, Installed: []Installed{}}
-	info, err := os.Lstat(herdrHome())
-	if os.IsNotExist(err) {
-		h.Status = HostMissing
+	mod, launcher := s.herdrLayouts()
+	layouts := []localFolderLayout{mod, launcher}
+	if info, err := os.Lstat(herdrHome()); os.IsNotExist(err) {
+		// A machine that does not run the Herdr window skips its mods; launchers live elsewhere.
+		h.Status, layouts = HostMissing, layouts[1:]
 		h.Note = "Herdr app home " + herdrHome() + " is absent; Herdr bindings are skipped on this machine"
 		h.NoteKey, h.NoteArgs = "plugins.note.herdrHomeMissing", map[string]string{"path": herdrHome()}
 	} else if err != nil {
 		h.fail(err)
 		return h
-	}
-	if info != nil && !info.IsDir() {
+	} else if !info.IsDir() {
 		h.fail(fmt.Errorf("Herdr app home is not a directory: %s", herdrHome()))
 		return h
 	}
+	// Folder names and markers only: digesting or inspecting every folder would let an unrelated
+	// one fail the host; applyLocalIn digests the one folder it changes.
 	var fingerprint []byte
-	for i, layout := range []localFolderLayout{
-		{filepath.Join(herdrHome(), "mods"), herdrHome(), herdrHome(), herdrIgnore},
-		{filepath.Join(s.managedRoot(), "herdr-app"), s.managedRoot(), filepath.Join(s.managedRoot(), "herdr-app"), herdrCommonIgnore},
-	} {
-		if i == 0 && h.Status == HostMissing {
-			continue
-		}
+	for _, layout := range layouts {
 		if err := noSymlink(layout.base, layout.root); err != nil {
 			h.fail(err)
 			return h
@@ -124,16 +109,14 @@ func (s *Service) herdrHost(target string) Host {
 }
 
 func (s *Service) applyHerdr(c Change, b Binding, source string) error {
-	if b.Entry == "" && (c.Action == "remove" || c.Action == "uninstall") {
+	layout, launcher := s.herdrLayouts()
+	if b.Entry != "" {
+		layout = launcher
+	} else if c.Action == "remove" || c.Action == "uninstall" {
+		// Removing a mod where the home is absent has nothing to delete and must not create it.
 		if _, err := os.Lstat(herdrHome()); os.IsNotExist(err) {
 			return nil
 		}
-	}
-	home := herdrHome()
-	layout := localFolderLayout{filepath.Join(home, "mods"), home, home, herdrIgnore}
-	if b.Entry != "" {
-		root := filepath.Join(s.managedRoot(), "herdr-app")
-		layout = localFolderLayout{root, s.managedRoot(), root, herdrCommonIgnore}
 	}
 	return s.applyLocalIn(layout, c, b, source)
 }
