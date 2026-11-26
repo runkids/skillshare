@@ -48,7 +48,7 @@ Pass `--exit-code` to also exit with code `1` when every item could be checked b
 `check` inspects your source directory and reports update status for:
 
 1. **Tracked repositories** — Fetches from origin, shows how many commits you're behind
-2. **Installed skills (with metadata)** — Compares installed version against the remote HEAD
+2. **Installed skills (with metadata)** — Compares installed version against the remote HEAD. When they differ, a skill installed from a repository subfolder is still up to date if that subfolder did not change
 3. **Stale skills** — Detects skills whose subdirectory was deleted from the upstream repository
 4. **Locally modified skills** — Compares the files of a skill installed from a repository with the files recorded at install time, and reports `"status": "modified"` when you edited, added, or deleted any of them
 5. **Local-path installs** — Compares the files at the path you installed from with the files recorded at install time (see [Local-Path Installs](#local-path-installs))

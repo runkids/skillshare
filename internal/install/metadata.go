@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
 	"time"
@@ -545,7 +546,7 @@ func WriteMetaToStore(sourceDir, destPath string, meta *SkillMeta) error {
 		}
 	}
 
-	store.Set(rel, &MetadataEntry{
+	entry := &MetadataEntry{
 		Source:      meta.Source,
 		Kind:        meta.Kind,
 		Type:        meta.Type,
@@ -559,8 +560,27 @@ func WriteMetaToStore(sourceDir, destPath string, meta *SkillMeta) error {
 		Layout:      meta.Layout,
 		Branch:      meta.Branch,
 		Commit:      meta.Commit,
-	})
+	}
+	if sameSubdirFiles(store.Get(rel), entry) {
+		return nil
+	}
+	store.Set(rel, entry)
 	return store.Save(sourceDir)
+}
+
+// sameSubdirFiles reports whether entry reinstalled the files old recorded
+// from the same repository subdir, so the store is not rewritten: a source
+// under version control must not change when nothing upstream did (#1041).
+// The subdir tree hash lets check see the skill as current at a later commit;
+// an install from a repository root has none, and an entry without a commit
+// lacks the project lock pin, so both record the new commit.
+func sameSubdirFiles(old, entry *MetadataEntry) bool {
+	if old == nil || old.Subdir == "" || old.TreeHash == "" || old.Commit == "" || len(old.FileHashes) == 0 {
+		return false
+	}
+	kept := *entry
+	kept.InstalledAt, kept.Version, kept.Commit = old.InstalledAt, old.Version, old.Commit
+	return reflect.DeepEqual(old, &kept)
 }
 
 // loadMetadataFile reads .metadata.json from the given directory (pure read, no migration).

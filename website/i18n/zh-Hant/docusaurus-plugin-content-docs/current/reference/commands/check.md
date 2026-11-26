@@ -48,7 +48,7 @@ result=$(skillshare check --json)
 `check` 會檢查你的 source 目錄，並回報以下項目的更新狀態：
 
 1. **Tracked 儲存庫** — 從 origin fetch，顯示落後多少個 commits
-2. **已安裝的 skills（含 metadata）** — 比較已安裝版本與遠端 HEAD
+2. **已安裝的 skills（含 metadata）** — 比較已安裝版本與遠端 HEAD。兩者不同時，從儲存庫子資料夾安裝的 skill 只要該子資料夾沒有變更，仍算 up to date
 3. **過期的 skills** — 偵測上游儲存庫中已刪除的子目錄
 4. **本機修改過的 skills** — 將從儲存庫安裝的 skill 的檔案與安裝時記錄的檔案比對，若你編輯、新增或刪除了其中任何檔案，則回報 `"status": "modified"`
 5. **從本機路徑安裝的 skills** — 將安裝來源路徑中的檔案與安裝時記錄的檔案比對（參見[從本機路徑安裝](#local-path-installs)）

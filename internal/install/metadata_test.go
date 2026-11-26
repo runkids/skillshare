@@ -637,3 +637,42 @@ func TestMetadataEntry_LocallyModified(t *testing.T) {
 		}
 	}
 }
+
+// Reinstalling the same files from a subdir keeps the recorded entry, so a
+// source under version control stays clean (#1041). An install from a
+// repository root has no subdir tree hash for check to compare, and an entry
+// without a commit lacks the project lock pin, so both record the new commit.
+func TestWriteMetaToStore_SameFiles(t *testing.T) {
+	for _, tc := range []struct {
+		name, subdir, commit, wantVersion string
+	}{
+		{"subdir keeps the entry", "skills/a", "c1", "v1"},
+		{"repository root records the new commit", "", "c1", "v2"},
+		{"entry without a commit records one", "skills/a", "", "v2"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			sourceDir := t.TempDir()
+			dest := filepath.Join(sourceDir, "a")
+			first := &SkillMeta{
+				Source: "example.com/r", RepoURL: "https://example.com/r.git", Subdir: tc.subdir,
+				Version: "v1", Commit: tc.commit, TreeHash: "tree", InstalledAt: time.Unix(1, 0).UTC(),
+				FileHashes: map[string]string{"SKILL.md": "sha256:1"},
+			}
+			if err := WriteMetaToStore(sourceDir, dest, first); err != nil {
+				t.Fatal(err)
+			}
+			second := *first
+			second.Version, second.Commit, second.InstalledAt = "v2", "c2", time.Unix(2, 0).UTC()
+			if err := WriteMetaToStore(sourceDir, dest, &second); err != nil {
+				t.Fatal(err)
+			}
+			store, err := LoadMetadata(sourceDir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := store.Get("a").Version; got != tc.wantVersion {
+				t.Fatalf("version = %q, want %q", got, tc.wantVersion)
+			}
+		})
+	}
+}

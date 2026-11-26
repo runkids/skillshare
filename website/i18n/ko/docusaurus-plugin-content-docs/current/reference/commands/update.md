@@ -226,7 +226,7 @@ skillshare update --all
 1. 모든 tracked 저장소(git pull)
 2. source metadata가 있는 모든 skill(upstream이 바뀌었을 때 재설치)
 
-`update --all`과 `update --group`은 원격 skill을 저장소별로 묶어 저장소마다 한 번만 clone합니다. upstream에서 폴더가 바뀌지 않은 skill은 그대로 두고 up to date로 집계합니다. 단, 폴더에 symlink가 있는 skill은 예외입니다. 폴더가 바뀌지 않아도 파일이 바뀔 수 있으므로 upstream commit이 바뀔 때마다 다시 설치합니다. 프로젝트 모드(`-p`)에서 여러 skill을 이름으로 지정해도 같습니다. 모든 skill을 다시 설치하려면 `--force`를 사용하세요. skill이 하나뿐이거나 글로벌 모드에서 이름으로 지정하면 항상 다시 설치합니다. 설치 후 파일을 변경한 skill은 어떤 경우에도 `--merge` 또는 `--force`를 추가하기 전까지 건너뜁니다([충돌 처리](#충돌-처리) 참고). 저장소를 가져오지 못하면 해당 skill은 skipped로 집계되고, 저장소와 오류를 알려 주는 경고가 표시됩니다. URL에 포함된 인증 정보는 제거됩니다.
+`update --all`과 `update --group`은 원격 skill을 저장소별로 묶어 저장소마다 한 번만 clone합니다. upstream에서 폴더가 바뀌지 않은 skill은 그대로 두고 up to date로 집계합니다. 단, 폴더에 symlink가 있는 skill은 예외입니다. 폴더가 바뀌지 않아도 파일이 바뀔 수 있으므로 upstream commit이 바뀔 때마다 다시 설치합니다. 프로젝트 모드(`-p`)에서 여러 skill을 이름으로 지정해도 같습니다. 모든 skill을 다시 설치하려면 `--force`를 사용하세요. skill이 하나뿐이거나 글로벌 모드에서 이름으로 지정하면 항상 다시 설치합니다. 저장소 하위 폴더에서 같은 파일을 다시 설치하면 `.metadata.json`은 바뀌지 않으므로, Git으로 관리하는 skills source는 깨끗하게 유지됩니다. 설치 후 파일을 변경한 skill은 어떤 경우에도 `--merge` 또는 `--force`를 추가하기 전까지 건너뜁니다([충돌 처리](#충돌-처리) 참고). 저장소를 가져오지 못하면 해당 skill은 skipped로 집계되고, 저장소와 오류를 알려 주는 경고가 표시됩니다. URL에 포함된 인증 정보는 제거됩니다.
 
 skillshare는 하나의 git checkout을 한 번에 한 프로세스만 업데이트합니다. 같은 tracked 저장소나 git으로 설치한 skill을 다른 `update`나 대시보드가 이미 업데이트하고 있으면 끝날 때까지 기다립니다. 1분이 지나도 끝나지 않으면 `another skillshare process is still updating <path>`와 함께 중단합니다.
 
