@@ -3,6 +3,7 @@ import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { Braces, Check, Download, FileUp, Info, Plus, X } from 'lucide-react';
 import {
   mcpApi,
+  mcpTargets,
   type MCPCandidate,
   type MCPImportSource,
   type MCPMutation,
@@ -24,6 +25,7 @@ import { shortenHome } from '../../lib/paths';
 import {
   describeEndpoint,
   describeError,
+  describeImportWarning,
   hasToolPolicy,
   otherConflicts,
   targetLabel,
@@ -43,6 +45,10 @@ const SNIPPET_PLACEHOLDER = `{
 }`;
 const TOML = /^\s*\[mcp_servers[.\]]/m;
 const MCP_YAML = /^(?:extensions|mcp_servers)\s*:/m;
+const pasteFormat = (text: string) =>
+  TOML.test(text) ? 'toml' : MCP_YAML.test(text) ? 'yaml' : 'json';
+// The Agents whose own files are JSON, which a pasted JSON snippet may name as its source.
+const JSON_AGENTS = mcpTargets.filter((x) => !['codex', 'grok', 'goose', 'hermes'].includes(x));
 
 /** Pretty-printed JSON, or null when the text isn't plain JSON (comments and trailing commas still import fine). */
 function formatJSON(text: string) {
@@ -199,22 +205,28 @@ function pastedPiSettings(
 
 type ImportQuery = UseQueryResult<{ candidates: MCPCandidate[] }, Error>;
 
+/** The client a pasted snippet comes from: one of the two TOML clients, and a JSON Agent or '' for unknown. */
+interface PasteFrom {
+  toml: string;
+  json: string;
+}
+
 function ImportSourceEditor({
   content,
   pasted,
-  tomlFrom,
+  from,
   query,
   saving,
   onContent,
-  onTomlFrom,
+  onFrom,
 }: {
   content: string;
   pasted: string;
-  tomlFrom: string;
+  from: PasteFrom;
   query: ImportQuery;
   saving: boolean;
   onContent: (text: string) => void;
-  onTomlFrom: (value: string) => void;
+  onFrom: (from: PasteFrom) => void;
 }) {
   const t = useT();
   const { toast } = useToast();
@@ -272,50 +284,73 @@ function ImportSourceEditor({
         />
         <span className="hp">{t('mcp.pasteHint')}</span>
       </div>
-      {pasted && (
-        <SnippetStatus pasted={pasted} tomlFrom={tomlFrom} query={query} onTomlFrom={onTomlFrom} />
-      )}
+      {pasted && <SnippetStatus pasted={pasted} from={from} query={query} onFrom={onFrom} />}
     </>
   );
 }
 
 function SnippetStatus({
   pasted,
-  tomlFrom,
+  from,
   query,
-  onTomlFrom,
+  onFrom,
 }: {
   pasted: string;
-  tomlFrom: string;
+  from: PasteFrom;
   query: ImportQuery;
-  onTomlFrom: (value: string) => void;
+  onFrom: (from: PasteFrom) => void;
 }) {
   const t = useT();
-  const toml = TOML.test(pasted);
+  const format = pasteFormat(pasted);
   const candidates = query.data?.candidates ?? [];
   return (
     <div className="flex items-center justify-between gap-4 text-[13px]">
       {query.error ? (
-        <span className="ss-st bad wrap min-w-0">{describeError(t, query.error.message)}</span>
+        <span className="ss-st bad wrap min-w-0">
+          {/* The chosen Agent's file shape is not the snippet's, so the fix is From, not the text. */}
+          {format === 'json' && from.json && query.error.message.startsWith('no MCP entries found')
+            ? t('mcp.importError.noEntriesFrom', { agent: targetLabel(from.json) })
+            : describeError(t, query.error.message)}
+        </span>
       ) : query.data ? (
         <span className="ss-st ok">
           {t(plural('mcp.detected', candidates.length), {
-            format: toml ? 'TOML' : MCP_YAML.test(pasted) ? 'YAML' : 'JSON',
+            format: format.toUpperCase(),
             count: candidates.length,
           })}
         </span>
       ) : (
         <span className="text-ink-3">{t('mcp.reading')}</span>
       )}
-      {toml && (
+      {format === 'toml' && (
         <span className="flex items-center gap-2.5">
           <span className="text-ink-2">{t('mcp.tomlFrom')}</span>
           <SegmentedControl
-            value={tomlFrom}
-            onChange={onTomlFrom}
+            value={from.toml}
+            onChange={(toml) => onFrom({ ...from, toml })}
             options={['codex', 'grok'].map((v) => ({ value: v, label: v }))}
           />
         </span>
+      )}
+      {/* Many Agents share the mcpServers shape, so only a named source keeps its own fields. */}
+      {format === 'json' && (
+        <Select
+          size="sm"
+          align="end"
+          className="shrink-0"
+          prefix={t('mcp.jsonFrom')}
+          ariaLabel={t('mcp.jsonFrom')}
+          value={from.json}
+          onChange={(json) => onFrom({ ...from, json })}
+          options={[
+            { value: '', label: t('mcp.jsonFromAny'), description: t('mcp.jsonFromAnyHint') },
+            ...JSON_AGENTS.map((a) => ({
+              value: a,
+              label: targetLabel(a),
+              icon: <AgentIcon target={a} size={16} />,
+            })),
+          ]}
+        />
       )}
     </div>
   );
@@ -333,6 +368,7 @@ function ImportCandidateList({
   selection,
   query,
   saving,
+  pickable,
   onPick,
 }: {
   tab: Source;
@@ -340,6 +376,8 @@ function ImportCandidateList({
   selection: ReturnType<typeof importSelection>;
   query: ImportQuery;
   saving: boolean;
+  /** The snippet's source Agent can be chosen, so a warning may point to that choice. */
+  pickable: boolean;
   onPick: (names: string[]) => void;
 }) {
   const t = useT();
@@ -398,7 +436,7 @@ function ImportCandidateList({
               ))}
               {[...new Set(c.warnings)].map((w) => (
                 <span key={w} className="text-xs text-warn">
-                  {w}
+                  {describeImportWarning(t, w, pickable)}
                 </span>
               ))}
             </span>
@@ -480,10 +518,11 @@ function useImportQuery(
   project: string | undefined,
   tab: Source,
   pasted: string,
-  tomlFrom: string,
+  pasteFrom: PasteFrom,
 ) {
   const from = selectedSource?.target ?? '';
-  const toml = TOML.test(pasted);
+  // YAML names its client by its top-level key; JSON and TOML go by the choice next to the snippet.
+  const pastedFrom = { toml: pasteFrom.toml, yaml: '', json: pasteFrom.json }[pasteFormat(pasted)];
   const fromTarget = useQuery({
     queryKey: queryKeys.mcpImport(sourceID, project),
     queryFn: () =>
@@ -497,8 +536,8 @@ function useImportQuery(
     retry: false,
   });
   const fromPaste = useQuery({
-    queryKey: queryKeys.mcpImportPaste(pasted, toml && tomlFrom),
-    queryFn: () => mcpApi.import({ content: pasted, ...(toml && { from: tomlFrom }) }),
+    queryKey: queryKeys.mcpImportPaste(pasted, pastedFrom),
+    queryFn: () => mcpApi.import({ content: pasted, ...(pastedFrom && { from: pastedFrom }) }),
     enabled: tab === 'paste' && pasted !== '',
     gcTime: 0,
     retry: false,
@@ -568,7 +607,7 @@ export default function MCPImportDialog(props: Props) {
   const selectedSource = sources.find((s) => sourceKey(s) === sourceID);
   const [content, setContent] = useState('');
   const [pasted, setPasted] = useState('');
-  const [tomlFrom, setTomlFrom] = useState('codex');
+  const [pasteFrom, setPasteFrom] = useState<PasteFrom>({ toml: 'codex', json: '' });
   const [picked, setPicked] = useState<string[] | null>(null);
   const [targets, setTargets] = useState<string[]>(defaultTargets);
   const [previewName, setPreviewName] = useState('');
@@ -582,7 +621,7 @@ export default function MCPImportDialog(props: Props) {
     return () => window.clearTimeout(id);
   }, [content]);
 
-  const query = useImportQuery(sourceID, selectedSource, project, tab, pasted, tomlFrom);
+  const query = useImportQuery(sourceID, selectedSource, project, tab, pasted, pasteFrom);
   const candidates = query.data?.candidates ?? [];
 
   const base = { servers, conflict, picked, targets, defaultTargets, previewName, tab };
@@ -712,15 +751,15 @@ export default function MCPImportDialog(props: Props) {
           <ImportSourceEditor
             content={content}
             pasted={pasted}
-            tomlFrom={tomlFrom}
+            from={pasteFrom}
             query={query}
             saving={saving}
             onContent={(text) => {
               setContent(text);
               reset();
             }}
-            onTomlFrom={(value) => {
-              setTomlFrom(value);
+            onFrom={(value) => {
+              setPasteFrom(value);
               reset();
             }}
           />
@@ -733,6 +772,7 @@ export default function MCPImportDialog(props: Props) {
             selection={selection}
             query={query}
             saving={saving}
+            pickable={tab === 'paste' && pasteFormat(pasted) === 'json'}
             onPick={setPicked}
           />
         )}

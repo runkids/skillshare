@@ -302,6 +302,23 @@ const importErrorKeys: Record<string, string> = {
   'no MCP entries found; select the matching client format': 'mcp.importError.noEntries',
 };
 
+// import.go's warning for an Agent's field left out; the suffix marks a guessed format.
+const agentFieldWarning =
+  /^Agent-specific field not imported: (\S+)(; import the config with --from <agent> to keep it)?$/;
+
+/** An import warning in the UI's words. pickable: the dialog offers the source Agent, so a guessed format's field can be kept there. */
+export const describeImportWarning = (
+  t: (key: string, params?: Record<string, string>) => string,
+  message: string,
+  pickable: boolean,
+) => {
+  const m = agentFieldWarning.exec(message);
+  if (!m) return message;
+  return t(m[2] && pickable ? 'mcp.importWarn.agentFieldPick' : 'mcp.importWarn.agentField', {
+    field: m[1],
+  });
+};
+
 const kiloProjectEnvPrefix = 'Kilo Code MCP ';
 const kiloProjectEnvSuffix =
   ': Kilo does not allow environment references in project config and ignores the whole file when it finds one; remove fromEnv here or define this server in global mode';

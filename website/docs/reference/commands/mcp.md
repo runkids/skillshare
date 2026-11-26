@@ -177,8 +177,9 @@ servers:
   Agent's ID, such as `alwaysLoad` from Claude Code under `options.claude`. A field whose
   name, or a name inside it, suggests a credential (`auth`, `key`, `token`, `secret`,
   `bearer`, `cookie`…) is left out with a warning, as is any field these rules refuse. A file or
-  pasted text imported without `--from` has a guessed format, so its native fields are
-  listed as warnings and left out instead.
+  pasted text imported without `--from`, or JSON pasted in the dashboard with **From** left at
+  **Any Agent**, has a guessed format, so its native fields are listed as warnings and left
+  out instead.
 - Sync writes the fields again when it recreates an entry, for example after a rename.
   When the source drops an option, the next sync removes the field it wrote, unless
   the Agent changed it since; that is a conflict to import or replace.

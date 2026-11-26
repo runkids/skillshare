@@ -135,7 +135,7 @@ servers:
   `{env:VAR}`，且整個值必須就是參照。Agent 的檔案可能會被 commit，因此明文或參照前後帶有文字的值會被拒絕。
   Codex、Antigravity、Claude Desktop、Goose、Junie、LM Studio 與 Warp 不會讀取那裡的參照，所以它們的 options 不能放憑證。
 - 該 server 觸及不到的 client 的 options 會被保留，但不會寫入。
-- import 會把 Agent 的原生欄位中此處沒有可攜式形式的部分，放在該 Agent 的 ID 下，例如 Claude Code 的 `alwaysLoad` 會放在 `options.claude` 下。名稱（或其內部名稱）看起來是憑證的欄位（`auth`、`key`、`token`、`secret`、`bearer`、`cookie` 等），以及上述規則拒絕的欄位，會顯示警告並被省略。未指定 `--from` 匯入的檔案或貼上的文字，格式是推測出來的，因此原生欄位會列為警告並被省略。
+- import 會把 Agent 的原生欄位中此處沒有可攜式形式的部分，放在該 Agent 的 ID 下，例如 Claude Code 的 `alwaysLoad` 會放在 `options.claude` 下。名稱（或其內部名稱）看起來是憑證的欄位（`auth`、`key`、`token`、`secret`、`bearer`、`cookie` 等），以及上述規則拒絕的欄位，會顯示警告並被省略。未指定 `--from` 匯入的檔案或貼上的文字，或在 dashboard 貼上 JSON 且 **From** 維持 **Any Agent** 時，格式是推測出來的，因此原生欄位會列為警告並被省略。
 - 當 sync 重新建立項目時，例如重新命名之後，會再次寫入這些欄位。
   當 source 移除某個 option 時，下一次 sync 會移除它寫入的欄位，除非 Agent 在那之後改過它；那屬於需要 import 或 replace 的衝突。
 - 在儀表板中，server 對話框的 **其他 Agent 設定** 可以編輯它們：選擇 Agent，再以 JSON 物件輸入欄位。

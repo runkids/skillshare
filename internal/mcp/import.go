@@ -356,8 +356,12 @@ func importNative(target string, data []byte, singleName string, adapter, piProj
 			if allowed[key] {
 				continue
 			}
-			if guessed || namesCredential(key, entry[key]) || optionError(target, key, entry[key]) != nil {
+			if namesCredential(key, entry[key]) || optionError(target, key, entry[key]) != nil {
 				c.Warnings = append(c.Warnings, "Agent-specific field not imported: "+key)
+				continue
+			}
+			if guessed {
+				c.Warnings = append(c.Warnings, "Agent-specific field not imported: "+key+"; import the config with --from <agent> to keep it")
 				continue
 			}
 			if c.Server.Options == nil {
