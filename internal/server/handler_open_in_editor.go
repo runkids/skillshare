@@ -43,6 +43,9 @@ type editorCandidate struct {
 // wslExplorer reports explorer.exe when skillshare runs inside WSL; tests replace it.
 var wslExplorer = wsl.Explorer
 
+// wslKernel reports a WSL kernel, where xdg-open runs only when explorer.exe was not found; tests replace it.
+var wslKernel = wsl.Kernel
+
 // xdgOpenGrace is how long startOpener waits for xdg-open to fail before reporting success.
 const xdgOpenGrace = 2 * time.Second
 
@@ -181,7 +184,11 @@ func startOpener(cmd *exec.Cmd) error {
 	select {
 	case err := <-done:
 		if err != nil {
-			return fmt.Errorf("xdg-open could not open %s: %w", cmd.Args[len(cmd.Args)-1], err)
+			err = fmt.Errorf("xdg-open could not open %s: %w", cmd.Args[len(cmd.Args)-1], err)
+			if wslKernel() {
+				err = fmt.Errorf("%w; this runs on a WSL kernel but found no explorer.exe on PATH or the C: drive, so Windows could not open it (is Windows interop off, or is this a container?)", err)
+			}
+			return err
 		}
 	case <-time.After(xdgOpenGrace):
 	}

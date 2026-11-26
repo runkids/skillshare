@@ -212,6 +212,17 @@ func TestStartOpener_ReportsXdgOpenFailure(t *testing.T) {
 	}
 }
 
+func TestStartOpener_ExplainsMissingExplorerOnWSL(t *testing.T) {
+	stubPrograms(t, false, map[string]string{"xdg-open": "exit 3"})
+	old := wslKernel
+	wslKernel = func() bool { return true }
+	t.Cleanup(func() { wslKernel = old })
+	err := startOpener(exec.Command("xdg-open", "/some/dir"))
+	if err == nil || !strings.Contains(err.Error(), "found no explorer.exe") {
+		t.Fatalf("startOpener error = %v; want it to say no explorer.exe was found", err)
+	}
+}
+
 func TestStartOpener_IgnoresExplorerExitCode(t *testing.T) {
 	stubPrograms(t, false, map[string]string{"explorer.exe": "exit 1"})
 	if err := startOpener(exec.Command("explorer.exe", `C:\dir`)); err != nil {
