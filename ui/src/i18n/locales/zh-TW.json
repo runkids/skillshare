@@ -2882,6 +2882,7 @@
   "plugins.blocked": "無法套用",
   "plugins.advanced": "進階選項",
   "plugins.sourceRef": "Git 分支、標籤或 commit",
+  "plugins.launcherEntry": "儲存庫中的啟動器路徑（Herdr 應用程式）",
   "plugins.entry": "OpenCode 入口路徑",
   "plugins.entrySet": "指定入口路徑",
   "plugins.rediscover": "重新尋找",

@@ -2882,6 +2882,7 @@
   "plugins.blocked": "Terhalang",
   "plugins.advanced": "Opsi lanjutan",
   "plugins.sourceRef": "Branch, tag, atau commit Git",
+  "plugins.launcherEntry": "Path launcher di repositori (aplikasi Herdr)",
   "plugins.entry": "Jalur entri OpenCode",
   "plugins.entrySet": "Tentukan jalur entri",
   "plugins.rediscover": "Cari lagi",

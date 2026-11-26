@@ -2882,6 +2882,7 @@
   "plugins.blocked": "適用できません",
   "plugins.advanced": "詳細設定",
   "plugins.sourceRef": "Git ブランチ、タグ、コミット",
+  "plugins.launcherEntry": "リポジトリ内のランチャーのパス（Herdr アプリ）",
   "plugins.entry": "OpenCode エントリーパス",
   "plugins.entrySet": "エントリーパスを指定",
   "plugins.rediscover": "もう一度探す",

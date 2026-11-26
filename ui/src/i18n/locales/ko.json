@@ -2882,6 +2882,7 @@
   "plugins.blocked": "적용할 수 없음",
   "plugins.advanced": "고급 옵션",
   "plugins.sourceRef": "Git 브랜치, 태그 또는 커밋",
+  "plugins.launcherEntry": "저장소 안의 런처 경로 (Herdr 앱)",
   "plugins.entry": "OpenCode 진입 경로",
   "plugins.entrySet": "진입 경로 지정",
   "plugins.rediscover": "다시 찾기",

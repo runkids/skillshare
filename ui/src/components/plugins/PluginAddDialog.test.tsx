@@ -97,6 +97,23 @@ describe('PluginAddDialog targets', () => {
       ),
     );
   });
+  it('sends a Herdr launcher entry with the first discovery', async () => {
+    render(
+      <PluginAddDialog initialSource="owner/lantern" onClose={() => {}} onPreview={vi.fn()} />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'plugins.advanced' }));
+    fireEvent.change(screen.getByLabelText('plugins.launcherEntry'), {
+      target: { value: 'bin/lantern-app' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'plugins.discover' }));
+    await waitFor(() =>
+      expect(pluginsApi.discover).toHaveBeenCalledWith(
+        'owner/lantern',
+        undefined,
+        'bin/lantern-app',
+      ),
+    );
+  });
   const piDefinitions = [
     { target: 'pi', label: 'Pi', project: true, operations: ['add'], npm: true },
     { target: 'pi-work', label: 'pi-work', project: false, operations: ['add'], npm: true },

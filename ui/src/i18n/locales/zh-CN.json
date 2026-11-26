@@ -2882,6 +2882,7 @@
   "plugins.blocked": "无法应用",
   "plugins.advanced": "高级选项",
   "plugins.sourceRef": "Git 分支、标签或 commit",
+  "plugins.launcherEntry": "仓库中的启动器路径（Herdr 应用）",
   "plugins.entry": "OpenCode 入口路径",
   "plugins.entrySet": "指定入口路径",
   "plugins.rediscover": "重新查找",

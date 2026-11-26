@@ -2882,6 +2882,7 @@
   "plugins.blocked": "مسدود",
   "plugins.advanced": "گزینه‌های پیشرفته",
   "plugins.sourceRef": "شاخه، برچسب یا کامیت Git",
+  "plugins.launcherEntry": "مسیر لانچر در مخزن (برنامه Herdr)",
   "plugins.entry": "مسیر ورودی OpenCode",
   "plugins.entrySet": "تعیین مسیر ورودی",
   "plugins.rediscover": "جست‌وجوی دوباره",

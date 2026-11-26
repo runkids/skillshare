@@ -2882,6 +2882,7 @@
   "plugins.blocked": "Blocked",
   "plugins.advanced": "Advanced options",
   "plugins.sourceRef": "Git branch, tag, or commit",
+  "plugins.launcherEntry": "Launcher path in the repository (Herdr app)",
   "plugins.entry": "OpenCode entry path",
   "plugins.entrySet": "Set entry path",
   "plugins.rediscover": "Search again",
