@@ -156,7 +156,7 @@ Tailwind utilities are for layout inside these (`flex`, `gap-*`, `min-w-0`, `w-[
 
 - `.ss-wrap` spaces its children with a 28px gap. Do not add `space-y-*` or margins between them.
 - A page that is one child of a wider layout, without `.ss-wrap`, still gets header spacing from `.ss-pgh`.
-- `PageHeader` has no icon (the `icon` prop is deprecated); do not pass it. Use `backTo` for a sub-page of a nav item, `crumbs` for deeper trails, `mono` when the title is a resource name.
+- `PageHeader` has no icon (the `icon` prop is deprecated); do not pass it. Use `backTo` for a sub-page of a nav item, `crumbs` for deeper trails, `mono` when the title is a resource name, `beside` for tabs that sit on the title row (the actions then line up with that row).
 - A sub-page reached from a nav item keeps that item lit through `also` in the `Layout.tsx` nav definition (Skills stays active on `/hubs`).
 
 ### Components
@@ -165,7 +165,7 @@ Shared components in `ui/src/components/` wrap the `ss-*` classes. Use the compo
 
 | Component | Renders | API |
 |-----------|---------|-----|
-| `PageHeader` | `.ss-pgh` `.ss-ph` | `title`, `subtitle?`, `actions?`, `backTo?`, `crumbs?`, `mono?` |
+| `PageHeader` | `.ss-pgh` `.ss-ph` | `title`, `subtitle?`, `actions?`, `backTo?`, `crumbs?`, `mono?`, `beside?` |
 | `Button` | `.ss-btn` | `variant="primary\|secondary\|danger\|warning\|ghost\|link"`, `size="xs\|sm\|md\|lg"`, `loading?` |
 | `IconButton` | `.ss-ib` | `icon`, `label` (required, becomes `aria-label`), `size`, `variant="ghost\|danger-outline"` |
 | `Card` | `.ss-box` | `padding="none\|sm\|md"`, `variant="default\|outlined"`, `hover?`, `overflow?`, `onClick?`. `tilt` and `skillCard` do nothing |

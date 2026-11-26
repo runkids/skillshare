@@ -2290,7 +2290,6 @@
   "analyze.detail.disabled": "Disabled in .skillignore, but this target symlinks the whole source folder, so the tool still loads it.",
   "layout.nav.context": "Context",
   "context.title": "Context",
-  "context.subtitle": "What your skills and MCP servers cost a model's context window.",
   "context.tab.skills": "Skills",
   "context.tab.mcp": "MCP",
   "context.mcp.loading": "Loading MCP tool costs...",

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { AlertCircle, AlertTriangle, ArrowDown, Puzzle, Search, X } from 'lucide-react';
@@ -36,8 +37,8 @@ function pickTarget(targets: AnalyzeTarget[], want: string) {
   );
 }
 
-/** Context cost of the skills a target loads: descriptions always, bodies on demand. */
-export default function SkillCostPanel() {
+/** Context cost of the skills a target loads: descriptions always, bodies on demand. The target picker goes in the page's `actions` slot. */
+export default function SkillCostPanel({ actions }: { actions: HTMLElement | null }) {
   const t = useT();
   const { data, isPending, error } = useQuery({
     queryKey: queryKeys.analyze,
@@ -125,19 +126,20 @@ export default function SkillCostPanel() {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex items-center justify-between gap-6">
-        <p className="max-w-[640px] text-[13px] leading-relaxed text-ink-2">{t('analyze.intro')}</p>
-        <Select
-          value={current.name}
-          onChange={(v) => {
-            setTarget(v);
-            setLimit(STEP);
-          }}
-          prefix={t('analyze.target')}
-          className="w-[260px] shrink-0"
-          options={options}
-        />
-      </div>
+      {actions &&
+        createPortal(
+          <Select
+            value={current.name}
+            onChange={(v) => {
+              setTarget(v);
+              setLimit(STEP);
+            }}
+            prefix={t('analyze.target')}
+            className="w-[260px] shrink-0"
+            options={options}
+          />,
+          actions,
+        )}
 
       <div className="ss-counts !grid-cols-3">
         <div>

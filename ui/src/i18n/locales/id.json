@@ -2290,7 +2290,6 @@
   "analyze.detail.disabled": "Dinonaktifkan di .skillignore, tetapi target ini me-symlink seluruh folder sumber, jadi alat tetap memuatnya.",
   "layout.nav.context": "Context",
   "context.title": "Context",
-  "context.subtitle": "Berapa banyak jendela context model yang dipakai skill dan server MCP Anda.",
   "context.tab.skills": "Skill",
   "context.tab.mcp": "MCP",
   "context.mcp.loading": "Memuat biaya tool MCP...",

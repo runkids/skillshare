@@ -2290,7 +2290,6 @@
   "analyze.detail.disabled": ".skillignore에서 비활성화되었지만 이 대상은 소스 폴더 전체를 symlink로 연결하므로 도구가 여전히 불러옵니다.",
   "layout.nav.context": "Context",
   "context.title": "Context",
-  "context.subtitle": "스킬과 MCP 서버가 모델 context를 얼마나 차지하는지 보여 줍니다.",
   "context.tab.skills": "Skills",
   "context.tab.mcp": "MCP",
   "context.mcp.loading": "MCP 도구 비용을 불러오는 중...",

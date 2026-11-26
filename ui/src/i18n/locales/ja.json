@@ -2290,7 +2290,6 @@
   "analyze.detail.disabled": ".skillignore で無効化されていますが、このターゲットはソースフォルダー全体を symlink しているため、ツールは引き続き読み込みます。",
   "layout.nav.context": "Context",
   "context.title": "Context",
-  "context.subtitle": "スキルと MCP サーバーがモデルの context をどれだけ使うか。",
   "context.tab.skills": "スキル",
   "context.tab.mcp": "MCP",
   "context.mcp.loading": "MCP ツールのコストを読み込み中...",

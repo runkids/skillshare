@@ -2290,7 +2290,6 @@
   "analyze.detail.disabled": "در .skillignore غیرفعال شده است، اما این مقصد کل پوشهٔ منبع را symlink می‌کند، بنابراین ابزار همچنان آن را بارگذاری می‌کند.",
   "layout.nav.context": "Context",
   "context.title": "Context",
-  "context.subtitle": "مهارت‌ها و سرورهای MCP شما چه مقدار از پنجرهٔ context مدل را می‌گیرند.",
   "context.tab.skills": "اسکیل‌ها",
   "context.tab.mcp": "MCP",
   "context.mcp.loading": "در حال بارگذاری هزینهٔ ابزارهای MCP...",

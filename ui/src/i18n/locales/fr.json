@@ -2290,7 +2290,6 @@
   "analyze.detail.disabled": "Désactivé dans .skillignore, mais cette cible relie tout le dossier source par symlink, donc l'outil le charge toujours.",
   "layout.nav.context": "Context",
   "context.title": "Context",
-  "context.subtitle": "Ce que vos skills et serveurs MCP coûtent dans la fenêtre de context d'un modèle.",
   "context.tab.skills": "Skills",
   "context.tab.mcp": "MCP",
   "context.mcp.loading": "Chargement des coûts des outils MCP...",

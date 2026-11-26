@@ -16,6 +16,8 @@ interface PageHeaderProps {
   crumbs?: { label: string; to?: string; onClick?: () => void }[];
   /** Set the title in monospace, for resource names */
   mono?: boolean;
+  /** Shown on the title row, after the title: tabs that switch the page's content */
+  beside?: React.ReactNode;
 }
 
 export default function PageHeader({
@@ -26,8 +28,14 @@ export default function PageHeader({
   backTo,
   crumbs,
   mono,
+  beside,
 }: PageHeaderProps) {
   const t = useT();
+  const heading = (
+    <h1 className="ss-h1">
+      <span className={mono ? 'm' : undefined}>{title}</span>
+    </h1>
+  );
   return (
     <div className={`ss-pgh flex flex-col gap-3 ${className}`}>
       {backTo && (
@@ -56,11 +64,17 @@ export default function PageHeader({
           ))}
         </nav>
       )}
-      <div className="ss-ph">
+      {/* With something beside the title, the actions line up with the title row, not the subtitle. */}
+      <div className={beside ? 'ss-ph !items-start' : 'ss-ph'}>
         <div className="tt min-w-0">
-          <h1 className="ss-h1">
-            <span className={mono ? 'm' : undefined}>{title}</span>
-          </h1>
+          {beside ? (
+            <div className="flex flex-wrap items-center gap-4">
+              {heading}
+              {beside}
+            </div>
+          ) : (
+            heading
+          )}
           {subtitle && <p>{subtitle}</p>}
         </div>
         {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}

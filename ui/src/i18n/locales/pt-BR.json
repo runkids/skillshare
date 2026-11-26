@@ -2290,7 +2290,6 @@
   "analyze.detail.disabled": "Desativada no .skillignore, mas este destino aponta um symlink para toda a pasta fonte, então a ferramenta ainda a carrega.",
   "layout.nav.context": "Context",
   "context.title": "Context",
-  "context.subtitle": "Quanto suas skills e servidores MCP ocupam da janela de context de um modelo.",
   "context.tab.skills": "Skills",
   "context.tab.mcp": "MCP",
   "context.mcp.loading": "Carregando custos das ferramentas MCP...",

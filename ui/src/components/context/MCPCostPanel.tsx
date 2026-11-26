@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, AlertTriangle, ArrowDown, Plug, RefreshCw } from 'lucide-react';
@@ -13,8 +14,8 @@ import { queryKeys, staleTimes } from '../../lib/queryKeys';
 import { invalidate } from '../../lib/queryEvents';
 import { groupKey, groupLabel, kTokens } from './contextCost';
 
-/** Tool definitions each MCP target loads. MCP targets are a list of their own, not the skill targets. */
-export default function MCPCostPanel() {
+/** Tool definitions each MCP target loads. MCP targets are a list of their own, not the skill targets. The check button and Agent picker go in the page's `actions` slot. */
+export default function MCPCostPanel({ actions }: { actions: HTMLElement | null }) {
   const t = useT();
   const queryClient = useQueryClient();
   const { data, isPending, error } = useQuery({
@@ -92,29 +93,28 @@ export default function MCPCostPanel() {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex items-center justify-between gap-6">
-        <p className="max-w-[640px] text-[13px] leading-relaxed text-ink-2">
-          {t('context.mcp.intro')}
-        </p>
-        <div className="flex shrink-0 items-center gap-2">
-          <Button
-            variant="secondary"
-            onClick={() => void checkLive()}
-            disabled={checking}
-            title={t('context.mcp.checkHint')}
-          >
-            <RefreshCw size={15} className={checking ? 'animate-spin' : ''} />
-            {t(checking ? 'context.mcp.checking' : 'context.mcp.check')}
-          </Button>
-          <Select
-            value={groupKey(current)}
-            onChange={setAgent}
-            prefix={t('context.mcp.agent')}
-            className="w-[260px]"
-            options={options}
-          />
-        </div>
-      </div>
+      {actions &&
+        createPortal(
+          <>
+            <Button
+              variant="secondary"
+              onClick={() => void checkLive()}
+              disabled={checking}
+              title={t('context.mcp.checkHint')}
+            >
+              <RefreshCw size={15} className={checking ? 'animate-spin' : ''} />
+              {t(checking ? 'context.mcp.checking' : 'context.mcp.check')}
+            </Button>
+            <Select
+              value={groupKey(current)}
+              onChange={setAgent}
+              prefix={t('context.mcp.agent')}
+              className="w-[260px]"
+              options={options}
+            />
+          </>,
+          actions,
+        )}
 
       {checkError && (
         <div className="ss-note bad">

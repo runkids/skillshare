@@ -2290,7 +2290,6 @@
   "analyze.detail.disabled": "已在 .skillignore 停用，但這個目標以 symlink 連結整個來源資料夾，所以工具仍會載入它。",
   "layout.nav.context": "Context",
   "context.title": "Context",
-  "context.subtitle": "你的 skills 和 MCP server 佔用多少模型 context。",
   "context.tab.skills": "Skills",
   "context.tab.mcp": "MCP",
   "context.mcp.loading": "正在載入 MCP tool 成本...",

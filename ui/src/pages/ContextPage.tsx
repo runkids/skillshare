@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import SkillCostPanel from '../components/context/SkillCostPanel';
 import MCPCostPanel from '../components/context/MCPCostPanel';
@@ -19,27 +20,35 @@ export default function ContextPage() {
       },
       { replace: true },
     );
+  // Each panel puts its own picker in the header's actions, since the picker needs the panel's data.
+  const [actions, setActions] = useState<HTMLDivElement | null>(null);
 
   return (
     <div className="ss-wrap animate-page-in">
-      <PageHeader title={t('context.title')} subtitle={t('context.subtitle')} />
-      <div ref={segSlide} className="ss-seg self-start" role="tablist">
-        {(['skills', 'mcp'] as const).map((key) => (
-          <button
-            key={key}
-            type="button"
-            role="tab"
-            aria-selected={tab === key}
-            className={tab === key ? 'on' : ''}
-            onClick={() => setTab(key)}
-          >
-            {t(key === 'mcp' ? 'context.tab.mcp' : 'context.tab.skills')}
-          </button>
-        ))}
-      </div>
+      <PageHeader
+        title={t('context.title')}
+        subtitle={t(tab === 'mcp' ? 'context.mcp.intro' : 'analyze.intro')}
+        beside={
+          <div ref={segSlide} className="ss-seg" role="tablist">
+            {(['skills', 'mcp'] as const).map((key) => (
+              <button
+                key={key}
+                type="button"
+                role="tab"
+                aria-selected={tab === key}
+                className={tab === key ? 'on' : ''}
+                onClick={() => setTab(key)}
+              >
+                {t(key === 'mcp' ? 'context.tab.mcp' : 'context.tab.skills')}
+              </button>
+            ))}
+          </div>
+        }
+        actions={<div ref={setActions} className="flex items-center gap-2" />}
+      />
       {/* Keyed, so switching tabs fades the new content in. */}
       <div key={tab} className="animate-page-in">
-        {tab === 'mcp' ? <MCPCostPanel /> : <SkillCostPanel />}
+        {tab === 'mcp' ? <MCPCostPanel actions={actions} /> : <SkillCostPanel actions={actions} />}
       </div>
     </div>
   );

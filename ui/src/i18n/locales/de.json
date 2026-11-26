@@ -2290,7 +2290,6 @@
   "analyze.detail.disabled": "In .skillignore deaktiviert, aber dieses Ziel verlinkt den gesamten Quellordner per Symlink, daher lädt das Tool ihn weiterhin.",
   "layout.nav.context": "Context",
   "context.title": "Context",
-  "context.subtitle": "Wie viel vom Context-Fenster eines Modells deine Skills und MCP-Server belegen.",
   "context.tab.skills": "Skills",
   "context.tab.mcp": "MCP",
   "context.mcp.loading": "MCP-Toolkosten werden geladen...",
