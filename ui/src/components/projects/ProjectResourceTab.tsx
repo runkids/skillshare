@@ -82,7 +82,6 @@ export default function ProjectResourceTab({
 
   return (
     <RailLayout
-      pageScroll
       rail={
         resource && (
           <>

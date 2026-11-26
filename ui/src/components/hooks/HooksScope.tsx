@@ -245,7 +245,6 @@ export default function HooksScope({ data, project, header, tools = [], onRemove
       )}
       <RailLayout
         className="max-[900px]:grid-cols-1 max-[900px]:[&>*]:static max-[900px]:[&>*]:max-h-none [&>aside]:static [&>aside]:max-h-none"
-        pageScroll
         rail={
           <>
             {/* Removing the last hook leaves native changes pending, so the box also shows without a source entry. */}
