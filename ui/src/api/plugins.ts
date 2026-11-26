@@ -359,9 +359,10 @@ export const pluginsApi = {
     ),
   preview: (request: PluginRequest) => http.post<PluginPlan>('/plugins/preview', { request }),
   /** Checks every plugin at once on the server; each plugin's answer arrives through `on` as soon as it is ready. */
-  check: (on: (e: PluginCheckEvent) => void) =>
+  check: (on: (e: PluginCheckEvent) => void, signal?: AbortSignal) =>
     new Promise<void>((resolve, reject) => {
-      createSSEStream(
+      signal?.throwIfAborted();
+      const stream = createSSEStream(
         BASE + '/plugins/check/stream',
         {
           plan: on,
@@ -369,6 +370,14 @@ export const pluginsApi = {
         },
         reject,
         'The update check stopped before it finished.',
+      );
+      signal?.addEventListener(
+        'abort',
+        () => {
+          stream.close();
+          reject(signal.reason);
+        },
+        { once: true },
       );
     }),
   apply: (request: PluginRequest, revision: string) =>

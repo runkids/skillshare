@@ -1,6 +1,9 @@
 import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '../../lib/queryKeys';
 import { bindingVersion, byPlugin, pluginsApi, syncAction, targetMap } from '../../api/plugins';
 import type {
+  PluginCheckEvent,
   PluginInventory,
   PluginOutcome,
   PluginPlan,
@@ -311,64 +314,80 @@ export function usePluginsFlow({
   const [working, setWorking] = useState('');
   const [failure, setFailure] = useState('');
   const [result, setResult] = useState<PluginResult | null>(null);
-  // What the last check found to update. An applied update takes its Agents off.
-  const [updates, setUpdates] = useState<Updates>({});
-  // Each plugin's answer to the last check, for the update dialog.
-  const [checkedPlans, setCheckedPlans] = useState<Record<string, PluginPlan>>({});
-  const [checking, setChecking] = useState(false);
-  // How many plugins the check under way has answered for, and why each it could not check failed.
-  const [checkProgress, setCheckProgress] = useState({ done: 0, total: 0 });
-  const [checkFailures, setCheckFailures] = useState<Record<string, string>>({});
-  // The batch update under way or just finished, one row per plugin, until the dialog closes.
+  const cache = useQueryClient();
+  const key = queryKeys.pluginCheck;
+  type Snapshot = {
+    updates: Updates;
+    answers: Record<string, PluginCheckEvent>;
+    done: number;
+  };
+  const total = Object.keys(inventory?.packages ?? {}).length;
+  const query = useQuery({
+    queryKey: key,
+    enabled: total > 0,
+    retry: false,
+    queryFn: async ({ signal }): Promise<Snapshot> => {
+      const before = cache.getQueryData<Snapshot>(key);
+      let updates = before?.updates ?? {};
+      const answers: Snapshot['answers'] = {};
+      let done = 0;
+      // An invalidation before the first answer must replace this stream, not join it.
+      cache.setQueryData<Snapshot>(
+        key,
+        { updates, answers: before?.answers ?? {}, done },
+        { updatedAt: 1 },
+      );
+      await pluginsApi.check((answer) => {
+        if (signal.aborted) return;
+        const { name, plan } = answer;
+        updates = withChecked(updates, name, plan);
+        answers[name] = answer;
+        // Partial streams remain stale; only a completed check starts the freshness window.
+        cache.setQueryData<Snapshot>(
+          key,
+          {
+            updates,
+            answers: { ...before?.answers, ...answers },
+            done: ++done,
+          },
+          { updatedAt: 1 },
+        );
+      }, signal);
+      return {
+        updates: Object.fromEntries(
+          Object.entries(updates).filter(([name]) => Object.hasOwn(answers, name)),
+        ),
+        answers,
+        done,
+      };
+    },
+  });
+  const updates = query.data?.updates ?? {};
+  const setUpdates = (change: (prev: Updates) => Updates) =>
+    cache.setQueryData<Snapshot>(key, (prev) => prev && { ...prev, updates: change(prev.updates) });
+  const checkedPlans: Record<string, PluginPlan> = {};
+  const checkFailures: Record<string, string> = {};
+  for (const { name, plan, error, error_code, error_params } of Object.values(
+    query.data?.answers ?? {},
+  )) {
+    if (plan) checkedPlans[name] = plan;
+    if (error)
+      checkFailures[name] = pluginErrorMessage(
+        new ApiError(200, error, { code: error_code, params: error_params }),
+        t,
+      );
+    else if (plan?.blocked) checkFailures[name] = blockedText(t, plan);
+  }
+  const checking = query.isFetching;
+  const checkProgress = { done: query.data?.done ?? 0, total };
+  const check = async () => {
+    setFailure('');
+    const result = await query.refetch({ cancelRefetch: false });
+    if (result.error) setFailure(result.error.message);
+    return !result.error;
+  };
   const [batch, setBatch] = useState<BatchItem[] | null>(null);
 
-  /**
-   * A check is read-only and opens nothing: each plugin marks its row as soon as the server has checked it, and one the
-   * server could not check says why on its row. An Agent the check could not reach, and a plugin a broken-off check
-   * never answered for, keep what the last check found. Quiet, as on page load, it keeps its error to itself. Resolves whether the check came back, so a check the
-   * user asked for can show its result.
-   */
-  const check = async (quiet = false) => {
-    setChecking(true);
-    if (!quiet) setFailure('');
-    setCheckProgress({ done: 0, total: Object.keys(inventory?.packages ?? {}).length });
-    const plans: Record<string, PluginPlan> = {};
-    const answered = new Set<string>();
-    const failed: Record<string, string> = {};
-    try {
-      await pluginsApi.check(({ name, plan, error, error_code, error_params }) => {
-        const why = error
-          ? pluginErrorMessage(
-              new ApiError(200, error, { code: error_code, params: error_params }),
-              t,
-            )
-          : plan?.blocked
-            ? blockedText(t, plan)
-            : '';
-        answered.add(name);
-        if (plan) plans[name] = plan;
-        if (why) failed[name] = why;
-        setUpdates((u) => withChecked(u, name, plan));
-        setCheckFailures((f) => {
-          const next = { ...f };
-          delete next[name];
-          return why ? { ...next, [name]: why } : next;
-        });
-        setCheckProgress((p) => ({ ...p, done: p.done + 1 }));
-      });
-      // A finished check also drops plugins it no longer reports.
-      setUpdates((u) => Object.fromEntries(Object.entries(u).filter(([n]) => answered.has(n))));
-      setCheckFailures(failed);
-      setCheckedPlans(plans);
-      return true;
-    } catch (e) {
-      setCheckedPlans((before) => ({ ...before, ...plans }));
-      if (!quiet) setFailure((e as Error).message);
-      return false;
-    } finally {
-      setChecking(false);
-    }
-  };
   /**
    * One server stream updates the picked plugins one after another, so one failure stops nothing else.
    * The server skips a plugin whose source moved past what the check showed: the user approved those versions.
@@ -529,9 +548,9 @@ export function usePluginsFlow({
       setResult(response);
       setFailure(failureText(t, response));
       setReview(null);
-      refresh();
       if (review.request.action === 'update')
         setUpdates((prev) => updatesLeft(prev, review.plan, response));
+      refresh();
     } catch (e) {
       setFailure((e as Error).message);
       refresh();

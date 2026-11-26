@@ -139,7 +139,8 @@ export const queryKeys = {
   pluginFiles: (name: string) => ['plugin-files', name] as const,
   pluginFile: (name: string, path: string) => ['plugin-file', name, path] as const,
   pluginDiscover: (...parts: unknown[]) => ['plugin-discover', ...parts] as const,
-  // Under `plugins`, so invalidating that key refreshes both.
+  // Under `plugins`, so writes refresh inventory and update checks together.
+  pluginCheck: ['plugins', 'check'] as const,
   pluginPackages: ['plugins', 'packages'] as const,
   hubConfig: ['hub-config'] as const,
   // Everything under `hub`, so invalidating `hub.drafts` also refreshes each draft.

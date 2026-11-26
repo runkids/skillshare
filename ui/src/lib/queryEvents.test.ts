@@ -52,6 +52,7 @@ const cached = {
   hooksCatalog: k.hooksCatalog,
   plugins: k.plugins,
   pluginPackages: k.pluginPackages,
+  pluginCheck: k.pluginCheck,
   hubDrafts: k.hub.drafts,
   hubDraft1: k.hub.draft('1'),
   hubDraft2: k.hub.draft('2'),
@@ -66,7 +67,7 @@ const T: Label[] = ['targets', 'targetsAvailable'];
 const X: Label[] = ['extras', 'extrasExtensions'];
 const M: Label[] = ['mcp', 'mcpRender', 'mcpCosts'];
 const H: Label[] = ['hooks', 'hooksCatalog'];
-const P: Label[] = ['plugins', 'pluginPackages'];
+const P: Label[] = ['plugins', 'pluginPackages', 'pluginCheck'];
 const SM: Label[] = ['syncMatrix', 'syncMatrixClaude'];
 const TARGETS: Label[] = [...T, 'projects', 'config', 'overview', 'diff', 'syncMatrix'];
 
@@ -109,6 +110,7 @@ const stale: Record<QueryEvent, Label[] | { args: string[]; stale: Label[] }> = 
   targetFileRemoved: { args: ['claude'], stale: ['targetFiles'] },
 
   configSaved: [
+    ...P,
     'policy',
     'version',
     'config',

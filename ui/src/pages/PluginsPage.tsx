@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -129,15 +129,6 @@ export default function PluginsPage() {
     },
   });
   const [updating, setUpdating] = useState(false);
-  // Once per visit, as soon as there is a plugin to ask about: the rows say what has a new version without a click.
-  const hasPackages = Object.keys(data?.packages ?? {}).length > 0;
-  const autoChecked = useRef(false);
-  useEffect(() => {
-    if (!hasPackages || autoChecked.current) return;
-    autoChecked.current = true;
-    void check(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- `check` is remade every render; the ref keeps this to one run
-  }, [hasPackages]);
   // A change with no Agent is to Skillshare itself: the plugin was only added to it, or removed from it.
   const agentLabel = (target: string) =>
     pluginTargets[target]?.label ?? (target || t('plugins.skillshareOnly'));
