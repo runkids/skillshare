@@ -39,9 +39,9 @@ type SkillResult struct {
 type Remote interface {
 	// Hash returns the commit the ref points at.
 	Hash(repoURL, branch string) (string, error)
-	// TreeHashes maps every directory at the ref to its git tree hash. It
+	// TreeHashes returns the git tree hash of every directory at the ref. It
 	// returns nil when the hashes cannot be fetched.
-	TreeHashes(repoURL, branch string) map[string]string
+	TreeHashes(repoURL, branch string) *RemoteTrees
 }
 
 // GitRemote is the Remote backed by git, with token auth for private repos.
@@ -56,7 +56,7 @@ func (r GitRemote) Hash(repoURL, branch string) (string, error) {
 	return git.GetRemoteHeadHashWithAuth(repoURL, r.ParseOptions)
 }
 
-func (r GitRemote) TreeHashes(repoURL, branch string) map[string]string {
+func (r GitRemote) TreeHashes(repoURL, branch string) *RemoteTrees {
 	return FetchRemoteTreeHashesForRef(repoURL, branch, r.ParseOptions)
 }
 
@@ -204,7 +204,7 @@ func (g remoteGroup) resolve(remote Remote) []SkillResult {
 		allMatch = allMatch && s.Entry.Version == remoteHash
 		hasTreeHash = hasTreeHash || (s.Entry.TreeHash != "" && s.Entry.Subdir != "")
 	}
-	var trees map[string]string
+	var trees *RemoteTrees
 	if !allMatch && hasTreeHash {
 		trees = remote.TreeHashes(g.url, g.branch)
 	}
@@ -239,7 +239,7 @@ func (g remoteGroup) markModified(results []SkillResult) {
 // remoteStatus compares one skill with its remote. A moved commit alone does
 // not mean the skill changed: when the skill's subdir tree hash is known on
 // both sides, that decides. trees is nil when it was not fetched.
-func remoteStatus(entry *install.MetadataEntry, remoteHash string, trees map[string]string) string {
+func remoteStatus(entry *install.MetadataEntry, remoteHash string, trees *RemoteTrees) string {
 	if entry.Version == remoteHash {
 		return "up_to_date"
 	}
@@ -247,7 +247,7 @@ func remoteStatus(entry *install.MetadataEntry, remoteHash string, trees map[str
 		return "update_available"
 	}
 	// ls-tree paths never have a leading "/", but Subdir may.
-	tree, ok := trees[strings.TrimPrefix(entry.Subdir, "/")]
+	tree, ok := trees.Hash(strings.TrimPrefix(entry.Subdir, "/"))
 	switch {
 	case !ok:
 		return "stale" // removed upstream

@@ -57,7 +57,7 @@ func TestFetchRemoteTreeHashes_Valid(t *testing.T) {
 		t.Fatal("expected non-nil result")
 	}
 
-	hash, ok := result["skills/my-skill"]
+	hash, ok := result.Hashes["skills/my-skill"]
 	if !ok {
 		t.Fatal("expected skills/my-skill in result")
 	}
@@ -66,7 +66,7 @@ func TestFetchRemoteTreeHashes_Valid(t *testing.T) {
 	}
 
 	// Also check parent directory is listed
-	if _, ok := result["skills"]; !ok {
+	if _, ok := result.Hashes["skills"]; !ok {
 		t.Error("expected skills/ parent directory in result")
 	}
 }
@@ -86,7 +86,7 @@ func TestFetchRemoteTreeHashes_SubdirNotFound(t *testing.T) {
 		t.Fatal("expected non-nil result")
 	}
 
-	if _, ok := result["skills/not-here"]; ok {
+	if _, ok := result.Hashes["skills/not-here"]; ok {
 		t.Error("did not expect skills/not-here in result")
 	}
 }
@@ -113,7 +113,7 @@ func TestFetchRemoteTreeHashes_StableAfterUnrelatedChange(t *testing.T) {
 	if hash1 == nil {
 		t.Fatal("expected non-nil result for first fetch")
 	}
-	stableHash1 := hash1["skills/stable"]
+	stableHash1 := hash1.Hashes["skills/stable"]
 
 	// Add an unrelated file and push
 	os.WriteFile(filepath.Join(work, "README.md"), []byte("# Readme"), 0644)
@@ -125,10 +125,52 @@ func TestFetchRemoteTreeHashes_StableAfterUnrelatedChange(t *testing.T) {
 	if hash2 == nil {
 		t.Fatal("expected non-nil result for second fetch")
 	}
-	stableHash2 := hash2["skills/stable"]
+	stableHash2 := hash2.Hashes["skills/stable"]
 
 	if stableHash1 != stableHash2 {
 		t.Errorf("tree hash changed despite no changes in skills/stable: %s → %s", stableHash1, stableHash2)
+	}
+}
+
+func TestFetchRemoteTreeHashes_LinkSubdirResolvesToTarget(t *testing.T) {
+	dir := t.TempDir()
+	work := filepath.Join(dir, "work")
+	bare := filepath.Join(dir, "bare.git")
+
+	gitRun(t, "", "init", "--bare", bare)
+	gitRun(t, "", "clone", bare, work)
+	gitConfig(t, work)
+
+	os.MkdirAll(filepath.Join(work, "store", "foo"), 0755)
+	os.MkdirAll(filepath.Join(work, ".agents", "skills"), 0755)
+	os.WriteFile(filepath.Join(work, "store", "foo", "SKILL.md"), []byte("# Foo"), 0644)
+	if err := os.Symlink(filepath.Join("..", "..", "store", "foo"), filepath.Join(work, ".agents", "skills", "foo")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	gitRun(t, work, "add", "-A")
+	gitRun(t, work, "commit", "-m", "publish foo")
+	gitRun(t, work, "push", "origin", "HEAD")
+
+	first := FetchRemoteTreeHashes("file://"+bare, install.ParseOptions{})
+	if first == nil {
+		t.Fatal("expected non-nil result")
+	}
+	hash, ok := first.Hash(".agents/skills/foo")
+	if !ok || len(hash) != 40 || hash != first.Hashes["store/foo"] {
+		t.Fatalf("Hash(.agents/skills/foo) = %q, %v; want store/foo's %q", hash, ok, first.Hashes["store/foo"])
+	}
+
+	os.WriteFile(filepath.Join(work, "README.md"), []byte("# Readme"), 0644)
+	gitRun(t, work, "add", "-A")
+	gitRun(t, work, "commit", "-m", "unrelated change")
+	gitRun(t, work, "push", "origin", "HEAD")
+
+	second := FetchRemoteTreeHashes("file://"+bare, install.ParseOptions{})
+	if second == nil {
+		t.Fatal("expected non-nil result")
+	}
+	if again, _ := second.Hash(".agents/skills/foo"); again != hash {
+		t.Errorf("hash through the link changed on an unrelated commit: %s -> %s", hash, again)
 	}
 }
 
@@ -164,14 +206,14 @@ func TestFetchRemoteTreeHashes_SymlinkBlanksContainingDirs(t *testing.T) {
 	// A blank hash still marks the dir as present, so the skill reads as
 	// update_available rather than stale.
 	for _, d := range []string{"skills/linked", "skills"} {
-		if hash, ok := result[d]; !ok || hash != "" {
+		if hash, ok := result.Hashes[d]; !ok || hash != "" {
 			t.Errorf("%s: expected present with empty hash, got %q (present=%v)", d, hash, ok)
 		}
 	}
-	if len(result["skills/plain"]) != 40 {
-		t.Errorf("skills/plain: expected a tree hash, got %q", result["skills/plain"])
+	if len(result.Hashes["skills/plain"]) != 40 {
+		t.Errorf("skills/plain: expected a tree hash, got %q", result.Hashes["skills/plain"])
 	}
-	if _, ok := result["skills/plain/SKILL.md"]; ok {
+	if _, ok := result.Hashes["skills/plain/SKILL.md"]; ok {
 		t.Error("blob entries must not appear in the result")
 	}
 }

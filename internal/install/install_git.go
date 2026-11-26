@@ -570,11 +570,24 @@ func getSubdirTreeHash(repoPath, subdir string) string {
 	}
 	// Strip leading "/" from subdir — git rev-parse doesn't accept absolute paths
 	subdir = strings.TrimPrefix(subdir, "/")
-	cmd := gitenv.Command("rev-parse", "HEAD:"+subdir)
+	// "<oid> <type> <size>", or "<name> missing".
+	cmd := gitenv.Command("cat-file", "--batch-check")
 	cmd.Dir = repoPath
+	cmd.Stdin = strings.NewReader("HEAD:" + subdir + "\n")
 	out, err := cmd.Output()
 	if err != nil {
 		return ""
+	}
+	fields := strings.Fields(string(out))
+	if len(fields) != 3 || fields[1] != "tree" {
+		// A skill discovered through a link records the link's path: hash the
+		// folder it leads to, as check does.
+		links, linkErr := TreeLinks(repoPath, "HEAD", nil)
+		resolved, ok := ResolveTreeLinks(subdir, links)
+		if linkErr != nil || !ok || resolved == subdir {
+			return ""
+		}
+		return getSubdirTreeHash(repoPath, resolved)
 	}
 	// shortcut: a symlink whose target stays inside the subdir also disables the tree hash, resolve link targets if that costs too many reinstalls.
 	lsCmd := gitenv.Command("ls-tree", "-r", "HEAD:"+subdir)
@@ -583,7 +596,7 @@ func getSubdirTreeHash(repoPath, subdir string) string {
 	if err != nil || hasSymlinkEntry(string(entries)) {
 		return ""
 	}
-	return strings.TrimSpace(string(out))
+	return fields[0]
 }
 
 // hasSymlinkEntry reports whether `git ls-tree` output lists a symlink.
