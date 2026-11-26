@@ -158,6 +158,9 @@ func handleUpdate(source *Source, destPath string, result *InstallResult, opts I
 	// the real destination after the swap. Writing the temp install directly to
 	// opts.SourceDir would create ../../ temp-path keys for nested skills.
 	updatedMeta := readTempUpdateMeta(tempDir)
+	if updatedMeta != nil {
+		updatedMeta.Locked = source.Locked
+	}
 	entry := opts.MergeBase
 	if entry == nil && source.IsGit() {
 		entry = recordedEntry(destPath, opts.SourceDir)

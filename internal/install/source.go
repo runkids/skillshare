@@ -130,6 +130,9 @@ type Source struct {
 	// install; a clone fills it with the full SHA it ended up on. Unlike
 	// Branch it is never written back to the config as the skill's ref.
 	Commit string
+	// Locked is set when Commit came from a lockfile, so the install records
+	// that commit even when the files match what is installed.
+	Locked bool
 	// CNBHosts contains configured CNB hostnames for platform-specific auth/API behavior.
 	CNBHosts []string
 	// GiteaHosts contains configured Gitea hostnames for platform-specific auth/API behavior.

@@ -561,7 +561,7 @@ func WriteMetaToStore(sourceDir, destPath string, meta *SkillMeta) error {
 		Branch:      meta.Branch,
 		Commit:      meta.Commit,
 	}
-	if sameSubdirFiles(store.Get(rel), entry) {
+	if !meta.Locked && sameSubdirFiles(store.Get(rel), entry) {
 		return nil
 	}
 	store.Set(rel, entry)
