@@ -618,15 +618,20 @@ func installFromDiscoveryInternal(discovery *DiscoveryResult, skill SkillInfo, d
 	excludes := descendantSkillPaths(discovery, skill)
 	rootIsRepoRoot := skill.Path == "." && discovery.Source != nil && !discovery.Source.HasSubdir()
 
+	boundary := ""
+	if discovery.Source != nil && discovery.Source.IsGit() {
+		boundary = sourceRoot
+	}
+
 	if rootIsRepoRoot && excludes != nil {
 		// Repo-root orchestrator: copy only SKILL.md (no directory boundary).
 		if err := os.MkdirAll(workDest, 0755); err != nil {
 			return nil, fmt.Errorf("failed to create destination: %w", err)
 		}
-		if err := copyFile(filepath.Join(srcPath, "SKILL.md"), filepath.Join(workDest, "SKILL.md")); err != nil {
+		if err := copyFileWithin(filepath.Join(srcPath, "SKILL.md"), filepath.Join(workDest, "SKILL.md"), boundary); err != nil {
 			return nil, fmt.Errorf("failed to copy SKILL.md: %w", err)
 		}
-	} else if err := copyDirExcluding(srcPath, workDest, excludes); err != nil {
+	} else if err := copyDirWithin(srcPath, workDest, boundary, excludes); err != nil {
 		return nil, fmt.Errorf("failed to copy skill: %w", err)
 	}
 
@@ -807,7 +812,7 @@ func installFromGitSubdir(source *Source, destPath string, result *InstallResult
 	}
 
 	// Copy subdirectory to destination
-	if err := copyDir(subdirPath, destPath); err != nil {
+	if err := copyDirWithin(subdirPath, destPath, tempRepoPath, nil); err != nil {
 		return nil, fmt.Errorf("failed to copy skill: %w", err)
 	}
 

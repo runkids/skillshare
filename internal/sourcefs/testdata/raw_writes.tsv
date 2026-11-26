@@ -147,7 +147,7 @@ internal/hub/drafts.go	(DraftStore).persist	os.Remove	tmp.Name()	config
 internal/hub/drafts.go	(DraftStore).persist	os.Rename	tmp.Name(), path	config
 internal/hub/index.go	WriteIndex	os.MkdirAll	filepath.Dir(path)	source-unmigrated
 internal/hub/index.go	WriteIndex	os.WriteFile	path	source-unmigrated
-internal/install/copy.go	copyDirExcluding	os.MkdirAll	dstPath	source-unmigrated
+internal/install/copy.go	copyDirWithState	os.MkdirAll	dstPath	source-unmigrated
 internal/install/copy.go	copyFile	os.OpenFile	dst	source-unmigrated
 internal/install/git_candidate.go	(*GitUpdateCandidate).Close	os.RemoveAll	c.tempDir	tmp
 internal/install/git_candidate.go	StageGitUpdate	os.MkdirAll	filepath.Dir(dst)	tmp
