@@ -381,25 +381,30 @@ func dropLinkedDuplicates(found []discoveredSkill) []discoveredSkill {
 // walkFollowingLinksWithin walks dir like filepath.Walk, and also walks the
 // folders that links under it point to when they stay inside root and out of
 // its .git folder. A link inside a skill folder is part of that skill and is
-// not followed. A followed folder is reported under the link's path. Each
-// folder is followed at most once, which also stops link cycles.
+// not followed. A followed folder is reported under the link's path. Each link
+// is followed once, and a link back to a folder the walk is inside is not
+// followed, so cycles stop and the walk stays linear in the number of links.
+// Two links to one folder are both walked; the caller drops duplicates after
+// .skillignore.
 func walkFollowingLinksWithin(root, dir string, fn filepath.WalkFunc) {
 	canonicalRoot := sourcewalk.Canonical(root)
 	gitDir := filepath.Join(canonicalRoot, ".git")
 	inside := func(path string) bool {
 		return pathSameOrDescendant(path, canonicalRoot) && !pathSameOrDescendant(path, gitDir)
 	}
-	followed := map[string]bool{}
+	inWalk := map[string]bool{}
+	followedLinks := map[string]bool{}
 	var walk func(logical, real string)
 	walk = func(logical, real string) {
-		followed[real] = true
+		inWalk[real] = true
+		defer delete(inWalk, real)
 		filepath.Walk(real, func(path string, info os.FileInfo, err error) error {
 			logicalPath := logical + path[len(real):]
 			if err == nil && path != real && utils.IsLinkMode(path, info.Mode()) {
 				// Canonical, not EvalSymlinks: on Windows EvalSymlinks leaves a
 				// junction unresolved.
 				target := sourcewalk.Canonical(path)
-				if !followed[target] && inside(target) && !skillAbove(filepath.Dir(path), real) {
+				if !inWalk[target] && !followedLinks[path] && inside(target) && !skillAbove(filepath.Dir(path), real) {
 					if targetInfo, statErr := os.Stat(target); statErr == nil && targetInfo.IsDir() {
 						if r := fn(logicalPath, sourcewalk.NamedInfo(targetInfo, info.Name()), nil); r != nil {
 							if r == filepath.SkipDir {
@@ -407,6 +412,7 @@ func walkFollowingLinksWithin(root, dir string, fn filepath.WalkFunc) {
 							}
 							return r
 						}
+						followedLinks[path] = true
 						walk(logicalPath, target)
 						return nil
 					}

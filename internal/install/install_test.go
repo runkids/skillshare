@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/exec"
@@ -11,6 +12,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestDiscoverSkills_RepoAgentsSkills(t *testing.T) {
@@ -790,6 +792,7 @@ func linkedSkillsRepo(t *testing.T) string {
 	}
 	links := map[string]string{
 		"pack/a":          filepath.Join("..", "store", "a"),
+		"pack/a2":         filepath.Join("..", "store", "a"),
 		"pack/b":          filepath.Join("..", "store", "b"),
 		"pack/d":          filepath.Join("..", ".claude", "skills", "d"),
 		"pack/outside":    outside,
@@ -826,6 +829,51 @@ func TestDiscoverSkillsWithin_FollowsLinksInsideRepository(t *testing.T) {
 	}
 }
 
+func TestDiscoverSkillsWithin_IgnoredLinkKeepsOtherLinkToSameFolder(t *testing.T) {
+	repo := linkedSkillsRepo(t)
+	if err := os.WriteFile(filepath.Join(repo, "pack", ".skillignore"), []byte("a/\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	got := skillPaths(discoverSkillsWithin(repo, filepath.Join(repo, "pack"), true))
+	if want := []string{"a2", "b", "d"}; !slices.Equal(got, want) {
+		t.Fatalf("skills = %v, want %v", got, want)
+	}
+}
+
+func TestDiscoverSkillsWithin_LinkFanOutStaysLinear(t *testing.T) {
+	repo := t.TempDir()
+	// Each level links twice to the next: following every path would walk
+	// 2^depth folders.
+	const depth = 40
+	for i := 0; i <= depth; i++ {
+		if err := os.MkdirAll(filepath.Join(repo, fmt.Sprintf("l%d", i)), 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(repo, fmt.Sprintf("l%d", depth), "SKILL.md"), []byte("# leaf"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < depth; i++ {
+		for _, name := range []string{"x", "y"} {
+			if err := os.Symlink(filepath.Join("..", fmt.Sprintf("l%d", i+1)), filepath.Join(repo, fmt.Sprintf("l%d", i), name)); err != nil {
+				t.Skipf("symlinks unavailable: %v", err)
+			}
+		}
+	}
+
+	done := make(chan []SkillInfo, 1)
+	go func() { done <- discoverSkills(repo, true) }()
+	select {
+	case skills := <-done:
+		if len(skills) != 1 {
+			t.Fatalf("skills = %+v, want the leaf once", skills)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("discovery did not finish: links were followed once per path")
+	}
+}
+
 func TestDiscoverSkillsWithin_LinkedWalkRoot(t *testing.T) {
 	repo := linkedSkillsRepo(t)
 
@@ -839,7 +887,7 @@ func TestDiscoverSkills_LinkedSkillListedOnceUnderDirectPath(t *testing.T) {
 	repo := linkedSkillsRepo(t)
 
 	got := skillPaths(discoverSkills(repo, true))
-	// pack/a, pack/b and aliases-c-link repeat skills listed directly, and
+	// pack/a, pack/a2, pack/b and aliases-c-link repeat skills listed directly, and
 	// skills/x/helper is part of skill x.
 	if want := []string{"pack/d", "skills/c", "skills/x", "store/a", "store/b"}; !slices.Equal(got, want) {
 		t.Fatalf("skills = %v, want %v", got, want)
