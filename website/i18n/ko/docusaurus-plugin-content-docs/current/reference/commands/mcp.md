@@ -256,8 +256,12 @@ client는 project mode에서 선택할 수 없습니다. 오른쪽의 **Sync** �
 mode에서는 프로젝트에 MCP 파일이 있거나 client가 전역적으로 감지된 경우 나열됩니다.
 감지된 각 client에는 MCP 파일 이름이 표시되고, **Copy path**는 전체 경로를 복사합니다.
 파일이 존재하면 **Open in editor**가 skill의 **Open in editor**와 같은 편집기로 파일을 엽니다.
+대시보드에는 편집기를 보여 줄 터미널이 없으므로 `$VISUAL`이나 `$EDITOR`의 nano, vim 같은
+일반적인 터미널 편집기는 건너뜁니다. WSL에서 GUI 편집기를 찾지 못하면 Windows가 그 파일에
+연결된 프로그램으로 엽니다.
 **Open folder**는 파일이 있는 폴더를, client가 아직 파일을 쓰지 않았다면 존재하는 가장 가까운
-폴더를 파일 관리자(Finder, 파일 탐색기, Linux에서는 기본 핸들러)로 열어 주므로, `$EDITOR`를
+폴더를 파일 관리자(Finder, Windows와 WSL에서는 파일 탐색기, Linux에서는 기본 핸들러)로
+열어 주므로, `$EDITOR`를
 설정하지 않아도 원하는 프로그램으로 파일을 열 수 있습니다. 둘 다 대시보드를 실행하는 머신에서
 열리므로, 이 버튼들은 브라우저도 그 머신에서 (`localhost` 또는 SSH 포트 포워딩으로) 열었을
 때만 나타나며, LAN 주소나 리버스 프록시를 통해서는 나타나지 않습니다.

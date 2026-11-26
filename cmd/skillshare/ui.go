@@ -23,6 +23,7 @@ import (
 	"skillshare/internal/ui"
 	"skillshare/internal/uidist"
 	versionpkg "skillshare/internal/version"
+	"skillshare/internal/wsl"
 )
 
 const (
@@ -781,7 +782,12 @@ func openBrowser(url string) {
 	case "darwin":
 		cmd = exec.Command("open", url)
 	case "linux":
-		cmd = exec.Command("xdg-open", url)
+		// Inside WSL the browser runs on the Windows desktop; Explorer opens a URL there.
+		if explorer, ok := wsl.Explorer(); ok {
+			cmd = exec.Command(explorer, url)
+		} else {
+			cmd = exec.Command("xdg-open", url)
+		}
 	case "windows":
 		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
 	default:

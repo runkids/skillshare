@@ -257,8 +257,10 @@ client 的 MCP 文件存在，或该 client 用于保存设置的文件夹存在
 已检测到，因此即使是全新安装、还没有 MCP 文件，也仍会出现在列表中。在 project mode 下，
 当项目拥有自己的 MCP 文件，或该 client 在全局范围内被检测到时，就会列出该 client。
 每个检测到的 client 会显示其 MCP 文件名，**Copy path** 会复制完整路径。文件存在后，
-**Open in editor** 会用与 skill 的 **Open in editor** 相同的编辑器打开它。**Open folder**
-会用文件管理器（Finder、文件资源管理器，Linux 上为默认处理程序）打开文件所在的文件夹；
+**Open in editor** 会用与 skill 的 **Open in editor** 相同的编辑器打开它。dashboard 没有
+终端可以显示编辑器，所以会跳过 `$VISUAL` 或 `$EDITOR` 中 nano、vim 这类常见终端编辑器；在
+WSL 中找不到 GUI 编辑器时，由 Windows 用与该文件关联的程序打开。**Open folder** 会用文件
+管理器（Finder、Windows 和 WSL 上为文件资源管理器，Linux 上为默认处理程序）打开文件所在的文件夹；
 client 还没写入文件时，打开最近一个已存在的文件夹。这样不必设置 `$EDITOR` 也能用任意程序
 打开文件。两者都在运行 dashboard 的机器上启动，所以只有当浏览器也在那台机器上打开（通过
 `localhost` 或 SSH 端口转发）时才会显示这些按钮，通过局域网地址或反向代理访问时不会显示。
