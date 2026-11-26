@@ -224,8 +224,10 @@ Dashboard 只會提供目前 scope 與主機平台可用的目的地。每個 se
 所以剛安裝、還沒有 MCP 檔案的 client 也會顯示出來。在 project mode 中，
 當 project 有自己的 MCP 檔案，或該 client 在 global 層級被偵測到時，就會列出該 client。
 每個偵測到的 client 會顯示它的 MCP 檔名，**Copy path** 會複製完整路徑。檔案存在後，
-**Open in editor** 會用和 skill 的 **Open in editor** 相同的編輯器開啟它。**Open folder**
-會用檔案管理員（Finder、檔案總管，Linux 上為預設處理程式）開啟檔案所在的資料夾；client
+**Open in editor** 會用和 skill 的 **Open in editor** 相同的編輯器開啟它。dashboard 沒有
+終端機可以顯示編輯器，所以會略過 `$VISUAL` 或 `$EDITOR` 裡 nano、vim 這類常見的終端機編輯器；
+在 WSL 中找不到 GUI 編輯器時，由 Windows 用與該檔案關聯的程式開啟。**Open folder** 會用
+檔案管理員（Finder、Windows 和 WSL 上為檔案總管，Linux 上為預設處理程式）開啟檔案所在的資料夾；client
 還沒寫入檔案時，開啟最近一個已存在的資料夾。這樣不必設定 `$EDITOR` 也能用任何程式開啟檔案。
 兩者都在執行 dashboard 的機器上啟動，所以只有瀏覽器也在那台機器上開啟（透過 `localhost`
 或 SSH 連接埠轉送）時才會顯示這些按鈕，透過區域網路位址或反向代理開啟時不會顯示。

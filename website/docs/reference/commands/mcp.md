@@ -271,10 +271,13 @@ exists, so a fresh install with no MCP file yet still appears. In project mode a
 is listed when the project has its MCP file or the client is detected globally.
 Each detected client shows the name of its MCP file, and **Copy path** copies its full
 path. Once the file exists, **Open in editor** opens it in the same editor a skill's
-**Open in editor** uses. **Open folder** opens the folder that holds the file in the file
-manager (Finder, File Explorer, or the default handler on Linux), or the closest folder
-that exists before the client has written it, so you can open the file in any program
-without setting `$EDITOR`. Both start on the machine running the dashboard, so these
+**Open in editor** uses. It skips a common terminal editor such as nano or vim in
+`$VISUAL` or `$EDITOR`, since the dashboard has no terminal to show it in; under WSL,
+when no GUI editor is found, Windows opens the file with the program associated with it.
+**Open folder** opens the folder that holds the file in the file manager (Finder, File
+Explorer on Windows and under WSL, or the default handler on Linux), or the closest
+folder that exists before the client has written it, so you can open the file in any
+program without setting `$EDITOR`. Both start on the machine running the dashboard, so these
 buttons appear only when the browser runs there too, at `localhost` or through SSH port
 forwarding, not through a LAN address or a reverse proxy.
 

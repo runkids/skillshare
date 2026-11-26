@@ -13,6 +13,7 @@ import (
 	"unicode"
 
 	"skillshare/internal/childproc"
+	"skillshare/internal/wsl"
 )
 
 // openInEditorRequest controls which editor to launch.
@@ -35,6 +36,24 @@ type editorCandidate struct {
 	bin string
 	// args are appended before the file path.
 	args []string
+	// windowsPath passes the path in Windows form, for a Windows program started from WSL.
+	windowsPath bool
+}
+
+// wslExplorer reports explorer.exe when skillshare runs inside WSL; tests replace it.
+var wslExplorer = wsl.Explorer
+
+// xdgOpenGrace is how long startOpener waits for xdg-open to fail before reporting success.
+const xdgOpenGrace = 2 * time.Second
+
+// terminalEditors run inside a terminal. The dashboard starts editors with no terminal,
+// so one of these would run where nobody can see it.
+var terminalEditors = map[string]bool{
+	"vi": true, "vim": true, "nvim": true, "nano": true, "pico": true, "micro": true, "hx": true, "helix": true,
+}
+
+func isTerminalEditor(bin string) bool {
+	return terminalEditors[strings.TrimSuffix(strings.ToLower(filepath.Base(bin)), ".exe")]
 }
 
 // knownEditors returns explicit editor aliases the API accepts.
@@ -45,9 +64,6 @@ func knownEditors() map[string]editorCandidate {
 		"windsurf": {name: "windsurf", bin: "windsurf", args: nil},
 		"subl":     {name: "subl", bin: "subl", args: nil},
 		"sublime":  {name: "subl", bin: "subl", args: nil},
-		"vim":      {name: "vim", bin: "vim", args: nil},
-		"nvim":     {name: "nvim", bin: "nvim", args: nil},
-		"nano":     {name: "nano", bin: "nano", args: nil},
 		"emacs":    {name: "emacs", bin: "emacs", args: nil},
 		"idea":     {name: "idea", bin: "idea", args: nil},
 		"webstorm": {name: "webstorm", bin: "webstorm", args: nil},
@@ -62,7 +78,7 @@ func knownEditors() map[string]editorCandidate {
 // editor against the skill's canonical markdown file.
 //
 // POST /api/resources/{name}/open-in-editor
-// Body: {"editor": "auto" | "code" | "cursor" | "vim" | ...}
+// Body: {"editor": "auto" | "code" | "cursor" | "zed" | ...}
 func (s *Server) handleOpenSkillInEditor(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 
@@ -132,18 +148,44 @@ func launchEditor(requested, path string) (string, *exec.Cmd, int, error) {
 		return "", nil, http.StatusConflict, fmt.Errorf("no editor available: %w", err)
 	}
 
+	if editor.windowsPath {
+		if path, err = wsl.WindowsPath(path); err != nil {
+			return "", nil, http.StatusInternalServerError, fmt.Errorf("failed to launch %s: %w", editor.name, err)
+		}
+	}
+
 	cmd := exec.Command(editor.bin, append(editor.args, path)...) //nolint:gosec // editor choice is explicit
 	// Detach from the current process so the server doesn't wait on the editor.
 	cmd.Stdin = nil
 	cmd.Stdout = nil
 	cmd.Stderr = nil
 
-	if err := childproc.StartDetached(cmd); err != nil {
-		return "", nil, http.StatusInternalServerError, fmt.Errorf("failed to launch %s: %w", editor.bin, err)
+	if err := startOpener(cmd); err != nil {
+		return "", nil, http.StatusInternalServerError, fmt.Errorf("failed to launch %s: %w", editor.name, err)
 	}
-	// Reap in the background so we don't accumulate zombies on *nix.
-	go func() { _ = cmd.Wait() }()
 	return picked, cmd, 0, nil
+}
+
+// startOpener starts cmd without waiting for the program it opens, and reaps it in the
+// background. xdg-open exits non-zero when it cannot show the path, as on a machine with
+// no desktop, so its early failure is returned instead of reported as opened. Other openers are not judged by exit code: Explorer exits 1 even on success.
+func startOpener(cmd *exec.Cmd) error {
+	if err := childproc.StartDetached(cmd); err != nil {
+		return err
+	}
+	done := make(chan error, 1)
+	go func() { done <- cmd.Wait() }()
+	if filepath.Base(cmd.Path) != "xdg-open" {
+		return nil
+	}
+	select {
+	case err := <-done:
+		if err != nil {
+			return fmt.Errorf("xdg-open could not open %s: %w", cmd.Args[len(cmd.Args)-1], err)
+		}
+	case <-time.After(xdgOpenGrace):
+	}
+	return nil
 }
 
 // pickEditor returns the editor to launch, honouring an explicit request
@@ -160,11 +202,14 @@ func pickEditor(requested string) (editorCandidate, string, error) {
 		return editorCandidate{}, "", fmt.Errorf("unsupported editor: %s", requested)
 	}
 
-	// Auto: respect $VISUAL / $EDITOR first.
+	// Auto: respect $VISUAL / $EDITOR first, unless it needs a terminal.
 	for _, env := range []string{"VISUAL", "EDITOR"} {
 		if v := strings.TrimSpace(os.Getenv(env)); v != "" {
 			// $EDITOR may include flags, e.g. "code --wait".
 			head, rest := splitCommand(v)
+			if isTerminalEditor(head) {
+				continue
+			}
 			if _, err := exec.LookPath(head); err == nil {
 				return editorCandidate{name: head, bin: head, args: rest}, head, nil
 			}
@@ -187,6 +232,10 @@ func pickEditor(requested string) (editorCandidate, string, error) {
 			return editorCandidate{name: "open", bin: "open"}, "open", nil
 		}
 	case "linux":
+		// Inside WSL, Windows opens the file with the program it is associated with.
+		if explorer, ok := wslExplorer(); ok {
+			return editorCandidate{name: "explorer", bin: explorer, windowsPath: true}, "explorer", nil
+		}
 		if _, err := exec.LookPath("xdg-open"); err == nil {
 			return editorCandidate{name: "xdg-open", bin: "xdg-open"}, "xdg-open", nil
 		}
@@ -196,16 +245,7 @@ func pickEditor(requested string) (editorCandidate, string, error) {
 		}
 	}
 
-	// Terminal fallbacks — nano is friendlier than vim for newcomers.
-	for _, alias := range []string{"nano", "vim", "nvim", "emacs"} {
-		if cand, ok := knownEditors()[alias]; ok {
-			if _, err := exec.LookPath(cand.bin); err == nil {
-				return cand, cand.name, nil
-			}
-		}
-	}
-
-	return editorCandidate{}, "", fmt.Errorf("no usable editor found; set $EDITOR or pass editor=<name>")
+	return editorCandidate{}, "", fmt.Errorf("no editor that opens a window was found; set $VISUAL to a GUI editor such as code")
 }
 
 // splitCommand splits an $EDITOR value into (bin, args...). Double or single quotes keep a
