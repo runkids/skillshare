@@ -409,14 +409,12 @@ export default function CustomThemeSettings() {
     setPreviewMode(resolvedMode);
   }
   const fileInput = useRef<HTMLInputElement>(null);
-  // The preview is marked stuck once it pins to the top: its sentinel has scrolled out above,
-  // not merely out of view below.
+  // The preview is marked stuck once it pins to the top, which is when its sentinel has left
+  // through the top.
   const [stuck, setStuck] = useState(false);
   const sentinel = useCallback((el: HTMLDivElement | null) => {
     if (!el || typeof IntersectionObserver === 'undefined') return;
-    const io = new IntersectionObserver(([e]) =>
-      setStuck(!e.isIntersecting && e.boundingClientRect.top < (e.rootBounds?.top ?? 0)),
-    );
+    const io = new IntersectionObserver(([e]) => setStuck(!e.isIntersecting));
     io.observe(el);
     return () => io.disconnect();
   }, []);
@@ -504,7 +502,11 @@ export default function CustomThemeSettings() {
         </div>
         {/* Stuck to the very top, with page colour above and to the sides (Playful's offset shadows
             reach past the box), so rows never show through. */}
-        <div ref={sentinel} aria-hidden />
+        {/* The sentinel reaches a screen up from the preview, so it still counts as in view while
+            the preview is below the fold, and a jump straight to the pinned position crosses it. */}
+        <div className="relative" aria-hidden>
+          <div ref={sentinel} className="pointer-events-none absolute bottom-0 h-screen w-px" />
+        </div>
         <div
           className={`ss-ministick z-20 mb-3 bg-bg md:sticky md:top-0 md:-mt-3 md:pt-3 ${stuck ? 'stuck' : ''}`}
         >
