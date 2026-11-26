@@ -2624,10 +2624,18 @@ svg.lucide {
     display: flex;
     flex-direction: column;
     gap: 8px;
-    padding: 16px 20px;
+    /* Grows with round corners, so the controls in the corners stay clear of the curve. */
+    padding: max(16px, var(--r-box)) max(20px, calc(var(--r-box) + 4px));
     background: var(--bg);
     /* Set while there is no border, so switching to the inset panel does not fade in from black. */
     border-color: var(--line);
+  }
+  /* The light/dark toggle in the top corner, moved in as the corners grow. */
+  .ss-mini > .mode {
+    position: absolute;
+    z-index: 10;
+    top: max(12px, calc(var(--r-box) - 2px));
+    right: max(12px, calc(var(--r-box) - 2px));
   }
   :root:not([data-theme='playful']):not([data-layout='full']) .ss-mini {
     background: var(--shell);
