@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"path"
 	"sort"
 	"strconv"
 	"strings"
@@ -64,42 +63,52 @@ func LinkTexts(dir string, oids map[string]string, extraEnv []string) (map[strin
 	return links, nil
 }
 
-// ResolveTreeLinks follows the links along p, a slash-separated path in a git
-// tree whose links maps each link path to its text. It fails when a link is
-// absolute, leads out of the tree, or the links loop.
-func ResolveTreeLinks(p string, links map[string]string) (string, bool) {
-	for hops := 0; hops <= len(links); hops++ {
-		next, followed := resolveFirstTreeLink(p, links)
-		if !followed {
-			return p, true
-		}
-		if next == "" {
-			return "", false
-		}
-		p = next
-	}
-	return "", false
-}
+// maxTreeLinkHops bounds the links ResolveTreeLinks follows, as the 40 of
+// path resolution on Linux, so links that loop fail.
+const maxTreeLinkHops = 40
 
-// resolveFirstTreeLink replaces the first link along p with its target. It
-// reports followed=false when p holds no link, and next="" when the link
-// cannot be followed.
-func resolveFirstTreeLink(p string, links map[string]string) (next string, followed bool) {
-	parts := strings.Split(p, "/")
-	for i := range parts {
-		prefix := strings.Join(parts[:i+1], "/")
-		text, ok := links[prefix]
-		if !ok {
+// ResolveTreeLinks follows the links along p, a slash-separated path in a git
+// tree, one component at a time as the filesystem does, so a ".." after a
+// link leaves the folder the link leads to. lookup reports whether a path is
+// a link and its text. It fails when a link is empty or absolute, the path
+// leads out of the tree or to its root, the links loop, or lookup fails.
+func ResolveTreeLinks(p string, lookup func(string) (text string, isLink bool, err error)) (string, bool) {
+	var resolved []string
+	pending := strings.Split(p, "/")
+	hops := 0
+	for len(pending) > 0 {
+		part := pending[0]
+		pending = pending[1:]
+		switch part {
+		case "", ".":
+			continue
+		case "..":
+			if len(resolved) == 0 {
+				return "", false
+			}
+			resolved = resolved[:len(resolved)-1]
 			continue
 		}
-		if text == "" || strings.HasPrefix(text, "/") {
-			return "", true
+		cur := part
+		if len(resolved) > 0 {
+			cur = strings.Join(resolved, "/") + "/" + part
 		}
-		next = path.Join(path.Dir(prefix), text, strings.Join(parts[i+1:], "/"))
-		if next == ".." || strings.HasPrefix(next, "../") {
-			return "", true
+		text, isLink, err := lookup(cur)
+		if err != nil {
+			return "", false
 		}
-		return next, true
+		if !isLink {
+			resolved = append(resolved, part)
+			continue
+		}
+		hops++
+		if hops > maxTreeLinkHops || text == "" || strings.HasPrefix(text, "/") {
+			return "", false
+		}
+		pending = append(strings.Split(text, "/"), pending...)
 	}
-	return "", false
+	if len(resolved) == 0 {
+		return "", false
+	}
+	return strings.Join(resolved, "/"), true
 }

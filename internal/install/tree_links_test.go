@@ -15,6 +15,8 @@ func TestResolveTreeLinks(t *testing.T) {
 		"up":                 "../outside",
 		"loop/a":             "b",
 		"loop/b":             "a",
+		"publish":            "alias/../foo",
+		"alias":              "store/nested",
 	}
 	tests := []struct {
 		path, want string
@@ -27,9 +29,14 @@ func TestResolveTreeLinks(t *testing.T) {
 		{"abs", "", false},
 		{"up", "", false},
 		{"loop/a", "", false},
+		// ".." after a link leaves the folder the link leads to, not the link.
+		{"publish", "store/foo", true},
 	}
 	for _, tt := range tests {
-		got, ok := ResolveTreeLinks(tt.path, links)
+		got, ok := ResolveTreeLinks(tt.path, func(p string) (string, bool, error) {
+			text, isLink := links[p]
+			return text, isLink, nil
+		})
 		if got != tt.want || ok != tt.ok {
 			t.Errorf("ResolveTreeLinks(%q) = %q, %v; want %q, %v", tt.path, got, ok, tt.want, tt.ok)
 		}
@@ -89,5 +96,27 @@ func TestGetSubdirTreeHash_LinkTargetHoldingLinkComparesByCommit(t *testing.T) {
 
 	if got := getSubdirTreeHash(repo, ".agents/skills/foo"); got != "" {
 		t.Fatalf("tree hash = %q, want empty: the target holds a link", got)
+	}
+}
+
+func TestGetSubdirTreeHash_DotDotAfterLinkLeavesItsTarget(t *testing.T) {
+	repo := initTestRepo(t)
+	writeCommit(t, repo, "store/nested", "# nested\n")
+	writeCommit(t, repo, "store/foo", "# foo\n")
+	writeCommit(t, repo, "foo", "# top\n")
+	for link, target := range map[string]string{
+		"alias":   "store/nested",
+		"publish": "alias/../foo", // literal: filepath.Join would clean it to "foo"
+	} {
+		if err := os.Symlink(target, filepath.Join(repo, link)); err != nil {
+			t.Skipf("symlinks unavailable: %v", err)
+		}
+	}
+	gitAdd(t, repo, ".")
+	gitCommit(t, repo, "publish")
+
+	want := getSubdirTreeHash(repo, "store/foo")
+	if got := getSubdirTreeHash(repo, "publish"); want == "" || got != want {
+		t.Fatalf("tree hash of publish = %q, want store/foo's %q", got, want)
 	}
 }

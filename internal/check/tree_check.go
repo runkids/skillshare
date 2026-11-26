@@ -33,7 +33,10 @@ func (t *RemoteTrees) Hash(subdir string) (string, bool) {
 			return "", true
 		}
 	}
-	resolved, ok := install.ResolveTreeLinks(subdir, t.Links)
+	resolved, ok := install.ResolveTreeLinks(subdir, func(p string) (string, bool, error) {
+		text, isLink := t.Links[p]
+		return text, isLink, nil
+	})
 	if !ok || resolved == subdir {
 		return "", false
 	}

@@ -575,7 +575,7 @@ func getSubdirTreeHash(repoPath, subdir string) string {
 	}
 	// A skill discovered through a link records the link's path: hash the
 	// folder it leads to, as check does.
-	resolved, ok := resolveSubdirLinks(repoPath, subdir)
+	resolved, ok := ResolveTreeLinks(subdir, headLink(repoPath))
 	if !ok || resolved == subdir {
 		return ""
 	}
@@ -583,46 +583,24 @@ func getSubdirTreeHash(repoPath, subdir string) string {
 	return hash
 }
 
-// resolveSubdirLinks follows the links along subdir at HEAD. It reads only the
-// entries on that path, whose blobs a checkout of subdir already holds, so a
-// blobless clone fetches nothing.
-func resolveSubdirLinks(repoPath, subdir string) (string, bool) {
-	links := map[string]string{}
-	for hops := 0; hops <= maxSubdirLinkHops; hops++ {
-		args := []string{"ls-tree", "-z", "HEAD", "--"}
-		parts := strings.Split(subdir, "/")
-		for i := range parts {
-			args = append(args, strings.Join(parts[:i+1], "/"))
-		}
-		out, err := gitBytesOutput(repoPath, nil, args...)
+// headLink reports whether p is a link at HEAD and reads its text. It reads
+// one entry at a time, so a blobless clone fetches only the links a path
+// passes through.
+func headLink(repoPath string) func(string) (string, bool, error) {
+	return func(p string) (string, bool, error) {
+		out, err := gitBytesOutput(repoPath, nil, "ls-tree", "-z", "HEAD", "--", p)
 		if err != nil {
-			return "", false
+			return "", false, err
 		}
-		oids := map[string]string{}
 		for _, e := range parseLsTreeEntries(out) {
-			if _, known := links[e.path]; e.mode == "120000" && !known {
-				oids[e.path] = e.oid
+			if e.path == p && e.mode == "120000" {
+				texts, err := LinkTexts(repoPath, map[string]string{p: e.oid}, nil)
+				return texts[p], err == nil, err
 			}
 		}
-		texts, err := LinkTexts(repoPath, oids, nil)
-		if err != nil {
-			return "", false
-		}
-		for p, text := range texts {
-			links[p] = text
-		}
-		resolved, ok := ResolveTreeLinks(subdir, links)
-		if !ok || resolved == subdir {
-			return resolved, ok
-		}
-		subdir = resolved
+		return "", false, nil
 	}
-	return "", false
 }
-
-// maxSubdirLinkHops bounds resolveSubdirLinks on links that keep pointing at
-// further links.
-const maxSubdirLinkHops = 40
 
 // treeHashAt returns the tree hash of subdir at HEAD, or "" when it holds a
 // symlink. isTree is false when subdir is not a folder at HEAD.
