@@ -664,9 +664,9 @@ mcp:
   跟随项目的 targets；重新打开则会移除该条目。**Opt-in servers** 列出[共享 server](#share-a-server-with-chosen-projects)，
   默认关闭；它的开关会在项目的 `use` 中添加或移除该名称。
   **Only in this project** 列出只存在于该项目中的 server。
-- 在 MCP 页面上，server 的对话框有 **Loads in**：**Every project**，或 **Only
-  projects that turn it on**。只要有共享 server，列表就会分成 **Global** 和 **Only in chosen projects** 两区，共享 server 的行会显示 **N projects**。展开该行，或在对话框中选择 **Only projects that turn it on**，会为 `mcp.projects` 的每个根目录列出一个勾选框。**Save** 会一次性在所有勾选或取消勾选的根目录的 `use` 中加入或移除该名称。**Add folder…** 会加入尚未列出的根目录；它没有自己的 `targets`，所以使用 `mcp.targets`。
-- 使用共享 server 的项目可以 [override](#override-a-shared-server) 其中一部分设置。在 MCP 页面展开该行，每个使用该 server 的项目都会显示它的 override；若项目继承了 Pi 的 tool exposure，则显示该值，并带有 **Override** 或 **Edit override**；行标题会统计 override 的数量。在项目的 **MCP** 标签页上，被 override 的 server 会带 **Overridden** 标签，其下一行说明该项目改了什么，铅笔按钮会打开同一个对话框。对话框以只读方式显示连接，并提供 Agents、Pi 的 tool exposure 和 tool policy，三者在你选择值之前都跟随 MCP 页面；**Reset to default** 可清除其中一项。保存会替换该根目录的 override，并保留对话框不显示的设置，例如其他 `piOptions` 或 `options`。当共享 server 设置了 Pi 的 `toolExposure` 时，工具会被锁定，因为 Pi 不接受与它并用的 tool policy。
+- 在 MCP 页面上，server 的对话框有 **Loads in**：**Every project**，或 **Chosen
+  projects**。只要有共享 server，列表就会分成 **Global** 和 **Only in chosen projects** 两区，共享 server 的行会显示 **N projects**。展开该行，或在对话框中选择 **Chosen projects**，会为 `mcp.projects` 的每个根目录列出一个勾选框。**Save** 会一次性在所有勾选或取消勾选的根目录的 `use` 中加入或移除该名称。**Add folder…** 会加入尚未列出的根目录；它没有自己的 `targets`，所以使用 `mcp.targets`。若某个根目录自己定义了同名 server，会标上 **Has its own** 和该名称。每个列出的根目录上的箭头会打开该项目的 **MCP** 标签页；它会等到勾选（在对话框中还包括其他字段）已保存或放弃后才执行。
+- 使用共享 server 的项目可以 [override](#override-a-shared-server) 其中一部分设置。在 MCP 页面展开该行，每个使用该 server 的项目都会显示它的 override；若项目继承了 Pi 的 tool exposure，则显示该值，并带有 **Override** 或 **Edit override**；行标题会统计 override 的数量。server 对话框中的项目列表也显示相同内容，但没有按钮。在项目的 **MCP** 标签页上，被 override 的 server 会带 **Overridden** 标签，其下一行说明该项目改了什么，铅笔按钮会打开同一个对话框。对话框以只读方式显示连接，并提供 Agents、Pi 的 tool exposure 和 tool policy，三者在你选择值之前都跟随 MCP 页面；**Reset to default** 可清除其中一项。保存会替换该根目录的 override，并保留对话框不显示的设置，例如其他 `piOptions` 或 `options`。当共享 server 设置了 Pi 的 `toolExposure` 时，工具会被锁定，因为 Pi 不接受与它并用的 tool policy。
 - 已关闭的 server 会显示它在哪些 Agent 中被关闭的 logo。已开启的 server 会显示加载它的 Agent；
   被同名的项目 server 取代时则不显示。如果项目的某个 Agent 没有
   按项目的开关，该行会说明这个 server 在那里仍会加载。如果某个条目列出了自己的

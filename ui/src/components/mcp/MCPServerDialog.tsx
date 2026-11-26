@@ -1,4 +1,4 @@
-import { useContext, useState } from 'react';
+import { useContext, useState, type ReactNode } from 'react';
 import { Check, KeyRound, Link2, Plus, SquareTerminal, X } from 'lucide-react';
 import { mcpApi, mcpOffTargets, mcpTargets, type MCPMutation, type MCPServer } from '../../api/mcp';
 import { useAvailableTargetsQuery, useSyncedTargetsQuery } from '../../hooks/useSharedQueries';
@@ -14,7 +14,6 @@ import AgentOptionsFields from './AgentOptionsFields';
 import PiSettingsFields from './PiSettingsFields';
 import ToolPolicyFields from './ToolPolicyFields';
 import MCPConfigView from './MCPConfigView';
-import RadioOption from '../projects/RadioOption';
 import MCPProjectPicker from './MCPProjectPicker';
 import {
   cleanToolPolicy,
@@ -176,6 +175,12 @@ interface Props {
   users?: string[];
   /** The mcp.projects roots; given, a server that loads only in chosen projects has them ticked here. */
   roots?: string[];
+  /** What a listed project does with the saved server, such as its override. */
+  projectStatus?: (root: string, using: boolean) => ReactNode;
+  /** Opens a listed project's MCP tab. */
+  onOpenProject?: (root: string) => void;
+  /** The page behind has unsaved project ticks, so opening a project waits for them too. */
+  othersUnsaved?: boolean;
   /** The copy tab is open: pick a server to fill the fields with. */
   copy?: boolean;
   onClose: () => void;
@@ -219,6 +224,10 @@ interface ProjectPick {
   roots: string[];
   picked: string[];
   onChange: (picked: string[]) => void;
+  detail?: (root: string, using: boolean) => ReactNode;
+  onOpen?: (root: string) => void;
+  /** Other fields have changes not saved yet. */
+  locked: boolean;
 }
 
 /** Every folder through the Agents' global files, or only the projects that turn it on. */
@@ -243,22 +252,21 @@ function LoadsIn({
       <span id="mcp-loads-in" className="text-[13px] font-semibold">
         {t('mcp.shared.loadsIn')}
       </span>
-      <div role="radiogroup" aria-labelledby="mcp-loads-in" className="flex flex-col gap-2">
-        <RadioOption
-          checked={!shared}
-          onSelect={() => onChange(false)}
-          disabled={disabled}
-          title={t('mcp.shared.everywhere')}
-          hint={t('mcp.shared.everywhereHint')}
-        />
-        <RadioOption
-          checked={shared}
-          onSelect={() => onChange(true)}
-          disabled={disabled}
-          title={t('mcp.shared.chosen')}
-          hint={t(pick ? 'mcp.shared.chosenPickHint' : 'mcp.shared.chosenHint')}
-        />
-      </div>
+      <SegmentedControl
+        className="self-start"
+        labelledBy="mcp-loads-in"
+        value={shared ? 'chosen' : 'every'}
+        onChange={(v) => onChange(v === 'chosen')}
+        options={[
+          { value: 'every', label: t('mcp.shared.everywhere'), disabled },
+          { value: 'chosen', label: t('mcp.shared.chosenShort'), disabled },
+        ]}
+      />
+      <span className="hp">
+        {shared
+          ? t(pick ? 'mcp.shared.chosenPickHint' : 'mcp.shared.chosenHint')
+          : t('mcp.shared.everywhereHint')}
+      </span>
       {shared && pick && (
         <MCPProjectPicker
           roots={pick.roots}
@@ -266,6 +274,9 @@ function LoadsIn({
           picked={pick.picked}
           onChange={pick.onChange}
           disabled={disabled}
+          detail={pick.detail}
+          onOpen={pick.onOpen}
+          locked={pick.locked}
         />
       )}
       {!pick && wasShared && users.length > 0 && (
@@ -703,6 +714,9 @@ export default function MCPServerDialog({
   copy = false,
   users = [],
   roots,
+  projectStatus,
+  onOpenProject,
+  othersUnsaved = false,
   onClose,
   onSaved,
 }: Props) {
@@ -722,6 +736,9 @@ export default function MCPServerDialog({
       ? { ...start, name: 'skillshare', command: serveSkillsCommand('', isProjectMode) }
       : start;
   });
+  // The fields as the dialog opened, so leaving for a project's page can wait for a save.
+  const [pristine] = useState(draft);
+  const edited = JSON.stringify(draft) !== JSON.stringify(pristine);
   const patch: DraftPatch = (change) => setDraft((prev) => ({ ...prev, ...change }));
   const { http, url, tokenEnv, headers, env, targets } = draft;
   const [viewing, setViewing] = useState(false);
@@ -842,7 +859,16 @@ export default function MCPServerDialog({
           project={project}
           users={users}
           wasShared={server?.global === false}
-          pick={roots && { roots, picked, onChange: setPicked }}
+          pick={
+            roots && {
+              roots,
+              picked,
+              onChange: setPicked,
+              detail: projectStatus,
+              onOpen: onOpenProject,
+              locked: edited || othersUnsaved,
+            }
+          }
           serve={serve}
           copyFrom={copyFrom}
           copy={copy}

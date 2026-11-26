@@ -251,7 +251,7 @@ describe('MCP server dialog', () => {
     const user = userEvent.setup();
     const server = { url: 'https://docs.example/mcp', targets: ['claude'] };
     renderDialog({ initial: { name: 'docs', server } });
-    await user.click(screen.getByRole('radio', { name: /Only projects that turn it on/ }));
+    await user.click(screen.getByRole('button', { name: 'Chosen projects' }));
     await user.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() =>
       expect(mcpApi.save).toHaveBeenCalledWith({
@@ -283,6 +283,32 @@ describe('MCP server dialog', () => {
     expect(mcpApi.save).not.toHaveBeenCalled();
   });
 
+  it("waits to open a project's MCP tab until the dialog's edits are saved", async () => {
+    const user = userEvent.setup();
+    const server = { url: 'https://docs.example/mcp', targets: ['claude'], global: false };
+    renderDialog({
+      initial: { name: 'docs', server },
+      users: ['/work/api'],
+      roots: ['/work/api'],
+      onOpenProject: vi.fn(),
+    });
+    expect(screen.getByRole('button', { name: "Open /work/api's MCP tab" })).toBeEnabled();
+    await user.type(screen.getByDisplayValue('https://docs.example/mcp'), '/v2');
+    expect(screen.getByRole('button', { name: "Open /work/api's MCP tab" })).toBeDisabled();
+  });
+
+  it("waits to open a project's MCP tab while the page has unsaved ticks", () => {
+    const server = { url: 'https://docs.example/mcp', targets: ['claude'], global: false };
+    renderDialog({
+      initial: { name: 'docs', server },
+      users: ['/work/api'],
+      roots: ['/work/api'],
+      onOpenProject: vi.fn(),
+      othersUnsaved: true,
+    });
+    expect(screen.getByRole('button', { name: "Open /work/api's MCP tab" })).toBeDisabled();
+  });
+
   it('keeps an added folder listed after Loads in is switched away and back', async () => {
     const user = userEvent.setup();
     const server = { url: 'https://docs.example/mcp', targets: ['claude'], global: false };
@@ -293,8 +319,8 @@ describe('MCP server dialog', () => {
     });
     await user.click(screen.getByRole('button', { name: /Add folder/ }));
     await user.type(screen.getByLabelText('Project folder'), '/work/new{Enter}');
-    await user.click(screen.getByRole('radio', { name: /Every project/ }));
-    await user.click(screen.getByRole('radio', { name: /Only projects that turn it on/ }));
+    await user.click(screen.getByRole('button', { name: 'Every project' }));
+    await user.click(screen.getByRole('button', { name: 'Chosen projects' }));
     expect(screen.getByRole('checkbox', { name: '/work/new' })).toBeChecked();
   });
 
@@ -322,7 +348,7 @@ describe('MCP server dialog', () => {
       roots: ['/work/api', '/work/web'],
     });
     await user.click(screen.getByRole('checkbox', { name: '/work/web' }));
-    await user.click(screen.getByRole('radio', { name: /Every project/ }));
+    await user.click(screen.getByRole('button', { name: 'Every project' }));
     await user.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() =>
       expect(mcpApi.save).toHaveBeenCalledWith({

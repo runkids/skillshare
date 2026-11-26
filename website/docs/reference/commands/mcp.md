@@ -741,17 +741,21 @@ project has an **MCP** tab.
   entry. **Opt-in servers** lists the [shared servers](#share-a-server-with-chosen-projects),
   off by default; its switch adds or removes the name in the project's `use`.
   **Only in this project** lists the servers that exist in that project only.
-- On the MCP page, a server's dialog has **Loads in**: **Every project**, or **Only
-  projects that turn it on**. Once a shared server exists, the list splits into **Global**
-  and **Only in chosen projects**, and a shared server's row shows **N projects**.
-  Expanding that row, or choosing **Only projects that turn it on** in the dialog, lists
-  the `mcp.projects` roots with a tick each. **Save** adds or removes the name in the `use`
-  of every root ticked or cleared, in one save. **Add folder…** adds a root that is not
-  listed yet; it has no `targets` of its own, so it uses `mcp.targets`.
+- On the MCP page, a server's dialog has **Loads in**: **Every project** or **Chosen
+  projects**. Once a shared server exists, the list splits into **Global** and **Only in
+  chosen projects**, and a shared server's row shows **N projects**. Expanding that row,
+  or choosing **Chosen projects** in the dialog, lists the `mcp.projects` roots with a tick
+  each. **Save** adds or removes the name in the `use` of every root ticked or cleared, in
+  one save. **Add folder…** adds a root that is not listed yet; it has no `targets` of its
+  own, so it uses `mcp.targets`. A root that defines its own server of the same name is
+  marked **Has its own** and the name. An arrow on each listed root opens that project's
+  **MCP** tab; it waits until the ticks, and in the dialog the other fields, are saved or
+  discarded.
 - A project that uses a shared server can [override](#override-a-shared-server) some of its
   settings. In the expanded row on the MCP page, each project that uses the server shows
   its override, or Pi's tool exposure when it inherits one, with **Override** or **Edit
-  override**; the row header counts the overrides. On a project's **MCP** tab, an
+  override**; the row header counts the overrides. The project list in the server's dialog
+  shows the same, without the buttons. On a project's **MCP** tab, an
   overridden server is tagged **Overridden**, a line under it names what the project
   changes, and a pencil button opens the same dialog. The dialog shows the connection as
   read-only and offers the Agents, Pi's tool exposure and the tool policy, each of which

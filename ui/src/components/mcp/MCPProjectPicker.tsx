@@ -1,7 +1,8 @@
 import { useId, useState, type ReactNode } from 'react';
-import { Folder, FolderPlus } from 'lucide-react';
+import { ArrowUpRight, Folder, FolderPlus } from 'lucide-react';
 import Button from '../Button';
 import { Checkbox } from '../Checkbox';
+import IconButton from '../IconButton';
 import { useT } from '../../i18n';
 import { shortenHome } from '../../lib/paths';
 
@@ -21,8 +22,15 @@ interface Props {
   hint?: string;
   /** Actions at the end of the last row. */
   children?: ReactNode;
-  /** What a project that uses the server now has, in place of "In use", such as its override. */
-  detail?: (root: string) => ReactNode;
+  /**
+   * What a project whose tick is unchanged has: for one that uses the server, in place of
+   * "In use", such as its override.
+   */
+  detail?: (root: string, using: boolean) => ReactNode;
+  /** Opens a project's MCP tab; given, each mcp.projects root has a button for it. */
+  onOpen?: (root: string) => void;
+  /** Changes outside this list are not saved yet, so leaving would drop them. */
+  locked?: boolean;
 }
 
 /**
@@ -38,6 +46,8 @@ export default function MCPProjectPicker({
   hint,
   children,
   detail,
+  onOpen,
+  locked = false,
 }: Props) {
   const t = useT();
   const inputId = useId();
@@ -66,18 +76,23 @@ export default function MCPProjectPicker({
   };
 
   const status = (root: string) => {
-    if (picked.includes(root))
-      return saved.includes(root) ? (
-        (detail?.(root) ?? (
-          <span className="shrink-0 text-xs text-ink-3">{t('mcp.projectsPick.inUse')}</span>
-        ))
-      ) : (
-        <span className="ss-tag warn shrink-0">{t('mcp.projectsPick.willAdd')}</span>
+    const using = saved.includes(root);
+    if (picked.includes(root) !== using)
+      return (
+        <span className="ss-tag warn shrink-0">
+          {t(using ? 'mcp.projectsPick.willRemove' : 'mcp.projectsPick.willAdd')}
+        </span>
       );
-    return saved.includes(root) ? (
-      <span className="ss-tag warn shrink-0">{t('mcp.projectsPick.willRemove')}</span>
-    ) : null;
+    return (
+      detail?.(root, using) ??
+      (using ? (
+        <span className="shrink-0 text-xs text-ink-3">{t('mcp.projectsPick.inUse')}</span>
+      ) : null)
+    );
   };
+  // Leaving drops ticks not saved yet, so the way out waits for a save or revert.
+  const unsaved =
+    locked || picked.length !== saved.length || picked.some((x) => !saved.includes(x));
 
   return (
     <div className="flex flex-col gap-2.5">
@@ -86,7 +101,11 @@ export default function MCPProjectPicker({
         <span className="ss-cnt">
           {picked.length} / {rows.length}
         </span>
-        {hint && <span className="text-xs text-ink-3">{hint}</span>}
+        {onOpen && unsaved ? (
+          <span className="text-xs text-ink-3">{t('mcp.projectsPick.openHint')}</span>
+        ) : (
+          hint && <span className="text-xs text-ink-3">{hint}</span>
+        )}
       </div>
       {rows.length > 0 && (
         <div className="ss-list">
@@ -100,6 +119,15 @@ export default function MCPProjectPicker({
                 className="min-w-0 flex-1 font-mono font-normal"
               />
               {status(root)}
+              {onOpen && roots.includes(root) && (
+                <IconButton
+                  icon={<ArrowUpRight size={15} />}
+                  label={t('mcp.projectsPick.open', { project: shortenHome(root) })}
+                  className="-my-1 -mr-1.5"
+                  disabled={disabled || unsaved}
+                  onClick={() => onOpen(root)}
+                />
+              )}
             </div>
           ))}
         </div>
