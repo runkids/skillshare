@@ -497,9 +497,9 @@
   },
   {
     "file": "internal/install/copy.go",
-    "function": "copyDirExcluding",
+    "function": "copyDirWithState",
     "callee": "filepath.Walk",
-    "root": "src",
+    "root": "resolvedSrc",
     "reason": "skill-dir",
     "note": "Copy individual skill or install staging tree"
   },
