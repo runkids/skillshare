@@ -166,7 +166,7 @@ servers:
   `{env:VAR}`，且整个值必须就是引用。Agent 的文件可能会被提交，因此明文或引用前后带有文字的值会被拒绝。
   Codex、Antigravity、Claude Desktop、Goose、Junie、LM Studio 和 Warp 不会读取那里的引用，所以它们的 options 不能放凭据。
 - 该 server 触达不到的 client 的 options 会被保留，但不会写入。
-- import 会把 Agent 的原生字段中此处没有可移植形式的部分，放在该 Agent 的 ID 下，例如 Claude Code 的 `alwaysLoad` 会放在 `options.claude` 下。名称（或其内部名称）看起来是凭据的字段（`auth`、`key`、`token`、`secret`、`bearer`、`cookie` 等），以及上述规则拒绝的字段，会显示 warning 并被省略。未指定 `--from` 导入的文件或粘贴的文本，其格式是推测的，因此原生字段会列为 warning 并被省略。
+- import 会把 Agent 的原生字段中此处没有可移植形式的部分，放在该 Agent 的 ID 下，例如 Claude Code 的 `alwaysLoad` 会放在 `options.claude` 下。名称（或其内部名称）看起来是凭据的字段（`auth`、`key`、`token`、`secret`、`bearer`、`cookie` 等），以及上述规则拒绝的字段，会显示 warning 并被省略。未指定 `--from` 导入的文件或粘贴的文本，或在控制台粘贴 JSON 且 **From** 保持 **Any Agent** 时，其格式是推测的，因此原生字段会列为 warning 并被省略。
 - 当 sync 重新创建条目时，例如重命名之后，会再次写入这些字段。
   当 source 删掉某个 option 时，下一次 sync 会移除它写入的字段，除非 Agent 在此之后改过它；那属于需要 import 或 replace 的冲突。
 - 在仪表板中，server 对话框的 **其他 Agent 设置** 可以编辑它们：选择 Agent，再以 JSON 对象输入字段。

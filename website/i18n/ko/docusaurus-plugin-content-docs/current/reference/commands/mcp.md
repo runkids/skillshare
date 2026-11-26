@@ -165,7 +165,7 @@ servers:
   있으므로 평문이나 참조 앞뒤에 글자가 붙은 값은 거부됩니다. Codex, Antigravity, Claude Desktop, Goose, Junie, LM Studio, Warp는
   그곳의 참조를 읽지 않으므로 해당 options에는 자격 증명을 둘 수 없습니다.
 - 서버가 도달하지 않는 client의 options는 유지되며 작성되지 않습니다.
-- import는 여기에 이식 가능한 형태가 없는 Agent의 네이티브 필드를 해당 Agent의 ID 아래에 넣습니다. 예를 들어 Claude Code의 `alwaysLoad`는 `options.claude` 아래에 들어갑니다. 이름(또는 내부 이름)이 자격 증명을 나타내는 필드(`auth`, `key`, `token`, `secret`, `bearer`, `cookie` 등)와 위 규칙이 거부하는 필드는 경고와 함께 제외됩니다. `--from` 없이 가져온 파일이나 붙여넣은 텍스트는 형식을 추측하므로, 그 네이티브 필드는 경고로 표시되고 제외됩니다.
+- import는 여기에 이식 가능한 형태가 없는 Agent의 네이티브 필드를 해당 Agent의 ID 아래에 넣습니다. 예를 들어 Claude Code의 `alwaysLoad`는 `options.claude` 아래에 들어갑니다. 이름(또는 내부 이름)이 자격 증명을 나타내는 필드(`auth`, `key`, `token`, `secret`, `bearer`, `cookie` 등)와 위 규칙이 거부하는 필드는 경고와 함께 제외됩니다. `--from` 없이 가져온 파일이나 붙여넣은 텍스트, 또는 대시보드에서 **From**을 **Any Agent**로 둔 채 붙여넣은 JSON은 형식을 추측하므로, 그 네이티브 필드는 경고로 표시되고 제외됩니다.
 - sync는 이름 변경 후처럼 항목을 다시 만들 때 해당 필드를 다시 작성합니다.
   source에서 option을 빼면 다음 sync가 작성했던 필드를 제거합니다. 단, 그 뒤 Agent가 변경했다면 제거하지 않으며, 이는 import 또는 replace로 해결할 충돌입니다.
 - 대시보드에서는 서버 대화 상자의 **기타 Agent 설정**에서 편집합니다. Agent를 고른 뒤 필드를 JSON

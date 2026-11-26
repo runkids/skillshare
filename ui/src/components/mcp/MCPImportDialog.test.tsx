@@ -142,6 +142,58 @@ describe('MCP import dialog', () => {
     );
   });
 
+  // Refs: #1049. Only a named source keeps fields such as Claude Code's alwaysLoad.
+  it('reads a pasted JSON snippet as the Agent chosen for it', async () => {
+    const guessed =
+      'Agent-specific field not imported: alwaysLoad; import the config with --from <agent> to keep it';
+    vi.mocked(mcpApi.import).mockImplementation(async (body) => ({
+      candidates: [
+        {
+          name: 'docs',
+          server: { command: 'docs' },
+          problems: [],
+          warnings: body.from ? [] : [guessed],
+        },
+      ],
+    }));
+    const user = userEvent.setup();
+    renderDialog({ source: 'paste', servers: {} });
+    const snippet = '{"mcpServers":{"docs":{"command":"docs","alwaysLoad":true}}}';
+    await user.click(screen.getByLabelText('Server snippet'));
+    await user.paste(snippet);
+    expect(
+      await screen.findByText(
+        'Agent-specific field not imported: alwaysLoad. Pick its Agent under From to keep it',
+      ),
+    ).toBeInTheDocument();
+    expect(mcpApi.import).toHaveBeenLastCalledWith({ content: snippet });
+    await user.click(screen.getByRole('combobox', { name: 'From' }));
+    await user.click(screen.getByRole('option', { name: 'Claude' }));
+    await waitFor(() =>
+      expect(mcpApi.import).toHaveBeenLastCalledWith({ content: snippet, from: 'claude' }),
+    );
+  });
+
+  it('points to From when the chosen Agent cannot read the pasted snippet', async () => {
+    vi.mocked(mcpApi.import).mockImplementation(async (body) => {
+      if (body.from) throw new Error('no MCP entries found; select the matching client format');
+      return {
+        candidates: [{ name: 'docs', server: { command: 'docs' }, problems: [], warnings: [] }],
+      };
+    });
+    const user = userEvent.setup();
+    renderDialog({ source: 'paste', servers: {} });
+    await user.click(screen.getByLabelText('Server snippet'));
+    await user.paste('{"mcpServers":{"docs":{"command":"docs"}}}');
+    await user.click(await screen.findByRole('combobox', { name: 'From' }));
+    await user.click(screen.getByRole('option', { name: 'VS Code' }));
+    expect(
+      await screen.findByText(
+        'No VS Code servers found in it. Pick the Agent it comes from, or Any Agent.',
+      ),
+    ).toBeInTheDocument();
+  });
+
   it('offers the Pi settings for one pasted server and saves the edits', async () => {
     const server = {
       command: 'docs',

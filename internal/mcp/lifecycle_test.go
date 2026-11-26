@@ -483,7 +483,7 @@ func TestImportKeepsAgentSpecificFieldsAsOptions(t *testing.T) {
 func TestImportOfGuessedFormatKeepsNoOptions(t *testing.T) {
 	// A pasted mcpServers file may come from any client; its fields must not reach Claude's file.
 	items, err := Import("", []byte(`{"mcpServers":{"docs":{"command":"tool","alwaysAllow":["read"]}}}`), "")
-	if err != nil || len(items) != 1 || items[0].Server.Options != nil || len(items[0].Warnings) != 1 {
+	if err != nil || len(items) != 1 || items[0].Server.Options != nil || !reflect.DeepEqual(items[0].Warnings, []string{"Agent-specific field not imported: alwaysAllow; import the config with --from <agent> to keep it"}) {
 		t.Fatalf("%+v %v", items, err)
 	}
 }

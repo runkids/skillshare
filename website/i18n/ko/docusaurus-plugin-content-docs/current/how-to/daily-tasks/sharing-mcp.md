@@ -51,7 +51,7 @@ MCP 제공자로부터 받은 URL이나 JSON을 붙여넣고, 이름을 지정�
 
 대시보드에서 **Add server**는 두 가지 방식을 지원합니다: 필드를 직접 채우거나 설정을 붙여넣는
 방식입니다. 붙여넣기 쪽에서는 파일을 불러올 수도 있는데, 이는 브라우저에서 `mcp import --file`에
-해당하는 기능입니다. 붙여넣은 JSON은 자동으로 인식되며, TOML의 경우 Codex에서 온 것인지 Grok에서
+해당하는 기능입니다. 붙여넣은 JSON은 자동으로 인식됩니다. 해당 Agent만 읽는 필드(예: Claude Code의 `alwaysLoad`)를 유지하려면 **From**에서 그 Agent를 선택하세요. TOML의 경우 Codex에서 온 것인지 Grok에서
 온 것인지 선택해야 합니다. 붙여넣은 내용에 서버가 하나이고 Pi가 체크되어 있으면, 대화상자에
 폼의 Pi 설정인 도구 노출 방식과 기타 Pi 설정도 표시됩니다. 폼의 **기타 Agent 설정**에서는 Codex 승인 모드처럼 다른 Agent의 네이티브 필드를 JSON으로 입력합니다([`options`](../../reference/commands/mcp.md#agent-options) 참고). **Skillshare** 탭은 `skillshare mcp serve`를 추가합니다.
 이 명령은 sync로 skill을 받지 않는 Agent에 [MCP로 skill을 제공](/docs/reference/commands/mcp#serve-skills-over-mcp)합니다.
