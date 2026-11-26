@@ -184,3 +184,23 @@ func TestGitHubAPIBase(t *testing.T) {
 		})
 	}
 }
+
+func TestDownloadGitHubDirWithAPIBase_RejectsSymlinkForCloneFallback(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v3/repos/acme/repo/contents/skills/demo":
+			fmt.Fprint(w, `[
+{"type":"symlink","name":"ref.md","path":"skills/demo/ref.md","target":"../../shared/ref.md"}
+]`)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	source := &Source{CloneURL: "https://github.acme.com/acme/repo.git"}
+	_, err := downloadGitHubDirWithAPIBase("acme", "repo", "skills/demo", t.TempDir(), server.URL+"/api/v3", source, nil)
+	if err == nil || !strings.Contains(err.Error(), "requires git clone") {
+		t.Fatalf("expected symlink fallback error, got: %v", err)
+	}
+}

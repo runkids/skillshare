@@ -164,6 +164,8 @@ func giteaDownloadDirRecursive(client *http.Client, hosts []string, apiBase, own
 				if err := giteaDownloadFile(client, hosts, apiBase, item.DownloadURL, target); err != nil {
 					return err
 				}
+			case "symlink":
+				return fmt.Errorf("symlink %q requires git clone", item.Path)
 			}
 		}
 		return nil
@@ -386,8 +388,10 @@ func cnbWriteContentItem(client *http.Client, hosts []string, apiBase, repo stri
 				if err := os.MkdirAll(target, 0755); err != nil {
 					return err
 				}
-			case "link", "submodule":
-				// Ignore links and submodules; they are not portable skill content.
+			case "link":
+				return fmt.Errorf("symlink %q requires git clone", entry.Path)
+			case "submodule":
+				// Ignore submodules; they are not portable skill content.
 			default:
 				return fmt.Errorf("unsupported CNB content type %q", entry.Type)
 			}
