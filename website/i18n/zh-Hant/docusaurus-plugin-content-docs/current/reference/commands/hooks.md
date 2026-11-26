@@ -145,7 +145,7 @@ command binding 的腳本位於 Agent 設定目錄的 `hooks/skillshare/NAME/`�
 | [Amp](https://ampcode.com/docs/plugin-api) | `~/.config/amp/plugins/skillshare-NAME.ts` | `.amp/plugins/skillshare-NAME.ts` | Native plugin code |
 | [OpenCode](https://opencode.ai/docs/plugins/) | `~/.config/opencode/plugins/skillshare-NAME[.ts]` | `.opencode/plugins/skillshare-NAME[.ts]` | v1 file; v2 directory package (see below) |
 
-global scope 使用原生設定目錄的環境變數 override，但指向帳號 `config_dir` 時除外；project scope 只寫入專案，不退回 global 路徑。Codex inline TOML 等其他來源仍獨立存在。Antigravity 與其 CLI（`agy`）讀取同一份 `hooks.json`；每個 hook 是一個以其名稱命名的 block，匯入時保留原名。CLI 的 `~/.gemini/antigravity-cli/settings.json` 中的 hooks 保持獨立。Droid 發布獨立 hooks 檔會影響原生載入來源，請先檢查既有 inline hooks。Copilot 只在受信任的資料夾中載入 `.github/hooks` 的專案 hooks。
+global scope 使用原生設定目錄的環境變數 override，但指向帳號 `config_dir` 時除外；專案同步會將原生 hook 檔案寫入專案目錄。確認 `--trust` 後，信任會另外寫入各個已驗證的 Codex 帳號目錄。Codex inline TOML 等其他來源仍獨立存在。Antigravity 與其 CLI（`agy`）讀取同一份 `hooks.json`；每個 hook 是一個以其名稱命名的 block，匯入時保留原名。CLI 的 `~/.gemini/antigravity-cli/settings.json` 中的 hooks 保持獨立。Droid 發布獨立 hooks 檔會影響原生載入來源，請先檢查既有 inline hooks。Copilot 只在受信任的資料夾中載入 `.github/hooks` 的專案 hooks。
 
 
 Droid 有有效 inline hooks 時，同步會拒絕建立獨立檔案。先匯入並檢查，移除原 inline hooks 後再同步。

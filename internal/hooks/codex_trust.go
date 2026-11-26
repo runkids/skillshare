@@ -197,7 +197,7 @@ func (s *Service) codexTrust(revision string, apply bool) (*CodexTrustPlan, erro
 		writes = append(writes, write{h.target, server, edits, review})
 		plan.Hooks = append(plan.Hooks, hooks...)
 	}
-	if listed == 0 && len(plan.Failed) > 0 {
+	if listed == 0 && len(plan.Failed) > 0 && (!apply || s.ProjectRoot == "") {
 		return plan, plan.Err()
 	}
 	slices.Sort(reviews)

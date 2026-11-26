@@ -17,6 +17,7 @@ import Button from '../Button';
 import DialogShell from '../DialogShell';
 import Spinner from '../Spinner';
 import { SyncBox } from '../StatusRail';
+import { useAppContext } from '../../context/AppContext';
 import CodexTrustDialog from './CodexTrustDialog';
 import HooksPreview from './HooksPreview';
 import {
@@ -254,13 +255,14 @@ export default function HooksSyncBox({
   const t = useT();
   const { style } = useTheme();
   const [reviewing, setReviewing] = useState(false);
+  const { isProjectMode } = useAppContext();
   const [trusting, setTrusting] = useState(false);
   const pending = plan.changes.filter(writes);
   // A project prop denotes a global hooks.projects block, not a project-mode dashboard.
   // Trust covers the hooks on disk, so it waits until pending changes are synced.
   const hasCodex =
     !project &&
-    !plan.blocked &&
+    (!isProjectMode || !plan.blocked) &&
     pending.length === 0 &&
     plan.changes.some((c) => !c.root && agentOfKey(accounts, c.target) === 'codex');
   const conflicts = plan.changes.filter((c) => c.action === 'conflict');

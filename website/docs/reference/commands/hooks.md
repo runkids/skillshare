@@ -228,8 +228,7 @@ you provide. Inspect the exact paths in the preview.
 | [OpenCode](https://opencode.ai/docs/plugins/) | `~/.config/opencode/plugins/skillshare-NAME[.ts]` | `.opencode/plugins/skillshare-NAME[.ts]` | v1 file; v2 directory package (see below) |
 
 Native config-directory environment overrides apply in global scope, unless
-they point at an account's `config_dir`. Project
-operations write inside that project and never fall back to a global path.
+they point at an account's `config_dir`. Project sync writes native hook files inside the checkout. Confirming `--trust` separately records trust in each verified user’s Codex home.
 Other native sources, such as Codex inline TOML declarations, remain separate.
 Antigravity and its CLI (`agy`) read the same `hooks.json`; each hook is one
 block named after it, so importing a block keeps its name. Hooks in the CLI's

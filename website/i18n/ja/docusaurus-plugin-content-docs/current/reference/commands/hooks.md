@@ -147,7 +147,7 @@ command binding のスクリプトは Agent 設定ディレクトリの `hooks/s
 | [Amp](https://ampcode.com/docs/plugin-api) | `~/.config/amp/plugins/skillshare-NAME.ts` | `.amp/plugins/skillshare-NAME.ts` | Native plugin code |
 | [OpenCode](https://opencode.ai/docs/plugins/) | `~/.config/opencode/plugins/skillshare-NAME[.ts]` | `.opencode/plugins/skillshare-NAME[.ts]` | v1 file; v2 directory package (see below) |
 
-アカウント target の `config_dir` を指す場合を除き、global scope はネイティブ設定ディレクトリの環境変数 override を使います。project scope はプロジェクト内にのみ書き込み、global にフォールバックしません。Codex inline TOML など他のソースは別のままです。Antigravity とその CLI（`agy`）は同じ `hooks.json` を読みます。各 hook は名前付きの 1 ブロックで、インポートしても名前は変わりません。CLI の `~/.gemini/antigravity-cli/settings.json` にある hooks は別のままです。Droid の独立 hooks ファイルは読み込むソースを変えるため、既存 inline hooks を先に確認してください。 Copilot は `.github/hooks` のプロジェクト hooks を信頼済みフォルダーでのみ読み込みます。
+アカウント target の `config_dir` を指す場合を除き、global scope はネイティブ設定ディレクトリの環境変数 override を使います。プロジェクトのネイティブ hook ファイルはプロジェクト内に書き込みます。`--trust` を確認すると、信頼は検証済みの各 Codex home に記録されます。Codex inline TOML など他のソースは別のままです。Antigravity とその CLI（`agy`）は同じ `hooks.json` を読みます。各 hook は名前付きの 1 ブロックで、インポートしても名前は変わりません。CLI の `~/.gemini/antigravity-cli/settings.json` にある hooks は別のままです。Droid の独立 hooks ファイルは読み込むソースを変えるため、既存 inline hooks を先に確認してください。 Copilot は `.github/hooks` のプロジェクト hooks を信頼済みフォルダーでのみ読み込みます。
 
 
 Droid の inline hooks が有効な場合、同期は独立ファイルの作成を拒否します。インポートして確認し、元の inline hooks を削除してから同期してください。

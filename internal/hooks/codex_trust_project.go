@@ -11,9 +11,18 @@ import (
 // Resolve both the home and an existing config.toml symlink before Codex is started.
 func projectTrustDestinationInside(root, home string) bool {
 	root = canonicalPath(root)
+	rootInfo, err := os.Stat(root)
+	if err != nil {
+		return true
+	}
 	for _, path := range []string{canonicalPath(home), canonicalCodexHooksPath(filepath.Join(home, "config.toml"))} {
-		if rel, err := filepath.Rel(root, path); err == nil && filepath.IsLocal(rel) {
-			return true
+		for dir := path; ; dir = filepath.Dir(dir) {
+			if info, err := os.Stat(dir); err == nil && os.SameFile(rootInfo, info) {
+				return true
+			}
+			if dir == filepath.Dir(dir) {
+				break
+			}
 		}
 	}
 	return false

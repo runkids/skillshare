@@ -299,6 +299,35 @@ func TestCodexTrustProjectSkipsCheckoutHomeAndRemovedAccount(t *testing.T) {
 	}
 }
 
+func TestProjectTrustReportsRemovalWhenAllRemainingHomesFail(t *testing.T) {
+	e, f := trustEnv(t)
+	s := e.project(t.TempDir())
+	s.Accounts = map[string]Account{"codex-2": e.service.Accounts["codex-2"]}
+	s.CodexAppServer = f.start
+	f.listErrHome = filepath.Join(e.home, ".codex")
+	save(t, s, Mutation{Name: "ready", Entry: accountEntry(t, "codex")})
+	p, err := s.PreviewCodexTrust()
+	must(t, err)
+	delete(s.Accounts, "codex-2")
+	result, err := s.TrustCodex(p.Revision)
+	if !errors.Is(err, ErrStaleRevision) || len(result.Failed) != 2 || len(f.writes) != 0 {
+		t.Fatalf("result = %+v, err = %v", result, err)
+	}
+}
+
+func TestProjectTrustCheckoutCaseAlias(t *testing.T) {
+	base := t.TempDir()
+	root := filepath.Join(base, "Checkout")
+	must(t, os.MkdirAll(root, 0755))
+	alias := filepath.Join(base, "checkout")
+	if _, err := os.Stat(alias); os.IsNotExist(err) {
+		t.Skip("case-sensitive filesystem")
+	}
+	if !projectTrustDestinationInside(root, filepath.Join(alias, ".codex")) {
+		t.Fatal("case alias must still be recognized as the checkout")
+	}
+}
+
 func TestCodexEventKey(t *testing.T) {
 	for in, want := range map[string]string{"PreToolUse": "pre_tool_use", "Stop": "stop", "UserPromptSubmit": "user_prompt_submit"} {
 		if got := codexEventKey(in); got != want {

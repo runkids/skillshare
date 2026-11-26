@@ -143,7 +143,7 @@ Pi와 OMP는 모두 `PI_CODING_AGENT_DIR`을 따릅니다. binding이 같은 출
 | [Amp](https://ampcode.com/docs/plugin-api) | `~/.config/amp/plugins/skillshare-NAME.ts` | `.amp/plugins/skillshare-NAME.ts` | Native plugin code |
 | [OpenCode](https://opencode.ai/docs/plugins/) | `~/.config/opencode/plugins/skillshare-NAME[.ts]` | `.opencode/plugins/skillshare-NAME[.ts]` | v1 file; v2 directory package (see below) |
 
-계정 target의 `config_dir`을 가리키는 경우를 제외하고 global scope는 네이티브 설정 디렉터리 환경 변수 override를 사용합니다. project scope는 프로젝트에만 쓰며 global 경로로 대체하지 않습니다. Codex inline TOML 같은 다른 소스는 별도로 유지됩니다. Antigravity와 CLI(`agy`)는 같은 `hooks.json`을 읽습니다. 각 hook은 이름이 붙은 블록 하나이며 가져와도 이름이 유지됩니다. CLI의 `~/.gemini/antigravity-cli/settings.json`에 있는 hooks는 별도로 유지됩니다. Droid의 독립 hooks 파일은 로딩 소스를 바꿀 수 있으므로 기존 inline hooks를 먼저 확인하세요. Copilot은 신뢰된 폴더에서만 `.github/hooks`의 프로젝트 hooks를 불러옵니다.
+계정 target의 `config_dir`을 가리키는 경우를 제외하고 global scope는 네이티브 설정 디렉터리 환경 변수 override를 사용합니다. 프로젝트의 네이티브 hook 파일은 프로젝트 안에 기록됩니다. `--trust`를 확인하면 검증된 각 Codex 홈에 신뢰가 별도로 기록됩니다. Codex inline TOML 같은 다른 소스는 별도로 유지됩니다. Antigravity와 CLI(`agy`)는 같은 `hooks.json`을 읽습니다. 각 hook은 이름이 붙은 블록 하나이며 가져와도 이름이 유지됩니다. CLI의 `~/.gemini/antigravity-cli/settings.json`에 있는 hooks는 별도로 유지됩니다. Droid의 독립 hooks 파일은 로딩 소스를 바꿀 수 있으므로 기존 inline hooks를 먼저 확인하세요. Copilot은 신뢰된 폴더에서만 `.github/hooks`의 프로젝트 hooks를 불러옵니다.
 
 
 Droid inline hooks가 활성화된 경우 독립 파일 생성을 거부합니다. 가져와서 검토하고 원래 inline hooks를 제거한 뒤 동기화하세요.
