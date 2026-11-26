@@ -66,7 +66,7 @@ func (s *Service) herdrHost(target string) Host {
 	h := Host{Target: target, Status: HostReady, Installed: []Installed{}}
 	mod, launcher := s.herdrLayouts()
 	layouts := []localFolderLayout{mod, launcher}
-	if info, err := os.Lstat(herdrHome()); os.IsNotExist(err) {
+	if info, err := os.Stat(herdrHome()); os.IsNotExist(err) {
 		// A machine that does not run the Herdr window skips its mods; launchers live elsewhere.
 		h.Status, layouts = HostMissing, layouts[1:]
 		h.Note = "Herdr app home " + herdrHome() + " is absent; Herdr bindings are skipped on this machine"

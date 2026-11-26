@@ -66,6 +66,34 @@ func TestHerdrModLifecycle(t *testing.T) {
 	applyPluginRequest(t, s, r)
 }
 
+func TestHerdrSymlinkedHome(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("isolated HOME does not override the Windows user profile")
+	}
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	resolved := t.TempDir()
+	link := filepath.Join(home, "herdr")
+	if err := os.Symlink(resolved, link); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HERDR_APP_HOME", link)
+	source := t.TempDir()
+	writePluginFile(t, source, "mods/demo/main.js", "demo")
+	s := &Service{ConfigPath: filepath.Join(home, "config.yaml"), StateDir: filepath.Join(home, "state")}
+	req := Request{Action: "add", Source: source, Targets: []string{"herdr-app"}}
+	preview, err := s.Preview(context.Background(), req)
+	if err != nil || preview.Blocked {
+		t.Fatalf("preview blocked: %+v %v", preview, err)
+	}
+	if _, err := s.Apply(context.Background(), req, preview.Revision); err != nil {
+		t.Fatal(err)
+	}
+	if data, err := os.ReadFile(filepath.Join(resolved, "mods/demo/main.js")); err != nil || string(data) != "demo" {
+		t.Fatalf("mod not installed under resolved home: %q %v", data, err)
+	}
+}
+
 func TestHerdrDiscovery(t *testing.T) {
 	root := t.TempDir()
 	writePluginFile(t, root, "mods/alpha/main.js", "a")
