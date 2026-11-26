@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.32.1](https://github.com/runkids/skillshare/compare/v0.32.0...v0.32.1) (2026-11-26)
+
+
+### New Features
+
+* **ui:** show each project's override in the shared server dialog and link to its MCP tab ([#1057](https://github.com/runkids/skillshare/issues/1057)) ([440afaf](https://github.com/runkids/skillshare/commit/440afafe97584c405d7f67744d965f51735592f0))
+
+
+### Bug Fixes
+
+* **mcp:** let a pasted JSON snippet name its source Agent ([#1058](https://github.com/runkids/skillshare/issues/1058)) ([58cb0a0](https://github.com/runkids/skillshare/commit/58cb0a02070fac9b09391f3f588768cb95ae65a1)), closes [#1049](https://github.com/runkids/skillshare/issues/1049)
+* **ui:** open folders and files on the Windows desktop under WSL ([#1055](https://github.com/runkids/skillshare/issues/1055)) ([f0c802f](https://github.com/runkids/skillshare/commit/f0c802fa1a0ef323169b70428bc0fa06829a78e0)), closes [#1053](https://github.com/runkids/skillshare/issues/1053)
+* **ui:** open the default branch by name in source links ([#1059](https://github.com/runkids/skillshare/issues/1059)) ([97d6313](https://github.com/runkids/skillshare/commit/97d63135e5288d6ab090086f9fb3a86cccdbd489))
+* **ui:** put the Context tabs and picker on the title row ([c8b3eab](https://github.com/runkids/skillshare/commit/c8b3eabe08aba8d11658d6b0fd23e7095ed86c15))
+* **ui:** reuse plugin update checks on return visits ([#1060](https://github.com/runkids/skillshare/issues/1060)) ([56c75f9](https://github.com/runkids/skillshare/commit/56c75f986dc95cc498e3c7cb23bad2934ef20a65))
+* **version:** recognize pixi installs and point upgrade to pixi ([#1056](https://github.com/runkids/skillshare/issues/1056)) ([d739a01](https://github.com/runkids/skillshare/commit/d739a014d5d9db842531bb8a910ee3993cf51ca0))
+
 ## [0.32.0] - 2026-11-26
 
 ### New Features
