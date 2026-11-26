@@ -370,7 +370,7 @@ skillshare install github.com/user/agents --kind agent --json
 }
 ```
 
-When the install fails as a whole, for example when the security audit blocks a tracked repository, a single skill, or every skill from a source or from config, the command exits non-zero and the `error` field says why, naming each failed skill. When only some skills fail, they are listed in `failed` and the command exits 0. Add `--force` to install despite audit findings.
+When the install fails as a whole, for example when the security audit blocks a tracked repository, a single skill, or every skill from a source or from config, the command exits non-zero and the `error` field says why, naming each failed skill. When only some skills fail, they are listed in `failed` and the command exits 0. If any selected agent fails, the command exits non-zero and `error` names each failed agent, even when skills installed. Add `--force` to install despite audit findings.
 
 ```json
 {
