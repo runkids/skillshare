@@ -39,8 +39,8 @@ type SkillResult struct {
 type Remote interface {
 	// Hash returns the commit the ref points at.
 	Hash(repoURL, branch string) (string, error)
-	// TreeHashes maps every directory at the ref to its git tree hash. It
-	// returns nil when the hashes cannot be fetched.
+	// TreeHashes maps every directory at the ref to its git tree hash and
+	// every file to its blob hash. It returns nil when the hashes cannot be fetched.
 	TreeHashes(repoURL, branch string) map[string]string
 }
 

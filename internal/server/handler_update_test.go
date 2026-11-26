@@ -242,6 +242,20 @@ func TestUpdateAgent_LocallyModifiedAtTheRemoteVersionIsUpToDate(t *testing.T) {
 	}
 }
 
+// A later commit that left the agent's file alone has nothing to apply either:
+// its blob hash matches the one recorded at install (#1041).
+func TestUpdateAgent_UnchangedFileAtANewerCommitIsUpToDate(t *testing.T) {
+	s, _ := newTestServer(t)
+	addEditedAgent(t, s, "outdated")
+	entry := s.agentsStore.Get("edited")
+	remote := strings.TrimPrefix(entry.RepoURL, "file://")
+	entry.TreeHash = strings.TrimSpace(string(runGit(t, remote, "rev-parse", "HEAD:agents/edited.md")))
+
+	if result := s.updateAgent("edited", false, true, false); result.Action != "up-to-date" {
+		t.Fatalf("got %q: %s, want up-to-date", result.Action, result.Message)
+	}
+}
+
 func TestUpdateSingle_RegularSkillPriority(t *testing.T) {
 	s, src := newTestServer(t)
 

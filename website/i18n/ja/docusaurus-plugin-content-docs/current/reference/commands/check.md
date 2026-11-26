@@ -224,7 +224,7 @@ skillshare check agents -p           # Project の Agent を確認
 skillshare check --all               # Skill と Agent をまとめて確認
 ```
 
-各 Agent はインストール元のブランチと比較されます。インストール後に編集した Agent は drifted として報告されます。upstream にも新しいバージョンがある場合、その `message` は `update available upstream` で終わり、`--json` では `"upstreamChanged": true` が設定され、`skillshare update agents <name> --merge` でマージできます。以前の `update agents` によって記録された source が失われた Agent は `error` を報告し、再インストールを求めます。[トラブルシューティング](/docs/troubleshooting/common-errors#agent-source-lost)を参照してください。
+各 Agent はインストール元のブランチと比較されます。そのブランチが進んでいても Agent のファイルが変わっていなければ、up to date のままです。インストール後に編集した Agent は drifted として報告されます。upstream にも新しいバージョンがある場合、その `message` は `update available upstream` で終わり、`--json` では `"upstreamChanged": true` が設定され、`skillshare update agents <name> --merge` でマージできます。以前の `update agents` によって記録された source が失われた Agent は `error` を報告し、再インストールを求めます。[トラブルシューティング](/docs/troubleshooting/common-errors#agent-source-lost)を参照してください。
 
 `agents` 引数も `--all` も指定しない場合、`check` は Skill のみを対象にします（デフォルトの挙動）。背景については [Agents](/docs/understand/agents) を参照してください。
 

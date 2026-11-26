@@ -586,6 +586,22 @@ func getSubdirTreeHash(repoPath, subdir string) string {
 	return strings.TrimSpace(string(out))
 }
 
+// getFileBlobHash returns the git blob hash of file, a regular file in
+// repoPath's HEAD; "" for a symlink, a directory, or a path git cannot read.
+func getFileBlobHash(repoPath, file string) string {
+	cmd := gitenv.Command("ls-tree", "-z", "HEAD", "--", file)
+	cmd.Dir = repoPath
+	out, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	fields := strings.Fields(strings.SplitN(string(out), "\t", 2)[0])
+	if len(fields) != 3 || fields[1] != "blob" || fields[0] == "120000" {
+		return ""
+	}
+	return fields[2]
+}
+
 // hasSymlinkEntry reports whether `git ls-tree` output lists a symlink.
 func hasSymlinkEntry(lsTree string) bool {
 	for _, line := range strings.Split(lsTree, "\n") {

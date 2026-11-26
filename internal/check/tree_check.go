@@ -10,8 +10,9 @@ import (
 )
 
 // FetchRemoteTreeHashes performs a blobless fetch of the remote HEAD and
-// returns a map of subdir paths to their git tree hashes. This allows
-// per-skill version comparison without downloading full blobs.
+// returns a map of subdir paths to their git tree hashes and file paths to
+// their blob hashes. This allows per-skill and per-agent version comparison
+// without downloading full blobs.
 //
 // Returns nil on any error (unsupported git version, network failure, etc.)
 // so callers can fall back to commit-level comparison.
@@ -65,10 +66,12 @@ func FetchRemoteTreeHashesForRef(repoURL, ref string, opts install.ParseOptions)
 	return parseLsTreeOutput(string(out))
 }
 
-// parseLsTreeOutput parses `git ls-tree -r -t` output into a map[path]treeHash.
-// Each entry: "<mode> <type> <hash>\t<path>", NUL-terminated. A directory
-// that holds a symlink maps to "": install copies the link's target, whose
-// changes its tree hash cannot see, so it must not count as unchanged.
+// parseLsTreeOutput parses `git ls-tree -r -t` output into a map of each
+// directory to its tree hash and each file to its blob hash, which agents
+// compare. Each entry: "<mode> <type> <hash>\t<path>", NUL-terminated. A
+// symlink, and a directory that holds one, maps to "": install copies the
+// link's target, whose changes the hash cannot see, so it must not count as
+// unchanged.
 func parseLsTreeOutput(output string) map[string]string {
 	result := make(map[string]string)
 	var symlinks []string
@@ -87,13 +90,14 @@ func parseLsTreeOutput(output string) map[string]string {
 		if fields[0] == "120000" {
 			symlinks = append(symlinks, path)
 		}
-		if fields[1] != "tree" {
+		if fields[1] != "tree" && fields[1] != "blob" {
 			continue
 		}
 		result[path] = fields[2]
 	}
 	// shortcut: a link whose target stays inside the directory blanks it too, resolve link targets if skills report update_available too often.
 	for _, link := range symlinks {
+		result[link] = ""
 		for dir := path.Dir(link); dir != "."; dir = path.Dir(dir) {
 			result[dir] = ""
 		}

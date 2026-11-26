@@ -171,8 +171,12 @@ func TestFetchRemoteTreeHashes_SymlinkBlanksContainingDirs(t *testing.T) {
 	if len(result["skills/plain"]) != 40 {
 		t.Errorf("skills/plain: expected a tree hash, got %q", result["skills/plain"])
 	}
-	if _, ok := result["skills/plain/SKILL.md"]; ok {
-		t.Error("blob entries must not appear in the result")
+	// Agents compare a file's blob hash; a symlink cannot be compared.
+	if len(result["skills/plain/SKILL.md"]) != 40 {
+		t.Errorf("skills/plain/SKILL.md: expected a blob hash, got %q", result["skills/plain/SKILL.md"])
+	}
+	if hash, ok := result["skills/linked/réf.md"]; !ok || hash != "" {
+		t.Errorf("symlink: expected present with empty hash, got %q (present=%v)", hash, ok)
 	}
 }
 
