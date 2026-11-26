@@ -57,7 +57,7 @@ func TestFetchRemoteTreeHashes_Valid(t *testing.T) {
 		t.Fatal("expected non-nil result")
 	}
 
-	hash, ok := result["skills/my-skill"]
+	hash, ok := result.Hashes["skills/my-skill"]
 	if !ok {
 		t.Fatal("expected skills/my-skill in result")
 	}
@@ -66,7 +66,7 @@ func TestFetchRemoteTreeHashes_Valid(t *testing.T) {
 	}
 
 	// Also check parent directory is listed
-	if _, ok := result["skills"]; !ok {
+	if _, ok := result.Hashes["skills"]; !ok {
 		t.Error("expected skills/ parent directory in result")
 	}
 }
@@ -86,7 +86,7 @@ func TestFetchRemoteTreeHashes_SubdirNotFound(t *testing.T) {
 		t.Fatal("expected non-nil result")
 	}
 
-	if _, ok := result["skills/not-here"]; ok {
+	if _, ok := result.Hashes["skills/not-here"]; ok {
 		t.Error("did not expect skills/not-here in result")
 	}
 }
@@ -113,7 +113,7 @@ func TestFetchRemoteTreeHashes_StableAfterUnrelatedChange(t *testing.T) {
 	if hash1 == nil {
 		t.Fatal("expected non-nil result for first fetch")
 	}
-	stableHash1 := hash1["skills/stable"]
+	stableHash1 := hash1.Hashes["skills/stable"]
 
 	// Add an unrelated file and push
 	os.WriteFile(filepath.Join(work, "README.md"), []byte("# Readme"), 0644)
@@ -125,10 +125,82 @@ func TestFetchRemoteTreeHashes_StableAfterUnrelatedChange(t *testing.T) {
 	if hash2 == nil {
 		t.Fatal("expected non-nil result for second fetch")
 	}
-	stableHash2 := hash2["skills/stable"]
+	stableHash2 := hash2.Hashes["skills/stable"]
 
 	if stableHash1 != stableHash2 {
 		t.Errorf("tree hash changed despite no changes in skills/stable: %s → %s", stableHash1, stableHash2)
+	}
+}
+
+func TestRemoteTreesHash(t *testing.T) {
+	trees := &RemoteTrees{
+		// ls-tree lists each link as well, with an empty hash.
+		Hashes: map[string]string{"store/foo": "t1", "skills/plain": "t2", ".agents/skills/foo": "", ".agents/skills/gone": "", "out": ""},
+		Links:  map[string]string{".agents/skills/foo": "../../store/foo", ".agents/skills/gone": "../../store/gone", "out": "../x"},
+	}
+	tests := []struct {
+		subdir, want string
+		ok           bool
+	}{
+		{"skills/plain", "t2", true},
+		{".agents/skills/foo", "t1", true},
+		{".agents/skills/gone", "", false},
+		{"out", "", false},
+		{"skills/missing", "", false},
+	}
+	unread := &RemoteTrees{Hashes: trees.Hashes, LinksUnread: map[string]bool{".agents/skills/foo": true}}
+	if got, ok := unread.Hash(".agents/skills/foo"); got != "" || !ok {
+		t.Errorf("Hash through an unread link = %q, %v; want \"\", true so it compares by commit", got, ok)
+	}
+	if got, ok := unread.Hash("skills/plain"); got != "t2" || !ok {
+		t.Errorf("Hash(skills/plain) with an unread link elsewhere = %q, %v; want t2, true", got, ok)
+	}
+	for _, tt := range tests {
+		if got, ok := trees.Hash(tt.subdir); got != tt.want || ok != tt.ok {
+			t.Errorf("Hash(%q) = %q, %v; want %q, %v", tt.subdir, got, ok, tt.want, tt.ok)
+		}
+	}
+}
+
+func TestFetchRemoteTreeHashes_LinkSubdirResolvesToTarget(t *testing.T) {
+	dir := t.TempDir()
+	work := filepath.Join(dir, "work")
+	bare := filepath.Join(dir, "bare.git")
+
+	gitRun(t, "", "init", "--bare", bare)
+	gitRun(t, "", "clone", bare, work)
+	gitConfig(t, work)
+
+	os.MkdirAll(filepath.Join(work, "store", "foo"), 0755)
+	os.MkdirAll(filepath.Join(work, ".agents", "skills"), 0755)
+	os.WriteFile(filepath.Join(work, "store", "foo", "SKILL.md"), []byte("# Foo"), 0644)
+	if err := os.Symlink(filepath.Join("..", "..", "store", "foo"), filepath.Join(work, ".agents", "skills", "foo")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	gitRun(t, work, "add", "-A")
+	gitRun(t, work, "commit", "-m", "publish foo")
+	gitRun(t, work, "push", "origin", "HEAD")
+
+	first := FetchRemoteTreeHashes("file://"+bare, install.ParseOptions{})
+	if first == nil {
+		t.Fatal("expected non-nil result")
+	}
+	hash, ok := first.Hash(".agents/skills/foo")
+	if !ok || len(hash) != 40 || hash != first.Hashes["store/foo"] {
+		t.Fatalf("Hash(.agents/skills/foo) = %q, %v; want store/foo's %q", hash, ok, first.Hashes["store/foo"])
+	}
+
+	os.WriteFile(filepath.Join(work, "README.md"), []byte("# Readme"), 0644)
+	gitRun(t, work, "add", "-A")
+	gitRun(t, work, "commit", "-m", "unrelated change")
+	gitRun(t, work, "push", "origin", "HEAD")
+
+	second := FetchRemoteTreeHashes("file://"+bare, install.ParseOptions{})
+	if second == nil {
+		t.Fatal("expected non-nil result")
+	}
+	if again, _ := second.Hash(".agents/skills/foo"); again != hash {
+		t.Errorf("hash through the link changed on an unrelated commit: %s -> %s", hash, again)
 	}
 }
 
@@ -164,18 +236,18 @@ func TestFetchRemoteTreeHashes_SymlinkBlanksContainingDirs(t *testing.T) {
 	// A blank hash still marks the dir as present, so the skill reads as
 	// update_available rather than stale.
 	for _, d := range []string{"skills/linked", "skills"} {
-		if hash, ok := result[d]; !ok || hash != "" {
+		if hash, ok := result.Hashes[d]; !ok || hash != "" {
 			t.Errorf("%s: expected present with empty hash, got %q (present=%v)", d, hash, ok)
 		}
 	}
-	if len(result["skills/plain"]) != 40 {
-		t.Errorf("skills/plain: expected a tree hash, got %q", result["skills/plain"])
+	if len(result.Hashes["skills/plain"]) != 40 {
+		t.Errorf("skills/plain: expected a tree hash, got %q", result.Hashes["skills/plain"])
 	}
 	// Agents compare a file's blob hash; a symlink cannot be compared.
-	if len(result["skills/plain/SKILL.md"]) != 40 {
-		t.Errorf("skills/plain/SKILL.md: expected a blob hash, got %q", result["skills/plain/SKILL.md"])
+	if len(result.Hashes["skills/plain/SKILL.md"]) != 40 {
+		t.Errorf("skills/plain/SKILL.md: expected a blob hash, got %q", result.Hashes["skills/plain/SKILL.md"])
 	}
-	if hash, ok := result["skills/linked/réf.md"]; !ok || hash != "" {
+	if hash, ok := result.Hashes["skills/linked/réf.md"]; !ok || hash != "" {
 		t.Errorf("symlink: expected present with empty hash, got %q (present=%v)", hash, ok)
 	}
 }

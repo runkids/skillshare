@@ -48,10 +48,13 @@ func (f *fakeRemote) Hash(repoURL, branch string) (string, error) {
 	return hash, nil
 }
 
-func (f *fakeRemote) TreeHashes(repoURL, branch string) map[string]string {
+func (f *fakeRemote) TreeHashes(repoURL, branch string) *RemoteTrees {
 	ref := fakeRef(repoURL, branch)
 	f.record("trees " + ref)
-	return f.trees[ref]
+	if f.trees[ref] == nil {
+		return nil
+	}
+	return &RemoteTrees{Hashes: f.trees[ref]}
 }
 
 func remoteSkill(name, version, treeHash, subdir string) Skill {

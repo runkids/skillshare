@@ -226,7 +226,7 @@ skillshare update --all
 1. 所有 tracked repositories（git pull）
 2. 所有带来源 metadata 的 skills（upstream 有变化时重新安装）
 
-`update --all` 和 `update --group` 会按仓库对远程 skill 分组，每个仓库只 clone 一次。文件夹在 upstream 中没有变化的 skill 保持不变，并计为 up to date。文件夹中含有 symlink 的 skill 例外：文件夹不变时文件也可能变化，因此只要 upstream commit 有变动就会重新安装。在项目模式（`-p`）下按名称指定多个 skill 时也一样。使用 `--force` 可重新安装所有 skill。只更新一个 skill，或在全局模式下按名称指定时，总是重新安装。从仓库子文件夹重新安装的文件没有变化时，`.metadata.json` 保持不变，因此用 Git 管理的 skills source 不会出现改动。安装后你修改过文件的 skill，在任何情况下都会被跳过，直到你加上 `--merge` 或 `--force`（参见[处理冲突](#处理冲突)）。无法获取某个仓库时，其 skill 计为 skipped，`update` 会显示一条警告，写明该仓库和错误，并移除 URL 中的凭据。
+`update --all` 和 `update --group` 会按仓库对远程 skill 分组，每个仓库只 clone 一次。文件夹在 upstream 中没有变化的 skill 保持不变，并计为 up to date。文件夹中含有 symlink 的 skill 例外：文件夹不变时文件也可能变化，因此只要 upstream commit 有变动就会重新安装。通过指向文件夹的 link 安装的 skill（例如 `.agents/skills/<name>`）按 link 指向的文件夹比较。在项目模式（`-p`）下按名称指定多个 skill 时也一样。使用 `--force` 可重新安装所有 skill。只更新一个 skill，或在全局模式下按名称指定时，总是重新安装。从仓库子文件夹重新安装的文件没有变化时，`.metadata.json` 保持不变，因此用 Git 管理的 skills source 不会出现改动。安装后你修改过文件的 skill，在任何情况下都会被跳过，直到你加上 `--merge` 或 `--force`（参见[处理冲突](#处理冲突)）。无法获取某个仓库时，其 skill 计为 skipped，`update` 会显示一条警告，写明该仓库和错误，并移除 URL 中的凭据。
 
 同一个 git checkout 一次只由一个 skillshare 进程更新。若另一个 `update` 或 dashboard 正在更新同一个 tracked repo 或通过 git 安装的 skill，本次更新会等它完成。等待一分钟后仍未完成，就以 `another skillshare process is still updating <path>` 放弃。
 

@@ -570,20 +570,61 @@ func getSubdirTreeHash(repoPath, subdir string) string {
 	}
 	// Strip leading "/" from subdir — git rev-parse doesn't accept absolute paths
 	subdir = strings.TrimPrefix(subdir, "/")
-	cmd := gitenv.Command("rev-parse", "HEAD:"+subdir)
+	if hash, isTree := treeHashAt(repoPath, subdir); isTree {
+		return hash
+	}
+	// A skill discovered through a link records the link's path: hash the
+	// folder it leads to, as check does.
+	resolved, ok := ResolveTreeLinks(subdir, headLink(repoPath))
+	if !ok || resolved == subdir {
+		return ""
+	}
+	hash, _ := treeHashAt(repoPath, resolved)
+	return hash
+}
+
+// headLink reports whether p is a link at HEAD and reads its text. It reads
+// one entry at a time, so a blobless clone fetches only the links a path
+// passes through.
+func headLink(repoPath string) func(string) (string, bool, error) {
+	return func(p string) (string, bool, error) {
+		out, err := gitBytesOutput(repoPath, nil, "ls-tree", "-z", "HEAD", "--", p)
+		if err != nil {
+			return "", false, err
+		}
+		for _, e := range parseLsTreeEntries(out) {
+			if e.path == p && e.mode == "120000" {
+				texts, err := LinkTexts(repoPath, map[string]string{p: e.oid}, nil)
+				return texts[p], err == nil, err
+			}
+		}
+		return "", false, nil
+	}
+}
+
+// treeHashAt returns the tree hash of subdir at HEAD, or "" when it holds a
+// symlink. isTree is false when subdir is not a folder at HEAD.
+func treeHashAt(repoPath, subdir string) (hash string, isTree bool) {
+	// "<oid> <type> <size>", or "<name> missing".
+	cmd := gitenv.Command("cat-file", "--batch-check")
 	cmd.Dir = repoPath
+	cmd.Stdin = strings.NewReader("HEAD:" + subdir + "\n")
 	out, err := cmd.Output()
 	if err != nil {
-		return ""
+		return "", false
+	}
+	fields := strings.Fields(string(out))
+	if len(fields) != 3 || fields[1] != "tree" {
+		return "", false
 	}
 	// shortcut: a symlink whose target stays inside the subdir also disables the tree hash, resolve link targets if that costs too many reinstalls.
 	lsCmd := gitenv.Command("ls-tree", "-r", "HEAD:"+subdir)
 	lsCmd.Dir = repoPath
 	entries, err := lsCmd.Output()
 	if err != nil || hasSymlinkEntry(string(entries)) {
-		return ""
+		return "", true
 	}
-	return strings.TrimSpace(string(out))
+	return fields[0], true
 }
 
 // getFileBlobHash returns the git blob hash of file, a regular file in

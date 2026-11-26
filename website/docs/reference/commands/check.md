@@ -201,7 +201,7 @@ To see the changes first, run `skillshare check <name> --diff`. It fetches the c
 :::
 
 :::tip Monorepo awareness
-For skills installed from a subdirectory, `check` only reports "update available" when that specific directory changed — not when unrelated parts of the repo have new commits.
+For skills installed from a subdirectory, `check` only reports "update available" when that specific directory changed — not when unrelated parts of the repo have new commits. For a skill installed through a link to a folder, such as `.agents/skills/<name>`, that is the folder the link leads to.
 :::
 
 ## Project Mode

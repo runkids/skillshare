@@ -203,7 +203,7 @@ func EnrichAgentResultsWithRemote(results []AgentCheckResult, onDone func(), par
 
 	for i, out := range outputs {
 		// Fetched once per remote, and only when an agent's commit moved.
-		var trees map[string]string
+		var trees *RemoteTrees
 		fetched := false
 		for _, idx := range groups[refs[i]] {
 			if out.Err != nil {
@@ -221,7 +221,7 @@ func EnrichAgentResultsWithRemote(results []AgentCheckResult, onDone func(), par
 				if !fetched {
 					trees, fetched = FetchRemoteTreeHashesForRef(refs[i].url, refs[i].branch, parseOpts), true
 				}
-				if trees[install.AgentBlobPath(results[idx].Source, parseOpts)] == hash {
+				if trees != nil && trees.Hashes[install.AgentBlobPath(results[idx].Source, parseOpts)] == hash {
 					continue
 				}
 			}
