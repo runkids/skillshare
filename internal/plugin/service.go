@@ -354,7 +354,7 @@ func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval) (
 				change.MessageKey = "plugins.note.identityInUse"
 				if agent == "herdr-app" {
 					change.Message = "A Herdr mod or launcher named " + change.ID + " already exists and is not managed by Skillshare; move it aside before adding"
-					change.MessageKey = ""
+					change.MessageKey, change.MessageArgs = "plugins.note.herdrIdentityInUse", map[string]string{"id": change.ID}
 				}
 			}
 			appendChange(change)
@@ -441,7 +441,7 @@ func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval) (
 				}
 				agent := s.agentOf(target)
 				if agent == "herdr-app" && (r.Action != "remove" && r.Action != "uninstall") && host(target).Status == HostMissing {
-					p.Changes = append(p.Changes, Change{Name: name, Target: target, ID: b.ID, Binding: b, Action: "skip", Message: "Herdr app home is absent; skipped."})
+					p.Changes = append(p.Changes, Change{Name: name, Target: target, ID: b.ID, Binding: b, Action: "skip", Message: "Herdr app home is absent; skipped.", MessageKey: "plugins.note.herdrHomeSkipped"})
 					continue
 				}
 				decl, declared := d.intent[name].Bindings[target]
@@ -735,10 +735,11 @@ func (s *Service) prepareChange(ctx context.Context, r Request, d *document, hos
 	if agent == "herdr-app" && r.Action == "add" && h.Status == HostMissing {
 		c.Action = "blocked"
 		c.Message = "Herdr app home is absent: " + herdrHome()
+		c.MessageKey, c.MessageArgs = "plugins.note.herdrAddHomeMissing", map[string]string{"path": herdrHome()}
 	}
 	if agent == "herdr-app" && c.Action == "update" && c.Binding.Entry != "" {
 		c.Message = "Close " + c.ID + "'s chat before applying; reopen it after."
-		c.MessageKey = ""
+		c.MessageKey, c.MessageArgs = "plugins.note.herdrLauncherUpdate", map[string]string{"id": c.ID}
 	}
 	// A change already blocked or skipped keeps its own reason; the key always matches the message.
 	if h.Error != "" && c.Action != "blocked" && c.Action != "skip" {

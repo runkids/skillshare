@@ -106,7 +106,7 @@ export default function PluginAgents({ inventory, ready, refreshing, disabled, o
                       <span>
                         {h.target === 'grok'
                           ? t('plugins.reason.grok')
-                          : keyedText(t, h.noteKey || 'plugins.note.native', h.note)}
+                          : keyedText(t, h.noteKey || 'plugins.note.native', h.note, h.noteArgs)}
                       </span>
                       {h.version && (
                         <span className="break-all font-mono text-xs text-ink-3">{h.version}</span>

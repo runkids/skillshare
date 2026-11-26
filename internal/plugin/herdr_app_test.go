@@ -112,7 +112,7 @@ func TestHerdrMissingHome(t *testing.T) {
 	t.Setenv("HERDR_APP_HOME", filepath.Join(home, "missing"))
 	s := &Service{ConfigPath: filepath.Join(home, "config.yaml"), StateDir: filepath.Join(home, "state")}
 	h := s.host(context.Background(), "herdr-app")
-	if h.Status != HostMissing || h.Error != "" {
+	if h.Status != HostMissing || h.Error != "" || h.NoteKey != "plugins.note.herdrHomeMissing" || h.NoteArgs["path"] != filepath.Join(home, "missing") {
 		t.Fatalf("unexpected host: %+v", h)
 	}
 	source := t.TempDir()
@@ -121,8 +121,8 @@ func TestHerdrMissingHome(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !p.Blocked {
-		t.Fatalf("add should be blocked: %+v", p.Changes)
+	if !p.Blocked || len(p.Changes) != 1 || p.Changes[0].MessageKey != "plugins.note.herdrAddHomeMissing" || p.Changes[0].MessageArgs["path"] != filepath.Join(home, "missing") {
+		t.Fatalf("add should be blocked with a translated path: %+v", p.Changes)
 	}
 	if _, err := os.Stat(filepath.Join(home, "missing")); !os.IsNotExist(err) {
 		t.Fatal("created absent home", err)
@@ -397,6 +397,9 @@ func TestHerdrMissingHomeDoesNotBlockOtherTargets(t *testing.T) {
 		found := false
 		for _, c := range p.Changes {
 			if c.Target == "herdr-app" && c.Action == "skip" {
+				if c.MessageKey != "plugins.note.herdrHomeSkipped" {
+					t.Fatalf("%s skip lacks translation key: %+v", action, c)
+				}
 				found = true
 			}
 		}
@@ -534,19 +537,22 @@ func TestHerdrLauncherOutcomeMessages(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := &Service{ConfigPath: filepath.Join(home, "config.yaml"), StateDir: filepath.Join(home, "state")}
-	apply := func(r Request, want string) {
+	apply := func(r Request, want, key, arg, value string) {
 		t.Helper()
 		p, err := s.Preview(context.Background(), r)
 		if err != nil || p.Blocked {
 			t.Fatalf("preview: %+v %v", p, err)
 		}
+		if r.Action == "update" && (len(p.Changes) != 1 || p.Changes[0].MessageKey != "plugins.note.herdrLauncherUpdate" || p.Changes[0].MessageArgs["id"] != "app") {
+			t.Fatalf("update preview: %+v", p.Changes)
+		}
 		result, err := s.Apply(context.Background(), r, p.Revision)
-		if err != nil || len(result.Results) != 1 || !strings.Contains(result.Results[0].Message, want) {
+		if err != nil || len(result.Results) != 1 || !strings.Contains(result.Results[0].Message, want) || result.Results[0].MessageKey != key || (arg != "" && result.Results[0].MessageArgs[arg] != value) {
 			t.Fatalf("outcome: %+v %v", result, err)
 		}
 	}
-	apply(Request{Action: "add", Source: source, Entry: "bin/app", Targets: []string{"herdr-app"}}, "Installed at ")
+	apply(Request{Action: "add", Source: source, Entry: "bin/app", Targets: []string{"herdr-app"}}, "Installed at ", "plugins.outcome.herdrLauncherInstalled", "path", filepath.Join(s.managedRoot(), "herdr-app/app/bin/app"))
 	writePluginFile(t, source, "bin/app", "#!/bin/sh\necho updated\n")
-	apply(Request{Action: "update", Name: "app"}, "Updated app; close and reopen")
-	apply(Request{Action: "remove", Name: "app"}, "Removed.")
+	apply(Request{Action: "update", Name: "app"}, "Updated app; close and reopen", "plugins.outcome.herdrLauncherUpdated", "id", "app")
+	apply(Request{Action: "remove", Name: "app"}, "Removed.", "plugins.outcome.herdrRemoved", "", "")
 }

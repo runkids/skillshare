@@ -85,6 +85,7 @@ export interface PluginInventory {
     errorArgs?: Record<string, string>;
     note?: string;
     noteKey?: string;
+    noteArgs?: Record<string, string>;
     installed: NativePlugin[];
     managedMarketplaces?: string[];
   }[];

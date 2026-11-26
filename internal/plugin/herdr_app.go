@@ -80,6 +80,7 @@ func (s *Service) herdrHost(target string) Host {
 	if os.IsNotExist(err) {
 		h.Status = HostMissing
 		h.Note = "Herdr app home " + herdrHome() + " is absent; Herdr bindings are skipped on this machine"
+		h.NoteKey, h.NoteArgs = "plugins.note.herdrHomeMissing", map[string]string{"path": herdrHome()}
 	} else if err != nil {
 		h.fail(err)
 		return h

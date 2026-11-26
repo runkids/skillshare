@@ -185,17 +185,18 @@ const (
 
 // NoteKey and ErrorKey name the fixed sentences the dashboard can translate. Note and
 // Error stay the English the CLI prints, and are the fallback when a locale lacks the key.
-// A key is absent whenever the message is assembled at runtime.
+// Arguments fill placeholders in keyed messages; unclassified errors may have no key.
 type Host struct {
-	Target      string      `json:"target"`
-	Fingerprint string      `json:"fingerprint,omitempty"`
-	Note        string      `json:"note,omitempty"`
-	NoteKey     string      `json:"noteKey,omitempty"`
-	Version     string      `json:"version"`
-	Status      string      `json:"status"`
-	Error       string      `json:"error,omitempty"`
-	ErrorKey    string      `json:"errorKey,omitempty"`
-	Installed   []Installed `json:"installed"`
+	Target      string            `json:"target"`
+	Fingerprint string            `json:"fingerprint,omitempty"`
+	Note        string            `json:"note,omitempty"`
+	NoteKey     string            `json:"noteKey,omitempty"`
+	NoteArgs    map[string]string `json:"noteArgs,omitempty"`
+	Version     string            `json:"version"`
+	Status      string            `json:"status"`
+	Error       string            `json:"error,omitempty"`
+	ErrorKey    string            `json:"errorKey,omitempty"`
+	Installed   []Installed       `json:"installed"`
 	// ErrorArgs fill the {placeholders} of ErrorKey's sentence.
 	ErrorArgs map[string]string `json:"errorArgs,omitempty"`
 	// Marketplaces maps each Claude/Codex marketplace name to its root; nil when unknown.

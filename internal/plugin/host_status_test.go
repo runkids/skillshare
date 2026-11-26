@@ -196,6 +196,7 @@ func TestFixedMessagesCarryATranslationKey(t *testing.T) {
 	}
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("HERDR_APP_HOME", filepath.Join(home, "missing-herdr"))
 	s := &Service{ConfigPath: filepath.Join(home, "config.yaml"), StateDir: filepath.Join(home, "state")}
 	s.Run = func(_ context.Context, _ string, _ []string, _ string, args ...string) ([]byte, error) {
 		if args[0] == "--version" {
@@ -205,8 +206,7 @@ func TestFixedMessagesCarryATranslationKey(t *testing.T) {
 	}
 	for _, target := range Targets {
 		h := s.host(context.Background(), target)
-		// The Herdr missing-home note includes the machine-specific path.
-		if h.Note != "" && h.NoteKey == "" && target != "herdr-app" {
+		if h.Note != "" && h.NoteKey == "" {
 			t.Errorf("%s: note has no key", target)
 		}
 		if automationProblem(target) != "" && h.ErrorKey == "" {

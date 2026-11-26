@@ -171,6 +171,8 @@ catalog. A launcher can also use a plain `package.json` with `--entry`. Each `mo
 installed to `<herdr home>/mods/<id>`. Mods in deeper folders are not found. A
 source with a manifest and a root `mods/` folder is discovered as before.
 
+Links that leave the mod's folder are not copied.
+
 ```bash
 skillshare plugin add owner/herdr-mods --plugin my-mod --target herdr-app --no-tui -g
 skillshare plugin add owner/lantern --entry bin/lantern-app --target herdr-app --no-tui -g

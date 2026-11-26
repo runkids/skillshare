@@ -204,6 +204,9 @@ func TestPluginHostStateResultWriteFailureStopsNativeWork(t *testing.T) {
 	if len(commands) != 1 || len(result.Results) != 1 || !strings.Contains(result.Results[0].Message, "recording its result failed") {
 		t.Fatalf("continued after result write failure: %+v %q", result, commands)
 	}
+	if result.Results[0].MessageKey != "plugins.outcome.recordFailedHelp" || len(result.Results[0].MessageArgs) != 0 {
+		t.Fatalf("wrong translated failure: %+v", result.Results[0])
+	}
 	if err := os.Remove(s.statePath()); err != nil {
 		t.Fatal(err)
 	}

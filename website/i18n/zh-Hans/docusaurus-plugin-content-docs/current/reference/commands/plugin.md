@@ -145,6 +145,8 @@ marketplace 安装。Skillshare 拒绝覆盖非自身拥有的文件夹、symlin
 
 Skillshare 只在没有 plugin manifest、也没有 marketplace catalog 的 source 中查找 Herdr 内容。source 根目录下的每个 `mods/<id>/main.js` 是一个 plugin，安装到 `<herdr home>/mods/<id>`。更深层文件夹中的 mod 不会被发现。同时有 manifest 和根目录 `mods/` 文件夹的 source，仍按原来的方式发现。 只有普通 `package.json` 的 source 也可通过 `--entry` 添加启动器。
 
+指向 mod 文件夹外部的链接不会被复制。
+
 ```bash
 skillshare plugin add owner/herdr-mods --plugin my-mod --target herdr-app --no-tui -g
 skillshare plugin add owner/lantern --entry bin/lantern-app --target herdr-app --no-tui -g

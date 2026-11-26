@@ -127,6 +127,8 @@ skillshare plugin import demo@market --from claude-work
 
 Skillshare が Herdr のコンテンツを探すのは、plugin マニフェストもマーケットプレイスカタログもない source だけです。source のルートにある `mods/<id>/main.js` 1 つが 1 つの plugin になり、`<herdr home>/mods/<id>` にインストールされます。より深いフォルダにある mod は見つかりません。マニフェストとルートの `mods/` フォルダを両方持つ source は、これまでどおりに検出されます。 通常の `package.json` だけを持つ source でも、`--entry` を指定してランチャーを追加できます。
 
+mod のフォルダ外を指すリンクはコピーされません。
+
 ```bash
 skillshare plugin add owner/herdr-mods --plugin my-mod --target herdr-app --no-tui -g
 skillshare plugin add owner/lantern --entry bin/lantern-app --target herdr-app --no-tui -g

@@ -145,6 +145,8 @@ marketplace registry：
 
 Skillshare 只在沒有 plugin manifest、也沒有 marketplace catalog 的 source 中尋找 Herdr 內容。source 根目錄下的每個 `mods/<id>/main.js` 是一個 plugin，安裝到 `<herdr home>/mods/<id>`。更深層資料夾中的 mod 不會被找到。同時有 manifest 與根目錄 `mods/` 資料夾的 source，仍照原本的方式探索。 只有一般 `package.json` 的 source 也可透過 `--entry` 新增啟動器。
 
+指向 mod 資料夾外部的連結不會被複製。
+
 ```bash
 skillshare plugin add owner/herdr-mods --plugin my-mod --target herdr-app --no-tui -g
 skillshare plugin add owner/lantern --entry bin/lantern-app --target herdr-app --no-tui -g

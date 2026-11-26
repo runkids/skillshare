@@ -126,6 +126,8 @@ skillshare plugin import demo@market --from claude-work
 
 Skillshare는 plugin 매니페스트도 marketplace 카탈로그도 없는 source에서만 Herdr 콘텐츠를 찾습니다. source 루트의 `mods/<id>/main.js` 하나가 plugin 하나이며 `<herdr home>/mods/<id>`에 설치됩니다. 더 깊은 폴더의 mod는 찾지 않습니다. 매니페스트와 루트 `mods/` 폴더가 함께 있는 source는 이전과 같이 검색됩니다. 일반 `package.json`만 있는 source에서도 `--entry`로 launcher를 추가할 수 있습니다.
 
+mod 폴더 밖을 가리키는 링크는 복사되지 않습니다.
+
 ```bash
 skillshare plugin add owner/herdr-mods --plugin my-mod --target herdr-app --no-tui -g
 skillshare plugin add owner/lantern --entry bin/lantern-app --target herdr-app --no-tui -g
