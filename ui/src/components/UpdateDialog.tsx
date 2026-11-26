@@ -9,7 +9,12 @@ import DialogShell from './DialogShell';
 import Button from './Button';
 import { useT } from '../i18n';
 import { useUpdatePolicy } from '../hooks/useUpdatePolicy';
-import { nixUpdateNote, pypiUpdateNote, upgradeErrorMessage } from '../lib/upgradeError';
+import {
+  nixUpdateNote,
+  pixiUpdateNote,
+  pypiUpdateNote,
+  upgradeErrorMessage,
+} from '../lib/upgradeError';
 
 const DISMISSED_KEY = 'ss-update-dialog-dismissed';
 
@@ -64,7 +69,7 @@ export default function UpdateDialog({
   }, [hasUpdate, isMockMode, manualData]);
 
   if (!data || !hasUpdate) return null;
-  const nixNote = nixUpdateNote(data, t) ?? pypiUpdateNote(data, t);
+  const nixNote = nixUpdateNote(data, t) ?? pypiUpdateNote(data, t) ?? pixiUpdateNote(data, t);
 
   const dismiss = () => {
     setOpen(false);

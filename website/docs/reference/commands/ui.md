@@ -192,8 +192,8 @@ The web dashboard exposes a REST API at `/api/`. All endpoints return JSON.
 | GET | `/api/doctor` | Run all health checks (JSON) |
 | GET | `/api/doctor/stream` | Run all health checks as Server-Sent Events: a `check` event for each check as it is found, then `done` with the same JSON as `/api/doctor`. A slow check first arrives with status `pending`; a later `check` event with the same name replaces it. Checks that do not need its result stream in the meantime |
 | GET | `/api/health` | Liveness probe; returns `200` once the server is ready |
-| GET | `/api/version` | Current/latest version, whether an upgrade is available, and, for a Nix or PyPI install, the command that updates the CLI (`nixUpgradeCommand` or `pypiUpgradeCommand`); `skillDisabled` is true when `.skillignore` disables the built-in skill |
-| POST | `/api/upgrade` | Run `skillshare upgrade` in place (returns `devMode: true` when the binary is a dev build, and `409` with code `upgrade.nix` or `upgrade.pypi` when a Nix or PyPI install has a newer CLI waiting) |
+| GET | `/api/version` | Current/latest version, whether an upgrade is available, and, for a Nix, PyPI or pixi install, the command that updates the CLI (`nixUpgradeCommand`, `pypiUpgradeCommand` or `pixiUpgradeCommand`); `skillDisabled` is true when `.skillignore` disables the built-in skill |
+| POST | `/api/upgrade` | Run `skillshare upgrade` in place (returns `devMode: true` when the binary is a dev build, and `409` with code `upgrade.nix`, `upgrade.pypi` or `upgrade.pixi` when a Nix, PyPI or pixi install has a newer CLI waiting) |
 | POST | `/api/restart` | Restart the local UI server; optional `{ "clearCache": true }` body clears cached UI assets first |
 
 ## In-place Upgrade
@@ -206,7 +206,9 @@ When the dashboard detects that a newer CLI release is available, the **Update**
 
 If skillshare is installed with Nix, the endpoint still updates the built-in skillshare skill but leaves the CLI to Nix. When a newer CLI is available, it answers `409` (`upgrade.nix`) and the dialog then shows how to update through Nix. Before you click, the dialog already notes how Nix updates the CLI: `nix profile upgrade skillshare` for a `nix profile` install, or a rebuild of your Nix configuration. See [upgrade](./upgrade.md#nix-users).
 
-A uv, pipx or pip install is handled the same way. The endpoint updates the built-in skill and answers `409` (`upgrade.pypi`) when a newer CLI is available, and the dialog shows your installer's command, such as `uv tool upgrade skillshare-cli`, before and after you click. See [upgrade](./upgrade.md#pypi-users).
+A uv, pipx, pip or pixi install of `skillshare-cli` is handled the same way. The endpoint updates the built-in skill and answers `409` (`upgrade.pypi`) when a newer CLI is available, and the dialog shows your installer's command, such as `uv tool upgrade skillshare-cli`, before and after you click. See [upgrade](./upgrade.md#pypi-users).
+
+A `skillshare` conda package that pixi installed answers `409` (`upgrade.pixi`) the same way, with `pixi global update skillshare` or `pixi upgrade skillshare`. See [upgrade](./upgrade.md#pixi-users).
 
 If the running binary is a development build (`version == "dev"`), the upgrade endpoint returns `devMode: true` and the UI simulates a restart without modifying anything on disk.
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ApiError } from '../api/client';
-import { nixUpdateNote, pypiUpdateNote, upgradeErrorMessage } from './upgradeError';
+import { nixUpdateNote, pixiUpdateNote, pypiUpdateNote, upgradeErrorMessage } from './upgradeError';
 
 const t = ((key: string, params?: Record<string, unknown>) =>
   typeof params?.command === 'string' ? `${key}:${params.command}` : key) as Parameters<
@@ -27,6 +27,13 @@ describe('upgradeErrorMessage', () => {
       params: { command: 'uv tool upgrade skillshare-cli' },
     });
     expect(upgradeErrorMessage(err, t)).toBe('updateDialog.pypi:uv tool upgrade skillshare-cli');
+  });
+  it('names the pixi command', () => {
+    const err = new ApiError(409, 'x', {
+      code: 'upgrade.pixi',
+      params: { command: 'pixi global update skillshare' },
+    });
+    expect(upgradeErrorMessage(err, t)).toBe('updateDialog.pixi:pixi global update skillshare');
   });
   it('keeps the sudo hint and other messages', () => {
     expect(upgradeErrorMessage(new ApiError(403, 'x', { code: 'upgrade.needs_sudo' }), t)).toBe(
@@ -92,6 +99,25 @@ describe('pypiUpdateNote', () => {
   it('stays quiet for other installs', () => {
     expect(
       pypiUpdateNote({ ...base, nixUpgradeCommand: 'nix profile upgrade skillshare' }, t),
+    ).toBeNull();
+  });
+});
+
+describe('pixiUpdateNote', () => {
+  const base = {
+    cliVersion: '1.0.0',
+    cliUpdateAvailable: true,
+    skillVersion: '1.0.0',
+    skillUpdateAvailable: false,
+  };
+  it('names the pixi command for a newer CLI', () => {
+    expect(pixiUpdateNote({ ...base, pixiUpgradeCommand: 'pixi upgrade skillshare' }, t)).toBe(
+      'updateDialog.pixi:pixi upgrade skillshare',
+    );
+  });
+  it('stays quiet for other installs', () => {
+    expect(
+      pixiUpdateNote({ ...base, pypiUpgradeCommand: 'pixi upgrade skillshare-cli' }, t),
     ).toBeNull();
   });
 });

@@ -40,7 +40,7 @@ func detectPyPIMethod(execPath string) (InstallMethod, bool) {
 		return InstallDirect, false
 	}
 	prefix := filepath.Dir(bin)
-	if !hasPyPIDistInfo(prefix) {
+	if pypiDistInfo(prefix) == "" {
 		return InstallDirect, false
 	}
 	// uv tool install leaves a receipt in the tool's environment. pyvenv.cfg
@@ -119,12 +119,13 @@ func FetchPyPILatestVersion() (string, error) {
 
 // ponytail: Glob reads [, * and ? in the prefix as pattern syntax; list the
 // directories with os.ReadDir if such install paths show up.
-func hasPyPIDistInfo(prefix string) bool {
+// pypiDistInfo returns the skillshare-cli dist-info directory under prefix, or "".
+func pypiDistInfo(prefix string) string {
 	distInfo := strings.ReplaceAll(pypiPackage, "-", "_") + "-*.dist-info"
 	for _, dir := range pypiSitePackages {
 		if matches, _ := filepath.Glob(filepath.Join(prefix, filepath.FromSlash(dir), distInfo)); len(matches) > 0 {
-			return true
+			return matches[0]
 		}
 	}
-	return false
+	return ""
 }

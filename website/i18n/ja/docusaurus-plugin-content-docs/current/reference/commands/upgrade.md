@@ -74,7 +74,7 @@ NixOS、Home Manager、overlay の設定で skillshare を提供している場�
 
 ## PyPI ユーザー {#pypi-users}
 
-uv、pipx、pip でインストールした場合、`skillshare upgrade` は CLI を更新しません。インストーラーがインストール済みのバージョンを記録しており、バイナリを置き換えるとその記録が食い違うためです。PyPI に新しいバージョンがある場合は、代わりにインストーラーの更新コマンドを表示します。
+`skillshare-cli` パッケージを uv、pipx、pip、pixi でインストールした場合、`skillshare upgrade` は CLI を更新しません。インストーラーがインストール済みのバージョンを記録しており、バイナリを置き換えるとその記録が食い違うためです。PyPI に新しいバージョンがある場合は、代わりにインストーラーの更新コマンドを表示します。
 
 ```bash
 uv tool upgrade skillshare-cli                # uv tool install
@@ -82,6 +82,7 @@ pipx upgrade skillshare-cli                   # pipx
 pip install --upgrade skillshare-cli          # pip
 uv pip install --upgrade skillshare-cli       # uv pip, in a uv venv without pip
 uvx --from skillshare-cli@latest skillshare   # uvx
+pixi upgrade skillshare-cli                   # pixi add --pypi, in a pixi project
 ```
 
 GitHub ではなく PyPI と比較するため、インストーラーがまだ取得できないリリースを提案することはありません。
@@ -89,6 +90,17 @@ GitHub ではなく PyPI と比較するため、インストーラーがまだ�
 ダッシュボードの更新ボタンも同じ案内を表示します。`skillshare upgrade --skill` は引き続き組み込みの Skill を更新します。
 
 Windows では uv と pipx が `skillshare.exe` のコピーを PATH に置くため、skillshare は手動インストールと区別できず、`skillshare upgrade` がそのコピーを直接更新します。記録を正しく保つには、代わりにインストーラーの更新コマンドを実行してください。
+
+## pixi ユーザー {#pixi-users}
+
+`skillshare` conda パッケージは、prefix.dev の実験的な [`github-releases`](https://prefix.dev/channels/github-releases/packages/skillshare) チャンネルが GitHub リリースのバイナリを再パッケージしたものです。すべてのリリースが収録されるとは限りません。pixi でインストールした場合、pixi がインストール済みのバージョンを記録しているため、`skillshare upgrade` は CLI を更新せず、代わりに pixi の更新コマンドを表示します。
+
+```bash
+pixi global update skillshare   # pixi global install; use your environment's name if you chose one
+pixi upgrade skillshare         # pixi add, in a pixi project
+```
+
+GitHub のリリースと比較しますが、チャンネルが取り込むのは公開からしばらく後なので、pixi では最新バージョンがすぐに見えないことがあります。ダッシュボードの更新ボタンも同じ案内を表示します。`skillshare upgrade --skill` は引き続き組み込みの Skill を更新します。
 
 ## 例
 

@@ -74,7 +74,7 @@ When a NixOS, Home Manager or overlay configuration provides skillshare, update 
 
 ## PyPI Users {#pypi-users}
 
-If you installed with uv, pipx or pip, `skillshare upgrade` leaves the CLI alone, because the installer keeps a record of the installed version and replacing the binary would make that record wrong. When PyPI has a newer version, it shows the command for your installer instead:
+If you installed the `skillshare-cli` package with uv, pipx, pip or pixi, `skillshare upgrade` leaves the CLI alone, because the installer keeps a record of the installed version and replacing the binary would make that record wrong. When PyPI has a newer version, it shows the command for your installer instead:
 
 ```bash
 uv tool upgrade skillshare-cli                # uv tool install
@@ -82,6 +82,7 @@ pipx upgrade skillshare-cli                   # pipx
 pip install --upgrade skillshare-cli          # pip
 uv pip install --upgrade skillshare-cli       # uv pip, in a uv venv without pip
 uvx --from skillshare-cli@latest skillshare   # uvx
+pixi upgrade skillshare-cli                   # pixi add --pypi, in a pixi project
 ```
 
 It compares against PyPI rather than GitHub, so it never suggests a release your installer cannot fetch yet.
@@ -89,6 +90,17 @@ It compares against PyPI rather than GitHub, so it never suggests a release your
 The dashboard's upgrade button shows the same advice, and `skillshare upgrade --skill` still updates the built-in skill.
 
 On Windows, uv and pipx put a copy of `skillshare.exe` on your PATH, which skillshare cannot tell apart from a manual install, so `skillshare upgrade` updates that copy directly. Run your installer's upgrade command instead to keep its record current.
+
+## pixi Users {#pixi-users}
+
+The `skillshare` conda package comes from prefix.dev's experimental [`github-releases`](https://prefix.dev/channels/github-releases/packages/skillshare) channel, which repackages GitHub release binaries and may not carry every release. If pixi installed it, `skillshare upgrade` leaves the CLI alone, because pixi keeps a record of the installed version, and shows pixi's command instead:
+
+```bash
+pixi global update skillshare   # pixi global install; use your environment's name if you chose one
+pixi upgrade skillshare         # pixi add, in a pixi project
+```
+
+It compares against GitHub releases, which the channel picks up some time after they are published, so pixi may not see the newest version straight away. The dashboard's upgrade button shows the same advice, and `skillshare upgrade --skill` still updates the built-in skill.
 
 ## Examples
 
