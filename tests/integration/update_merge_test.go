@@ -175,6 +175,54 @@ func TestUpdateAgents_MergeLocallyModifiedAgent(t *testing.T) {
 	}
 }
 
+// An upstream commit that leaves an agent's file alone must not rewrite its
+// record, whichever way the agent was installed (#1041).
+func TestUpdateAgents_NothingNewKeepsMetadata(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	setupGlobalConfig(sb)
+	remote := filepath.Join(sb.Root, "agents.git")
+	work := filepath.Join(sb.Root, "agents-work")
+	gitInit(t, remote, true)
+	gitClone(t, remote, work)
+	write := func(rel, body string) {
+		t.Helper()
+		path := filepath.Join(work, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(body), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, rel := range []string{"agents/a1.md", "agents/a2.md", "agents/team/a3.md"} {
+		name := strings.TrimSuffix(filepath.Base(rel), ".md")
+		write(rel, "---\nname: "+name+"\ndescription: test\n---\n# "+name+"\n")
+	}
+	gitAddCommit(t, work, "add agents")
+	gitPush(t, work)
+	sb.RunCLI("install", "file://"+remote, "--agent", "a1", "--skip-audit").AssertSuccess(t)
+	sb.RunCLI("install", "file://"+remote+"//agents/a2.md", "--skip-audit").AssertSuccess(t)
+	sb.RunCLI("install", "file://"+remote+"//agents/team", "--skip-audit").AssertSuccess(t)
+	metaPath := filepath.Join(filepath.Dir(sb.SourcePath), "agents", ".metadata.json")
+	before := sb.ReadFile(metaPath)
+
+	write("README.md", "unrelated\n")
+	gitAddCommit(t, work, "unrelated")
+	gitPush(t, work)
+
+	check := sb.RunCLI("check", "agents", "--json")
+	check.AssertSuccess(t)
+	if strings.Contains(check.Stdout, "update_available") {
+		t.Fatalf("unchanged agents reported as outdated:\n%s", check.Stdout)
+	}
+	sb.RunCLI("update", "agents", "--all", "--skip-audit").AssertSuccess(t)
+	sb.RunCLI("update", "agents", "a2", "--force", "--skip-audit").AssertSuccess(t)
+	if after := sb.ReadFile(metaPath); after != before {
+		t.Fatalf("metadata rewritten:\nbefore: %s\nafter:  %s", before, after)
+	}
+}
+
 // In project mode a merge moves the lockfile to the merged upstream commit, so
 // a teammate installing from it gets the version the edits were merged onto.
 func TestUpdateProject_MergeMovesLock(t *testing.T) {
