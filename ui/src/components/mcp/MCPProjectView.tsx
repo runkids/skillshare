@@ -337,7 +337,6 @@ export default function MCPProjectView({ data, root, offered, onChanged, onRemov
   return (
     <div>
       <RailLayout
-        pageScroll
         rail={
           <>
             {data.plan ? (

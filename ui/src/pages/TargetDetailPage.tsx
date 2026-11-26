@@ -594,7 +594,6 @@ function TargetEditor({ target, targets }: { target: Target; targets: Target[] }
         </div>
       ) : (
         <RailLayout
-          pageScroll
           rail={
             <>
               <FilterCard

@@ -10,55 +10,36 @@ import { useT } from '../i18n';
  * Pages label the two separately when their inventory counts can differ.
  */
 
-// Below the page header, above the page's bottom padding: what is left of the viewport.
-const PANE = 'sticky top-6 max-h-[calc(100vh-11rem)]';
-
 /**
- * List on the left, state on the right. Each side keeps to the viewport and scrolls on its
- * own, so a long Agents column never drags the list, or the Sync box, out of view.
- * The list side is padded by what it is pulled out by, so the scroll box does not clip shadows.
- * Its children must not shrink: `.ss-list` clips its corners with overflow:hidden, which lets a
- * flex item go below its content height, and it would be squashed instead of scrolled.
- * `pageScroll` keeps the list in the page's own scroll, for a page that has more above it. The rail then
- * sticks at the top while it fits the window; a taller rail scrolls with the page until its bottom shows,
- * then stays, so its last section is never out of reach and the page keeps one scrollbar.
+ * List on the left, state on the right, both in the page's own scroll. The rail sticks at the
+ * top while it fits the window; a taller rail scrolls with the page until its bottom shows, then
+ * stays, so its last section is never out of reach and the page keeps one scrollbar. A rail held
+ * to the window's height instead squeezed its Agents list to a few rows on a short window (#1053).
  */
 export function RailLayout({
   rail,
   children,
-  pageScroll,
   className = '',
 }: {
   rail: ReactNode;
   children: ReactNode;
-  pageScroll?: boolean;
   /** Extra classes on the grid, for a page that needs its own narrow-width layout. */ className?: string;
 }) {
   const railRef = useRef<HTMLElement>(null);
   useLayoutEffect(() => {
     const el = railRef.current;
-    if (!pageScroll || !el || typeof ResizeObserver !== 'function') return;
+    if (!el || typeof ResizeObserver !== 'function') return;
     const ro = new ResizeObserver(() => el.style.setProperty('--rail-h', `${el.offsetHeight}px`));
     ro.observe(el);
     return () => ro.disconnect();
-  }, [pageScroll]);
+  }, []);
   return (
     <div className={`grid grid-cols-[minmax(0,1fr)_320px] items-start gap-8 ${className}`}>
-      <div
-        className={
-          pageScroll
-            ? 'flex min-w-0 flex-col gap-3'
-            : `${PANE} -m-2 flex min-w-0 flex-col gap-3 overflow-y-auto p-2 [&>*]:shrink-0`
-        }
-      >
-        {children}
-      </div>
+      <div className="flex min-w-0 flex-col gap-3">{children}</div>
       <aside
         ref={railRef}
-        className={`${pageScroll ? 'sticky' : PANE} flex flex-col gap-7`}
-        style={
-          pageScroll ? { top: 'min(1.5rem, calc(100vh - var(--rail-h, 0px) - 1.5rem))' } : undefined
-        }
+        className="sticky flex flex-col gap-7"
+        style={{ top: 'min(1.5rem, calc(100vh - var(--rail-h, 0px) - 1.5rem))' }}
       >
         {rail}
       </aside>
@@ -66,7 +47,7 @@ export function RailLayout({
   );
 }
 
-/** A titled part of the rail. The title stays; the groups under it take the height that is left and scroll. */
+/** A titled part of the rail: a heading with a count, then its groups. */
 export function RailSection({
   title,
   count,
@@ -79,13 +60,13 @@ export function RailSection({
   children: ReactNode;
 }) {
   return (
-    <div className="flex min-h-0 flex-col gap-3.5">
+    <div className="flex flex-col gap-3.5">
       <div className="flex min-h-6 items-center gap-2">
         <h3 className="text-[15px] font-semibold">{title}</h3>
         <span className="ss-cnt">{count}</span>
         {action && <span className="ml-auto flex">{action}</span>}
       </div>
-      <div className="-mx-1 flex min-h-0 flex-col gap-3.5 overflow-y-auto px-1">{children}</div>
+      <div className="flex flex-col gap-3.5">{children}</div>
     </div>
   );
 }
