@@ -57,10 +57,17 @@ func danglingWithin(root, path, name string) error {
 	if _, err := filepath.EvalSymlinks(path); !errors.As(err, &missing) {
 		return fmt.Errorf("cannot resolve %s: %w", name, err)
 	}
+	// The error names the first missing path with its parent as walked, which on
+	// Windows can still hold 8.3 short names such as RUNNER~1; resolve the parent,
+	// which exists, so it compares with resolvedRoot.
+	parent, err := filepath.EvalSymlinks(filepath.Dir(missing.Path))
+	if err != nil {
+		return fmt.Errorf("cannot resolve %s: %w", name, err)
+	}
 	lexical := filepath.Join(filepath.Dir(path), target)
 	if target == "" || filepath.IsAbs(target) || filepath.VolumeName(target) != "" || os.IsPathSeparator(target[0]) ||
 		!pathSameOrDescendant(lexical, root) || pathSameOrDescendant(lexical, filepath.Join(root, ".git")) ||
-		!pathSameOrDescendant(missing.Path, resolvedRoot) || inGitDir(resolvedRoot, filepath.Dir(missing.Path)) {
+		!pathSameOrDescendant(filepath.Join(parent, filepath.Base(missing.Path)), resolvedRoot) || inGitDir(resolvedRoot, parent) {
 		return fmt.Errorf("%s %w", name, ErrLinkOutside)
 	}
 	return nil
