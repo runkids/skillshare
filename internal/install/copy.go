@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"skillshare/internal/sourcewalk"
 	"skillshare/internal/utils"
@@ -69,8 +70,9 @@ func copyDirWithState(src, dst, canonicalDst, resolvedBoundary, relPrefix string
 		dstPath := filepath.Join(dst, relPath)
 		fullRel := joinRelPath(relPrefix, filepath.ToSlash(relPath))
 
-		// Never traverse dst when copying a source tree that contains it.
-		if info.IsDir() && pathSameOrDescendant(path, canonicalDst) {
+		// Never traverse dst or the previous version a --force reinstall set
+		// aside beside it when copying a source tree that contains dst.
+		if info.IsDir() && (pathSameOrDescendant(path, canonicalDst) || isBackupOf(path, canonicalDst)) {
 			return filepath.SkipDir
 		}
 
@@ -105,7 +107,7 @@ func copyDirWithState(src, dst, canonicalDst, resolvedBoundary, relPrefix string
 				return fmt.Errorf("failed to stat symlink target %s: %w", fullRel, statErr)
 			}
 			if targetInfo.IsDir() {
-				if pathSameOrDescendant(resolvedTarget, canonicalDst) {
+				if pathSameOrDescendant(resolvedTarget, canonicalDst) || isBackupOf(resolvedTarget, canonicalDst) {
 					return nil
 				}
 				if info.Name() == ".git" || filepath.Base(resolvedTarget) == ".git" {
@@ -155,6 +157,14 @@ func joinRelPath(prefix, rel string) string {
 		return rel
 	}
 	return prefix + "/" + rel
+}
+
+// isBackupOf reports whether path is a previous version of dst that
+// setAsideInSource or swapStagedIntoSource keeps beside it.
+func isBackupOf(path, dst string) bool {
+	abs, err := filepath.Abs(path)
+	return err == nil && filepath.Dir(abs) == filepath.Dir(dst) &&
+		strings.HasPrefix(filepath.Base(abs), ".skillshare-"+filepath.Base(dst)+".old.")
 }
 
 func pathSameOrDescendant(path, parent string) bool {

@@ -11,20 +11,45 @@ import (
 	"skillshare/internal/sourcewalk"
 )
 
-// removeInSource removes destPath, below the skills source sourceDir, through
-// the source-write handle, so a link at or above it is refused instead of
-// replaced.
-func removeInSource(sourceDir, destPath string, follow *sourcewalk.Follow) error {
+// backupName is the hidden sibling an installed skill at rel is kept under
+// while it is replaced. ".old." keeps it apart from the
+// ".skillshare-<name>.<time>" temp that sourcefs.MoveIn creates beside it; a
+// coarse clock (Windows) made both names equal, and the failed move then
+// deleted the backup.
+func backupName(rel string) string {
+	return filepath.Join(filepath.Dir(rel), ".skillshare-"+filepath.Base(rel)+".old."+strconv.FormatInt(time.Now().UnixNano(), 36))
+}
+
+// setAsideInSource renames destPath, below the skills source sourceDir, to a
+// hidden sibling so a reinstall over it can be undone. restore puts it back in
+// place of whatever the failed install left; discard deletes it.
+func setAsideInSource(sourceDir, destPath string, follow *sourcewalk.Follow) (restore, discard func() error, err error) {
 	src, err := sourcefs.Open(sourceDir, follow)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
-	defer src.Close()
 	rel, err := src.Rel(destPath)
 	if err != nil {
-		return err
+		src.Close()
+		return nil, nil, err
 	}
-	return src.RemoveAll(rel)
+	backup := backupName(rel)
+	if err := src.Rename(rel, backup); err != nil {
+		src.Close()
+		return nil, nil, err
+	}
+	restore = func() error {
+		defer src.Close()
+		if err := src.RemoveAll(rel); err != nil {
+			return err
+		}
+		return src.Rename(backup, rel)
+	}
+	discard = func() error {
+		defer src.Close()
+		return src.RemoveAll(backup)
+	}
+	return restore, discard, nil
 }
 
 // swapStagedIntoSource replaces destPath, below the skills source sourceDir,
@@ -49,10 +74,7 @@ func swapStagedIntoSource(sourceDir, staged, destPath string, follow *sourcewalk
 	}
 	backup := ""
 	if _, err := src.Lstat(rel); err == nil {
-		// ".old." keeps the backup apart from the ".skillshare-<name>.<time>" temp that
-		// sourcefs.MoveIn creates beside it; a coarse clock (Windows) made both names equal,
-		// and the failed move then deleted the backup.
-		backup = filepath.Join(filepath.Dir(rel), ".skillshare-"+filepath.Base(rel)+".old."+strconv.FormatInt(time.Now().UnixNano(), 36))
+		backup = backupName(rel)
 		if err := src.Rename(rel, backup); err != nil {
 			return fmt.Errorf("failed to preserve existing skill: %w", err)
 		}

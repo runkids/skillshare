@@ -87,6 +87,34 @@ func allSkillsFailedError(succeeded int, failures []install.SkillFailure) error 
 	return err
 }
 
+// agentsFailedError reports an install in which any selected agent failed, so
+// the exit code and --json show it. Unlike skills, one failed agent is enough:
+// agents are installed by name, and a script asking for them needs to know.
+func agentsFailedError(failures []install.SkillFailure) error {
+	if len(failures) == 0 {
+		return nil
+	}
+	reasons := make([]string, len(failures))
+	for i, f := range failures {
+		reason := firstWarningLine(f.Err.Error())
+		if errors.Is(f.Err, audit.ErrBlocked) {
+			reason = "blocked by security audit"
+		}
+		reasons[i] = f.Name + ": " + reason
+	}
+	return fmt.Errorf("%s failed to install: %s", plural(len(failures), "agent"), strings.Join(reasons, "; "))
+}
+
+// firstError returns the first non-nil error.
+func firstError(errs ...error) error {
+	for _, err := range errs {
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // parseInstallArgs parses install command arguments
 func parseInstallArgs(args []string) (*installArgs, bool, error) {
 	result := &installArgs{}
