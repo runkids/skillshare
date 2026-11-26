@@ -155,17 +155,17 @@ func TestHooksAPIImportListsCandidatesWithoutExecuting(t *testing.T) {
 }
 
 // Trust is recorded only for a reviewed list, and only in global Codex homes.
-func TestHooksCodexTrustNeedsARevisionAndGlobalScope(t *testing.T) {
+func TestHooksCodexTrustNeedsARevisionInBothScopes(t *testing.T) {
 	s, _ := newTestServerWithExtras(t, nil, "")
 	hooksTestHome(t)
 	if w := hooksPost(s, s.handleHooksCodexTrust, "/api/hooks/codex-trust", `{}`); w.Code != http.StatusBadRequest {
 		t.Fatalf("trust without revision: %d %s", w.Code, w.Body)
 	}
 	s.projectRoot = t.TempDir()
-	if w := hooksPost(s, s.handleHooksCodexTrustPreview, "/api/hooks/codex-trust/preview", `{}`); w.Code != http.StatusBadRequest {
+	if w := hooksPost(s, s.handleHooksCodexTrustPreview, "/api/hooks/codex-trust/preview", `{}`); w.Code != http.StatusOK {
 		t.Fatalf("project preview: %d %s", w.Code, w.Body)
 	}
-	if w := hooksPost(s, s.handleHooksCodexTrust, "/api/hooks/codex-trust", `{"revision":"x"}`); w.Code != http.StatusBadRequest {
+	if w := hooksPost(s, s.handleHooksCodexTrust, "/api/hooks/codex-trust", `{}`); w.Code != http.StatusBadRequest {
 		t.Fatalf("project trust: %d %s", w.Code, w.Body)
 	}
 }

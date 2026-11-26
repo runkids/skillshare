@@ -3,6 +3,7 @@ package hooks
 import (
 	"bufio"
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,6 +20,7 @@ import (
 
 // CodexTrust is one Codex hook Skillshare owns, as sync --trust sees it.
 type CodexTrust struct {
+	Home   string `json:"home,omitempty"`
 	Target string `json:"target"`
 	Entry  string `json:"entry,omitempty"`
 	Key    string `json:"key"`
@@ -35,6 +37,7 @@ type CodexTrust struct {
 // trust and their hashes, one part per home, so trust is recorded only for what was
 // shown and a home that fails later does not hold back the homes that were reviewed.
 type CodexTrustPlan struct {
+	Project  string       `json:"project,omitempty"`
 	Hooks    []CodexTrust `json:"hooks"`
 	Revision string       `json:"revision"`
 	// Failed are the homes Codex could not list. Their hooks are not in Hooks, so
@@ -70,6 +73,9 @@ func (p *CodexTrustPlan) Needed() []CodexTrust {
 
 // CodexHook is the part of a Codex app-server hooks/list entry trust needs.
 type CodexHook struct {
+	Source      string `json:"source"`
+	Command     string `json:"command"`
+	HandlerType string `json:"handlerType"`
 	Key         string `json:"key"`
 	SourcePath  string `json:"sourcePath"`
 	Enabled     bool   `json:"enabled"`
@@ -80,7 +86,7 @@ type CodexHook struct {
 // CodexAppServer is a running `codex app-server` for one Codex home. Codex computes
 // each hook's hash and writes config.toml itself, exactly as its /hooks review does.
 type CodexAppServer interface {
-	ListHooks() ([]CodexHook, error)
+	ListHooks(cwd string) ([]CodexHook, error)
 	// SetTrust writes hooks.state.<key>.trusted_hash for each key.
 	SetTrust(hashes map[string]string) error
 	Close() error
@@ -89,8 +95,8 @@ type CodexAppServer interface {
 // codexHome is one physical hooks.json: every record written to it, and the active
 // config's own among them.
 type codexHome struct {
-	target, path   string
-	records, owned map[string]record
+	target, path, home string
+	records, owned     map[string]record
 }
 
 // PreviewCodexTrust lists the Codex hooks Skillshare owns in each global Codex home
@@ -106,9 +112,6 @@ func (s *Service) TrustCodex(revision string) (*CodexTrustPlan, error) {
 }
 
 func (s *Service) codexTrust(revision string, apply bool) (*CodexTrustPlan, error) {
-	if s.ProjectRoot != "" {
-		return nil, fmt.Errorf("--trust records trust in global Codex homes only; run it with -g")
-	}
 	lock, err := s.lock()
 	if err != nil {
 		return nil, err
@@ -128,7 +131,143 @@ func (s *Service) codexTrust(revision string, apply bool) (*CodexTrustPlan, erro
 	if err != nil {
 		return nil, fmt.Errorf("resolve hooks config owner: %w", err)
 	}
-	// Two targets that name one hooks.json, by a symlink or not, share one Codex run.
+	var homes map[string]*codexHome
+	if s.ProjectRoot != "" {
+		homes, err = s.projectTrustHomes(state, owner)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		homes = s.globalTrustHomes(state, owner)
+	}
+	plan := &CodexTrustPlan{Project: s.ProjectRoot, Hooks: []CodexTrust{}}
+	type write struct {
+		target string
+		server CodexAppServer
+		edits  map[string]string
+		review string // names this home's needed hooks and hashes; empty when none
+	}
+	var writes []write
+	var servers []CodexAppServer
+	defer func() {
+		for _, server := range servers {
+			server.Close()
+		}
+	}()
+	var reviews []string
+	listed := 0
+	for _, file := range sortedKeys(homes) {
+		h := homes[file]
+		if h.home == "" {
+			h.home = filepath.Dir(h.path)
+		}
+		if s.ProjectRoot != "" && projectTrustDestinationInside(s.ProjectRoot, h.home) {
+			plan.Failed = append(plan.Failed, CodexTrustFailure{h.target, "Codex trust destination is inside the checkout; review in Codex /hooks"})
+			continue
+		}
+		if info, err := os.Stat(h.home); len(h.owned) == 0 || err != nil || !info.IsDir() {
+			if s.ProjectRoot != "" {
+				plan.Failed = append(plan.Failed, CodexTrustFailure{h.target, "Codex home is unavailable: " + h.home})
+			}
+			continue // A missing account home is skipped, as sync skips it.
+		}
+		server, hooks, edits, err := s.listCodexHome(h)
+		if server != nil {
+			servers = append(servers, server)
+		}
+		if err != nil {
+			// One home Codex cannot list does not stop the others.
+			plan.Failed = append(plan.Failed, CodexTrustFailure{Target: h.target, Error: err.Error()})
+			continue
+		}
+		listed++
+		review := ""
+		if len(edits) > 0 {
+			var needed []string
+			for key, hash := range edits {
+				needed = append(needed, key+"\x00"+hash)
+			}
+			slices.Sort(needed)
+			review = digest([]byte(strings.Join(needed, "\n")))
+			if s.ProjectRoot != "" {
+				review = base64.RawURLEncoding.EncodeToString([]byte(h.target)) + ":" + digest([]byte(strings.Join([]string{s.ProjectRoot, h.target, canonicalPath(h.home), review}, "\x00")))
+			}
+			reviews = append(reviews, review)
+		}
+		writes = append(writes, write{h.target, server, edits, review})
+		plan.Hooks = append(plan.Hooks, hooks...)
+	}
+	if listed == 0 && len(plan.Failed) > 0 {
+		return plan, plan.Err()
+	}
+	slices.Sort(reviews)
+	plan.Revision = strings.Join(reviews, ".")
+	if !apply {
+		return plan, nil
+	}
+	// Each home is checked on its own: a home that cannot be listed now is reported
+	// below, and it does not make the homes that were reviewed look changed.
+	reviewed := strings.Split(revision, ".")
+	stale := false
+	if s.ProjectRoot != "" {
+		for _, part := range reviewed {
+			name, _, ok := strings.Cut(part, ":")
+			if !ok {
+				continue
+			}
+			target, err := base64.RawURLEncoding.DecodeString(name)
+			if err == nil && !slices.ContainsFunc(writes, func(w write) bool { return w.target == string(target) }) &&
+				!slices.ContainsFunc(plan.Failed, func(f CodexTrustFailure) bool { return f.Target == string(target) }) {
+				stale = true
+				plan.Failed = append(plan.Failed, CodexTrustFailure{string(target), "reviewed account is no longer available"})
+			}
+		}
+	}
+	for i, w := range writes {
+		if w.review != "" && !slices.Contains(reviewed, w.review) {
+			if s.ProjectRoot == "" {
+				return plan, fmt.Errorf("Codex hooks changed since they were listed: %w", ErrStaleRevision)
+			}
+			stale = true
+			writes[i].edits = nil
+			plan.Failed = append(plan.Failed, CodexTrustFailure{w.target, "review changed; preview this project's hooks again"})
+		}
+	}
+	// One home that fails does not stop the others, and the error says which is which.
+	var done []string
+	var failed []error
+	if stale {
+		failed = append(failed, ErrStaleRevision)
+	}
+	if err := plan.Err(); err != nil {
+		failed = append(failed, err)
+	}
+	for _, w := range writes {
+		if len(w.edits) == 0 {
+			continue
+		}
+		if err := w.server.SetTrust(w.edits); err != nil {
+			failed = append(failed, fmt.Errorf("%s: %w", w.target, err))
+			if s.ProjectRoot != "" {
+				plan.Failed = append(plan.Failed, CodexTrustFailure{w.target, err.Error()})
+			}
+			continue
+		}
+		done = append(done, w.target)
+		for i, h := range plan.Hooks {
+			if _, ok := w.edits[h.Key]; ok && h.Target == w.target {
+				plan.Hooks[i].Action = "trusted"
+			}
+		}
+	}
+	if len(failed) > 0 && len(done) > 0 {
+		return plan, fmt.Errorf("Codex trust was recorded for %s, but not for every home: %w", strings.Join(done, ", "), errors.Join(failed...))
+	}
+	return plan, errors.Join(failed...)
+}
+
+// Group global records by physical hooks.json so aliases share one Codex run.
+func (s *Service) globalTrustHomes(state ledger, owner string) map[string]*codexHome {
 	homes := map[string]*codexHome{}
 	for key, r := range state.Records {
 		if r.Root != "" || s.agentOf(r.Target) != "codex" {
@@ -154,91 +293,7 @@ func (s *Service) codexTrust(revision string, apply bool) (*CodexTrustPlan, erro
 		}
 		h.owned[key] = r
 	}
-	plan := &CodexTrustPlan{Hooks: []CodexTrust{}}
-	type write struct {
-		target string
-		server CodexAppServer
-		edits  map[string]string
-		review string // names this home's needed hooks and hashes; empty when none
-	}
-	var writes []write
-	var servers []CodexAppServer
-	defer func() {
-		for _, server := range servers {
-			server.Close()
-		}
-	}()
-	var reviews []string
-	listed := 0
-	for _, file := range sortedKeys(homes) {
-		h := homes[file]
-		if info, err := os.Stat(filepath.Dir(h.path)); len(h.owned) == 0 || err != nil || !info.IsDir() {
-			continue // A missing account home is skipped, as sync skips it.
-		}
-		server, hooks, edits, err := s.listCodexHome(h)
-		if server != nil {
-			servers = append(servers, server)
-		}
-		if err != nil {
-			// One home Codex cannot list does not stop the others.
-			plan.Failed = append(plan.Failed, CodexTrustFailure{Target: h.target, Error: err.Error()})
-			continue
-		}
-		listed++
-		review := ""
-		if len(edits) > 0 {
-			var needed []string
-			for key, hash := range edits {
-				needed = append(needed, key+"\x00"+hash)
-			}
-			slices.Sort(needed)
-			review = digest([]byte(strings.Join(needed, "\n")))
-			reviews = append(reviews, review)
-		}
-		writes = append(writes, write{h.target, server, edits, review})
-		plan.Hooks = append(plan.Hooks, hooks...)
-	}
-	if listed == 0 && len(plan.Failed) > 0 {
-		return plan, plan.Err()
-	}
-	slices.Sort(reviews)
-	plan.Revision = strings.Join(reviews, ".")
-	if !apply {
-		return plan, nil
-	}
-	// Each home is checked on its own: a home that cannot be listed now is reported
-	// below, and it does not make the homes that were reviewed look changed.
-	reviewed := strings.Split(revision, ".")
-	for _, w := range writes {
-		if w.review != "" && !slices.Contains(reviewed, w.review) {
-			return plan, fmt.Errorf("Codex hooks changed since they were listed: %w", ErrStaleRevision)
-		}
-	}
-	// One home that fails does not stop the others, and the error says which is which.
-	var done []string
-	var failed []error
-	if err := plan.Err(); err != nil {
-		failed = append(failed, err)
-	}
-	for _, w := range writes {
-		if len(w.edits) == 0 {
-			continue
-		}
-		if err := w.server.SetTrust(w.edits); err != nil {
-			failed = append(failed, fmt.Errorf("%s: %w", w.target, err))
-			continue
-		}
-		done = append(done, w.target)
-		for i, h := range plan.Hooks {
-			if _, ok := w.edits[h.Key]; ok {
-				plan.Hooks[i].Action = "trusted"
-			}
-		}
-	}
-	if len(failed) > 0 && len(done) > 0 {
-		return plan, fmt.Errorf("Codex trust was recorded for %s, but not for every home: %w", strings.Join(done, ", "), errors.Join(failed...))
-	}
-	return plan, errors.Join(failed...)
+	return homes
 }
 
 // canonicalCodexHooksPath resolves the home's symlinks even when hooks.json is absent.
@@ -255,6 +310,9 @@ func canonicalCodexHooksPath(path string) string {
 func (s *Service) listCodexHome(h *codexHome) (CodexAppServer, []CodexTrust, map[string]string, error) {
 	data, exists, _, err := safeRead(h.path)
 	if err != nil || !exists {
+		if err == nil && s.ProjectRoot != "" {
+			err = fmt.Errorf("project hooks file missing; review in Codex /hooks")
+		}
 		return nil, nil, nil, err
 	}
 	doc, err := parseNative("codex", data)
@@ -271,6 +329,9 @@ func (s *Service) listCodexHome(h *codexHome) (CodexAppServer, []CodexTrust, map
 			groups[codexEventKey(r.Event)+":"+strconv.Itoa(index)] = group{r.Entry, doc.events[r.Event][index]}
 		}
 	}
+	if s.ProjectRoot != "" && len(groups) != len(h.owned) {
+		return nil, nil, nil, fmt.Errorf("cannot identify all owned project hooks; review in Codex /hooks")
+	}
 	if len(groups) == 0 {
 		return nil, nil, nil, nil
 	}
@@ -278,12 +339,16 @@ func (s *Service) listCodexHome(h *codexHome) (CodexAppServer, []CodexTrust, map
 	if start == nil {
 		start = startCodexAppServer
 	}
-	dir := filepath.Dir(h.path)
+	dir := h.home
 	server, err := start(dir, s.codexDefaultHome(dir))
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	listed, err := server.ListHooks()
+	cwd := dir
+	if s.ProjectRoot != "" {
+		cwd = s.ProjectRoot
+	}
+	listed, err := server.ListHooks(cwd)
 	if err != nil {
 		return server, nil, nil, err
 	}
@@ -296,6 +361,16 @@ func (s *Service) listCodexHome(h *codexHome) (CodexAppServer, []CodexTrust, map
 	}
 	var results []CodexTrust
 	edits := map[string]string{}
+	expected := map[string]string{}
+	if s.ProjectRoot != "" {
+		for pos, group := range groups {
+			obj, _ := group.item.(map[string]any)
+			handlers, _ := obj["hooks"].([]any)
+			for i := range handlers {
+				expected[pos+":"+strconv.Itoa(i)] = codexHandlerCommand(group.item, i)
+			}
+		}
+	}
 	for _, hook := range listed {
 		if !samePath(hook.SourcePath, h.path) {
 			continue
@@ -305,6 +380,17 @@ func (s *Service) listCodexHome(h *codexHome) (CodexAppServer, []CodexTrust, map
 		if !ok {
 			continue
 		}
+		if s.ProjectRoot != "" {
+			pos := position + ":" + strconv.Itoa(handler)
+			cmd, ok := expected[pos]
+			if !ok || cmd == "" || cmd != hook.Command || hook.HandlerType != "command" || hook.Source != "project" || hook.CurrentHash == "" || hook.Key != hook.SourcePath+":"+pos {
+				continue
+			}
+			if hook.TrustStatus != "trusted" && hook.TrustStatus != "untrusted" && hook.TrustStatus != "modified" {
+				continue
+			}
+			delete(expected, pos)
+		}
 		result := CodexTrust{Target: h.target, Entry: g.entry, Key: hook.Key, Command: codexHandlerCommand(g.item, handler), Action: "unchanged", Disabled: !hook.Enabled}
 		switch hook.TrustStatus {
 		case "untrusted", "modified":
@@ -313,7 +399,13 @@ func (s *Service) listCodexHome(h *codexHome) (CodexAppServer, []CodexTrust, map
 		default:
 			continue // Managed hooks are trusted by policy, not config.toml.
 		}
+		if s.ProjectRoot != "" {
+			result.Home = h.home
+		}
 		results = append(results, result)
+	}
+	if len(expected) != 0 {
+		return server, nil, nil, fmt.Errorf("Codex did not verify all owned hooks for %s; check folder trust and review in Codex /hooks", s.ProjectRoot)
 	}
 	return server, results, edits, nil
 }
@@ -467,8 +559,8 @@ func (p *codexProcess) call(method string, params any) (json.RawMessage, error) 
 	}
 }
 
-func (p *codexProcess) ListHooks() ([]CodexHook, error) {
-	raw, err := p.call("hooks/list", map[string]any{"cwds": []string{p.cmd.Dir}})
+func (p *codexProcess) ListHooks(cwd string) ([]CodexHook, error) {
+	raw, err := p.call("hooks/list", map[string]any{"cwds": []string{cwd}})
 	if err != nil {
 		return nil, err
 	}

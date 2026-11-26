@@ -42,7 +42,7 @@ skillshare hooks restore BACKUP_ID
 | `--sync` | 저장 후 동기화 |
 | `--keep-files` | `remove`와 함께 사용: hook 관리를 멈추고 네이티브 항목은 그대로 둡니다. `--sync`와 함께 쓸 수 없습니다. [아래](#stop-managing-a-hook) 참고 |
 | `--replace` | 기존 소스 entry 또는 해당 entry의 충돌 출력을 명시적으로 교체 |
-| `--trust` | 전역 모드의 `hooks sync`에서만: Skillshare가 관리하는 hooks의 Codex 신뢰도 기록. [Codex 신뢰](#codex-trust) 참고 |
+| `--trust` | `hooks sync`에서만: Skillshare가 관리하는 hooks의 Codex 신뢰도 기록. [Codex 신뢰](#codex-trust) 참고 |
 | `--yes`, `-y` | `--trust`와 함께: 질문을 건너뛰고 나열된 hooks를 신뢰. [Codex 신뢰](#codex-trust) 참고 |
 | `--dry-run, -n` | 저장하거나 쓰지 않고 미리보기 |
 | `--json` | 구조화된 출력 |
@@ -214,11 +214,11 @@ Codex trust
 ✓ stop  trusted  codex  /home/me/.codex/hooks.json:stop:1:0
 ```
 
-`--yes`(`-y`)는 질문을 건너뜁니다. Codex의 검토는 사람이 실행 전에 command를 확인하도록 존재합니다. 터미널이 없고 `--yes`도 없으면 아무것도 신뢰하지 않고, hooks를 나열한 뒤 `--yes`를 알려 주는 오류로 종료합니다. `--json`도 질문하지 않습니다. `--yes`가 없으면 hooks를 `needed`로 출력하고, 오류 문구 없이 0이 아닌 코드로 종료합니다. `--yes`는 `--trust`와 함께일 때만 유효합니다. `--json` 출력에는 `codexTrust` 목록이 있습니다. 각 항목에는 `target`, `entry`, `key`, `command`, `action`(`needed`, `trusted`, `unchanged`)이 있고, 비활성이면 `disabled`도 있습니다.
+`--yes`(`-y`)는 질문을 건너뜁니다. Codex의 검토는 사람이 실행 전에 command를 확인하도록 존재합니다. 터미널이 없고 `--yes`도 없으면 아무것도 신뢰하지 않고, hooks를 나열한 뒤 `--yes`를 알려 주는 오류로 종료합니다. `--json`도 질문하지 않습니다. `--yes`가 없으면 hooks를 `needed`로 출력하고, 0이 아닌 코드로 종료합니다. 프로젝트 JSON에는 이유를 담은 `codexTrustError`와 각 hook의 대상 `home`이 포함됩니다. `--yes`는 `--trust`와 함께일 때만 유효합니다. `--json` 출력에는 `codexTrust` 목록이 있습니다. 각 항목에는 `target`, `entry`, `key`, `command`, `action`(`needed`, `trusted`, `unchanged`)이 있고, 비활성이면 `disabled`도 있습니다.
 
 `trusted_hash`만 기록하며 추가만 합니다. Codex에서 비활성화한 hook은 비활성 상태로 남고 보고됩니다. `enabled`, `config.toml`의 나머지 부분, Skillshare가 소유하지 않은 hooks는 건드리지 않습니다. hook이 옮겨지거나 제거되면 이전 항목은 `config.toml`에 남습니다. 이 항목은 그 위치에서 event, matcher, handler가 같은 hook에만 일치하므로 다른 hook을 신뢰하게 만들 수 없습니다.
 
-`codex`가 `PATH`에 없거나 Codex가 실패해도 hook 파일은 그대로 기록되고, 명령은 "hook files were written, but Codex trust was not recorded"라는 메시지로 실패합니다. Codex home이 여러 개일 때 Codex가 나열하지 못하거나 기록에 실패한 home이 있어도 나머지는 계속 기록되며, 오류에는 기록된 home과 기록되지 않은 home이 표시됩니다. `--trust` 없는 `hooks sync`는 Codex를 시작하지 않고 신뢰도 바꾸지 않습니다. `--trust`는 전역 모드에서만 동작하며, `sync hooks`, `hooks list`, 프로젝트 모드는 이를 거부합니다. `hooks.projects`가 프로젝트에 기록한 hook은 포함되지 않으므로 Codex의 `/hooks`에서 신뢰하세요. 대시보드의 Hooks 페이지(global scope)에도 같은 동작이 있습니다. 신뢰가 필요한 hooks를 command와 함께 나열하고, 대화상자에서 확인한 뒤에만 신뢰를 기록합니다.
+`codex`가 `PATH`에 없거나 Codex가 실패해도 hook 파일은 그대로 기록되고, 명령은 "hook files were written, but Codex trust was not recorded"라는 메시지로 실패합니다. Codex home이 여러 개일 때 Codex가 나열하지 못하거나 기록에 실패한 home이 있어도 나머지는 계속 기록되며, 오류에는 기록된 home과 기록되지 않은 home이 표시됩니다. `--trust` 없는 `hooks sync`는 Codex를 시작하지 않고 신뢰도 바꾸지 않습니다. `hooks sync -p --trust`는 현재 프로젝트의 명령을 검토하고 각 사용자의 Codex 홈에 신뢰를 기록합니다. 폴더 신뢰는 변경하지 않습니다. 검증할 수 없는 계정은 건너뛰며 일부만 완료되면 오류를 반환합니다. `sync hooks`와 `hooks list`는 `--trust`를 지원하지 않습니다. `hooks.projects`가 프로젝트에 기록한 hook은 포함되지 않으므로 Codex의 `/hooks`에서 신뢰하세요. 대시보드의 Hooks 페이지(전역 및 프로젝트 모드)에도 같은 동작이 있습니다. 신뢰가 필요한 hooks를 command와 함께 나열하고, 대화상자에서 확인한 뒤에만 신뢰를 기록합니다.
 
 ## Git hooks {#git-hooks}
 

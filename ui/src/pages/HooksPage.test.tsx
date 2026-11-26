@@ -369,6 +369,22 @@ describe('Hooks page', () => {
     expect(within(dialog).getByRole('button', { name: 'Trust these hooks' })).toBeEnabled();
   });
 
+  it('names recorded and skipped project accounts after confirmation', async () => {
+    vi.mocked(hooksApi.trustCodex).mockResolvedValue({
+      hooks: [{ ...codexHook, action: 'trusted' }],
+      revision: 'rev-trust',
+      project: '/repo',
+      failed: [{ target: 'codex-2', error: 'account unavailable' }],
+    });
+    const { user, dialog } = await openCodexTrust([codexHook]);
+    expect(hooksApi.trustCodex).not.toHaveBeenCalled();
+    await user.click(await within(dialog).findByRole('button', { name: 'Trust these hooks' }));
+    expect(hooksApi.trustCodex).toHaveBeenCalledWith('rev-trust');
+    expect(await within(dialog).findByRole('status')).toHaveTextContent(
+      'Partially completed. Trust recorded: codex. Skipped: codex-2.',
+    );
+  });
+
   it('holds Codex trust back until pending changes are synced', async () => {
     vi.mocked(hooksApi.list).mockResolvedValue(
       inventory({

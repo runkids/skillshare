@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { AlertCircle, CircleCheck } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import { hooksApi } from '../../api/hooks';
+import { hooksApi, type CodexTrustPlan } from '../../api/hooks';
 import { useT, plural } from '../../i18n';
 import { queryKeys } from '../../lib/queryKeys';
 import Button from '../Button';
@@ -26,7 +26,7 @@ export default function CodexTrustDialog({ onClose }: { onClose: () => void }) {
   });
   const [running, setRunning] = useState(false);
   const [error, setError] = useState('');
-  const [trusted, setTrusted] = useState<number | null>(null);
+  const [result, setResult] = useState<CodexTrustPlan | null>(null);
   const needed = plan?.hooks.filter((h) => h.action === 'needed') ?? [];
   const unchanged = plan ? plan.hooks.length - needed.length : 0;
 
@@ -35,17 +35,25 @@ export default function CodexTrustDialog({ onClose }: { onClose: () => void }) {
     setRunning(true);
     setError('');
     try {
-      setTrusted(
-        (await hooksApi.trustCodex(plan.revision)).hooks.filter((h) => h.action === 'trusted')
-          .length,
-      );
+      const applied = await hooksApi.trustCodex(plan.revision);
+      setResult(applied);
     } catch (e) {
       setError((e as Error).message);
     } finally {
       setRunning(false);
     }
   };
-  const done = trusted !== null;
+  const done = result !== null;
+  const trusted = result?.hooks.filter((h) => h.action === 'trusted').length ?? 0;
+  const reason = (message: string) => {
+    if (message.includes('inside the checkout')) return t('hooks.codexTrust.inside');
+    if (message.includes('review in Codex /hooks')) return t('hooks.codexTrust.unverified');
+    if (message.startsWith('Codex home is unavailable: '))
+      return t('hooks.codexTrust.unavailable', {
+        home: message.slice('Codex home is unavailable: '.length),
+      });
+    return message;
+  };
   return (
     <DialogShell
       open
@@ -58,11 +66,31 @@ export default function CodexTrustDialog({ onClose }: { onClose: () => void }) {
       <div className="dh">
         <div className="flex flex-col gap-1">
           <h2 className="ss-h2">{t('hooks.codexTrust.title')}</h2>
-          {!done && <p className="text-[13px] text-ink-2">{t('hooks.codexTrust.subtitle')}</p>}
+          {!done && (
+            <p className="text-[13px] text-ink-2">
+              {plan?.project
+                ? t('hooks.codexTrust.project', { project: plan.project })
+                : t('hooks.codexTrust.subtitle')}
+            </p>
+          )}
         </div>
       </div>
       <div className="db">
-        {done ? (
+        {done && result?.failed?.length ? (
+          <div className="ss-note warn" role="status">
+            <AlertCircle size={16} />
+            <span>
+              {t('hooks.codexTrust.partial', {
+                done: [
+                  ...new Set(
+                    result.hooks.filter((h) => h.action === 'trusted').map((h) => h.target),
+                  ),
+                ].join(', '),
+                skipped: result.failed.map((f) => f.target).join(', '),
+              })}
+            </span>
+          </div>
+        ) : done ? (
           <div className="ss-note inf">
             <CircleCheck size={16} />
             <span className="flex-1">
@@ -78,20 +106,21 @@ export default function CodexTrustDialog({ onClose }: { onClose: () => void }) {
                 <div key={f.target} className="ss-note warn">
                   <AlertCircle size={16} />
                   <span className="flex-1">
-                    {t('hooks.codexTrust.failed', { target: f.target, error: f.error })}
+                    {t('hooks.codexTrust.failed', { target: f.target, error: reason(f.error) })}
                   </span>
                 </div>
               ))}
-              {needed.length === 0 && (
+              {needed.length === 0 && !plan.failed?.length && (
                 <p className="text-[13px] text-ink-2">{t('hooks.codexTrust.none')}</p>
               )}
               {needed.map((h) => (
-                <div key={h.key} className="flex flex-col gap-1">
+                <div key={JSON.stringify([h.target, h.key])} className="flex flex-col gap-1">
                   <span className="flex items-baseline gap-1.5 text-[13px]">
                     <span className="min-w-0 break-all font-mono font-semibold text-ink">
                       {h.entry}
                     </span>
                     <span className="shrink-0 text-xs text-ink-2">{h.target}</span>
+                    {h.home && <code className="break-all text-xs">{h.home}</code>}
                     {h.disabled && (
                       <span className="shrink-0 font-mono text-xs text-warn">
                         {t('hooks.codexTrust.disabled')}

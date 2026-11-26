@@ -131,7 +131,8 @@ type Result struct {
 	Applied   []string `json:"applied"`
 	BackupIDs []string `json:"backupIds"`
 	// CodexTrust is set by sync --trust.
-	CodexTrust []CodexTrust `json:"codexTrust,omitempty"`
+	CodexTrustError string       `json:"codexTrustError,omitempty"`
+	CodexTrust      []CodexTrust `json:"codexTrust,omitempty"`
 }
 
 // SourceInfo is the declaration shown by List.

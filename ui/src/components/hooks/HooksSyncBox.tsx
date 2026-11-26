@@ -256,10 +256,11 @@ export default function HooksSyncBox({
   const [reviewing, setReviewing] = useState(false);
   const [trusting, setTrusting] = useState(false);
   const pending = plan.changes.filter(writes);
-  // Codex trust is global only, and only worth offering when the plan binds a hook to a Codex target.
+  // A project prop denotes a global hooks.projects block, not a project-mode dashboard.
   // Trust covers the hooks on disk, so it waits until pending changes are synced.
   const hasCodex =
     !project &&
+    !plan.blocked &&
     pending.length === 0 &&
     plan.changes.some((c) => !c.root && agentOfKey(accounts, c.target) === 'codex');
   const conflicts = plan.changes.filter((c) => c.action === 'conflict');

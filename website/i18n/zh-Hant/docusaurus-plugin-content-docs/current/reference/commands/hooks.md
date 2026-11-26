@@ -42,7 +42,7 @@ skillshare hooks restore BACKUP_ID
 | `--sync` | 儲存並同步 |
 | `--keep-files` | 搭配 `remove`：停止管理該 hook，並讓它的原生項目維持原樣。不可與 `--sync` 併用。參見[下方說明](#stop-managing-a-hook) |
 | `--replace` | 明確取代既有來源 entry 或該 entry 衝突的原生輸出 |
-| `--trust` | 僅用於全域模式的 `hooks sync`：同時為 Skillshare 管理的 hooks 記錄 Codex 信任。見 [Codex 信任](#codex-trust) |
+| `--trust` | 僅用於 `hooks sync`：同時為 Skillshare 管理的 hooks 記錄 Codex 信任。見 [Codex 信任](#codex-trust) |
 | `--yes`, `-y` | 與 `--trust` 一起使用：略過詢問並信任列出的 hooks。見 [Codex 信任](#codex-trust) |
 | `--dry-run, -n` | 只預覽，不儲存或寫入 |
 | `--json` | 結構化輸出 |
@@ -216,11 +216,11 @@ Codex trust
 ✓ stop  trusted  codex  /home/me/.codex/hooks.json:stop:1:0
 ```
 
-`--yes`（`-y`）會略過詢問。Codex 的審核存在的原因，是讓人在 command 執行之前看到它。沒有終端機且沒有 `--yes` 時，不會信任任何 hook：指令會列出這些 hooks，並以提到 `--yes` 的錯誤結束。`--json` 同樣不會詢問：沒有 `--yes` 時，它把這些 hooks 輸出為 `needed`，並以非零狀態結束，不輸出錯誤文字。`--yes` 只能與 `--trust` 一起使用。`--json` 輸出包含 `codexTrust` 清單。每一項有 `target`、`entry`、`key`、`command`、`action`（`needed`、`trusted` 或 `unchanged`），為 true 時還有 `disabled`。
+`--yes`（`-y`）會略過詢問。Codex 的審核存在的原因，是讓人在 command 執行之前看到它。沒有終端機且沒有 `--yes` 時，不會信任任何 hook：指令會列出這些 hooks，並以提到 `--yes` 的錯誤結束。`--json` 同樣不會詢問：沒有 `--yes` 時，它把這些 hooks 輸出為 `needed`，並以非零狀態結束。專案 JSON 的 `codexTrustError` 會說明原因，每個 hook 的 `home` 是寫入目錄。`--yes` 只能與 `--trust` 一起使用。`--json` 輸出包含 `codexTrust` 清單。每一項有 `target`、`entry`、`key`、`command`、`action`（`needed`、`trusted` 或 `unchanged`），為 true 時還有 `disabled`。
 
 只寫入 `trusted_hash`，而且只會新增。你在 Codex 中停用的 hook 維持停用並會被回報。`enabled`、`config.toml` 的其餘部分，以及不屬於 Skillshare 的 hooks 都不會更動。hook 移動或刪除後，舊項目仍留在 `config.toml` 中。它只會對應到該位置上 event、matcher 與 handler 都相同的 hook，因此不會讓另一個 hook 變成已信任。
 
-`codex` 不在 `PATH` 上或 Codex 失敗時，hook 檔案仍會寫入，指令以 "hook files were written, but Codex trust was not recorded" 失敗。有多個 Codex home 時，Codex 無法列出或寫入失敗的 home 不會中止其他 home：錯誤會列出已記錄與未記錄的 home。不帶 `--trust` 的 `hooks sync` 不會啟動 Codex，也不會改變信任。`--trust` 只能用於全域模式；`sync hooks`、`hooks list` 與專案模式會拒絕它。`hooks.projects` 寫入專案的 hook 不在其列，請在 Codex 的 `/hooks` 中信任。Dashboard 的 Hooks 頁面（global scope）有相同的操作：它列出需要信任的 hooks 及其 command，只有在你於對話框中確認後才記錄信任。
+`codex` 不在 `PATH` 上或 Codex 失敗時，hook 檔案仍會寫入，指令以 "hook files were written, but Codex trust was not recorded" 失敗。有多個 Codex home 時，Codex 無法列出或寫入失敗的 home 不會中止其他 home：錯誤會列出已記錄與未記錄的 home。不帶 `--trust` 的 `hooks sync` 不會啟動 Codex，也不會改變信任。`hooks sync -p --trust` 核對目前專案的命令，將信任寫入各使用者的 Codex home，不變更資料夾信任。無法驗證的帳號會跳過；若部分完成則以非零狀態結束。`sync hooks` 和 `hooks list` 不支援 `--trust`。`hooks.projects` 寫入專案的 hook 不在其列，請在 Codex 的 `/hooks` 中信任。Dashboard 的 Hooks 頁面（全域及專案模式）有相同的操作：它列出需要信任的 hooks 及其 command，只有在你於對話框中確認後才記錄信任。
 
 ## Git hooks {#git-hooks}
 

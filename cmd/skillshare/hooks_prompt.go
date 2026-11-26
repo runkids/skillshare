@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -22,7 +23,14 @@ func trustCodexHooks(service *hooks.Service, o hooksOptions) (trust []hooks.Code
 	}
 	if !o.yes {
 		if o.json || !runningInInteractiveTTY() {
-			return plan.Hooks, false, fmt.Errorf("%s trust; review the commands and pass --yes to record it", needVerb(len(needed), "Codex hook"))
+			err := fmt.Errorf("%s trust; review the commands and pass --yes to record it", needVerb(len(needed), "Codex hook"))
+			if plan.Project != "" {
+				err = errors.Join(err, plan.Err())
+			}
+			return plan.Hooks, false, err
+		}
+		if plan.Project != "" {
+			ui.Info("Checkout: %s. Trust is recorded in each listed user's Codex config.toml, not in the project.", plan.Project)
 		}
 		printHooksTrust(needed)
 		for _, f := range plan.Failed {
