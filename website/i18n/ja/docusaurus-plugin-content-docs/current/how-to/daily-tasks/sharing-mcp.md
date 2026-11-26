@@ -52,7 +52,8 @@ MCP プロバイダーから提供された URL または JSON を貼り付け�
 
 ダッシュボードでは、**Add server** はどちらの形式にも対応しています。フィールドに入力するか、設定を
 貼り付けるかです。貼り付け側はファイルの読み込みにも対応しており、これはブラウザ版の
-`mcp import --file` に相当します。貼り付けられた JSON は自動的に認識されます。TOML の場合は、
+`mcp import --file` に相当します。貼り付けられた JSON は自動的に認識されます。その Agent だけが読むフィールド（Claude Code の `alwaysLoad` など）を残すには、
+**From** でその Agent を選択します。TOML の場合は、
 Codex 由来か Grok 由来かを選択します。貼り付けた内容がサーバー 1 つだけで Pi にチェックが入っている場合は、
 ダイアログにフォームの Pi 設定（ツールの公開方法、その他の Pi 設定）も表示されます。フォームの **その他の Agent 設定** では、Codex の承認モードなど、ほかの Agent のネイティブフィールドを JSON で入力できます（[`options`](../../reference/commands/mcp.md#agent-options) を参照）。**Skillshare** タブは `skillshare mcp serve` を追加します。これは sync で Skill を受け取らない Agent に
 [MCP で Skill を提供します](/docs/reference/commands/mcp#serve-skills-over-mcp)。Skill を選び、Agent にチェックを入れます。すでに Skill を sync していて

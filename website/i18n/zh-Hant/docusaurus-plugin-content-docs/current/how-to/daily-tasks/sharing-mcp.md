@@ -48,8 +48,8 @@ skillshare mcp add
 **Save and sync** 會立即套用設定；**Save only** 則只保留該定義，供之後的 `skillshare sync mcp` 使用。
 
 在 dashboard 中，**Add server** 支援兩種形式：填寫欄位，或貼上一份設定。
-貼上這一側也支援載入檔案，等同於瀏覽器版的 `mcp import --file`。貼上的 JSON 會自動被辨識；
-若是 TOML，則需選擇它來自 Codex 還是 Grok。若貼上的內容只有一個伺服器且勾選了 Pi，
+貼上這一側也支援載入檔案，等同於瀏覽器版的 `mcp import --file`。貼上的 JSON 會自動被辨識；若要保留只有該 Agent 讀取的欄位，例如 Claude Code 的 `alwaysLoad`，
+請在 **From** 選擇該 Agent。若是 TOML，則需選擇它來自 Codex 還是 Grok。若貼上的內容只有一個伺服器且勾選了 Pi，
 對話框也會顯示表單中的 Pi 設定：工具曝光模式與其他 Pi 設定。表單的 **其他 Agent 設定** 以 JSON 輸入其他 Agent 的原生欄位，例如 Codex 的核准模式，詳見 [`options`](../../reference/commands/mcp.md#agent-options)。**Skillshare** 分頁會加入 `skillshare mcp serve`，
 [透過 MCP 提供你的 skills](/docs/reference/commands/mcp#serve-skills-over-mcp) 給無法透過 sync 取得 skills 的
 Agent：選擇要提供哪些 skills、勾選 Agents，它會標出已經同步 skills、因此會看到兩次的 Agents。在專案的 **MCP** 分頁中，**From another project** 會用其他專案已有的伺服器填好表單；複製出來的伺服器使用這個專案的 Agents，而不是原專案的。清單可依伺服器名稱或專案資料夾搜尋；多個專案以相同名稱、相同設定擁有的伺服器只列出一次，並附上擁有它的資料夾。**Import from a target** 是另一個獨立功能，

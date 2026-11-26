@@ -54,8 +54,9 @@ Agents, and review the changes. **Save and sync** applies the settings immediate
 
 In the dashboard, **Add server** takes either shape: fill in the fields, or paste
 a configuration. The paste side also loads a file, which is the browser's
-equivalent of `mcp import --file`. Pasted JSON is recognized automatically; for
-TOML, choose whether it came from Codex or Grok. When the paste holds one server
+equivalent of `mcp import --file`. Pasted JSON is recognized automatically; to keep
+fields only its Agent reads, such as Claude Code's `alwaysLoad`, pick that Agent under
+**From**. For TOML, choose whether it came from Codex or Grok. When the paste holds one server
 and Pi is ticked, the dialog also shows the Pi settings of the form: tool exposure and
 other Pi settings. The form's **Other Agent settings** takes any other Agent's native fields as
 JSON, such as a Codex approval mode; see [`options`](../../reference/commands/mcp.md#agent-options). The **Skillshare** tab adds `skillshare mcp serve`, which
