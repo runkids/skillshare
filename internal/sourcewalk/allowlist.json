@@ -521,19 +521,19 @@
   },
   {
     "file": "internal/install/install_discovery.go",
-    "function": "discoverSkillsByDirectory",
-    "callee": "filepath.Walk",
-    "root": "repoPath",
-    "reason": "clone",
-    "note": "Discover skills in downloaded repository; followed repo-root consumer deferred to step 3"
-  },
-  {
-    "file": "internal/install/install_discovery.go",
-    "function": "discoverSkillsByDirectory",
+    "function": "discoverSkillsIn",
     "callee": "filepath.Walk",
     "root": "dir",
     "reason": "clone",
-    "note": "Repository-root .agents/skills when the repository has no other skills"
+    "note": "Discover skills in a downloaded repository or its repository-root .agents/skills; followed repo-root consumer deferred to step 3"
+  },
+  {
+    "file": "internal/install/install_discovery.go",
+    "function": "walkFollowingLinksWithin",
+    "callee": "filepath.Walk",
+    "root": "real",
+    "reason": "clone",
+    "note": "Discover skills behind links to folders inside a downloaded repository"
   },
   {
     "file": "internal/install/install_discovery.go",

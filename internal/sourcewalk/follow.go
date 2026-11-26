@@ -310,3 +310,6 @@ type namedInfo struct {
 }
 
 func (i namedInfo) Name() string { return i.name }
+
+// NamedInfo reports a followed link's target info under the link's name.
+func NamedInfo(info os.FileInfo, name string) os.FileInfo { return namedInfo{info, name} }

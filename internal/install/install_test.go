@@ -762,3 +762,109 @@ func runCmd(args ...string) (string, error) {
 	out, err := cmd.CombinedOutput()
 	return string(out), err
 }
+
+// linkedSkillsRepo lays out a repository like one that publishes skills kept
+// elsewhere in it: pack/<name> links to store/<name>, and pack/d to a skill
+// kept in a target dot dir, which discovery otherwise skips.
+func linkedSkillsRepo(t *testing.T) string {
+	t.Helper()
+	orig := TargetDotDirs
+	TargetDotDirs = map[string]bool{".claude": true}
+	t.Cleanup(func() { TargetDotDirs = orig })
+
+	repo := t.TempDir()
+	outside := t.TempDir()
+	skills := []string{"store/a", "store/b", ".claude/skills/d", ".claude/skills/helper", ".git/hooks", "skills/c", "skills/x"}
+	for _, dir := range append(skills, "pack") {
+		if err := os.MkdirAll(filepath.Join(repo, dir), 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, dir := range skills {
+		if err := os.WriteFile(filepath.Join(repo, dir, "SKILL.md"), []byte("# skill"), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(outside, "SKILL.md"), []byte("# outside"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	links := map[string]string{
+		"pack/a":          filepath.Join("..", "store", "a"),
+		"pack/b":          filepath.Join("..", "store", "b"),
+		"pack/d":          filepath.Join("..", ".claude", "skills", "d"),
+		"pack/outside":    outside,
+		"pack/hooks":      filepath.Join("..", ".git", "hooks"),
+		"pack/loop":       ".",
+		"aliases-c-link":  filepath.Join("skills", "c"),
+		"skills/x/helper": filepath.Join("..", "..", ".claude", "skills", "helper"),
+	}
+	for name, target := range links {
+		if err := os.Symlink(target, filepath.Join(repo, name)); err != nil {
+			t.Skipf("symlinks unavailable: %v", err)
+		}
+	}
+	return repo
+}
+
+func skillPaths(skills []SkillInfo) []string {
+	var paths []string
+	for _, skill := range skills {
+		paths = append(paths, skill.Path)
+	}
+	slices.Sort(paths)
+	return paths
+}
+
+func TestDiscoverSkillsWithin_FollowsLinksInsideRepository(t *testing.T) {
+	repo := linkedSkillsRepo(t)
+
+	got := skillPaths(discoverSkillsWithin(repo, filepath.Join(repo, "pack"), true))
+	// outside leaves the repository, hooks is in .git, and loop points back
+	// at pack: none of them is followed.
+	if want := []string{"a", "b", "d"}; !slices.Equal(got, want) {
+		t.Fatalf("skills = %v, want %v", got, want)
+	}
+}
+
+func TestDiscoverSkillsWithin_LinkedWalkRoot(t *testing.T) {
+	repo := linkedSkillsRepo(t)
+
+	skills := discoverSkillsWithin(repo, filepath.Join(repo, "pack", "a"), true)
+	if len(skills) != 1 || skills[0].Path != "." {
+		t.Fatalf("skills = %+v, want the root skill", skills)
+	}
+}
+
+func TestDiscoverSkills_LinkedSkillListedOnceUnderDirectPath(t *testing.T) {
+	repo := linkedSkillsRepo(t)
+
+	got := skillPaths(discoverSkills(repo, true))
+	// pack/a, pack/b and aliases-c-link repeat skills listed directly, and
+	// skills/x/helper is part of skill x.
+	if want := []string{"pack/d", "skills/c", "skills/x", "store/a", "store/b"}; !slices.Equal(got, want) {
+		t.Fatalf("skills = %v, want %v", got, want)
+	}
+}
+
+func TestDiscoverSkills_IgnoredDirectPathKeepsLinkedPath(t *testing.T) {
+	repo := linkedSkillsRepo(t)
+	if err := os.WriteFile(filepath.Join(repo, ".skillignore"), []byte("store/\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	got := skillPaths(discoverSkills(repo, true))
+	if want := []string{"pack/a", "pack/b", "pack/d", "skills/c", "skills/x"}; !slices.Equal(got, want) {
+		t.Fatalf("skills = %v, want %v", got, want)
+	}
+}
+
+func TestDiscoverSkillsByDirectory_DoesNotFollowLinks(t *testing.T) {
+	repo := linkedSkillsRepo(t)
+
+	// Tracked installs list what sync sees, and sync does not follow links
+	// inside a tracked repository.
+	got := skillPaths(discoverSkillsByDirectory(repo, true))
+	if want := []string{"skills/c", "skills/x", "store/a", "store/b"}; !slices.Equal(got, want) {
+		t.Fatalf("skills = %v, want %v", got, want)
+	}
+}
