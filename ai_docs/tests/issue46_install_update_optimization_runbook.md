@@ -20,6 +20,7 @@ Validates large-repo install/update optimization behavior for:
 - Tracked repo force-update path discards local dirty changes
 - Non-GitHub subdir install uses sparse checkout when possible
 - Fuzzy subdir falls back from sparse checkout to full clone and still succeeds
+- A subdir whose links point outside it falls back to a full clone and installs the link targets' content
 - GHE API base derivation is validated (`https://<host>/api/v3`)
 - Non-TTY install does not print raw git progress lines
 
@@ -261,6 +262,27 @@ ss install -g https://github.com/runkids/skillshare --track --name issue46-tty -
 Expected:
 - exit_code: 0
 - Tracked
+
+### 16. Subdir links outside the folder -> full clone fallback
+
+```bash
+REPO=~/tmp-repo-subdir-links
+rm -rf "$REPO"
+mkdir -p "$REPO/skills/demo" "$REPO/shared"
+printf -- '---\nname: demo\n---\n# Demo\n' > "$REPO/skills/demo/SKILL.md"
+echo "shared reference" > "$REPO/shared/ref.md"
+ln -s ../../shared/ref.md "$REPO/skills/demo/ref.md"
+git -C "$REPO" init
+git -C "$REPO" add .
+git -C "$REPO" -c user.name=e2e -c user.email=e2e@example.com commit -m init
+ss install -g "file://$REPO//skills/demo" --name subdir-links --force 2>&1 | tee /tmp/issue46-links.log
+grep -q "sparse checkout discovery fallback: skills/demo/ref.md" /tmp/issue46-links.log
+cat ~/.config/skillshare/skills/subdir-links/ref.md
+```
+
+Expected:
+- exit_code: 0
+- output contains `shared reference`
 
 ## Pass Criteria
 

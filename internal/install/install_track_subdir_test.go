@@ -163,3 +163,51 @@ func TestInstallTrackedRepo_SubdirSparseFallback(t *testing.T) {
 		t.Fatalf("expected fallback full clone file to exist: %v", err)
 	}
 }
+
+func TestInstallTrackedRepo_SubdirLinkKeepsSiblingSkillOut(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available")
+	}
+	if !gitSupportsSparseCheckout() {
+		t.Skip("git does not support sparse-checkout")
+	}
+
+	tmp := t.TempDir()
+	work := filepath.Join(tmp, "work")
+	remote := filepath.Join(tmp, "remote.git")
+	sourceDir := filepath.Join(tmp, "source")
+	for _, dir := range []string{filepath.Join(work, "skills", "one"), filepath.Join(work, "skills", "two"), sourceDir} {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for rel, content := range map[string]string{"one/SKILL.md": "# one", "two/SKILL.md": "# two", "two/ref.md": "ref"} {
+		if err := os.WriteFile(filepath.Join(work, "skills", filepath.FromSlash(rel)), []byte(content), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.Symlink(filepath.Join("..", "two", "ref.md"), filepath.Join(work, "skills", "one", "ref.md")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	mustRunGit(t, "", "init", work)
+	mustRunGit(t, work, "config", "user.email", "test@test.com")
+	mustRunGit(t, work, "config", "user.name", "Test")
+	mustRunGit(t, work, "add", ".")
+	mustRunGit(t, work, "commit", "-m", "init")
+	mustRunGit(t, "", "clone", "--bare", work, remote)
+
+	source := &Source{
+		Type:     SourceTypeGitHTTPS,
+		Raw:      "file://" + remote + "/skills/one",
+		CloneURL: "file://" + remote,
+		Subdir:   "skills/one",
+		Name:     "one",
+	}
+	result, err := InstallTrackedRepo(source, sourceDir, InstallOptions{Name: "track-link"})
+	if err != nil {
+		t.Fatalf("InstallTrackedRepo() error = %v", err)
+	}
+	if result.SkillCount != 1 {
+		t.Fatalf("SkillCount = %d, want 1: the link must not bring skills/two in", result.SkillCount)
+	}
+}
