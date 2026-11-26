@@ -152,12 +152,12 @@ _skillshare() {
                 plugin)
                     _arguments \
                         '1:command:(add discover import unimport list inspect sync check update enable disable remove)' \
-                        '--target[Receiving target]:target:(claude codex cursor antigravity agy antigravity-cli copilot grok kimi hermes devin pi opencode omp)' \
+                        '--target[Receiving target]:target:(claude codex cursor antigravity agy antigravity-cli copilot grok kimi hermes devin pi opencode omp herdr-app)' \
                         '--from[Import target]:target:(claude codex cursor antigravity agy antigravity-cli copilot grok kimi hermes devin pi opencode omp)' \
                         '--plugin[Source plugin]:name:' \
                         '--name[Logical package name]:name:' \
                         '--source-ref[Git branch, tag or commit]:ref:' \
-                        '--entry[OpenCode entry path]:path:' \
+                        '--entry[OpenCode or Herdr entry path]:path:' \
                         '--revision[Preview revision]:revision:' \
                         '--all[Update all managed plugins (update only)]' \
                         '-a[Update all managed plugins (update only)]' \

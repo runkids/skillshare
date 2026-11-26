@@ -67,6 +67,16 @@ Read ~/.config/herdr-app/AGENTS.md, then add this layout: herdr.dev/layouts/runk
 
 패널은 표시되는 동안 20초마다 새로 고치고 10분마다 `skillshare check`를 실행하며, 숨겨져 있을 때는 아무것도 하지 않습니다.
 
+## 다른 Herdr mod와 launcher
+
+[`skillshare plugin`](/docs/reference/commands/plugin#herdr-app)의 `herdr-app` target으로 다른 Herdr mod와 Lantern 같은 launcher 앱을 설치할 수 있습니다. 다른 plugin처럼 `check`와 `update`로 최신 상태를 유지합니다.
+
+```bash
+skillshare plugin add owner/herdr-mods --target herdr-app -g
+```
+
+mod는 저장소 루트(`mods/<id>/main.js`)에서만 찾으므로 이 패널은 이 방법으로 설치되지 않습니다. 패널은 위의 방법으로 설정하세요.
+
 ## 관련 문서
 
 - [Sync](/docs/reference/commands/sync)

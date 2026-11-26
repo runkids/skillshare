@@ -228,3 +228,16 @@ func TestPluginUpdateAllDryRunReportsOMPFailure(t *testing.T) {
 		t.Fatalf("OMP dry-run failure missing: %s error=%v json=%v", output, runErr, err)
 	}
 }
+
+func TestPluginTargetCompletionsIncludeHerdr(t *testing.T) {
+	for _, shell := range []string{"bash", "zsh", "fish", "powershell", "nushell"} {
+		if !strings.Contains(shells[shell].script, "herdr-app") {
+			t.Errorf("%s omits Herdr app", shell)
+		}
+	}
+	script := shells["powershell"].script
+	condition := "if ($cmd -eq 'plugin' -and $previousIndex -ge 0 -and $elements[$previousIndex] -eq '--target')"
+	if strings.Count(script, condition) != 1 {
+		t.Fatal("PowerShell plugin target completion is shadowed")
+	}
+}

@@ -67,6 +67,16 @@ The panel follows the space Herdr shows. It runs skillshare on that space's mach
 
 The panel refreshes every 20 seconds while it is shown, runs `skillshare check` every 10 minutes, and does nothing while hidden.
 
+## Other Herdr mods and launchers
+
+[`skillshare plugin`](/docs/reference/commands/plugin#herdr-app) can install other Herdr mods, and launcher apps such as Lantern, with the `herdr-app` target. It keeps them up to date with `check` and `update`, like any other plugin:
+
+```bash
+skillshare plugin add owner/herdr-mods --target herdr-app -g
+```
+
+It finds mods only at a repository's root (`mods/<id>/main.js`), so it does not install this panel; set the panel up as shown above.
+
 ## Related
 
 - [Sync](/docs/reference/commands/sync)

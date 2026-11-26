@@ -267,6 +267,16 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (*Result, e
 					outcome.Message = "Existing installation adopted without changing its enabled state."
 				}
 			}
+			if s.agentOf(c.Target) == "herdr-app" {
+				if c.Action == "remove" || c.Action == "uninstall" {
+					outcome.Message = "Removed."
+				} else if b.Entry != "" {
+					outcome.Message = "Installed at " + filepath.Join(s.managedRoot(), "herdr-app", b.ID, filepath.FromSlash(b.Entry)) + ". Close " + b.ID + " before updating; reopen it after."
+				} else {
+					outcome.Message = "Installed in " + filepath.Join(herdrHome(), "mods", b.ID) + "; Herdr reloads the mod when files change. A mod with `place: none` needs a layout entry."
+				}
+				outcome.MessageKey = ""
+			}
 			if s.agentOf(c.Target) == "omp" && (c.Action == "remove" || c.Action == "forget" || c.Action == "uninstall") {
 				outcome.Message, outcome.MessageKey = "Removed from this scope; shared cache, marketplaces and plugin settings were retained.", "plugins.outcome.ompRemoved"
 			}

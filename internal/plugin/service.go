@@ -294,6 +294,11 @@ func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval) (
 			switch agent {
 			case "cursor", "antigravity", "antigravity-cli", "copilot", "grok", "kimi", "hermes", "devin":
 				b.ID = c.Name
+			case "herdr-app":
+				b.ID, b.Entry = c.Name, c.TargetInfo[agent].Entry
+				if b.Entry != "" {
+					b.ID = filepath.Base(filepath.FromSlash(b.Entry))
+				}
 			case "omp":
 				// omp caps marketplace names at 64 characters, so the plugin name is left out.
 				b.ID = c.Name + "@skillshare-" + digest
@@ -347,6 +352,10 @@ func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval) (
 				change.Action = "blocked"
 				change.Message = "A native installation already uses this identity; import it explicitly instead of replacing it."
 				change.MessageKey = "plugins.note.identityInUse"
+				if agent == "herdr-app" {
+					change.Message = "A Herdr mod or launcher named " + change.ID + " already exists and is not managed by Skillshare; move it aside before adding"
+					change.MessageKey = ""
+				}
 			}
 			appendChange(change)
 		}
@@ -365,7 +374,7 @@ func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval) (
 				return nil, fmt.Errorf("use --name to choose a logical package name for this native identifier")
 			}
 		}
-		if agent := s.agentOf(r.From); agent == "cursor" || agent == "antigravity" {
+		if agent := s.agentOf(r.From); agent == "cursor" || agent == "antigravity" || agent == "herdr-app" {
 			return nil, fmt.Errorf("Local directory plugins can be added from source; importing existing or marketplace installations is not supported")
 		}
 		if installed.Filtered && s.agentOf(r.From) != "pi" {
@@ -431,6 +440,10 @@ func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval) (
 					continue
 				}
 				agent := s.agentOf(target)
+				if agent == "herdr-app" && (r.Action != "remove" && r.Action != "uninstall") && host(target).Status == HostMissing {
+					p.Changes = append(p.Changes, Change{Name: name, Target: target, ID: b.ID, Binding: b, Action: "skip", Message: "Herdr app home is absent; skipped."})
+					continue
+				}
 				decl, declared := d.intent[name].Bindings[target]
 
 				if r.Action == "update" && r.SourceRef != "" {
@@ -718,6 +731,14 @@ func (s *Service) prepareChange(ctx context.Context, r Request, d *document, hos
 		if err := s.preparePiRegistration(ctx, &c); err != nil {
 			failChange(err.Error(), "", nil)
 		}
+	}
+	if agent == "herdr-app" && r.Action == "add" && h.Status == HostMissing {
+		c.Action = "blocked"
+		c.Message = "Herdr app home is absent: " + herdrHome()
+	}
+	if agent == "herdr-app" && c.Action == "update" && c.Binding.Entry != "" {
+		c.Message = "Close " + c.ID + "'s chat before applying; reopen it after."
+		c.MessageKey = ""
 	}
 	// A change already blocked or skipped keeps its own reason; the key always matches the message.
 	if h.Error != "" && c.Action != "blocked" && c.Action != "skip" {

@@ -632,6 +632,22 @@
     "note": "List plugin package files"
   },
   {
+    "file": "internal/plugin/herdr_app.go",
+    "function": "herdrMods",
+    "callee": "os.ReadDir",
+    "root": "filepath.Join(root, \"mods\")",
+    "reason": "plugin",
+    "note": "Discover root-level Herdr mods"
+  },
+  {
+    "file": "internal/plugin/herdr_app.go",
+    "function": "(*Service).herdrHost",
+    "callee": "os.ReadDir",
+    "root": "layout.root",
+    "reason": "plugin",
+    "note": "List Herdr installation folders"
+  },
+  {
     "file": "internal/plugin/local_bundle.go",
     "function": "(*Service).localInventory",
     "callee": "os.ReadDir",

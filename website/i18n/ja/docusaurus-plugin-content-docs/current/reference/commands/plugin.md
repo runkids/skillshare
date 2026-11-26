@@ -51,14 +51,14 @@ skillshare plugin remove review --no-tui
 
 | オプション | 意味 |
 |---|---|
-| `--target TARGET` | 繰り返し指定可能な選択: `claude`、`codex`、`cursor`、`antigravity`（エイリアス `agy`）、`antigravity-cli`、`copilot`、`grok`、`pi`、`omp`、`opencode`、または [Agent の別のアカウント](#accounts)の名前。下の capability 表を参照 |
+| `--target TARGET` | 繰り返し指定可能な選択: `claude`、`codex`、`cursor`、`antigravity`（エイリアス `agy`）、`antigravity-cli`、`copilot`、`grok`、`pi`、`omp`、`opencode`、`herdr-app`、または [Agent の別のアカウント](#accounts)の名前。下の capability 表を参照 |
 | `--plugin NAME` | source のマーケットプレイスから 1 つの plugin を選択 |
 | `--name NAME` | 追加またはインポート時の論理的な package 名 |
 | `--from TARGET` | Claude、Codex、Antigravity CLI、Copilot、Grok、Pi、OMP のマーケットプレイス、OpenCode、または [Agent の別のアカウント](#accounts)からインポート |
 | `--all`, `-a` | すべての管理下 plugin を更新（`update` のみ。package 名や `--source-ref` とは併用不可） |
 | `--dry-run`, `-n` | Skillshare または Agent の設定を変更せずにプレビュー |
 | `--source-ref REF` | `discover`、`add`、`update` 用の git ブランチ、タグ、またはコミット。リモート source のみ |
-| `--entry PATH` | package ルートからの相対パスで明示的にビルド済みの OpenCode JS/TS エントリを指定（`discover` と `add`） |
+| `--entry PATH` | package ルートからの相対パスで明示的にビルド済みの OpenCode JS/TS エントリ、または [Herdr ランチャー](#herdr-app)の実行ファイルを指定（`discover` と `add`） |
 | `--revision ID` | プレビュー以降に source、設定、またはネイティブインベントリが変わっていた場合に適用を拒否 |
 | `--json` | 機械可読な出力。TUI を無効化 |
 | `--no-tui` | インタラクティブメニューを無効化。`tui: false` でも同様 |
@@ -78,6 +78,7 @@ JSON 出力には source パスとネイティブ識別子が含まれます。s
 | Pi | `pi` resources を持つ `package.json`、または `pi-package` キーワードと慣例的な resource フォルダ | Yes | Yes（ネイティブな project trust が必要） | 管理下 source スナップショットを更新 |
 | Oh My Pi | ネイティブ互換のメタデータを持つ、マーケットプレイス経由のローカル/Git plugin | 新しい cache へのインストール/再インストール、インポート、スコープを限定した削除 | OMP の project アンカーで | 更新は新しい cache に再インストール。削除しても共有 cache は保持 |
 | OpenCode | SDK 依存を持つ `package.json`、`.opencode/plugins/` エントリ、または明示的な `--entry` | Yes | Yes | 管理下 source スナップショットを更新 |
+| Herdr app | plugin マニフェストのない source のルートにある `mods/<id>/main.js`、または `--entry` で指定したランチャー | Yes | No | Skillshare がインストールしたファイルを置き換え |
 
 | Antigravity CLI | `.antigravity-plugin/plugin.json`、`.gemini-plugin/plugin.json`、ルートの `plugin.json`、または `agy` が受け付ける Claude マニフェスト | Yes | No | reviewed された source を更新（ネイティブな enabled 状態がわかっており enabled の場合のみ） |
 | GitHub Copilot CLI | `.plugin/plugin.json`、`.github/plugin/plugin.json`、Claude マニフェスト、または Agent Plugins ルートマニフェスト | Yes | No | reviewed された source を更新（ネイティブな enabled 状態がわかっており enabled の場合のみ） |
@@ -119,6 +120,31 @@ skillshare plugin import demo@market --from claude-work
 - スタンドアロンの **agy CLI** は独自の plugin ストアを持ちます。`antigravity` target はデスクトップ/workspace の discovery パスを管理するものであり、その CLI ストアではありません。`agy` は単なる Skillshare target のエイリアスです。スタンドアロン CLI には `--target antigravity-cli` を使ってください。`--target agy` は既存のデスクトップの意味のままです。
 
 これらのローカル package には `plugin add` を使ってください。既存のローカルフォルダやマーケットプレイスインストールのインポートには対応していません。Skillshare は、所有していないフォルダ、symlink、またはローカルで編集された管理下コンテンツを上書きすることを拒否します。明示的な Antigravity マニフェスト名を指定すると、Git のチェックアウトやスナップショットをまたいで identity を安定させられます。
+
+### Herdr app {#herdr-app}
+
+`herdr-app` target は、ファイルをコピーして Herdr の mod とランチャーアプリをインストールします。global 専用で、`herdr-app` やパッケージのコードを実行することはありません。Herdr のホームは `$HERDR_APP_HOME`、未設定なら `~/.config/herdr-app` です。
+
+Skillshare が Herdr のコンテンツを探すのは、plugin マニフェストもマーケットプレイスカタログもない source だけです。source のルートにある `mods/<id>/main.js` 1 つが 1 つの plugin になり、`<herdr home>/mods/<id>` にインストールされます。より深いフォルダにある mod は見つかりません。マニフェストとルートの `mods/` フォルダを両方持つ source は、これまでどおりに検出されます。 通常の `package.json` だけを持つ source でも、`--entry` を指定してランチャーを追加できます。
+
+```bash
+skillshare plugin add owner/herdr-mods --plugin my-mod --target herdr-app --no-tui -g
+skillshare plugin add owner/lantern --entry bin/lantern-app --target herdr-app --no-tui -g
+```
+
+Lantern のようなランチャーアプリには `--entry`（source 内の実行ファイルへのパス）が必要です。コマンド名はエントリファイルの名前になり、`bin/lantern-app` なら `lantern-app` です。Skillshare は source を state ディレクトリにコピーし、管理対象のエントリのパスを表示します。コマンドをそのパスに向けてください。パスは更新後も変わりません。ランチャーは macOS と Linux でのみ動作します。
+
+Skillshare はインストール先フォルダ全体を管理し、更新時に置き換えます。ローカル編集は退避するまで更新と削除をブロックします。インストール先の隠しファイル、`node_modules`、`__pycache__`、ルートの `jsconfig.json` と `.d.ts` ファイルは編集チェックから除外し、更新時に保持しません。source に含まれる場合はコピーします。削除は生成ファイルを含むフォルダ全体を削除します。置き換えが中断した場合は、再試行前に表示されたバックアップを確認してください。
+
+Skillshare は自分がインストールしていない mod やランチャーを引き継がず、`import` もできません。同名の mod やランチャーが存在する場合、`add` は拒否します。先に退避してから、もう一度 add してください。
+
+```bash
+mv ~/.config/herdr-app/mods/my-mod ~/my-mod.bak
+```
+
+`update` はインストール先を表示し、mod が動いているとは断言しません。Herdr はファイルが変わると mod を再読み込みします。`herdr-app status` で確認してください。`place: none` の mod は自動で配置されないため、手動でレイアウトに追加してください。ランチャーの update の前にはアプリのチャットと readout を閉じ、update の後に開き直してください。
+
+Herdr app のないマシン（ホームが存在しない）では、`sync`、`check`、`update` は `herdr-app` のバインディングを（ランチャーも含め）何も取得せずにスキップし、plugin の他の target は通常どおり実行されます。バインディングの宣言は残ります。そのようなマシンでの `herdr-app` への `add` は拒否されます。`remove` はホームを作らずにバインディングを削除し、その他の操作はスキップします。ホームが存在してもフォルダでない場合、この target はブロックされます。
 
 ### Oh My Pi (OMP) {#omp}
 
@@ -277,6 +303,7 @@ skillshare plugin import npm:my-pi-package --from pi --name my-package --no-tui
 skillshare plugin discover obra/superpowers --source-ref v6.3.0 --json
 skillshare plugin add owner/repo --source-ref v1.0.0 --target copilot --no-tui
 skillshare plugin add ./package --entry dist/plugin.js --target opencode --no-tui
+skillshare plugin add ./lantern --entry bin/lantern-app --target herdr-app --no-tui -g
 skillshare plugin update review --source-ref v1.1.0 --target claude --dry-run --json
 ```
 
@@ -303,7 +330,7 @@ Copilot と Antigravity CLI のインストールは、reviewed されたロー�
 - これらの登録は、user 設定でも project 設定でも、このマシンの Skillshare 状態ディレクトリを指します。Git や dotfile マネージャーで Agent の設定を共有すると、ほかのマシンには存在しないパスが持ち込まれます。各マシンで source から plugin を追加してください。
 - Claude は、skills ディレクトリ内で plugin manifest を持つ skill フォルダも `<name>@skills-dir` という plugin として読み込み、同じ名前の plugin は 1 つしか読み込みません。同名の Claude plugin を追加するとプレビューでそのことを伝えます。名前を変えるかどちらかを削除するまで、Claude は plugin を読み込み、skill フォルダはスキップします。
 
-ネイティブなライフサイクルは、Claude Code `2.1.276`、Codex CLI `0.154.0`、Pi `0.85.1`、Copilot CLI `1.0.86` で動作確認されています。Antigravity CLI `1.2.6` は分離されたネイティブの install/list/remove 操作で確認済みです。OpenCode `1.18.31` は version 対応登録の検証に使用され、v2 スキーマは fixture テストでカバーされています。Cursor と Antigravity のファイルシステム上のライフサイクルは分離されたディレクトリでテストされていますが、GUI 上でのランタイム有効化は保証しません。インストール済みコマンドの capability とインベントリスキーマは実行時に確認され、非対応の操作は理由とともにブロックされます。
+ネイティブなライフサイクルは、Claude Code `2.1.276`、Codex CLI `0.154.0`、Pi `0.85.1`、Copilot CLI `1.0.86` で動作確認されています。Antigravity CLI `1.2.6` は分離されたネイティブの install/list/remove 操作で確認済みです。OpenCode `1.18.31` は version 対応登録の検証に使用され、v2 スキーマは fixture テストでカバーされています。Cursor、Antigravity、Herdr app のファイルシステム上のライフサイクルは分離されたディレクトリでテストされていますが、GUI 上でのランタイム有効化は保証しません。インストール済みコマンドの capability とインベントリスキーマは実行時に確認され、非対応の操作は理由とともにブロックされます。
 
 ## 公式フォーマットの参考資料
 

@@ -205,7 +205,8 @@ func TestFixedMessagesCarryATranslationKey(t *testing.T) {
 	}
 	for _, target := range Targets {
 		h := s.host(context.Background(), target)
-		if h.Note != "" && h.NoteKey == "" {
+		// The Herdr missing-home note includes the machine-specific path.
+		if h.Note != "" && h.NoteKey == "" && target != "herdr-app" {
 			t.Errorf("%s: note has no key", target)
 		}
 		if automationProblem(target) != "" && h.ErrorKey == "" {

@@ -2,7 +2,7 @@
 
 Plugins are complete native packages, not standalone skills. Keep their components
 together. Install targets: `claude`, `codex`, `cursor`, `antigravity` (`agy` alias),
-`antigravity-cli`, `copilot`, `pi`, `opencode`, and `omp`. Grok supports native import/removal,
+`antigravity-cli`, `copilot`, `pi`, `opencode`, `omp`, and `herdr-app`. Grok supports native import/removal,
 with trust/install handled in Grok. Kimi, Hermes, and Devin are discovery-only.
 Read `targetDefinitions` from JSON output instead of assuming every format supports
 all operations. `targetInfo` reports per-target components, version, and problems.
@@ -147,6 +147,11 @@ OMP and OpenCode, never falling back to global scope. An update reports failed t
   `.agents/plugins/` (existing `_agents/plugins/` is supported). This targets desktop/workspace
   discovery, not the separate standalone agy CLI plugin store. Use `antigravity-cli` for that
   store; `agy` remains the desktop alias. No Gemini CLI adapter is provided.
+- Herdr app (`herdr-app`, global only): a source with no plugin manifest and root
+  `mods/<id>/main.js`, copied to `<home>/mods/<id>` (home `$HERDR_APP_HOME`, default `~/.config/herdr-app`);
+  `--entry bin/<command>` installs a launcher and prints its stable managed entry path (macOS and Linux).
+  The whole folder is managed; local edits block replacement and removal. Foreign mods or launchers are refused; move them aside. Skipped
+  by sync/check/update where the Herdr home is absent.
 - Pi: `package.json` with a `pi` resource manifest or `pi-package` conventions. Native install/remove; read-only
   settings inventory honors `PI_CODING_AGENT_DIR`. Project trust must be completed
   in Pi; do not bypass it with automatic approval flags.

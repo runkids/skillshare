@@ -91,6 +91,8 @@ func (s *Service) storeIdentity(target string) string {
 			dir = ompPluginRoot(home, "omp") + "\x00" + ompDefaultCacheRoot()
 		case "cursor", "antigravity":
 			dir, _, _ = s.localRoot(target)
+		case "herdr-app":
+			dir = herdrHome()
 		default:
 			dir = home
 		}

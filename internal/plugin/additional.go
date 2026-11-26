@@ -39,7 +39,7 @@ func validTargetID(target, id string) bool {
 		return validID(id)
 	case "claude", "codex", "omp":
 		return validID(id)
-	case "cursor", "antigravity", "antigravity-cli", "grok", "kimi", "hermes", "devin":
+	case "herdr-app", "cursor", "antigravity", "antigravity-cli", "grok", "kimi", "hermes", "devin":
 		return namePattern.MatchString(id)
 	case "copilot":
 		return namePattern.MatchString(id) || validID(id)
@@ -116,6 +116,8 @@ func (s *Service) additionalHost(ctx context.Context, target string) Host {
 	}
 	var err error
 	switch agent {
+	case "herdr-app":
+		return s.herdrHost(target)
 	case "cursor":
 		h.NoteKey = "plugins.note.cursor"
 		h.Note = "Local plugin files only. Reload Cursor and allow local plugin imports; marketplace installations take precedence."
@@ -175,7 +177,7 @@ func (s *Service) verifyAdditional(ctx context.Context, target, action, id strin
 	if !slices.Contains([]string{"install", "update", "remove", "uninstall"}, action) {
 		return fmt.Errorf("unsupported plugin action %s", action)
 	}
-	if agent == "cursor" || agent == "antigravity" || agent == "opencode" {
+	if agent == "herdr-app" || agent == "cursor" || agent == "antigravity" || agent == "opencode" {
 		return nil
 	}
 	command := action
@@ -215,6 +217,8 @@ func (s *Service) applyAdditional(ctx context.Context, c Change, b Binding) erro
 	}
 	remove := c.Action == "remove" || c.Action == "uninstall"
 	switch s.agentOf(c.Target) {
+	case "herdr-app":
+		return s.applyHerdr(c, b, root)
 	case "cursor", "antigravity":
 		return s.applyLocal(c, b, root)
 	case "opencode":

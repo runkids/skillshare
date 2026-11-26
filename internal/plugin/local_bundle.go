@@ -43,6 +43,11 @@ func (s *Service) localRoot(target string) (string, string, error) {
 	return filepath.Join(home, ".cursor", "plugins", "local"), filepath.Join(home, ".cursor"), nil
 }
 
+type localFolderLayout struct {
+	root, base, scratch string
+	ignore              func(string, bool) bool
+}
+
 // Native configuration and installation paths must not redirect writes elsewhere.
 // root is the Agent folder or project the user chose, which may itself be reached
 // through links (macOS /var, a linked home, CLAUDE_CONFIG_DIR); only path and the
@@ -117,11 +122,16 @@ func (s *Service) localInventory(target string) ([]Installed, string, error) {
 }
 
 func (s *Service) applyLocal(c Change, b Binding, source string) error {
-	target := c.Target
-	root, base, err := s.localRoot(target)
+	root, base, err := s.localRoot(c.Target)
 	if err != nil {
 		return err
 	}
+	return s.applyLocalIn(localFolderLayout{root, base, root, nil}, c, b, source)
+}
+
+func (s *Service) applyLocalIn(layout localFolderLayout, c Change, b Binding, source string) error {
+	var err error
+	root, base := layout.root, layout.base
 	dest := filepath.Join(root, b.ID)
 	if err = noSymlink(base, dest); err != nil {
 		return err
@@ -129,12 +139,12 @@ func (s *Service) applyLocal(c Change, b Binding, source string) error {
 	if err = os.MkdirAll(root, 0755); err != nil {
 		return err
 	}
-	lock := flock.New(filepath.Join(root, ".skillshare.lock"))
+	lock := flock.New(filepath.Join(layout.scratch, ".skillshare.lock"))
 	if err = lock.Lock(); err != nil {
 		return err
 	}
 	defer lock.Unlock()
-	marker := filepath.Join(root, ".skillshare-"+b.ID+".json")
+	marker := filepath.Join(layout.scratch, ".skillshare-"+b.ID+".json")
 	if err = noSymlink(base, marker); err != nil {
 		return err
 	}
@@ -150,7 +160,7 @@ func (s *Service) applyLocal(c Change, b Binding, source string) error {
 		if readErr != nil || json.Unmarshal(data, &owner) != nil || owner.Config != config {
 			return fmt.Errorf("Local plugin directory is not owned by this Skillshare configuration")
 		}
-		digest, err := treeDigest(dest)
+		digest, err := treeDigestIgnoring(dest, layout.ignore)
 		if err != nil {
 			return err
 		}
@@ -173,7 +183,7 @@ func (s *Service) applyLocal(c Change, b Binding, source string) error {
 	if source == "" {
 		return fmt.Errorf("Local plugin requires a source")
 	}
-	temp, err := os.MkdirTemp(root, ".skillshare-copy-")
+	temp, err := os.MkdirTemp(layout.scratch, ".skillshare-copy-")
 	if err != nil {
 		return err
 	}
@@ -181,16 +191,18 @@ func (s *Service) applyLocal(c Change, b Binding, source string) error {
 	if err = copyTree(source, temp); err != nil {
 		return err
 	}
-	digest, err := treeDigest(temp)
+	digest, err := treeDigestIgnoring(temp, layout.ignore)
 	if err != nil {
 		return err
 	}
-	backup := filepath.Join(root, ".skillshare-previous-"+b.ID)
+
+	backup := filepath.Join(layout.scratch, ".skillshare-previous-"+b.ID)
 	if _, err = os.Lstat(backup); err == nil {
 		return fmt.Errorf("unfinished local plugin replacement at %s; inspect before retrying", backup)
 	} else if !os.IsNotExist(err) {
 		return err
 	}
+
 	if existed {
 		if err = os.Rename(dest, backup); err != nil {
 			return err
