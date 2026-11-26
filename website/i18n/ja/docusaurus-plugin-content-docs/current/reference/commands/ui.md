@@ -101,7 +101,7 @@ skillshare ui start --clear-cache
 | **Projects** | global mode のみ。global config が sync する project フォルダーで、`config.yaml` の [`projects`](/docs/reference/targets/configuration#projects)、このマシンだけに保存された project（**このマシン** と表示）、[`mcp.projects`](./mcp.md#projects-in-the-dashboard) から一覧される。同じ project はターミナルから [`skillshare project`](./project.md) でも管理できる。**プロジェクトを追加** はフォルダー、その target、sync する内容を指定し、ダイアログ下部の **保存先** で **このマシンのみ** を選ばない限り `config.yaml` に保存する（[`projects_storage`](/docs/reference/targets/configuration#projects-storage) が `machine-local` のときはこちらが既定）。**このフォルダー内の各 checkout も追加** は [`project add --scan`](./project.md#scan) と同じ動作です。**検索する場所** に `.worktrees` などのフォルダーを並べ、**確認** で各フォルダーが Added、Kept、Skipped のどれかと理由を保存前に表示します。MCP と Hooks を選んだ場合は、追加された各 project に設定します。編集は project が保存されている場所に保存される。保存済みの project を移すには `skillshare project localize` または `share` を使う。このマシンが上書きしている project を削除すると、このマシンのコピーだけを削除するか、`config.yaml` 側も削除するかを確認する。削除した project の `mcp.projects` と `hooks.projects` のエントリーは残るため、フォルダーは一覧に残る。もう一度削除するとそれらも消える。各 project には **Skills** と **Agents** タブがあり、フィルター、プレビュー、書き込まれるフォルダーを表示する。**MCP** タブでは、そのフォルダー内で global サーバーをオフにしたり、その project 独自のサーバーを追加したりでき、それらのサーバー用の **チェック** もある。**Sync project** はプレビューしてから、その project の skills、agents、MCP だけを sync する。すでに project フォルダーを指している Target は変換できる。project の **MCP** タブでは **オプトインのサーバー** で[共有サーバー](./mcp.md#share-a-server-with-chosen-projects)をオンにでき、鉛筆ボタンでそのプロジェクトの[上書き](./mcp.md#override-a-shared-server)内容を変更でき、上書きしたサーバーには **上書き済み** タグが付き、**読み込みの流れ** はサーバーの出どころと sync が書き込む Agent のファイルを図で示す。**Skills** と **Agents** タブには、ターゲット、スイッチ、同期されるものとスキップされるものを分けて見られるプレビュー付きのフィルター、書き込まれるフォルダー、同期モードが表示される。**Hooks** タブにはその project の hook が並び、**ここでの hook の管理をやめる** はフォルダーを `hooks.projects` から外す。次の sync で Skillshare がそこに書いた hook が削除される |
 | **Context** | **Maintain** の下、**Audit** の上。**Skills** タブは、選んだ Skill の Target（`?target=`）について、各 Skill が Target のコンテキストに追加するトークン数を [`analyze`](./analyze.md) のように見積もる。**MCP** タブ（`?tab=mcp&agent=<target>`、project では `<root>@<target>`）には Agent セレクターがあり、数えたトークン数を [`warn_mcp_tool_tokens`](/docs/reference/targets/configuration#context_budget) と比較して、ツール数、数えたサーバーの数、予算超過の警告、サーバーごとのバーを表示する。ライブチェックがまだ数えていないサーバーには **not counted** のタグが付く。**Check live** は [`mcp check --live`](./mcp.md#count-tool-tokens) を実行し、すべてのサーバーを起動してカウントを更新する。**Sync** ページは sync の後、予算を超えた MCP Target ごとに警告し、**Open Context** を表示する。**MCP** ページの右レールには、トークン数が最も多い global Target（サーバーを読み込むのが project だけなら、最も重い project の Target）の **Context cost** カードがある |
 | **Audit** | Skill と Agent のセキュリティスキャン。重大度別の検出結果を表示。[たどる source link](/docs/reference/targets/configuration#follow_source_links) を読み取れなかった場合は、Skills / Agents タブの横に **スキャン未完了** と表示され、部分的なスキャンが完全なスキャンと誤認されないようになる。このときスキャン後は問題なしではなく警告を表示し、ダッシュボードの **Needs attention** にも表示される。**Rules** タブでは、カテゴリごとにすべてのルールを閲覧できる: ルールをオフにする、重大度を変更する、カテゴリ全体に重大度を適用する、スキャンプロファイル（`default`、`strict`、`permissive`）を選ぶ、カスタム `audit-rules.yaml` のエディタを開く、のいずれかができる |
-| **Settings** | タブ分け: **General**（Source パス、sync モード、外観）、**Backup**（Target フォルダのスナップショット、`AGENTS.md` などのファイルの以前のバージョン、MCP 設定のバックアップ。[`backup`](./backup.md#dashboard) を参照）、**Log**（操作履歴）、**Health**（[`doctor`](/docs/reference/commands/doctor) と同じチェック）、**Extensions**（sync 時のファイル変換）、**Files**（`config.yaml`、`.skillignore`、`.agentignore` の直接編集。`.skillignore.local` または `.agentignore.local` がある場合は、ファイルの後に適用されて上書きできるため、エディタの上にそのルールを表示します） |
+| **Settings** | タブ分け: **General**（Source パス、sync モード）、**Appearance**（スタイル、モード、言語、カスタムテーマエディタ）、**Backup**（Target フォルダのスナップショット、`AGENTS.md` などのファイルの以前のバージョン、MCP 設定のバックアップ。[`backup`](./backup.md#dashboard) を参照）、**Log**（操作履歴）、**Health**（[`doctor`](/docs/reference/commands/doctor) と同じチェック）、**Extensions**（sync 時のファイル変換）、**Files**（`config.yaml`、`.skillignore`、`.agentignore` の直接編集。`.skillignore.local` または `.agentignore.local` がある場合は、ファイルの後に適用されて上書きできるため、エディタの上にそのルールを表示します） |
 
 変更一覧の横の **変更を破棄** は、確認後に選択した Git スコープ内の追跡中のファイルとステージング領域を最後のコミットに戻し、未追跡のファイルとフォルダーを削除します。Git に無視されたファイル、入れ子になった Git リポジトリ、`root` スコープの `config.yaml` は保持されます。コミット履歴の変更やリモートへのプッシュは行わず、この操作は元に戻せません。**ドライラン** はファイルを変更せずプレビューします。変更を破棄するには、リポジトリに最初のコミットが必要です。
 
@@ -115,14 +115,18 @@ Git の競合比較ではファイル全体のバージョンを選びます。�
 
 ### テーマシステム
 
-ダッシュボードは、サイドバーの **Theme** ボタンで切り替え可能な 2 つのビジュアルスタイルと 3 つのカラーモードに対応しています。
+ダッシュボードには 3 つのスタイルと 3 つのカラーモードがあり、サイドバーの **Theme** ボタンまたは **Settings -> Appearance** で切り替えられます。
 
 | 設定 | 選択肢 | デフォルト |
 |---------|---------|---------|
-| **Style** | `Clean`（プロフェッショナル）、`Playful`（太いアウトライン、ハードシャドウ、手書き風の見出し） | Playful |
+| **Style** | `Clean`（落ち着いた高密度のデザイン。デスクトップ幅ではページがインセットパネルの上に載ります）、`Playful`（インク色のアウトライン、オフセットシャドウ、手書き風の見出し）、`Custom`（Clean または Playful をベースにした独自の配色） | Clean |
 | **Mode** | `Light`、`Dark`、`System`（OS の設定に従う） | Light |
 
-テーマの設定はセッションをまたいで localStorage に保持されます。
+**Custom** を選ぶと、**Settings -> Appearance** にテーマエディタが開きます。14 種類のプリセット（Clean 用 10、Playful 用 4）から始めることも、ベースのスタイル、アクセントカラー、背景の色合い、角の丸み、フォントを自分で選ぶこともできます。**Advanced** では別指定のリンクカラーを、ベースが Clean の場合はさらにレイアウト、見出しとボタンのスタイルを設定できます。ダークモードの色は、ダーク用のアクセントを自分で設定しない限り、アクセントカラーから自動で導出されます。すべてのテキストカラーは、載っている面に対して 4.5:1 以上のコントラストで読めるまで調整され、選んだ色を調整した場合はエディタがその旨を表示します。フォントが変えるのは英字と数字だけで、日本語・中国語・韓国語の文字はシステムフォントのままです。表示言語がこれらの場合はスイッチが表示され、オンにすると対応する Noto Sans も読み込みます。System 以外のフォントは Google Fonts から読み込まれます。エディタ上部のプレビューは、オプションを変更している間も常に表示され、変更が影響する部分を一瞬ハイライトします。編集したプリセットには変更ありと表示され、もう一度選ぶと元に戻ります。各カラーコード欄からはシステムのカラーピッカーも開けます。
+
+**Share** では、テーマを小さな JSON ファイルとしてエクスポートしたり、JSON ファイルをインポートしたり、リンクをコピーしたりできます。リンクを開くと **Settings -> Appearance** が開き、テーマを適用するか確認されます。リンクは、コピーしたときと同じダッシュボードのアドレスで開きます。
+
+テーマの設定（カスタムテーマを含む）は、このブラウザーの localStorage に保持されます。ダッシュボードの URL に `?style=clean|playful|custom` や `?mode=light|dark` を付けると、そのブラウザーでのスタイルやモードを指定できます。
 
 ### Project mode の違い
 

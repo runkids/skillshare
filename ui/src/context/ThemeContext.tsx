@@ -1,14 +1,31 @@
 import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { themeFromSearch } from '../lib/themeParams';
+import { isFromApp, postToApp } from '../lib/embeddingApp';
+import {
+  DEFAULT_CUSTOM_THEME,
+  decodeShare,
+  fontUrl,
+  parseCustomTheme,
+  rootAttributes,
+  serializeCustomTheme,
+  themeCss,
+  themeVars,
+  type CustomTheme,
+} from '../lib/customTheme';
 
-export type Style = 'clean' | 'playful';
+export type Style = 'clean' | 'playful' | 'custom';
+/** The built-in style a page is drawn with; a custom theme recolours one of these. */
+export type BaseStyle = 'clean' | 'playful';
 export type ModePreference = 'light' | 'dark' | 'system';
 export type ResolvedMode = 'light' | 'dark';
 
 interface ThemeContextValue {
   style: Style;
   setStyle: (s: Style) => void;
+  baseStyle: BaseStyle;
+  customTheme: CustomTheme;
+  setCustomTheme: (t: CustomTheme) => void;
   modePreference: ModePreference;
   setModePreference: (m: ModePreference) => void;
   resolvedMode: ResolvedMode;
@@ -20,6 +37,9 @@ interface ThemeContextValue {
 const ThemeContext = createContext<ThemeContextValue>({
   style: 'clean',
   setStyle: () => {},
+  baseStyle: 'clean',
+  customTheme: DEFAULT_CUSTOM_THEME,
+  setCustomTheme: () => {},
   modePreference: 'light',
   setModePreference: () => {},
   resolvedMode: 'light',
@@ -41,13 +61,83 @@ applyUrlThemeParam();
 
 // Tell an embedding app (the desktop shell) that a new page is starting. It arrives before the
 // first theme-change reports, so the app can tell this page's starting theme from a user's choice.
-if (window.parent !== window) {
-  window.parent.postMessage({ type: 'theme-init' }, '*');
-}
+postToApp({ type: 'theme-init' });
+
+// The custom theme as JSON, and the stylesheet derived from it for index.html to apply before
+// first paint (the derivation lives in a module the inline script cannot load).
+const CUSTOM_KEY = 'skillshare-custom-theme';
+const CUSTOM_CSS_KEY = 'skillshare-custom-css';
+const CUSTOM_FONT_KEY = 'skillshare-custom-font';
+// Playful headings only; index.html adds it before first paint when the saved style needs it.
+const KALAM_URL = 'https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&display=swap';
 
 function getInitialStyle(): Style {
-  // Clean is the default; Playful only when someone picked it.
-  return localStorage.getItem('skillshare-style') === 'playful' ? 'playful' : 'clean';
+  // Clean is the default; Playful or Custom only when someone picked it.
+  const stored = localStorage.getItem('skillshare-style');
+  return stored === 'playful' || stored === 'custom' ? stored : 'clean';
+}
+
+function getInitialCustomTheme(): CustomTheme {
+  // An embedding app keeps the theme (its webview may not keep this page's storage) and hands it
+  // over in the URL. Only an app's: in a plain tab the share link on Appearance asks first.
+  const handed = new URLSearchParams(window.location.search).get('custom-theme');
+  const fromApp = handed && window.parent !== window ? decodeShare(handed) : null;
+  if (fromApp) return fromApp;
+  try {
+    return (
+      parseCustomTheme(JSON.parse(localStorage.getItem(CUSTOM_KEY) ?? 'null')) ??
+      DEFAULT_CUSTOM_THEME
+    );
+  } catch {
+    return DEFAULT_CUSTOM_THEME;
+  }
+}
+
+/** Apply the base style and, for Custom, its stylesheet and layout to <html>. */
+function applyStyle(style: Style, custom: CustomTheme) {
+  const root = document.documentElement;
+  for (const [name, value] of Object.entries(rootAttributes(style, custom))) {
+    if (value === null) root.removeAttribute(name);
+    else root.setAttribute(name, value);
+  }
+  if (root.dataset.theme === 'playful' && !document.getElementById('ss-kalam')) {
+    const kalam = document.createElement('link');
+    kalam.id = 'ss-kalam';
+    kalam.rel = 'stylesheet';
+    kalam.href = KALAM_URL;
+    document.head.appendChild(kalam);
+  }
+  let sheet = document.getElementById('ss-custom-theme');
+  let font = document.getElementById('ss-custom-font') as HTMLLinkElement | null;
+  const lang = custom.cjk ? root.lang : null;
+  const url = style === 'custom' ? fontUrl(custom.font, lang) : null;
+  if (!url) font?.remove();
+  else if (font?.href !== url) {
+    font?.remove();
+    font = document.createElement('link');
+    font.id = 'ss-custom-font';
+    font.rel = 'stylesheet';
+    font.href = url;
+    document.head.appendChild(font);
+  }
+  if (style !== 'custom') {
+    sheet?.remove();
+    return;
+  }
+  const css = themeCss(custom);
+  if (!sheet) {
+    sheet = document.createElement('style');
+    sheet.id = 'ss-custom-theme';
+    document.head.appendChild(sheet);
+  }
+  // Cached for index.html to paint before React loads; rewritten only when it changes, since this
+  // runs on every step of a colour drag.
+  if (sheet.textContent !== css) {
+    sheet.textContent = css;
+    localStorage.setItem(CUSTOM_CSS_KEY, css);
+  }
+  if (url) localStorage.setItem(CUSTOM_FONT_KEY, url);
+  else localStorage.removeItem(CUSTOM_FONT_KEY);
 }
 
 function getInitialModePreference(): ModePreference {
@@ -82,23 +172,41 @@ function applyWithTransition(fn: () => void) {
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [style, setStyleState] = useState<Style>(getInitialStyle);
+  const [customTheme, setCustomThemeState] = useState<CustomTheme>(getInitialCustomTheme);
   const [modePreference, setModePreferenceState] =
     useState<ModePreference>(getInitialModePreference);
   const [resolvedMode, setResolvedMode] = useState<ResolvedMode>(() =>
     resolveMode(getInitialModePreference()),
   );
 
-  // Apply style to DOM
+  // Apply style to DOM. An embedding app gets the custom theme with the report, since it keeps
+  // its own copy (an iframe's storage does not survive on every platform).
+  // The CJK font follows the interface language, which the i18n provider sets on <html>.
   useEffect(() => {
-    const root = document.documentElement;
-    if (style === 'playful') {
-      root.setAttribute('data-theme', 'playful');
-    } else {
-      root.removeAttribute('data-theme');
-    }
+    if (style !== 'custom' || !customTheme.cjk) return;
+    const watch = new MutationObserver(() => applyStyle(style, customTheme));
+    watch.observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] });
+    return () => watch.disconnect();
+  }, [style, customTheme]);
+
+  useEffect(() => {
+    applyStyle(style, customTheme);
     localStorage.setItem('skillshare-style', style);
-    window.parent.postMessage({ type: 'theme-change', theme: style }, '*');
-  }, [style]);
+    const json = serializeCustomTheme(customTheme);
+    localStorage.setItem(CUSTOM_KEY, json);
+    // For Custom the app gets the theme to keep and hand back (`?custom-theme=`, `theme-push`),
+    // and each mode's custom properties to paint its own window with.
+    postToApp(
+      style === 'custom'
+        ? {
+            type: 'theme-change',
+            theme: style,
+            custom: JSON.parse(json),
+            vars: themeVars(customTheme),
+          }
+        : { type: 'theme-change', theme: style },
+    );
+  }, [style, customTheme]);
 
   // Apply mode to DOM and handle system listener
   useEffect(() => {
@@ -113,7 +221,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     }
 
     localStorage.setItem('skillshare-theme-preference', modePreference);
-    window.parent.postMessage({ type: 'theme-change', theme: resolved }, '*');
+    postToApp({ type: 'theme-change', theme: resolved });
 
     if (modePreference !== 'system') return;
 
@@ -126,7 +234,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       } else {
         root.classList.remove('dark');
       }
-      window.parent.postMessage({ type: 'theme-change', theme: next }, '*');
+      postToApp({ type: 'theme-change', theme: next });
     };
 
     mq.addEventListener('change', handler);
@@ -135,17 +243,32 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     };
   }, [modePreference]);
 
-  // Sync theme from URL ?theme= param on popstate (back/forward navigation)
+  // The browser tints its own bar (mobile address bar, Safari tab bar) with theme-color, so it
+  // follows the page edge: the shell around Clean's inset panel, otherwise the page background.
+  // The panel is inset only from 768px, so a resize or rotation across it updates the bar too.
+  useEffect(() => {
+    const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+    if (!meta) return;
+    const root = document.documentElement;
+    const wide = window.matchMedia('(min-width: 768px)');
+    const update = () => {
+      const inset = !root.dataset.theme && root.dataset.layout !== 'full' && wide.matches;
+      const color = getComputedStyle(root)
+        .getPropertyValue(inset ? '--shell' : '--bg')
+        .trim();
+      if (color) meta.content = color;
+    };
+    update();
+    wide.addEventListener('change', update);
+    return () => wide.removeEventListener('change', update);
+  }, [style, customTheme, resolvedMode]);
+
+  // Follow the theme in the URL on back/forward navigation, as on load.
   useEffect(() => {
     function syncFromUrl() {
-      const p = new URLSearchParams(window.location.search).get('theme')?.toLowerCase();
-      if (!p) return;
-      if (p === 'dark' || p === 'light') {
-        applyWithTransition(() => setModePreferenceState(p));
-      }
-      if (p === 'playful' || p === 'clean') {
-        applyWithTransition(() => setStyleState(p));
-      }
+      const { style: s, mode } = themeFromSearch(window.location.search);
+      if (mode) applyWithTransition(() => setModePreferenceState(mode));
+      if (s) applyWithTransition(() => setStyleState(s));
     }
 
     window.addEventListener('popstate', syncFromUrl);
@@ -155,10 +278,22 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   // Listen for theme-push from parent window (Tauri shell)
   useEffect(() => {
     function handleMessage(event: MessageEvent) {
-      if (event.data?.type !== 'theme-push') return;
-      const { mode, style: newStyle } = event.data;
+      if (!isFromApp(event) || event.data?.type !== 'theme-push') return;
+      const { mode, style: newStyle, custom } = event.data;
       if (newStyle === 'playful' || newStyle === 'clean') {
         applyWithTransition(() => setStyleState(newStyle));
+      }
+      if (newStyle === 'custom') {
+        const theme = parseCustomTheme(custom);
+        applyWithTransition(() => {
+          // A theme equal to the current one keeps its identity, so it is not reported back.
+          if (theme) {
+            setCustomThemeState((current) =>
+              serializeCustomTheme(current) === serializeCustomTheme(theme) ? current : theme,
+            );
+          }
+          setStyleState('custom');
+        });
       }
       if (mode === 'dark' || mode === 'light') {
         applyWithTransition(() => setModePreferenceState(mode));
@@ -170,6 +305,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   const setStyle = useCallback((s: Style) => {
     applyWithTransition(() => setStyleState(s));
+  }, []);
+
+  const setCustomTheme = useCallback((t: CustomTheme) => {
+    applyWithTransition(() => setCustomThemeState(t));
   }, []);
 
   const setModePreference = useCallback((m: ModePreference) => {
@@ -184,13 +323,25 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     () => ({
       style,
       setStyle,
+      baseStyle: style === 'custom' ? customTheme.base : style,
+      customTheme,
+      setCustomTheme,
       modePreference,
       setModePreference,
       resolvedMode,
       theme: resolvedMode,
       toggleTheme,
     }),
-    [style, setStyle, modePreference, setModePreference, resolvedMode, toggleTheme],
+    [
+      style,
+      setStyle,
+      customTheme,
+      setCustomTheme,
+      modePreference,
+      setModePreference,
+      resolvedMode,
+      toggleTheme,
+    ],
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;

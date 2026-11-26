@@ -19,6 +19,11 @@ describe('themeFromSearch', () => {
     expect(themeFromSearch('?theme=dark&style=clean')).toEqual({ mode: 'dark', style: 'clean' });
   });
 
+  it('reads Custom only from ?style=', () => {
+    expect(themeFromSearch('?style=custom')).toEqual({ style: 'custom' });
+    expect(themeFromSearch('?theme=custom')).toEqual({});
+  });
+
   it('ignores unknown values and other params', () => {
     expect(themeFromSearch('?tab=updates&mode=sepia&style=neon&theme=x')).toEqual({});
   });

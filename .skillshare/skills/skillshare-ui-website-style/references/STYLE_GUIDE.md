@@ -19,20 +19,22 @@ Reference pages: `ui/src/pages/TargetsPage.tsx`, `ui/src/pages/ResourcesPage.tsx
 
 ## 2. Clean and Playful
 
-| | Clean | Playful (default) |
+| | Clean (default) | Playful |
 |-|-------|-------------------|
-| Feel | Quiet, professional | Notebook, stationery |
+| Feel | Quiet, professional; at desktop width the page sits on an inset panel | Notebook, stationery |
 | Headings | System font | Kalam |
-| Borders | 1px hairline | 2px ink line |
+| Borders | 1px hairline | 1.5px ink line |
 | Shadows | Soft, barely there | Hard offset, no blur |
 | Separators | Solid hairline | Dashed |
-| Primary | Ink | Yellow with an ink border |
+| Primary | Ink | Terracotta with an ink border |
 | Accents | None | Pastels, highlighter under the page title, dot-grid background |
 | Tiles | Plain boxes | Sticky notes with tape |
 
 Playful gets its character from line weight, hard shadows and the heading font. Nothing in the dashboard is rotated or tilted; rotation belongs to the website homepage.
 
-Both styles ship in light and dark. Dark is not an inversion: Playful dark replaces yellow with amber and keeps pastel notes light enough for dark text, so check it rather than assuming.
+Both styles ship in light and dark. Dark is not an inversion: Playful dark turns the primary amber and keeps pastel fills light enough for dark text (`--on-pa`), so check it rather than assuming.
+
+A third style, Custom, recolours either one from a few user options (accent, background tint, corners, font). It changes token values only, so it needs no markup of its own.
 
 ---
 

@@ -5,11 +5,12 @@
 :root:not([data-theme='playful']) {
   --bg: #f7f6f3;
   --side: #f1efea;
+  --shell: #f1efea;
   --surface: #ffffff;
   --sunken: #f4f2ed;
   --ink: #141312;
   --ink-2: #57544d;
-  --ink-3: #726e66;
+  --ink-3: #6b675f;
   --line: #e6e3dc;
   --line-soft: #e6e3dc;
   --line-2: #d6d2c9;
@@ -67,6 +68,7 @@
 :root:not([data-theme='playful']).dark {
   --bg: #111110;
   --side: #161514;
+  --shell: #0b0b0a;
   --surface: #1c1b19;
   --sunken: #181715;
   --ink: #edebe6;
@@ -118,29 +120,24 @@
   }
 }
 :root[data-theme='playful'] {
-  --bg: #fff8e8;
-  --side: #fff8e8;
-  --surface: #fffdf8;
-  --sunken: #f8edd6;
-  --ink: #26201a;
-  --ink-2: #574f44;
-  --ink-3: #7a705f;
-  --pa: #ffdc73;
-  --pb: #ffb9cc;
-  --pc: #a9dbff;
-  --pd: #bfe6a8;
-  --pe: #fff0c2;
-  --line: #26201a;
-  --line-soft: #e2d2b0;
-  --line-2: #26201a;
-  --sep: 1.5px dashed #e2d2b0;
-  --frame: 2px solid #26201a;
+  --bg: #f8f5ef;
+  --side: #f8f5ef;
+  --surface: #fffdf9;
+  --sunken: #f2ede3;
+  --ink: #2b2722;
+  --ink-2: #5c554b;
+  --ink-3: #625b50;
+  --pa: #f2dc9c;
+  --pb: #efc9cf;
+  --pc: #c6dcec;
+  --pd: #d2e3c1;
+  --pe: #f5eedd;
   --accent: #2d5da1;
   --accent-bg: #e6eef9;
-  --sel: #ffdc73;
-  --sel-ink: #26201a;
-  --pri: #ffdc73;
-  --on-pri: #26201a;
+  --sel: #f0e6cc;
+  --sel-ink: #2b2722;
+  --pri: #b4502f;
+  --on-pri: #fffaf3;
   --ok: #1b7345;
   --ok-bg: #ddf1e3;
   --warn: #8a5200;
@@ -172,38 +169,34 @@
   --r-btn: 999px;
   --r-box: 14px;
   --r-tag: 6px;
-  --bw: 2px;
-  --sh-box: 4px 4px 0 #26201a;
-  --sh-btn: 3px 3px 0 #26201a;
-  --sh-float: 5px 5px 0 #26201a;
-  --sh-dialog: 8px 8px 0 #26201a;
+  --bw: 1.5px;
+  --sh-box: 3px 3px 0 #3a342d;
+  --sh-btn: 2px 2px 0 #3a342d;
+  --sh-float: 4px 4px 0 #3a342d;
+  --sh-dialog: 6px 6px 0 #3a342d;
   --isw: 2.1;
-  --dots: #26201a1a;
+  --dots: #2b272212;
+  --on-pa: #2b2722;
 }
 :root[data-theme='playful'].dark {
-  --bg: #1b1916;
-  --side: #1b1916;
-  --surface: #25221d;
-  --sunken: #201d19;
-  --ink: #f1ebdd;
-  --ink-2: #b8b1a2;
-  --ink-3: #979080;
-  --line: #d8d1c0;
-  --line-soft: #403b31;
-  --line-2: #d8d1c0;
-  --sep: 1.5px dashed #403b31;
-  --frame: 2px solid #d8d1c0;
+  --bg: #1c1b19;
+  --side: #1c1b19;
+  --surface: #252320;
+  --sunken: #211f1c;
+  --ink: #ece6da;
+  --ink-2: #b3ac9f;
+  --ink-3: #9a9386;
   --accent: #9dbdf0;
   --accent-bg: #1e2939;
-  --sel: #e8a84c;
-  --sel-ink: #1b1916;
-  --pri: #e8a84c;
-  --on-pri: #1b1916;
-  --pa: #e8a84c;
-  --pb: #d98ba3;
-  --pc: #7fb4e0;
-  --pd: #94c27a;
-  --pe: #4a3c1c;
+  --sel: #3a3324;
+  --sel-ink: #f3e3bf;
+  --pri: #e0b25f;
+  --on-pri: #1c1b19;
+  --pa: #d6b26e;
+  --pb: #cf9aaa;
+  --pc: #8fb3d4;
+  --pd: #9fbf86;
+  --pe: #2a2720;
   --ok: #6fd39a;
   --ok-bg: #17281e;
   --warn: #f2c053;
@@ -222,11 +215,30 @@
   --c-target-bg: #17281e;
   --c-plugin: #f2a6d1;
   --c-plugin-bg: #321a2a;
-  --sh-box: 4px 4px 0 #000;
-  --sh-btn: 3px 3px 0 #000;
-  --sh-float: 5px 5px 0 #000;
-  --sh-dialog: 8px 8px 0 #000;
-  --dots: #2b2721;
+  --sh-box: 3px 3px 0 #0d0c0b;
+  --sh-btn: 2px 2px 0 #0d0c0b;
+  --sh-float: 4px 4px 0 #0d0c0b;
+  --sh-dialog: 6px 6px 0 #0d0c0b;
+  --dots: #2a2723;
+  --on-pa: #1b1916;
+}
+/* Playful's lines, apart from its colours: the custom theme editor's preview sets them for the mode
+   it shows, which can differ from the page's, while a custom theme on Playful keeps them. */
+:root[data-theme='playful'],
+:root[data-theme='playful'] .ss-mini[data-mode='light'] {
+  --line: #3a342d;
+  --line-soft: #e4ddcf;
+  --line-2: #3a342d;
+  --sep: 1.5px dashed #e4ddcf;
+  --frame: 1.5px solid #3a342d;
+}
+:root[data-theme='playful'].dark,
+:root[data-theme='playful'] .ss-mini[data-mode='dark'] {
+  --line: #6b6458;
+  --line-soft: #38342e;
+  --line-2: #6b6458;
+  --sep: 1.5px dashed #38342e;
+  --frame: 1.5px solid #6b6458;
 }
 
 /* Diffs are the one place the Clean style uses colour: removed lines red, added lines green. */
@@ -305,6 +317,24 @@ body {
   -webkit-font-smoothing: antialiased;
   font-feature-settings: 'tnum' 1;
 }
+/* Clean inset panel: the page sits on a raised panel inset from a shell the sidebar shares.
+   Desktop width only; the mobile header and drawer keep the plain layout. A custom theme can opt out with data-layout="full". */
+@media (min-width: 768px) {
+  :root:not([data-theme='playful']):not([data-layout='full']) body {
+    background-color: var(--shell);
+  }
+  :root:not([data-theme='playful']):not([data-layout='full']) .ss-main {
+    margin: 8px 8px 8px 232px;
+    min-height: calc(100vh - 16px);
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: calc(var(--r-box) + 2px);
+    box-shadow: 0 1px 3px rgba(20, 19, 18, 0.05);
+  }
+  :root:not([data-theme='playful']).dark:not([data-layout='full']) .ss-main {
+    box-shadow: none;
+  }
+}
 svg.lucide {
   flex: none;
   stroke-width: var(--isw);
@@ -324,11 +354,14 @@ svg.lucide {
     background: var(--side);
     border-right: 1px solid var(--line);
   }
-  :root[data-theme='playful'] .ss-side {
-    border-right: 2px dashed #dcc9a3;
+  @media (min-width: 768px) {
+    :root:not([data-theme='playful']):not([data-layout='full']) aside.ss-side {
+      background: transparent;
+      border-right: 0;
+    }
   }
-  :root[data-theme='playful'].dark .ss-side {
-    border-right-color: #4a453a;
+  :root[data-theme='playful'] .ss-side {
+    border-right: 2px dashed var(--line-soft);
   }
   .ss-wm {
     padding: 4px 10px 18px;
@@ -444,8 +477,8 @@ svg.lucide {
   :root[data-theme='playful'].dark .ss-ph h1 span {
     background: linear-gradient(
       transparent 58%,
-      rgba(232, 168, 76, 0.45) 58%,
-      rgba(232, 168, 76, 0.45) 92%,
+      rgba(224, 178, 95, 0.26) 58%,
+      rgba(224, 178, 95, 0.26) 92%,
       transparent 92%
     );
   }
@@ -1167,7 +1200,7 @@ svg.lucide {
     background: var(--pe);
   }
   :root[data-theme='playful'].dark .ss-r.sel {
-    background: #332b17;
+    background: var(--sel);
   }
   /* Preview rows: a rule under the pointer lights the rows it matches; a row a rule change just flipped
    is tinted at once, then fades. Transitions, not keyframes, since rules can change twice in a second. */
@@ -2132,18 +2165,18 @@ svg.lucide {
   .ss-board {
     position: relative;
     height: 440px;
-    background: #f6eedb;
-    border: 2px solid var(--line);
+    background: var(--sunken);
+    border: 1.5px solid var(--line);
     border-radius: 16px;
-    box-shadow: 5px 5px 0 var(--line);
-    background-image: radial-gradient(#e0d4b8 1.2px, transparent 1.2px);
+    box-shadow: 4px 4px 0 var(--line);
+    background-image: radial-gradient(#e2d9c8 1.2px, transparent 1.2px);
     background-size: 22px 22px;
     overflow: hidden;
   }
   :root[data-theme='playful'].dark .ss-board {
-    background-color: #24201a;
-    background-image: radial-gradient(#352f25 1.2px, transparent 1.2px);
-    box-shadow: 5px 5px 0 #000;
+    background-color: var(--sunken);
+    background-image: radial-gradient(#2e2b26 1.2px, transparent 1.2px);
+    box-shadow: 4px 4px 0 #0d0c0b;
   }
   .ss-board svg.strings {
     position: absolute;
@@ -2156,12 +2189,12 @@ svg.lucide {
     gap: 10px;
     padding: 0 12px 0 16px;
     background: var(--surface);
-    border: 2px solid var(--line);
+    border: 1.5px solid var(--line);
     box-shadow: 3px 3px 0 var(--line);
     color: var(--ink);
   }
   :root[data-theme='playful'].dark .ss-pinnote {
-    box-shadow: 3px 3px 0 #000;
+    box-shadow: 3px 3px 0 #0d0c0b;
   }
   .ss-pinnote.off {
     background: transparent;
@@ -2496,6 +2529,226 @@ svg.lucide {
     font-size: 13px;
     color: var(--ink-2);
   }
+  /* Custom theme editor: preset cards, each a small page in that preset's colours. */
+  .ss-presets {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(124px, 1fr));
+    gap: 10px;
+  }
+  .ss-preset {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 5px;
+    text-align: left;
+    background: var(--surface);
+    border: var(--bw) solid var(--line);
+    border-radius: var(--r-box);
+  }
+  .ss-preset:hover {
+    border-color: var(--line-2);
+  }
+  /* Selected reads like a selected nav item: a quiet fill, not a coloured frame. */
+  .ss-preset.on {
+    border-color: var(--line-2);
+    background: var(--sel);
+  }
+  :root[data-theme='playful'] .ss-preset.on {
+    border-color: var(--line);
+    background: var(--sel);
+    box-shadow: 2px 2px 0 var(--line);
+  }
+  .ss-preset .th {
+    display: flex;
+    height: 46px;
+    overflow: hidden;
+    border-radius: max(2px, calc(var(--r-box) - 5px));
+    box-shadow: inset 0 0 0 1px var(--line-soft);
+  }
+  .ss-preset .sd {
+    width: 26%;
+    border-right: 1px solid;
+  }
+  .ss-preset .pg {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+    padding: 0 8px;
+  }
+  .ss-preset .ln {
+    height: 4px;
+    border-radius: 2px;
+  }
+  .ss-preset .bt {
+    width: 24px;
+    height: 9px;
+    border-radius: 999px;
+  }
+  .ss-preset .nm {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 3px 2px;
+    font: 600 13px/1.3 var(--f);
+    color: var(--ink);
+  }
+  .ss-preset .nm > :last-child {
+    margin-left: auto;
+  }
+  .ss-preset .nm small {
+    font: 500 11px/1 var(--f);
+    color: var(--ink-3);
+  }
+  /* A live miniature of the dashboard: the sidebar, and the page on Clean's inset panel or flush. */
+  .ss-mini {
+    display: flex;
+    overflow: hidden;
+    /* Set here, not inherited, so the other mode's colours apply to the text as well. */
+    color: var(--ink);
+    background: var(--bg);
+    border: var(--frame);
+    border-radius: var(--r-box);
+    box-shadow: var(--sh-box);
+  }
+  .ss-mini > .sd {
+    flex: 0 0 152px;
+    padding: 12px 8px;
+    background: var(--side);
+    border-right: 1px solid var(--line);
+  }
+  .ss-mini > .pn {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 16px 20px;
+    background: var(--bg);
+    /* Set while there is no border, so switching to the inset panel does not fade in from black. */
+    border-color: var(--line);
+  }
+  :root:not([data-theme='playful']):not([data-layout='full']) .ss-mini {
+    background: var(--shell);
+  }
+  :root:not([data-theme='playful']):not([data-layout='full']) .ss-mini > .sd {
+    background: transparent;
+    /* Width only: the shorthand would reset the colour to black, which the transition then shows. */
+    border-right-width: 0;
+  }
+  :root:not([data-theme='playful']):not([data-layout='full']) .ss-mini > .pn {
+    margin: 6px 6px 6px 0;
+    border: 1px solid var(--line);
+    border-radius: calc(var(--r-box) + 2px);
+  }
+  @media (max-width: 639px) {
+    .ss-mini > .sd {
+      display: none;
+    }
+  }
+  /* Room and corners for the accent wash that marks a changed line of text, without moving it. */
+  .ss-mini .ss-h1,
+  .ss-mini p,
+  .ss-mini .ss-more {
+    margin-inline: -4px;
+    padding-inline: 4px;
+    border-radius: 4px;
+  }
+  /* An option shows its change by moving there: colours fade, corners and shadows morph. The
+     mode toggle is a real control and keeps its own motion. */
+  .ss-mini,
+  .ss-mini .sd,
+  .ss-mini .pn,
+  .ss-mini .ss-nv,
+  .ss-mini .ss-h1,
+  .ss-mini p,
+  .ss-mini .ss-st,
+  .ss-mini .ss-tag,
+  .ss-mini .ss-more,
+  .ss-mini .pn .ss-btn {
+    transition:
+      color 0.2s ease,
+      background-color 0.2s ease,
+      border-color 0.2s ease,
+      border-radius 0.24s cubic-bezier(0.77, 0, 0.175, 1),
+      box-shadow 0.24s cubic-bezier(0.77, 0, 0.175, 1);
+  }
+  /* The editor's sticky preview. Once pinned it widens a little, so its corners sit past the side
+     edges of the list scrolling under it instead of meeting them. */
+  @media (min-width: 768px) {
+    .ss-ministick {
+      margin-inline: -8px;
+      padding-inline: 8px;
+      transition: margin-inline 0.22s cubic-bezier(0.23, 1, 0.32, 1);
+    }
+    .ss-ministick.stuck {
+      margin-inline: -20px;
+    }
+  }
+  @media (min-width: 768px) and (prefers-reduced-motion: reduce) {
+    .ss-ministick {
+      transition: none;
+    }
+  }
+  /* A choice shown as a small colour sample and its name (custom theme backgrounds). */
+  .ss-tint {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    height: 30px;
+    padding: 0 11px 0 7px;
+    font: 500 13px/1 var(--f);
+    color: var(--ink-2);
+    background: var(--surface);
+    border: var(--bw) solid var(--line);
+    border-radius: var(--r-btn);
+  }
+  .ss-tint:hover {
+    border-color: var(--line-2);
+  }
+  .ss-tint.on {
+    color: var(--ink);
+    font-weight: 600;
+    border-color: var(--line-2);
+    background: var(--sel);
+  }
+  :root[data-theme='playful'] .ss-tint.on {
+    border-color: var(--line);
+    background: var(--sel);
+    box-shadow: 2px 2px 0 var(--line);
+  }
+  .ss-tint-sw {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    box-shadow: 0 0 0 1px var(--line-2);
+  }
+  /* The colour swatch in a hex field opens the system colour picker. */
+  /* A 14px colour inside a 24px target; the negative margin keeps the field's layout. */
+  .ss-swatch,
+  .ss-inp > .ss-swatch {
+    flex: none;
+    width: 24px;
+    height: 24px;
+    margin: -5px;
+    padding: 5px;
+    border: 0;
+    border-radius: 3px;
+    background: none;
+    cursor: pointer;
+  }
+  .ss-swatch::-webkit-color-swatch-wrapper {
+    padding: 0;
+  }
+  .ss-swatch::-webkit-color-swatch {
+    border: 0;
+    border-radius: 3px;
+  }
+  .ss-swatch::-moz-color-swatch {
+    border: 0;
+    border-radius: 3px;
+  }
   .ss-code {
     font: 400 12.5px/1.65 var(--fm);
     padding: 14px 16px;
@@ -2683,7 +2936,7 @@ svg.lucide {
   }
   :root[data-theme='playful'] .ss-bulk .ss-btn,
   :root[data-theme='playful'] .ss-bulk .ss-ib {
-    color: var(--sel-ink);
+    color: var(--on-pa);
   }
   :root[data-theme='playful'] .ss-bulk .dv {
     background: currentColor;
@@ -2746,7 +2999,7 @@ svg.lucide {
   }
   :root[data-theme='playful'] .ss-tabs > *.on {
     background: var(--pa);
-    color: var(--sel-ink);
+    color: var(--on-pa);
     border-color: var(--line);
     box-shadow: 3px 3px 0 var(--line);
   }
@@ -2793,6 +3046,7 @@ svg.lucide {
   }
   :root[data-theme='playful'] .ss-seg > *.on {
     background: var(--pa);
+    color: var(--on-pa);
     outline: 0;
     box-shadow: inset 0 0 0 1.5px var(--line);
   }
@@ -2808,7 +3062,7 @@ svg.lucide {
     border-radius: 14px;
     box-shadow: 4px 4px 0 var(--line);
     background: var(--pa);
-    color: var(--sel-ink);
+    color: var(--on-pa);
   }
   :root[data-theme='playful'] .ss-counts > a:first-child {
     border-left: 2px solid var(--line);
@@ -2877,6 +3131,7 @@ svg.lucide {
   }
   :root[data-theme='playful'] .ss-bulk {
     background: var(--pa);
+    color: var(--on-pa);
     box-shadow: 5px 5px 0 var(--line);
   }
   :root[data-theme='playful'] .ss-toast {
@@ -2885,9 +3140,11 @@ svg.lucide {
   }
   :root[data-theme='playful'] .ss-menu > :is(a, button).hv {
     background: var(--pa);
+    color: var(--on-pa);
   }
   :root[data-theme='playful'] .ss-pager > *.on {
     background: var(--pa);
+    color: var(--on-pa);
     outline: 2px solid var(--line);
   }
   :root[data-theme='playful'] .ss-pinnote {
@@ -2898,7 +3155,12 @@ svg.lucide {
     color: var(--sel-ink);
     --ink: var(--sel-ink);
     --ink-2: color-mix(in srgb, var(--sel-ink) 80%, transparent);
-    --ink-3: color-mix(in srgb, var(--sel-ink) 62%, transparent);
+    /* 72%, not less: the path under the title stays above 4.5:1. */
+    --ink-3: color-mix(in srgb, var(--sel-ink) 72%, transparent);
+  }
+  /* Dark mode keeps the pastels mid-tone, so only the source note turns dark and takes light ink. */
+  :root[data-theme='playful'].dark .ss-pinnote.src {
+    background: #3a3226;
   }
   :root[data-theme='playful'] .ss-sev {
     border-radius: 6px;
@@ -3460,6 +3722,8 @@ svg.lucide {
   .ss-tabs > *:focus-visible,
   .ss-menu > :is(a, button):focus-visible,
   .ss-sw:focus-visible,
+  .ss-preset:focus-visible,
+  .ss-tint:focus-visible,
   .ss-r.link:focus-visible,
   .ss-counts > a:focus-visible {
     outline: 2px solid var(--accent);
@@ -3526,6 +3790,7 @@ svg.lucide {
   }
   :root[data-theme='playful'] .ss-menu > :is(a, button):not(.dng):hover {
     background: var(--pa);
+    color: var(--on-pa);
   }
   .ss-menu > :is(a, button).dng:hover {
     background: var(--bad-bg);
@@ -3734,6 +3999,25 @@ svg.lucide {
   :root:not([data-theme='playful']) .ss-seg[data-slide] > .on {
     background: transparent;
     box-shadow: none;
+  }
+  /* In dark mode the surface is barely lighter than the track, so the selected pill takes the
+     control border colour instead. The theme editor's preview can show the other mode than the
+     page; its own mode decides there. */
+  :root:not([data-theme='playful']).dark .ss-seg > *.on,
+  :root:not([data-theme='playful']).dark .ss-seg[data-slide]::before,
+  :root:not([data-theme='playful']) .ss-mini[data-mode='dark'] .ss-seg > *.on,
+  :root:not([data-theme='playful']) .ss-mini[data-mode='dark'] .ss-seg[data-slide]::before {
+    background: var(--line-2);
+  }
+  :root:not([data-theme='playful']) .ss-mini[data-mode='light'] .ss-seg > *.on,
+  :root:not([data-theme='playful']) .ss-mini[data-mode='light'] .ss-seg[data-slide]::before {
+    background: var(--surface);
+  }
+  :root:not([data-theme='playful']) .ss-mini[data-mode] .ss-seg[data-slide] > .on {
+    background: transparent;
+  }
+  :root:not([data-theme='playful']).dark .ss-seg[data-slide] > .on {
+    background: transparent;
   }
   @media (prefers-reduced-motion: reduce) {
     :root:not([data-theme='playful']) .ss-seg[data-slide='move']::before {

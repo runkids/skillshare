@@ -2,6 +2,7 @@ import type { HubSavedEntry } from '../../api/client';
 import type { HubEntry, HubProblem, HubRefs } from '../../api/hubDrafts';
 import type { SelectOption } from '../Select';
 import type { useT } from '../../i18n';
+import { downloadJson } from '../../lib/downloadJson';
 
 type T = ReturnType<typeof useT>;
 
@@ -83,14 +84,5 @@ export const publishable = (location: string) =>
   !Array.from(location).some((char) => char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127);
 
 export function downloadIndex(data: Record<string, unknown>) {
-  const url = URL.createObjectURL(
-    new Blob([JSON.stringify(data, null, 2) + '\n'], { type: 'application/json' }),
-  );
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = 'skillshare-hub.json';
-  document.body.append(anchor);
-  anchor.click();
-  anchor.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  downloadJson('skillshare-hub.json', data);
 }
