@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -218,6 +219,39 @@ func AgentRepoSource(entry *MetadataEntry, opts ParseOptions) (*Source, error) {
 	return source, nil
 }
 
+// AgentBlobPath is the repository path of the agent file source names: where
+// check looks up the blob hash recorded for it. "" when source does not parse.
+func AgentBlobPath(source string, opts ParseOptions) string {
+	parsed, err := ParseSourceWithOptions(source, opts)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimPrefix(parsed.Subdir, "/")
+}
+
+// discoveredAgentFile is the repository path of agent's file in discovery.
+func discoveredAgentFile(discovery *DiscoveryResult, agent AgentInfo) string {
+	return strings.TrimPrefix(path.Join(filepath.ToSlash(discovery.Source.Subdir), filepath.ToSlash(agent.Path)), "/")
+}
+
+// DiscoveredAgentBlobHash is the git blob hash of agent's file in discovery's
+// clone; "" for a local path, a symlink, or a file git cannot read.
+func DiscoveredAgentBlobHash(discovery *DiscoveryResult, agent AgentInfo) string {
+	if discovery.Source.Type == SourceTypeLocalPath {
+		return ""
+	}
+	return getFileBlobHash(discoverySourceRoot(discovery), discoveredAgentFile(discovery, agent))
+}
+
+// checkFindsAgentFile reports whether parsing source, the agent's recorded
+// source, names agent's file, so check looks up its blob hash there. It uses
+// only the hosts the source carries, so the answer does not depend on which
+// command installs the agent; a source needing other hosts records no hash.
+func checkFindsAgentFile(discovery *DiscoveryResult, agent AgentInfo, source string) bool {
+	hosts := ParseOptions{CNBHosts: discovery.Source.CNBHosts, GiteaHosts: discovery.Source.GiteaHosts}
+	return AgentBlobPath(source, hosts) == discoveredAgentFile(discovery, agent)
+}
+
 // writeDiscoveredAgentMetadata records the agent at destFile, with the hash of
 // hashFile: the upstream version it was installed or updated from.
 func writeDiscoveredAgentMetadata(discovery *DiscoveryResult, agent AgentInfo, destFile, hashFile, sourceDir string) error {
@@ -229,6 +263,12 @@ func writeDiscoveredAgentMetadata(discovery *DiscoveryResult, agent AgentInfo, d
 	}
 	if hash, hashErr := computeSingleFileHash(hashFile); hashErr == nil {
 		meta.FileHashes = map[string]string{filepath.Base(destFile): hash}
+	}
+	// The file's blob hash lets check see the agent as current at a later
+	// commit, so a reinstall of the same file keeps its record (#1041). It is
+	// recorded only where check will look it up.
+	if checkFindsAgentFile(discovery, agent, meta.Source) {
+		meta.TreeHash = DiscoveredAgentBlobHash(discovery, agent)
 	}
 	return WriteMetaToStore(sourceDir, destFile, meta)
 }

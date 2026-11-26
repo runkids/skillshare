@@ -205,6 +205,63 @@ func TestEnrichAgentResultsWithRemote_ComparesEachAgentAtItsBranch(t *testing.T)
 	}
 }
 
+// A commit that leaves an agent's file alone does not make it outdated: the
+// recorded blob hash decides, so update keeps its record (#1041). An agent
+// recorded before the hash existed still compares by commit.
+func TestEnrichAgentResultsWithRemote_UnchangedFileAfterHeadMoved(t *testing.T) {
+	repo := t.TempDir()
+	git := func(args ...string) string {
+		cmd := exec.Command("git", args...)
+		cmd.Dir = repo
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("git %v: %s %v", args, out, err)
+		}
+		return strings.TrimSpace(string(out))
+	}
+	write := func(name, body string) {
+		if err := os.WriteFile(filepath.Join(repo, "agents", name), []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.MkdirAll(filepath.Join(repo, "agents"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	git("init", "-q", "-b", "main")
+	write("same.md", "# same\n")
+	write("changed.md", "# v1\n")
+	git("add", ".")
+	git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "-m", "v1")
+	installed := git("rev-parse", "HEAD")[:7]
+	blob := map[string]string{"same": git("rev-parse", "HEAD:agents/same.md"), "changed": git("rev-parse", "HEAD:agents/changed.md")}
+	write("changed.md", "# v2\n")
+	git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "-am", "v2")
+
+	var results []AgentCheckResult
+	for _, name := range []string{"same", "changed"} {
+		results = append(results, AgentCheckResult{
+			Name: name, Source: "file://" + repo + "//agents/" + name + ".md", RepoURL: repo,
+			Version: installed, Status: "up_to_date", treeHash: blob[name],
+		})
+	}
+	edited := results[0]
+	edited.Name, edited.Status = "edited", "drifted"
+	legacy := results[0]
+	legacy.Name, legacy.treeHash = "legacy", ""
+	results = append(results, edited, legacy)
+	EnrichAgentResultsWithRemote(results, nil, install.ParseOptions{})
+
+	want := map[string]string{"same": "up_to_date", "changed": "update_available", "edited": "drifted", "legacy": "update_available"}
+	for _, r := range results {
+		if r.Status != want[r.Name] {
+			t.Errorf("%s: status %q, want %q (%s)", r.Name, r.Status, want[r.Name], r.Message)
+		}
+		if r.UpstreamChanged {
+			t.Errorf("%s: upstream did not change its file", r.Name)
+		}
+	}
+}
+
 // Regression for #777: an agent whose source an earlier update erased cannot
 // be checked, so check must say so instead of reporting it up to date.
 func TestCheckAgents_SourceErasedByEarlierUpdate(t *testing.T) {

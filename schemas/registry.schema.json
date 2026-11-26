@@ -77,7 +77,7 @@
         },
         "tree_hash": {
           "type": "string",
-          "description": "Git tree SHA of the subdir at install time."
+          "description": "Git tree SHA of the subdir at install time; for an agent, the git blob SHA of its file."
         },
         "file_hashes": {
           "type": "object",

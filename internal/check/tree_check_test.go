@@ -134,7 +134,8 @@ func TestFetchRemoteTreeHashes_StableAfterUnrelatedChange(t *testing.T) {
 
 func TestRemoteTreesHash(t *testing.T) {
 	trees := &RemoteTrees{
-		Hashes: map[string]string{"store/foo": "t1", "skills/plain": "t2"},
+		// ls-tree lists each link as well, with an empty hash.
+		Hashes: map[string]string{"store/foo": "t1", "skills/plain": "t2", ".agents/skills/foo": "", ".agents/skills/gone": "", "out": ""},
 		Links:  map[string]string{".agents/skills/foo": "../../store/foo", ".agents/skills/gone": "../../store/gone", "out": "../x"},
 	}
 	tests := []struct {
@@ -242,8 +243,12 @@ func TestFetchRemoteTreeHashes_SymlinkBlanksContainingDirs(t *testing.T) {
 	if len(result.Hashes["skills/plain"]) != 40 {
 		t.Errorf("skills/plain: expected a tree hash, got %q", result.Hashes["skills/plain"])
 	}
-	if _, ok := result.Hashes["skills/plain/SKILL.md"]; ok {
-		t.Error("blob entries must not appear in the result")
+	// Agents compare a file's blob hash; a symlink cannot be compared.
+	if len(result.Hashes["skills/plain/SKILL.md"]) != 40 {
+		t.Errorf("skills/plain/SKILL.md: expected a blob hash, got %q", result.Hashes["skills/plain/SKILL.md"])
+	}
+	if hash, ok := result.Hashes["skills/linked/réf.md"]; !ok || hash != "" {
+		t.Errorf("symlink: expected present with empty hash, got %q (present=%v)", hash, ok)
 	}
 }
 

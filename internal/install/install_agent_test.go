@@ -357,3 +357,90 @@ func TestDiscoveredAgent_FollowPolicyAndLinkedSourceRoot(t *testing.T) {
 		})
 	}
 }
+
+// check finds an agent's blob hash by parsing its recorded source, so the hash
+// is recorded only where that lookup lands. Elsewhere check keeps comparing
+// commits, instead of reporting an update that reinstalling never clears.
+func TestWriteDiscoveredAgentMetadata_BlobHashWhereCheckLooks(t *testing.T) {
+	for _, tc := range []struct {
+		name, raw string
+		want      bool
+	}{
+		{"source names the path", "agents", true},
+		{"path resolved from another name", "agnts", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			root := t.TempDir()
+			repo := filepath.Join(root, "repo")
+			if err := os.MkdirAll(filepath.Join(repo, "agents"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			agentFile := filepath.Join(repo, "agents", "a.md")
+			if err := os.WriteFile(agentFile, []byte("# a\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			runGit(t, repo, "init", "-q")
+			runGit(t, repo, "add", ".")
+			runGit(t, repo, "commit", "-q", "-m", "v1")
+
+			source, err := ParseSource("file://" + repo + "//" + tc.raw)
+			if err != nil {
+				t.Fatal(err)
+			}
+			source.Subdir = "agents" // what the clone resolved it to
+			discovery := &DiscoveryResult{RepoPath: root, Source: source}
+			sourceDir := t.TempDir()
+			dest := filepath.Join(sourceDir, "a.md")
+			if err := writeDiscoveredAgentMetadata(discovery, AgentInfo{Name: "a", Path: "a.md"}, dest, agentFile, sourceDir); err != nil {
+				t.Fatal(err)
+			}
+			store, err := LoadMetadata(sourceDir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := store.Get("a").TreeHash != ""; got != tc.want {
+				t.Errorf("blob hash recorded = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+// Install records an agent's blob hash only where its own parse of the
+// recorded source lands, while check parses it with every configured host.
+// Whenever install records one, check must look it up at the same path, and
+// the common source forms must record one.
+func TestAgentBlobPath_InstallAndCheckAgree(t *testing.T) {
+	full := ParseOptions{GitLabHosts: []string{"git.corp.com"}, AzureHosts: []string{"azuredevops.corp.com"}, GiteaHosts: []string{"gitea.corp.com"}}
+	for _, tc := range []struct {
+		input, agentPath string
+		recorded         bool
+	}{
+		{"o/r", "agents/a.md", true},
+		{"o/r/agents/team", "a.md", true},
+		{"https://github.com/o/r.git", "agents/a.md", true},
+		{"https://github.com/o/r/tree/main/agents", "a.md", true},
+		{"git.corp.com/g/sub/r", "agents/a.md", true},
+		{"git.corp.com/g/sub/r/-/tree/main/agents", "a.md", true},
+		{"https://dev.azure.com/Org/Project/_git/Repo", "agents/a.md", true},
+		{"gitea.corp.com/o/r", "agents/a.md", true},
+		{"git@github.com:o/r.git//agents", "a.md", true},
+		// The source does not carry Azure hosts, so install cannot tell.
+		{"https://azuredevops.corp.com/Org/Project/_git/Repo", "agents/a.md", false},
+	} {
+		source, err := ParseSourceWithOptions(tc.input, full)
+		if err != nil {
+			t.Fatalf("%s: %v", tc.input, err)
+		}
+		discovery := &DiscoveryResult{Source: source}
+		agent := AgentInfo{Name: "a", Path: tc.agentPath}
+		raw := buildDiscoveredAgentSource(discovery, agent).Raw
+		file := discoveredAgentFile(discovery, agent)
+		recorded := checkFindsAgentFile(discovery, agent, raw)
+		if recorded != tc.recorded {
+			t.Errorf("%s: recorded = %v, want %v", tc.input, recorded, tc.recorded)
+		}
+		if recorded && AgentBlobPath(raw, full) != file {
+			t.Errorf("%s: install records %q, check looks up %q", tc.input, file, AgentBlobPath(raw, full))
+		}
+	}
+}

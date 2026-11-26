@@ -224,7 +224,7 @@ skillshare check agents -p           # Check project agents
 skillshare check --all               # Check skills and agents together
 ```
 
-각 agent는 설치한 branch와 비교됩니다. 설치 후 편집한 agent는 drifted로 보고됩니다. upstream에도 더 새로운 버전이 있으면 `message`가 `update available upstream`으로 끝나고, `--json`에는 `"upstreamChanged": true`가 설정되며, `skillshare update agents <name> --merge`로 병합할 수 있습니다. 이전 `update agents`로 기록된 source를 잃은 agent는 `error`를 보고하고 다시 설치하라고 안내합니다. [문제 해결](/docs/troubleshooting/common-errors#agent-source-lost)을 참고하세요.
+각 agent는 설치한 branch와 비교됩니다. 그 branch가 앞으로 나아갔어도 agent 파일이 바뀌지 않았다면 up to date로 유지됩니다. 설치 후 편집한 agent는 drifted로 보고됩니다. upstream에도 더 새로운 버전이 있으면 `message`가 `update available upstream`으로 끝나고, `--json`에는 `"upstreamChanged": true`가 설정되며, `skillshare update agents <name> --merge`로 병합할 수 있습니다. 이전 `update agents`로 기록된 source를 잃은 agent는 `error`를 보고하고 다시 설치하라고 안내합니다. [문제 해결](/docs/troubleshooting/common-errors#agent-source-lost)을 참고하세요.
 
 `agents` 인자나 `--all` 없이 실행하면 `check`는 skill에 대해서만 동작합니다(기본 동작). 배경 지식은 [Agents](/docs/understand/agents)를 참고하세요.
 

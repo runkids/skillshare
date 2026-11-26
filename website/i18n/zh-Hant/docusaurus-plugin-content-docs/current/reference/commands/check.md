@@ -224,7 +224,7 @@ skillshare check agents -p           # 檢查 project agents
 skillshare check --all               # 同時檢查 skills 與 agents
 ```
 
-每個 agent 都會與安裝時的分支比對。安裝後被你編輯過的 agent 會被回報為 drifted；當 upstream 也有更新版本時，其 `message` 以 `update available upstream` 結尾，`--json` 會設定 `"upstreamChanged": true`，並且可用 `skillshare update agents <name> --merge` 合併。記錄的 source 被先前的 `update agents` 弄丟的 agent 會回報 `error` 並提示重新安裝，請參閱[疑難排解](/docs/troubleshooting/common-errors#agent-source-lost)。
+每個 agent 都會與安裝時的分支比對。該分支有新的 commit、但 agent 檔案沒有變更時，仍算 up to date。安裝後被你編輯過的 agent 會被回報為 drifted；當 upstream 也有更新版本時，其 `message` 以 `update available upstream` 結尾，`--json` 會設定 `"upstreamChanged": true`，並且可用 `skillshare update agents <name> --merge` 合併。記錄的 source 被先前的 `update agents` 弄丟的 agent 會回報 `error` 並提示重新安裝，請參閱[疑難排解](/docs/troubleshooting/common-errors#agent-source-lost)。
 
 若不加 `agents` 參數或 `--all`，`check` 僅針對 skills 運作（預設行為）。詳見 [Agents](/docs/understand/agents) 了解背景概念。
 

@@ -224,7 +224,7 @@ skillshare check agents -p           # Check project agents
 skillshare check --all               # Check skills and agents together
 ```
 
-Each agent is compared with the branch it was installed from. An agent you edited since install is reported as drifted; when upstream also has a newer version, its `message` ends with `update available upstream`, `--json` sets `"upstreamChanged": true`, and `skillshare update agents <name> --merge` merges it. An agent whose recorded source was lost by an earlier `update agents` reports `error` and asks you to reinstall it; see [Troubleshooting](/docs/troubleshooting/common-errors#agent-source-lost).
+Each agent is compared with the branch it was installed from. When that branch has moved on but the agent's file did not change, the agent is still up to date. An agent you edited since install is reported as drifted; when upstream also has a newer version, its `message` ends with `update available upstream`, `--json` sets `"upstreamChanged": true`, and `skillshare update agents <name> --merge` merges it. An agent whose recorded source was lost by an earlier `update agents` reports `error` and asks you to reinstall it; see [Troubleshooting](/docs/troubleshooting/common-errors#agent-source-lost).
 
 Without the `agents` argument or `--all`, `check` operates on skills only (default behavior). See [Agents](/docs/understand/agents) for background.
 

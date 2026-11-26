@@ -309,6 +309,10 @@ func (s *Server) updateAgent(name string, force, skipAudit, merge bool) updateRe
 			Message: fmt.Sprintf("agent path %q not found in repository", entry.Subdir),
 		}
 	}
+	// A newer commit that left the agent's file alone has nothing to apply.
+	if entry.TreeHash != "" && install.DiscoveredAgentBlobHash(discovery, *target) == entry.TreeHash {
+		return updateResultItem{Name: metaKey, Kind: "agent", Action: "up-to-date"}
+	}
 
 	// Checked only once there is a new version to write over the local edits.
 	modified := !force && entry.AgentLocallyModified(localAgent.SourcePath)
