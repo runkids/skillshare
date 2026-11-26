@@ -2674,6 +2674,23 @@ svg.lucide {
       border-radius 0.24s cubic-bezier(0.77, 0, 0.175, 1),
       box-shadow 0.24s cubic-bezier(0.77, 0, 0.175, 1);
   }
+  /* The editor's sticky preview. Once pinned it widens a little, so its corners sit past the side
+     edges of the list scrolling under it instead of meeting them. */
+  @media (min-width: 768px) {
+    .ss-ministick {
+      margin-inline: -8px;
+      padding-inline: 8px;
+      transition: margin-inline 0.22s cubic-bezier(0.23, 1, 0.32, 1);
+    }
+    .ss-ministick.stuck {
+      margin-inline: -20px;
+    }
+  }
+  @media (min-width: 768px) and (prefers-reduced-motion: reduce) {
+    .ss-ministick {
+      transition: none;
+    }
+  }
   /* A choice shown as a small colour sample and its name (custom theme backgrounds). */
   .ss-tint {
     display: inline-flex;

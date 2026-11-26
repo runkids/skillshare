@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import { useLocation, useSearchParams } from 'react-router-dom';
 import { ArrowRight, Check, LayoutDashboard, Palette, Puzzle, Target } from 'lucide-react';
 import { useTheme, type ResolvedMode } from '../context/ThemeContext';
@@ -409,6 +409,14 @@ export default function CustomThemeSettings() {
     setPreviewMode(resolvedMode);
   }
   const fileInput = useRef<HTMLInputElement>(null);
+  // The preview is marked stuck once it pins to the top.
+  const [stuck, setStuck] = useState(false);
+  const sentinel = useCallback((el: HTMLDivElement | null) => {
+    if (!el || typeof IntersectionObserver === 'undefined') return;
+    const io = new IntersectionObserver(([e]) => setStuck(!e.isIntersecting));
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
   const section = useRef<HTMLDivElement>(null);
   const { hash, key } = useLocation();
   // The theme menu's "Edit colors" opens this section, also when the URL already has the hash.
@@ -493,7 +501,10 @@ export default function CustomThemeSettings() {
         </div>
         {/* Stuck to the very top, with page colour above and to the sides (Playful's offset shadows
             reach past the box), so rows never show through. */}
-        <div className="z-20 mb-3 bg-bg md:sticky md:top-0 md:-mx-2 md:-mt-3 md:px-2 md:pt-3">
+        <div ref={sentinel} aria-hidden />
+        <div
+          className={`ss-ministick z-20 mb-3 bg-bg md:sticky md:top-0 md:-mt-3 md:pt-3 ${stuck ? 'stuck' : ''}`}
+        >
           <MiniPreview
             mode={previewMode}
             colors={
