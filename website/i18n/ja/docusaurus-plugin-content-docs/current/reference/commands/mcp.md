@@ -836,7 +836,7 @@ MIME タイプが `inode/directory` の空ディレクトリも含みます。�
 両方の一覧は URI 順で、1 ページ最大 100 件です。`nextCursor` を `cursor` として渡すと
 続きが取得でき、Skill と同じ選択・更新ルールが適用されます。
 
-ほとんどの Agent はまだ Skills extension に対応していないため（下記参照）、サーバーは 2 つのツールも提供します。`list_skills` は名前、説明、URI を一覧表示し（`query` で絞り込み可能。1 回の応答は最大 200 件）、`read_skill` は Skill の `SKILL.md` または他のファイルを読み、`SKILL.md` の場合はその Skill の他のファイルも一覧表示します。MCP ツールを使える Agent なら、ツールを中継する gateway 経由でも、この方法で Skill を読めます。Skills extension を宣言したクライアントは Skill をネイティブに読み込み、この 2 つのツールは提供されないため、各 Skill が二重に表示されることはありません。両方のツールには `readOnlyHint` が付いているため、データを変更するツールの前に確認するクライアントや gateway も、確認なしで呼び出します。ツール経由で読んだ内容は Agent にとって通常のテキストであり、Agent 自身の Skill 承認は適用されません。
+ほとんどの Agent はまだ Skills extension に対応していないため（下記参照）、サーバーは 2 つのツールも提供します。`list_skills` は名前、説明、URI を一覧表示し（`query` で絞り込み可能。1 回の応答は最大 200 件）、`read_skill` は Skill の `SKILL.md` または他のファイルを読み、`SKILL.md` の場合はその Skill の他のファイルも一覧表示します。MCP ツールを使える Agent なら、ツールを中継する gateway 経由でも、この方法で Skill を読めます。Skills extension を宣言したクライアントは Skill をネイティブに読み込み、この 2 つのツールは提供されないため、各 Skill が二重に表示されることはありません。Claude Code（v2.1.332）は Skill 一覧を要求するときにだけ extension を宣言するため、Skill はネイティブに読み込まれますが、2 つのツールも提供されます。両方のツールには `readOnlyHint` が付いているため、データを変更するツールの前に確認するクライアントや gateway も、確認なしで呼び出します。ツール経由で読んだ内容は Agent にとって通常のテキストであり、Agent 自身の Skill 承認は適用されません。
 
 - **選択。** `--target` を指定しない場合、有効なすべての Skill が提供されます。`--target NAME`
   は、sync mode にかかわらず、その target の `include`/`exclude` フィルターと frontmatter の `targets` を適用します。Skill は常に source から取得されます。Skill がオフになっている target を指定するとエラーになります。
@@ -885,7 +885,9 @@ mcp:
       targets: [codex]
 ```
 
-Skill をネイティブに読み込むには Skills extension が必要です。2026 年 10 月時点で、一般的なコーディング Agent はまだ対応していないため、ツールを使います。Codex、Cursor、VS Code、Goose、Pi は未対応で、Claude Code は対応を含んでいますがデフォルトでは有効になっていません。対応しているのは mcpc、fast-agent、MCP Inspector など一部のクライアントだけで、その一部は部分的な対応です。SEP のプロトタイプホスト一覧（Codex のフォークなど）は、リリース済みの Agent が対応していることを意味しません。
+Skill をネイティブに読み込むには Skills extension が必要です。Claude Code は v2.1.331 からパブリックベータで対応しており、対話セッションが対象で `claude -p` は対象外です。`/login` でサインインした Pro、Max、Ultra プランでは有効、Team と Enterprise では組織が有効にするまで無効で、API キーと Console ログインには順次展開中です。Claude Code の[要件](https://code.claude.com/docs/en/mcp#use-skills-from-mcp-servers)を参照してください。2026 年 11 月に Claude Code v2.1.332 で確認したところ、stdio の `mcp serve` の Skill は `/skills` に `<server>:<skill>`（例: `skillshare:pdf`）として表示され、そのコマンドから実行でき、他のファイルは `resources/read` で読み取られます。
+
+2026 年 10 月時点で、その他の一般的なコーディング Agent はまだ対応していないため、ツールを使います。Codex、Cursor、VS Code、Goose、Pi は未対応です。Claude Code 以外で対応しているのは mcpc、fast-agent、MCP Inspector など一部のクライアントだけで、その一部は部分的な対応です。SEP のプロトタイプホスト一覧（Codex のフォークなど）は、リリース済みの Agent が対応していることを意味しません。
 [extension support matrix](https://modelcontextprotocol.io/extensions/client-matrix) に現在のクライアントが一覧されています。
 
 サーバー自体を確認するには、MCP Inspector 2.6.0 以降ですべての Skill を読み、frontmatter を比較し、各ファイルのダイジェストを検証できます。

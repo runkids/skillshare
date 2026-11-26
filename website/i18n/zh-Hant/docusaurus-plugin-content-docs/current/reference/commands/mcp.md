@@ -907,7 +907,7 @@ SKILLSHARE_MCP_TOKEN=change-me skillshare mcp serve --http 0.0.0.0:8765 \
 `read_skill` 讀取某個 skill 的 `SKILL.md` 或其他檔案，讀取 `SKILL.md` 時也會列出該
 skill 的其他檔案。任何會使用 MCP 工具的 Agent 都能這樣讀取 skills，包括透過會轉送工具的
 gateway。宣告支援 Skills extension 的 client 會原生載入 skills，不會收到這兩個工具，因此
-不會看到每個 skill 兩次。兩個工具都標記了 `readOnlyHint`，所以會在修改資料的工具前要求
+不會看到每個 skill 兩次。Claude Code（v2.1.332）只在要求 skill 清單時才宣告該 extension，所以它會原生載入 skills，但仍會收到這兩個工具。兩個工具都標記了 `readOnlyHint`，所以會在修改資料的工具前要求
 確認的 client 或 gateway，呼叫它們時不會要求確認。透過工具讀到的內容對 Agent 而言只是一般文字：Agent 本身的
 skill 核准機制不適用。
 
@@ -967,9 +967,14 @@ mcp:
       targets: [codex]
 ```
 
-原生載入 skills 需要 Skills extension。截至 2026 年 10 月，常見的 coding Agent 都還沒有
-支援，所以它們會使用工具：Codex、Cursor、VS Code、Goose 與 Pi 不支援，Claude Code
-內含的支援預設未開啟。只有少數 client，例如 mcpc、fast-agent 與 MCP Inspector 支援，
+原生載入 skills 需要 Skills extension。Claude Code 自 v2.1.331 起以公開測試版支援，僅限互動式工作階段，
+`claude -p` 不支援。以 `/login` 登入的 Pro、Max 與 Ultra 方案預設開啟，Team 與 Enterprise 在組織開啟之前
+預設關閉，API key 與 Console 登入仍在逐步推出；請見 Claude Code 的
+[需求](https://code.claude.com/docs/en/mcp#use-skills-from-mcp-servers)。2026 年 11 月以
+Claude Code v2.1.332 測試：來自 stdio `mcp serve` 的 skills 會在 `/skills` 中顯示為 `<server>:<skill>`，例如
+`skillshare:pdf`，可從該指令執行，其他檔案則透過 `resources/read` 讀取。
+
+截至 2026 年 10 月，其他常見的 coding Agent 都還沒有支援，所以它們會使用工具：Codex、Cursor、VS Code、Goose 與 Pi 不支援。除了 Claude Code，只有少數 client，例如 mcpc、fast-agent 與 MCP Inspector 支援，
 有些只支援一部分。SEP 列出的原型 host（例如某個 Codex fork）並不代表已發布的 Agent
 支援它。[extension 支援矩陣](https://modelcontextprotocol.io/extensions/client-matrix)
 列出目前的 clients。

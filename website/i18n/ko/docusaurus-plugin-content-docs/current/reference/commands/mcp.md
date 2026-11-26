@@ -968,6 +968,7 @@ MIME 타입이 `inode/directory`인 빈 디렉터리도 포함합니다. 디렉�
 `read_skill`은 skill의 `SKILL.md`나 다른 파일을 읽고, `SKILL.md`를 읽을 때는 그 skill의 다른 파일 목록도 보여 줍니다.
 MCP 도구를 사용하는 Agent라면 도구를 그대로 전달하는 게이트웨이를 거쳐도 이 방식으로 skill을 읽을 수 있습니다.
 Skills extension을 선언한 client는 skill을 네이티브로 로드하며 이 두 도구를 제공받지 않으므로 각 skill이 두 번 보이지 않습니다.
+Claude Code(v2.1.332)는 skill 목록을 요청할 때만 extension을 선언하므로 skill을 네이티브로 로드하지만 두 도구도 계속 제공받습니다.
 두 도구 모두 `readOnlyHint`가 표시되어 있어, 데이터를 바꾸는 도구 앞에서 확인을 요청하는 client나 게이트웨이도 확인 없이 호출합니다.
 도구로 읽은 내용은 Agent에게 일반 텍스트이며, Agent 자체의 skill 승인은 적용되지 않습니다.
 
@@ -1024,9 +1025,16 @@ mcp:
       targets: [codex]
 ```
 
-skill을 네이티브로 로드하려면 Skills extension이 필요합니다. 2026년 10월 기준 일반적인 코딩 Agent는
-아직 이를 지원하지 않으므로 도구를 사용합니다. Codex, Cursor, VS Code, Goose, Pi는 지원하지 않으며, Claude Code는
-기본적으로 켜져 있지 않은 지원을 포함합니다. mcpc, fast-agent, MCP Inspector 같은 소수의 client만 지원하며,
+skill을 네이티브로 로드하려면 Skills extension이 필요합니다. Claude Code는 v2.1.331부터 공개 베타로
+지원하며, 대화형 세션에서만 동작하고 `claude -p`에서는 동작하지 않습니다. `/login`으로 로그인한 Pro, Max,
+Ultra 플랜에서는 켜져 있고, Team과 Enterprise에서는 조직이 켤 때까지 꺼져 있으며, API 키와 Console 로그인에는
+순차적으로 적용되고 있습니다. Claude Code의
+[요건](https://code.claude.com/docs/en/mcp#use-skills-from-mcp-servers)을 참고하세요. 2026년 11월에
+Claude Code v2.1.332로 테스트한 결과, stdio `mcp serve`의 skill은 `/skills`에 `<server>:<skill>` 형태(예:
+`skillshare:pdf`)로 나타나고, 그 명령에서 실행되며, 다른 파일은 `resources/read`로 읽습니다.
+
+2026년 10월 기준 그 밖의 일반적인 코딩 Agent는 아직 이를 지원하지 않으므로 도구를 사용합니다. Codex, Cursor,
+VS Code, Goose, Pi는 지원하지 않습니다. Claude Code 외에는 mcpc, fast-agent, MCP Inspector 같은 소수의 client만 지원하며,
 일부는 부분적으로만 지원합니다. SEP의 프로토타입 host 목록(예: Codex fork)이 출시된 Agent의 지원을 의미하지는 않습니다.
 현재 client는 [extension support matrix](https://modelcontextprotocol.io/extensions/client-matrix)에서 확인하세요.
 

@@ -1070,7 +1070,8 @@ answer lists at most 200), and `read_skill` reads a `SKILL.md` or another file o
 and for a `SKILL.md` lists the skill's other files. Any Agent that uses MCP tools can read
 skills this way, including through a gateway that passes tools on. A client that declares
 the Skills extension loads skills natively and is not offered these two tools, so it does not
-see each skill twice. Both tools are marked `readOnlyHint`, so a client or gateway that
+see each skill twice. Claude Code (v2.1.332) declares the extension only when it asks for the
+skill list, so it loads skills natively but is still offered both tools. Both tools are marked `readOnlyHint`, so a client or gateway that
 asks before tools that change data calls them without asking. Content read through a tool
 is ordinary text to the Agent: its own skill approval does not apply.
 
@@ -1140,9 +1141,17 @@ mcp:
       targets: [codex]
 ```
 
-Loading skills natively needs the Skills extension. As of October 2026 the common coding
-Agents do not have it yet, so they use the tools: Codex, Cursor, VS Code, Goose and Pi have no support, and Claude Code includes
-support that is not switched on by default. Only a few clients such as mcpc, fast-agent and
+Loading skills natively needs the Skills extension. Claude Code supports it in public beta
+from v2.1.331, in interactive sessions but not `claude -p`. It is on for Pro, Max and Ultra
+plans signed in with `/login`, off for Team and Enterprise until the organization turns it
+on, and still rolling out for API keys and Console logins; see Claude Code's
+[requirements](https://code.claude.com/docs/en/mcp#use-skills-from-mcp-servers). Tested
+with Claude Code v2.1.332 in November 2026: skills from a stdio `mcp serve` appear in `/skills` as
+`<server>:<skill>`, such as `skillshare:pdf`, run from that command, and their other files
+are read through `resources/read`.
+
+As of October 2026 the other common coding Agents do not have it yet, so they use the tools:
+Codex, Cursor, VS Code, Goose and Pi have no support. Besides Claude Code, only a few clients such as mcpc, fast-agent and
 MCP Inspector do, some in part. The SEP's list of prototype hosts, such as a Codex fork,
 does not mean the released Agents support it. The
 [extension support matrix](https://modelcontextprotocol.io/extensions/client-matrix) lists

@@ -79,9 +79,13 @@ skillshare mcp serve --check [--target NAME]         # List skipped, editable an
   Do not connect local Agents that already sync skills; they would see each skill twice.
   Connect one with `mcp add skillshare --target CLIENT --sync -- skillshare mcp serve`, or a
   remote `url` with `bearerToken: {fromEnv: SKILLSHARE_MCP_TOKEN}`. Agents with the Skills
-  extension load skills natively; as of October 2026 Codex, Cursor, VS Code, Goose and Pi
-  lack it and Claude Code's is off by default, so the server also offers `list_skills`
-  (`query` filters) and `read_skill` tools, marked `readOnlyHint` and hidden from clients that declare the extension. Verify the server with
+  extension load skills natively. Claude Code has it in public beta from v2.1.331 (interactive
+  sessions, not `claude -p`); verified with v2.1.332: skills show in `/skills` as `<server>:<skill>`,
+  run from that command, and other files are read through `resources/read`. As of October 2026
+  Codex, Cursor, VS Code, Goose and Pi lack it, so the server also offers `list_skills`
+  (`query` filters) and `read_skill` tools, marked `readOnlyHint` and hidden from requests that
+  declare the extension. Claude Code v2.1.332 declares it only on `skills/list`, so it still
+  gets both tools. Verify the server with
   `npx @modelcontextprotocol/inspector --cli skillshare mcp serve --method skills/list --verify`.
 - `mcp.serve.edit.skills` (flat-name patterns, like `include`) lets clients change
   existing files of those skills; `preview_ttl` defaults to `30m`. `preview_skill_edit`
