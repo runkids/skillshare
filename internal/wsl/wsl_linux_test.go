@@ -69,6 +69,27 @@ func TestExplorerOffPATHOnDefaultDrive(t *testing.T) {
 	}
 }
 
+func TestExplorerOnDriveMountedOutsideMnt(t *testing.T) {
+	fakeWSL(t, "5.15.167.4-microsoft-standard-WSL2", false)
+	dir := t.TempDir()
+	drive := filepath.Join(dir, "c", "Windows", "explorer.exe")
+	if err := os.MkdirAll(filepath.Dir(drive), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for path, script := range map[string]string{
+		drive:                         "#!/bin/sh\nexit 1\n",
+		filepath.Join(dir, "wslpath"): "#!/bin/sh\necho " + drive + "\n",
+	} {
+		if err := os.WriteFile(path, []byte(script), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Setenv("PATH", dir)
+	if path, ok := Explorer(); !ok || path != drive {
+		t.Fatalf("Explorer() = %q, %v; want %q, true", path, ok, drive)
+	}
+}
+
 func TestWindowsPath(t *testing.T) {
 	fakeWSL(t, "5.15.167.4-microsoft-standard-WSL2", true)
 	got, err := WindowsPath("/root/.claude.json")
