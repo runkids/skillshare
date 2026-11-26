@@ -421,6 +421,17 @@ targets:
     skills:
       global: "~/.mcpjam/skills"
       project: ".mcpjam/skills"
+  - name: minimax-code
+    skills:
+      global: "~/.minimax/skills"
+      project: ".minimax/skills"
+    also_scans:
+      - {global: "~/.claude/skills", project: ".claude/skills"}
+      - {global: "~/.codex/skills"}
+      - {global: "~/.agents/skills", project: ".agents/skills"}
+    instructions:
+      global: "~/.minimax/AGENTS.md"
+      project: "AGENTS.md"
   - name: mux
     skills:
       global: "~/.mux/skills"

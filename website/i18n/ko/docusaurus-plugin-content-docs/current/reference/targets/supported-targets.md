@@ -8,7 +8,7 @@ skillshare가 기본적으로 지원하는 AI CLI 전체 목록입니다.
 
 ## Overview
 
-skillshare는 공유 Universal target을 포함해 **79개의 내장 target**을 제공합니다. `skillshare init`을 실행하면 설치된 도구를 자동으로 감지하고 설정합니다.
+skillshare는 공유 Universal target을 포함해 **80개의 내장 target**을 제공합니다. `skillshare init`을 실행하면 설치된 도구를 자동으로 감지하고 설정합니다.
 
 ---
 
@@ -65,6 +65,7 @@ skillshare는 공유 Universal target을 포함해 **79개의 내장 target**을
   <a className="target-badge" href="#target-letta">Letta</a>
   <a className="target-badge" href="#target-lingma">Lingma</a>
   <a className="target-badge" href="#target-mcpjam">MCPJam</a>
+  <a className="target-badge" href="#target-minimax-code">MiniMax Code</a>
   <a className="target-badge" href="#target-mux">Mux</a>
   <a className="target-badge" href="#target-neovate">Neovate</a>
   <a className="target-badge" href="#target-omp">oh-my-pi</a>
@@ -156,6 +157,7 @@ skillshare는 공유 Universal target을 포함해 **79개의 내장 target**을
 <tr id="target-letta"><td>letta</td><td><code>&#126;/.letta/skills</code></td><td><code>.skills</code></td></tr>
 <tr id="target-lingma"><td>lingma</td><td><code>&#126;/.lingma/skills</code></td><td><code>.lingma/skills</code></td></tr>
 <tr id="target-mcpjam"><td>mcpjam</td><td><code>&#126;/.mcpjam/skills</code></td><td><code>.mcpjam/skills</code></td></tr>
+<tr id="target-minimax-code"><td>minimax-code</td><td><code>&#126;/.minimax/skills</code></td><td><code>.minimax/skills</code></td></tr>
 <tr id="target-mux"><td>mux</td><td><code>&#126;/.mux/skills</code></td><td><code>.mux/skills</code></td></tr>
 <tr id="target-neovate"><td>neovate</td><td><code>&#126;/.neovate/skills</code></td><td><code>.neovate/skills</code></td></tr>
 <tr id="target-omp"><td>omp</td><td><code>&#126;/.omp/agent/skills</code></td><td><code>.omp/skills</code></td></tr>

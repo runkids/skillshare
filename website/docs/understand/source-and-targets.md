@@ -215,7 +215,7 @@ Targets are AI CLI skill directories that skillshare syncs to.
 - `~/.gemini/config/skills/` — Antigravity (app)
 - `~/.gemini/antigravity-cli/skills/` — Antigravity CLI
 - `~/.gemini/skills/` — Gemini CLI
-- And [79 targets in all](/docs/reference/targets/supported-targets)
+- And [80 targets in all](/docs/reference/targets/supported-targets)
 
 **Auto-detection:** When you run `skillshare init`, it automatically detects installed AI CLIs and adds them as targets.
 

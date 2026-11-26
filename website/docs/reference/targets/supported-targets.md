@@ -8,7 +8,7 @@ Complete list of AI CLIs that skillshare supports out of the box.
 
 ## Overview
 
-skillshare provides **79 built-in targets**, including the shared Universal target. When you run `skillshare init`, it automatically detects and configures any installed tools.
+skillshare provides **80 built-in targets**, including the shared Universal target. When you run `skillshare init`, it automatically detects and configures any installed tools.
 
 ---
 
@@ -65,6 +65,7 @@ These are auto-detected during `skillshare init`:
   <a className="target-badge" href="#target-letta">Letta</a>
   <a className="target-badge" href="#target-lingma">Lingma</a>
   <a className="target-badge" href="#target-mcpjam">MCPJam</a>
+  <a className="target-badge" href="#target-minimax-code">MiniMax Code</a>
   <a className="target-badge" href="#target-mux">Mux</a>
   <a className="target-badge" href="#target-neovate">Neovate</a>
   <a className="target-badge" href="#target-omp">oh-my-pi</a>
@@ -156,6 +157,7 @@ These are auto-detected during `skillshare init`:
 <tr id="target-letta"><td>letta</td><td><code>&#126;/.letta/skills</code></td><td><code>.skills</code></td></tr>
 <tr id="target-lingma"><td>lingma</td><td><code>&#126;/.lingma/skills</code></td><td><code>.lingma/skills</code></td></tr>
 <tr id="target-mcpjam"><td>mcpjam</td><td><code>&#126;/.mcpjam/skills</code></td><td><code>.mcpjam/skills</code></td></tr>
+<tr id="target-minimax-code"><td>minimax-code</td><td><code>&#126;/.minimax/skills</code></td><td><code>.minimax/skills</code></td></tr>
 <tr id="target-mux"><td>mux</td><td><code>&#126;/.mux/skills</code></td><td><code>.mux/skills</code></td></tr>
 <tr id="target-neovate"><td>neovate</td><td><code>&#126;/.neovate/skills</code></td><td><code>.neovate/skills</code></td></tr>
 <tr id="target-omp"><td>omp</td><td><code>&#126;/.omp/agent/skills</code></td><td><code>.omp/skills</code></td></tr>
