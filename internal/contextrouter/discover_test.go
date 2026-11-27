@@ -37,21 +37,21 @@ func TestDiscover(t *testing.T) {
 		}
 	}
 
-	vault := route(at("vault"))
-	skills := mkdir(at("vault", "skillshare", "skills"))
-	agents := mkdir(at("vault", "skillshare", "agents"))
+	notes := route(at("notes"))
+	skills := mkdir(at("notes", "skillshare", "skills"))
+	agents := mkdir(at("notes", "skillshare", "agents"))
 	plain := mkdir(at("plain", "skills"))
 	check("skills source two levels below", DiscoverInput{SkillsSource: skills},
-		Root{vault, "vault", OriginSkillsSource})
+		Root{notes, "notes", OriginSkillsSource})
 	check("agents source alone", DiscoverInput{SkillsSource: plain, AgentsSource: agents},
-		Root{vault, "vault", OriginAgentsSource})
+		Root{notes, "notes", OriginAgentsSource})
 	check("both sources, one router", DiscoverInput{SkillsSource: skills, AgentsSource: agents},
-		Root{vault, "vault", OriginSkillsSource})
+		Root{notes, "notes", OriginSkillsSource})
 	check("no router", DiscoverInput{SkillsSource: plain, AgentsSource: plain})
 	check("missing source", DiscoverInput{SkillsSource: at("gone", "skills")})
 
 	// The source itself is depth 0, and the nearest router wins.
-	inner := route(mkdir(at("vault", "inner", "skills")))
+	inner := route(mkdir(at("notes", "inner", "skills")))
 	check("router in the source itself", DiscoverInput{SkillsSource: inner},
 		Root{inner, "skills", OriginSkillsSource})
 
@@ -71,7 +71,7 @@ func TestDiscover(t *testing.T) {
 	app := route(at("work", "a"))
 	projects := []Project{{Path: zed, Name: "zed"}, {Path: app}, {Path: at("work", "gone")}, {Path: mkdir(at("work", "unrouted"))}}
 	check("projects by name after the source", DiscoverInput{SkillsSource: skills, Projects: projects},
-		Root{vault, "vault", OriginSkillsSource}, Root{app, "a", OriginProject}, Root{zed, "zed", OriginProject})
+		Root{notes, "notes", OriginSkillsSource}, Root{app, "a", OriginProject}, Root{zed, "zed", OriginProject})
 	check("project mode uses only the project", DiscoverInput{ProjectRoot: app, SkillsSource: skills, Projects: projects},
 		Root{app, "a", OriginCurrent})
 	check("project mode without a router", DiscoverInput{ProjectRoot: plain, SkillsSource: skills, Projects: projects})
@@ -86,12 +86,12 @@ func TestDiscover(t *testing.T) {
 	}
 	// A source that was never created, reached through a link, still finds the
 	// router above it once, under the same path as its sibling source.
-	viaLink := at("vault-link")
-	if err := os.Symlink(vault, viaLink); err != nil {
+	viaLink := at("notes-link")
+	if err := os.Symlink(notes, viaLink); err != nil {
 		t.Fatal(err)
 	}
 	check("missing source behind a link", DiscoverInput{SkillsSource: skills, AgentsSource: filepath.Join(viaLink, "skillshare", "never-created")},
-		Root{vault, "vault", OriginSkillsSource})
+		Root{notes, "notes", OriginSkillsSource})
 	if err := os.Remove(viaLink); err != nil {
 		t.Fatal(err)
 	}
@@ -108,13 +108,13 @@ func TestDiscover(t *testing.T) {
 	if err := os.Symlink(skills, link); err != nil {
 		t.Fatal(err)
 	}
-	check("symlinked source", DiscoverInput{SkillsSource: link}, Root{vault, "vault", OriginSkillsSource})
+	check("symlinked source", DiscoverInput{SkillsSource: link}, Root{notes, "notes", OriginSkillsSource})
 
 	// The same folder reached as a project through a link is one root.
-	alias := at("vault-alias")
-	if err := os.Symlink(vault, alias); err != nil {
+	alias := at("notes-alias")
+	if err := os.Symlink(notes, alias); err != nil {
 		t.Fatal(err)
 	}
 	check("project is the source router", DiscoverInput{SkillsSource: skills, Projects: []Project{{Path: alias, Name: "alias"}}},
-		Root{vault, "vault", OriginSkillsSource})
+		Root{notes, "notes", OriginSkillsSource})
 }
