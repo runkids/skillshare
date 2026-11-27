@@ -80,7 +80,7 @@
     --gs-well: color-mix(in srgb, var(--ink) 4%, transparent);
     --gs-pill: color-mix(in srgb, var(--surface) 82%, transparent);
     --gs-ctl: color-mix(in srgb, var(--surface) 55%, transparent);
-    --gs-dialog: color-mix(in srgb, var(--surface) 84%, transparent);
+    --gs-dialog: color-mix(in srgb, var(--surface) 70%, transparent);
     --gs-side: color-mix(in srgb, var(--surface) 50%, transparent);
     --gs-edge: color-mix(in srgb, var(--ink) 6%, transparent);
     --gs-rim: inset 0 1px 0 rgba(255, 255, 255, 0.9);
@@ -92,6 +92,8 @@
     --gs-head: transparent;
     --gs-pin: none;
     --gs-picked: color-mix(in srgb, var(--sel) 70%, transparent);
+    /* Darker than the solid scrim, which also blurs: here the darkening alone has to set the page back. */
+    --gs-scrim: rgba(20, 19, 18, 0.32);
     /* Grain reads as dirt on a light page; only dark mode gets it. */
     --gs-grain: none;
   }
@@ -119,10 +121,11 @@
     --gs-card: color-mix(in srgb, var(--ink) 5%, transparent);
     --gs-float: color-mix(in srgb, var(--surface) 74%, transparent);
     --gs-float-blur: blur(14px) saturate(170%);
+    --gs-scrim: rgba(0, 0, 0, 0.4);
     --gs-well: rgba(255, 255, 255, 0.04);
     --gs-pill: rgba(255, 255, 255, 0.12);
     --gs-ctl: color-mix(in srgb, var(--ink) 5%, transparent);
-    --gs-dialog: color-mix(in srgb, var(--surface) 86%, transparent);
+    --gs-dialog: color-mix(in srgb, var(--surface) 62%, transparent);
     --gs-side: color-mix(in srgb, var(--ink) 3%, transparent);
     --gs-edge: rgba(255, 255, 255, 0.12);
     --gs-rim: inset 0 1px 0 rgba(255, 255, 255, 0.1);
@@ -260,7 +263,7 @@
     backdrop-filter: var(--gs-float-blur);
   }
   :root[data-glass='surfaces']:not([data-theme='playful']) .ss-scrim {
-    background: rgba(20, 19, 18, 0.22);
+    background: var(--gs-scrim);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }

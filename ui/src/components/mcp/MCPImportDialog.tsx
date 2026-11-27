@@ -1,6 +1,6 @@
 import { useContext, useEffect, useState } from 'react';
 import { useQuery, type UseQueryResult } from '@tanstack/react-query';
-import { Braces, Check, Download, FileUp, Info, Plus, X } from 'lucide-react';
+import { Braces, Check, Download, FileUp, Info, Plus } from 'lucide-react';
 import {
   mcpApi,
   mcpTargets,
@@ -15,6 +15,7 @@ import { piOptionsError } from './mcpServerDraft';
 import AgentIcon from '../AgentIcon';
 import Button from '../Button';
 import CodeEditor from '../CodeEditor';
+import DialogHeader from '../DialogHeader';
 import DialogShell from '../DialogShell';
 import SegmentedControl from '../SegmentedControl';
 import { Checkbox, Select } from '../Input';
@@ -695,23 +696,12 @@ export default function MCPImportDialog(props: Props) {
       ariaLabel={title}
       className="!max-w-[880px]"
     >
-      <div className="dh">
-        <div className="flex flex-col gap-1">
-          <h2 className="ss-h2">{title}</h2>
-          <p className="text-[13px] text-ink-2">
-            {t(adding ? 'mcp.pasteSubtitle' : 'mcp.importSubtitle')}
-          </p>
-        </div>
-        <button
-          type="button"
-          className="ss-ib"
-          aria-label={t('common.close')}
-          onClick={onClose}
-          disabled={saving}
-        >
-          <X size={16} />
-        </button>
-      </div>
+      <DialogHeader
+        title={title}
+        subtitle={t(adding ? 'mcp.pasteSubtitle' : 'mcp.importSubtitle')}
+        onClose={onClose}
+        closeDisabled={saving}
+      />
       <div className="db">
         {onMode && (
           <SegmentedControl<AddMode>

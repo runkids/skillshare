@@ -12,6 +12,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import type { MCPPlan } from '../../api/mcp';
 import AgentIcon from '../AgentIcon';
 import Button from '../Button';
+import DialogHeader from '../DialogHeader';
 import DialogShell from '../DialogShell';
 import MCPNotices from './MCPNotices';
 import { RailLine, SyncBox } from '../StatusRail';
@@ -161,12 +162,10 @@ export function MCPSyncDialog({
       preventClose={running}
       ariaLabel={title}
     >
-      <div className="dh">
-        <div className="flex flex-col gap-1">
-          <h2 className="ss-h2">{done ? t('syncPreview.titleComplete') : title}</h2>
-          {!done && <p className="text-[13px] text-ink-2">{t('mcp.syncDialog.subtitle')}</p>}
-        </div>
-      </div>
+      <DialogHeader
+        title={done ? t('syncPreview.titleComplete') : title}
+        subtitle={!done ? t('mcp.syncDialog.subtitle') : null}
+      />
       <div className="db">
         {done ? (
           <div className="ss-note inf">

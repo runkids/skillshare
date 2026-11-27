@@ -1,10 +1,10 @@
 import { useState, type ReactNode } from 'react';
 import { useQuery, type QueryKey } from '@tanstack/react-query';
-import { File, FileCode2, FileText, Folder, X } from 'lucide-react';
+import { File, FileCode2, FileText, Folder } from 'lucide-react';
 import { ApiError } from '../api/http';
 import CodeView from './CodeView';
+import DialogHeader from './DialogHeader';
 import DialogShell from './DialogShell';
-import IconButton from './IconButton';
 import MarkdownView, { ViewToggle } from './MarkdownView';
 import Spinner from './Spinner';
 import { useT } from '../i18n';
@@ -41,7 +41,6 @@ export default function FilesDialog({
   fresh?: boolean;
   onClose: () => void;
 }) {
-  const t = useT();
   const browse = (names: string[]) => (
     <FileBrowser names={names} file={file} fresh={fresh} emptyText={emptyText} />
   );
@@ -53,17 +52,13 @@ export default function FilesDialog({
       ariaLabel={ariaLabel}
       maxWidth={Array.isArray(files) && files.length === 1 ? '4xl' : '6xl'}
     >
-      <div className="dh">
-        <div className="flex min-w-0 flex-col gap-1">
-          <h2 className="ss-h2 font-mono">{title}</h2>
-          {subtitle && (
-            <p className="truncate font-mono text-xs text-ink-3" title={subtitle}>
-              {shortenPath(subtitle)}
-            </p>
-          )}
-        </div>
-        <IconButton icon={<X size={16} />} label={t('common.close')} onClick={onClose} />
-      </div>
+      <DialogHeader
+        title={title}
+        titleClassName="font-mono"
+        subtitle={subtitle ? shortenPath(subtitle) : null}
+        subtitleProps={{ className: 'truncate font-mono text-xs text-ink-3', title: subtitle }}
+        onClose={onClose}
+      />
       <div className="db">
         {Array.isArray(files) ? (
           browse(files)

@@ -8,7 +8,6 @@ import {
   CircleX,
   Puzzle,
   RefreshCw,
-  X,
 } from 'lucide-react';
 import { api, type LocalSkillInfo } from '../api/client';
 import { queryKeys } from '../lib/queryKeys';
@@ -17,6 +16,7 @@ import { formatAgentDisplayName } from '../lib/resourceNames';
 import { useT, plural } from '../i18n';
 import AgentIcon from './AgentIcon';
 import Button from './Button';
+import DialogHeader from './DialogHeader';
 import DialogShell from './DialogShell';
 import { Checkbox } from './Input';
 import SegmentedControl from './SegmentedControl';
@@ -128,21 +128,15 @@ export default function CollectDialog({
         ariaLabel={t('collectDialog.results')}
         className="!max-w-[560px]"
       >
-        <div className="dh">
-          <div className="flex flex-col gap-1">
-            <h2 className="ss-h2">{t('collectDialog.results')}</h2>
-            <p className="text-[13px] text-ink-2">
-              {t('collectDialog.resultsSummary', {
-                pulled,
-                skipped: count('skipped'),
-                failed: count('failed'),
-              })}
-            </p>
-          </div>
-          <button type="button" className="ss-ib" aria-label={t('common.close')} onClick={onClose}>
-            <X size={16} />
-          </button>
-        </div>
+        <DialogHeader
+          title={t('collectDialog.results')}
+          subtitle={t('collectDialog.resultsSummary', {
+            pulled,
+            skipped: count('skipped'),
+            failed: count('failed'),
+          })}
+          onClose={onClose}
+        />
         <div className="db">
           <div className="ss-list !shadow-none">
             {results.map(({ item, outcome, error: why }) => (
@@ -200,21 +194,12 @@ export default function CollectDialog({
       ariaLabel={title}
       className="!max-w-[620px]"
     >
-      <div className="dh">
-        <div className="flex flex-col gap-1">
-          <h2 className="ss-h2">{title}</h2>
-          <p className="text-[13px] text-ink-2">{t(`collectDialog.subtitle.${kind ?? 'all'}`)}</p>
-        </div>
-        <button
-          type="button"
-          className="ss-ib"
-          aria-label={t('common.close')}
-          onClick={onClose}
-          disabled={busy}
-        >
-          <X size={16} />
-        </button>
-      </div>
+      <DialogHeader
+        title={title}
+        subtitle={t(`collectDialog.subtitle.${kind ?? 'all'}`)}
+        onClose={onClose}
+        closeDisabled={busy}
+      />
       <div className="db">
         {!kind && (
           <div className="flex items-center gap-2.5">

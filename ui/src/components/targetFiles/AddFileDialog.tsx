@@ -1,9 +1,9 @@
 import { useId, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { X } from 'lucide-react';
 import { api, ApiError } from '../../api/client';
 import type { TargetFileRefusal } from '../../api/client';
 import Button from '../Button';
+import DialogHeader from '../DialogHeader';
 import DialogShell from '../DialogShell';
 import { useToast } from '../Toast';
 import { targetLabel } from '../mcp/mcpView';
@@ -75,23 +75,12 @@ export default function AddFileDialog({
       ariaLabel={title}
       className="!max-w-[540px]"
     >
-      <div className="dh">
-        <div className="flex min-w-0 flex-col gap-1">
-          <h2 className="ss-h2">{title}</h2>
-          <p className="text-[13px] text-ink-2">
-            {t('targetFiles.addDialog.description', { tool: targetLabel(target) })}
-          </p>
-        </div>
-        <button
-          type="button"
-          className="ss-ib"
-          aria-label={t('common.close')}
-          onClick={onClose}
-          disabled={saving}
-        >
-          <X size={16} />
-        </button>
-      </div>
+      <DialogHeader
+        title={title}
+        subtitle={t('targetFiles.addDialog.description', { tool: targetLabel(target) })}
+        onClose={onClose}
+        closeDisabled={saving}
+      />
       <div className="db flex flex-col gap-4">
         <div className="ss-fld">
           <label htmlFor={id}>{t('targetFiles.addDialog.label')}</label>

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { KeyboardEvent, ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Folder, Lock, TriangleAlert, X } from 'lucide-react';
+import { Folder, Lock, TriangleAlert } from 'lucide-react';
 import { useAppContext } from '../../context/AppContext';
 import { hooksApi, type HookMutation } from '../../api/hooks';
 import { useT, plural } from '../../i18n';
@@ -11,8 +11,8 @@ import AgentIcon from '../AgentIcon';
 import Button from '../Button';
 import CodeView from '../CodeView';
 import CopyButton from '../CopyButton';
+import DialogHeader from '../DialogHeader';
 import DialogShell from '../DialogShell';
-import IconButton from '../IconButton';
 import Spinner from '../Spinner';
 import { hookLabel, hookMessage } from './hooksView';
 
@@ -215,13 +215,12 @@ export function HooksConfigDialog({
       ariaLabel={t('hooks.viewConfig')}
       className="!max-w-[880px]"
     >
-      <div className="dh">
-        <div className="flex min-w-0 flex-col gap-1">
-          <h2 className="ss-h2">{t('hooks.viewConfig')}</h2>
-          <p className="truncate font-mono text-xs text-ink-3">{mutation.name}</p>
-        </div>
-        <IconButton icon={<X size={16} />} label={t('common.close')} onClick={onClose} />
-      </div>
+      <DialogHeader
+        title={t('hooks.viewConfig')}
+        subtitle={mutation.name}
+        subtitleProps={{ className: 'truncate font-mono text-xs text-ink-3' }}
+        onClose={onClose}
+      />
       <div className="db">
         <HooksConfigView mutation={mutation} sourcePath={sourcePath} />
       </div>

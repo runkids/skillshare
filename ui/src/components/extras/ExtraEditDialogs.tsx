@@ -1,6 +1,5 @@
 import { useState, type ReactNode } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { X } from 'lucide-react';
 import { api } from '../../api/client';
 import type { Extra, ExtraEditResult, ExtraTarget } from '../../api/client';
 import { queryKeys } from '../../lib/queryKeys';
@@ -9,6 +8,7 @@ import { shortenHome } from '../../lib/paths';
 import { useToast } from '../Toast';
 import { useT, plural } from '../../i18n';
 import Button from '../Button';
+import DialogHeader from '../DialogHeader';
 import DialogShell from '../DialogShell';
 import { Select } from '../Input';
 import FilterSection from '../targets/FilterSection';
@@ -100,21 +100,13 @@ function DialogFrame({
       ariaLabel={title}
       className="!max-w-[720px]"
     >
-      <div className="dh">
-        <div className="flex min-w-0 flex-col gap-1">
-          <h2 className="ss-h2">{title}</h2>
-          <p className="truncate text-[13px] text-ink-2">{subtitle}</p>
-        </div>
-        <button
-          type="button"
-          className="ss-ib"
-          aria-label={t('common.close')}
-          onClick={onClose}
-          disabled={saving}
-        >
-          <X size={16} />
-        </button>
-      </div>
+      <DialogHeader
+        title={title}
+        subtitle={subtitle}
+        subtitleProps={{ className: 'truncate text-[13px] text-ink-2' }}
+        onClose={onClose}
+        closeDisabled={saving}
+      />
       <div className="db">{children}</div>
       <div className="df">
         <span className="flex-1" />

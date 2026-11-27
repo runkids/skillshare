@@ -26,6 +26,7 @@ import { useToast } from '../components/Toast';
 import AgentTile from '../components/AgentTile';
 import Button from '../components/Button';
 import MemoryNotes from '../components/memory/MemoryNotes';
+import DialogHeader from '../components/DialogHeader';
 import DialogShell from '../components/DialogShell';
 import { Select } from '../components/Input';
 import EmptyState from '../components/EmptyState';
@@ -360,21 +361,12 @@ function AddExtraDialog({
       ariaLabel={title}
       className="!max-w-[800px]"
     >
-      <div className="dh">
-        <div className="flex flex-col gap-1">
-          <h2 className="ss-h2">{title}</h2>
-          <p className="text-[13px] text-ink-2">{t('extras.modal.subtitle')}</p>
-        </div>
-        <button
-          type="button"
-          className="ss-ib"
-          aria-label={t('common.close')}
-          onClick={onClose}
-          disabled={saving}
-        >
-          <X size={16} />
-        </button>
-      </div>
+      <DialogHeader
+        title={title}
+        subtitle={t('extras.modal.subtitle')}
+        onClose={onClose}
+        closeDisabled={saving}
+      />
       <div className="db">
         <div className="grid grid-cols-2 gap-3.5">
           <div className="ss-fld">

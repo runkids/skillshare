@@ -1,10 +1,11 @@
 import { upgradeAndReconnect } from '../lib/upgradeWorkflow';
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { X, Copy, Check, CircleArrowUp } from 'lucide-react';
+import { Copy, Check, CircleArrowUp } from 'lucide-react';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { api } from '../api/client';
 import type { VersionCheck } from '../api/client';
+import DialogHeader from './DialogHeader';
 import DialogShell from './DialogShell';
 import Button from './Button';
 import { useT } from '../i18n';
@@ -132,18 +133,11 @@ export default function UpdateDialog({
       preventClose={updating}
       ariaLabel={t('updateDialog.newVersion')}
     >
-      <div className="dh">
-        <h2 className="ss-h2">{t('updateDialog.newVersion')}</h2>
-        <button
-          type="button"
-          className="ss-ib"
-          onClick={dismiss}
-          aria-label={t('common.close')}
-          disabled={updating}
-        >
-          <X size={16} />
-        </button>
-      </div>
+      <DialogHeader
+        title={t('updateDialog.newVersion')}
+        onClose={dismiss}
+        closeDisabled={updating}
+      />
       <div className="db">
         <dl className="ss-kv">
           {data.cliUpdateAvailable && (

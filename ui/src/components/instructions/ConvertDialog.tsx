@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
-import { X } from 'lucide-react';
 import { api } from '../../api/client';
 import type { ConvertMethod, InstructionsChange, TargetInstructions } from '../../api/client';
 import Button from '../Button';
 import { Checkbox } from '../Checkbox';
+import DialogHeader from '../DialogHeader';
 import DialogShell from '../DialogShell';
 import { Select } from '../Select';
 import { useToast } from '../Toast';
@@ -126,23 +126,12 @@ export default function ConvertDialog({
       ariaLabel={title}
       className="!max-w-[980px]"
     >
-      <div className="dh">
-        <div className="flex flex-col gap-1">
-          <h2 className="ss-h2">{title}</h2>
-          <p className="text-[13px] text-ink-2">
-            {t('instructions.convert.subtitle', { path: shortenHome(data.path ?? '') })}
-          </p>
-        </div>
-        <button
-          type="button"
-          className="ss-ib"
-          aria-label={t('common.close')}
-          onClick={onClose}
-          disabled={busy}
-        >
-          <X size={16} />
-        </button>
-      </div>
+      <DialogHeader
+        title={title}
+        subtitle={t('instructions.convert.subtitle', { path: shortenHome(data.path ?? '') })}
+        onClose={onClose}
+        closeDisabled={busy}
+      />
       <div className="db">
         <div className="grid grid-cols-[300px_minmax(0,1fr)] items-start gap-7">
           <div className="flex flex-col gap-5">

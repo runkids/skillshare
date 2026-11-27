@@ -25,6 +25,7 @@ import {
 import { useT } from '../../i18n';
 import Button from '../Button';
 import { Checkbox } from '../Checkbox';
+import DialogHeader from '../DialogHeader';
 import DialogShell from '../DialogShell';
 import SyncPreviewModal from '../SyncPreviewModal';
 import { useToast } from '../Toast';
@@ -105,17 +106,13 @@ export function UninstallDialog({
         ariaLabel={t('batchUninstall.results.partialResult')}
         preventClose={running}
       >
-        <div className="dh">
-          <div className="flex flex-col gap-1">
-            <h2 className="ss-h2">{t('batchUninstall.results.partialResult')}</h2>
-            <p className="text-[13px] text-ink-2">
-              {t('resources.uninstall.resultSummary', {
-                removed: results.length - failed.length,
-                failed: failed.length,
-              })}
-            </p>
-          </div>
-        </div>
+        <DialogHeader
+          title={t('batchUninstall.results.partialResult')}
+          subtitle={t('resources.uninstall.resultSummary', {
+            removed: results.length - failed.length,
+            failed: failed.length,
+          })}
+        />
         <div className="db">
           <div className="ss-list !shadow-none">
             {results.map((r) => (
@@ -176,9 +173,7 @@ export function UninstallDialog({
       ariaLabel={title}
       preventClose={running}
     >
-      <div className="dh">
-        <h2 className="ss-h2">{title}</h2>
-      </div>
+      <DialogHeader title={title} />
       <div className="db">
         <div className="ss-list !shadow-none max-h-64 overflow-y-auto">
           {[...repos].map(([repo, n]) => (

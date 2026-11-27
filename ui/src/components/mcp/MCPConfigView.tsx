@@ -2,13 +2,13 @@ import { useState } from 'react';
 import type { KeyboardEvent, ReactNode } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { mcpApi, type MCPMutation } from '../../api/mcp';
-import { Folder, Lock, TriangleAlert, X } from 'lucide-react';
+import { Folder, Lock, TriangleAlert } from 'lucide-react';
 import AgentIcon from '../AgentIcon';
 import Button from '../Button';
 import CodeView from '../CodeView';
 import CopyButton from '../CopyButton';
+import DialogHeader from '../DialogHeader';
 import DialogShell from '../DialogShell';
-import IconButton from '../IconButton';
 import Spinner from '../Spinner';
 import { useT, plural } from '../../i18n';
 import { inside, targetLabel, toolGapKey } from './mcpView';
@@ -247,13 +247,12 @@ export function MCPConfigDialog({
       ariaLabel={t('mcp.viewConfig')}
       className="!max-w-[880px]"
     >
-      <div className="dh">
-        <div className="flex min-w-0 flex-col gap-1">
-          <h2 className="ss-h2">{t('mcp.viewConfig')}</h2>
-          <p className="truncate font-mono text-xs text-ink-3">{mutation.name}</p>
-        </div>
-        <IconButton icon={<X size={16} />} label={t('common.close')} onClick={onClose} />
-      </div>
+      <DialogHeader
+        title={t('mcp.viewConfig')}
+        subtitle={mutation.name}
+        subtitleProps={{ className: 'truncate font-mono text-xs text-ink-3' }}
+        onClose={onClose}
+      />
       <div className="db">
         <MCPConfigView mutation={mutation} />
       </div>

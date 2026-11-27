@@ -5,6 +5,7 @@ import { useAvailableTargetsQuery, useSyncedTargetsQuery } from '../../hooks/use
 import { shortenHome } from '../../lib/paths';
 import AgentIcon from '../AgentIcon';
 import Button from '../Button';
+import DialogHeader from '../DialogHeader';
 import DialogShell from '../DialogShell';
 import SegmentedControl from '../SegmentedControl';
 import { Select } from '../Input';
@@ -828,18 +829,11 @@ export default function MCPServerDialog({
       ariaLabel={title}
       className="!max-w-[880px]"
     >
-      <div className="dh">
-        <h2 className="ss-h2">{viewing ? t('mcp.viewConfig') : title}</h2>
-        <button
-          type="button"
-          className="ss-ib"
-          aria-label={t('common.close')}
-          onClick={onClose}
-          disabled={saving}
-        >
-          <X size={16} />
-        </button>
-      </div>
+      <DialogHeader
+        title={viewing ? t('mcp.viewConfig') : title}
+        onClose={onClose}
+        closeDisabled={saving}
+      />
       {/* The view takes the whole body, so a long file has room; the fields live in state and come back as they were. */}
       {viewing ? (
         <div className="db">

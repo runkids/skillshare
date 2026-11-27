@@ -5,6 +5,7 @@ import { hooksApi, type CodexTrustPlan } from '../../api/hooks';
 import { useT, plural } from '../../i18n';
 import { queryKeys } from '../../lib/queryKeys';
 import Button from '../Button';
+import DialogHeader from '../DialogHeader';
 import DialogShell from '../DialogShell';
 import Spinner from '../Spinner';
 
@@ -63,18 +64,16 @@ export default function CodexTrustDialog({ onClose }: { onClose: () => void }) {
       preventClose={running}
       ariaLabel={t('hooks.codexTrust.title')}
     >
-      <div className="dh">
-        <div className="flex flex-col gap-1">
-          <h2 className="ss-h2">{t('hooks.codexTrust.title')}</h2>
-          {!done && (
-            <p className="text-[13px] text-ink-2">
-              {plan?.project
-                ? t('hooks.codexTrust.project', { project: plan.project })
-                : t('hooks.codexTrust.subtitle')}
-            </p>
-          )}
-        </div>
-      </div>
+      <DialogHeader
+        title={t('hooks.codexTrust.title')}
+        subtitle={
+          !done
+            ? plan?.project
+              ? t('hooks.codexTrust.project', { project: plan.project })
+              : t('hooks.codexTrust.subtitle')
+            : null
+        }
+      />
       <div className="db">
         {done && result?.failed?.length ? (
           <div className="ss-note warn" role="status">

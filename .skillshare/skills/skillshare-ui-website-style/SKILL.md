@@ -113,7 +113,7 @@ State and variant are short modifier classes on the same element: `.on` (selecte
 | Icons | `.ss-cat` (kind tile; `.skill` `.agent` `.extra` `.mcp` `.plugin` `.target`, tones, `.sm`), `.ss-at` (agent or tool logo; `.lg`), `.ss-stack` (overlapping logos) |
 | Theme editor | `.ss-presets` + `.ss-preset` (preset cards; `.on`), `.ss-tint` + `.ss-tint-sw` (background choice), `.ss-swatch` (colour picker inside `.ss-inp`), `.ss-mini` (live preview; `.sd` sidebar, `.pn` page; its parts transition colour, corners and shadow; `data-part` names the parts an option changes, which then get a brief accent wash (text) or glow (shapes)). Used by `CustomThemeSettings` only |
 | Feedback | `.ss-note` (+ `.warn` `.bad` `.inf`), `.ss-empty` (via `EmptyState`), `.ss-prog`, `.ss-skel`, `.ss-toast`, `.ss-tip` |
-| Overlays | `.ss-scrim` + `.ss-dlg` with `.dh` `.db` `.df` (via `DialogShell`), `.ss-bulk` (selection toolbar), `.ss-hud` (hint while the shortcut modifier is held), `.ss-top` |
+| Overlays | `.ss-scrim` + `.ss-dlg` with `.dh` `.db` `.df` (via `DialogShell` and `DialogHeader`), `.ss-bulk` (selection toolbar; every action in it stays ink, destructive ones included, since their confirm dialog carries the red), `.ss-hud` (hint while the shortcut modifier is held), `.ss-top` |
 | Content | `.ss-prose` (rendered markdown), `.ss-code` (+ `.ln` `.cur`), `.ss-pre`, `.ss-ed` (editor) |
 | Dashboard | `.ss-board` `.ss-pin` `.ss-pinnote` `.ss-squig` — Playful pin board |
 
@@ -177,7 +177,8 @@ Shared components in `ui/src/components/` wrap the `ss-*` classes. Use the compo
 | `KindBadge` | `.ss-tag` | `kind="skill\|agent"` |
 | `EmptyState` | `.ss-empty` | `icon?` (LucideIcon), `title?`, `description?`, `action?`, `tone="bad"` (failed to load), `compact?` (inside a section), `className?`. A `description` alone renders as one line of body text |
 | `Switch`, `SwitchMark` | `.ss-sw` | `Switch`: `checked`, `onChange`, `mixed?` + native button props; name it with `aria-label` or `aria-labelledby`. `SwitchMark` (`checked`, `mixed?`) is the look alone, for a larger button that has `role="switch"` itself; it does not dim on `:disabled`, so dim that button |
-| `DialogShell` | `.ss-scrim` `.ss-dlg` | `open`, `onClose`, `maxWidth="sm".."7xl"`, `padding`, `preventClose?`, `ariaLabel`. Use `padding="none"` with `.dh` / `.db` / `.df` children for the standard header, body and footer |
+| `DialogShell` | `.ss-scrim` `.ss-dlg` | `open`, `onClose`, `maxWidth="sm".."7xl"`, `padding`, `preventClose?`, `ariaLabel`. Use `padding="none"` with a `DialogHeader`, then `.db` / `.df` children for the standard header, body and footer |
+| `DialogHeader` | `.dh` | `title`, `subtitle?` (pass `null`, not `undefined`, while a conditional subtitle is hidden), `onClose?` (shows the close button), `closeDisabled?`, `children` (extra actions before the close button), `className?`, `titleClassName?`, `subtitleProps?` (`className` replaces the subtitle style), `ref?`. A header with a leading back button or icon tile, or a subtitle of more than one line, stays hand-written |
 | `ConfirmDialog` | `DialogShell` | `open`, `onConfirm`, `onCancel`, `title`, `message`, `variant="default\|danger"`, `loading?`, `wide?` |
 | `Input`, `Textarea` | `.ss-fld` `.ss-inp` | `label?`, `size="sm\|md"` + native props. `Input.tsx` re-exports `Checkbox` and `Select` |
 | `Select` | `.ss-inp` + `.ss-menu` | `label?`, `value`, `onChange`, `options[]` (`description?`, `triggerLabel?`, `detail?`), `size`, `prefix?`, `quiet` (footer menu without a box), `up`, `search` (type-to-filter) |

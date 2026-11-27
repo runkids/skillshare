@@ -6,6 +6,7 @@ import { type SyncResponse, type Target } from '../../api/client';
 import { hookLabel } from '../hooks/hooksView';
 import { describeMessage, targetLabel } from '../mcp/mcpView';
 import Button from '../Button';
+import DialogHeader from '../DialogHeader';
 import DialogShell from '../DialogShell';
 import Spinner from '../Spinner';
 import SyncResultList, { SyncUpToDate } from '../SyncResultList';
@@ -122,12 +123,7 @@ export default function ProjectSyncDialog({ open, onClose, project, targets }: P
       preventClose={running}
       ariaLabel={title}
     >
-      <div className="dh">
-        <div className="flex flex-col gap-1">
-          <h2 className="ss-h2">{title}</h2>
-          <p className="text-[13px] text-ink-2">{t('projects.sync.subtitle')}</p>
-        </div>
-      </div>
+      <DialogHeader title={title} subtitle={t('projects.sync.subtitle')} />
       <div className="db">
         {done !== undefined ? (
           <>

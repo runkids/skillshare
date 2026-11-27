@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { RotateCcw, X } from 'lucide-react';
+import { RotateCcw } from 'lucide-react';
 import { mcpApi } from '../../api/mcp';
 import AgentTile from '../AgentTile';
 import Button from '../Button';
+import DialogHeader from '../DialogHeader';
 import DialogShell from '../DialogShell';
 import Spinner from '../Spinner';
 import { formatDateTime, useI18n } from '../../i18n';
@@ -56,21 +57,12 @@ export default function MCPRestoreDialog({ backups, initialId, onClose, onRestor
       ariaLabel={title}
       className="!max-w-[680px]"
     >
-      <div className="dh">
-        <div className="flex flex-col gap-1">
-          <h2 className="ss-h2">{title}</h2>
-          <p className="text-[13px] text-ink-2">{t('mcp.backupsHint')}</p>
-        </div>
-        <button
-          type="button"
-          className="ss-ib"
-          aria-label={t('common.close')}
-          onClick={onClose}
-          disabled={busy}
-        >
-          <X size={16} />
-        </button>
-      </div>
+      <DialogHeader
+        title={title}
+        subtitle={t('mcp.backupsHint')}
+        onClose={onClose}
+        closeDisabled={busy}
+      />
       <div className="db">
         <div
           role="radiogroup"

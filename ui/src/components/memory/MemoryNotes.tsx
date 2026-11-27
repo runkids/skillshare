@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
-import { BookOpen, Plus, Search, X } from 'lucide-react';
+import { BookOpen, Plus, Search } from 'lucide-react';
 import { ApiError, api } from '../../api/client';
 import type { MemoryNote } from '../../api/memory';
 import { useT } from '../../i18n';
 import { queryKeys, staleTimes } from '../../lib/queryKeys';
 import Button from '../Button';
 import ConfirmDialog from '../ConfirmDialog';
+import DialogHeader from '../DialogHeader';
 import DialogShell from '../DialogShell';
 import EmptyState from '../EmptyState';
 import { Input } from '../Input';
@@ -280,18 +281,11 @@ export default function MemoryNotes({
         ariaLabel={t('memory.move')}
         padding="none"
       >
-        <div className="dh">
-          <h2 className="ss-h2">{t('memory.move')}</h2>
-          <button
-            type="button"
-            className="ss-ib"
-            aria-label={t('common.close')}
-            onClick={() => setMoving(null)}
-            disabled={busy}
-          >
-            <X size={16} />
-          </button>
-        </div>
+        <DialogHeader
+          title={t('memory.move')}
+          onClose={() => setMoving(null)}
+          closeDisabled={busy}
+        />
         <div className="db flex flex-col gap-3">
           <Input
             autoFocus
@@ -324,18 +318,11 @@ export default function MemoryNotes({
         ariaLabel={t('memory.new')}
         padding="none"
       >
-        <div className="dh">
-          <h2 className="ss-h2">{t('memory.new')}</h2>
-          <button
-            type="button"
-            className="ss-ib"
-            aria-label={t('common.close')}
-            onClick={() => setCreating(false)}
-            disabled={busy}
-          >
-            <X size={16} />
-          </button>
-        </div>
+        <DialogHeader
+          title={t('memory.new')}
+          onClose={() => setCreating(false)}
+          closeDisabled={busy}
+        />
         <div className="db flex flex-col gap-3">
           <Input
             autoFocus

@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query';
-import { AlertCircle, X } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import { ApiError } from '../../api/client';
 import { invalidate } from '../../lib/queryEvents';
 import { useT } from '../../i18n';
 import Button from '../Button';
+import DialogHeader from '../DialogHeader';
 import DialogShell from '../DialogShell';
 
 /**
@@ -81,21 +82,12 @@ export default function ExtensionsReviewDialog<Plan extends { revision: string }
       ariaLabel={text.title}
       className="!max-w-[680px]"
     >
-      <div className="dh">
-        <div className="flex flex-col gap-1">
-          <h2 className="ss-h2">{text.title}</h2>
-          <p className="text-[13px] text-ink-2">{text.subtitle}</p>
-        </div>
-        <button
-          type="button"
-          className="ss-ib"
-          aria-label={t('common.close')}
-          onClick={onClose}
-          disabled={applying}
-        >
-          <X size={16} />
-        </button>
-      </div>
+      <DialogHeader
+        title={text.title}
+        subtitle={text.subtitle}
+        onClose={onClose}
+        closeDisabled={applying}
+      />
       <div className="db !gap-3 text-[13.5px]">
         {!plan && !failure && <p className="text-ink-3">{text.loading}</p>}
         {plan && children(plan)}

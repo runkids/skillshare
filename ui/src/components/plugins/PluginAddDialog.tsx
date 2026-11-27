@@ -12,7 +12,7 @@ import {
   type PluginTargetDefinition,
   npmDefaultName,
 } from '../../api/plugins';
-import { AlertCircle, Check, ChevronRight, Package, Search, TriangleAlert, X } from 'lucide-react';
+import { AlertCircle, Check, ChevronRight, Package, Search, TriangleAlert } from 'lucide-react';
 import AgentIcon from '../AgentIcon';
 import AgentStack from '../AgentStack';
 import { agentReasons } from './agentReasons';
@@ -21,8 +21,8 @@ import SourceHint from './SourceHint';
 import { pluginErrorMessage } from './pluginError';
 import PluginDocsLink from './PluginDocsLink';
 import Button from '../Button';
+import DialogHeader from '../DialogHeader';
 import DialogShell from '../DialogShell';
-import IconButton from '../IconButton';
 import Spinner from '../Spinner';
 import { Checkbox, Input } from '../Input';
 import { useT, plural } from '../../i18n';
@@ -252,31 +252,32 @@ export default function PluginAddDialog({
       maxWidth="2xl"
       padding="none"
     >
-      <div className="dh">
-        <div className="flex min-w-0 flex-col gap-1">
-          <h2 className="ss-h2">{t(extending ? 'plugins.addAgents' : 'plugins.add')}</h2>
-          {npmSource ? (
-            <p className="truncate font-mono text-xs text-ink-3" title={npmSource}>
-              {npmSource}
-            </p>
-          ) : discovery ? (
-            <p className="truncate font-mono text-xs text-ink-3" title={discovery.source}>
+      <DialogHeader
+        title={t(extending ? 'plugins.addAgents' : 'plugins.add')}
+        subtitle={
+          npmSource ||
+          (discovery ? (
+            <>
               {shortenPath(discovery.source)}
               {discovery.commit && ` · ${discovery.commit.slice(0, 7)}`}
-            </p>
+            </>
+          ) : extending && busy ? (
+            initialName
           ) : (
-            <p id={sourceHelpId} className="text-[13px] text-ink-2">
-              {extending && busy ? initialName : t('plugins.sourceHelp')}
-            </p>
-          )}
-        </div>
-        <IconButton
-          icon={<X size={16} />}
-          label={t('common.close')}
-          disabled={busy}
-          onClick={onClose}
-        />
-      </div>
+            t('plugins.sourceHelp')
+          ))
+        }
+        subtitleProps={
+          npmSource || discovery
+            ? {
+                className: 'truncate font-mono text-xs text-ink-3',
+                title: npmSource || discovery?.source,
+              }
+            : { id: sourceHelpId }
+        }
+        onClose={onClose}
+        closeDisabled={busy}
+      />
       <div className={`db overflow-y-auto ${discovery || npmSource ? 'gap-[22px]' : 'gap-3.5'}`}>
         {!discovery && extending && busy ? (
           <div className="flex flex-col gap-1.5">
