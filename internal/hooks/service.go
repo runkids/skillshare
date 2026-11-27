@@ -45,6 +45,8 @@ type Mutation struct {
 	// identical unmanaged registration, an unmanaged file at an output path, or an
 	// owned output edited outside Skillshare. It never overrides another config.
 	Replace bool `json:"replace,omitempty"`
+	// ReplaceNames scopes explicit takeover across multiple named entries in one sync.
+	ReplaceNames []string `json:"replaceNames,omitempty"`
 	// Adopt saves an imported entry as the owner of the native registrations it was
 	// read from: identical unmanaged elements become its own without Replace, so the
 	// next sync adopts them in place. It never takes over edited outputs or another
