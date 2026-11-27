@@ -734,8 +734,9 @@ function deriveMode(theme: CustomTheme, mode: Mode, out: Derived): Record<string
     out.adjusted.push({ mode, token: 'accent', from: pickedAccent, to: pri });
 
   const [, lc, lh] = toOklch(pickedLink);
+  // A selected row fills a large area, so the tint stays as quiet in dark as in light (Clean dark's is about 0.03).
   v['accent-bg'] = dark
-    ? fromOklch([0.25, Math.min(lc * 0.35, 0.05), lh])
+    ? fromOklch([0.25, Math.min(lc * 0.25, 0.03), lh])
     : fromOklch([0.955, Math.min(lc * 0.25, 0.03), lh]);
   v.accent = guard(pickedLink, [...surfaces, v['accent-bg']], dark);
   if (v.accent !== pickedLink)
