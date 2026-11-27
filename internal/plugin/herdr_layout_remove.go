@@ -20,6 +20,9 @@ type herdrLayoutReceipt struct {
 	Clicks    string `json:"clicks,omitempty"`
 	DockMod   string `json:"dockMod,omitempty"`
 	Suspended bool   `json:"suspended,omitempty"`
+	// Left is the layout the window was on when Skillshare suspended this copy:
+	// this copy or a later copy made from it.
+	Left string `json:"left,omitempty"`
 }
 
 func (r herdrLayoutReceipt) valid() bool {
@@ -78,39 +81,35 @@ func (r herdrLayoutReceipt) inspect(home string) (layout, state, safe bool) {
 	return layout, state, true
 }
 
-// orderHerdrLayoutRemovals puts a package whose layout copy was made from another removed package's copy
-// first, so each copy is removed while the layout it returns the window to still exists.
-func orderHerdrLayoutRemovals(changes []Change, d *document, removing map[string]bool) {
-	owner := map[string]string{}
-	for name := range removing {
-		for _, rec := range d.state.Bindings[name]["herdr-app"].HerdrLayouts {
-			owner[rec.Name] = name
+// orderHerdrLayoutChanges orders the picked Herdr app changes by how their layout copies chain.
+// Packages leaving go first, a package whose copy was made from another's before that package,
+// so the window steps back one copy at a time while each layout it returns to still exists.
+// Packages returning go after, in the opposite order, so a copy is reached only once every mod
+// it docks is installed; those already installed go last, after every mod this request installs.
+func orderHerdrLayoutChanges(changes []Change, plan *herdrLayoutPlan, picked, leaving func(Change) bool) {
+	tier := len(plan.parent) + 1
+	key := func(c Change) int {
+		switch {
+		case leaving(c):
+			return -plan.depth(c.Name)
+		case c.Action == "noop":
+			return 2*tier + plan.depth(c.Name)
 		}
-	}
-	// How many removed copies lie under this package's copies; bounded in case receipts loop.
-	var depth func(name string, hops int) int
-	depth = func(name string, hops int) int {
-		most := 0
-		for _, rec := range d.state.Bindings[name]["herdr-app"].HerdrLayouts {
-			if from, ok := owner[rec.From]; ok && from != name && hops < len(removing) {
-				most = max(most, 1+depth(from, hops+1))
-			}
-		}
-		return most
+		return tier + plan.depth(c.Name)
 	}
 	var at []int
 	for i, c := range changes {
-		if c.Target == "herdr-app" && removing[c.Name] {
+		if c.Target == "herdr-app" && picked(c) {
 			at = append(at, i)
 		}
 	}
-	picked := make([]Change, len(at))
+	picks := make([]Change, len(at))
 	for j, i := range at {
-		picked[j] = changes[i]
+		picks[j] = changes[i]
 	}
-	slices.SortStableFunc(picked, func(a, b Change) int { return depth(b.Name, 0) - depth(a.Name, 0) })
+	slices.SortStableFunc(picks, func(a, b Change) int { return key(a) - key(b) })
 	for j, i := range at {
-		changes[i] = picked[j]
+		changes[i] = picks[j]
 	}
 }
 

@@ -208,7 +208,7 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (_ *Result,
 			if err := d.checkIntent(s.ConfigPath); err != nil {
 				return result, errors.Join(append(failures, err)...)
 			}
-			if err := s.applyHerdrLayoutView(ctx, view, &local); err != nil {
+			if err := s.applyHerdrLayoutView(ctx, d, view, &local); err != nil {
 				return result, errors.Join(append(failures, err)...)
 			}
 			d.putLocal(c.Name, c.Target, local)
@@ -218,9 +218,6 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (_ *Result,
 		}
 
 		if c.Action == "noop" {
-			if herdrEnabledSync && clearHerdrLayoutSuspension(&local) {
-				d.putLocal(c.Name, c.Target, local)
-			}
 			if r.Action == "add" && !c.Binding.Imported && local.Applied != nil && c.Binding.ID == local.Applied.Binding.ID {
 				local.Applied.Intent, local.Applied.Binding.Imported = decl.fingerprint(), c.Binding.Imported
 				local.Legacy = nil
@@ -279,7 +276,7 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (_ *Result,
 		}
 		applyErr := s.applyChange(ctx, c, &b)
 		if applyErr == nil && view != nil && view.Resume {
-			applyErr = s.applyHerdrLayoutView(ctx, view, &local)
+			applyErr = s.applyHerdrLayoutView(ctx, d, view, &local)
 		}
 		if applyErr == nil && len(c.herdrLayoutCleanup) != 0 {
 			for _, layout := range c.herdrLayoutCleanup {
@@ -303,7 +300,7 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (_ *Result,
 			failed[key] = true
 		} else {
 			if herdrEnabledSync {
-				clearHerdrLayoutSuspension(&local)
+				clearHerdrLayoutSuspension(&local, view)
 			}
 			local.Pending = nil
 			local.Legacy = nil

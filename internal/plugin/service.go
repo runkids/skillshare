@@ -703,7 +703,12 @@ func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval) (
 				removing[c.Name] = true
 			}
 		}
-		orderHerdrLayoutRemovals(p.Changes, d, removing)
+		plan := newHerdrLayoutPlan(d)
+		orderHerdrLayoutChanges(p.Changes, plan,
+			func(c Change) bool {
+				return c.ID != "" && plan.owns(c.Name) && (r.Action == "sync" || removing[c.Name])
+			},
+			func(c Change) bool { return r.Action != "sync" || !c.Binding.Selected() })
 		for i := range p.Changes {
 			c := &p.Changes[i]
 			if c.Target != "herdr-app" || c.ID == "" {
@@ -715,11 +720,11 @@ func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval) (
 				if err := s.prepareHerdrLayoutCleanup(ctx, c, d, removing); err != nil {
 					return nil, err
 				}
-				if err := s.prepareHerdrLayoutView(ctx, c, layouts, false, false); err != nil {
+				if err := s.prepareHerdrLayoutView(ctx, c, plan, layouts, false, false); err != nil {
 					return nil, err
 				}
 			case r.Action == "sync" && (c.Action == "uninstall" || c.Action == "install" || c.Action == "noop"):
-				if err := s.prepareHerdrLayoutView(ctx, c, layouts, c.Binding.Selected(), true); err != nil {
+				if err := s.prepareHerdrLayoutView(ctx, c, plan, layouts, c.Binding.Selected(), true); err != nil {
 					return nil, err
 				}
 			}

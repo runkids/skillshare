@@ -187,11 +187,14 @@ its panel in a copy of the current layout, including on reinstall. The first-par
 Skillshare mod adds its button and panel in the same way. Existing placements are
 not duplicated. To only install files, uncheck the option before previewing.
 Deselecting Herdr and syncing uninstalls the mod, but keeps the declaration and
-its layout copy. When that copy is active, Skillshare switches the open Herdr window
-back to its original layout. Selecting Herdr and syncing reinstalls the mod and
-restores the copy if the window is still on the original layout. **Remove** also
-deletes unchanged copies recorded by Skillshare. Edited and unrecorded layouts
-are kept. Open Herdr for any required layout switch.
+its layout copy. A copy made later from that copy shows its panel too. When either
+is active, Skillshare switches the open Herdr window back to the newest layout
+without the mod's panel. Selecting Herdr and syncing reinstalls the mod and, if the
+window is still on the layout Skillshare switched it to, returns it to the copy it
+left once every mod that copy shows is installed. **Remove** also switches the window off the mod's panel and
+deletes unchanged copies recorded by Skillshare. Edited and unrecorded layouts are
+kept, as is a copy that a remaining mod's copy was made from, which still shows the
+removed mod's panel. Open Herdr for any required layout switch.
 
 Links that leave the mod's folder are not copied.
 
