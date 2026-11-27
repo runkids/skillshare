@@ -46,6 +46,7 @@ import { formatVersion } from '../lib/format';
 import MemoryOverview from '../components/memory/MemoryOverview';
 import { useHeldWhileClosing, useMenuPresence } from '../hooks/usePresence';
 import { useDismiss } from '../hooks/useDismiss';
+import EmptyState from '../components/EmptyState';
 
 const STAR_CTA_DISMISSED_KEY = 'skillshare.dashboard.starCta.dismissed';
 
@@ -133,11 +134,12 @@ export default function DashboardPage() {
   if (isPending) return <PageSkeleton />;
   if (error) {
     return (
-      <div className="ss-empty">
-        <TriangleAlert size={24} className="text-bad" />
-        <h3 className="font-semibold text-ink">{t('dashboard.error.title')}</h3>
-        <p className="text-[13px]">{error.message}</p>
-      </div>
+      <EmptyState
+        tone="bad"
+        icon={TriangleAlert}
+        title={t('dashboard.error.title')}
+        description={error.message}
+      />
     );
   }
   if (!data) return null;

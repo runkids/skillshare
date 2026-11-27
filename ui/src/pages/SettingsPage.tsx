@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
+import Switch from '../components/Switch';
 import PageHeader from '../components/PageHeader';
 import Button from '../components/Button';
 import UpdateDialog from '../components/UpdateDialog';
@@ -198,17 +199,12 @@ export default function SettingsPage() {
                   )}
                 </span>
               </div>
-              <button
-                type="button"
-                role="switch"
+              <Switch
                 aria-labelledby="auto-update-label"
-                aria-checked={policy?.enabled ?? true}
-                className={`ss-sw ${policy?.enabled !== false ? 'on' : ''}`}
+                checked={policy?.enabled ?? true}
                 disabled={!policy || isProjectMode || policy.envOverride || patch.isPending}
-                onClick={() => patch.mutate({ autoUpdateCheck: !policy?.enabled })}
-              >
-                <i />
-              </button>
+                onChange={() => patch.mutate({ autoUpdateCheck: !policy?.enabled })}
+              />
             </div>
             <div className="ss-setrow flex-wrap gap-y-3">
               <div className="l basis-64 gap-1.5">

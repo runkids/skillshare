@@ -21,6 +21,7 @@ import { api } from '../api/client';
 import type { AvailableTarget, Extra, ExtraTarget } from '../api/client';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { useAppContext } from '../context/AppContext';
+import Switch from '../components/Switch';
 import { useToast } from '../components/Toast';
 import AgentIcon from '../components/AgentIcon';
 import Button from '../components/Button';
@@ -221,17 +222,12 @@ function DraftFields({
         disabled={disabled || locked}
       />
       <span className="flex w-[96px] shrink-0 items-center gap-2">
-        <button
-          type="button"
-          role="switch"
-          aria-checked={draft.flatten}
+        <Switch
+          checked={draft.flatten}
           aria-label={t('extras.flatten')}
-          className={`ss-sw ${draft.flatten ? 'on' : ''} disabled:opacity-50`}
-          onClick={() => onChange({ ...draft, flatten: !draft.flatten })}
+          onChange={() => onChange({ ...draft, flatten: !draft.flatten })}
           disabled={disabled || draft.mode === 'symlink'}
-        >
-          <i />
-        </button>
+        />
         <span className="text-xs text-ink-2">flatten</span>
       </span>
     </>

@@ -11,6 +11,7 @@ import Button from '../Button';
 import CodeView from '../CodeView';
 import SegmentedControl from '../SegmentedControl';
 import { SkillContextMenu } from '../TargetMenu';
+import Switch from '../Switch';
 
 export const DESC_BUDGET = 1536;
 
@@ -154,16 +155,12 @@ export default function FrontmatterEditor({ frontmatter, onChange, yaml, onYaml 
     switch (f.type) {
       case 'bool':
         return (
-          <button
-            type="button"
-            role="switch"
-            aria-checked={value === true}
+          <Switch
+            checked={value === true}
             aria-label={f.key}
-            className={`ss-sw mt-[7px] ${value === true ? 'on' : ''}`}
-            onClick={() => set(f.key, value === true ? false : true)}
-          >
-            <i />
-          </button>
+            className="mt-[7px]"
+            onChange={() => set(f.key, value === true ? false : true)}
+          />
         );
       case 'enum':
         return (

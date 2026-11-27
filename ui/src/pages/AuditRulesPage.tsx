@@ -12,6 +12,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { api, type CompiledRule } from '../api/client';
+import Switch from '../components/Switch';
 import Button from '../components/Button';
 import ConfirmDialog from '../components/ConfirmDialog';
 import EmptyState from '../components/EmptyState';
@@ -393,16 +394,11 @@ function RuleRow({
   return (
     <>
       <div className="ss-r !min-h-[46px]">
-        <button
-          type="button"
-          role="switch"
-          aria-checked={rule.enabled}
+        <Switch
+          checked={rule.enabled}
           aria-label={t(rule.enabled ? 'auditRules.toggle.disable' : 'auditRules.toggle.enable')}
-          className={`ss-sw ${rule.enabled ? 'on' : ''}`}
-          onClick={() => onToggle(!rule.enabled)}
-        >
-          <i />
-        </button>
+          onChange={onToggle}
+        />
         <button
           type="button"
           className="flex min-w-0 flex-1 flex-col items-start gap-px text-left"

@@ -42,6 +42,7 @@ import {
 import { parseSkillMarkdown } from '../lib/frontmatter';
 import { parseSkillsAddCommand, requestedSkills } from '../lib/skillsAddCommand';
 import type { SkillsAddCommand } from '../lib/skillsAddCommand';
+import Switch from './Switch';
 import CodeView from './CodeView';
 import MarkdownView, { ViewToggle } from './MarkdownView';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
@@ -1180,16 +1181,12 @@ export default function InstallDialog({
 
         {canTrack && (
           <div className="flex items-start gap-3.5">
-            <button
-              type="button"
-              role="switch"
-              aria-checked={track}
+            <Switch
+              checked={track}
               aria-labelledby={`${ids}track`}
-              className={`ss-sw mt-0.5 ${track ? 'on' : ''}`}
-              onClick={() => setTrack(!track)}
-            >
-              <i />
-            </button>
+              className="mt-0.5"
+              onChange={setTrack}
+            />
             <div className="flex flex-1 flex-col gap-0.5">
               <span id={`${ids}track`} className="font-semibold">
                 {t('install.url.track')}

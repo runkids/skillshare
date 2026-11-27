@@ -62,6 +62,7 @@ import {
 } from './instructionsView';
 import { invalidate } from '../../lib/queryEvents';
 import { bulkGhost } from '../../lib/exitGhost';
+import Switch from '../Switch';
 
 const PREVIEW_LINES = 8;
 type Pending = {
@@ -785,18 +786,13 @@ function FilePanel({
                 <span className="w-[90px] shrink-0">
                   {on && a && <span className={`ss-st ${statusTone(a.status)}`}>{a.status}</span>}
                 </span>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={on}
+                <Switch
+                  checked={on}
                   aria-label={label}
                   title={label}
-                  className={`ss-sw ${on ? 'on' : ''} disabled:opacity-50`}
                   disabled={busy || Boolean(tg.same_as)}
-                  onClick={() => toggle(tg)}
-                >
-                  <i />
-                </button>
+                  onChange={() => toggle(tg)}
+                />
               </div>
               {held[tg.name] && (
                 <div className="ss-note bad mr-4 mb-3 ml-[82px]" role="alert">
@@ -885,14 +881,11 @@ function FilePanel({
           />
         </div>
       ) : (
-        <div className="ss-empty !gap-1.5 !p-[26px]">
-          <span className="text-[13.5px] font-semibold text-ink">
-            {t('instructions.locations.empty.title')}
-          </span>
-          <span className="max-w-[460px] text-[12.5px] leading-normal text-ink-3">
-            {t('instructions.locations.empty.description', { name })}
-          </span>
-        </div>
+        <EmptyState
+          compact
+          title={t('instructions.locations.empty.title')}
+          description={t('instructions.locations.empty.description', { name })}
+        />
       )}
 
       {chosen.length > 0 && (

@@ -13,6 +13,7 @@ import { newEntryId } from './hubShared';
 import { queryKeys } from '../../lib/queryKeys';
 import { useT, plural } from '../../i18n';
 import { invalidate } from '../../lib/queryEvents';
+import EmptyState from '../EmptyState';
 
 interface Props {
   response: DraftResponse;
@@ -172,9 +173,7 @@ export default function HubEditor({ response, onDone }: Props) {
         </div>
 
         {draft.entries.length === 0 ? (
-          <div className="ss-empty">
-            <p>{t('hubBuilder.noEntries')}</p>
-          </div>
+          <EmptyState description={t('hubBuilder.noEntries')} />
         ) : (
           <div className="ss-list">
             <div className="ss-lh !grid grid-cols-[180px_minmax(0,1fr)_150px_30px_30px] gap-2.5">

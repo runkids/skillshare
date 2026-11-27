@@ -3,6 +3,7 @@ import type { MCPServer } from '../../api/mcp';
 
 import { describeEndpoint } from './mcpView';
 import { AgentStack } from './TargetPicker';
+import Switch from '../Switch';
 
 interface Props {
   name: string;
@@ -62,18 +63,13 @@ export default function ProjectServerRow({
           </span>
         )}
         {action}
-        <button
-          type="button"
-          role="switch"
-          aria-checked={checked}
+        <Switch
+          checked={checked}
           aria-label={name}
           aria-describedby={noteId}
-          className={`ss-sw ${checked ? 'on' : ''} disabled:opacity-50`}
           disabled={disabled}
-          onClick={onToggle}
-        >
-          <i />
-        </button>
+          onChange={onToggle}
+        />
       </span>
       <span id={noteId} className="flex flex-col text-xs empty:hidden">
         {children}

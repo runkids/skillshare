@@ -13,6 +13,7 @@ import {
   TriangleAlert,
 } from 'lucide-react';
 import { api, type Target } from '../api/client';
+import { SwitchMark } from '../components/Switch';
 import Button from '../components/Button';
 import CollectDialog from '../components/CollectDialog';
 import EmptyState from '../components/EmptyState';
@@ -573,29 +574,30 @@ function TargetEditor({ target, targets }: { target: Target; targets: Target[] }
           <PageSkeleton />
         )
       ) : !agent && !skillsOn ? (
-        <div className="ss-empty !py-16">
-          <CirclePause size={24} className="text-ink-3" />
-          <h3 className="font-semibold text-ink">
-            {t('targetDetail.skillsOff.title', { name: target.name })}
-          </h3>
-          <p className="max-w-md text-[13px]">
-            {t('targetDetail.skillsOff.noWrites', { path: shortenHome(target.path) })}
-            <br />
-            {readFrom
-              ? t(plural('targetDetail.skillsOff.readsFrom', readFrom.linkedCount), {
-                  name: target.name,
-                  from: readFrom.name,
-                  path: shortenHome(readFrom.path),
-                  count: readFrom.linkedCount,
-                })
-              : t('targetDetail.skillsOff.generic')}
-          </p>
-          <div className="mt-2">
+        <EmptyState
+          className="!py-16 [&>p]:max-w-md"
+          icon={CirclePause}
+          title={t('targetDetail.skillsOff.title', { name: target.name })}
+          description={
+            <>
+              {t('targetDetail.skillsOff.noWrites', { path: shortenHome(target.path) })}
+              <br />
+              {readFrom
+                ? t(plural('targetDetail.skillsOff.readsFrom', readFrom.linkedCount), {
+                    name: target.name,
+                    from: readFrom.name,
+                    path: shortenHome(readFrom.path),
+                    count: readFrom.linkedCount,
+                  })
+                : t('targetDetail.skillsOff.generic')}
+            </>
+          }
+          action={
             <Button variant="secondary" onClick={resume} loading={resuming}>
               {t('targetDetail.skillsOff.resume')}
             </Button>
-          </div>
-        </div>
+          }
+        />
       ) : (
         <RailLayout
           rail={
@@ -790,9 +792,7 @@ function TargetEditor({ target, targets }: { target: Target; targets: Target[] }
                   disabled={saving}
                   onClick={() => setStoppingSkills(true)}
                 >
-                  <span className="ss-sw on">
-                    <i />
-                  </span>
+                  <SwitchMark checked />
                 </button>
               )}
             </ProjectSectionHead>

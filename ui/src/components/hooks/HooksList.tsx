@@ -12,6 +12,7 @@ import {
   syncState,
   type SyncState,
 } from './hooksView';
+import { SwitchMark } from '../Switch';
 
 interface Props {
   entries: Record<string, HookEntry>;
@@ -145,9 +146,7 @@ function CompactList({
                 disabled={disabled}
                 onClick={() => onToggle(name, !enabled)}
               >
-                <span className={`ss-sw ${enabled ? 'on' : ''}`}>
-                  <i />
-                </span>
+                <SwitchMark checked={enabled} />
               </button>
               <button
                 type="button"
@@ -268,9 +267,7 @@ export default function HooksList({
                 disabled={disabled}
                 onClick={() => onToggle(name, !enabled)}
               >
-                <span className={`ss-sw ${enabled ? 'on' : ''}`}>
-                  <i />
-                </span>
+                <SwitchMark checked={enabled} />
               </button>
               <button
                 type="button"

@@ -856,11 +856,12 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
   if (isPending) return <PageSkeleton />;
   if (error) {
     return (
-      <div className="ss-empty">
-        <TriangleAlert size={24} className="text-bad" />
-        <h3 className="font-semibold text-ink">{t('resources.error.failedToLoad')}</h3>
-        <p className="text-[13px]">{error.message}</p>
-      </div>
+      <EmptyState
+        tone="bad"
+        icon={TriangleAlert}
+        title={t('resources.error.failedToLoad')}
+        description={error.message}
+      />
     );
   }
 

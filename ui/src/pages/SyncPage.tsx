@@ -80,6 +80,7 @@ import {
 } from '../hooks/useSharedQueries';
 import { invalidate } from '../lib/queryEvents';
 import { useSyncMatrix } from '../hooks/useSyncMatrix';
+import Switch from '../components/Switch';
 
 const ROW_ICON: Record<RowIcon, [typeof Plus, string]> = {
   add: [Plus, 'text-ok'],
@@ -542,18 +543,13 @@ export default function SyncPage() {
                 />
               ))}
               <span className="flex items-center gap-2" title={t('sync.forceHint')}>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={force}
+                <Switch
+                  checked={force}
                   aria-labelledby="sync-force"
                   aria-describedby="sync-force-hint"
-                  className={`ss-sw ${force ? 'on' : ''} disabled:opacity-50`}
                   disabled={running}
-                  onClick={() => setForce(!force)}
-                >
-                  <i />
-                </button>
+                  onChange={setForce}
+                />
                 <span id="sync-force" className="text-[13px] font-semibold">
                   Force
                 </span>

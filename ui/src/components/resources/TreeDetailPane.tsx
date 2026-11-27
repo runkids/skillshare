@@ -8,6 +8,7 @@ import { formatVersion } from '../../lib/format';
 import AgentIcon from '../AgentIcon';
 import Tooltip from '../Tooltip';
 import Button from '../Button';
+import Switch from '../Switch';
 import { isRepoRoot, summarize } from './tree';
 import type { FolderNode } from './tree';
 
@@ -41,34 +42,6 @@ function crumb(path: string): string {
     .filter(Boolean)
     .map((seg, i) => (i === 0 && seg.startsWith('_') ? formatTrackedRepoName(seg) : seg))
     .join(' / ');
-}
-
-function Switch({
-  on,
-  mixed,
-  label,
-  disabled,
-  onClick,
-}: {
-  on: boolean;
-  mixed?: boolean;
-  label: string;
-  disabled: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={mixed ? 'mixed' : on}
-      aria-label={label}
-      disabled={disabled}
-      className={`ss-sw ${on ? 'on' : mixed ? 'mix' : ''}`}
-      onClick={onClick}
-    >
-      <i />
-    </button>
-  );
 }
 
 /** Right side of the tree view: what is selected, whether it is on, and where it goes. */
@@ -174,11 +147,11 @@ export default function TreeDetailPane({
           <div>
             <span className="lb">{t('resources.col.status')}</span>
             <Switch
-              on={allOn}
+              checked={allOn}
               mixed={!allOn && !noneOn}
-              label={title}
+              aria-label={title}
               disabled={busy}
-              onClick={() => onToggleAll(skills, !allOn)}
+              onChange={() => onToggleAll(skills, !allOn)}
             />
             <span className="text-[13px] font-semibold">{state}</span>
           </div>
@@ -244,10 +217,10 @@ export default function TreeDetailPane({
                 {s.name}
               </Link>
               <Switch
-                on={!s.disabled}
-                label={s.name}
+                checked={!s.disabled}
+                aria-label={s.name}
                 disabled={busy}
-                onClick={() => onToggleOne(s)}
+                onChange={() => onToggleOne(s)}
               />
             </div>
           ))}

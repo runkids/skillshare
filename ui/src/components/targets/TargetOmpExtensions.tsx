@@ -30,6 +30,7 @@ import { messagesByLocale, useT, plural } from '../../i18n';
 import { queryKeys } from '../../lib/queryKeys';
 import { fileName, shortenHome } from '../../lib/paths';
 import { bulkGhost } from '../../lib/exitGhost';
+import { SwitchMark } from '../Switch';
 
 type T = ReturnType<typeof useT>;
 type Pending = Record<string, boolean>;
@@ -495,9 +496,7 @@ function Row({
           className="grid h-8 w-[38px] shrink-0 place-items-center"
           onClick={onFlip}
         >
-          <span className={`ss-sw ${on ? 'on' : ''}`}>
-            <i />
-          </span>
+          <SwitchMark checked={on} />
         </button>
       ) : (
         <span

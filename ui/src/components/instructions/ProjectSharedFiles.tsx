@@ -23,6 +23,7 @@ import {
   staleLocations,
 } from './instructionsView';
 import { invalidate } from '../../lib/queryEvents';
+import EmptyState from '../EmptyState';
 
 type Pending = {
   title: string;
@@ -62,18 +63,17 @@ export default function ProjectSharedFiles({
           <span className="flex-1">{instructionsErrorMessage(error, t)}</span>
         </div>
       ) : data.files.length === 0 ? (
-        <div className="ss-empty !gap-1.5 !p-[26px]">
-          <span className="text-[13.5px] font-semibold text-ink">
-            {t('instructions.projectShared.empty.title')}
-          </span>
-          <span className="max-w-[460px] text-[12.5px] leading-normal text-ink-3">
-            {t('instructions.projectShared.empty.description')}
-          </span>
-          <Button variant="secondary" size="sm" className="mt-2" onClick={() => setCreating(true)}>
-            <Plus size={14} />
-            {t('instructions.projectShared.new')}
-          </Button>
-        </div>
+        <EmptyState
+          compact
+          title={t('instructions.projectShared.empty.title')}
+          description={t('instructions.projectShared.empty.description')}
+          action={
+            <Button variant="secondary" size="sm" onClick={() => setCreating(true)}>
+              <Plus size={14} />
+              {t('instructions.projectShared.new')}
+            </Button>
+          }
+        />
       ) : (
         <div className="flex flex-col gap-4">
           {data.files.map((f) => (

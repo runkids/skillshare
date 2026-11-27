@@ -14,6 +14,7 @@ import { patternName } from '../targets/targetView';
 import { useFilterFeedback } from '../targets/useFilterFeedback';
 import ProjectTools from './ProjectTools';
 import { syncBoxState, writeFolders, type ProjectState } from './projectView';
+import { SwitchMark } from '../Switch';
 
 const FOLDERS_SHOWN = 5;
 
@@ -249,9 +250,7 @@ export default function ProjectResourceTab({
             disabled={disabled}
             onClick={onToggle}
           >
-            <span className={`ss-sw ${resource ? 'on' : ''}`}>
-              <i />
-            </span>
+            <SwitchMark checked={Boolean(resource)} />
           </button>
         </ProjectSectionHead>
 

@@ -31,6 +31,7 @@ import { Checkbox } from '../Input';
 import { setupPathProblem } from '../instructions/instructionsView';
 import { mcpClient } from '../mcp/mcpView';
 import { useMcpQuery } from '../../hooks/useSharedQueries';
+import { SwitchMark } from '../Switch';
 
 const PREVIEW_COUNT = 5;
 const SHARED_ICONS = 5;
@@ -340,9 +341,7 @@ export default function AddTargetDialog({
                   onClick={() => setSkills(!skills)}
                   disabled={busy}
                 >
-                  <span className={`ss-sw ${skills ? 'on' : ''}`}>
-                    <i />
-                  </span>
+                  <SwitchMark checked={skills} />
                 </button>
               </span>,
             )}

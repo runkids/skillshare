@@ -49,6 +49,7 @@ import { resourceHref } from '../lib/resourceNames';
 import { repoOf, sourceLinkOf } from '../lib/resourceGrouping';
 import { targetFilterPatch } from '../lib/targetFilter';
 import { useSyncMatrix } from '../hooks/useSyncMatrix';
+import Switch from '../components/Switch';
 import { projectUrl } from '../components/projects/projectView';
 import { receivesSkill } from '../components/sync/syncView';
 import { formatDateTime, formatNumber, formatRelativeTime, useI18n, useT, plural } from '../i18n';
@@ -989,17 +990,13 @@ function TargetsSection({ resource }: { resource: Skill }) {
                 <span className="truncate font-semibold">{row.target.name}</span>
                 {text && <span className="text-xs text-ink-3">{text}</span>}
               </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={row.on}
+              <Switch
+                checked={row.on}
                 aria-label={row.target.name}
                 disabled={!patch || pending !== null}
-                className={`ss-sw ${row.on ? 'on' : ''} disabled:cursor-not-allowed disabled:opacity-50`}
-                onClick={() => toggle(row)}
-              >
-                <i />
-              </button>
+                className="disabled:cursor-not-allowed"
+                onChange={() => toggle(row)}
+              />
             </div>
           );
         })}
