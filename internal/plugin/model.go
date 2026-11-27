@@ -51,15 +51,18 @@ type Package struct {
 }
 
 type Request struct {
-	Entry     string   `json:"entry,omitempty"`
-	SourceRef string   `json:"sourceRef,omitempty"`
-	Action    string   `json:"action"`
-	Name      string   `json:"name,omitempty"`
-	Source    string   `json:"source,omitempty"`
-	Plugin    string   `json:"plugin,omitempty"`
-	Targets   []string `json:"targets,omitempty"`
-	From      string   `json:"from,omitempty"`
-	All       bool     `json:"all,omitempty"`
+	HerdrPanel bool     `json:"herdrPanel,omitempty"`
+	Entry      string   `json:"entry,omitempty"`
+	SourceRef  string   `json:"sourceRef,omitempty"`
+	Action     string   `json:"action"`
+	Name       string   `json:"name,omitempty"`
+	Source     string   `json:"source,omitempty"`
+	Plugin     string   `json:"plugin,omitempty"`
+	Plugins    []string `json:"plugins,omitempty"` // Batch add of Herdr mods, named by their source IDs.
+	Names      []string `json:"names,omitempty"`   // Several packages at once for remove, enable or disable.
+	Targets    []string `json:"targets,omitempty"`
+	From       string   `json:"from,omitempty"`
+	All        bool     `json:"all,omitempty"`
 }
 
 // isolatesTargets reports whether a failed binding is skipped with its reason
@@ -75,7 +78,8 @@ func (r Request) isolatesTargets() bool {
 type TargetPackage struct {
 	openCodeV1Error string
 	openCodeV2Error string
-	Manifest        string `json:"manifest"`
+	Manifest        string     `json:"manifest"`
+	HerdrDock       *herdrDock `json:"herdrDock,omitempty"`
 	// Path is set when this Agent's catalog points at its own folder; empty means Candidate.Path.
 	Path        string            `json:"path,omitempty"`
 	Marketplace string            `json:"marketplace,omitempty"`
@@ -94,6 +98,7 @@ func (p *TargetPackage) block(key, message string, args map[string]string) {
 }
 
 type Candidate struct {
+	HerdrPanel  bool                     `json:"herdrPanel,omitempty"`
 	TargetInfo  map[string]TargetPackage `json:"targetInfo,omitempty"`
 	Name        string                   `json:"name"`
 	Description string                   `json:"description"`
@@ -242,6 +247,9 @@ type Inventory struct {
 }
 
 type Change struct {
+	herdrLayoutCleanup []herdrLayoutCleanup
+	herdrLayoutView    *herdrLayoutView
+
 	Guidance       bool `json:"guidance,omitempty"`
 	sourceVersion  *string
 	PreservedKeys  []string `json:"preservedKeys,omitempty"`
@@ -270,10 +278,11 @@ type Change struct {
 }
 
 type Plan struct {
-	hosts    map[string]Host
-	Revision string   `json:"revision"`
-	Blocked  bool     `json:"blocked"`
-	Changes  []Change `json:"changes"`
+	hosts      map[string]Host
+	HerdrPanel *HerdrPanelPlan `json:"herdrPanel,omitempty"`
+	Revision   string          `json:"revision"`
+	Blocked    bool            `json:"blocked"`
+	Changes    []Change        `json:"changes"`
 }
 
 type Outcome struct {
@@ -312,8 +321,9 @@ type Service struct {
 	// findCodex stands in for the Codex CLI search in tests; nil searches this machine.
 	findCodex func() (string, []string)
 	// reads keeps what one operation read, so its plugins share one copy (see reads).
-	reads       *reads
-	applyConfig *[]byte
+	reads        *reads
+	applyConfig  *[]byte
+	batchSources map[[2]string]pluginCheckout
 }
 
 func (b Binding) Selected() bool { return b.Sync == nil || *b.Sync }

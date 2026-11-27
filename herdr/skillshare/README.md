@@ -32,11 +32,16 @@ separate complete window. Both use the same panel and updater.
 
 ### Mod: keep your current window
 
-The standalone package is [`herdr/skillshare-mod`](../skillshare-mod/RECIPE.md). Paste this
-prompt into an agent in Herdr:
+[Install and manage the mod with Skillshare](../README.md#install-and-open-the-panel)
+if your Dashboard supports `herdr-app`. It can add the button and panel to a copy
+of your current layout, then manage future updates and removal.
+
+To have an agent walk you through the installation, paste this prompt in Herdr.
+It prefers Skillshare when available and falls back to the
+[standalone Mod recipe](../skillshare-mod/RECIPE.md):
 
 ```text
-Read ~/.config/herdr-app/AGENTS.md, then add this mod from https://github.com/runkids/skillshare/tree/main/herdr/skillshare-mod. Follow its RECIPE.md: add only the skillshare toggle and panel to my current layout, preserving my status bar, usage meters and all other customizations. Reuse existing skillshare nodes instead of duplicating them.
+Read ~/.config/herdr-app/AGENTS.md and the recipe at https://github.com/runkids/skillshare/tree/main/herdr/skillshare-mod. If my Skillshare Dashboard supports the herdr-app target, use Plugins → Add plugin to preview installing this mod and showing its panel in Herdr. Let me review and apply. Otherwise follow the manual recipe, preserving my current layout and reusing any existing Skillshare nodes.
 ```
 
 It contains no layout file. The agent clones a Herdr-shipped layout before editing it, or

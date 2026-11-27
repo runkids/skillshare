@@ -36,8 +36,9 @@ type receipt struct {
 	OMPRemovalVersion string  `json:"ompRemovalVersion,omitempty"`
 }
 type localBinding struct {
-	Applied *receipt `json:"applied,omitempty"`
-	Pending *receipt `json:"pending,omitempty"`
+	Applied      *receipt             `json:"applied,omitempty"`
+	Pending      *receipt             `json:"pending,omitempty"`
+	HerdrLayouts []herdrLayoutReceipt `json:"herdrLayouts,omitempty"`
 	// Legacy is a passive proof candidate, never executable installation state.
 	Legacy *receipt `json:"legacy,omitempty"`
 	// LegacySeen survives cleanup so unchanged v1 YAML cannot recreate ownership.
@@ -127,7 +128,12 @@ func (s *Service) loadState(d *document) error {
 			if !namePattern.MatchString(name) {
 				return fmt.Errorf("invalid plugin local package")
 			}
-			for _, b := range targets {
+			for target, b := range targets {
+				for _, layout := range b.HerdrLayouts {
+					if target != "herdr-app" || !layout.valid() {
+						return fmt.Errorf("invalid local Herdr layout receipt for %s", name)
+					}
+				}
 				if b.Legacy != nil && (b.Legacy.Action != "" || b.Legacy.Binding.Pending != "") {
 					return fmt.Errorf("invalid passive plugin legacy hint for %s", name)
 				}
@@ -263,7 +269,7 @@ func (s *Service) saveState(d *document) error {
 	return nil
 }
 func (d *document) putLocal(name, target string, b localBinding) {
-	if b.Applied == nil && b.Pending == nil && b.Legacy == nil && !b.LegacySeen {
+	if b.Applied == nil && b.Pending == nil && len(b.HerdrLayouts) == 0 && b.Legacy == nil && !b.LegacySeen {
 		delete(d.state.Bindings[name], target)
 		if len(d.state.Bindings[name]) == 0 {
 			delete(d.state.Bindings, name)

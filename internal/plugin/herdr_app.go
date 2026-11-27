@@ -56,7 +56,11 @@ func herdrCandidates(root, entry string) []Candidate {
 	for _, e := range entries {
 		info, err := os.Lstat(filepath.Join(root, "mods", e.Name(), "main.js"))
 		if e.IsDir() && namePattern.MatchString(e.Name()) && err == nil && info.Mode().IsRegular() {
-			out = append(out, herdrCandidate(e.Name(), "mods/"+e.Name(), "mods", ""))
+			c := herdrCandidate(e.Name(), "mods/"+e.Name(), "mods", "")
+			info := c.TargetInfo["herdr-app"]
+			info.HerdrDock = readHerdrDock(root, c.Path)
+			c.TargetInfo["herdr-app"] = info
+			out = append(out, c)
 		}
 	}
 	return out

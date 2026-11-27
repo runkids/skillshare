@@ -148,6 +148,7 @@ const stale: Record<QueryEvent, Label[] | { args: string[]; stale: Label[] }> = 
   hooksSynced: [...H, 'log'],
   hooksRestored: H,
   pluginsChanged: [...P, 'config', 'pi', 'pi2', 'omp'],
+  pluginTargetsToggled: ['plugins', 'pluginPackages', 'config', 'pi', 'pi2', 'omp'],
   piExtensionsStale: { args: ['pi'], stale: ['pi'] },
   piExtensionsChanged: { args: ['pi'], stale: ['pi', ...P] },
   ompExtensionsStale: { args: ['omp'], stale: ['omp'] },

@@ -20,7 +20,7 @@ sidebar_position: 8
 使用獨立的 [Mod 分享包](https://github.com/runkids/skillshare/tree/main/herdr/skillshare-mod)，加入面板而不取代整個視窗。把下面這段 prompt 貼給 Herdr 裡的 agent：
 
 ```text
-Read ~/.config/herdr-app/AGENTS.md, then add this mod from https://github.com/runkids/skillshare/tree/main/herdr/skillshare-mod. Follow its RECIPE.md: add only the skillshare toggle and panel to my current layout, preserving my status bar, usage meters and all other customizations. Reuse existing skillshare nodes instead of duplicating them.
+Read ~/.config/herdr-app/AGENTS.md and the recipe at https://github.com/runkids/skillshare/tree/main/herdr/skillshare-mod. If my Skillshare Dashboard supports the herdr-app target, use it to preview installing this mod and showing its panel in Herdr. Let me review and apply. Otherwise follow the manual recipe, preserving my current layout and reusing existing Skillshare nodes.
 ```
 
 這個分享包沒有 `layouts/` 資料夾。Recipe 只加入或沿用 skillshare 開關和面板，保留你的狀態列、CLI 額度、主題及其他自訂設定。Herdr 內建的 layout 會先複製再修改。
@@ -75,7 +75,7 @@ tab bar 會出現 **skillshare** 按鈕，用來顯示或隱藏面板。切換 s
 skillshare plugin add owner/herdr-mods --target herdr-app -g
 ```
 
-它只在儲存庫根目錄（`mods/<id>/main.js`）尋找 mod，所以不會安裝這個面板；面板請照上面的方式設定。
+如果 mod 位於大型儲存庫的子目錄，把套件資料夾或 `mods/<id>/main.js` 的 GitHub 連結貼到 Dashboard 的新增 plugin 視窗。[這個面板的 Mod 套件](https://github.com/runkids/skillshare/tree/main/herdr/skillshare-mod)也能這樣安裝。在同一台電腦開啟 Herdr，並保持勾選 **在 Herdr 顯示 Skillshare 面板**。預覽會列出副本名稱；套用後會切換到已加入按鈕和面板的副本，原版面不變。若由 Skillshare 管理面板，請用 `skillshare plugin update skillshare -g` 更新，而不是面板上的更新按鈕。
 
 ## 相關
 

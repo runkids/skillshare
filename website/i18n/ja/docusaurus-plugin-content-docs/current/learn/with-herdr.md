@@ -20,7 +20,7 @@ sidebar_position: 8
 独立した [Mod パッケージ](https://github.com/runkids/skillshare/tree/main/herdr/skillshare-mod) を使えば、ウィンドウ全体を置き換えずにパネルを追加できます。Herdr 内のエージェントに次のプロンプトを貼り付けます。
 
 ```text
-Read ~/.config/herdr-app/AGENTS.md, then add this mod from https://github.com/runkids/skillshare/tree/main/herdr/skillshare-mod. Follow its RECIPE.md: add only the skillshare toggle and panel to my current layout, preserving my status bar, usage meters and all other customizations. Reuse existing skillshare nodes instead of duplicating them.
+Read ~/.config/herdr-app/AGENTS.md and the recipe at https://github.com/runkids/skillshare/tree/main/herdr/skillshare-mod. If my Skillshare Dashboard supports the herdr-app target, use it to preview installing this mod and showing its panel in Herdr. Let me review and apply. Otherwise follow the manual recipe, preserving my current layout and reusing existing Skillshare nodes.
 ```
 
 このパッケージに `layouts/` フォルダーはありません。レシピは skillshare のボタンとパネルだけを追加または再利用し、ステータスバー、CLI の使用量表示、テーマなどのカスタマイズを保ちます。Herdr 標準のレイアウトは複製してから編集します。
@@ -75,7 +75,7 @@ Read ~/.config/herdr-app/AGENTS.md, then add this layout: herdr.dev/layouts/runk
 skillshare plugin add owner/herdr-mods --target herdr-app -g
 ```
 
-mod はリポジトリのルート（`mods/<id>/main.js`）でしか探さないため、このパネルはこの方法ではインストールされません。パネルは上の手順でセットアップしてください。
+大きなリポジトリ内の mod は、パッケージフォルダーや `mods/<id>/main.js` の GitHub リンクをダッシュボードのプラグイン追加画面に貼り付けてインストールできます。[このパネルの Mod パッケージ](https://github.com/runkids/skillshare/tree/main/herdr/skillshare-mod)も利用できます。同じコンピューターで Herdr を開き、**Herdr に Skillshare パネルを表示**を選択したままにします。プレビューにコピー先が表示され、適用するとボタンとパネルがあるコピーへ切り替わります。元のレイアウトは変更しません。Skillshare で管理する場合は、パネル内の更新ボタンではなく `skillshare plugin update skillshare -g` で更新します。
 
 ## 関連
 

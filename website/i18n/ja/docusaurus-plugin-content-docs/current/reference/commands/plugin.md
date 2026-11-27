@@ -34,7 +34,7 @@ skillshare plugin remove review --no-tui
 | コマンド | 動作 |
 |---|---|
 | `list` | 設定済みのバインディングとネイティブインストール状態。ターミナルではインタラクティブマネージャー |
-| `discover SOURCE` | ローカルディレクトリ、`owner/repo`、または HTTPS Git リポジトリを検査 |
+| `discover SOURCE` | ローカルフォルダー、`owner/repo`、HTTPS Git リポジトリ、GitHub のパッケージフォルダーや Herdr mod のリンクを検査 |
 | `add [SOURCE]` | plugin 全体とその target アダプタを選択してインストール。または Pi 経由で `npm:` パッケージをインストール |
 | `import [NATIVE-ID]` | 再インストールや有効化を行わずに既存のインストールを取り込む |
 | `unimport NAME` | 指定したターゲットのローカル import をアンインストールし、共有ソース宣言を保持 |
@@ -123,9 +123,19 @@ skillshare plugin import demo@market --from claude-work
 
 ### Herdr app {#herdr-app}
 
-`herdr-app` target は、ファイルをコピーして Herdr の mod とランチャーアプリをインストールします。global 専用で、`herdr-app` やパッケージのコードを実行することはありません。Herdr のホームは `$HERDR_APP_HOME`、未設定なら `~/.config/herdr-app` です。
+`herdr-app` target は、ファイルをコピーして Herdr の mod とランチャーアプリをインストールします。global 専用です。Skillshare はパッケージのコードを直接実行しません。Herdr のホームは `$HERDR_APP_HOME`、未設定なら `~/.config/herdr-app` です。
 
-Skillshare が Herdr のコンテンツを探すのは、plugin マニフェストもマーケットプレイスカタログもない source だけです。source のルートにある `mods/<id>/main.js` 1 つが 1 つの plugin になり、`<herdr home>/mods/<id>` にインストールされます。より深いフォルダにある mod は見つかりません。マニフェストとルートの `mods/` フォルダを両方持つ source は、これまでどおりに検出されます。 通常の `package.json` だけを持つ source でも、`--entry` を指定してランチャーを追加できます。
+マニフェストや marketplace カタログがない source では、ルートの `mods/<id>/main.js` を mod として検出し、`<herdr home>/mods/<id>` にインストールします。リポジトリの途中にあるパッケージの場合は、`mods/` を含む GitHub フォルダーのリンクを貼り付けてください。特定の mod を選ぶには、その `mods/<id>/main.js` のリンクを貼り付けます。更新ではリンクの ref を使います。別の ref は `--source-ref` で指定できます。
+
+ダッシュボードでは **リポジトリまたはフォルダー** にリンクを貼り付けて検索します。ランチャーの場合は **Herdr ランチャーの実行ファイル** にパスも入力し、mod の場合は空のままにします。ランチャーは通常の `package.json` も利用できます。
+
+複数の Herdr mod が表示されたら、まとめて選択してから変更を確認できます。mod は個別に管理され、レイアウトやテーマは読み込みません。Herdr が `place` に従って追加したレイアウト項目は、mod をアンインストールしても残ります。
+
+`mod.json` に `left`、`right`、`top`、`bottom` の配置を指定する mod を 1 つ追加する場合、**Herdr で mod パネルを表示** は既定でオンです。Herdr を開いたまま適用すると、再インストール時も現在のレイアウトのコピーにパネルが表示されます。
+
+公式 Skillshare mod をインストールする際は、**Herdr に Skillshare パネルを表示**から、現在のレイアウトのコピーへの追加をプレビューできます。Herdr を開いた状態で適用すると、元を変更せずにボタンとパネルを追加したコピーへ切り替わります。
+
+Herdr の選択を外して同期すると、mod がアンインストールされますが、登録とレイアウトのコピーは再インストール用に残ります。**削除**では、Skillshare が記録した未編集のコピーも削除します。使用中のコピーは先に元のレイアウトに戻します。編集済みまたは記録されていないレイアウトは保持します。 このコピーを使用中に同期で mod を無効にすると、開いている Herdr は元のレイアウトに戻ります。再び選択して同期したときに元のレイアウトを使用中なら、コピーに戻ります。
 
 mod のフォルダ外を指すリンクはコピーされません。
 
@@ -299,7 +309,7 @@ skillshare plugin import npm:my-pi-package --from pi --name my-package --no-tui
 
 ## Ref と明示的なエントリ
 
-**Add plugin** の詳細オプションでは、任意の Git ref と OpenCode entry を指定できます。通常のガイド付きフローでは空のままにしてください。ターミナルウィザードも同じフラグを受け付け、自動化には以下を使用できます。
+**Add plugin** では、ソースの横で任意の Git ref を、OpenCode の entry を検出できないときは OpenCode の行で entry を指定できます。通常のガイド付きフローでは空のままにしてください。ターミナルウィザードも同じフラグを受け付け、自動化には以下を使用できます。
 
 ```bash
 skillshare plugin discover obra/superpowers --source-ref v6.3.0 --json

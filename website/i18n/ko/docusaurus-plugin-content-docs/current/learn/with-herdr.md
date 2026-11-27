@@ -20,7 +20,7 @@ sidebar_position: 8
 독립 [Mod 패키지](https://github.com/runkids/skillshare/tree/main/herdr/skillshare-mod)를 사용하면 전체 창을 교체하지 않고 패널을 추가할 수 있습니다. Herdr 안의 에이전트에 다음 프롬프트를 붙여 넣습니다.
 
 ```text
-Read ~/.config/herdr-app/AGENTS.md, then add this mod from https://github.com/runkids/skillshare/tree/main/herdr/skillshare-mod. Follow its RECIPE.md: add only the skillshare toggle and panel to my current layout, preserving my status bar, usage meters and all other customizations. Reuse existing skillshare nodes instead of duplicating them.
+Read ~/.config/herdr-app/AGENTS.md and the recipe at https://github.com/runkids/skillshare/tree/main/herdr/skillshare-mod. If my Skillshare Dashboard supports the herdr-app target, use it to preview installing this mod and showing its panel in Herdr. Let me review and apply. Otherwise follow the manual recipe, preserving my current layout and reusing existing Skillshare nodes.
 ```
 
 이 패키지에는 `layouts/` 폴더가 없습니다. 레시피는 skillshare 버튼과 패널만 추가하거나 재사용하며, 상태 표시줄, CLI 사용량 표시, 테마와 다른 사용자 설정을 보존합니다. Herdr 기본 레이아웃은 복제한 뒤 수정합니다.
@@ -75,7 +75,7 @@ Read ~/.config/herdr-app/AGENTS.md, then add this layout: herdr.dev/layouts/runk
 skillshare plugin add owner/herdr-mods --target herdr-app -g
 ```
 
-mod는 저장소 루트(`mods/<id>/main.js`)에서만 찾으므로 이 패널은 이 방법으로 설치되지 않습니다. 패널은 위의 방법으로 설정하세요.
+큰 저장소 안의 모드는 패키지 폴더나 `mods/<id>/main.js`의 GitHub 링크를 대시보드의 플러그인 추가 창에 붙여넣어 설치할 수 있습니다. [이 패널의 Mod 패키지](https://github.com/runkids/skillshare/tree/main/herdr/skillshare-mod)도 사용할 수 있습니다. 같은 컴퓨터에서 Herdr를 연 상태로 **Herdr에 Skillshare 패널 표시**를 선택하세요. 미리보기에는 복사본 이름이 표시되며, 적용하면 버튼과 패널이 추가된 복사본으로 전환합니다. 원본은 그대로 유지됩니다. Skillshare로 관리할 때는 패널의 업데이트 버튼 대신 `skillshare plugin update skillshare -g`로 업데이트하세요.
 
 ## 관련 문서
 

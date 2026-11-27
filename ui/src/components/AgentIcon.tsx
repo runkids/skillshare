@@ -62,6 +62,8 @@ import factoryMono from '../assets/agents/factory.svg?url';
 import gitColor from '../assets/agents/git-color.svg?url';
 import warpMono from '../assets/agents/warp.svg?url';
 import zedMono from '../assets/agents/zed.svg?url';
+// Herdr product mark, supplied by the maintainer as a single-color SVG.
+import herdrMono from '../assets/agents/herdr.svg?url';
 
 // Brand marks from @lobehub/icons-static-svg, keyed by target name. Parent-company
 // marks stand in where the product has none (cortex, vibe, comate, codearts, …).
@@ -116,6 +118,7 @@ const mono: Record<string, string> = {
   factory: factoryMono,
   goose: gooseMono,
   grok: grokMono,
+  'herdr-app': herdrMono,
   hermes: nousresearchMono,
   kimi: kimiMono,
   'kimi-code': kimiMono,

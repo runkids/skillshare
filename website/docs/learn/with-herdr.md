@@ -20,7 +20,7 @@ sidebar_position: 8
 Use the standalone [Mod package](https://github.com/runkids/skillshare/tree/main/herdr/skillshare-mod) to add the panel without replacing your window. Paste this prompt into an agent in Herdr:
 
 ```text
-Read ~/.config/herdr-app/AGENTS.md, then add this mod from https://github.com/runkids/skillshare/tree/main/herdr/skillshare-mod. Follow its RECIPE.md: add only the skillshare toggle and panel to my current layout, preserving my status bar, usage meters and all other customizations. Reuse existing skillshare nodes instead of duplicating them.
+Read ~/.config/herdr-app/AGENTS.md and the recipe at https://github.com/runkids/skillshare/tree/main/herdr/skillshare-mod. If my Skillshare Dashboard supports the herdr-app target, use it to preview installing this mod and showing its panel in Herdr. Let me review and apply. Otherwise follow the manual recipe, preserving my current layout and reusing existing Skillshare nodes.
 ```
 
 The package has no `layouts/` folder. Its recipe adds or reuses only the skillshare toggle and panel, preserving your status bar, CLI usage meters, theme and other customizations. A Herdr-shipped layout is cloned before editing.
@@ -75,7 +75,14 @@ The panel refreshes every 20 seconds while it is shown, runs `skillshare check` 
 skillshare plugin add owner/herdr-mods --target herdr-app -g
 ```
 
-It finds mods only at a repository's root (`mods/<id>/main.js`), so it does not install this panel; set the panel up as shown above.
+For a mod inside a larger repository, paste the GitHub link to its package folder
+or its `mods/<id>/main.js` file into **Plugins → Add plugin**. This also works with
+[this panel's Mod package](https://github.com/runkids/skillshare/tree/main/herdr/skillshare-mod).
+With Herdr open on the same computer, keep **Show the Skillshare panel in Herdr**
+selected. The preview names the copy of your layout that will receive the toggle and
+panel. Applying switches to that copy and leaves your original unchanged. If
+Skillshare manages the panel, update it with `skillshare plugin update skillshare -g`
+rather than **Update panel**.
 
 ## Related
 

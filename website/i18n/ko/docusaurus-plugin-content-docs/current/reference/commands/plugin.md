@@ -34,7 +34,7 @@ skillshare plugin remove review --no-tui
 | Command | 동작 |
 |---|---|
 | `list` | 구성된 바인딩과 네이티브 설치 상태. 터미널에서는 대화형 관리자 |
-| `discover SOURCE` | 로컬 디렉터리, `owner/repo`, 또는 HTTPS Git 저장소를 검사 |
+| `discover SOURCE` | 로컬 폴더, `owner/repo`, HTTPS Git 저장소, GitHub 패키지 폴더 또는 Herdr 모드 링크를 검사 |
 | `add [SOURCE]` | target adapter와 함께 전체 plugin을 선택하여 설치하거나, Pi를 통해 `npm:` 패키지를 설치 |
 | `import [NATIVE-ID]` | 재설치하거나 활성화하지 않고 기존 설치를 채택 |
 | `unimport NAME` | 명시한 대상에서 이 기기의 가져온 설치를 제거하고 공유 소스 선언은 유지 |
@@ -122,9 +122,19 @@ skillshare plugin import demo@market --from claude-work
 
 ### Herdr app {#herdr-app}
 
-`herdr-app` target은 파일을 복사해 Herdr mod와 launcher 앱을 설치합니다. global 전용이며 `herdr-app`이나 패키지 코드를 실행하지 않습니다. Herdr의 홈은 `$HERDR_APP_HOME`이고, 설정되지 않았으면 `~/.config/herdr-app`입니다.
+`herdr-app` target은 파일을 복사해 Herdr mod와 launcher 앱을 설치합니다. global 전용이며 Skillshare는 패키지 코드를 직접 실행하지 않습니다. Herdr의 홈은 `$HERDR_APP_HOME`이고, 설정되지 않았으면 `~/.config/herdr-app`입니다.
 
-Skillshare는 plugin 매니페스트도 marketplace 카탈로그도 없는 source에서만 Herdr 콘텐츠를 찾습니다. source 루트의 `mods/<id>/main.js` 하나가 plugin 하나이며 `<herdr home>/mods/<id>`에 설치됩니다. 더 깊은 폴더의 mod는 찾지 않습니다. 매니페스트와 루트 `mods/` 폴더가 함께 있는 source는 이전과 같이 검색됩니다. 일반 `package.json`만 있는 source에서도 `--entry`로 launcher를 추가할 수 있습니다.
+플러그인 매니페스트와 marketplace 카탈로그가 없는 source에서는 루트의 `mods/<id>/main.js`를 모드로 찾아 `<herdr home>/mods/<id>`에 설치합니다. 큰 저장소 안에 있는 패키지는 `mods/`를 포함한 GitHub 폴더 링크를 붙여넣으세요. 특정 모드만 고르려면 `mods/<id>/main.js` 링크를 붙여넣으세요. 업데이트는 링크의 ref를 사용하며 `--source-ref`로 바꿀 수 있습니다.
+
+대시보드에서는 **저장소 또는 폴더**에 링크를 붙여넣고 검색하세요. 런처라면 **Herdr 런처 실행 파일**에 경로도 입력하고, 모드라면 비워 두세요. 런처는 일반 `package.json`도 사용할 수 있습니다.
+
+Herdr 모드가 여러 개 표시되면 함께 선택하고 변경 사항을 한 번에 검토할 수 있습니다. 각 모드는 개별 관리하며 레이아웃과 테마는 가져오지 않습니다. Herdr가 `place` 설정에 따라 추가한 레이아웃 항목은 모드를 제거해도 남습니다.
+
+`mod.json`에서 `left`, `right`, `top`, `bottom` 위치를 명시한 모드 하나를 추가하면 **Herdr에서 모드 패널 표시**가 기본으로 켜집니다. Herdr가 열려 있으면 다시 설치할 때도 현재 레이아웃의 복사본에 패널을 표시합니다.
+
+공식 Skillshare 모드를 설치할 때 **Herdr에 Skillshare 패널 표시**를 선택하면 현재 레이아웃 복사본에 추가할 변경을 미리 볼 수 있습니다. Herdr를 연 상태에서 적용하면 원본을 수정하지 않고 버튼과 패널이 있는 복사본으로 전환합니다.
+
+Herdr 선택을 해제하고 동기화하면 모드는 제거되지만, 다시 설치할 수 있도록 선언과 레이아웃 복사본을 유지합니다. **제거**를 선택하면 Skillshare가 기록한 수정되지 않은 복사본도 삭제하며 필요하면 먼저 원본으로 전환합니다. 수정했거나 기록에 없는 레이아웃은 유지합니다. 복사본을 사용 중에 모드를 비활성화하고 동기화하면 열려 있는 Herdr가 원본으로 돌아갑니다. 다시 선택하고 동기화할 때 원본을 사용 중이면 복사본으로 전환합니다.
 
 mod 폴더 밖을 가리키는 링크는 복사되지 않습니다.
 
@@ -224,7 +234,7 @@ skillshare plugin import npm:my-pi-package --from pi --name my-package --no-tui
 
 ## Ref와 명시적 Entry
 
-**Add plugin**의 고급 옵션은 선택적인 Git ref와 OpenCode entry를 받습니다. 일반적인 가이드 흐름을 사용하려면 비워 두세요. 터미널 마법사도 동일한 플래그를 받아들이며, 자동화에는 다음을 사용할 수 있습니다:
+**Add plugin**은 소스 옆에서 선택적인 Git ref를, OpenCode entry를 감지하지 못하면 OpenCode 행에서 entry를 받습니다. 일반적인 가이드 흐름을 사용하려면 비워 두세요. 터미널 마법사도 동일한 플래그를 받아들이며, 자동화에는 다음을 사용할 수 있습니다:
 
 ```bash
 skillshare plugin discover obra/superpowers --source-ref v6.3.0 --json

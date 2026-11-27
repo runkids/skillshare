@@ -66,6 +66,150 @@ func TestHerdrModLifecycle(t *testing.T) {
 	applyPluginRequest(t, s, r)
 }
 
+func TestHerdrBatchAdd(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("isolated HOME does not override the Windows user profile")
+	}
+	ctx := context.Background()
+	home := t.TempDir()
+	herdr := filepath.Join(home, "herdr")
+	t.Setenv("HOME", home)
+	t.Setenv("HERDR_APP_HOME", herdr)
+	if err := os.Mkdir(herdr, 0755); err != nil {
+		t.Fatal(err)
+	}
+	source := t.TempDir()
+	for _, name := range []string{"one", "two", "unchecked"} {
+		writePluginFile(t, source, "mods/"+name+"/main.js", name)
+	}
+	writePluginFile(t, source, "layouts/custom.json", "{}")
+	s := &Service{ConfigPath: filepath.Join(home, "config.yaml"), StateDir: filepath.Join(home, "state")}
+	r := Request{Action: "add", Source: source, Targets: []string{"herdr-app"}, Plugins: []string{"one", "two"}}
+	for _, invalid := range [][]string{{"one", "ONE"}, {"one", "missing"}} {
+		request := r
+		request.Plugins = invalid
+		if _, err := s.Preview(ctx, request); err == nil {
+			t.Fatalf("accepted invalid selection %v", invalid)
+		}
+	}
+	plan, err := s.Preview(ctx, r)
+	if err != nil || plan.Blocked || len(plan.Changes) != 2 || plan.HerdrPanel != nil {
+		t.Fatalf("expected a single review of both mods, got %+v, %v", plan, err)
+	}
+	for i, name := range []string{"one", "two"} {
+		if c := plan.Changes[i]; c.Name != name || c.Action != "install" || c.Target != "herdr-app" {
+			t.Fatalf("unexpected preview row %+v", c)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(herdr, "mods")); !os.IsNotExist(err) {
+		t.Fatalf("preview created mods: %v", err)
+	}
+	changed := r
+	changed.Plugins = []string{"one", "unchecked"}
+	if _, err := s.Apply(ctx, changed, plan.Revision); err == nil {
+		t.Fatal("accepted a different selection than the reviewed selection")
+	}
+	// A conflict must block the entire batch before any mod is written.
+	writePluginFile(t, herdr, "mods/two/main.js", "existing")
+	blocked, err := s.Preview(ctx, r)
+	if err != nil || !blocked.Blocked {
+		t.Fatalf("expected a blocked batch, got %+v, %v", blocked, err)
+	}
+	if _, err := s.Apply(ctx, r, blocked.Revision); err == nil {
+		t.Fatal("applied a blocked batch")
+	}
+	if _, err := os.Stat(filepath.Join(herdr, "mods/one")); !os.IsNotExist(err) {
+		t.Fatalf("blocked preview wrote another mod: %v", err)
+	}
+	if err := os.RemoveAll(filepath.Join(herdr, "mods/two")); err != nil {
+		t.Fatal(err)
+	}
+	applyPluginRequest(t, s, r)
+	for _, name := range []string{"one", "two"} {
+		if data, err := os.ReadFile(filepath.Join(herdr, "mods", name, "main.js")); err != nil || string(data) != name {
+			t.Fatalf("%s was not installed: %q %v", name, data, err)
+		}
+	}
+	for _, path := range []string{"mods/unchecked", "layouts"} {
+		if _, err := os.Stat(filepath.Join(herdr, path)); !os.IsNotExist(err) {
+			t.Fatalf("installed unselected path %s: %v", path, err)
+		}
+	}
+	applyPluginRequest(t, s, Request{Action: "remove", Name: "one"})
+	if _, err := os.Stat(filepath.Join(herdr, "mods/two/main.js")); err != nil {
+		t.Fatalf("removing one mod touched the other: %v", err)
+	}
+}
+
+func TestHerdrGitHubLinks(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("file URL fixture uses a POSIX path")
+	}
+	ctx := context.Background()
+	t.Chdir(t.TempDir())
+	repo := t.TempDir()
+	git := func(args ...string) {
+		t.Helper()
+		if _, err := runCommand(ctx, repo, nil, "git", args...); err != nil {
+			t.Fatalf("git %s: %v", args[0], err)
+		}
+	}
+	commit := func() {
+		git("add", ".")
+		git("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "-m", "mod")
+	}
+	git("init", "-b", "main")
+	writePluginFile(t, repo, "gallery/package/mods/demo/main.js", "first")
+	writePluginFile(t, repo, "gallery/package/mods/other/main.js", "other")
+	writePluginFile(t, repo, "mods/unrelated/main.js", "outside the package")
+	commit()
+	git("branch", "gallery/stable")
+	writePluginFile(t, repo, "gallery/package/mods/demo/main.js", "default branch")
+	commit()
+	const remote = "https://github.com/example/mod-gallery"
+	cfg := filepath.Join(t.TempDir(), "gitconfig")
+	writePluginFile(t, filepath.Dir(cfg), filepath.Base(cfg), "[url \"file://"+repo+"\"]\n  insteadOf = "+remote+".git\n")
+	t.Setenv("GIT_CONFIG_GLOBAL", cfg)
+
+	folder := remote + "/tree/gallery/stable/gallery/package"
+	list, err := Discover(ctx, folder)
+	if err != nil || len(list.Candidates) != 2 {
+		t.Fatalf("package link did not scope discovery: %+v %v", list, err)
+	}
+	file := remote + "/blob/gallery/stable/gallery/package/mods/demo/main.js"
+	d, err := Discover(ctx, file+"#L1")
+	if err != nil || len(d.Candidates) != 1 || d.Candidates[0].Name != "demo" || d.Source != file || d.Commit == "" {
+		t.Fatalf("mod link did not resolve to one mod: %+v %v", d, err)
+	}
+	for _, tc := range []struct{ source, entry, key string }{
+		{file, "bin/launcher", "plugins.error.herdrModLink"},
+		{remote + "/blob/main/README.md", "", "plugins.error.herdrModLink"},
+		{remote + "/tree/main/.git", "", "plugins.error.sourceFolder"},
+		{remote + "/tree/main/gallery/missing", "", "plugins.error.sourceFolder"},
+	} {
+		_, err := DiscoverOptions(ctx, tc.source, "", tc.entry)
+		if key, _ := ErrorKey(err); key != tc.key {
+			t.Fatalf("discovery of %s: wanted %s, got %v", tc.source, tc.key, err)
+		}
+	}
+
+	home := t.TempDir()
+	t.Setenv("HERDR_APP_HOME", home)
+	s := &Service{ConfigPath: filepath.Join(home, "config.yaml"), StateDir: filepath.Join(home, "state")}
+	applyPluginRequest(t, s, Request{Action: "add", Source: d.Source, Targets: []string{"herdr-app"}})
+	installed := filepath.Join(home, "mods/demo/main.js")
+	if data, err := os.ReadFile(installed); err != nil || string(data) != "first" {
+		t.Fatalf("did not install from the linked branch: %q %v", data, err)
+	}
+	git("checkout", "gallery/stable")
+	writePluginFile(t, repo, "gallery/package/mods/demo/main.js", "updated")
+	commit()
+	applyPluginRequest(t, s, Request{Action: "update", Name: "demo", Targets: []string{"herdr-app"}})
+	if data, err := os.ReadFile(installed); err != nil || string(data) != "updated" {
+		t.Fatalf("did not update from the linked branch: %q %v", data, err)
+	}
+}
+
 func TestHerdrSymlinkedHome(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("isolated HOME does not override the Windows user profile")
