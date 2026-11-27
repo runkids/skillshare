@@ -113,7 +113,7 @@ State and variant are short modifier classes on the same element: `.on` (selecte
 | Icons | `.ss-cat` (kind tile; `.skill` `.agent` `.extra` `.mcp` `.plugin` `.target`, tones, `.sm`), `.ss-at` (agent or tool logo; `.lg`), `.ss-stack` (overlapping logos) |
 | Theme editor | `.ss-presets` + `.ss-preset` (preset cards; `.on`), `.ss-tint` + `.ss-tint-sw` (background choice), `.ss-swatch` (colour picker inside `.ss-inp`), `.ss-mini` (live preview; `.sd` sidebar, `.pn` page; its parts transition colour, corners and shadow; `data-part` names the parts an option changes, which then get a brief accent wash (text) or glow (shapes)). Used by `CustomThemeSettings` only |
 | Feedback | `.ss-note` (+ `.warn` `.bad` `.inf`), `.ss-empty` (via `EmptyState`), `.ss-prog`, `.ss-skel`, `.ss-toast`, `.ss-tip` |
-| Overlays | `.ss-scrim` + `.ss-dlg` with `.dh` `.db` `.df` (via `DialogShell` and `DialogHeader`), `.ss-bulk` (selection toolbar), `.ss-hud` (hint while the shortcut modifier is held), `.ss-top` |
+| Overlays | `.ss-scrim` + `.ss-dlg` with `.dh` `.db` `.df` (via `DialogShell` and `DialogHeader`), `.ss-bulk` (selection toolbar; every action in it stays ink, destructive ones included, since their confirm dialog carries the red), `.ss-hud` (hint while the shortcut modifier is held), `.ss-top` |
 | Content | `.ss-prose` (rendered markdown), `.ss-code` (+ `.ln` `.cur`), `.ss-pre`, `.ss-ed` (editor) |
 | Dashboard | `.ss-board` `.ss-pin` `.ss-pinnote` `.ss-squig` — Playful pin board |
 

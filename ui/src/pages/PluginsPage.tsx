@@ -700,7 +700,6 @@ export default function PluginsPage() {
           <Button
             variant="secondary"
             size="sm"
-            className="text-danger"
             disabled={busy || bulk.removable.length === 0}
             onClick={() => setConfirmRemove({ names: bulk.removable, key: BULK })}
           >
