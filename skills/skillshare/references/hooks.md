@@ -40,9 +40,10 @@ skillshare hooks restore BACKUP_ID
 The file for add/edit is an Entry, without the `hooks.entries` wrapper. Import
 without a name lists candidates; provide a name to save one. Saving an import
 takes over the registrations it read, so the next sync adopts them without
-`--replace` (for flat code files and Copilot `.json` hooks, sync writes
-`skillshare-NAME` and retires the imported original after backup, or adopts an
-existing `skillshare-NAME` in place; `hooks restore` restores retired originals);
+`--replace` (for flat code files and Copilot `.json` hooks discovered from the
+target folder without `--file`, sync writes `skillshare-NAME` and retires the
+imported original after backup, or adopts an existing `skillshare-NAME` in
+place; `hooks restore` restores retired originals);
 unknown event names only warn. Import `--file`
 reads supplied native configuration or code with `--from` selecting its dialect.
 No import, preview or sync executes hook commands.

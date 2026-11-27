@@ -121,7 +121,7 @@ hooks:
 
 설치된 OMP 버전의 extension API에 맞춰 `bindings.omp.code`를 사용하세요. Skillshare는 소스를 그대로 복사하며, shell event를 변환하거나 검증을 위해 extension을 실행하지 않습니다. OMP에는 project trust 확인이 없으므로, 동기화된 project extension은 다음 OMP 시작 시 실행될 수 있습니다.
 
-OMP의 `hooks/pre`와 `hooks/post` factory는 관리되지 않는 추가 소스로 남습니다. 목록에는 표시되지만 `extensions`로 import되지 않습니다. import하면 같은 factory가 두 번 로드될 수 있기 때문입니다. 기존의 독립 extension을 import하면 해당 파일을 인수하며, 다음 동기화 때 `skillshare-NAME.ts`를 쓰고 백업 후 원래 파일을 삭제합니다(기존 `skillshare-NAME.ts`는 그 자리에서 인수). 원래 파일은 `hooks restore`로 복원할 수 있습니다.
+OMP의 `hooks/pre`와 `hooks/post` factory는 관리되지 않는 추가 소스로 남습니다. 목록에는 표시되지만 `extensions`로 import되지 않습니다. import하면 같은 factory가 두 번 로드될 수 있기 때문입니다. 대상 디렉터리에서 직접(`--file` 없이) 기존의 독립 extension을 import하면 해당 파일을 인수하며, 다음 동기화 때 `skillshare-NAME.ts`를 쓰고 백업 후 원래 파일을 삭제합니다(같은 이름의 기존 `skillshare-NAME.ts`는 그 자리에서 인수). 원래 파일은 `hooks restore`로 복원할 수 있으며, `--file`로 import할 때는 원본 파일을 삭제하지 않습니다.
 
 Pi와 OMP는 모두 `PI_CODING_AGENT_DIR`을 따릅니다. binding이 같은 출력 파일로 해석되면 Skillshare는 쓰기 전에 계획을 차단합니다. 둘 다 관리할 때는 서로 다른 명시적 계정 디렉터리를 사용하세요.
 
@@ -283,6 +283,6 @@ Skillshare는 `opencode --version`(또는 계정의 `cli`)만 실행합니다. �
 
 완전한 v2 패키지에는 `code`/`codeFile` 대신 `bindings.opencode.package`를 사용합니다. `package.json`을 포함해 상대 파일명을 UTF-8 내용에 대응시킨 맵입니다. manifest와 의존성 요구 사항은 그대로 보존됩니다. 중첩된 파일은 허용되지만 경로 이탈, 심볼릭 링크, 파일/디렉터리 충돌, `.git`, `node_modules`는 패키지 내용이 될 수 없습니다. 네이티브 편집기는 이 파일 맵을 JSON으로 표시합니다. server entry는 패키지 이름이 있는 문자열 root 또는 `./server` export이거나, 관례적인 루트 `server`/`index` 파일(`.ts`, `.tsx`, `.js`)이어야 합니다. 조건부 및 폴백 server export는 추측하지 않고 거부합니다. `package` binding에는 OpenCode v2가 필요하며, v1에서는 경고와 함께 건너뜁니다.
 
-`hooks import --from opencode`는 네이티브 `plugins` 폴더 바로 아래의 패키지 디렉터리도 읽습니다. 단일 파일 코드 import(백업 후 원본 파일을 자동 제거)와 달리, 패키지 디렉터리 import는 소스 파일을 Skillshare의 이름이 지정된 출력으로 복사하고, 동기화 후 중복 로드를 피하려면 원본 디렉터리와 등록을 직접 제거하라고 경고합니다. 설치된 `node_modules`와 `.git`은 가져오지 않습니다. 읽을 수 없는 파일(예: 심볼릭 링크)이 있는 패키지는 해당 문제와 함께 표시되며, 다른 패키지와 단일 파일은 계속 가져올 수 있습니다. OpenCode v1에서는 `plugins` 아래의 디렉터리가 hook으로 나열되지 않습니다. 동기화, 편집, 제거는 다른 hook과 같은 소유권 검사와 백업을 사용하며, 외부에서 편집된 패키지 파일은 덮어쓰지 않고 충돌로 처리됩니다.
+`hooks import --from opencode`는 네이티브 `plugins` 폴더 바로 아래의 패키지 디렉터리도 읽습니다. 대상 폴더의 단일 파일 코드 import(백업 후 원본 파일을 자동 제거)와 달리, 패키지 디렉터리 import는 소스 파일을 Skillshare의 이름이 지정된 출력으로 복사하고, 동기화 후 중복 로드를 피하려면 원본 디렉터리와 등록을 직접 제거하라고 경고합니다. 설치된 `node_modules`와 `.git`은 가져오지 않습니다. 읽을 수 없는 파일(예: 심볼릭 링크)이 있는 패키지는 해당 문제와 함께 표시되며, 다른 패키지와 단일 파일은 계속 가져올 수 있습니다. OpenCode v1에서는 `plugins` 아래의 디렉터리가 hook으로 나열되지 않습니다. 동기화, 편집, 제거는 다른 hook과 같은 소유권 검사와 백업을 사용하며, 외부에서 편집된 패키지 파일은 덮어쓰지 않고 충돌로 처리됩니다.
 
 선언된 의존성은 로드하기 전에 직접 준비하세요. 패키지 파일을 쓸 때마다 미리보기에 이 안내가 표시됩니다. Skillshare는 플러그인 코드를 실행하지 않고, 의존성을 설치하지 않으며, v1 코드를 v2로 변환하지 않습니다. 등록되었다고 해서 플러그인이 로드되었다는 증거는 아닙니다. 두 API가 다르기 때문에 대시보드는 OpenCode 시작 코드를 의도적으로 제공하지 않습니다.

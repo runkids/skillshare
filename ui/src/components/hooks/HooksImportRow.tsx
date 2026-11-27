@@ -80,11 +80,26 @@ export default function HooksImportRow({
         ? t('hooks.importWholeFile')
         : (binding?.codeFile ?? '');
   const edited = change && 'events' in change ? describeChange(before, change.events) : undefined;
+  const trimmedName = name.trim() || row.candidate.name;
+  const renamedFromInPlace =
+    row.adopt &&
+    Boolean(row.candidate.source) &&
+    row.target !== 'antigravity' &&
+    trimmedName !== row.candidate.name &&
+    row.candidate.warnings.includes(ADOPT_WARNING);
   const notes = [
     ...row.candidate.problems.map((message) => ({ message, problem: true })),
     ...row.candidate.warnings
       .filter((w) => w !== ADOPT_WARNING)
       .map((message) => ({ message, problem: false })),
+    ...(renamedFromInPlace
+      ? [
+          {
+            message: `saving the import adopts ${row.candidate.source}; the next sync writes Skillshare's file and deletes the original after taking a backup`,
+            problem: false,
+          },
+        ]
+      : []),
   ];
   const fade = 'animate-[ss-fade-in_.15s_ease-out]';
   const expanded = open && !change;

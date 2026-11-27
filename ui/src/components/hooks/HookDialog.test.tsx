@@ -271,6 +271,50 @@ describe('hooks import', () => {
     );
   });
 
+  it('shows the retirement warning when an in-place skillshare-* file is renamed in the dialog', async () => {
+    const user = userEvent.setup();
+    const ext: HookCandidate = {
+      name: 'foo',
+      source: 'skillshare-foo.ts',
+      problems: [],
+      warnings: [
+        'saving the import takes over the existing registrations in place; sync leaves them as they are instead of adding duplicates',
+      ],
+      entry: { bindings: { pi: { code: 'export default function () {}\n' } } },
+    };
+    vi.mocked(hooksApi.import).mockResolvedValue([ext]);
+    wrap(
+      <HooksImportDialog
+        data={
+          {
+            ...data,
+            paths: { pi: '/home/u/.pi/agent/extensions' },
+            unmanaged: [
+              {
+                target: 'pi',
+                path: '/home/u/.pi/agent/extensions',
+                names: ['skillshare-foo.ts'],
+                importable: true,
+              },
+            ],
+          } as unknown as HookInventory
+        }
+        onClose={vi.fn()}
+        onChanged={vi.fn()}
+        onImported={vi.fn()}
+      />,
+    );
+    await user.click(await screen.findByRole('button', { expanded: false }));
+    await user.click(screen.getByRole('checkbox', { name: 'Import foo' }));
+    expect(screen.queryByText(/deletes the original/)).not.toBeInTheDocument();
+    const nameInput = screen.getByRole('textbox', { name: 'Name for foo' });
+    await user.clear(nameInput);
+    await user.type(nameInput, 'bar');
+    expect(
+      await screen.findByText(/adopts skillshare-foo\.ts.*deletes the original/),
+    ).toBeInTheDocument();
+  });
+
   const editable = (name: string, command: string): HookCandidate => ({
     ...candidate(name, command),
     editable: true,
