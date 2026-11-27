@@ -1222,7 +1222,6 @@
   "install.url.filterAgents": "Filtrar agents",
   "install.url.track": "Acompanhar este repo",
   "install.url.trackHint": "Mantém um clone git para que Atualizar possa trazer novas versões. Sem isso, você recebe uma cópia única.",
-  "install.url.advanced": "Avançado",
   "folderPicker.root": "Raiz",
   "folderPicker.new": "Nova pasta…",
   "folderPicker.newPlaceholder": "forms",

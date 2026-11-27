@@ -300,7 +300,6 @@ describe('InstallDialog', () => {
 
     await user.type(screen.getByLabelText(/git url/i), 'acme/team-skills');
     await user.click(screen.getByRole('switch', { name: /track this repo/i }));
-    await user.click(screen.getByRole('button', { name: /advanced/i }));
     await user.click(await screen.findByRole('combobox', { name: /into folder/i }));
     await user.click(await screen.findByRole('option', { name: /^frontend/ }));
     await user.click(screen.getByRole('button', { name: /install repo/i }));
@@ -334,7 +333,6 @@ describe('InstallDialog', () => {
 
     await user.type(screen.getByLabelText(/git url/i), 'acme/team-skills');
     await user.click(screen.getByRole('switch', { name: /track this repo/i }));
-    await user.click(screen.getByRole('button', { name: /advanced/i }));
     await user.click(await screen.findByRole('combobox', { name: /into folder/i }));
     await user.click(await screen.findByRole('option', { name: /^frontend/ }));
     await user.click(screen.getByRole('combobox', { name: /into folder/i }));
@@ -358,7 +356,6 @@ describe('InstallDialog', () => {
     const user = userEvent.setup();
     renderDialog('url');
 
-    await user.click(screen.getByRole('button', { name: /advanced/i }));
     await user.click(await screen.findByRole('combobox', { name: /into folder/i }));
     await user.click(await screen.findByRole('option', { name: /new folder/i }));
     const use = screen.getByRole('button', { name: /use this folder/i });
@@ -378,7 +375,6 @@ describe('InstallDialog', () => {
     const user = userEvent.setup();
     renderDialog('url', onClose);
 
-    await user.click(screen.getByRole('button', { name: /advanced/i }));
     await user.click(await screen.findByRole('combobox', { name: /into folder/i }));
     await user.click(await screen.findByRole('option', { name: /new folder/i }));
     await user.keyboard('{Escape}');

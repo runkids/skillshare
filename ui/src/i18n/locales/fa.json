@@ -1222,7 +1222,6 @@
   "install.url.filterAgents": "فیلتر ایجنت‌ها",
   "install.url.track": "دنبال کردن این مخزن",
   "install.url.trackHint": "یک کلون git نگه می‌دارد تا Update بتواند نسخه‌های جدید را بگیرد. بدون آن فقط یک کپی یک‌باره می‌گیرید.",
-  "install.url.advanced": "پیشرفته",
   "folderPicker.root": "ریشه",
   "folderPicker.new": "پوشه جدید…",
   "folderPicker.newPlaceholder": "forms",

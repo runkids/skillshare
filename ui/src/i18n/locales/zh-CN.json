@@ -1222,7 +1222,6 @@
   "install.url.filterAgents": "筛选 agent",
   "install.url.track": "追踪这个 repo",
   "install.url.trackHint": "保留 git clone，之后可以用 Update 拉取新版本。不开启则只是一次性复制。",
-  "install.url.advanced": "高级",
   "folderPicker.root": "根目录",
   "folderPicker.new": "新建文件夹…",
   "folderPicker.newPlaceholder": "forms",

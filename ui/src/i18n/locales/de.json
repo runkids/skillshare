@@ -1222,7 +1222,6 @@
   "install.url.filterAgents": "Agents filtern",
   "install.url.track": "Dieses Repo verfolgen",
   "install.url.trackHint": "Behält einen Git-Klon, damit Update neue Versionen holen kann. Ohne das bekommst du eine einmalige Kopie.",
-  "install.url.advanced": "Erweitert",
   "folderPicker.root": "Stamm",
   "folderPicker.new": "Neuer Ordner…",
   "folderPicker.newPlaceholder": "forms",

@@ -1222,7 +1222,6 @@
   "install.url.filterAgents": "Filter agent",
   "install.url.track": "Lacak repo ini",
   "install.url.trackHint": "Menyimpan clone git agar Update bisa menarik versi baru. Tanpa ini Anda hanya mendapat salinan sekali pakai.",
-  "install.url.advanced": "Lanjutan",
   "folderPicker.root": "Root",
   "folderPicker.new": "Folder baru…",
   "folderPicker.newPlaceholder": "forms",
