@@ -71,7 +71,11 @@ func runHooksList(service *hooks.Service, o hooksOptions) error {
 		}
 	}
 	for _, u := range inv.Unmanaged {
-		ui.Row(ui.MarkWarn, u.Target, "not managed "+ui.DimText("· "+utils.FoldHomePath(u.Path)+": "+strings.Join(u.Names, ", ")), width)
+		mark, status := ui.MarkWarn, "not managed "
+		if !u.Importable {
+			mark, status = ui.MarkNone, "left as is "
+		}
+		ui.Row(mark, u.Target, status+ui.DimText("· "+utils.FoldHomePath(u.Path)+": "+strings.Join(u.Names, ", ")), width)
 	}
 	if len(inv.Source.Entries) == 0 {
 		fmt.Println()

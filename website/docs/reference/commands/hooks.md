@@ -48,6 +48,13 @@ registrations it read in place: the next sync adopts them without `--replace`,
 and events you did not import stay unmanaged. Import only reads configuration or
 code and never runs it.
 
+`hooks list` also shows sources an Agent loads that import never reads: Codex
+inline `[hooks]` tables in `config.toml`, OMP's `hooks/pre` and `hooks/post`,
+Droid's legacy `hooks/hooks.json`, Claude's `settings.local.json` in a project,
+and Git config hooks. They show as `left as is` instead of `not managed`, carry
+`"importable": false` in `--json`, and appear in the dashboard without a Review
+button.
+
 The dashboard's **Hooks in targets** dialog opens with no hook selected; tick the ones to
 import. It can also edit or remove a hook in its Agent's
 settings file without importing it. This works for every Agent whose hooks are

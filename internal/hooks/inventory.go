@@ -61,9 +61,9 @@ func (s *Service) List() (*Inventory, error) {
 // additional sources Skillshare reads but never edits.
 func (s *Service) unmanaged(state ledger) []Unmanaged {
 	var out []Unmanaged
-	add := func(target, path string, names []string) {
+	add := func(target, path string, names []string, importable bool) {
 		if len(names) > 0 {
-			out = append(out, Unmanaged{Target: target, Path: path, Names: names})
+			out = append(out, Unmanaged{Target: target, Path: path, Names: names, Importable: importable})
 		}
 	}
 	for _, t := range s.targetDefs() {
@@ -79,25 +79,25 @@ func (s *Service) unmanaged(state ledger) []Unmanaged {
 		if agent == "codex" {
 			dir, _ := sc.configDir(agent)
 			inline := filepath.Join(dir, "config.toml")
-			add(t.Name, inline, codexInlineEvents(inline))
+			add(t.Name, inline, codexInlineEvents(inline), false)
 		}
 		if agent == "omp" {
 			// OMP also loads hook factories from hooks/pre and hooks/post; Skillshare never writes there.
 			dir, _ := sc.configDir(agent)
 			for _, sub := range []string{"pre", "post"} {
 				factories := filepath.Join(dir, "hooks", sub)
-				add(t.Name, factories, sc.unownedFiles(agent, factories, state))
+				add(t.Name, factories, sc.unownedFiles(agent, factories, state), false)
 			}
 		}
 		switch {
 		case t.Kind == KindCode || agent == "copilot":
-			add(t.Name, path, sc.unownedFiles(agent, path, state))
+			add(t.Name, path, sc.unownedFiles(agent, path, state), true)
 		default:
 			doc, _, err := sc.readDoc(agent, path)
 			if err != nil || doc == nil {
 				continue
 			}
-			add(t.Name, path, unownedEvents(doc, path, state))
+			add(t.Name, path, unownedEvents(doc, path, state), true)
 		}
 	}
 	dir := func(target string) string { d, _ := s.configDir(target); return d }
@@ -105,17 +105,17 @@ func (s *Service) unmanaged(state ledger) []Unmanaged {
 	// hooks/hooks.json always loads.
 	if !exists(filepath.Join(dir("droid"), "hooks.json")) {
 		if inline, _ := droidInlineHooks(filepath.Join(dir("droid"), "settings.json")); len(inline) > 0 {
-			add("droid", filepath.Join(dir("droid"), "settings.json"), sortedKeys(inline))
+			add("droid", filepath.Join(dir("droid"), "settings.json"), sortedKeys(inline), true)
 		}
 	}
 	legacy := filepath.Join(dir("droid"), "hooks", "hooks.json")
 	if doc, _, err := s.readDoc("droid", legacy); err == nil && doc != nil {
-		add("droid", legacy, sortedKeys(doc.events))
+		add("droid", legacy, sortedKeys(doc.events), false)
 	}
 	if s.ProjectRoot != "" {
 		local := filepath.Join(dir("claude"), "settings.local.json")
 		if doc, _, err := s.readDoc("claude", local); err == nil && doc != nil {
-			add("claude", local, sortedKeys(doc.events))
+			add("claude", local, sortedKeys(doc.events), false)
 		}
 	}
 	return out
