@@ -3,17 +3,18 @@ package plugin
 import (
 	"context"
 	"fmt"
-	"io"
 	"io/fs"
 	"maps"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
+
+	"skillshare/internal/filepreview"
 )
 
 // maxPreview keeps a stray bundle or binary from being sent to the browser whole.
-const maxPreview = 1 << 20
+const maxPreview = filepreview.MaxSize
 
 // snapshotPackage verifies only this package's unresolved source ownership in
 // memory. Current local receipts need no native queries; nothing is migrated.
@@ -107,30 +108,10 @@ func (s *Service) Files(name string) ([]string, error) {
 	if err != nil || dir == "" {
 		return []string{}, err
 	}
-	files := []string{}
-	err = filepath.WalkDir(dir, func(path string, entry fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if entry.IsDir() {
-			// Dependencies are not what the author wrote, and there can be tens of thousands of them.
-			if entry.Name() == "node_modules" {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		rel, err := filepath.Rel(dir, path)
-		if err != nil {
-			return err
-		}
-		files = append(files, filepath.ToSlash(rel))
-		return nil
-	})
-	slices.Sort(files)
-	return files, err
+	return filepreview.List(dir)
 }
 
-// ReadFile reads one file of the snapshot. os.Root refuses any path, or symlink, that leaves it.
+// ReadFile reads one file of the snapshot, never one outside it.
 func (s *Service) ReadFile(name, rel string) ([]byte, error) {
 	dir, err := s.snapshotDir(name)
 	if err != nil {
@@ -139,22 +120,5 @@ func (s *Service) ReadFile(name, rel string) ([]byte, error) {
 	if dir == "" {
 		return nil, fs.ErrNotExist
 	}
-	root, err := os.OpenRoot(dir)
-	if err != nil {
-		return nil, err
-	}
-	defer root.Close()
-	file, err := root.Open(filepath.FromSlash(rel))
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-	data, err := io.ReadAll(io.LimitReader(file, maxPreview+1))
-	if err != nil {
-		return nil, err
-	}
-	if len(data) > maxPreview {
-		return nil, fmt.Errorf("%s is too large to preview", rel)
-	}
-	return data, nil
+	return filepreview.Read(dir, rel)
 }

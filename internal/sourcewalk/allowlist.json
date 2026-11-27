@@ -624,12 +624,12 @@
     "note": "Discover shared memory notes for full listing and the bounded recent overview"
   },
   {
-    "file": "internal/plugin/files.go",
-    "function": "(*Service).Files",
+    "file": "internal/filepreview/filepreview.go",
+    "function": "List",
     "callee": "filepath.WalkDir",
     "root": "dir",
-    "reason": "plugin",
-    "note": "List plugin package files"
+    "reason": "preview",
+    "note": "List a plugin package or the extensions folder for the dashboard's read-only viewer"
   },
   {
     "file": "internal/plugin/local_bundle.go",

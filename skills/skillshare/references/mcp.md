@@ -482,7 +482,7 @@ mcp:
 - No command edits `mcp.projects` (including `use`); `mcp add` leaves it as written. Edit `config.yaml`, or
   use the dashboard: the **Projects** page adds and removes projects, and each project's
   **MCP** tab turns global servers off there, edits project servers and lists the
-  project's Agent files with **Open folder**, **Open in editor** and **Copy path**.
+  project's Agent files with **View file**, **Open folder**, **Open in editor** and **Copy path**.
 - `disabled` under `mcp.projects` cannot target `claude`. Use project mode in that
   folder instead.
 - It is refused inside a project config. A folder whose own `.skillshare/config.yaml`

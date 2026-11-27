@@ -82,6 +82,8 @@ export const queryKeys = {
   // Under `extras`, so invalidating that key refreshes both.
   extrasExtensions: ['extras', 'extensions'] as const,
   extensions: ['extensions'] as const,
+  extensionFiles: ['extension-files'] as const,
+  extensionFile: (path: string) => ['extension-file', path] as const,
   memory: {
     all: ['memory'] as const,
     overview: ['memory', 'overview'] as const,
@@ -107,6 +109,7 @@ export const queryKeys = {
     content: (name: string, path: string) => ['target-files', name, 'content', path] as const,
   },
   mcp: ['mcp'] as const,
+  mcpFile: (target: string, project = '') => ['mcp-file', target, project] as const,
   // Under `mcp`, so every MCP change refreshes it too.
   mcpCosts: ['mcp', 'costs'] as const,
   mcpRender: (mutation: string) => ['mcp', 'render', mutation] as const,

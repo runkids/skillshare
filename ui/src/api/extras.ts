@@ -55,6 +55,12 @@ export const extrasApi = {
   installExtension: (name: string) =>
     http.post<ExtensionActionResult>('/extensions/install', { name }),
   openExtensionsDir: () => http.post<{ path: string }>('/extensions/open'),
+  /** The extensions folder, listed and read in the page, where no file manager can open it. */
+  extensionFiles: () => http.get<{ files: string[] }>('/extensions/files'),
+  extensionFile: (path: string) =>
+    http.get<{ content: string }>(
+      `/extensions/files/${path.split('/').map(encodeURIComponent).join('/')}`,
+    ),
   removeExtension: (name: string) =>
     http.delete<ExtensionActionResult>(`/extensions/${encodeURIComponent(name)}`),
 };

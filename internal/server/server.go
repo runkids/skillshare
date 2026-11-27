@@ -658,6 +658,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("POST /api/mcp/import", s.requireLocalMCP(s.handleMCPImport))
 	s.mux.HandleFunc("POST /api/mcp/restore", s.requireLocalMCP(s.handleMCPRestore))
 	s.mux.HandleFunc("POST /api/mcp/open", s.requireLocalMCP(s.handleMCPOpen))
+	s.mux.HandleFunc("GET /api/mcp/file", s.requireLocalMCP(s.handleMCPFile))
 	s.mux.HandleFunc("GET /api/hooks", s.requireLocalHooks(s.handleHooksList))
 	s.mux.HandleFunc("POST /api/hooks", s.requireLocalHooks(s.handleHooksConfigure))
 	s.mux.HandleFunc("POST /api/hooks/preview", s.requireLocalHooks(s.handleHooksPreview))
@@ -696,6 +697,8 @@ func (s *Server) registerRoutes() {
 	// Extensions (transform extensions management)
 	s.mux.HandleFunc("GET /api/extensions", s.handleExtensionsList)
 	s.mux.HandleFunc("POST /api/extensions/install", withLongWriteDeadline(s.handleExtensionsInstall))
+	s.mux.HandleFunc("GET /api/extensions/files", s.handleExtensionsFiles)
+	s.mux.HandleFunc("GET /api/extensions/files/{filepath...}", s.handleExtensionsFile)
 	s.mux.HandleFunc("POST /api/extensions/open", s.handleExtensionsOpen)
 	s.mux.HandleFunc("DELETE /api/extensions/{name}", s.handleExtensionsRemove)
 

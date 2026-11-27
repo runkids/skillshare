@@ -255,7 +255,9 @@ client는 project mode에서 선택할 수 없습니다. 오른쪽의 **Sync** �
 존재하면 감지된 것으로 간주하므로, MCP 파일이 아직 없는 새 설치도 표시됩니다. project
 mode에서는 프로젝트에 MCP 파일이 있거나 client가 전역적으로 감지된 경우 나열됩니다.
 감지된 각 client에는 MCP 파일 이름이 표시되고, **Copy path**는 전체 경로를 복사합니다.
-파일이 존재하면 **Open in editor**가 skill의 **Open in editor**와 같은 편집기로 파일을 엽니다.
+파일이 존재하면 **View file**은 페이지 안에서 읽기 전용으로 보여 줍니다. WSL이 Windows와
+끊겨 있는 경우처럼 대시보드를 실행하는 머신에서 아무것도 열 수 없을 때도 동작하며,
+1 MB를 넘는 파일은 표시되지 않습니다. **Open in editor**가 skill의 **Open in editor**와 같은 편집기로 파일을 엽니다.
 대시보드에는 편집기를 보여 줄 터미널이 없으므로 `$VISUAL`이나 `$EDITOR`의 nano, vim 같은
 일반적인 터미널 편집기는 건너뜁니다. WSL에서 GUI 편집기를 찾지 못하면 Windows가 그 파일에
 연결된 프로그램으로 엽니다.
@@ -263,7 +265,7 @@ mode에서는 프로젝트에 MCP 파일이 있거나 client가 전역적으로 
 폴더를 파일 관리자(Finder, Windows와 WSL에서는 파일 탐색기, Linux에서는 기본 핸들러)로
 열어 주므로, `$EDITOR`를
 설정하지 않아도 원하는 프로그램으로 파일을 열 수 있습니다. 둘 다 대시보드를 실행하는 머신에서
-열리므로, 이 버튼들은 브라우저도 그 머신에서 (`localhost` 또는 SSH 포트 포워딩으로) 열었을
+열리고 파일에 토큰이 들어 있을 수 있으므로, 이 버튼들과 **View file**은 브라우저도 그 머신에서 (`localhost` 또는 SSH 포트 포워딩으로) 열었을
 때만 나타나며, LAN 주소나 리버스 프록시를 통해서는 나타나지 않습니다.
 
 추가 client 세부 정보:
@@ -688,7 +690,7 @@ Global mode에서는 대시보드에 **프로젝트** 페이지가 있습니다.
   알려줍니다. 프로젝트의 target과 다른 자체 `targets`를 나열한 항목에는
   **프로젝트에 맞추기**가 표시되며, 이는 `targets` 없이 항목을 다시 저장합니다.
 - 탭 오른쪽의 **Agents** 목록은 이 project의 Agent, project 전용 서버가 가는 Agent, 파일이 이미
-  project에 있는 다른 Agent를 파일 이름 및 **Copy path**와 함께 보여 줍니다. **Open folder**와 **Open in editor**는
+  project에 있는 다른 Agent를 파일 이름 및 **Copy path**와 함께 보여 줍니다. **View file**, **Open folder**, **Open in editor**는
   MCP 페이지와 같이 동작합니다.
 - 탭의 Sync 박스에 있는 **Sync MCP**는 전체 MCP 계획을 작성하며, 그 변경 사항 중
   몇 개가 이 프로젝트 밖에 있는지 알려줍니다. 프로젝트 페이지 상단의 **Sync project**는

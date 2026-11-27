@@ -169,3 +169,50 @@ func TestHandleExtensionsRemove(t *testing.T) {
 		t.Errorf("expected 404 for missing extension, got %d", mr.Code)
 	}
 }
+
+// TestHandleExtensionsFiles lists and reads the extensions folder in the page, where no file
+// manager can open it, and refuses any path that leaves the folder.
+func TestHandleExtensionsFiles(t *testing.T) {
+	s, _ := newTestServerWithExtras(t, nil, "")
+	get := func(path string) *httptest.ResponseRecorder {
+		rr := httptest.NewRecorder()
+		s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, path, nil))
+		return rr
+	}
+	if rr := get("/api/extensions/files"); rr.Code != 200 || !strings.Contains(rr.Body.String(), `"files":[]`) {
+		t.Fatalf("no folder yet: %d %s", rr.Code, rr.Body)
+	}
+
+	extRoot := filepath.Join(filepath.Dir(config.ConfigPath()), "extensions")
+	writeExtensionWithDescription(t, extRoot, "my-local", "Local transform")
+	outside := filepath.Join(t.TempDir(), "secret.txt")
+	if err := os.WriteFile(outside, []byte("secret"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(extRoot, "my-local", "escape.txt")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(extRoot, "big.js"), make([]byte, 1<<20+1), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	rr := get("/api/extensions/files")
+	if rr.Code != 200 || !strings.Contains(rr.Body.String(), `"my-local/extension.yaml"`) {
+		t.Fatalf("list: %d %s", rr.Code, rr.Body)
+	}
+	rr = get("/api/extensions/files/my-local/extension.yaml")
+	if rr.Code != 200 || !strings.Contains(rr.Body.String(), "Local transform") {
+		t.Fatalf("read: %d %s", rr.Code, rr.Body)
+	}
+	for _, path := range []string{"my-local/escape.txt", "..%2fconfig.yaml"} {
+		if rr := get("/api/extensions/files/" + path); rr.Code == 200 || strings.Contains(rr.Body.String(), "secret") {
+			t.Fatalf("%s left the folder: %d %s", path, rr.Code, rr.Body)
+		}
+	}
+	if rr := get("/api/extensions/files/missing.txt"); rr.Code != 404 {
+		t.Fatalf("missing: %d", rr.Code)
+	}
+	if rr := get("/api/extensions/files/big.js"); rr.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("too large: %d", rr.Code)
+	}
+}
