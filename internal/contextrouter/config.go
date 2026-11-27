@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"sort"
 )
 
 // ConfigRel is where the router keeps its config inside a folder.
@@ -32,10 +31,13 @@ type sourceCfg struct {
 }
 
 type topicCfg struct {
-	Name        string
-	Description string
-	MaxBytes    *int
-	Sources     []sourceCfg
+	Name string
+	// Description is the config's own; HasDescription is false when the topic
+	// leaves it out, which the router allows since 0.6.0.
+	Description    string
+	HasDescription bool
+	MaxBytes       *int
+	Sources        []sourceCfg
 }
 
 type routerCfg struct {
@@ -44,8 +46,8 @@ type routerCfg struct {
 	TopicCap         int
 	Strip            bool
 	Compact          bool
-	Topics           []topicCfg // by name
-	Mounts           []Mount    // by name
+	Topics           []topicCfg // in the config's order, as the router prints them
+	Mounts           []Mount    // in the config's order
 }
 
 type object = map[string]json.RawMessage
@@ -54,6 +56,41 @@ func decodeObject(raw json.RawMessage, field string) (object, error) {
 	var out object
 	if err := json.Unmarshal(raw, &out); err != nil || out == nil {
 		return nil, fmt.Errorf("%s: expected an object", field)
+	}
+	return out, nil
+}
+
+type member struct {
+	key   string
+	value json.RawMessage
+}
+
+// decodeOrdered reads an object's members in the order they are written. A
+// repeated key keeps its first position and its last value, as Python's dict does.
+func decodeOrdered(raw json.RawMessage, field string) ([]member, error) {
+	wrong := fmt.Errorf("%s: expected an object", field)
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	if open, err := dec.Token(); err != nil || open != json.Delim('{') {
+		return nil, wrong
+	}
+	out := []member{}
+	at := map[string]int{}
+	for dec.More() {
+		token, err := dec.Token()
+		key, ok := token.(string)
+		if err != nil || !ok {
+			return nil, wrong
+		}
+		var value json.RawMessage
+		if err := dec.Decode(&value); err != nil {
+			return nil, wrong
+		}
+		if i, seen := at[key]; seen {
+			out[i].value = value
+			continue
+		}
+		at[key] = len(out)
+		out = append(out, member{key, value})
 	}
 	return out, nil
 }
@@ -89,8 +126,10 @@ func decodeCap(raw json.RawMessage, field string) (int, error) {
 	return 0, fmt.Errorf("%s: expected a nonnegative integer", field)
 }
 
-// parseConfig decodes wiki/ai-context.json. A wrong type is an error, never a
-// silent default, so a broken config is not measured as if it were another.
+// parseConfig decodes wiki/ai-context.json. For a field the router's size
+// path reads, a wrong type is an error, never a silent default, so a broken
+// config is not measured as if it were another. Fields it does not read
+// (descriptions, mounts, anything unknown) never invalidate the config.
 func parseConfig(text string) (routerCfg, error) {
 	cfg := routerCfg{RootInstructions: defaultRootInstructions, KernelCap: defaultKernelCap, TopicCap: defaultTopicCap}
 	var raw json.RawMessage
@@ -137,33 +176,27 @@ func parseConfig(text string) (routerCfg, error) {
 	if !ok {
 		return cfg, fmt.Errorf("topics: expected an object")
 	}
-	topics, err := decodeObject(v, "topics")
+	topics, err := decodeOrdered(v, "topics")
 	if err != nil {
 		return cfg, err
 	}
-	for name, rawTopic := range topics {
-		topic, err := parseTopic(name, rawTopic)
+	for _, m := range topics {
+		topic, err := parseTopic(m.key, m.value)
 		if err != nil {
 			return cfg, err
 		}
 		cfg.Topics = append(cfg.Topics, topic)
 	}
-	sort.Slice(cfg.Topics, func(i, j int) bool { return cfg.Topics[i].Name < cfg.Topics[j].Name })
 
-	if v, ok := top["mounts"]; ok {
-		mounts, err := decodeObject(v, "mounts")
-		if err != nil {
-			return cfg, err
-		}
-		for name, rawMount := range mounts {
-			mount := Mount{Name: name}
-			if fields, err := decodeObject(rawMount, "mount"); err == nil {
-				// Reported as written; an odd declaration is the router's to judge.
+	// Mounts are only listed, so an odd declaration is the router's to judge, not a broken config.
+	if mounts, err := decodeOrdered(top["mounts"], "mounts"); err == nil {
+		for _, m := range mounts {
+			mount := Mount{Name: m.key}
+			if fields, err := decodeObject(m.value, "mount"); err == nil {
 				mount.Root, _ = decodeString(fields["root"], "root")
 			}
 			cfg.Mounts = append(cfg.Mounts, mount)
 		}
-		sort.Slice(cfg.Mounts, func(i, j int) bool { return cfg.Mounts[i].Name < cfg.Mounts[j].Name })
 	}
 	return cfg, nil
 }
@@ -175,8 +208,10 @@ func parseTopic(name string, raw json.RawMessage) (topicCfg, error) {
 	if err != nil {
 		return topic, err
 	}
-	if topic.Description, err = decodeString(fields["description"], field+".description"); err != nil {
-		return topic, err
+	// The description is shown, never measured: a missing or odd one does not spoil the sizes.
+	if raw, ok := fields["description"]; ok {
+		topic.HasDescription = true
+		topic.Description, _ = decodeString(raw, field+".description")
 	}
 	if v, ok := fields["maxBytes"]; ok {
 		n, err := decodeCap(v, field+".maxBytes")

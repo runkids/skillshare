@@ -31,17 +31,43 @@ func TestParseConfig(t *testing.T) {
 	heading, no, five := "H", false, 5
 	want := routerCfg{
 		RootInstructions: "CLAUDE.md", KernelCap: 10, TopicCap: 20, Strip: true, Compact: true,
+		// Config order, not name order: the router prints topics as written.
 		Topics: []topicCfg{
-			{Name: "a", Description: "A", Sources: []sourceCfg{
+			{Name: "b", Description: "B", HasDescription: true, MaxBytes: &five},
+			{Name: "a", Description: "A", HasDescription: true, Sources: []sourceCfg{
 				{Path: "wiki/a.md", Heading: &heading, Strip: &no, Frontmatter: true},
 				{Path: "wiki/a.md"},
 			}},
-			{Name: "b", Description: "B", MaxBytes: &five},
 		},
 		Mounts: []Mount{{Name: "kb", Root: "modules/kb"}, {Name: "odd"}},
 	}
 	if !reflect.DeepEqual(cfg, want) {
 		t.Fatalf("got  %+v\nwant %+v", cfg, want)
+	}
+
+	// Fields the size path does not read never invalidate the config.
+	cfg, err = parseConfig(`{"okfReservedPages": true, "indexed": 3, "mounts": [], "unrouted": "x", "topics": {
+	  "z": {"sources": []},
+	  "m": {"description": 3, "sources": []},
+	  "a": {"description": null, "sources": []},
+	  "z": {"description": "last wins", "sources": []}}}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := []topicCfg{}
+	for _, topic := range cfg.Topics {
+		got = append(got, topicCfg{Name: topic.Name, Description: topic.Description, HasDescription: topic.HasDescription})
+	}
+	wantTopics := []topicCfg{
+		{Name: "z", Description: "last wins", HasDescription: true},
+		{Name: "m", HasDescription: true},
+		{Name: "a", HasDescription: true},
+	}
+	if !reflect.DeepEqual(got, wantTopics) || len(cfg.Mounts) != 0 {
+		t.Fatalf("tolerant fields: %+v mounts %+v", got, cfg.Mounts)
+	}
+	if cfg, err = parseConfig(`{"topics":{"t":{"sources":[]}}}`); err != nil || cfg.Topics[0].HasDescription {
+		t.Fatalf("missing description: %+v %v", cfg.Topics, err)
 	}
 
 	topic := func(body string) string { return `{"topics":{"t":` + body + `}}` }
@@ -52,8 +78,6 @@ func TestParseConfig(t *testing.T) {
 		`{"topics":[]}`:                          "topics",
 		`{"topics":null}`:                        "topics",
 		topic(`3`):                               "topics.t",
-		topic(`{"sources":[]}`):                  "topics.t.description",
-		topic(`{"description":3,"sources":[]}`):  "topics.t.description",
 		topic(`{"description":""}`):              "topics.t.sources",
 		topic(`{"description":"","sources":{}}`): "topics.t.sources",
 		topic(`{"description":"","sources":["a"]}`):                               "topics.t.sources",
@@ -69,7 +93,6 @@ func TestParseConfig(t *testing.T) {
 		`{"topics":{},"stripFrontmatter":"yes"}`:                                  "stripFrontmatter",
 		`{"topics":{},"compactPathLinks":1}`:                                      "compactPathLinks",
 		`{"topics":{},"rootInstructions":1}`:                                      "rootInstructions",
-		`{"topics":{},"mounts":[]}`:                                               "mounts",
 	} {
 		if _, err := parseConfig(text); err == nil || !strings.Contains(err.Error(), field) {
 			t.Errorf("%s: got %v, want an error naming %s", text, err, field)
