@@ -431,3 +431,36 @@ func TestCheckSharedTargetPaths_DifferentFiltersSuggestsSkillsOff(t *testing.T) 
 		t.Errorf("suggestion %q should not suggest removing a target", suggestion)
 	}
 }
+
+// Two skills named dev reach claude under their full path names; a runtime
+// that loads skills by name: may still load only one, so doctor warns.
+func TestCheckSharedSkillNames_WarnsPerTargetAndName(t *testing.T) {
+	source := t.TempDir()
+	var discovered []sync.DiscoveredSkill
+	for _, rel := range []string{"frontend/dev", "backend/dev"} {
+		writeTestFile(t, filepath.Join(source, rel), "SKILL.md", "---\nname: dev\n---\n# dev")
+		discovered = append(discovered, sync.DiscoveredSkill{SourcePath: filepath.Join(source, rel), RelPath: rel, FlatName: strings.ReplaceAll(rel, "/", "__")})
+	}
+	cfg := &config.Config{Targets: map[string]config.TargetConfig{
+		"claude": {Skills: &config.ResourceTargetConfig{Path: t.TempDir(), Mode: "merge", TargetNaming: "standard"}},
+	}}
+
+	r := &doctorResult{}
+	checkSharedSkillNames(cfg, r, discovered, true)
+
+	if r.warnings != 1 || len(r.checks) != 1 || r.checks[0].Name != "shared_skill_names" || r.checks[0].Status != checkWarning {
+		t.Fatalf("checks = %+v, warnings = %d; want one shared_skill_names warning", r.checks, r.warnings)
+	}
+	if got := r.checks[0].Details; len(got) != 1 || !strings.Contains(got[0], "backend/dev and frontend/dev share the name dev") {
+		t.Fatalf("details = %v", got)
+	}
+}
+
+// An empty source discovers nil, which is not a failed discovery.
+func TestCheckSharedSkillNames_PassesWithoutSharedNames(t *testing.T) {
+	r := &doctorResult{}
+	checkSharedSkillNames(&config.Config{}, r, nil, true)
+	if len(r.checks) != 1 || r.checks[0].Status != checkPass {
+		t.Fatalf("checks = %+v; want one pass", r.checks)
+	}
+}

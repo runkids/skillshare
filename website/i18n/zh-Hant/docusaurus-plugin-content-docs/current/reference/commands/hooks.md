@@ -33,7 +33,7 @@ skillshare hooks restore BACKUP_ID --dry-run
 skillshare hooks restore BACKUP_ID
 ```
 
-沒有子指令時列出 entries。`add`／`edit` 從 `--file` 讀取 Entry JSON 或 YAML；匯入不指定名稱時列出候選項目（每個 Agent event 或檔案各一項），指定名稱才儲存。儲存匯入即原地接管讀到的註冊：下次同步直接 adopt，不需 `--replace`；沒匯入的 event 維持不受管理。匯入只讀取設定或程式碼，不會執行。新增、編輯、匯入、啟用、停用與移除預設只儲存來源，加入 `--sync` 才同步。同步與還原會重新預覽。Dashboard 的「目標裡的 hook」對話框打開時不會預先勾選任何 hook，要匯入的自己勾選；它也能直接修改或移除 Agent 設定檔裡還沒匯入的 hook（hook 是設定的 Agent 都可以：存在同一個設定檔的 event（Claude、Codex、Gemini、Cursor、Qwen，以及 Droid 的 `hooks.json`）、Antigravity 的具名區塊，或 Copilot 的 hook 檔，移除時會刪掉那個檔案；程式碼形式的 hook（Pi、Oh My Pi、Amp、OpenCode）要先匯入）。寫入前會顯示檔案差異並備份，該 hook 維持不受管理。
+沒有子指令時列出 entries。`add`／`edit` 從 `--file` 讀取 Entry JSON 或 YAML；匯入不指定名稱時列出候選項目（每個 Agent event 或檔案各一項），指定名稱才儲存。儲存匯入即原地接管讀到的註冊：下次同步直接 adopt，不需 `--replace`；沒匯入的 event 維持不受管理。匯入只讀取設定或程式碼，不會執行。`hooks list` 也會列出 Agent 會載入、但匯入不會讀取的來源：Codex `config.toml` 裡的 inline `[hooks]`、OMP 的 `hooks/pre` 與 `hooks/post`、Droid 舊版的 `hooks/hooks.json`、project 裡 Claude 的 `settings.local.json`，以及 Git config 的 hook。這些來源顯示為 `left as is` 而不是 `not managed`，在 `--json` 中帶有 `"importable": false`，Dashboard 也只列出、不提供「檢視」按鈕。新增、編輯、匯入、啟用、停用與移除預設只儲存來源，加入 `--sync` 才同步。同步與還原會重新預覽。Dashboard 的「目標裡的 hook」對話框打開時不會預先勾選任何 hook，要匯入的自己勾選；它也能直接修改或移除 Agent 設定檔裡還沒匯入的 hook（hook 是設定的 Agent 都可以：存在同一個設定檔的 event（Claude、Codex、Gemini、Cursor、Qwen，以及 Droid 的 `hooks.json`）、Antigravity 的具名區塊，或 Copilot 的 hook 檔，移除時會刪掉那個檔案；程式碼形式的 hook（Pi、Oh My Pi、Amp、OpenCode）要先匯入）。寫入前會顯示檔案差異並備份，該 hook 維持不受管理。
 
 | Option | Meaning |
 |---|---|

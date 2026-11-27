@@ -163,7 +163,7 @@ function Editor({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
-      <div className="flex flex-col gap-1.5 rounded-xl border border-line bg-surface px-4 py-3">
+      <div className="flex flex-col gap-1.5 rounded-lg border border-line bg-surface px-4 py-3">
         <div className="flex min-h-8 flex-wrap items-center gap-2.5">
           <FileText size={15} className="shrink-0 text-ink-3" />
           <span className="inline-flex items-center gap-1.5 font-semibold">

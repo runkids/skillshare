@@ -57,7 +57,7 @@
     height: 30px;
     display: inline-grid;
     place-items: center;
-    border-radius: 8px;
+    border-radius: var(--r-sm);
     color: var(--ink-3);
   }
   .ss-inp {
@@ -71,9 +71,6 @@
     border-radius: var(--r-ctl);
     color: var(--ink);
     font-size: 13px;
-  }
-  :root:not([data-theme='playful']) .ss-inp {
-    border-radius: 8px;
   }
   .ss-inp.area {
     height: auto;
@@ -109,7 +106,7 @@
     max-width: 200px;
     padding: 0 10px 0 12px;
     border: var(--bw) dashed var(--line-2);
-    border-radius: 999px;
+    border-radius: var(--r-btn);
     color: var(--ink-2);
     font-size: 13px;
     cursor: pointer;

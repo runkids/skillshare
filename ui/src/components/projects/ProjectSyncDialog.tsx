@@ -20,6 +20,7 @@ import {
   type SyncFailure,
 } from '../sync/syncView';
 import SyncResult from '../sync/SyncResult';
+import SharedNameNotices from '../sync/SharedNameNotices';
 import UnmatchedNotices from '../sync/UnmatchedNotices';
 import { useT } from '../../i18n';
 import type { ProjectRow } from './projectView';
@@ -139,6 +140,7 @@ export default function ProjectSyncDialog({ open, onClose, project, targets }: P
             {/* No Force switch here, so a symlink conflict offers Open target only. */}
             <SyncResult failures={failures} warnings={otherWarnings(done)} synced={synced} />
             <UnmatchedNotices items={done?.unmatched} />
+            <SharedNameNotices items={done?.shared_names} />
           </>
         ) : (
           <>

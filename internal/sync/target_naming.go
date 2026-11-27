@@ -21,6 +21,9 @@ type ResolvedTargetSkill struct {
 	Skill      DiscoveredSkill
 	TargetName string
 	SkillName  string
+	// Naming is the target naming that produced TargetName: the target's own,
+	// or flat for a skill that shares its name with another.
+	Naming string
 	// NameNotFolder is set under prefixed naming when SkillName differs from
 	// the source folder, which only standard naming forbids.
 	NameNotFolder bool
@@ -30,14 +33,16 @@ type ResolvedTargetSkill struct {
 // target after include/exclude filters, target filters, standard validation,
 // and collision handling are applied.
 type TargetSkillResolution struct {
-	Naming             string
 	Skills             []ResolvedTargetSkill
 	Warnings           []string
 	SelectionWarnings  []string // Ambiguity diagnostics, separate from naming validation
 	Collisions         []NameCollision
 	UnmatchedIncludes  []UnmatchedInclude
-	SkippedCount       int // Physical candidates rejected by selection, validation, or collisions
+	SkippedCount       int // Physical candidates rejected by selection or validation
 	NamingSkippedCount int // Subset rejected by naming validation
+	// SharedNameSkippedCount is the subset whose name and full path name
+	// another skill both takes.
+	SharedNameSkippedCount int
 }
 
 // UnmatchedIncludeWarnings renders one diagnostic per include pattern that
@@ -78,7 +83,6 @@ func ResolveTargetSkillsForTarget(targetName string, sc config.ResourceTargetCon
 
 	naming := config.EffectiveTargetNaming(sc.TargetNaming)
 	result := &TargetSkillResolution{
-		Naming:            naming,
 		SelectionWarnings: warnings,
 		SkippedCount:      len(warnings),
 		UnmatchedIncludes: FindUnmatchedIncludes(sc.Include, allSkills),
@@ -90,6 +94,7 @@ func ResolveTargetSkillsForTarget(targetName string, sc config.ResourceTargetCon
 			result.Skills = append(result.Skills, ResolvedTargetSkill{
 				Skill:      skill,
 				TargetName: skill.FlatName,
+				Naming:     naming,
 			})
 		}
 		return result, nil
@@ -135,17 +140,16 @@ func ResolveTargetSkillsForTarget(targetName string, sc config.ResourceTargetCon
 			TargetName:    entryName,
 			SkillName:     skillName,
 			NameNotFolder: nameNotFolder,
+			Naming:        naming,
 		})
 		collisionMap[entryName] = append(collisionMap[entryName], skill.RelPath)
 	}
 
-	collisionNames := make(map[string]bool)
 	for name, paths := range collisionMap {
 		if len(paths) <= 1 {
 			continue
 		}
 		slices.Sort(paths)
-		collisionNames[name] = true
 		result.Collisions = append(result.Collisions, NameCollision{
 			Name:  name,
 			Paths: paths,
@@ -158,15 +162,33 @@ func ResolveTargetSkillsForTarget(targetName string, sc config.ResourceTargetCon
 		})
 	}
 
+	// Skills that share a name move to their flat name, which comes from their
+	// source path, so the rule does not depend on which arrived first. A
+	// top-level skill's flat name is its name, so it keeps it.
+	moved := make([]bool, len(candidates))
+	uses := make(map[string]int, len(candidates))
+	for i := range candidates {
+		c := &candidates[i]
+		if len(collisionMap[c.TargetName]) > 1 && c.Skill.FlatName != c.TargetName {
+			c.TargetName, c.Naming, c.NameNotFolder = c.Skill.FlatName, "flat", false
+			moved[i] = true
+		}
+		uses[c.TargetName]++
+	}
+	// A flat name can still equal another skill's name. Both would write one
+	// entry, so a moved skill that clashes is skipped, as every collision was.
 	result.Skills = make([]ResolvedTargetSkill, 0, len(candidates))
-	for _, candidate := range candidates {
-		if collisionNames[candidate.TargetName] {
+	for i, c := range candidates {
+		if moved[i] && uses[c.TargetName] > 1 {
+			result.Warnings = append(result.Warnings,
+				fmt.Sprintf("Target '%s': skipped %s because its name and its full path name %s are both taken", targetName, c.Skill.RelPath, c.TargetName))
+			result.SharedNameSkippedCount++
 			continue
 		}
-		result.Skills = append(result.Skills, candidate)
+		result.Skills = append(result.Skills, c)
 	}
 
-	result.NamingSkippedCount = len(result.Warnings)
+	result.NamingSkippedCount = len(result.Warnings) - result.SharedNameSkippedCount
 	result.SkippedCount += len(filtered) - len(result.Skills)
 	return result, nil
 }
@@ -182,9 +204,8 @@ func (r *TargetSkillResolution) ValidTargetNames() map[string]bool {
 }
 
 // ExpectedSkillCount is how many skills sync places in a target: the ones its
-// filters select, less those naming validation skips and name collisions
-// exclude. Running sync again cannot add the rest, so status and doctor must
-// not count them as missing.
+// filters select, less those naming validation skips. Running sync again cannot
+// add the rest, so status and doctor must not count them as missing.
 func ExpectedSkillCount(targetName string, sc config.ResourceTargetConfig, allSkills []DiscoveredSkill) (int, error) {
 	resolution, err := ResolveTargetSkillsForTarget(targetName, sc, allSkills)
 	if err != nil {
@@ -204,8 +225,12 @@ func (r *TargetSkillResolution) LegacyNames(mode, targetPath string, manifest *M
 	}
 	taken := r.ValidTargetNames()
 	for _, skill := range r.Skills {
+		// Two skills that now share a name can both claim its copy; sync
+		// renames it for the first.
 		if old, err := findLegacyTargetEntry(mode, targetPath, skill, taken, manifest); err == nil && old.name != "" {
-			legacy[old.name] = skill
+			if _, claimed := legacy[old.name]; !claimed {
+				legacy[old.name] = skill
+			}
 		}
 	}
 	return legacy
@@ -214,16 +239,13 @@ func (r *TargetSkillResolution) LegacyNames(mode, targetPath string, manifest *M
 // maxListed caps how many names a summary line spells out.
 const maxListed = 5
 
-// printResolutionSummary reports skipped skills, collisions, and prefixed
-// skills named apart from their folder. It names only the first few of each, so
+// printResolutionSummary reports skipped skills and prefixed skills named
+// apart from their folder. It names only the first few of each, so
 // a source with thousands of invalid names does not flood the output.
 func printResolutionSummary(r *TargetSkillResolution) {
 	warnings := append(append([]string{}, r.Warnings...), r.SelectionWarnings...)
 	if n := len(warnings); n > 0 {
 		printListed(fmt.Sprintf("%d skill(s) skipped (selection or naming)", n), warnings)
-	}
-	if n := len(r.Collisions); n > 0 {
-		fmt.Fprintf(DiagOutput, "  %d name collision(s) excluded\n", n)
 	}
 	var renamed []string
 	for _, s := range r.Skills {

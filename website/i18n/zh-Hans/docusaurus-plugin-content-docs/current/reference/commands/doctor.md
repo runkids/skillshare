@@ -132,12 +132,13 @@ Source link 检查在 global 与 project mode 都会执行。source 根目录按
 
 每个 target 都会显示 **skills** 和 **agents** 的子项（当配置了 agents 时）：
 - Skills：路径、同步模式、同步状态、共享/本地计数
-  - “N skills not synced” 只统计 `sync` 会放置的 skill；`sync` 有意跳过的（`standard` 或 `prefixed` 命名下名称无效，或名称冲突）不计入
+  - “N skills not synced” 只统计 `sync` 会放置的 skill；`sync` 有意跳过的（`standard` 或 `prefixed` 命名下名称无效）不计入
 - Agents：同步模式、已链接数量、drift 检测。在未开启 Developer Mode 的 Windows 上，`merge` 会显示为 `copy`；最新的受管理副本会计为 linked。skillshare 不拥有、但内容相同的本地文件会被保留。在 copy fallback 中，agent 计数会以 `local preserved` 单独显示，例如 `0/1 linked, 1 local preserved`。
 - 没有损坏的 symlinks
 - 针对意外本地冲突的重复 skill 检查：
   - `merge` 模式：跳过（本地 skills 是预期存在的）
   - `copy` 模式：忽略由 manifest 管理的副本；只警告本地冲突的副本
+- 重名 skill：在 `standard` 或 `prefixed` 命名下，target 同步的两个 skill 有相同的 `name:`。sync 会让它们改用完整路径名称，但按名称加载 skill 的工具可能只加载其中一个，所以 doctor 会警告并列出它们
 - 有效的 include/exclude glob 模式
 - Naming 与 mode：在 copy 以外的模式下解析为 `prefixed` 的 target 会被标为错误，因为 sync 会跳过它
 - 适用时给出的 info 级别的每个 target 兼容性提示（示例 target 优先级：`cursor` → `antigravity` → `copilot` → `opencode`；这些 targets 都不存在时不给提示）
@@ -307,6 +308,8 @@ skillshare sync  # Will prune orphaned symlinks
 ```
 
 如果该行显示的是 `behind an unavailable source link, kept until it is back`，说明这个 skill 位于某个[被跟随的 source link](../targets/configuration.md#follow_source_links) 背后，而该链接的目标暂时不可用。无需清理：挂载硬盘或恢复 checkout 后运行 `skillshare sync` 即可。
+
+被跟随的 source link 不可用时，`sync` 不会清理任何内容，所以原本会被清理的损坏链接会显示为 `broken symlink kept while a source link is unavailable`，报告为警告而不是错误。链接恢复后，`sync` 就会移除它。
 
 如果该行显示的是 `broken link skillshare did not create, kept`，说明这个链接指向 source 之外，且 manifest 没有记录，是其他工具或你自己建立的。`sync` 会保留它，`doctor --json` 中的 `broken_symlinks` 检查为 `warning` 而不是 `error`。如果这个链接已经没用，请自行删除。如果损坏的链接所用的名称在 manifest 中有记录，而 source 中已没有 skill 使用这个名称，`sync` 会清理它，所以会报告为 broken symlink。
 

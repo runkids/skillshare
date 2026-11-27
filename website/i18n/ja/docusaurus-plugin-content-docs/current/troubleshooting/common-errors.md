@@ -604,10 +604,10 @@ skillshare の Source への**絶対**パス（例: `/Users/you/.config/skillsha
 
 **原因:** 複数の Skill が同じ `name` フィールドを持ち、同じ Target に配置されている。
 
-**解決策:** SKILL.md で一方の名前を変更するか、`include`/`exclude` フィルターを使って異なる
+**解決策:** 一方の名前（フォルダ名と SKILL.md の名前）を変更するか、`include`/`exclude` フィルターを使って異なる
 Target にルーティングしてください。
 ```yaml
-# オプション1: SKILL.md で名前空間を分ける
+# オプション1: フォルダ名と SKILL.md の名前を一緒に変える
 name: team-a-skill-name
 
 # オプション2: フィルターでルーティングする（グローバル Config）

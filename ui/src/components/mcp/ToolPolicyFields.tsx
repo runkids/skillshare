@@ -234,7 +234,7 @@ export default function ToolPolicyFields({
           <InfoTip label={t('mcp.tools.info')} content={t('mcp.tools.hint')} />
           <span className="ml-1 text-[13px] text-ink-3">{summary}</span>
         </div>
-        <div className="overflow-hidden rounded-xl border border-line-2 bg-surface">
+        <div className="overflow-hidden rounded-lg border border-line-2 bg-surface">
           {names ? (
             <>
               <div className="flex h-10 items-center gap-3 border-b border-line px-3.5">

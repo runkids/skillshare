@@ -38,7 +38,7 @@ function StyleThumb({ value, custom }: { value: Style; custom: ThumbColors }) {
         : card;
   return (
     <span
-      className="flex flex-col gap-1 p-[7px] h-[54px] rounded-[7px] border border-line-soft"
+      className="flex flex-col gap-1 p-[7px] h-[54px] rounded-[var(--r-in)] border border-line-soft"
       style={{
         background: value === 'custom' ? custom.bg : playful ? '#f8f5ef' : '#f7f6f3',
       }}
@@ -150,7 +150,7 @@ export default function ThemePopover() {
                   tabIndex={on ? 0 : -1}
                   onClick={() => setStyle(s.value)}
                   onKeyDown={(e) => handleKeyDown(e, 'style')}
-                  className={`flex-1 flex flex-col gap-1.5 p-1.5 rounded-[10px] border cursor-pointer focus-visible:outline-2 focus-visible:outline-link ${on ? 'border-line-2 bg-sel' : 'border-transparent hover:bg-sunken'}`}
+                  className={`flex-1 flex flex-col gap-1.5 p-1.5 rounded-[var(--r-inner)] border cursor-pointer focus-visible:outline-2 focus-visible:outline-link ${on ? 'border-line-2 bg-sel' : 'border-transparent hover:bg-sunken'}`}
                 >
                   <StyleThumb value={s.value} custom={thumb} />
                   <span

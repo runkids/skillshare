@@ -11,7 +11,7 @@ entry migration from `flat` to `standard`, the symlink-mode ignore path, and
 - Per-target `skills.target_naming: flat` overrides the global default
 - `standard` mode uses the `SKILL.md` `name` as the target entry name
 - `standard` mode warns and skips invalid skills
-- `standard` mode warns and skips target-visible collisions
+- `standard` mode warns about skills that share a name and syncs them under their flat names
 - `flat -> standard` migration renames provably managed merge/copy entries
 - Existing local bare-name entries block migration and preserve legacy managed entries
 - `flat` and `standard` naming are ignored in `symlink` mode; `prefixed` fails validation there
@@ -112,8 +112,8 @@ Expected:
 ```bash
 OUTPUT=$(ss sync -g 2>&1)
 printf '%s\n' "$OUTPUT"
-echo "$OUTPUT" | grep -q "skill(s) skipped (naming validation)" && echo "MERGE_INVALID_WARN=OK" || echo "MERGE_INVALID_WARN=FAIL"
-echo "$OUTPUT" | grep -q "skill(s) skipped (naming validation)" && echo "COPY_INVALID_WARN=OK" || echo "COPY_INVALID_WARN=FAIL"
+echo "$OUTPUT" | grep -q "skill(s) skipped (selection or naming)" && echo "MERGE_INVALID_WARN=OK" || echo "MERGE_INVALID_WARN=FAIL"
+echo "$OUTPUT" | grep -q "skill(s) skipped (selection or naming)" && echo "COPY_INVALID_WARN=OK" || echo "COPY_INVALID_WARN=FAIL"
 echo "$OUTPUT" | grep -q "duplicate skill names" && echo "MERGE_COLLISION_WARN=OK" || echo "MERGE_COLLISION_WARN=FAIL"
 echo "$OUTPUT" | grep -q "dev" && echo "COPY_COLLISION_WARN=OK" || echo "COPY_COLLISION_WARN=FAIL"
 ```
@@ -135,13 +135,13 @@ COPY_FLAT_DIR="$HOME/.e2e-target-naming/copy-flat"
 test -L "$MERGE_DIR/tooling" && echo "MERGE_STANDARD_TOOLING=OK" || echo "MERGE_STANDARD_TOOLING=FAIL"
 test -L "$MERGE_DIR/alpha" && echo "MERGE_STANDARD_ALPHA=OK" || echo "MERGE_STANDARD_ALPHA=FAIL"
 test ! -e "$MERGE_DIR/frontend__tooling" && echo "MERGE_NO_FLAT_TOOLING=OK" || echo "MERGE_NO_FLAT_TOOLING=FAIL"
-test ! -e "$MERGE_DIR/dev" && echo "MERGE_COLLISION_SKIPPED=OK" || echo "MERGE_COLLISION_SKIPPED=FAIL"
+test ! -e "$MERGE_DIR/dev" && test -L "$MERGE_DIR/frontend__dev" && test -L "$MERGE_DIR/backend__dev" && echo "MERGE_COLLISION_FLAT=OK" || echo "MERGE_COLLISION_FLAT=FAIL"
 test ! -e "$MERGE_DIR/bad" && echo "MERGE_INVALID_SKIPPED=OK" || echo "MERGE_INVALID_SKIPPED=FAIL"
 
 test -f "$COPY_STD_DIR/tooling/SKILL.md" && echo "COPY_STANDARD_TOOLING=OK" || echo "COPY_STANDARD_TOOLING=FAIL"
 test -f "$COPY_STD_DIR/alpha/SKILL.md" && echo "COPY_STANDARD_ALPHA=OK" || echo "COPY_STANDARD_ALPHA=FAIL"
 test ! -e "$COPY_STD_DIR/frontend__tooling" && echo "COPY_NO_FLAT_TOOLING=OK" || echo "COPY_NO_FLAT_TOOLING=FAIL"
-test ! -e "$COPY_STD_DIR/dev" && echo "COPY_COLLISION_SKIPPED=OK" || echo "COPY_COLLISION_SKIPPED=FAIL"
+test ! -e "$COPY_STD_DIR/dev" && test -f "$COPY_STD_DIR/frontend__dev/SKILL.md" && test -f "$COPY_STD_DIR/backend__dev/SKILL.md" && echo "COPY_COLLISION_FLAT=OK" || echo "COPY_COLLISION_FLAT=FAIL"
 test ! -e "$COPY_STD_DIR/bad" && echo "COPY_INVALID_SKIPPED=OK" || echo "COPY_INVALID_SKIPPED=FAIL"
 cat "$COPY_STD_DIR/.skillshare-manifest.json" | jq -e '.managed | has("tooling")' >/dev/null && echo "COPY_STANDARD_MANIFEST_BARE=OK" || echo "COPY_STANDARD_MANIFEST_BARE=FAIL"
 cat "$COPY_STD_DIR/.skillshare-manifest.json" | jq -e '.managed | has("frontend__tooling") | not' >/dev/null && echo "COPY_STANDARD_MANIFEST_NO_FLAT=OK" || echo "COPY_STANDARD_MANIFEST_NO_FLAT=FAIL"
@@ -157,12 +157,12 @@ Expected:
 - MERGE_STANDARD_TOOLING=OK
 - MERGE_STANDARD_ALPHA=OK
 - MERGE_NO_FLAT_TOOLING=OK
-- MERGE_COLLISION_SKIPPED=OK
+- MERGE_COLLISION_FLAT=OK
 - MERGE_INVALID_SKIPPED=OK
 - COPY_STANDARD_TOOLING=OK
 - COPY_STANDARD_ALPHA=OK
 - COPY_NO_FLAT_TOOLING=OK
-- COPY_COLLISION_SKIPPED=OK
+- COPY_COLLISION_FLAT=OK
 - COPY_INVALID_SKIPPED=OK
 - COPY_STANDARD_MANIFEST_BARE=OK
 - COPY_STANDARD_MANIFEST_NO_FLAT=OK
@@ -381,7 +381,7 @@ sed -i 's/target_naming: prefixed/target_naming: standard/' "$HOME/.config/skill
 ss sync -g >/dev/null 2>&1
 grep -qx 'name: solo' "$DIR/solo/SKILL.md" && echo "STANDARD_SOLO_RENAMED=OK" || echo "STANDARD_SOLO_RENAMED=FAIL"
 test ! -e "$DIR/emil-design-solo" && echo "PREFIXED_SOLO_GONE=OK" || echo "PREFIXED_SOLO_GONE=FAIL"
-test ! -e "$DIR/prototype" && test ! -e "$DIR/emil-design-prototype" && echo "COLLIDING_PROTOTYPES_SKIPPED=OK" || echo "COLLIDING_PROTOTYPES_SKIPPED=FAIL"
+test ! -e "$DIR/prototype" && test ! -e "$DIR/emil-design-prototype" && grep -qx 'name: prototype' "$DIR/_emil-design__skills__prototype/SKILL.md" && grep -qx 'name: prototype' "$DIR/_mattpocock-skills__skills__engineering__prototype/SKILL.md" && echo "COLLIDING_PROTOTYPES_FLAT=OK" || echo "COLLIDING_PROTOTYPES_FLAT=FAIL"
 jq -r '.naming.solo' "$DIR/.skillshare-manifest.json"
 ```
 
@@ -389,7 +389,7 @@ Expected:
 - exit_code: 0
 - STANDARD_SOLO_RENAMED=OK
 - PREFIXED_SOLO_GONE=OK
-- COLLIDING_PROTOTYPES_SKIPPED=OK
+- COLLIDING_PROTOTYPES_FLAT=OK
 - standard
 
 ### Step 10: Verify prefixed is rejected on a merge target
@@ -421,7 +421,7 @@ Expected:
 
 - All 10 steps pass
 - `standard` mode produces bare target entry names for merge/copy targets
-- invalid skills and target-visible collisions are warned and skipped only in `standard` mode
+- invalid skills are warned and skipped only in `standard` mode; skills that share a name sync under their flat names
 - per-target `flat` override preserves the legacy flattened naming contract
 - managed flat entries migrate safely to bare names in `standard` mode
 - destination conflicts preserve the legacy managed entry instead of overwriting local content

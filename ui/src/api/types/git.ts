@@ -1,4 +1,4 @@
-import type { SyncResult, UnmatchedInclude } from './sync';
+import type { SharedName, SyncResult, UnmatchedInclude } from './sync';
 
 // Git types
 export interface GitStatus {
@@ -57,6 +57,7 @@ export interface PullResponse {
   warnings?: string[];
   /** Targets whose include filter selects no skill, from the sync after the pull */
   unmatched?: UnmatchedInclude[];
+  shared_names?: SharedName[];
 }
 
 export interface GitConflictVersion {

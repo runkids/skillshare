@@ -67,7 +67,7 @@ export default function HooksImportDialog({
   const agentOf = (key: string) => agentOfKey(accounts, key);
   const labelOf = (key: string) => keyLabel(accounts, key);
   const available = [...hookAgents.filter((a) => a !== 'git'), ...Object.keys(accounts).sort()];
-  const targets = available.filter((a) => unmanaged.some((u) => u.target === a));
+  const targets = available.filter((a) => unmanaged.some((u) => u.target === a && u.importable));
   const reads = useQueries({
     queries: targets.map((from) => ({
       queryKey: queryKeys.hooksImport(project ?? '', from),

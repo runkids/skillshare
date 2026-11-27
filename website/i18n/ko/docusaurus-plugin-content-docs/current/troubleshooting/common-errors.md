@@ -557,9 +557,9 @@ Antigravity에서: **Settings → Customizations → Skill Custom Paths → "+ A
 
 **Cause:** 여러 skill이 동일한 `name` 필드를 가지고 있으며 같은 Target에 도달합니다.
 
-**Solution:** SKILL.md에서 하나의 이름을 바꾸거나, `include`/`exclude` 필터로 서로 다른 Target으로 라우팅하세요.
+**Solution:** 하나의 이름(폴더와 SKILL.md의 이름)을 바꾸거나, `include`/`exclude` 필터로 서로 다른 Target으로 라우팅하세요.
 ```yaml
-# 옵션 1: SKILL.md에서 네임스페이스 지정
+# 옵션 1: 폴더와 SKILL.md의 이름을 함께 변경
 name: team-a-skill-name
 
 # 옵션 2: 필터로 라우팅 (global config)

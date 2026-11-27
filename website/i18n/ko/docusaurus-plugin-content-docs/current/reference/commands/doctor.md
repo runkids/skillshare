@@ -132,12 +132,13 @@ Source link 검사는 global과 project mode 모두에서 수행됩니다. sourc
 
 각 target은 **skills**와 **agents**(agent가 구성된 경우)에 대한 하위 항목을 보여줍니다:
 - Skills: 경로, sync 모드, sync 상태, shared/local 개수
-  - "N skills not synced"는 `sync`가 배치할 skill만 센다. `sync`가 의도적으로 건너뛰는 것(`standard`/`prefixed` naming에서 잘못된 이름이거나 이름 충돌)은 제외한다
+  - "N skills not synced"는 `sync`가 배치할 skill만 센다. `sync`가 의도적으로 건너뛰는 것(`standard`/`prefixed` naming에서 잘못된 이름)은 제외한다
 - Agents: sync mode, linked 개수, drift 탐지. Developer Mode가 없는 Windows에서는 `merge`가 `copy`로 표시되며, 최신 상태의 관리되는 복사본은 linked로 집계됩니다. skillshare가 소유하지 않는 내용이 같은 로컬 파일은 유지됩니다. copy fallback에서 agent 개수는 이를 `local preserved`로 따로 표시합니다(예: `0/1 linked, 1 local preserved`).
 - 깨진 symlink 없음
 - 의도치 않은 local 충돌에 대한 중복 skill 검사:
   - `merge` 모드: 건너뜀 (local skill은 예상된 것)
   - `copy` 모드: manifest로 관리되는 복사본은 무시하며, local 충돌 복사본만 경고
+- 공유된 skill 이름: `standard` 또는 `prefixed` 명명에서 target이 sync하는 두 skill의 `name:`이 같은 경우. sync는 각각 전체 경로 이름을 쓰지만, 이름으로 skill을 읽는 도구는 하나만 읽을 수 있으므로 doctor가 경고하고 목록을 보여 줍니다
 - 유효한 include/exclude glob 패턴
 - Naming과 mode: copy 이외의 mode에서 `prefixed`로 결정되는 target은 sync가 건너뛰므로 오류로 표시됩니다
 - 해당하는 경우 target별 호환성 힌트 (info 수준) (예시 target 우선순위: `cursor` → `antigravity` → `copilot` → `opencode`; 이 target들이 없으면 힌트 없음)
@@ -303,6 +304,8 @@ skillshare sync  # 고아 symlink를 정리함
 ```
 
 해당 줄이 대신 `behind an unavailable source link, kept until it is back`이라고 표시되면, 그 skill은 대상이 사라진 [따라간 source 링크](../targets/configuration.md#follow_source_links) 뒤에 있는 것입니다. prune할 것은 없습니다. 드라이브를 마운트하거나 checkout을 복구한 뒤 `skillshare sync`를 실행하세요.
+
+따라가는 source 링크를 사용할 수 없는 동안 `sync`는 아무것도 prune하지 않습니다. 그래서 원래 prune될 깨진 링크는 `broken symlink kept while a source link is unavailable`로 error 대신 warning으로 보고됩니다. 링크가 돌아오면 `sync`가 제거합니다.
 
 해당 줄이 `broken link skillshare did not create, kept`라고 표시되면, 그 링크는 source 밖을 가리키고 manifest에 기록되어 있지 않으므로 다른 도구나 사용자가 만든 것입니다. `sync`는 이 링크를 그대로 두며, `doctor --json`의 `broken_symlinks` 검사는 `error`가 아니라 `warning`이 됩니다. 필요 없는 링크라면 직접 삭제하세요. manifest에 기록된 이름의 깨진 링크는 source의 어떤 skill도 그 이름을 쓰지 않게 되면 `sync`가 제거하므로 broken symlink로 보고됩니다.
 

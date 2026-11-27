@@ -31,6 +31,8 @@ func ignorePayload(stats *skillignore.IgnoreStats) map[string]any {
 
 type syncFailure = ssync.TargetFailure
 type unmatchedInclude = ssync.TargetUnmatchedInclude
+
+type sharedName = ssync.SharedName
 type syncTargetResult = ssync.TargetResult
 
 func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
@@ -78,6 +80,7 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 		"results":          out.results,
 		"warnings":         out.warnings,
 		"unmatched":        out.unmatched,
+		"shared_names":     out.sharedNames,
 		"failed":           out.failed,
 		"folder_conflicts": out.folderConflicts,
 		"path_overlap":     out.pathOverlap,
@@ -96,6 +99,7 @@ type syncOutcome struct {
 	results         []syncTargetResult
 	warnings        []string
 	unmatched       []unmatchedInclude
+	sharedNames     []sharedName
 	failed          []syncFailure
 	folderConflicts []config.SkillsFolderConflict
 	pathOverlap     int // targets whose path overlap the folder conflicts don't explain
@@ -148,6 +152,7 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 	results := make([]syncTargetResult, 0)
 	failed := make([]syncFailure, 0)
 	unmatched := make([]unmatchedInclude, 0)
+	var sharedNames []sharedName
 
 	// A target with invalid settings fails alone: it is skipped for skills and agents.
 	runTargets := maps.Clone(targets)
@@ -185,6 +190,7 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 		}
 		sourceIncomplete = walk.Follow.Incomplete()
 		warnings = append(warnings, ssync.SourceLinkWarnings(walk, sourceIncomplete)...)
+		sharedNames = ssync.SharedNames(allSkills, runTargets, s.cfg.Mode)
 
 		if len(allSkills) == 0 {
 			warnings = append(warnings, "source directory is empty (0 skills)")
@@ -237,7 +243,7 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 	}
 	s.writeOpsLog("sync", status, start, logArgs, "")
 
-	return &syncOutcome{results: results, warnings: warnings, unmatched: unmatched, failed: failed, folderConflicts: executed.FolderConflicts, pathOverlap: executed.PathOverlap, skills: executed.Skills, ignoreStats: executed.IgnoreStats, allAgents: executed.AllAgents}, 0, nil
+	return &syncOutcome{results: results, warnings: warnings, unmatched: unmatched, sharedNames: sharedNames, failed: failed, folderConflicts: executed.FolderConflicts, pathOverlap: executed.PathOverlap, skills: executed.Skills, ignoreStats: executed.IgnoreStats, allAgents: executed.AllAgents}, 0, nil
 }
 
 // failedTargetNames returns the distinct targets in failed, sorted.
@@ -408,13 +414,15 @@ type diffItem struct {
 }
 
 type diffTarget struct {
-	Target         string     `json:"target"`
-	Warnings       []string   `json:"warnings,omitempty"`
-	Items          []diffItem `json:"items"`
-	SkippedCount   int        `json:"skippedCount,omitempty"`
-	CollisionCount int        `json:"collisionCount,omitempty"`
-	// NamingSkippedCount is how many of SkippedCount break naming rules rather than collide.
+	Target       string     `json:"target"`
+	Warnings     []string   `json:"warnings,omitempty"`
+	Items        []diffItem `json:"items"`
+	SkippedCount int        `json:"skippedCount,omitempty"`
+	// NamingSkippedCount is how many of SkippedCount break naming rules.
 	NamingSkippedCount int `json:"namingSkippedCount,omitempty"`
+	// SharedNameSkippedCount is how many of SkippedCount lose both names to
+	// other skills.
+	SharedNameSkippedCount int `json:"sharedNameSkippedCount,omitempty"`
 }
 
 func (s *Server) handleDiff(w http.ResponseWriter, r *http.Request) {
@@ -434,7 +442,8 @@ func (s *Server) handleDiff(w http.ResponseWriter, r *http.Request) {
 
 	filterTarget := r.URL.Query().Get("target")
 
-	discovered, ignoreStats, err := ssync.DiscoverSourceSkillsWithStats(source, s.skillsWalk())
+	walk := s.skillsWalk()
+	discovered, ignoreStats, err := ssync.DiscoverSourceSkillsWithStats(source, walk)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -445,12 +454,19 @@ func (s *Server) handleDiff(w http.ResponseWriter, r *http.Request) {
 		if filterTarget != "" && filterTarget != name {
 			continue
 		}
-		diffs = append(diffs, s.computeTargetDiff(name, target, discovered, globalMode, source, ignorePatterns))
+		dt := s.computeTargetDiff(name, target, discovered, globalMode, source, ignorePatterns)
+		if walk.Follow.Incomplete() {
+			dt.Items = withoutPrunes(dt.Items)
+		}
+		diffs = append(diffs, dt)
 	}
 
 	diffs = s.appendAgentDiffs(diffs, targets, agentsSource, filterTarget)
 
 	resp := map[string]any{"diffs": diffs, "folder_conflicts": conflicts}
+	if links := walk.Follow.Unavailable(); len(links) > 0 {
+		resp["unavailable_source_links"] = links
+	}
 	maps.Copy(resp, ignorePayload(ignoreStats))
 	maps.Copy(resp, agentIgnorePayload(agentsSource, nil))
 	writeJSON(w, resp)

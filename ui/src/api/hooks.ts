@@ -117,6 +117,8 @@ export interface HookUnmanaged {
   path: string;
   names: string[];
   project?: string;
+  /** False for sources Skillshare only lists, such as Codex inline TOML or Git config: import cannot take them over. */
+  importable: boolean;
 }
 export interface HookBackup {
   id: string;
