@@ -92,13 +92,14 @@ func acquireRef(ctx context.Context, source, ref string) (string, string, func()
 // treeDigest includes safe relative links, leaves out unsafe ones and rejects special files.
 // The entire package tree is retained, including scripts and referenced assets.
 func treeDigest(root string) (string, error) {
-	digest, _, err := hashTree(root)
+	digest, _, err := hashTree(root, nil)
 	return digest, err
 }
 
-// hashTree is treeDigest plus the links it left out, relative to root.
-func hashTree(root string) (string, map[string]bool, error) {
-	skipped, err := validateSourceLinks(root)
+// hashTree is treeDigest plus the links it left out, relative to root. ignore, when set, names
+// slash-separated relative paths to leave out; an ignored directory is not descended.
+func hashTree(root string, ignore func(string) bool) (string, map[string]bool, error) {
+	skipped, err := validateSourceLinks(root, ignore)
 	if err != nil {
 		return "", nil, err
 	}
@@ -110,6 +111,12 @@ func hashTree(root string) (string, map[string]bool, error) {
 			return err
 		}
 		rel, _ := filepath.Rel(root, path)
+		if rel != "." && ignore != nil && ignore(filepath.ToSlash(rel)) {
+			if d.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
 		if d.IsDir() {
 			if d.Name() == ".git" {
 				return filepath.SkipDir
@@ -210,7 +217,7 @@ func DiscoverOptions(ctx context.Context, source, ref, entry string) (*Discovery
 }
 
 func discoverRoot(root, source string, explicit ...string) (*Discovery, error) {
-	digest, skipped, err := hashTree(root)
+	digest, skipped, err := hashTree(root, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -383,10 +390,18 @@ func discoverRoot(root, source string, explicit ...string) (*Discovery, error) {
 	if len(result.Candidates) == 0 {
 		c, err := inspect(root, explicit...)
 		if err != nil {
-			return nil, err
+			entry := ""
+			if len(explicit) > 0 {
+				entry = explicit[0]
+			}
+			result.Candidates = herdrCandidates(root, entry)
+			if len(result.Candidates) == 0 {
+				return nil, fmt.Errorf("%w; for a Herdr launcher add --entry <executable>; for a mod add mods/<id>/main.js at the repository root", err)
+			}
+		} else {
+			c.Path = "."
+			result.Candidates = append(result.Candidates, c)
 		}
-		c.Path = "."
-		result.Candidates = append(result.Candidates, c)
 	}
 	for i := range result.Candidates {
 		c := &result.Candidates[i]
@@ -448,7 +463,7 @@ func mergeCatalogPath(kept *Candidate, c Candidate, owner string) {
 }
 
 func copyTree(root, dest string) error {
-	_, skipped, err := hashTree(root)
+	_, skipped, err := hashTree(root, nil)
 	if err != nil {
 		return err
 	}

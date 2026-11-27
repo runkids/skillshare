@@ -268,15 +268,15 @@ internal/plugin/config.go	(*Service).save	os.Rename	f.Name(), path	plugin
 internal/plugin/lifecycle.go	(*Service).Lock	os.MkdirAll	filepath.Dir(path)	config
 internal/plugin/lifecycle.go	(*Service).Lock	os.OpenFile	path	config
 internal/plugin/lifecycle.go	(*Service).Lock	os.Remove	path	config
-internal/plugin/local_bundle.go	(*Service).applyLocal	os.MkdirAll	root	plugin
-internal/plugin/local_bundle.go	(*Service).applyLocal	os.MkdirTemp	root	plugin
-internal/plugin/local_bundle.go	(*Service).applyLocal	os.Remove	marker	plugin
-internal/plugin/local_bundle.go	(*Service).applyLocal	os.RemoveAll	backup	plugin
-internal/plugin/local_bundle.go	(*Service).applyLocal	os.RemoveAll	dest	plugin
-internal/plugin/local_bundle.go	(*Service).applyLocal	os.RemoveAll	temp	plugin
-internal/plugin/local_bundle.go	(*Service).applyLocal	os.Rename	backup, dest	plugin
-internal/plugin/local_bundle.go	(*Service).applyLocal	os.Rename	dest, backup	plugin
-internal/plugin/local_bundle.go	(*Service).applyLocal	os.Rename	temp, dest	plugin
+internal/plugin/local_bundle.go	(*Service).applyLocalIn	os.MkdirAll	root	plugin
+internal/plugin/local_bundle.go	(*Service).applyLocalIn	os.MkdirTemp	layout.scratch	plugin
+internal/plugin/local_bundle.go	(*Service).applyLocalIn	os.Remove	marker	plugin
+internal/plugin/local_bundle.go	(*Service).applyLocalIn	os.RemoveAll	backup	plugin
+internal/plugin/local_bundle.go	(*Service).applyLocalIn	os.RemoveAll	dest	plugin
+internal/plugin/local_bundle.go	(*Service).applyLocalIn	os.RemoveAll	temp	plugin
+internal/plugin/local_bundle.go	(*Service).applyLocalIn	os.Rename	backup, dest	plugin
+internal/plugin/local_bundle.go	(*Service).applyLocalIn	os.Rename	dest, backup	plugin
+internal/plugin/local_bundle.go	(*Service).applyLocalIn	os.Rename	temp, dest	plugin
 internal/plugin/local_bundle.go	atomicNativeWrite	os.CreateTemp	filepath.Dir(path)	plugin
 internal/plugin/local_bundle.go	atomicNativeWrite	os.MkdirAll	filepath.Dir(path)	plugin
 internal/plugin/local_bundle.go	atomicNativeWrite	os.Remove	f.Name()	plugin

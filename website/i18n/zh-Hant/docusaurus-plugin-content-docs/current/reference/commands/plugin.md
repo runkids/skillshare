@@ -55,14 +55,14 @@ target 會儲存這個選擇。下一次 `sync plugins` 會移除其受管理的
 
 | Option | Meaning |
 |---|---|
-| `--target TARGET` | 可重複指定：`claude`、`codex`、`cursor`、`antigravity`（別名 `agy`）、`antigravity-cli`、`copilot`、`grok`、`pi`、`omp`、`opencode`，或[某個 Agent 的另一個帳號](#accounts)的名稱；請參閱下方的 capability 表 |
+| `--target TARGET` | 可重複指定：`claude`、`codex`、`cursor`、`antigravity`（別名 `agy`）、`antigravity-cli`、`copilot`、`grok`、`pi`、`omp`、`opencode`、`herdr-app`，或[某個 Agent 的另一個帳號](#accounts)的名稱；請參閱下方的 capability 表 |
 | `--plugin NAME` | 從 source marketplace 選擇一個 plugin |
 | `--name NAME` | 新增或匯入時使用的邏輯套件名稱 |
 | `--from TARGET` | 從 Claude、Codex、Antigravity CLI、Copilot、Grok、Pi、OMP marketplaces、OpenCode 或[某個 Agent 的另一個帳號](#accounts)匯入 |
 | `--all`, `-a` | 更新所有受管理的 plugins（僅限 `update`；不可與套件名稱或 `--source-ref` 同時使用） |
 | `--dry-run`, `-n` | 預覽而不變更 Skillshare 或 Agent 設定 |
 | `--source-ref REF` | 用於 `discover`、`add`、`update` 的 Git branch、tag 或 commit；僅限遠端 source |
-| `--entry PATH` | 明確指定已建置的 OpenCode JS/TS 進入點，相對於套件根目錄（`discover` 與 `add`） |
+| `--entry PATH` | 明確指定已建置的 OpenCode JS/TS 進入點，或 [Herdr 啟動器](#herdr-app)的執行檔，相對於套件根目錄（`discover` 與 `add`） |
 | `--revision ID` | 若自預覽以來 source、設定或原生清單已變更，則拒絕套用 |
 | `--json` | 機器可讀輸出；停用 TUI |
 | `--no-tui` | 停用互動式選單；同時遵循 `tui: false` |
@@ -84,6 +84,7 @@ JSON 輸出包含 source 路徑與原生識別碼。請勿在 source URL 中放�
 | Pi | 含 `pi` resources 的 `package.json`，或帶有 `pi-package` 關鍵字與慣用 resource 資料夾 | Yes | Yes，需原生專案信任 | 重新整理受管理的 source 快照 |
 | Oh My Pi | 以 marketplace 為基礎、具有原生相容 metadata 的本機/Git plugins | 全新 cache 的安裝/重新安裝、匯入與限定 scope 的移除 | 在 OMP 的 project anchor | 更新會重新安裝到全新 cache；移除時保留共用 cache |
 | OpenCode | 含 SDK 依賴的 `package.json`、`.opencode/plugins/` 項目，或明確的 `--entry` | Yes | Yes | 重新整理受管理的 source 快照 |
+| Herdr app | 無 plugin manifest 的 source 根目錄下的 `mods/<id>/main.js`，或以 `--entry` 指定的啟動器 | Yes | No | 取代 Skillshare 安裝的檔案 |
 
 | Antigravity CLI | `.antigravity-plugin/plugin.json`、`.gemini-plugin/plugin.json`、根目錄的 `plugin.json`，或 `agy` 接受的 Claude manifest | Yes | No | 重新整理已檢視的 source，僅在原生啟用狀態已知且為啟用時 |
 | GitHub Copilot CLI | `.plugin/plugin.json`、`.github/plugin/plugin.json`、Claude manifest，或 Agent Plugins 根目錄 manifest | Yes | No | 重新整理已檢視的 source，僅在原生啟用狀態已知且為啟用時 |
@@ -137,6 +138,33 @@ marketplace registry：
 對這類本機套件請使用 `plugin add`。不支援匯入既有的本機資料夾或 marketplace 安裝。Skillshare
 拒絕覆寫非自身擁有的資料夾、symlink，或本機已編輯過的受管理內容。明確的 Antigravity manifest
 名稱能讓身分識別在 Git checkout 與快照之間保持穩定。
+
+### Herdr app {#herdr-app}
+
+`herdr-app` target 透過複製檔案來安裝 Herdr mod 與啟動器應用程式。它只支援 global，不會執行 `herdr-app` 或套件裡的程式碼。Herdr 的主目錄是 `$HERDR_APP_HOME`，未設定時為 `~/.config/herdr-app`。
+
+Skillshare 只在沒有 plugin manifest、也沒有 marketplace catalog 的 source 中尋找 Herdr 內容。source 根目錄下的每個 `mods/<id>/main.js` 是一個 plugin，安裝到 `<herdr home>/mods/<id>`。更深層資料夾中的 mod 不會被找到。同時有 manifest 與根目錄 `mods/` 資料夾的 source，仍照原本的方式探索。 只有一般 `package.json` 的 source 也可透過 `--entry` 新增啟動器。
+
+指向 mod 資料夾外部的連結不會被複製。
+
+```bash
+skillshare plugin add owner/herdr-mods --plugin my-mod --target herdr-app --no-tui -g
+skillshare plugin add owner/lantern --entry bin/lantern-app --target herdr-app --no-tui -g
+```
+
+Lantern 這類啟動器應用程式需要 `--entry`，也就是 source 中執行檔的路徑。指令名稱取自 entry 檔名：`bin/lantern-app` 對應 `lantern-app`。Skillshare 會把 source 複製到自己的 state 目錄並顯示受管理的入口路徑。將指令指向該路徑；更新後路徑不會改變。啟動器只支援 macOS 與 Linux。
+
+Skillshare 管理整個安裝資料夾，並在更新時替換。本機修改會封鎖更新與移除，直到你保存這些修改。安裝資料夾中的隱藏檔、`node_modules`、`__pycache__`不列入修改檢查；mod 根目錄的 `jsconfig.json` 和 `.d.ts` 檔案也不列入；更新不會保留它們。source 包含這些檔案時仍會複製。移除會刪除整個資料夾，包括產生的檔案。替換中斷時，請在重試前檢查提示的備份。
+
+Skillshare 不會接管不是它安裝的 mod 或啟動器，也不提供 `import`。如果同名 mod 或啟動器已存在，`add` 會拒絕。先把它移開，再重新 add：
+
+```bash
+mv ~/.config/herdr-app/mods/my-mod ~/my-mod.bak
+```
+
+`update` 顯示安裝路徑，不代表 mod 已在執行。Herdr 會在檔案變更時重新載入 mod；請用 `herdr-app status` 確認。`place: none` 的 mod 不會自動放置，需要手動加到 layout 中。更新啟動器前，先關閉該應用程式的聊天與 readout，更新後再重新開啟。
+
+在沒有 Herdr app 的機器上（主目錄不存在），`sync`、`check` 與 `update` 會略過 `herdr-app` 綁定（包括啟動器），不擷取任何內容，plugin 的其他 target 照常執行。綁定宣告會保留。在這樣的機器上 `add` 到 `herdr-app` 會被拒絕。`remove` 會刪除綁定而不建立主目錄，其他操作會略過該綁定。主目錄存在但不是資料夾時，這個 target 會被封鎖。
 
 ### Oh My Pi (OMP) {#omp}
 
@@ -284,6 +312,7 @@ skillshare plugin import npm:my-pi-package --from pi --name my-package --no-tui
 skillshare plugin discover obra/superpowers --source-ref v6.3.0 --json
 skillshare plugin add owner/repo --source-ref v1.0.0 --target copilot --no-tui
 skillshare plugin add ./package --entry dist/plugin.js --target opencode --no-tui
+skillshare plugin add ./lantern --entry bin/lantern-app --target herdr-app --no-tui -g
 skillshare plugin update review --source-ref v1.1.0 --target claude --dry-run --json
 ```
 
@@ -340,7 +369,7 @@ Copilot 與 Antigravity CLI 的安裝使用已檢視過的本機快照。匯入�
 
 原生生命週期已在 Claude Code `2.1.276`、Codex CLI `0.154.0`、Pi `0.85.1`，以及 Copilot CLI
 `1.0.86` 上驗證過。Antigravity CLI `1.2.6` 則以獨立的原生安裝/清單/移除操作進行檢查。OpenCode
-`1.18.31` 用於驗證版本感知的註冊；v2 schema 則由 fixture 測試涵蓋。Cursor 與 Antigravity 的
+`1.18.31` 用於驗證版本感知的註冊；v2 schema 則由 fixture 測試涵蓋。Cursor、Antigravity 與 Herdr app 的
 檔案系統生命週期已在獨立目錄中測試，但不宣稱涵蓋 GUI 執行期的啟用。已安裝的指令 capability
 與清單 schema 會在執行期檢查；不支援的操作會附上說明並被封鎖。
 

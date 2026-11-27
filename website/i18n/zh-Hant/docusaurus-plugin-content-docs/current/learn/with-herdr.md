@@ -67,6 +67,16 @@ tab bar 會出現 **skillshare** 按鈕，用來顯示或隱藏面板。切換 s
 
 面板顯示時每 20 秒重新整理一次，每 10 分鐘執行 `skillshare check`，隱藏時不做任何事。
 
+## 其他 Herdr mod 與啟動器
+
+[`skillshare plugin`](/docs/reference/commands/plugin#herdr-app) 的 `herdr-app` target 可以安裝其他 Herdr mod，以及 Lantern 這類啟動器應用程式，並像其他 plugin 一樣用 `check` 與 `update` 保持最新：
+
+```bash
+skillshare plugin add owner/herdr-mods --target herdr-app -g
+```
+
+它只在儲存庫根目錄（`mods/<id>/main.js`）尋找 mod，所以不會安裝這個面板；面板請照上面的方式設定。
+
 ## 相關
 
 - [Sync](/docs/reference/commands/sync)

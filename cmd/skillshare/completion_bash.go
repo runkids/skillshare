@@ -116,8 +116,13 @@ _skillshare() {
         return
     fi
 
-    if [[ "${cmd}" == plugin && ( "${prev}" == --target || "${prev}" == --from ) ]]; then
+    if [[ "${cmd}" == plugin && "${prev}" == --from ]]; then
         COMPREPLY=($(compgen -W "claude codex cursor antigravity agy antigravity-cli copilot grok kimi hermes devin pi opencode omp" -- "${cur}"))
+        return
+    fi
+
+    if [[ "${cmd}" == plugin && "${prev}" == --target ]]; then
+        COMPREPLY=($(compgen -W "claude codex cursor antigravity agy antigravity-cli copilot grok kimi hermes devin pi opencode omp herdr-app" -- "${cur}"))
         return
     fi
 

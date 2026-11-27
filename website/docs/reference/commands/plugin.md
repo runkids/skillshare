@@ -67,14 +67,14 @@ anything to update, or the update names a single `--target`, it is blocked inste
 
 | Option | Meaning |
 |---|---|
-| `--target TARGET` | Repeatable selection: `claude`, `codex`, `cursor`, `antigravity` (`agy` alias), `antigravity-cli`, `copilot`, `grok`, `pi`, `omp`, `opencode`, or the name of [another account of an Agent](#accounts); see the capability table below |
+| `--target TARGET` | Repeatable selection: `claude`, `codex`, `cursor`, `antigravity` (`agy` alias), `antigravity-cli`, `copilot`, `grok`, `pi`, `omp`, `opencode`, `herdr-app`, or the name of [another account of an Agent](#accounts); see the capability table below |
 | `--plugin NAME` | Select one plugin from a source marketplace |
 | `--name NAME` | Logical package name when adding or importing |
 | `--from TARGET` | Import from Claude, Codex, Antigravity CLI, Copilot, Grok, Pi, OMP marketplaces, OpenCode, or [another account of an Agent](#accounts) |
 | `--all`, `-a` | Update all managed plugins (`update` only; cannot be combined with a package name or `--source-ref`) |
 | `--dry-run`, `-n` | Preview without changing Skillshare or Agent configuration |
 | `--source-ref REF` | Git branch, tag, or commit for `discover`, `add`, and `update`; remote sources only |
-| `--entry PATH` | Explicit built OpenCode JS/TS entry, relative to the package root (`discover` and `add`) |
+| `--entry PATH` | Explicit built OpenCode JS/TS entry, or a [Herdr launcher](#herdr-app) executable, relative to the package root (`discover` and `add`) |
 | `--revision ID` | Refuse application if source, configuration, or native inventory changed since preview |
 | `--json` | Machine-readable output; disables TUI |
 | `--no-tui` | Disable interactive menus; also respects `tui: false` |
@@ -96,6 +96,7 @@ the CLI exits nonzero when any target fails. Inspect the result before retrying.
 | Pi | `package.json` with `pi` resources, or `pi-package` keyword and conventional resource folders | Yes | Yes, with native project trust | Refresh managed source snapshot |
 | Oh My Pi | Marketplace-backed local/Git plugins with native-compatible metadata | Fresh-cache install/reinstall, import and scoped removal | At OMP's project anchor | Updates reinstall into fresh cache; removal retains shared cache |
 | OpenCode | `package.json` with an SDK dependency, `.opencode/plugins/` entry, or explicit `--entry` | Yes | Yes | Refresh managed source snapshot |
+| Herdr app | Root `mods/<id>/main.js` in a source with no plugin manifest, or a launcher named by `--entry` | Yes | No | Replace the files Skillshare installed |
 
 | Antigravity CLI | `.antigravity-plugin/plugin.json`, `.gemini-plugin/plugin.json`, root `plugin.json`, or Claude manifest accepted by `agy` | Yes | No | Refresh reviewed source, only if native enabled state is known and enabled |
 | GitHub Copilot CLI | `.plugin/plugin.json`, `.github/plugin/plugin.json`, Claude manifest, or Agent Plugins root manifest | Yes | No | Refresh reviewed source, only if native enabled state is known and enabled |
@@ -158,6 +159,53 @@ Use `plugin add` for these local packages. Importing pre-existing local folders 
 marketplace installs is not supported. Skillshare refuses to overwrite unowned
 folders, symlinks, or locally edited managed content. An explicit Antigravity
 manifest name keeps the identity stable across Git checkouts and snapshots.
+
+### Herdr app {#herdr-app}
+
+The `herdr-app` target installs Herdr mods and launcher apps by copying files. It
+is global only and never runs `herdr-app` or package code. Herdr's home is
+`$HERDR_APP_HOME`, or `~/.config/herdr-app` when that is not set.
+
+Skillshare discovers mods in a source with no plugin manifest and no marketplace
+catalog. A launcher can also use a plain `package.json` with `--entry`. Each `mods/<id>/main.js` at the source's root is one plugin,
+installed to `<herdr home>/mods/<id>`. Mods in deeper folders are not found. A
+source with a manifest and a root `mods/` folder is discovered as before.
+
+Links that leave the mod's folder are not copied.
+
+```bash
+skillshare plugin add owner/herdr-mods --plugin my-mod --target herdr-app --no-tui -g
+skillshare plugin add owner/lantern --entry bin/lantern-app --target herdr-app --no-tui -g
+```
+
+A launcher app such as Lantern needs `--entry`, the path to its executable inside
+the source. The command takes the entry file's name: `bin/lantern-app` becomes
+`lantern-app`. Skillshare copies the source into its state directory and prints the managed entry
+path. Point your command at that path; it stays the same across updates. Launchers work on macOS and Linux only.
+
+Skillshare owns the whole installed folder and replaces it on update. A local edit
+blocks update and remove until you preserve it. Hidden files, `node_modules` and `__pycache__` in an installed folder are ignored when checking for edits, as are root `jsconfig.json` and root `.d.ts` files in a mod; an
+update does not keep them. Source files with those names are still copied.
+Removal deletes the whole folder,
+including generated files. If a replacement was interrupted, inspect the backup
+path reported by Skillshare before retrying.
+
+Skillshare does not adopt a mod or launcher it did not install, and `import` is not
+offered. If a mod or launcher with the same identity already exists, `add` refuses. Move it aside first, then add again:
+
+```bash
+mv ~/.config/herdr-app/mods/my-mod ~/my-mod.bak
+```
+
+`update` reports the installed path, without claiming the mod is running. Herdr reloads a mod
+when its files change; check it with `herdr-app status`. A mod with `place: none`
+is not placed for you; add it to a layout by hand. Before a launcher update, close
+the app's chat and readouts, then reopen it after the update.
+
+On a machine without the Herdr app (its home is absent), `sync`, `check` and
+`update` skip `herdr-app` bindings, launchers included, without fetching anything,
+and the plugin's other targets still run. The binding stays declared. `add` to
+`herdr-app` on such a machine is refused. `remove` still removes the binding without creating the home. Other actions skip the binding. A home that exists but is not a folder blocks the target.
 
 ### Oh My Pi (OMP) {#omp}
 
@@ -458,6 +506,7 @@ flags; automation can use:
 skillshare plugin discover obra/superpowers --source-ref v6.3.0 --json
 skillshare plugin add owner/repo --source-ref v1.0.0 --target copilot --no-tui
 skillshare plugin add ./package --entry dist/plugin.js --target opencode --no-tui
+skillshare plugin add ./lantern --entry bin/lantern-app --target herdr-app --no-tui -g
 skillshare plugin update review --source-ref v1.1.0 --target claude --dry-run --json
 ```
 
@@ -541,8 +590,8 @@ never supplies native trust approval flags.
 The native lifecycle is exercised with Claude Code `2.1.276`, Codex CLI
 `0.154.0`, Pi `0.85.1`, and Copilot CLI `1.0.86`. Antigravity CLI
 `1.2.6` was checked with isolated native install/list/remove operations. OpenCode `1.18.31` is used to verify version-aware
-registration; the v2 schema is covered by fixture tests. Cursor and Antigravity
-filesystem lifecycles are tested in isolated directories, without claiming GUI
+registration; the v2 schema is covered by fixture tests. Cursor, Antigravity and
+Herdr app filesystem lifecycles are tested in isolated directories, without claiming GUI
 runtime activation. Installed command capabilities and inventory schemas are checked at
 runtime; unsupported operations are blocked with an explanation.
 

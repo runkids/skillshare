@@ -24,7 +24,7 @@ func printPluginHelp() {
 			{"-a, --all", "Update all managed plugins (update only)"},
 			{"-n, --dry-run", "Preview without writing config or Agent state"},
 			{"--source-ref <ref>", "Git branch, tag or commit (discover/add/update)"},
-			{"--entry <path>", "Explicit OpenCode JS/TS entry (discover/add)"},
+			{"--entry <path>", "Explicit OpenCode JS/TS or Herdr launcher entry (discover/add)"},
 			{"--revision <id>", "Require the matching preview before applying"},
 			{"--json", "Machine-readable output, no interactive prompts"},
 			{"--no-tui", "Plain output, no interactive prompts"},
@@ -32,7 +32,7 @@ func printPluginHelp() {
 			{"-p, --project", "Project configuration (supported targets only)"},
 		}},
 		helpGroup{title: "Targets", rows: []helpRow{
-			{"Supported", "claude, codex, cursor, antigravity (desktop; alias: agy),\nantigravity-cli, copilot, grok, pi, opencode, omp"},
+			{"Supported", "claude, codex, cursor, antigravity (desktop; alias: agy),\nantigravity-cli, copilot, grok, pi, opencode, omp, herdr-app"},
 			{"Discovery only", "kimi, hermes, devin (native automation not yet verified)"},
 			{"Project", "claude, antigravity, pi, opencode, omp"},
 		}},

@@ -632,6 +632,22 @@
     "note": "List a plugin package or the extensions folder for the dashboard's read-only viewer"
   },
   {
+    "file": "internal/plugin/herdr_app.go",
+    "function": "herdrCandidates",
+    "callee": "os.ReadDir",
+    "root": "filepath.Join(root, \"mods\")",
+    "reason": "plugin",
+    "note": "Discover root-level Herdr mods"
+  },
+  {
+    "file": "internal/plugin/herdr_app.go",
+    "function": "(*Service).herdrHost",
+    "callee": "os.ReadDir",
+    "root": "layout.root",
+    "reason": "plugin",
+    "note": "List Herdr installation folders"
+  },
+  {
     "file": "internal/plugin/local_bundle.go",
     "function": "(*Service).localInventory",
     "callee": "os.ReadDir",

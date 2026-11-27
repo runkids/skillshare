@@ -196,6 +196,7 @@ func TestFixedMessagesCarryATranslationKey(t *testing.T) {
 	}
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("HERDR_APP_HOME", filepath.Join(home, "missing-herdr"))
 	s := &Service{ConfigPath: filepath.Join(home, "config.yaml"), StateDir: filepath.Join(home, "state")}
 	s.Run = func(_ context.Context, _ string, _ []string, _ string, args ...string) ([]byte, error) {
 		if args[0] == "--version" {

@@ -196,6 +196,8 @@ type Host struct {
 	Error       string      `json:"error,omitempty"`
 	ErrorKey    string      `json:"errorKey,omitempty"`
 	Installed   []Installed `json:"installed"`
+	// NoteArgs fill the {placeholders} of NoteKey's sentence.
+	NoteArgs map[string]string `json:"noteArgs,omitempty"`
 	// ErrorArgs fill the {placeholders} of ErrorKey's sentence.
 	ErrorArgs map[string]string `json:"errorArgs,omitempty"`
 	// Marketplaces maps each Claude/Codex marketplace name to its root; nil when unknown.

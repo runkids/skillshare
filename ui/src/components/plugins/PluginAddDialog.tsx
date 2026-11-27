@@ -277,13 +277,20 @@ export default function PluginAddDialog({
               {t('plugins.advanced')}
             </button>
             {advanced && (
-              <div className="ml-[22px]">
+              <div className="ml-[22px] flex flex-col gap-3.5">
                 <Input
                   label={t('plugins.sourceRef')}
                   placeholder="main"
                   value={sourceRef}
                   disabled={busy}
                   onChange={(e) => setSourceRef(e.target.value)}
+                />
+                <Input
+                  label={t('plugins.launcherEntry')}
+                  placeholder="bin/lantern-app"
+                  value={entry}
+                  disabled={busy}
+                  onChange={(e) => setEntry(e.target.value)}
                 />
               </div>
             )}

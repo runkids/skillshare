@@ -51,14 +51,14 @@ skillshare plugin remove review --no-tui
 
 | Option | 의미 |
 |---|---|
-| `--target TARGET` | 반복 가능한 선택: `claude`, `codex`, `cursor`, `antigravity`(`agy` alias), `antigravity-cli`, `copilot`, `grok`, `pi`, `omp`, `opencode`, 또는 [Agent의 다른 계정](#accounts) 이름. 아래 capability 표 참고 |
+| `--target TARGET` | 반복 가능한 선택: `claude`, `codex`, `cursor`, `antigravity`(`agy` alias), `antigravity-cli`, `copilot`, `grok`, `pi`, `omp`, `opencode`, `herdr-app`, 또는 [Agent의 다른 계정](#accounts) 이름. 아래 capability 표 참고 |
 | `--plugin NAME` | source marketplace에서 plugin 하나를 선택 |
 | `--name NAME` | 추가하거나 import할 때의 논리적 패키지 이름 |
 | `--from TARGET` | Claude, Codex, Antigravity CLI, Copilot, Grok, Pi, OMP marketplace, OpenCode, 또는 [Agent의 다른 계정](#accounts)에서 import |
 | `--all`, `-a` | 관리되는 모든 plugin 업데이트(`update` 전용, 패키지 이름이나 `--source-ref`와 함께 사용할 수 없음) |
 | `--dry-run`, `-n` | Skillshare나 Agent 설정을 변경하지 않고 미리보기 |
 | `--source-ref REF` | `discover`, `add`, `update`를 위한 Git 브랜치, 태그, 또는 커밋. 원격 source에만 해당 |
-| `--entry PATH` | 패키지 루트 기준의 명시적으로 빌드된 OpenCode JS/TS entry(`discover`와 `add`) |
+| `--entry PATH` | 패키지 루트 기준의 명시적으로 빌드된 OpenCode JS/TS entry 또는 [Herdr launcher](#herdr-app) 실행 파일(`discover`와 `add`) |
 | `--revision ID` | 미리보기 이후 source, 설정, 또는 네이티브 inventory가 변경되었으면 적용을 거부 |
 | `--json` | 기계가 읽을 수 있는 출력. TUI를 비활성화 |
 | `--no-tui` | 대화형 메뉴를 비활성화. `tui: false`도 준수 |
@@ -78,6 +78,7 @@ JSON 출력에는 source 경로와 네이티브 식별자가 포함됩니다. so
 | Pi | `pi` 리소스가 있는 `package.json`, 또는 `pi-package` 키워드와 관례적인 리소스 폴더 | 예 | 예, 네이티브 project trust 사용 시 | 관리되는 source 스냅샷 새로고침 |
 | Oh My Pi | 네이티브 호환 메타데이터를 가진 marketplace 기반 로컬/Git plugin | 새 cache 설치/재설치, import, scope 단위 제거 | OMP의 project anchor에서 | 업데이트는 새 cache에 재설치, 제거 시 공유 cache 유지 |
 | OpenCode | SDK dependency가 있는 `package.json`, `.opencode/plugins/` entry, 또는 명시적 `--entry` | 예 | 예 | 관리되는 source 스냅샷 새로고침 |
+| Herdr app | plugin 매니페스트가 없는 source 루트의 `mods/<id>/main.js`, 또는 `--entry`로 지정한 launcher | 예 | 아니요 | Skillshare가 설치한 파일 교체 |
 
 | Antigravity CLI | `.antigravity-plugin/plugin.json`, `.gemini-plugin/plugin.json`, 루트의 `plugin.json` 또는 `agy`가 허용하는 Claude 매니페스트 | 예 | 아니요 | 네이티브 활성화 상태가 확인되고 활성화된 경우에만 검토된 source를 새로고침 |
 | GitHub Copilot CLI | `.plugin/plugin.json`, `.github/plugin/plugin.json`, Claude 매니페스트, 또는 Agent Plugins 루트 매니페스트 | 예 | 아니요 | 네이티브 활성화 상태가 확인되고 활성화된 경우에만 검토된 source를 새로고침 |
@@ -118,6 +119,33 @@ skillshare plugin import demo@market --from claude-work
 - 독립형 **agy CLI**는 별도의 plugin store를 가지고 있습니다. `antigravity` target은 해당 CLI store가 아니라 desktop/workspace discovery 경로를 관리합니다. `agy`는 단지 Skillshare target alias일 뿐입니다. 독립형 CLI에는 `--target antigravity-cli`를 사용하세요. `--target agy`는 기존의 desktop 의미를 그대로 유지합니다.
 
 이러한 local 패키지에는 `plugin add`를 사용하세요. 기존의 local 폴더나 marketplace 설치를 import하는 것은 지원되지 않습니다. Skillshare는 소유하지 않은 폴더, symlink, 또는 로컬에서 편집된 관리 콘텐츠를 덮어쓰기를 거부합니다. 명시적인 Antigravity 매니페스트 이름은 Git checkout과 스냅샷 전반에서 identity를 안정적으로 유지합니다.
+
+### Herdr app {#herdr-app}
+
+`herdr-app` target은 파일을 복사해 Herdr mod와 launcher 앱을 설치합니다. global 전용이며 `herdr-app`이나 패키지 코드를 실행하지 않습니다. Herdr의 홈은 `$HERDR_APP_HOME`이고, 설정되지 않았으면 `~/.config/herdr-app`입니다.
+
+Skillshare는 plugin 매니페스트도 marketplace 카탈로그도 없는 source에서만 Herdr 콘텐츠를 찾습니다. source 루트의 `mods/<id>/main.js` 하나가 plugin 하나이며 `<herdr home>/mods/<id>`에 설치됩니다. 더 깊은 폴더의 mod는 찾지 않습니다. 매니페스트와 루트 `mods/` 폴더가 함께 있는 source는 이전과 같이 검색됩니다. 일반 `package.json`만 있는 source에서도 `--entry`로 launcher를 추가할 수 있습니다.
+
+mod 폴더 밖을 가리키는 링크는 복사되지 않습니다.
+
+```bash
+skillshare plugin add owner/herdr-mods --plugin my-mod --target herdr-app --no-tui -g
+skillshare plugin add owner/lantern --entry bin/lantern-app --target herdr-app --no-tui -g
+```
+
+Lantern 같은 launcher 앱에는 source 안의 실행 파일 경로인 `--entry`가 필요합니다. 명령 이름은 entry 파일 이름을 따르므로 `bin/lantern-app`은 `lantern-app`이 됩니다. Skillshare는 source를 state 디렉터리에 복사하고 관리되는 entry 경로를 출력합니다. 명령이 이 경로를 가리키게 하세요. 경로는 update 후에도 바뀌지 않습니다. launcher는 macOS와 Linux에서만 동작합니다.
+
+Skillshare는 설치된 폴더 전체를 관리하고 업데이트할 때 교체합니다. 로컬 수정은 보존할 때까지 업데이트와 제거를 차단합니다. 설치된 폴더의 숨김 파일, `node_modules`, `__pycache__`는 수정 검사에서 제외하며, mod 루트의 `jsconfig.json`과 `.d.ts` 파일도 제외하고 업데이트할 때 유지하지 않습니다. source에 있으면 복사합니다. 제거는 생성 파일을 포함한 폴더 전체를 삭제합니다. 교체가 중단되면 다시 시도하기 전에 표시된 백업을 확인하세요.
+
+Skillshare는 자신이 설치하지 않은 mod나 launcher를 인계하지 않으며 `import`도 지원하지 않습니다. 같은 이름의 mod나 launcher가 이미 있으면 `add`가 거부됩니다. 먼저 옮겨 둔 뒤 다시 add하세요.
+
+```bash
+mv ~/.config/herdr-app/mods/my-mod ~/my-mod.bak
+```
+
+`update`는 설치 경로를 표시하며 mod가 실행 중이라는 뜻은 아닙니다. Herdr는 파일이 바뀌면 mod를 다시 불러옵니다. `herdr-app status`로 확인하세요. `place: none`인 mod는 자동으로 배치되지 않으므로 레이아웃에 직접 추가하세요. launcher를 update하기 전에 앱의 채팅과 readout을 닫고, update 후 다시 여세요.
+
+Herdr app이 없는 머신(홈이 없음)에서는 `sync`, `check`, `update`가 `herdr-app` 바인딩을(launcher 포함) 아무것도 가져오지 않고 건너뛰며, plugin의 다른 target은 그대로 실행됩니다. 바인딩 선언은 유지됩니다. 그런 머신에서 `herdr-app`으로의 `add`는 거부됩니다. `remove`는 홈을 만들지 않고 바인딩을 제거하며 나머지 작업은 건너뜁니다. 홈이 있지만 폴더가 아니면 이 target은 차단됩니다.
 
 ### Oh My Pi (OMP) {#omp}
 
@@ -202,6 +230,7 @@ skillshare plugin import npm:my-pi-package --from pi --name my-package --no-tui
 skillshare plugin discover obra/superpowers --source-ref v6.3.0 --json
 skillshare plugin add owner/repo --source-ref v1.0.0 --target copilot --no-tui
 skillshare plugin add ./package --entry dist/plugin.js --target opencode --no-tui
+skillshare plugin add ./lantern --entry bin/lantern-app --target herdr-app --no-tui -g
 skillshare plugin update review --source-ref v1.1.0 --target claude --dry-run --json
 ```
 
@@ -228,7 +257,7 @@ Copilot과 Antigravity CLI 설치는 검토된 로컬 스냅샷을 사용합니�
 - 이 등록은 user 설정이든 project 설정이든 이 머신의 Skillshare 상태 디렉터리를 가리킵니다. Git이나 dotfile 관리 도구로 Agent 설정을 공유하면 다른 머신에는 없는 경로가 함께 옮겨집니다. 각 머신에서 source로부터 plugin을 추가하세요.
 - Claude는 skills 디렉터리에서 plugin manifest가 있는 skill 폴더도 `<name>@skills-dir`라는 plugin으로 읽으며, 같은 이름의 plugin은 하나만 불러옵니다. 같은 이름의 Claude plugin을 추가하면 미리보기에서 이를 알려 줍니다. 둘 중 하나의 이름을 바꾸거나 제거할 때까지 Claude는 plugin을 불러오고 skill 폴더는 건너뜁니다.
 
-네이티브 lifecycle은 Claude Code `2.1.276`, Codex CLI `0.154.0`, Pi `0.85.1`, Copilot CLI `1.0.86`으로 검증되었습니다. Antigravity CLI `1.2.6`은 격리된 네이티브 install/list/remove 작업으로 확인되었습니다. OpenCode `1.18.31`은 버전을 인식하는 등록을 검증하는 데 사용되며, v2 스키마는 fixture 테스트로 커버됩니다. Cursor와 Antigravity의 파일시스템 lifecycle은 격리된 디렉터리에서 테스트되며, GUI 런타임 활성화까지 보장하지는 않습니다. 설치된 command capability와 inventory 스키마는 런타임에 확인되며, 지원되지 않는 작업은 설명과 함께 차단됩니다.
+네이티브 lifecycle은 Claude Code `2.1.276`, Codex CLI `0.154.0`, Pi `0.85.1`, Copilot CLI `1.0.86`으로 검증되었습니다. Antigravity CLI `1.2.6`은 격리된 네이티브 install/list/remove 작업으로 확인되었습니다. OpenCode `1.18.31`은 버전을 인식하는 등록을 검증하는 데 사용되며, v2 스키마는 fixture 테스트로 커버됩니다. Cursor, Antigravity, Herdr app의 파일시스템 lifecycle은 격리된 디렉터리에서 테스트되며, GUI 런타임 활성화까지 보장하지는 않습니다. 설치된 command capability와 inventory 스키마는 런타임에 확인되며, 지원되지 않는 작업은 설명과 함께 차단됩니다.
 
 ## 공식 형식 참고 자료
 

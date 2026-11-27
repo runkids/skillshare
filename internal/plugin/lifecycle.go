@@ -267,6 +267,23 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (*Result, e
 					outcome.Message = "Existing installation adopted without changing its enabled state."
 				}
 			}
+			if s.agentOf(c.Target) == "herdr-app" {
+				mod, launcher := s.herdrLayouts()
+				switch {
+				case c.Action == "remove" || c.Action == "uninstall":
+					outcome.Message, outcome.MessageKey, outcome.MessageArgs = "Removed.", "plugins.outcome.herdrRemoved", nil
+				case b.Entry != "" && c.Action == "update":
+					outcome.Message = "Updated " + b.ID + "; close and reopen it to use the updated version."
+					outcome.MessageKey, outcome.MessageArgs = "plugins.outcome.herdrLauncherUpdated", map[string]string{"id": b.ID}
+				case b.Entry != "":
+					path := filepath.Join(launcher.root, b.ID, filepath.FromSlash(b.Entry))
+					outcome.Message, outcome.MessageKey, outcome.MessageArgs = "Installed at "+path+".", "plugins.outcome.herdrLauncherInstalled", map[string]string{"path": path}
+				default:
+					path := filepath.Join(mod.root, b.ID)
+					outcome.Message = "Installed in " + path + "; Herdr reloads the mod when files change. A mod with `place: none` needs a layout entry."
+					outcome.MessageKey, outcome.MessageArgs = "plugins.outcome.herdrModInstalled", map[string]string{"path": path}
+				}
+			}
 			if s.agentOf(c.Target) == "omp" && (c.Action == "remove" || c.Action == "forget" || c.Action == "uninstall") {
 				outcome.Message, outcome.MessageKey = "Removed from this scope; shared cache, marketplaces and plugin settings were retained.", "plugins.outcome.ompRemoved"
 			}
@@ -274,6 +291,7 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (*Result, e
 			if err := s.saveState(d); err != nil {
 				outcome.Status = "failed"
 				outcome.Message = "Native operation completed, but recording its result failed; inspect status before retrying."
+				outcome.MessageKey, outcome.MessageArgs = "plugins.outcome.recordFailedHelp", nil
 				result.Results = append(result.Results, outcome)
 				return result, errors.Join(append(failures, err)...)
 			}
