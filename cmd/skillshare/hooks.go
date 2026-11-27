@@ -13,7 +13,7 @@ import (
 type hooksOptions struct {
 	name, file, from, revision  string
 	sync, dryRun, json, replace bool
-	keepFiles                   bool
+	keepFiles, trust, yes       bool
 }
 
 func parseHooksOptions(args []string) (hooksOptions, error) {
@@ -43,6 +43,10 @@ func parseHooksOptions(args []string) (hooksOptions, error) {
 			o.replace = true
 		case "--keep-files":
 			o.keepFiles = true
+		case "--trust":
+			o.trust = true
+		case "--yes", "-y":
+			o.yes = true
 		default:
 			if strings.HasPrefix(a, "-") || o.name != "" {
 				return o, fmt.Errorf("unknown hooks argument %q", a)
@@ -120,7 +124,7 @@ func cmdSyncHooks(args []string) error {
 	if err != nil {
 		return err
 	}
-	if o.name != "" || o.file != "" || o.from != "" || o.sync || o.replace || o.keepFiles {
+	if o.name != "" || o.file != "" || o.from != "" || o.sync || o.replace || o.keepFiles || o.trust || o.yes {
 		return fmt.Errorf("sync hooks accepts only --dry-run, --json, --revision and scope flags; use 'skillshare hooks sync <name> --replace' to take over conflicts")
 	}
 	return hooksJSONError(runHooks(service, "sync", o), o)
@@ -145,14 +149,14 @@ func checkHooksFlags(sub string, o hooksOptions) error {
 		"enable":  "name sync replace",
 		"disable": "name sync replace",
 		"remove":  "name sync replace",
-		"sync":    "name replace",
+		"sync":    "name replace trust",
 		"restore": "name",
 	}
 	spec, ok := allowed[sub]
 	if !ok {
 		return fmt.Errorf("unknown hooks command %q; run skillshare hooks --help", sub)
 	}
-	used := map[string]bool{"name": o.name != "", "file": o.file != "", "from": o.from != "", "sync": o.sync, "replace": o.replace}
+	used := map[string]bool{"name": o.name != "", "file": o.file != "", "from": o.from != "", "sync": o.sync, "replace": o.replace, "trust": o.trust}
 	for flag, set := range used {
 		if set && !strings.Contains(" "+spec+" ", " "+flag+" ") {
 			if flag == "name" {
@@ -160,6 +164,9 @@ func checkHooksFlags(sub string, o hooksOptions) error {
 			}
 			return fmt.Errorf("--%s does not apply to hooks %s", flag, sub)
 		}
+	}
+	if o.yes && !o.trust {
+		return fmt.Errorf("--yes only applies to hooks sync --trust: it records Codex trust without asking")
 	}
 	if o.keepFiles && (sub != "remove" || o.sync) {
 		return fmt.Errorf("--keep-files only applies to hooks remove without --sync: it leaves Agent files as they are")
@@ -192,6 +199,8 @@ func printHooksHelp() {
 			{"--sync", "Save and synchronize (default: save the source only)"},
 			{"--replace", "Replace an existing entry, or take over its conflicting\nAgent entries (unmanaged duplicates or outside edits)"},
 			{"--keep-files", "remove only: stop managing the hook; its Agent entries stay"},
+			{"--trust", "sync only: list the Codex hooks Skillshare owns that\nneed trust, with their commands, and record it once you confirm"},
+			{"-y, --yes", "with --trust: record trust without asking"},
 			{"-n, --dry-run", "Preview without writing"},
 			{"--json", "Machine-readable output"},
 			{"--revision <id>", "Require the matching preview revision"},
@@ -204,6 +213,8 @@ func printHooksHelp() {
 			"Git commands cannot use --keep-files; copy them to your own include first.",
 			"Sync alias: skillshare sync hooks [--dry-run] [--json] [-g|-p]; sync --all includes hooks.",
 			"Import reads configuration and code only; it never runs hook commands.",
+			"Sync never changes Agent trust unless you pass --trust; --trust needs codex on PATH.",
+			"Without a terminal, --trust records nothing unless --yes is given.",
 		),
 	)
 }
@@ -213,7 +224,7 @@ func hooksAccounts(cfg *config.Config) map[string]hooks.Account {
 	accounts := map[string]hooks.Account{}
 	for name, target := range cfg.Targets {
 		if target.Agent != "" && target.ConfigDir != "" {
-			accounts[name] = hooks.Account{Agent: target.Agent, Dir: target.ConfigDir}
+			accounts[name] = hooks.Account{Agent: target.Agent, Dir: target.ConfigDir, CLI: target.CLI}
 		}
 	}
 	return accounts

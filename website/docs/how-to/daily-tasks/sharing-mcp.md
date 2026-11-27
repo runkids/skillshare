@@ -54,8 +54,9 @@ Agents, and review the changes. **Save and sync** applies the settings immediate
 
 In the dashboard, **Add server** takes either shape: fill in the fields, or paste
 a configuration. The paste side also loads a file, which is the browser's
-equivalent of `mcp import --file`. Pasted JSON is recognized automatically; for
-TOML, choose whether it came from Codex or Grok. When the paste holds one server
+equivalent of `mcp import --file`. Pasted JSON is recognized automatically; to keep
+fields only its Agent reads, such as Claude Code's `alwaysLoad`, pick that Agent under
+**From**. For TOML, choose whether it came from Codex or Grok. When the paste holds one server
 and Pi is ticked, the dialog also shows the Pi settings of the form: tool exposure and
 other Pi settings. The form's **Other Agent settings** takes any other Agent's native fields as
 JSON, such as a Codex approval mode; see [`options`](../../reference/commands/mcp.md#agent-options). The **Skillshare** tab adds `skillshare mcp serve`, which
@@ -63,7 +64,9 @@ JSON, such as a Codex approval mode; see [`options`](../../reference/commands/mc
 Agent that does not get them by sync: choose which skills, tick the Agents, and it marks
 the Agents that already sync skills and would see them twice. In a project's **MCP** tab,
 **From another project** fills the form with a server another project already has; the copy
-uses this project's Agents, not the other project's. **Import from a target** is
+uses this project's Agents, not the other project's. Its list can be searched by server
+name or project folder, and a server that several projects have under the same name with
+the same settings is listed once, with the folders that have it. **Import from a target** is
 separate and reads the servers an installed Agent already has. Either way the
 dashboard uses the same source, validation, preview and conflict rules as the
 CLI. **Sync MCP**, in the MCP page's Sync box, writes the MCP config files only. The
@@ -228,9 +231,10 @@ Codex forwards local variables by name, so `env.KEY.fromEnv` must also be `KEY`
 when Codex is selected. A target that cannot represent a setting blocks the
 preview instead of dropping it. Client-specific placeholders and input prompts must
 be resolved explicitly before import. Agent-specific fields such as Codex
-`startup_timeout_sec` or `cwd` are not imported; import lists them as warnings, and
-sync keeps them in that Agent's existing entry. To manage them from the source, set them
-under the server's [`options`](../../reference/commands/mcp.md#agent-options).
+`startup_timeout_sec` or `cwd` are imported under the server's
+[`options`](../../reference/commands/mcp.md#agent-options) for that Agent, so sync writes
+them back to it and to no other Agent. A field `options` cannot hold, such as a plain-text
+credential, is listed as a warning and left out.
 
 ## Import existing connections
 
@@ -252,7 +256,11 @@ entry; **Save only** then records that entry as the baseline without changing th
 file, so the next sync rewrites it and still detects edits made in the meantime.
 It never overrides other conflicting native entries. In the MCP dashboard, a conflict
 you can settle offers an import action named after the Agent, such as **Import from
-cursor**, to adopt that version, or **Replace with source** to overwrite that entry.
+cursor**, to adopt that version, or **Replace with source** to overwrite it. Replace
+overwrites every Agent whose entry of that server conflicts, since sync waits until
+all of them are settled. When Agents hold different versions of one server, import the
+version you want, then replace the rest: the import adopts that Agent's entry even
+while other Agents still conflict, and the dashboard names the Agents that are left.
 A conflict held by another Skillshare configuration that still exists offers neither,
 because only that configuration can release the entry.
 
@@ -281,7 +289,7 @@ skillshare sync mcp
 ```
 
 In the dashboard, open it from the project folder with `skillshare ui` and choose
-**Turn off a global server**, the button beside **Add server**.
+**Turn off by name**, the button beside **Add server**.
 
 This works with Claude Code, OpenCode, Kilo Code and Pi 1.0.1 or later. Other Agents
 are refused. The

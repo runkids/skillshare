@@ -17,7 +17,11 @@ it("reports the server's error event with its message", () => {
   const onError = vi.fn();
   createSSEStream('/api/x/stream', {}, onError, 'Stream failed');
 
-  FakeEventSource.last.dispatchEvent(new MessageEvent('error', { data: JSON.stringify({ error: 'doctor check failed: exit status 2' }) }));
+  FakeEventSource.last.dispatchEvent(
+    new MessageEvent('error', {
+      data: JSON.stringify({ error: 'doctor check failed: exit status 2' }),
+    }),
+  );
 
   expect(onError).toHaveBeenCalledWith(new Error('doctor check failed: exit status 2'));
 });

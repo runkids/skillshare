@@ -16,6 +16,7 @@ sidebar_position: 1
 | git リポジトリ経由でチームと Skill を共有する | [組織全体の Skill](/docs/how-to/sharing/organization-sharing) |
 | 特定のプロジェクト用に Skill をセットアップする | [プロジェクトセットアップ](/docs/how-to/sharing/project-setup) |
 | 複数のマシン間で Skill を Sync する | [Cross-Machine Sync](/docs/how-to/sharing/cross-machine-sync) |
+| GitHub なしで Sync する、または SSH や Tailscale 経由で別のマシンを管理する | [プライベートネットワーク上のマシン](/docs/how-to/sharing/private-network) |
 | コミュニティの Skill を閲覧・発見する | [Hub Index](/docs/how-to/sharing/hub-index) |
 | Skill のサプライチェーンをセキュアにする | [Skill をセキュアに保つ](/docs/how-to/advanced/security) |
 | 他のツールやアプローチから移行する | [移行](/docs/how-to/advanced/migration) |
@@ -42,6 +43,7 @@ sidebar_position: 1
 | [プロジェクトセットアップ](/docs/how-to/sharing/project-setup) | リポジトリのためにプロジェクトスコープの Skill をセットアップする |
 | [組織全体の Skill](/docs/how-to/sharing/organization-sharing) | 組織全体で Skill を共有する |
 | [Cross-Machine Sync](/docs/how-to/sharing/cross-machine-sync) | コンピューター間で Skill を Sync する |
+| [プライベートネットワーク上のマシン](/docs/how-to/sharing/private-network) | ホスト型 Git なし、別のマシンのダッシュボード、MCP で提供する Skill |
 | [Hub Index](/docs/how-to/sharing/hub-index) | Skill Hub を閲覧・管理する |
 
 ### 上級

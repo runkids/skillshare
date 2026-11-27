@@ -1,7 +1,9 @@
 package install
 
 import (
+	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -121,6 +123,77 @@ func TestInstalledCommit(t *testing.T) {
 	} {
 		if got := installedCommit(&MetadataEntry{Version: c.version, Commit: c.commit}); got != c.want {
 			t.Errorf("installedCommit(%q, %q) = %q, want %q", c.version, c.commit, got, c.want)
+		}
+	}
+}
+
+func TestUpstreamChanges_DiffsInstalledAgainstLatest(t *testing.T) {
+	repo := initTestRepo(t)
+	write := func(name, body string) {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(repo, name), []byte(body), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("SKILL.md", "---\nname: alpha\n---\nv1\n")
+	write("old.md", "old\n")
+	gitAdd(t, repo, ".")
+	gitCommit(t, repo, "v1")
+
+	sourceDir := t.TempDir()
+	dest := filepath.Join(sourceDir, "alpha")
+	source, err := ParseSource("file://" + repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Install(source, dest, InstallOptions{SourceDir: sourceDir, SkipAudit: true}); err != nil {
+		t.Fatal(err)
+	}
+	entry := LoadMetadataOrNew(sourceDir).Get("alpha")
+
+	// Up to date: nothing is fetched, so even an unusable remote is fine.
+	same, err := UpstreamChanges(entry, ParseOptions{}, installedCommit(entry)[:7])
+	if err != nil || len(same.Files) != 0 {
+		t.Fatalf("up to date: files = %+v, err = %v", same, err)
+	}
+
+	write("SKILL.md", "---\nname: alpha\n---\nv2\n")
+	write("new.md", "new\n")
+	if err := os.Remove(filepath.Join(repo, "old.md")); err != nil {
+		t.Fatal(err)
+	}
+	gitAdd(t, repo, ".")
+	gitCommit(t, repo, "v2")
+	headOut, err := exec.Command("git", "-C", repo, "rev-parse", "HEAD").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	head := strings.TrimSpace(string(headOut))
+
+	got, err := UpstreamChanges(entry, ParseOptions{}, head)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var files []string
+	for _, c := range got.Files {
+		files = append(files, c.Status+" "+c.Path)
+	}
+	want := "modified SKILL.md|added new.md|deleted old.md"
+	if strings.Join(files, "|") != want {
+		t.Errorf("files = %q, want %q", strings.Join(files, "|"), want)
+	}
+	if got.From == got.To || got.To != head {
+		t.Errorf("from %q, to %q: want different commits ending at %q", got.From, got.To, head)
+	}
+	if !strings.Contains(got.Files[0].Diff, "- v1") || !strings.Contains(got.Files[0].Diff, "+ v2") {
+		t.Errorf("SKILL.md diff = %q", got.Files[0].Diff)
+	}
+}
+
+func TestUpstreamChanges_NoInstallRecord(t *testing.T) {
+	for _, e := range []*MetadataEntry{nil, {Tracked: true, RepoURL: "u", Version: "abc1234"}, {RepoURL: "u"}} {
+		if _, err := UpstreamChanges(e, ParseOptions{}, "abc1234"); !errors.Is(err, ErrNoInstallRecord) {
+			t.Errorf("entry %+v: err = %v, want ErrNoInstallRecord", e, err)
 		}
 	}
 }

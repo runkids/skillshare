@@ -220,7 +220,7 @@ $ skillshare sync
   Context  ~1.2K tokens always loaded · ~18.5K on demand
 ```
 
-직접 만든 폴더가 skill의 sync 대상 이름을 이미 차지하고 있으면, sync는 그 폴더를 그대로 두고 skill을 설치하지 않습니다. 이런 폴더가 있는 target마다 처음 몇 개의 이름을 알려 주는 한 줄(`kept local: a, b (sync --force replaces them)`)이 출력되며, `up to date`가 아닌 `local`로 집계됩니다. `skillshare diff`는 이들을 `Local override`로 보여 줍니다.
+직접 만든 폴더가 skill의 sync 대상 이름을 이미 차지하고 있으면, sync는 그 폴더를 그대로 두고 skill을 설치하지 않습니다. 다른 도구가 둔 링크(source 밖을 가리키고 manifest에 기록되지 않은 것)도 똑같이 처리됩니다. 이런 폴더가 있는 target마다 처음 몇 개의 이름을 알려 주는 한 줄(`kept local: a, b (sync --force replaces them)`)이 출력되며, `up to date`가 아닌 `local`로 집계됩니다. `skillshare diff`는 이들을 `Local override`로 보여 줍니다.
 
 ---
 
@@ -308,7 +308,8 @@ source나 target 디렉터리를 symlink로 연결하는 dotfiles manager(GNU St
 
 - **Symlink된 source** — 모든 command(`sync`, `update`, `uninstall`, `list`, `diff`, `install`)는 순회하기 전에 symlink를 resolve하므로 skill이 올바르게 발견됩니다. 연쇄된 symlink(link → link → real dir)도 작동합니다.
 - **Symlink된 target** — `sync`는 target symlink가 skillshare에 의해 생성되지 **않았음**을 감지하고 이를 보존합니다. skill은 resolve된 디렉터리로 sync됩니다.
-- **Status/collect** — `status`와 `collect`는 conflict를 보고하는 대신 외부 target symlink를 따라갑니다.
+- **Status/diff/collect** — `status`, `diff`, `collect`는 conflict를 보고하는 대신 외부 target symlink를 따라갑니다.
+- **Backup/restore** — `backup`와 `restore`는 외부 target symlink가 가리키는 디렉터리를 사용하고 링크는 그대로 유지합니다. `target remove`는 링크를 유지하고 그 링크가 가리키는 디렉터리를 정리합니다.
 
 :::info sync의 판단 방식
 target 디렉터리가 symlink인 경우, sync는 그것이 skillshare source 디렉터리를 가리키는지 확인합니다. skillshare 자체의 symlink mode로 생성된 symlink만 mode 변환 중에 제거됩니다 — dotfiles manager로부터의 외부 symlink는 항상 보존됩니다.
@@ -700,6 +701,7 @@ config에서 경고 임계값을 설정할 수 있습니다.
 context_budget:
   warn_always_loaded_tokens: 10000   # 기본값; 0 = 비활성화
   warn_on_demand_tokens: 100000      # 기본값; 0 = 비활성화
+  warn_mcp_tool_tokens: 30000        # 기본값; 0 = 비활성화
 ```
 
 임계값이 초과되면 상위 3개 원인과 함께 경고가 표시됩니다.
@@ -711,6 +713,16 @@ context_budget:
      • another-verbose-skill           ~6,400 tokens
      • chatgpt-system-prompt           ~5,100 tokens
    Run `skillshare analyze` for details.
+```
+
+### MCP Tool Definitions
+
+`skillshare sync mcp`와 `skillshare sync --all`은 MCP 단계가 끝난 뒤(바뀐 파일이 없어도) 각 MCP target의 도구 정의 비용도 출력하고, target(또는 `mcp.projects` 루트)이 `warn_mcp_tool_tokens`를 넘으면 경고합니다. 집계 값은 [`mcp check --live`](/docs/reference/commands/mcp#count-tool-tokens)에서 가져오므로, live 검사로 서버를 집계하기 전에는 아무것도 출력되지 않습니다. 아직 집계되지 않은 서버는 0으로 세지 않고 이름으로 표시합니다:
+
+```
+MCP tool definitions (upper bound)  claude ~6.8K · codex ~5.7K
+! claude: MCP tool definitions are ~6,750 tokens (budget: 5,000)
+   Largest: github ~3,276, playwright ~1,932, sentry ~1,092
 ```
 
 ### Quiet 모드

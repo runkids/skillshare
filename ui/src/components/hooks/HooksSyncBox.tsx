@@ -1,25 +1,49 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertCircle, CircleCheck, RefreshCw } from 'lucide-react';
+import { AlertCircle, ChevronRight, CircleCheck, RefreshCw, ShieldCheck } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { hooksApi, type HookChange, type HookEntry, type HookMutation, type HookPlan } from '../../api/hooks';
+import {
+  hooksApi,
+  type HookChange,
+  type HookEntry,
+  type HookMutation,
+  type HookPlan,
+} from '../../api/hooks';
 import { useTheme } from '../../context/ThemeContext';
 import { useT, plural } from '../../i18n';
-import { shortenHome } from '../../lib/paths';
+import { relativeTo, shortenHome } from '../../lib/paths';
 import { queryKeys } from '../../lib/queryKeys';
 import Button from '../Button';
 import DialogShell from '../DialogShell';
 import Spinner from '../Spinner';
 import { SyncBox } from '../StatusRail';
+import { useAppContext } from '../../context/AppContext';
+import CodexTrustDialog from './CodexTrustDialog';
 import HooksPreview from './HooksPreview';
-import { actionLabel, blockedHint, fileName, hookLabel, needsTakeover, rootPlan, writes } from './hooksView';
+import {
+  actionLabel,
+  agentOfKey,
+  blockedHint,
+  fileName,
+  groupChanges,
+  hookLabel,
+  needsTakeover,
+  rootPlan,
+  writes,
+} from './hooksView';
 import { invalidate } from '../../lib/queryEvents';
 
 /**
  * Confirm, then write. The dialog previews afresh and applies exactly that plan, so a source or native
  * file that changed since the page loaded is refused, not overwritten.
  */
-export function HooksSyncDialog({ project, takeover, canTakeOver, onTakeover, onClose }: {
+export function HooksSyncDialog({
+  project,
+  takeover,
+  canTakeOver,
+  onTakeover,
+  onClose,
+}: {
   project?: string;
   /** Replace this hook's conflicting native outputs. That plan applies as a whole, since `replace` is not kept in the source. */
   takeover?: { name: string; entry: HookEntry };
@@ -30,8 +54,19 @@ export function HooksSyncDialog({ project, takeover, canTakeOver, onTakeover, on
 }) {
   const t = useT();
   const cache = useQueryClient();
-  const mutation: HookMutation = takeover ? { ...(project && { project }), name: takeover.name, entry: takeover.entry, replace: true } : {};
-  const { data: plan, error: previewError, isPending } = useQuery({ queryKey: queryKeys.hooksSyncPreview(project ?? '', takeover?.name ?? ''), queryFn: () => hooksApi.preview(mutation), gcTime: 0, retry: false });
+  const mutation: HookMutation = takeover
+    ? { ...(project && { project }), name: takeover.name, entry: takeover.entry, replace: true }
+    : {};
+  const {
+    data: plan,
+    error: previewError,
+    isPending,
+  } = useQuery({
+    queryKey: queryKeys.hooksSyncPreview(project ?? '', takeover?.name ?? ''),
+    queryFn: () => hooksApi.preview(mutation),
+    gcTime: 0,
+    retry: false,
+  });
   // A project sees and is blocked by only its own root, takeover included; the revision is still the whole plan's.
   const view = plan && rootPlan(plan, project);
   const [running, setRunning] = useState(false);
@@ -54,27 +89,74 @@ export function HooksSyncDialog({ project, takeover, canTakeOver, onTakeover, on
       void invalidate(cache, 'hooksSynced');
     }
   };
-  const title = takeover ? t('hooks.takeoverTitle', { name: takeover.name }) : t('hooks.syncButton');
+  const title = takeover
+    ? t('hooks.takeoverTitle', { name: takeover.name })
+    : t('hooks.syncButton');
   return (
-    <DialogShell open onClose={onClose} padding="none" maxWidth="2xl" preventClose={running} ariaLabel={title}>
+    <DialogShell
+      open
+      onClose={onClose}
+      padding="none"
+      maxWidth="2xl"
+      preventClose={running}
+      ariaLabel={title}
+    >
       <div className="dh">
         <div className="flex flex-col gap-1">
           <h2 className="ss-h2">{done ? t('syncPreview.titleComplete') : title}</h2>
-          {!done && <p className="text-[13px] text-ink-2">{takeover ? t('hooks.takeoverMessage') : t(project ? 'hooks.syncDialog.subtitle' : 'hooks.syncDialog.globalSubtitle')}</p>}
+          {!done && (
+            <p className="text-[13px] text-ink-2">
+              {takeover
+                ? t('hooks.takeoverMessage')
+                : t(project ? 'hooks.syncDialog.subtitle' : 'hooks.syncDialog.globalSubtitle')}
+            </p>
+          )}
         </div>
       </div>
       <div className="db">
-        {done ? <div className="ss-note inf"><CircleCheck size={16} /><span className="flex-1">{t('hooks.syncDialog.done')}</span></div>
-          : isPending ? <Spinner size="sm" />
-          : view && <HooksPreview plan={view} canTakeOver={takeover ? undefined : canTakeOver} onTakeover={takeover ? undefined : onTakeover} />}
-        {(previewError || error) && <div className="ss-note bad" role="alert"><AlertCircle size={16} /><span className="flex-1">{previewError?.message ?? error}</span></div>}
+        {done ? (
+          <div className="ss-note inf">
+            <CircleCheck size={16} />
+            <span className="flex-1">{t('hooks.syncDialog.done')}</span>
+          </div>
+        ) : isPending ? (
+          <Spinner size="sm" />
+        ) : (
+          view && (
+            <HooksPreview
+              plan={view}
+              canTakeOver={takeover ? undefined : canTakeOver}
+              onTakeover={takeover ? undefined : onTakeover}
+            />
+          )
+        )}
+        {(previewError || error) && (
+          <div className="ss-note bad" role="alert">
+            <AlertCircle size={16} />
+            <span className="flex-1">{previewError?.message ?? error}</span>
+          </div>
+        )}
       </div>
       <div className="df">
-        {done ? <Button variant="primary" onClick={onClose}>{t('syncPreview.closeButton')}</Button> : (
+        {done ? (
+          <Button variant="primary" onClick={onClose}>
+            {t('syncPreview.closeButton')}
+          </Button>
+        ) : (
           <>
-            <Button variant="secondary" onClick={onClose} disabled={running}>{t('syncPreview.cancelButton')}</Button>
+            <Button variant="secondary" onClick={onClose} disabled={running}>
+              {t('syncPreview.cancelButton')}
+            </Button>
             {/* A refused write means the plan moved: close and reopen for a fresh one rather than retry it. */}
-            {!error && <Button onClick={() => void sync()} loading={running} disabled={!view || view.blocked}>{t('syncPreview.syncNowButton')}</Button>}
+            {!error && (
+              <Button
+                onClick={() => void sync()}
+                loading={running}
+                disabled={!view || view.blocked}
+              >
+                {t('syncPreview.syncNowButton')}
+              </Button>
+            )}
           </>
         )}
       </div>
@@ -82,41 +164,182 @@ export function HooksSyncDialog({ project, takeover, canTakeOver, onTakeover, on
   );
 }
 
-/** What Sync would write. This is Skillshare's side only: whether an Agent trusts and loads it is that Agent's call. */
-export default function HooksSyncBox({ plan, project, canTakeOver, onTakeover }: { plan: HookPlan; project?: string; canTakeOver?: (c: HookChange) => boolean; onTakeover?: (name: string) => void }) {
+/** One pending change: the hook, what happens to it, and the target file. `root`: also name the project it writes to. */
+function PendingLine({ change: c, root }: { change: HookChange; root?: boolean }) {
   const t = useT();
-  const { style } = useTheme();
+  return (
+    <div className="flex flex-col text-[13px] text-ink-2">
+      <span className="flex items-baseline gap-1.5">
+        <span className="min-w-0 flex-1 break-all font-mono text-[12.5px] font-semibold text-ink">
+          {c.name}
+        </span>
+        <span className="shrink-0 font-mono text-xs text-ink">{actionLabel(t, c.action)}</span>
+      </span>
+      <span className="break-all text-xs">
+        {[hookLabel(c.target), root && c.root && shortenHome(c.root), fileName(c.path)]
+          .filter(Boolean)
+          .join(' · ')}
+      </span>
+    </div>
+  );
+}
+
+/** Pending changes grouped by hook and action; a group with several targets opens to their files. */
+function PendingGroups({ changes }: { changes: HookChange[] }) {
+  const t = useT();
+  const [open, setOpen] = useState('');
+  return (
+    <div className="flex flex-col gap-1.5">
+      {groupChanges(changes).map((g) => {
+        const key = `${g.name}\0${g.action}`;
+        if (g.changes.length === 1) return <PendingLine key={key} change={g.changes[0]} />;
+        const expanded = open === key;
+        return (
+          <div key={key} className="flex flex-col gap-1.5">
+            <button
+              type="button"
+              aria-expanded={expanded}
+              className="flex items-baseline gap-1.5 text-left text-[13px] text-ink-2"
+              onClick={() => setOpen(expanded ? '' : key)}
+            >
+              <span
+                className="max-w-[45%] shrink-0 truncate font-mono text-[12.5px] font-semibold text-ink"
+                title={g.name}
+              >
+                {g.name}
+              </span>
+              <span className="min-w-0 flex-1 truncate">
+                → {t(plural('hooks.targetCount', g.changes.length), { count: g.changes.length })}
+              </span>
+              <span className="shrink-0 font-mono text-xs text-ink">
+                {actionLabel(t, g.action)}
+              </span>
+              <ChevronRight
+                size={14}
+                className={`shrink-0 self-center transition-transform duration-150 ease-[cubic-bezier(.23,1,.32,1)] motion-reduce:transition-none ${expanded ? 'rotate-90' : ''}`}
+              />
+            </button>
+            {expanded && (
+              <div className="flex flex-col gap-0.5 pb-1 text-xs text-ink-2">
+                {g.changes.map((c) => (
+                  <span key={`${c.path}:${c.target}`} className="break-all">
+                    {hookLabel(c.target)} · {c.root ? relativeTo(c.root, c.path) : fileName(c.path)}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/** What Sync would write. This is Skillshare's side only: whether an Agent trusts and loads it is that Agent's call. */
+export default function HooksSyncBox({
+  plan,
+  project,
+  accounts = {},
+  canTakeOver,
+  onTakeover,
+}: {
+  plan: HookPlan;
+  project?: string;
+  /** Account target name → Agent, so `codex-2` counts as Codex. */ accounts?: Record<
+    string,
+    string
+  >;
+  canTakeOver?: (c: HookChange) => boolean;
+  onTakeover?: (name: string) => void;
+}) {
+  const t = useT();
+  const { baseStyle: style } = useTheme();
   const [reviewing, setReviewing] = useState(false);
+  const { isProjectMode } = useAppContext();
+  const [trusting, setTrusting] = useState(false);
   const pending = plan.changes.filter(writes);
+  // A project prop denotes a global hooks.projects block, not a project-mode dashboard.
+  // Trust covers the hooks on disk, so it waits until pending changes are synced.
+  const hasCodex =
+    !project &&
+    (!isProjectMode || !plan.blocked) &&
+    pending.length === 0 &&
+    plan.changes.some((c) => !c.root && agentOfKey(accounts, c.target) === 'codex');
   const conflicts = plan.changes.filter((c) => c.action === 'conflict');
   const inactive = plan.changes.filter((c) => c.action === 'inactive' || c.inactiveReason);
-  const inactiveReasons = [...new Set(inactive.map((c) => c.inactiveReason || c.message).filter(Boolean))];
-  const state = pending.length > 0 ? t(plural('mcp.pending', pending.length), { count: pending.length }) : conflicts.length > 0 ? t(conflicts.every(needsTakeover) ? 'hooks.status.unmanaged' : 'mcp.status.conflict') : inactive.length > 0 ? t('hooks.status.inactive') : t('targets.state.synced');
+  const inactiveReasons = [
+    ...new Set(inactive.map((c) => c.inactiveReason || c.message).filter(Boolean)),
+  ];
+  // A project counts hooks, as its list groups each hook's targets into one line.
+  const pendingHooks = new Set(pending.map((c) => c.name)).size;
+  const state =
+    pending.length > 0
+      ? project
+        ? t(plural('projects.hooks.pending', pendingHooks), { count: pendingHooks })
+        : t(plural('mcp.pending', pending.length), { count: pending.length })
+      : conflicts.length > 0
+        ? t(conflicts.every(needsTakeover) ? 'hooks.status.unmanaged' : 'mcp.status.conflict')
+        : inactive.length > 0
+          ? t('hooks.status.inactive')
+          : t('targets.state.synced');
   return (
     // The clean theme is black and white only; playful keeps its tint.
-    <SyncBox tone={pending.length > 0 || conflicts.length > 0 || inactive.length > 0 ? (style === 'clean' ? 'plain' : 'warn') : style === 'clean' ? 'plain' : 'ok'} state={state}>
-      {pending.length > 0 && (
-        <div className="flex flex-col gap-1.5">
-          {/* The target file gets its own line, so it wraps instead of being cut short at rail width. */}
-          {pending.map((c) => (
-            <div key={`${c.path}:${c.target}:${c.name}`} className="flex flex-col text-[13px] text-ink-2">
-              <span className="flex items-baseline gap-1.5">
-                <span className="min-w-0 flex-1 break-all font-mono text-[12.5px] font-semibold text-ink">{c.name}</span>
-                <span className="shrink-0 font-mono text-xs text-ink">{actionLabel(t, c.action)}</span>
-              </span>
-              <span className="break-all text-xs">{[hookLabel(c.target), c.root && !project && shortenHome(c.root), fileName(c.path)].filter(Boolean).join(' · ')}</span>
-            </div>
-          ))}
-        </div>
-      )}
+    <SyncBox
+      tone={
+        pending.length > 0 || conflicts.length > 0 || inactive.length > 0
+          ? style === 'clean'
+            ? 'plain'
+            : 'warn'
+          : style === 'clean'
+            ? 'plain'
+            : 'ok'
+      }
+      state={state}
+    >
+      {pending.length > 0 &&
+        (project ? (
+          // One project: a hook going to several targets is one line that opens to its files.
+          <PendingGroups changes={pending} />
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            {/* The target file gets its own line, so it wraps instead of being cut short at rail width. */}
+            {pending.map((c) => (
+              <PendingLine key={`${c.path}:${c.target}:${c.name}`} change={c} root />
+            ))}
+          </div>
+        ))}
       {conflicts.length > 0 && (
         <div className="flex flex-col gap-2">
           {conflicts.map((c) => (
             <div key={`${c.path}:${c.target}:${c.name}`} className="flex flex-col gap-0.5 text-xs">
-              <span className="flex items-center gap-1.5"><AlertCircle size={13} className="shrink-0 text-warn" /><span className="truncate font-mono font-semibold" title={c.name}>{c.name}</span><span className="text-ink-2">{hookLabel(c.target)}</span></span>
-              <span className="truncate font-mono text-ink-3" title={c.path}>{shortenHome(c.path)}</span>
-              {c.root && !project && <Link to={`/projects/${encodeURIComponent(c.root)}?tab=hooks`} className="w-fit font-semibold text-ink-2 hover:text-ink">{shortenHome(c.root)}</Link>}
-              {onTakeover && canTakeOver?.(c) && <button type="button" className="w-fit font-semibold text-ink-2 hover:text-ink" aria-label={`${t('hooks.takeoverMenu')} · ${c.name}`} onClick={() => onTakeover(c.name)}>{t('hooks.takeoverMenu')}</button>}
+              <span className="flex items-center gap-1.5">
+                <AlertCircle size={13} className="shrink-0 text-warn" />
+                <span className="truncate font-mono font-semibold" title={c.name}>
+                  {c.name}
+                </span>
+                <span className="text-ink-2">{hookLabel(c.target)}</span>
+              </span>
+              <span className="truncate font-mono text-ink-3" title={c.path}>
+                {shortenHome(c.path)}
+              </span>
+              {c.root && !project && (
+                <Link
+                  to={`/projects/${encodeURIComponent(c.root)}?tab=hooks`}
+                  className="w-fit font-semibold text-ink-2 hover:text-ink"
+                >
+                  {shortenHome(c.root)}
+                </Link>
+              )}
+              {onTakeover && canTakeOver?.(c) && (
+                <button
+                  type="button"
+                  className="w-fit font-semibold text-ink-2 hover:text-ink"
+                  aria-label={`${t('hooks.takeoverMenu')} · ${c.name}`}
+                  onClick={() => onTakeover(c.name)}
+                >
+                  {t('hooks.takeoverMenu')}
+                </button>
+              )}
             </div>
           ))}
         </div>
@@ -124,13 +347,50 @@ export default function HooksSyncBox({ plan, project, canTakeOver, onTakeover }:
       {(pending.length > 0 || conflicts.length > 0) && (
         <>
           {/* A blocked plan stays reviewable; the dialog is what refuses to write it. */}
-          <Button className="w-full justify-center" variant={plan.blocked ? 'secondary' : undefined} onClick={() => setReviewing(true)}>{plan.blocked ? <AlertCircle size={15} /> : <RefreshCw size={15} />}{t(plan.blocked ? 'hooks.viewConflicts' : 'hooks.syncButton')}</Button>
-          {plan.blocked && <p className="text-xs leading-normal text-warn">{blockedHint(t, plan)}</p>}
+          <Button
+            className="w-full justify-center"
+            variant={plan.blocked ? 'secondary' : undefined}
+            onClick={() => setReviewing(true)}
+          >
+            {plan.blocked ? <AlertCircle size={15} /> : <RefreshCw size={15} />}
+            {t(plan.blocked ? 'hooks.viewConflicts' : 'hooks.syncButton')}
+          </Button>
+          {plan.blocked && (
+            <p className="text-xs leading-normal text-warn">{blockedHint(t, plan)}</p>
+          )}
         </>
       )}
-      {inactiveReasons.map((reason) => <p key={reason} className="text-xs leading-normal text-ink-2">{reason}</p>)}
+      {hasCodex && (
+        <Button
+          className="w-full justify-center"
+          variant="secondary"
+          onClick={() => setTrusting(true)}
+        >
+          <ShieldCheck size={15} />
+          {t('hooks.codexTrust.button')}
+        </Button>
+      )}
+      {inactiveReasons.map((reason) => (
+        <p key={reason} className="text-xs leading-normal text-ink-2">
+          {reason}
+        </p>
+      ))}
       <p className="text-xs leading-normal text-ink-2">{t('hooks.syncHint')}</p>
-      {reviewing && <HooksSyncDialog project={project} canTakeOver={canTakeOver} onTakeover={onTakeover && ((name) => { setReviewing(false); onTakeover(name); })} onClose={() => setReviewing(false)} />}
+      {trusting && <CodexTrustDialog onClose={() => setTrusting(false)} />}
+      {reviewing && (
+        <HooksSyncDialog
+          project={project}
+          canTakeOver={canTakeOver}
+          onTakeover={
+            onTakeover &&
+            ((name) => {
+              setReviewing(false);
+              onTakeover(name);
+            })
+          }
+          onClose={() => setReviewing(false)}
+        />
+      )}
     </SyncBox>
   );
 }

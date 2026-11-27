@@ -703,7 +703,7 @@ projects:
 - **`target` と `collect` は project に触れません。** `skillshare target` は `targets` セクションのみを一覧・編集し、`collect` は project 自身の Skill を Source に取り込みません。[`skillshare project`](/docs/reference/commands/project) でプロジェクトの追加・編集・同期・削除を行うか、ダッシュボードの **プロジェクト** ページを使用してください。
 - `targets` フロントマターフィールドを持つ Skill はツールと照合されるため、`targets: [claude]` は `shop-web@claude` に届きます。
 
-同じフォルダーの MCP サーバーは、同じフォルダーをキーとして [`mcp.projects`](/docs/reference/commands/mcp#manage-several-projects-from-the-global-config) に一覧されます。手順は[多数の Project を 1 つの Config で](/docs/how-to/recipes/many-projects-one-config)を参照してください。
+同じフォルダーの MCP サーバーは、同じフォルダーをキーとして [`mcp.projects`](/docs/reference/commands/mcp#manage-several-projects-from-the-global-config) に一覧されます。`global: false` のサーバーは、`use` に列挙したフォルダーにのみ読み込まれます。[選んだ project とサーバーを共有する](/docs/reference/commands/mcp#share-a-server-with-chosen-projects)を参照してください。手順は[多数の Project を 1 つの Config で](/docs/how-to/recipes/many-projects-one-config)を参照してください。
 
 ### `projects_storage` {#projects-storage}
 
@@ -783,7 +783,7 @@ Extras はグローバルモードとプロジェクトモードの両方で機�
 
 ### `ignore`
 
-Sync 中にスキップするファイルの glob パターン。
+Sync 中にスキップするファイルの glob パターン。`diff` も copy モードのターゲットを比較するとき、同じファイルを除外します。
 
 ```yaml
 ignore:
@@ -793,8 +793,11 @@ ignore:
 ```
 
 **デフォルトのパターン:**
-- `**/.DS_Store`
-- `**/.git/**`
+- `.DS_Store`
+- `.git/`
+- `__pycache__/`
+
+後に書いた `!` パターンは、無視したフォルダ内のファイルであってもパスを再び含めます。`docs/` と `!docs/keep.md` を指定すると、`docs/` からは `docs/keep.md` だけがコピーされます。`!*.md` のようにアンカーされていない否定パターンは、無視したすべてのフォルダ内の一致するファイルを再び含めるため、sync はそれらのフォルダも走査します。
 
 ### `gitlab_hosts`
 
@@ -977,14 +980,16 @@ audit:
 context_budget:
   warn_always_loaded_tokens: 10000
   warn_on_demand_tokens: 100000
+  warn_mcp_tool_tokens: 30000
 ```
 
 | フィールド | 型 | デフォルト | 説明 |
 |-------|------|---------|--------------|
 | `warn_always_loaded_tokens` | 整数 | `10000` | 常時ロードされるトークンがこの値を超えた場合に警告する。`0` で無効化 |
 | `warn_on_demand_tokens` | 整数 | `100000` | オンデマンドのトークンがこの値を超えた場合に警告する。`0` で無効化 |
+| `warn_mcp_tool_tokens` | 整数 | `30000` | 1 つの MCP Target（Skill の Target ではなく、`claude` などの `mcp.targets` の Agent）の MCP ツール定義が、1 か所（global の一覧、または各 `mcp.projects` ルート）でこの値を超えた場合に警告する。数は `mcp check --live` から取得し、まだ数えていないサーバーは含まれない。`0` で無効化 |
 
-省略した場合、デフォルトが適用されます（10K / 100K）。警告を抑制するには `skillshare sync --quiet` を
+省略した場合、デフォルトが適用されます（10K / 100K / 30K）。警告を抑制するには `skillshare sync --quiet` を
 使用してください。出力フォーマットは [sync — Context Cost](/docs/reference/commands/sync#context-cost)
 を参照してください。
 

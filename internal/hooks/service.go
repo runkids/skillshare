@@ -22,9 +22,14 @@ type Service struct {
 	ConfigDirs    map[string]string
 	Accounts      map[string]Account // global scope only
 	scopedAccount string
-	Git           GitRunner
+	// OpenCodeVersion is an injectable read-only version probe.
+	OpenCodeVersion func(string) (string, error)
+	Git             GitRunner
 	// GitGlobalConfig is the file override Git honors in GIT_CONFIG_GLOBAL.
 	GitGlobalConfig string
+	// CodexAppServer starts Codex's app-server for one Codex home; nil runs `codex app-server`.
+	// defaultHome is true when the user's Codex finds that home as ~/.codex, not CODEX_HOME.
+	CodexAppServer func(home string, defaultHome bool) (CodexAppServer, error)
 }
 
 // Mutation is shared by CLI and dashboard preview/save/sync flows. An empty
@@ -125,6 +130,9 @@ type Result struct {
 	Plan      *Plan    `json:"plan,omitempty"`
 	Applied   []string `json:"applied"`
 	BackupIDs []string `json:"backupIds"`
+	// CodexTrust is set by sync --trust.
+	CodexTrustError string       `json:"codexTrustError,omitempty"`
+	CodexTrust      []CodexTrust `json:"codexTrust,omitempty"`
 }
 
 // SourceInfo is the declaration shown by List.
@@ -188,6 +196,10 @@ type Candidate struct {
 	Entry    Entry    `json:"entry"`
 	Problems []string `json:"problems"`
 	Warnings []string `json:"warnings"`
+	// Editable marks unmanaged hooks a NativeEdit can change or remove in place.
+	Editable bool `json:"editable,omitempty"`
+	// Source is the Antigravity block or Copilot file an editable hook was read from.
+	Source string `json:"source,omitempty"`
 }
 
 // ConfigDirsFromEnv reads the Agent directory overrides Agents themselves honor.

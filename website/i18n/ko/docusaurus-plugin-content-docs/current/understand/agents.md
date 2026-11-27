@@ -193,7 +193,7 @@ skillshare collect -p agents --json
 
 ## `.agentignore`
 
-`.skillignore`와 동일하게 동작합니다 — sync에서 agent를 제외하는 gitignore 스타일 패턴입니다.
+`.skillignore`와 동일하게 동작합니다 — sync에서 agent를 제외하는 gitignore 스타일 패턴입니다. `list`와 대시보드에는 무시된 agent도 비활성화 상태로 표시되며, `archive/`처럼 무시된 폴더 안의 모든 agent도 포함됩니다.
 
 | 범위 | 경로 |
 |-------|-------|
@@ -206,7 +206,7 @@ skillshare collect -p agents --json
 # Disable draft agents
 draft-*
 # Disable a specific agent
-experimental-reviewer
+experimental-reviewer.md
 ```
 
 항목을 관리하려면 `--kind agent`와 함께 `enable`/`disable`을 사용하세요:

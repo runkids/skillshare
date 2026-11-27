@@ -137,6 +137,8 @@ claude
 
 Both `--stat` and `--patch` imply `--no-tui` (plain text output).
 
+For a copy-mode target, file-level details leave out the files sync does not copy: those matching [`ignore`](/docs/reference/targets/configuration#ignore) or its default patterns.
+
 ## What Diff Shows
 
 ### Merge Mode Targets
@@ -145,6 +147,7 @@ For targets using merge mode (default):
 - Lists skills in source not yet symlinked to target
 - Shows skills that exist as local copies instead of symlinks
 - Identifies local-only skills in target (not in source — preserved by sync)
+- Shows links to skills no longer in source (will be pruned on sync)
 
 ### Copy Mode Targets
 
@@ -159,6 +162,8 @@ For targets using copy mode:
 For targets using symlink mode:
 - Simply checks if symlink points to correct source
 - Shows "in sync" or warns about wrong symlink
+
+A merge or copy target whose folder is still a link to the source is checked the same way. A folder that is another tool's link (a dotfiles manager) is compared as the directory it leads to; if that link leads nowhere, `diff` reports it instead of listing every skill.
 
 ## Use Cases
 
@@ -212,7 +217,7 @@ skillshare diff agents claude      # Specific target
 skillshare diff agents --json      # JSON output
 ```
 
-Agent diff shows missing agents (need sync), orphan symlinks (need prune), and local-only agent files. Only targets with an `agents` path configuration are included. See [Agents — Supported Targets](/docs/understand/agents#supported-targets) for the full list.
+Agent diff shows missing agents (need sync), orphan symlinks that sync will prune, and local-only agent files. Only targets with an `agents` path configuration are included. See [Agents — Supported Targets](/docs/understand/agents#supported-targets) for the full list.
 
 ---
 

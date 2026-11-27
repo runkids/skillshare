@@ -77,6 +77,7 @@ skillshare push --pull
 - **競合の解決**: `pull` は両方のマシンのコミットをマージし、`.metadata.json` の競合は自動で解決します。
   両方のマシンが同じ Skill ファイルを編集した場合、`pull` は停止してマージを取り消し、該当ファイルを表示します —
   Source ディレクトリ内で git を使って解決してください
+- **ホスト型 Git なし**: リポジトリを自分のマシンの 1 台に置いて SSH 経由で接続し、別のマシンは `ssh <host> skillshare pull` で更新する。[プライベートネットワーク上のマシン](/docs/how-to/sharing/private-network) を参照
 - **選択的な Sync**: `config.yaml` の Target ごとの `include` / `exclude` フィルターを使い、
   各マシンに Sync される Skill を制御する
 - **Plugins、MCP、hooks**: これらは `config.yaml` にあり、`push` / `pull` では移動しません。[Plugins、MCP、Hooks](/docs/how-to/sharing/cross-machine-sync#plugins-mcp-hooks) を参照してください

@@ -1,6 +1,8 @@
 package config
 
 import (
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -50,7 +52,7 @@ func TestMCPEmptyInlinePresenceSurvivesSave(t *testing.T) {
 	if !strings.Contains(string(data), "servers: {}") {
 		t.Fatalf("lost explicit empty source: %s", data)
 	}
-	if err := ValidateMCP(cfg.MCP, "mcp.yaml"); err == nil {
+	if err := ValidateMCP(cfg.MCP, MCPValidation{External: "mcp.yaml"}); err == nil {
 		t.Fatal("accepted two sources")
 	}
 }
@@ -60,7 +62,7 @@ func TestMCPValidationRejectsTwoSources(t *testing.T) {
 	if err := yaml.Unmarshal([]byte("sources:\n  mcp: ./mcp.yaml\nmcp:\n  servers: {}\n"), &cfg); err != nil {
 		t.Fatal(err)
 	}
-	if err := ValidateMCP(cfg.MCP, cfg.Sources.MCP); err == nil || !strings.Contains(err.Error(), "not both") {
+	if err := ValidateMCP(cfg.MCP, MCPValidation{External: cfg.Sources.MCP}); err == nil || !strings.Contains(err.Error(), "not both") {
 		t.Fatalf("MCP validation accepted ambiguous source: %v", err)
 	}
 }
@@ -71,7 +73,7 @@ func TestInvalidMCPSectionStillLoadsAndSaves(t *testing.T) {
 	if err := yaml.Unmarshal([]byte(input), &cfg); err != nil {
 		t.Fatalf("invalid MCP section broke config loading: %v", err)
 	}
-	if err := ValidateMCP(cfg.MCP, ""); err == nil {
+	if err := ValidateMCP(cfg.MCP, MCPValidation{}); err == nil {
 		t.Fatal("invalid MCP section passed validation")
 	}
 	data, err := yaml.Marshal(cfg)
@@ -86,7 +88,7 @@ func TestMCPProjectsSurviveSaveAndAreValidated(t *testing.T) {
 	if err := yaml.Unmarshal([]byte("mcp:\n  projects:\n    "+strconv.Quote(p1)+":\n      servers:\n        docs:\n          command: docs\n          targets: [cursor]\n"), &cfg); err != nil {
 		t.Fatal(err)
 	}
-	if err := ValidateMCP(cfg.MCP, ""); err != nil {
+	if err := ValidateMCP(cfg.MCP, MCPValidation{}); err != nil {
 		t.Fatalf("valid projects rejected: %v", err)
 	}
 	data, err := yaml.Marshal(cfg)
@@ -96,7 +98,7 @@ func TestMCPProjectsSurviveSaveAndAreValidated(t *testing.T) {
 	if err := yaml.Unmarshal([]byte("mcp:\n  projects:\n    work/p1:\n      servers: {}\n"), &cfg); err != nil {
 		t.Fatal(err)
 	}
-	if err := ValidateMCP(cfg.MCP, ""); err == nil {
+	if err := ValidateMCP(cfg.MCP, MCPValidation{}); err == nil {
 		t.Fatal("relative project root passed validation")
 	}
 }
@@ -106,7 +108,7 @@ func TestMCPDirectToolsDefaultSurvivesSaveAndIsValidated(t *testing.T) {
 	if err := yaml.Unmarshal([]byte("mcp:\n  directTools: [search]\n"), &cfg); err != nil {
 		t.Fatal(err)
 	}
-	if err := ValidateMCP(cfg.MCP, ""); err != nil {
+	if err := ValidateMCP(cfg.MCP, MCPValidation{}); err != nil {
 		t.Fatalf("valid default rejected: %v", err)
 	}
 	data, err := yaml.Marshal(cfg)
@@ -116,7 +118,7 @@ func TestMCPDirectToolsDefaultSurvivesSaveAndIsValidated(t *testing.T) {
 	if err := yaml.Unmarshal([]byte("mcp:\n  directTools: all\n"), &cfg); err != nil {
 		t.Fatal(err)
 	}
-	if err := ValidateMCP(cfg.MCP, ""); err == nil {
+	if err := ValidateMCP(cfg.MCP, MCPValidation{}); err == nil {
 		t.Fatal("bad default passed validation")
 	}
 }
@@ -159,7 +161,7 @@ func TestMCPValidationRejectsAnInvalidPreviewLifetime(t *testing.T) {
 	if err := yaml.Unmarshal([]byte("mcp:\n  serve:\n    edit:\n      skills: [pdf]\n      preview_ttl: soon\n"), &cfg); err != nil {
 		t.Fatal(err)
 	}
-	if err := ValidateMCP(cfg.MCP, ""); err == nil || !strings.Contains(err.Error(), "preview_ttl") {
+	if err := ValidateMCP(cfg.MCP, MCPValidation{}); err == nil || !strings.Contains(err.Error(), "preview_ttl") {
 		t.Errorf("ValidateMCP = %v, want the preview_ttl error", err)
 	}
 }
@@ -174,8 +176,72 @@ func TestMCPServeEditRejectsABlankPatternAndABadLifetimeAlone(t *testing.T) {
 		if err := yaml.Unmarshal([]byte(input), &cfg); err != nil {
 			t.Fatal(err)
 		}
-		if err := ValidateMCP(cfg.MCP, ""); err == nil {
+		if err := ValidateMCP(cfg.MCP, MCPValidation{}); err == nil {
 			t.Errorf("%q: ValidateMCP accepted it", input)
+		}
+	}
+}
+
+func TestMCPProjectUseIsCheckedAgainstServers(t *testing.T) {
+	p1 := strconv.Quote(absPath("/work/p1"))
+	for input, ok := range map[string]bool{
+		"mcp:\n  servers:\n    docs: {command: x, global: false}\n  projects:\n    " + p1 + ": {use: [docs]}\n": true,
+		"mcp:\n  servers:\n    docs: {command: x}\n  projects:\n    " + p1 + ": {use: [docs]}\n":                false,
+		"mcp:\n  projects:\n    " + p1 + ": {use: [docs]}\n":                                                    false,
+	} {
+		var cfg Config
+		if err := yaml.Unmarshal([]byte(input), &cfg); err != nil {
+			t.Fatal(err)
+		}
+		if err := ValidateMCP(cfg.MCP, MCPValidation{}); (err == nil) != ok {
+			t.Fatalf("%s: got %v", input, err)
+		}
+	}
+}
+
+func TestMCPSharedServerCannotNameAnAccount(t *testing.T) {
+	var cfg Config
+	if err := yaml.Unmarshal([]byte("mcp:\n  servers:\n    docs: {command: x, global: false, targets: [claude-work]}\n"), &cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidateMCP(cfg.MCP, MCPValidation{Accounts: []string{"claude-work"}}); err == nil || !strings.Contains(err.Error(), "claude-work") {
+		t.Fatalf("want a refusal naming the account, got %v", err)
+	}
+}
+
+func TestMCPEditorChecksOverrideTargets(t *testing.T) {
+	p1 := strconv.Quote(absPath("/work/p1"))
+	for _, target := range []string{"codx", "claude-work"} {
+		var cfg Config
+		input := "mcp:\n  servers:\n    docs: {command: x, global: false}\n  projects:\n    " + p1 + ":\n      use: [docs]\n      overrides:\n        docs: {targets: [" + target + "]}\n"
+		if err := yaml.Unmarshal([]byte(input), &cfg); err != nil {
+			t.Fatal(err)
+		}
+		if err := ValidateMCP(cfg.MCP, MCPValidation{Accounts: []string{"claude-work"}}); err == nil || !strings.Contains(err.Error(), target) {
+			t.Fatalf("%s: want a refusal naming it, got %v", target, err)
+		}
+	}
+}
+
+func TestMCPEditorChecksSharedServersWhereverTheyAre(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "mcp.yaml"), []byte("servers:\n  docs: {command: x}\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	p1 := strconv.Quote(absPath("/work/p1"))
+	for name, tc := range map[string]struct {
+		input string
+		opts  MCPValidation
+	}{
+		"external server is not shared": {"mcp:\n  projects:\n    " + p1 + ": {use: [docs]}\n", MCPValidation{ConfigPath: filepath.Join(dir, "config.yaml"), External: "mcp.yaml"}},
+		"project config":                {"mcp:\n  servers:\n    docs: {command: x, global: false}\n", MCPValidation{Project: true}},
+	} {
+		var cfg Config
+		if err := yaml.Unmarshal([]byte(tc.input), &cfg); err != nil {
+			t.Fatal(err)
+		}
+		if err := ValidateMCP(cfg.MCP, tc.opts); err == nil {
+			t.Fatalf("%s: accepted", name)
 		}
 	}
 }

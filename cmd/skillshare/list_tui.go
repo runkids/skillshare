@@ -1,17 +1,21 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"skillshare/internal/config"
+	"skillshare/internal/oplog"
 	"skillshare/internal/resource"
-	"skillshare/internal/skillignore"
+	"skillshare/internal/sourcewalk"
 	"skillshare/internal/sync"
 	"skillshare/internal/theme"
+	"skillshare/internal/toggle"
 	"skillshare/internal/utils"
 
 	"github.com/charmbracelet/bubbles/list"
@@ -95,6 +99,8 @@ type listTUIModel struct {
 	sourcePath       string
 	agentsSourcePath string
 	targets          map[string]config.TargetConfig
+	walk             sourcewalk.Options     // skills source traversal, as list's discovery used
+	cfgPath          string                 // config whose oplog records toggles
 	discovered       []sync.DiscoveredSkill // source skills; sync's name resolution needs all of them
 	defaultMode      string                 // skills mode of a target that sets none
 	quitting         bool
@@ -120,7 +126,8 @@ type listTUIModel struct {
 	// Status filter — pre-filters by enabled/disabled state (from list --status)
 	statusFilter listStatusFilter
 
-	showKeys bool // ? swaps the detail panel for the full key list
+	toggleErr error // shown on the note line until the next keypress
+	showKeys  bool  // ? swaps the detail panel for the full key list
 
 	// Application-level filter — replaces bubbles/list built-in fuzzy filter
 	// to avoid O(N*M) fuzzy scan on 100k+ items every keystroke.
@@ -369,6 +376,7 @@ func (m listTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case tea.KeyMsg:
+		m.toggleErr = nil
 		// Ignore keys while loading
 		if m.loading {
 			if msg.String() == "q" || msg.String() == "ctrl+c" {
@@ -509,25 +517,31 @@ func (m listTUIModel) toggleDisabled() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	var ignorePath string
+	src := toggle.Source{Root: m.sourcePath, Walk: m.walk}
 	if item.entry.Kind == "agent" {
-		ignorePath = filepath.Join(m.agentsSourcePath, ".agentignore")
-	} else {
-		ignorePath = filepath.Join(m.sourcePath, ".skillignore")
+		src = toggle.Source{Agent: true, Root: m.agentsSourcePath}
 	}
 	pattern := item.entry.RelPath
 	if pattern == "" {
 		pattern = item.entry.Name
 	}
 
+	start := time.Now()
 	newDisabled := !item.entry.Disabled
-	var writeErr error
-	if newDisabled {
-		_, writeErr = skillignore.AddPattern(ignorePath, pattern)
-	} else {
-		_, writeErr = skillignore.RemovePattern(ignorePath, pattern)
+	// Another rule can still decide the state, so the row shows what discovery sees.
+	var res toggle.Result
+	set, err := src.Discover()
+	if err == nil {
+		res, err = src.Apply(!newDisabled, set.ItemLines([]string{pattern}, !newDisabled), []string{pattern})
 	}
-	if writeErr != nil {
+	if err == nil && res.Items[0].Blocked != "" {
+		err = errors.New(res.Items[0].Blocked)
+	}
+	if err != nil || len(res.Items[0].Lines) > 0 {
+		m.logToggle(newDisabled, pattern, item.entry.Kind, start, err)
+	}
+	if err != nil {
+		m.toggleErr = err
 		return m, nil
 	}
 
@@ -569,6 +583,23 @@ func (m listTUIModel) toggleDisabled() (tea.Model, tea.Cmd) {
 	}
 	m.list.SetItems(items)
 	return m, nil
+}
+
+// logToggle records a t toggle in the oplog, as enable and disable do.
+func (m listTUIModel) logToggle(disable bool, name, kind string, start time.Time, err error) {
+	if m.cfgPath == "" {
+		return
+	}
+	action := "enable"
+	if disable {
+		action = "disable"
+	}
+	e := oplog.NewEntry(action, statusFromErr(err), time.Since(start))
+	e.Args = map[string]any{"name": name, "kind": kind, "via": "tui"}
+	if err != nil {
+		e.Message = err.Error()
+	}
+	oplog.WriteWithLimit(m.cfgPath, oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
 }
 
 // quitWithAction sets the action on the selected skill and exits the TUI.
@@ -618,6 +649,11 @@ func (m listTUIModel) toggleModelInvocation() (tea.Model, tea.Cmd) {
 	}
 	skillMD := filepath.Join(m.sourcePath, item.entry.RelPath, "SKILL.md")
 	if _, err := utils.ToggleFrontmatterFlag(skillMD, modelInvocationKey); err != nil {
+		// The selected skill is already visible; keep file errors to one short line.
+		if pathErr, ok := err.(*os.PathError); ok {
+			err = fmt.Errorf("%s: %w", pathErr.Op, pathErr.Err)
+		}
+		m.toggleErr = fmt.Errorf("SKILL.md: %w", err)
 		return m, nil
 	}
 	delete(m.detailCache, item.entry.RelPath) // the chip re-reads the file
@@ -687,6 +723,9 @@ func (m listTUIModel) renderBottom() string {
 	case m.filtering:
 		line = renderFilterLine(m.termWidth, m.filterInput.View(), m.matchCount)
 	default:
+		if m.toggleErr != nil {
+			note = truncateANSI("  "+theme.Danger().Render("✗")+" "+m.toggleErr.Error(), m.termWidth)
+		}
 		other := "agents"
 		if m.activeTab == listTabAgents {
 			other = "skills"
@@ -1035,8 +1074,10 @@ func (m listTUIModel) syncedTo(name string, tc config.TargetConfig, e skillEntry
 // When loadFn is non-nil, data is loaded asynchronously inside the TUI (no blank screen).
 // initialStatus comes from list --status and stays for the whole session.
 // Returns (action, skillName, skillKind, error). action is "" on normal quit (q/ctrl+c).
-func runListTUI(loadFn listLoadFn, modeLabel, sourcePath, agentsSourcePath string, targets map[string]config.TargetConfig, defaultMode string, initialKind resourceKindFilter, initialStatus listStatusFilter) (string, string, string, error) {
+func runListTUI(loadFn listLoadFn, modeLabel, cfgPath, sourcePath, agentsSourcePath string, targets map[string]config.TargetConfig, walk sourcewalk.Options, defaultMode string, initialKind resourceKindFilter, initialStatus listStatusFilter) (string, string, string, error) {
 	model := newListTUIModel(loadFn, nil, 0, modeLabel, sourcePath, agentsSourcePath, targets, initialKind)
+	model.cfgPath = cfgPath
+	model.walk = walk
 	model.defaultMode = defaultMode
 	model.statusFilter = initialStatus
 	p := tea.NewProgram(model, tea.WithAltScreen(), tea.WithMouseCellMotion())

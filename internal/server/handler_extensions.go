@@ -10,9 +10,10 @@ import (
 	"runtime"
 	"time"
 
-	"skillshare/internal/childproc"
+	"skillshare/internal/filepreview"
 	"skillshare/internal/install"
 	syncpkg "skillshare/internal/sync"
+	"skillshare/internal/wsl"
 )
 
 // extensionInfo is the JSON shape for one extension in the management list.
@@ -115,9 +116,32 @@ func (s *Server) handleExtensionsInstall(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, map[string]any{"success": true, "name": body.Name})
 }
 
+// handleExtensionsFiles — GET /api/extensions/files
+// Lists the extensions folder, so the page can show it where no file manager can open it.
+func (s *Server) handleExtensionsFiles(w http.ResponseWriter, r *http.Request) {
+	files, err := filepreview.List(s.extensionsDir())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, map[string]any{"files": files})
+}
+
+// handleExtensionsFile — GET /api/extensions/files/{filepath...}
+// Reads one file of the extensions folder, never one outside it.
+func (s *Server) handleExtensionsFile(w http.ResponseWriter, r *http.Request) {
+	rel := r.PathValue("filepath")
+	data, err := filepreview.Read(s.extensionsDir(), rel)
+	if err != nil {
+		writePreviewError(w, err, rel)
+		return
+	}
+	writeJSON(w, map[string]string{"content": string(data)})
+}
+
 // handleExtensionsOpen — POST /api/extensions/open
 // Opens the current mode's extensions directory in the OS file manager
-// (Finder on macOS, Explorer on Windows, the default handler on Linux/BSD).
+// (Finder on macOS, Explorer on Windows and WSL, the default handler on Linux/BSD).
 func (s *Server) handleExtensionsOpen(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 
@@ -157,16 +181,24 @@ func openFileManager(dir string) (int, error) {
 	case "windows":
 		cmd = exec.Command("explorer", dir)
 	case "linux", "freebsd", "openbsd", "netbsd":
-		cmd = exec.Command("xdg-open", dir)
+		// Inside WSL the browser and the user are on the Windows desktop, where xdg-open
+		// has nothing to show a folder in.
+		if explorer, ok := wslExplorer(); ok {
+			winDir, err := wsl.WindowsPath(dir)
+			if err != nil {
+				return http.StatusInternalServerError, fmt.Errorf("failed to open file manager: %w", err)
+			}
+			cmd = exec.Command(explorer, winDir)
+		} else {
+			cmd = exec.Command("xdg-open", dir)
+		}
 	default:
 		return http.StatusNotImplemented, errors.New("opening a file manager is not supported on this platform")
 	}
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = nil, nil, nil
-	if err := childproc.StartDetached(cmd); err != nil {
+	if err := startOpener(cmd); err != nil {
 		return http.StatusInternalServerError, fmt.Errorf("failed to open file manager: %w", err)
 	}
-	// Explorer returns a non-zero exit code even on success; ignore Wait result.
-	go func() { _ = cmd.Wait() }()
 	return 0, nil
 }
 

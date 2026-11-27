@@ -14,6 +14,7 @@ import (
 // List reads the source, ownership and native files without writing. A plan that
 // cannot be computed is reported in PreviewError so the rest stays visible.
 func (s *Service) List() (*Inventory, error) {
+	s = s.memoProbe()
 	source, err := s.loadSource()
 	if err != nil {
 		return nil, err
@@ -158,9 +159,32 @@ func (s *Service) unownedFiles(target, dir string, state ledger) []string {
 		return nil
 	}
 	var names []string
+	var packages *bool
 	for _, e := range entries {
 		name := e.Name()
 		ext := filepath.Ext(name)
+		if target == "opencode" && e.IsDir() {
+			// Only OpenCode v2 loads a directory as a plugin.
+			if packages == nil {
+				v2, err := s.openCode2()
+				v2 = v2 && err == nil
+				packages = &v2
+			}
+			if !*packages {
+				continue
+			}
+			owned := false
+			for _, r := range state.Records {
+				if strings.HasPrefix(r.Path, filepath.Join(dir, name)+string(filepath.Separator)) {
+					owned = true
+					break
+				}
+			}
+			if !owned {
+				names = append(names, name)
+			}
+			continue
+		}
 		if e.IsDir() || !(target == "copilot" && ext == ".json" || target != "copilot" && (ext == ".ts" || ext == ".js")) {
 			continue
 		}
@@ -202,6 +226,7 @@ func candidateName(parts ...string) string {
 // matches a candidate picks that one; any other Name merges everything found into one
 // candidate.
 func (s *Service) Import(req ImportRequest) ([]Candidate, error) {
+	s = s.memoProbe()
 	target := canonicalTarget(req.From)
 	if target == "git" {
 		return nil, fmt.Errorf("Git hooks import is not supported yet; define commands explicitly")
@@ -381,9 +406,13 @@ func (s *Service) importShared(target string, req ImportRequest, state ledger) (
 			c.Warnings = warnings
 		case req.Content == "":
 			c.Warnings = []string{adoptWarning}
+			c.Editable = nativeEditable(target)
 		}
 		if target == "antigravity" {
 			c = antigravityCandidate(event, items[0].(map[string]any), c.Warnings)
+			if req.Content == "" {
+				c.Editable, c.Source = true, event
+			}
 		}
 		out = append(out, c)
 	}
@@ -393,13 +422,7 @@ func (s *Service) importShared(target string, req ImportRequest, state ledger) (
 // antigravityCandidate offers one named block. The hook keeps the block's name, so
 // saving the import takes that block over in place.
 func antigravityCandidate(name string, block map[string]any, warnings []string) Candidate {
-	events := map[string]any{}
-	for event, value := range block {
-		if event != "enabled" {
-			events[event] = value
-		}
-	}
-	c := Candidate{Name: name, Entry: Entry{Bindings: map[string]Binding{"antigravity": {Events: events}}}, Warnings: warnings}
+	c := Candidate{Name: name, Entry: Entry{Bindings: map[string]Binding{"antigravity": {Events: blockEvents(block)}}}, Warnings: warnings}
 	if !entryName.MatchString(name) {
 		c.Name = candidateName(name)
 		c.Warnings = []string{fmt.Sprintf("%q is not a valid hook name, so the import is written as %q next to it; remove the original afterwards", name, c.Name)}
@@ -408,6 +431,29 @@ func antigravityCandidate(name string, block map[string]any, warnings []string) 
 		c.Problems = []string{"this hook is disabled in Antigravity (enabled: false); enable it there to import it"}
 	}
 	return c
+}
+
+// blockEvents is an Antigravity block without its enabled switch: the hook's events.
+func blockEvents(block map[string]any) map[string]any {
+	events := map[string]any{}
+	for event, value := range block {
+		if event != "enabled" {
+			events[event] = value
+		}
+	}
+	return events
+}
+
+// copilotHooks reads a Copilot hooks file's event map.
+func copilotHooks(name string, data []byte) (map[string]any, error) {
+	var doc struct {
+		Version any            `json:"version"`
+		Hooks   map[string]any `json:"hooks"`
+	}
+	if err := json.Unmarshal(data, &doc); err != nil || doc.Version != float64(1) {
+		return nil, fmt.Errorf("%s: Copilot hooks files need version 1 and a hooks object", name)
+	}
+	return doc.Hooks, nil
 }
 
 func (s *Service) baseOrDir(target string) string {
@@ -420,14 +466,8 @@ func (s *Service) baseOrDir(target string) string {
 
 func (s *Service) importCopilot(req ImportRequest, state ledger) ([]Candidate, error) {
 	parse := func(name string, data []byte) (Candidate, error) {
-		var doc struct {
-			Version any            `json:"version"`
-			Hooks   map[string]any `json:"hooks"`
-		}
-		if err := json.Unmarshal(data, &doc); err != nil || doc.Version != float64(1) {
-			return Candidate{}, fmt.Errorf("%s: Copilot hooks files need version 1 and a hooks object", name)
-		}
-		return Candidate{Name: name, Entry: Entry{Bindings: map[string]Binding{"copilot": {Events: doc.Hooks}}}}, nil
+		hooks, err := copilotHooks(name, data)
+		return Candidate{Name: name, Entry: Entry{Bindings: map[string]Binding{"copilot": {Events: hooks}}}}, err
 	}
 	if req.Content != "" {
 		c, err := parse("copilot-hooks", []byte(req.Content))
@@ -456,6 +496,8 @@ func (s *Service) importCopilot(req ImportRequest, state ledger) ([]Candidate, e
 			continue
 		}
 		c.Warnings = []string{fmt.Sprintf("%s keeps loading; remove it after syncing so Copilot does not run these hooks twice", path)}
+		// A file without hooks has nothing NativeEdit could name.
+		c.Editable, c.Source = len(c.Entry.Bindings["copilot"].Events) > 0, file
 		out = append(out, c)
 	}
 	return out, nil
@@ -476,6 +518,9 @@ func (s *Service) importCode(target string, req ImportRequest, state ledger) ([]
 	out := []Candidate{}
 	for _, file := range s.unownedFiles(target, dir, state) {
 		path := filepath.Join(dir, file)
+		if info, err := os.Lstat(path); err == nil && info.IsDir() {
+			continue
+		}
 		if err := checkPath(s.baseOrDir(target), path); err != nil {
 			return nil, err
 		}
@@ -490,6 +535,19 @@ func (s *Service) importCode(target string, req ImportRequest, state ledger) ([]
 			c.Warnings = append(c.Warnings, "Skillshare writes code as a .ts file; plain JavaScript is valid TypeScript for the loader, but check any CommonJS syntax")
 		}
 		out = append(out, c)
+	}
+	if target == "opencode" {
+		v2, err := s.openCode2()
+		if err != nil {
+			return nil, err
+		}
+		if v2 {
+			packages, err := s.importOpenCodePackages(state)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, packages...)
+		}
 	}
 	return out, nil
 }

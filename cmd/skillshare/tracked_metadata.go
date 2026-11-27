@@ -12,12 +12,15 @@ const missingTrackedRepoShortReason = "clone directory absent"
 
 // missingTrackedRepoHint is the one-shot recovery instruction for missing
 // tracked repos, shown alongside the summarized list.
-func missingTrackedRepoHint() string {
-	return "Run 'skillshare install' to rehydrate tracked repositories"
+func missingTrackedRepoHint(isProject bool) string {
+	if isProject {
+		return "Run 'skillshare install -p' to rehydrate tracked repositories"
+	}
+	return "Run 'skillshare install -g' to rehydrate tracked repositories, or 'skillshare uninstall <name> -g' to remove an unwanted declaration"
 }
 
-func missingTrackedRepoMessage(name string) string {
-	return fmt.Sprintf("tracked repository clone is missing: %s (metadata exists but directory is absent). %s.", name, missingTrackedRepoHint())
+func missingTrackedRepoMessage(name string, isProject bool) string {
+	return fmt.Sprintf("tracked repository clone is missing: %s (metadata exists but directory is absent). %s.", name, missingTrackedRepoHint(isProject))
 }
 
 // missingTrackedRepoResult returns a skipped updateResult for a tracked repo
@@ -35,9 +38,9 @@ func missingTrackedRepoResult(t updateTarget) (updateResult, bool) {
 	return updateResult{}, false
 }
 
-func updateTrackedRepoErrorMessage(target updateTarget, err error) string {
+func updateTrackedRepoErrorMessage(target updateTarget, err error, isProject bool) string {
 	if _, statErr := os.Stat(target.path); os.IsNotExist(statErr) {
-		return missingTrackedRepoMessage(target.name)
+		return missingTrackedRepoMessage(target.name, isProject)
 	}
 	return err.Error()
 }

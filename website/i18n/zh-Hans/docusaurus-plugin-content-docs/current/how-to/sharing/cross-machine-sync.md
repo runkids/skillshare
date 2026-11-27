@@ -355,6 +355,8 @@ skillshare status
 skillshare init --remote git@github.com:you/private-skills.git
 ```
 
+若要完全不使用托管的 Git，可以把 repository 放在你自己的某台机器上并通过 SSH 访问。请参阅 [Machines on a Private Network](/docs/how-to/sharing/private-network)。
+
 ---
 
 ## Tips
@@ -430,4 +432,5 @@ skillshare sync
 - [pull](/docs/reference/commands/pull) — 从 remote pull
 - [install](/docs/reference/commands/install#install-from-config-no-arguments) — 从 config 安装
 - [Organization-Wide Skills](./organization-sharing.md) — 团队分享
+- [Machines on a Private Network](/docs/how-to/sharing/private-network) — 无需托管 Git、远程 dashboard、通过 MCP 提供 skill
 - [init](/docs/reference/commands/init) — 以 `--remote` 执行 init

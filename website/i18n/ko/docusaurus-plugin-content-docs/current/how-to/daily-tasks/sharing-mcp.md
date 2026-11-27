@@ -51,11 +51,11 @@ MCP 제공자로부터 받은 URL이나 JSON을 붙여넣고, 이름을 지정�
 
 대시보드에서 **Add server**는 두 가지 방식을 지원합니다: 필드를 직접 채우거나 설정을 붙여넣는
 방식입니다. 붙여넣기 쪽에서는 파일을 불러올 수도 있는데, 이는 브라우저에서 `mcp import --file`에
-해당하는 기능입니다. 붙여넣은 JSON은 자동으로 인식되며, TOML의 경우 Codex에서 온 것인지 Grok에서
+해당하는 기능입니다. 붙여넣은 JSON은 자동으로 인식됩니다. 해당 Agent만 읽는 필드(예: Claude Code의 `alwaysLoad`)를 유지하려면 **From**에서 그 Agent를 선택하세요. TOML의 경우 Codex에서 온 것인지 Grok에서
 온 것인지 선택해야 합니다. 붙여넣은 내용에 서버가 하나이고 Pi가 체크되어 있으면, 대화상자에
 폼의 Pi 설정인 도구 노출 방식과 기타 Pi 설정도 표시됩니다. 폼의 **기타 Agent 설정**에서는 Codex 승인 모드처럼 다른 Agent의 네이티브 필드를 JSON으로 입력합니다([`options`](../../reference/commands/mcp.md#agent-options) 참고). **Skillshare** 탭은 `skillshare mcp serve`를 추가합니다.
 이 명령은 sync로 skill을 받지 않는 Agent에 [MCP로 skill을 제공](/docs/reference/commands/mcp#serve-skills-over-mcp)합니다.
-제공할 skill을 고르고 Agent를 체크하면, 이미 skill을 sync하고 있어 skill이 두 번 보이게 될 Agent가 표시됩니다. 프로젝트의 **MCP** 탭에서는 **From another project**로 다른 프로젝트에 있는 서버를 폼에 불러올 수 있습니다. 복사본은 원래 프로젝트가 아니라 이 프로젝트의 Agent를 사용합니다. **Import from a target**은 별도 기능으로, 이미 설치된 Agent가 가진
+제공할 skill을 고르고 Agent를 체크하면, 이미 skill을 sync하고 있어 skill이 두 번 보이게 될 Agent가 표시됩니다. 프로젝트의 **MCP** 탭에서는 **From another project**로 다른 프로젝트에 있는 서버를 폼에 불러올 수 있습니다. 복사본은 원래 프로젝트가 아니라 이 프로젝트의 Agent를 사용합니다. 목록은 서버 이름이나 프로젝트 폴더로 검색할 수 있으며, 여러 프로젝트가 같은 이름과 같은 설정으로 가진 서버는 해당 폴더들과 함께 한 번만 표시됩니다. **Import from a target**은 별도 기능으로, 이미 설치된 Agent가 가진
 서버를 읽어옵니다. 어느 경우든 대시보드는 CLI와 동일한 소스, 검증, 미리보기, 충돌 규칙을
 사용합니다. MCP 페이지의 Sync 박스에 있는 **Sync MCP**는 MCP 설정 파일만 작성합니다.
 Sync 페이지에는 Skill, Agent, 추가 항목, MCP를 위한 **Sync all resources**도 있습니다.
@@ -214,9 +214,9 @@ Codex는 이름으로 로컬 변수를 전달하므로, Codex를 선택했다면
 `KEY`와 같아야 합니다. 설정을 표현할 수 없는 Target은 그 값을 누락시키는 대신
 미리보기 자체를 막습니다. 클라이언트별 플레이스홀더와 입력 프롬프트는 import 전에
 명시적으로 해결해야 합니다. Codex의 `startup_timeout_sec`나 `cwd`처럼 Agent 특화
-필드는 import되지 않습니다. import는 이를 경고로 나열하며, sync는 해당 Agent의 기존
-항목에 그대로 유지합니다. source에서 관리하려면 서버의
-[`options`](../../reference/commands/mcp.md#agent-options)에 설정합니다.
+필드는 서버의
+[`options`](../../reference/commands/mcp.md#agent-options) 아래에 해당 Agent용으로 import되므로, sync는 이를 해당 Agent에만 다시 작성합니다.
+일반 텍스트 자격 증명처럼 `options`가 담을 수 없는 필드는 경고로 나열되고 제외됩니다.
 
 ## 기존 연결 가져오기
 
@@ -237,7 +237,10 @@ Source에 이미 해당 이름이 있다면 대시보드의 **Edit** 작업이�
 다시 쓰면서도 그동안 이루어진 편집을 여전히 감지합니다. 다른 충돌하는 네이티브 항목을
 덮어쓰지는 않습니다. MCP 대시보드에서 처리할 수 있는 충돌은 **Import from cursor**처럼
 Agent 이름을 딴 import 작업을 제공하여 그 버전을 채택하거나, **Replace with source**로
-해당 항목을 덮어쓸 수 있습니다. 아직 존재하는 다른 Skillshare 설정이 소유한 충돌에는
+해당 항목을 덮어쓸 수 있습니다. Replace는 그 서버 항목이 충돌하는 모든 Agent를 한 번에
+덮어씁니다. sync는 그 모두가 해결될 때까지 기다리기 때문입니다. Agent마다 같은 서버의 다른
+버전을 가지고 있다면 원하는 버전을 import한 뒤 나머지를 교체하세요. import는 다른 Agent가
+아직 충돌 중이어도 그 Agent의 항목을 채택하고, 대시보드는 남은 Agent를 알려 줍니다. 아직 존재하는 다른 Skillshare 설정이 소유한 충돌에는
 두 작업이 모두 제공되지 않습니다. 해당 설정만이 그 항목을 놓아줄 수 있기 때문입니다.
 
 Agent가 같은 이름으로 이미 가진 서버를 넘겨받을 때도 이 방법을 씁니다. 서버를 source에
@@ -264,7 +267,7 @@ skillshare sync mcp
 ```
 
 대시보드에서는 `skillshare ui`로 프로젝트 폴더에서 열어 **서버 추가** 옆에 있는
-**전역 서버 끄기** 버튼을 선택하세요.
+**이름으로 끄기** 버튼을 선택하세요.
 
 이 기능은 Claude Code, OpenCode, Kilo Code, Pi 1.0.1 이상에서 작동합니다. 다른 Agent는
 거부됩니다. 각 Agent에 무엇이 기록되는지, 그리고 나머지가 왜 지원되지 않는지는

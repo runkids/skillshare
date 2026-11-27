@@ -244,6 +244,7 @@ func (m *Matcher) CanSkipDir(dirPath string) bool {
 	// for callers that bypass Match in the future.
 	dirPath = normalizePath(dirPath)
 
+	dirSegments := strings.Split(dirPath, "/")
 	for _, r := range m.rules {
 		if !r.negated {
 			continue
@@ -252,13 +253,32 @@ func (m *Matcher) CanSkipDir(dirPath string) bool {
 		if !r.anchored {
 			return false
 		}
-		// Anchored negation: check if its prefix overlaps with dirPath.
-		negPath := strings.Join(r.segments, "/")
-		if strings.HasPrefix(negPath, dirPath+"/") || negPath == dirPath {
+		// An anchored negation reaches inside when its pattern can match a path
+		// under dirPath. Comparing path prefixes is not enough: "**/keep" and
+		// "*/keep" reach inside "build" without spelling it out.
+		if negationReachesUnder(r.segments, dirSegments) {
 			return false
 		}
 	}
 
+	return true
+}
+
+// negationReachesUnder reports whether pattern can match dir or a path under it, so
+// skipping dir would hide a skill the negation re-enables. Segments match as in
+// matchSegments. A "**" met before dir runs out can absorb the rest of dir.
+func negationReachesUnder(pattern, dir []string) bool {
+	for i, seg := range dir {
+		if i == len(pattern) {
+			return false
+		}
+		if pattern[i] == "**" {
+			return true
+		}
+		if ok, _ := path.Match(pattern[i], seg); !ok {
+			return false
+		}
+	}
 	return true
 }
 

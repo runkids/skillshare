@@ -5,7 +5,7 @@
 <h1 align="center" style="margin-top: 0.5rem; margin-bottom: 0.5rem;">skillshare</h1>
 
 <p align="center">
-  <a href="README.md">English</a> · <a href="README-de.md">Deutsch</a> · <a href="README-es.md">Español</a> · <a href="README-fr.md">Français</a> · <a href="README-ja.md">日本語</a> · <a href="README-ko.md">한국어</a> · <a href="README-pt-BR.md">Português</a> · <a href="README-zh-CN.md">简体中文</a> · <a href="README-zh-TW.md">繁體中文</a>
+  <a href="README.md">English</a> · <a href="README-de.md">Deutsch</a> · <a href="README-es.md">Español</a> · <a href="README-fr.md">Français</a> · <a href="README-ja.md">日本語</a> · <a href="README-ko.md">한국어</a> · <a href="README-pt-BR.md">Português</a> · <a href="README-tr.md">Türkçe</a> · <a href="README-zh-CN.md">简体中文</a> · <a href="README-zh-TW.md">繁體中文</a>
 </p>
 
 <p align="center">
@@ -14,7 +14,7 @@
   <a href="https://github.com/runkids/skillshare/releases"><img src="https://img.shields.io/github/v/release/runkids/skillshare" alt="Release"></a>
   <a href="https://github.com/runkids/skillshare/releases"><img src="https://img.shields.io/github/downloads/runkids/skillshare/total" alt="Downloads"></a>
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-blue" alt="Platform">
-  <a href="https://deepwiki.com/runkids/skillshare"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
+  <a href="https://deepwiki.com/runkids/skillshare"><img src="https://img.shields.io/badge/Ask-DeepWiki-blue" alt="Ask DeepWiki"></a>
 </p>
 
 <p align="center">
@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **최신 버전**: v0.30.7 — 수락한 findings를 CI에서 통과시키세요. `skillshare audit --respect-accepted`는 `install`이나 `update`에서 `--force`로 수락한 findings 때문에 더 이상 실패하지 않으며, update 게이트와 같은 방식으로 처리합니다. 해당 findings는 보고서에 남고 수락됨으로 표시됩니다. [audit 레퍼런스 →](https://skillshare.runkids.cc/ko/docs/reference/commands/audit#accepted-findings) · [변경 기록 →](https://skillshare.runkids.cc/changelog)
+> **최신 버전**: v0.33.0 — dashboard를 내 취향대로 꾸미세요. **Settings → Appearance**의 커스텀 테마 편집기에서 14가지 프리셋을 고르거나 강조 색, 배경 색조, 모서리, 글꼴을 직접 정할 수 있습니다. 다크 모드는 자동으로 만들어지고, 모든 글자 색은 4.5:1 이상으로 읽기 쉽게 유지되며, 테마는 링크나 JSON 파일로 공유할 수 있습니다. Clean과 Playful 디자인도 다듬었습니다. `skillshare hooks sync -p --trust`는 이제 project의 hook에 대해서도 Codex trust를 기록하고, MiniMax Code가 내장 target으로 추가되었습니다. [테마 가이드 →](https://skillshare.runkids.cc/ko/docs/reference/commands/ui#테마-시스템) · [변경 기록 →](https://skillshare.runkids.cc/changelog)
 
 ## skillshare를 쓰는 이유
 
@@ -123,6 +123,14 @@ nix profile add github:runkids/skillshare
 ```
 
 업데이트는 `nix profile upgrade skillshare`로 합니다. flakes가 활성화된 Nix 2.30 이상이 필요하며, 이전 Nix나 Lix에서는 `nix profile install`을 사용하세요. NixOS와 Home Manager 설정에서는 flake의 `overlays.default`를 사용할 수 있습니다.
+
+### CLI: PyPI
+
+```bash
+uv tool install skillshare-cli
+```
+
+`pipx install skillshare-cli` 또는 `pip install skillshare-cli`로도 설치할 수 있습니다. 설치하지 않고 써 보려면 `uvx --from skillshare-cli skillshare`를 실행하세요. 업데이트는 `uv tool upgrade skillshare-cli`나 `pipx upgrade skillshare-cli`처럼 사용한 설치 도구로 합니다.
 
 ### GitHub Actions
 
@@ -299,7 +307,11 @@ make check  # format + lint + test
 
 ## 기여자
 
-skillshare를 함께 만들어 주신 모든 분께 감사드립니다. 전체 명단은 [영문 README](README.md#contributors)에 있습니다.
+[GitHub에서 기여자 보기](https://github.com/runkids/skillshare/graphs/contributors)
+
+### 커뮤니티에 보내는 감사
+
+버그를 제보하고 개선을 제안하고 수정 사항을 테스트해 주신 모든 분께 감사드립니다. [영문 README](README.md#community-thanks)에 있습니다.
 
 ---
 

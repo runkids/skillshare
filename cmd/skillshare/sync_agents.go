@@ -23,6 +23,15 @@ import (
 type agentSyncStats struct {
 	linked, local, updated, pruned int
 	failed                         []string // targets whose agent sync failed
+	// warnings are the lines a quiet run did not print: each target's own
+	// warnings, and the agent files it kept because they are not skillshare's.
+	warnings []string
+}
+
+// keptLocalAgentsWarning names the agent files a target kept, and the flag
+// that replaces them. Like the skills line, it lists only the first few.
+func keptLocalAgentsWarning(target string, names []string) string {
+	return target + ": kept local agents: " + sync.ListNames(names) + " (sync agents --force replaces them)"
 }
 
 // syncAgentsGlobal discovers agents and syncs them to all agent-capable targets.
@@ -203,7 +212,7 @@ func syncAgentsProject(projectRoot string, skip map[string]error, dryRun, force,
 		var dir string
 		for _, entry := range projCfg.Targets {
 			all = append(all, entry.Name)
-			agentPath := resolveProjectAgentTargetPath(entry, builtinAgents, projectRoot)
+			agentPath := sync.ResolveTargetRoot(resolveProjectAgentTargetPath(entry, builtinAgents, projectRoot), projCfg.EffectiveAgentsSource(projectRoot))
 			if agentPath == "" || skip[entry.Name] != nil {
 				continue
 			}
@@ -301,6 +310,14 @@ func renderAgentRun(results []sync.AgentTargetResult, agentCount int, dryRun, js
 			for _, w := range r.Warnings {
 				fmt.Printf("  %s %s\n", theme.Warning().Render(ui.MarkWarn), w)
 			}
+		}
+		totals.warnings = append(totals.warnings, r.Warnings...)
+		switch {
+		case r.Mode == "symlink" && len(r.Skipped) > 0:
+			// Symlink mode links the whole folder, so what it kept is the folder.
+			totals.warnings = append(totals.warnings, r.Name+": kept the agents folder as it is (sync agents --force replaces it with a link to the source)")
+		case len(r.Skipped) > 0:
+			totals.warnings = append(totals.warnings, keptLocalAgentsWarning(r.Name, r.Skipped))
 		}
 		totals.linked += stats.linked
 		totals.local += stats.local

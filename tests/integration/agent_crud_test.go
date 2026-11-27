@@ -43,6 +43,22 @@ func TestUpdate_Agents_LocalOnly(t *testing.T) {
 	result.AssertAnyOutputContains(t, "local")
 }
 
+func TestUpdate_Agents_NamedAgentInIgnoredFolder(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	createAgentSource(t, sb, map[string]string{
+		"archive/reviewer.md": "# Reviewer agent",
+		".agentignore":        "archive/\n",
+	})
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	// list shows archive/reviewer as disabled, so naming it must resolve.
+	result := sb.RunCLI("update", "agents", "archive/reviewer.md")
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "local")
+}
+
 func TestUpdate_Agents_GroupInvalidDir(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
@@ -159,6 +175,34 @@ func TestUpdate_Agents_RepeatedUpdatesKeepSource(t *testing.T) {
 	}
 	if got := readSource(); got != installedSource {
 		t.Errorf("source changed from %q to %q", installedSource, got)
+	}
+}
+
+// Regression for #1013: a source naming one agent file installs only that
+// agent, and update reads the next version back from its recorded source.
+func TestInstall_AgentFileSource_InstallsAndUpdates(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	repoDir := filepath.Join(sb.Home, "agent-file-repo")
+	agentFile := filepath.Join(repoDir, "agents", "demo.md")
+	sb.WriteFile(agentFile, "# Demo v1\n")
+	sb.WriteFile(filepath.Join(repoDir, "agents", "other.md"), "# Other\n")
+	initGitRepo(t, repoDir)
+
+	sb.RunCLI("install", "file://"+repoDir+"//agents/demo.md", "--kind", "agent", "--skip-audit").AssertSuccess(t)
+
+	agentsDir := filepath.Join(filepath.Dir(sb.SourcePath), "agents")
+	if sb.FileExists(filepath.Join(agentsDir, "other.md")) {
+		t.Error("only the named agent file should be installed")
+	}
+
+	sb.WriteFile(agentFile, "# Demo v2\n")
+	run(t, repoDir, "git", "commit", "-am", "demo v2")
+	sb.RunCLI("update", "agents", "demo", "--skip-audit").AssertSuccess(t)
+	if got := sb.ReadFile(filepath.Join(agentsDir, "demo.md")); got != "# Demo v2\n" {
+		t.Errorf("update did not arrive, got %q", got)
 	}
 }
 
@@ -298,6 +342,75 @@ func TestUninstall_Agents_All(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(agentsDir, "reviewer.md")); !os.IsNotExist(err) {
 		t.Error("reviewer.md should be removed")
+	}
+}
+
+func TestUninstall_Agents_All_LeavesIgnoredAgents(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	agentsDir := createAgentSource(t, sb, map[string]string{
+		"active.md":      "# Active agent",
+		"solo.md":        "# Ignored by a file rule",
+		"archive/old.md": "# Ignored by a directory rule",
+		".agentignore":   "archive/\nsolo.md\n",
+	})
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	result := sb.RunCLI("uninstall", "-g", "agents", "--all", "--force")
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "Uninstalled 1 agent")
+
+	if _, err := os.Stat(filepath.Join(agentsDir, "active.md")); !os.IsNotExist(err) {
+		t.Error("active.md should be removed")
+	}
+	for _, kept := range []string{"solo.md", "archive/old.md"} {
+		if _, err := os.Stat(filepath.Join(agentsDir, kept)); err != nil {
+			t.Errorf("%s is disabled by .agentignore and should be kept: %v", kept, err)
+		}
+	}
+}
+
+func TestUninstall_Agents_NameAndGroupReachIgnoredFolders(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	agentsDir := createAgentSource(t, sb, map[string]string{
+		"archive/old.md":  "# Ignored by a folder rule",
+		"drafts/draft.md": "# Ignored by a folder rule",
+		".agentignore":    "archive/\ndrafts/\n",
+	})
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	sb.RunCLI("uninstall", "-g", "agents", "archive/old", "--force").AssertSuccess(t)
+	sb.RunCLI("uninstall", "-g", "agents", "--group", "drafts", "--force").AssertSuccess(t)
+
+	for _, removed := range []string{"archive/old.md", "drafts/draft.md"} {
+		if _, err := os.Stat(filepath.Join(agentsDir, removed)); !os.IsNotExist(err) {
+			t.Errorf("%s was named explicitly and should be removed", removed)
+		}
+	}
+}
+
+func TestUninstall_Agents_BareNamePrefersActiveAgent(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	agentsDir := createAgentSource(t, sb, map[string]string{
+		"archive/reviewer.md": "# Old reviewer",
+		"team/reviewer.md":    "# Reviewer",
+		".agentignore":        "archive/reviewer.md\n",
+	})
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	result := sb.RunCLI("uninstall", "-g", "agents", "reviewer", "--force")
+	result.AssertSuccess(t)
+
+	if _, err := os.Stat(filepath.Join(agentsDir, "team", "reviewer.md")); !os.IsNotExist(err) {
+		t.Error("the active team/reviewer.md should be removed")
+	}
+	if _, err := os.Stat(filepath.Join(agentsDir, "archive", "reviewer.md")); err != nil {
+		t.Errorf("the disabled archive/reviewer.md should be kept: %v", err)
 	}
 }
 

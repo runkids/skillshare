@@ -24,11 +24,15 @@ type SkillMeta struct {
 	RepoURL     string            `json:"repo_url,omitempty"`    // Git repo URL (for git sources)
 	Subdir      string            `json:"subdir,omitempty"`      // Subdirectory path (for monorepo)
 	Version     string            `json:"version,omitempty"`     // Git commit hash or version
-	TreeHash    string            `json:"tree_hash,omitempty"`   // Git tree SHA of Subdir
+	TreeHash    string            `json:"tree_hash,omitempty"`   // Git tree SHA of Subdir; an agent's file blob SHA
 	FileHashes  map[string]string `json:"file_hashes,omitempty"` // sha256:<hex> per file
 	Branch      string            `json:"branch,omitempty"`      // Git branch (when non-default)
 	Commit      string            `json:"commit,omitempty"`      // Full commit SHA, what the lockfile records
 	Layout      string            `json:"layout,omitempty"`      // Files a local install copied
+
+	// Locked is set when Commit came from a lockfile; that commit is recorded
+	// even when the files match what is installed.
+	Locked bool `json:"-"`
 }
 
 // EffectiveKind returns "skill" if Kind is empty, otherwise the Kind value.
@@ -154,6 +158,7 @@ func NewMetaFromSource(source *Source) *SkillMeta {
 		InstalledAt: time.Now(),
 		Branch:      source.Branch,
 		Commit:      source.Commit,
+		Locked:      source.Locked,
 	}
 
 	if source.IsGit() {

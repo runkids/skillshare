@@ -9,32 +9,88 @@ import { ToastProvider } from '../Toast';
 import HooksScope from './HooksScope';
 import HookDialog from './HookDialog';
 import HooksRemoveDialog from './HooksRemoveDialog';
-import { HooksSyncDialog } from './HooksSyncBox';
+import HooksSyncBox, { HooksSyncDialog } from './HooksSyncBox';
 
+vi.mock('../CodeEditor', () => ({
+  default: ({
+    value,
+    onChange,
+    ariaLabel,
+  }: {
+    value: string;
+    onChange: (v: string) => void;
+    ariaLabel: string;
+  }) => (
+    <textarea aria-label={ariaLabel} value={value} onChange={(e) => onChange(e.target.value)} />
+  ),
+}));
 vi.mock('../../api/hooks', async (load) => ({
-  ...await load<typeof import('../../api/hooks')>(),
-  hooksApi: { list: vi.fn(), catalog: vi.fn(), preview: vi.fn(), save: vi.fn(), configure: vi.fn(), syncProject: vi.fn(), render: vi.fn() },
+  ...(await load<typeof import('../../api/hooks')>()),
+  hooksApi: {
+    list: vi.fn(),
+    catalog: vi.fn(),
+    preview: vi.fn(),
+    save: vi.fn(),
+    configure: vi.fn(),
+    syncProject: vi.fn(),
+    render: vi.fn(),
+  },
 }));
 
 const APP = '/work/app';
-const change = (over: Partial<HookChange>): HookChange => ({ target: 'claude', path: '/home/u/.claude/settings.json', name: 'g', action: 'unchanged', ...over });
+const change = (over: Partial<HookChange>): HookChange => ({
+  target: 'claude',
+  path: '/home/u/.claude/settings.json',
+  name: 'g',
+  action: 'unchanged',
+  ...over,
+});
 // Global work is pending and another project conflicts; only the selected root's own changes matter to it.
 const plan = (mine: HookChange[]): HookPlan => ({
-  revision: 'rev-all', fingerprint: 'fp', sourcePath: '/s.yaml', blocked: true,
-  changes: [change({ name: 'g', action: 'add' }), change({ name: 'o', root: '/work/other', path: '/work/other/.claude/settings.json', action: 'conflict' }), ...mine],
+  revision: 'rev-all',
+  fingerprint: 'fp',
+  sourcePath: '/s.yaml',
+  blocked: true,
+  changes: [
+    change({ name: 'g', action: 'add' }),
+    change({
+      name: 'o',
+      root: '/work/other',
+      path: '/work/other/.claude/settings.json',
+      action: 'conflict',
+    }),
+    ...mine,
+  ],
 });
-const mine = (action: string) => change({ name: 'lint', root: APP, path: `${APP}/.claude/settings.json`, action });
+const mine = (action: string) =>
+  change({ name: 'lint', root: APP, path: `${APP}/.claude/settings.json`, action });
 
-const catalog = { claude: { timeoutUnit: 'seconds' as const, events: [
-  { name: 'PostToolUse', description: 'After a tool succeeds', matcher: true },
-  { name: 'Stop', description: 'When the main agent finishes', matcher: false },
-] } };
+const catalog = {
+  claude: {
+    timeoutUnit: 'seconds' as const,
+    events: [
+      { name: 'PostToolUse', description: 'After a tool succeeds', matcher: true },
+      { name: 'Stop', description: 'When the main agent finishes', matcher: false },
+    ],
+  },
+};
 const pickEvent = async (user: ReturnType<typeof userEvent.setup>, row: number, event: string) => {
   await user.click(screen.getByRole('combobox', { name: `Event ${row}` }));
   await user.click(await screen.findByRole('option', { name: new RegExp(`^${event}`) }));
 };
 
-const wrap = (ui: React.ReactNode) => render(<MemoryRouter><QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><I18nProvider><ToastProvider>{ui}</ToastProvider></I18nProvider></QueryClientProvider></MemoryRouter>);
+const wrap = (ui: React.ReactNode) =>
+  render(
+    <MemoryRouter>
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+      >
+        <I18nProvider>
+          <ToastProvider>{ui}</ToastProvider>
+        </I18nProvider>
+      </QueryClientProvider>
+    </MemoryRouter>,
+  );
 
 describe('project scope in hooks dialogs', () => {
   beforeEach(() => {
@@ -63,11 +119,15 @@ describe('project scope in hooks dialogs', () => {
     await user.click(save);
     await waitFor(() => expect(onSaved).toHaveBeenCalledWith(true));
     expect(hooksApi.configure).toHaveBeenCalledTimes(1);
-    expect(hooksApi.configure).toHaveBeenCalledWith(expect.objectContaining({ project: APP, name: 'lint' }), 'rev-all', true);
+    expect(hooksApi.configure).toHaveBeenCalledWith(
+      expect.objectContaining({ project: APP, name: 'lint' }),
+      'rev-all',
+      true,
+    );
     expect(hooksApi.syncProject).not.toHaveBeenCalled();
   });
 
-  it('keeps a matcher-only extra row, marks what it is missing and blocks saving', async () => {
+  it('keeps an extra command that has no command text and blocks saving', async () => {
     const user = userEvent.setup();
     wrap(<HookDialog existingNames={[]} project={APP} onClose={vi.fn()} onSaved={vi.fn()} />);
     await user.type(screen.getByLabelText('Name'), 'lint');
@@ -75,19 +135,20 @@ describe('project scope in hooks dialogs', () => {
     await pickEvent(user, 1, 'Stop');
     await user.type(screen.getByLabelText('Command 1'), 'true');
     await user.click(screen.getByRole('button', { name: 'Add command' }));
-    await user.type(screen.getByLabelText('Tool filter 2'), 'Bash');
+    expect(screen.getByLabelText('Command 2')).toHaveValue('');
     expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Preview' })).toBeDisabled();
-    expect(screen.getByRole('combobox', { name: 'Event 2' })).toHaveAttribute('aria-invalid', 'true');
-    expect(screen.getByLabelText('Command 2').parentElement).toHaveClass('err');
-    expect(screen.getByLabelText('Tool filter 2')).toHaveValue('Bash');
   });
 
   it('keeps the preview current while its Save and sync is in flight', async () => {
     const user = userEvent.setup();
     let finish = () => {};
     vi.mocked(hooksApi.preview).mockResolvedValue(plan([mine('add')]));
-    vi.mocked(hooksApi.configure).mockReturnValue(new Promise((resolve) => { finish = () => resolve({ applied: [], backupIds: [] }); }));
+    vi.mocked(hooksApi.configure).mockReturnValue(
+      new Promise((resolve) => {
+        finish = () => resolve({ applied: [], backupIds: [] });
+      }),
+    );
     const onSaved = vi.fn();
     wrap(<HookDialog existingNames={[]} project={APP} onClose={vi.fn()} onSaved={onSaved} />);
     await user.type(screen.getByLabelText('Name'), 'lint');
@@ -105,7 +166,9 @@ describe('project scope in hooks dialogs', () => {
 
   it('previews again after an edit and syncs the edited hook with the new revision', async () => {
     const user = userEvent.setup();
-    vi.mocked(hooksApi.preview).mockResolvedValueOnce({ ...plan([mine('add')]), revision: 'rev-1' }).mockResolvedValueOnce({ ...plan([mine('add')]), revision: 'rev-2' });
+    vi.mocked(hooksApi.preview)
+      .mockResolvedValueOnce({ ...plan([mine('add')]), revision: 'rev-1' })
+      .mockResolvedValueOnce({ ...plan([mine('add')]), revision: 'rev-2' });
     vi.mocked(hooksApi.configure).mockResolvedValue({ applied: [], backupIds: [] });
     wrap(<HookDialog existingNames={[]} project={APP} onClose={vi.fn()} onSaved={vi.fn()} />);
     await user.type(screen.getByLabelText('Name'), 'lint');
@@ -117,7 +180,13 @@ describe('project scope in hooks dialogs', () => {
     await user.type(screen.getByLabelText('Command 1'), ' --x');
     await user.click(screen.getByRole('button', { name: 'Preview' }));
     await user.click(await screen.findByRole('button', { name: 'Save and sync' }));
-    await waitFor(() => expect(hooksApi.configure).toHaveBeenCalledWith(expect.objectContaining({ name: 'lint' }), 'rev-2', true));
+    await waitFor(() =>
+      expect(hooksApi.configure).toHaveBeenCalledWith(
+        expect.objectContaining({ name: 'lint' }),
+        'rev-2',
+        true,
+      ),
+    );
     expect(JSON.stringify(vi.mocked(hooksApi.configure).mock.calls[0][0])).toContain('true --x');
   });
 
@@ -137,9 +206,21 @@ describe('project scope in hooks dialogs', () => {
     const user = userEvent.setup();
     vi.mocked(hooksApi.preview).mockResolvedValue(plan([mine('add')]));
     vi.mocked(hooksApi.configure).mockResolvedValue({ applied: [], backupIds: [] });
-    wrap(<HooksSyncDialog project={APP} takeover={{ name: 'lint', entry: { bindings: {} } }} onClose={vi.fn()} />);
+    wrap(
+      <HooksSyncDialog
+        project={APP}
+        takeover={{ name: 'lint', entry: { bindings: {} } }}
+        onClose={vi.fn()}
+      />,
+    );
     await user.click(await screen.findByRole('button', { name: 'Sync Now' }));
-    await waitFor(() => expect(hooksApi.configure).toHaveBeenCalledWith({ project: APP, name: 'lint', entry: { bindings: {} }, replace: true }, 'rev-all', true));
+    await waitFor(() =>
+      expect(hooksApi.configure).toHaveBeenCalledWith(
+        { project: APP, name: 'lint', entry: { bindings: {} }, replace: true },
+        'rev-all',
+        true,
+      ),
+    );
     expect(screen.queryByText('o')).not.toBeInTheDocument();
   });
 
@@ -154,7 +235,11 @@ describe('project scope in hooks dialogs', () => {
     await user.click(button);
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
     expect(hooksApi.configure).toHaveBeenCalledTimes(1);
-    expect(hooksApi.configure).toHaveBeenCalledWith({ project: APP, name: 'lint', remove: true }, 'rev-all', true);
+    expect(hooksApi.configure).toHaveBeenCalledWith(
+      { project: APP, name: 'lint', remove: true },
+      'rev-all',
+      true,
+    );
     expect(hooksApi.syncProject).not.toHaveBeenCalled();
   });
 
@@ -176,17 +261,39 @@ describe('project scope in hooks dialogs', () => {
     await user.click(screen.getByRole('button', { name: 'Back' }));
     expect(screen.getByLabelText('Command 1')).toHaveValue('./lint.sh');
     await user.click(screen.getByRole('button', { name: 'Save' }));
-    await waitFor(() => expect(hooksApi.save).toHaveBeenCalledWith(expect.objectContaining({ project: APP, name: 'lint' })));
+    await waitFor(() =>
+      expect(hooksApi.save).toHaveBeenCalledWith(
+        expect.objectContaining({ project: APP, name: 'lint' }),
+      ),
+    );
   });
 });
 
 describe('project row preview', () => {
   beforeEach(() => vi.resetAllMocks());
 
-  const IDENTICAL = 'an identical hook exists that Skillshare does not manage; import it or explicitly replace it';
-  const lintEntry = { bindings: { claude: { events: { Stop: [{ hooks: [{ type: 'command', command: 'true' }] }] } } } };
+  const IDENTICAL =
+    'an identical hook exists that Skillshare does not manage; import it or explicitly replace it';
+  const lintEntry = {
+    bindings: { claude: { events: { Stop: [{ hooks: [{ type: 'command', command: 'true' }] }] } } },
+  };
   const conflicted = () => plan([{ ...mine('conflict'), message: IDENTICAL }]);
-  const conflictData = () => ({ source: { path: '/s.yaml', configPath: '/s.yaml', entries: { g: { bindings: {} } }, projects: { [APP]: { entries: { lint: lintEntry } } } }, targets: [], paths: {}, backups: [], unmanaged: [], projectConfigs: [], projectPaths: {}, plan: conflicted() }) as never;
+  const conflictData = () =>
+    ({
+      source: {
+        path: '/s.yaml',
+        configPath: '/s.yaml',
+        entries: { g: { bindings: {} } },
+        projects: { [APP]: { entries: { lint: lintEntry } } },
+      },
+      targets: [],
+      paths: {},
+      backups: [],
+      unmanaged: [],
+      projectConfigs: [],
+      projectPaths: {},
+      plan: conflicted(),
+    }) as never;
   const takeover = { project: APP, name: 'lint', entry: lintEntry, replace: true };
 
   it('opens the take-over preview for its own conflict from the rail and writes only after Sync Now', async () => {
@@ -205,4 +312,44 @@ describe('project row preview', () => {
     await waitFor(() => expect(hooksApi.configure).toHaveBeenCalledWith(takeover, 'rev-all', true));
   });
 
+  it('stops managing the project only after the confirmation, without syncing', async () => {
+    const user = userEvent.setup();
+    vi.mocked(hooksApi.save).mockResolvedValue(undefined as never);
+    const onRemoved = vi.fn();
+    wrap(<HooksScope data={conflictData()} project={APP} onRemoved={onRemoved} />);
+    await user.click(screen.getByRole('button', { name: 'Stop managing hooks here' }));
+    expect(hooksApi.save).not.toHaveBeenCalled();
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Stop managing hooks here' }));
+    await waitFor(() => expect(onRemoved).toHaveBeenCalled());
+    expect(hooksApi.save).toHaveBeenCalledWith({ project: APP, remove: true });
+    expect(hooksApi.configure).not.toHaveBeenCalled();
+  });
+
+  it('keeps the page when stopping fails', async () => {
+    const user = userEvent.setup();
+    vi.mocked(hooksApi.save).mockRejectedValue(new Error('refused'));
+    const onRemoved = vi.fn();
+    wrap(<HooksScope data={conflictData()} project={APP} onRemoved={onRemoved} />);
+    await user.click(screen.getByRole('button', { name: 'Stop managing hooks here' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Stop managing hooks here' }));
+    expect(await screen.findByText('refused')).toBeInTheDocument();
+    expect(onRemoved).not.toHaveBeenCalled();
+  });
+
+  it('offers no Codex trust in a project, even with a Codex hook', () => {
+    wrap(
+      <HooksSyncBox
+        project={APP}
+        plan={{
+          ...plan([]),
+          blocked: false,
+          changes: [change({ target: 'codex', name: 'lint', root: APP, action: 'add' })],
+        }}
+      />,
+    );
+    expect(screen.getByRole('button', { name: 'Sync hooks' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Trust Codex hooks' })).not.toBeInTheDocument();
+  });
 });

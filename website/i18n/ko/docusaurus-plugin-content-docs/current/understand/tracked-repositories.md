@@ -158,7 +158,7 @@ skillshare sync
 
 **업데이트 중 보안 동작:**
 - 격리된 후보에서 pull과 감사를 실행하며 기존 target 링크는 기존 checkout을 계속 읽습니다.
-- Sparse-checkout 선택 범위와 기존 integrity hashes를 유지합니다. 해석할 수 없거나 후보 밖을 가리키는 symlink는 스캔 오류로 업데이트를 거부합니다.
+- Sparse-checkout 선택 범위와 기존 integrity hashes를 유지합니다. 대상이 후보 안에 있지만 존재하지 않는 symlink(예: sparse checkout이 제외한 디렉터리를 가리키는 루트 파일)는 허용합니다. 후보 밖을 가리키거나 루프 등 다른 이유로 해석할 수 없는 symlink는 스캔 오류로 업데이트를 거부합니다. 후보 밖이나 `.git` 폴더를 가리키는 링크는 첫 설치와 마찬가지로 `--skip-audit`을 지정해도 업데이트를 거부합니다.
 - 차단에는 활성 임계값(`audit.block_threshold` 또는 `--threshold`/`-T`)을 사용합니다.
 - TTY 모드에서는 임계값 이상의 findings에 대한 확인을 요청합니다. 비 TTY 모드에서는 기본적으로 후보를 거부합니다.
 - 거부 또는 스캔 오류 시 기존 checkout과 metadata가 유지됩니다. `--force`는 스캔 오류를 무시할 수 없으며 `--skip-audit`는 스캔을 비활성화합니다.
@@ -172,10 +172,18 @@ skillshare sync
 skillshare uninstall _team-skills
 ```
 
+기존 checkout(Git checkout을 가리키는 링크 포함)의 경우:
+
 **일어나는 일:**
 1. 커밋되지 않은 변경 사항이 있는지 확인하고, 변경 사항이 있거나 git status를 읽을 수 없으면 중단 (`--force`로 무시)
 2. 디렉터리를 휴지통으로 이동 (7일 보관)
 3. 다음 `sync`에서 target의 symlink 제거
+
+Global mode에서는 checkout이 없는 tracked 선언(없는 경로, 일반 폴더, 비 checkout 링크)을 이름으로 명시하여 제거할 수 있습니다. 소스에 연결하지 않으므로 소스에 접근할 수 없어도 됩니다. 기록과 감사 승인 기록만 제거하고 해당 항목과 `.gitignore`는 유지합니다. Git 확인이나 휴지통 이동이 없으며 `trash restore`로 되돌릴 수 없습니다. `skillshare uninstall devops/_team-skills -g`처럼 `_`가 포함된 정식 이름이나 기록된 전체 경로를 쓰세요. 축약 이름은 기존 skill이나 폴더를 선택할 수 있습니다. glob, `--all`, `--group`은 checkout이 없는 선언을 선택하지 않습니다.
+
+checkout을 수동으로 삭제해도 global 선언은 남습니다. 선언을 제거하는 대신 복원하려면 소스에 접근할 수 있고 대상 경로가 비어 있을 때 `skillshare install -g`를 실행하세요. 이후 `install`이나 reconcile이 선언된 경로의 일반 폴더 또는 따라가는 비 checkout 링크를 탐색하면 일반 기록(`Tracked=false`)으로 정규화되며, 일반 uninstall이 해당 항목을 휴지통으로 옮깁니다. 없는 경로와 따라가지 않거나 사용할 수 없는 링크에는 이 정규화가 적용되지 않습니다.
+
+Global mode에서 `unlink`는 해당 링크 이름의 tracked repository 기록과 감사 승인 기록도 제거합니다. 링크 대상은 그대로 유지됩니다.
 
 ---
 

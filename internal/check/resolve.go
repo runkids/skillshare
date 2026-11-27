@@ -29,16 +29,24 @@ type SkillResult struct {
 	Status      string // "up_to_date", "update_available", "stale", "modified", "local", "error"
 	Message     string
 	Local       bool // the skill has no remote; Status comes from LocalSourceStatus
+	// DefaultBranch is the branch the remote HEAD points at, for a skill that
+	// recorded no branch of its own; empty when unknown.
+	DefaultBranch string
+	// UpstreamChanged marks a modified skill whose upstream has also moved on,
+	// so update --merge has changes to merge into it.
+	UpstreamChanged bool
 }
 
 // Remote reports the state of a remote repository. An empty branch means the
 // remote HEAD.
 type Remote interface {
-	// Hash returns the commit the ref points at.
-	Hash(repoURL, branch string) (string, error)
-	// TreeHashes maps every directory at the ref to its git tree hash. It
-	// returns nil when the hashes cannot be fetched.
-	TreeHashes(repoURL, branch string) map[string]string
+	// Hash returns the commit the ref points at and, for an empty branch, the
+	// branch the remote HEAD points at, if the remote names one.
+	Hash(repoURL, branch string) (hash, defaultBranch string, err error)
+	// TreeHashes maps every directory at the ref to its git tree hash and
+	// every file to its blob hash, and carries the link texts. It returns nil
+	// when the hashes cannot be fetched.
+	TreeHashes(repoURL, branch string) *RemoteTrees
 }
 
 // GitRemote is the Remote backed by git, with token auth for private repos.
@@ -46,14 +54,15 @@ type GitRemote struct {
 	ParseOptions install.ParseOptions
 }
 
-func (r GitRemote) Hash(repoURL, branch string) (string, error) {
+func (r GitRemote) Hash(repoURL, branch string) (string, string, error) {
 	if branch != "" {
-		return git.GetRemoteRefHashWithAuth(repoURL, branch, r.ParseOptions)
+		hash, err := git.GetRemoteRefHashWithAuth(repoURL, branch, r.ParseOptions)
+		return hash, "", err
 	}
-	return git.GetRemoteHeadHashWithAuth(repoURL, r.ParseOptions)
+	return git.GetRemoteHeadWithAuth(repoURL, r.ParseOptions)
 }
 
-func (r GitRemote) TreeHashes(repoURL, branch string) map[string]string {
+func (r GitRemote) TreeHashes(repoURL, branch string) *RemoteTrees {
 	return FetchRemoteTreeHashesForRef(repoURL, branch, r.ParseOptions)
 }
 
@@ -185,10 +194,14 @@ func (g remoteGroup) resolve(remote Remote) []SkillResult {
 		results[i] = baseResult(s)
 	}
 
-	remoteHash, err := remote.Hash(g.url, g.branch)
+	remoteHash, defaultBranch, err := remote.Hash(g.url, g.branch)
+	for i := range results {
+		results[i].DefaultBranch = defaultBranch
+	}
 	if err != nil {
 		for i := range results {
 			results[i].Status = "error"
+			results[i].Message = err.Error()
 		}
 		return results
 	}
@@ -200,7 +213,7 @@ func (g remoteGroup) resolve(remote Remote) []SkillResult {
 		allMatch = allMatch && s.Entry.Version == remoteHash
 		hasTreeHash = hasTreeHash || (s.Entry.TreeHash != "" && s.Entry.Subdir != "")
 	}
-	var trees map[string]string
+	var trees *RemoteTrees
 	if !allMatch && hasTreeHash {
 		trees = remote.TreeHashes(g.url, g.branch)
 	}
@@ -210,6 +223,10 @@ func (g remoteGroup) resolve(remote Remote) []SkillResult {
 	}
 	return results
 }
+
+// UpstreamChangedNote ends the message of a modified skill whose upstream
+// has also moved on: update --merge has changes to merge into it.
+const UpstreamChangedNote = "; update available upstream"
 
 // markModified reports skills whose files changed since install as
 // "modified": update skips them unless forced, so they are not counted as
@@ -221,7 +238,8 @@ func (g remoteGroup) markModified(results []SkillResult) {
 		}
 		results[i].Message = "local changes since install"
 		if results[i].Status == "update_available" {
-			results[i].Message += "; update available upstream"
+			results[i].Message += UpstreamChangedNote
+			results[i].UpstreamChanged = true
 		}
 		results[i].Status = "modified"
 	}
@@ -230,7 +248,7 @@ func (g remoteGroup) markModified(results []SkillResult) {
 // remoteStatus compares one skill with its remote. A moved commit alone does
 // not mean the skill changed: when the skill's subdir tree hash is known on
 // both sides, that decides. trees is nil when it was not fetched.
-func remoteStatus(entry *install.MetadataEntry, remoteHash string, trees map[string]string) string {
+func remoteStatus(entry *install.MetadataEntry, remoteHash string, trees *RemoteTrees) string {
 	if entry.Version == remoteHash {
 		return "up_to_date"
 	}
@@ -238,7 +256,7 @@ func remoteStatus(entry *install.MetadataEntry, remoteHash string, trees map[str
 		return "update_available"
 	}
 	// ls-tree paths never have a leading "/", but Subdir may.
-	tree, ok := trees[strings.TrimPrefix(entry.Subdir, "/")]
+	tree, ok := trees.Hash(strings.TrimPrefix(entry.Subdir, "/"))
 	switch {
 	case !ok:
 		return "stale" // removed upstream

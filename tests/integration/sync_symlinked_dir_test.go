@@ -3,6 +3,7 @@
 package integration
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -240,4 +241,128 @@ func TestUpdateAll_SymlinkedSource(t *testing.T) {
 	result := sb.RunCLI("update", "--all", "-n")
 	result.AssertSuccess(t)
 	result.AssertAnyOutputContains(t, "remote-skill")
+}
+
+// TestDiff_SymlinkedTarget_InSyncAfterSync verifies diff follows a target
+// reached through another tool's directory link, as sync does (#1070).
+func TestDiff_SymlinkedTarget_InSyncAfterSync(t *testing.T) {
+	for _, mode := range []string{"merge", "copy"} {
+		t.Run(mode, func(t *testing.T) {
+			sb := testutil.NewSandbox(t)
+			defer sb.Cleanup()
+
+			sb.CreateSkill("demo", map[string]string{"SKILL.md": "---\nname: demo\n---\n# Demo"})
+			realTarget := filepath.Join(sb.Root, "dotfiles", "skills")
+			os.MkdirAll(realTarget, 0755)
+			alias := filepath.Join(sb.Root, "alias")
+			if err := os.Symlink(realTarget, alias); err != nil {
+				t.Skipf("symlinks unavailable: %v", err)
+			}
+			sb.WriteConfig(singleTargetConfig(sb.SourcePath, alias, mode))
+
+			sb.RunCLI("sync").AssertSuccess(t)
+
+			result := sb.RunCLI("diff", "--json")
+			result.AssertSuccess(t)
+			var out struct {
+				Targets []struct {
+					Mode   string `json:"mode"`
+					Synced bool   `json:"synced"`
+					Error  string `json:"error"`
+				} `json:"targets"`
+			}
+			if err := json.Unmarshal([]byte(result.Stdout), &out); err != nil {
+				t.Fatalf("parse diff JSON: %v\n%s", err, result.Stdout)
+			}
+			if len(out.Targets) != 1 {
+				t.Fatalf("got %d targets, want 1:\n%s", len(out.Targets), result.Stdout)
+			}
+			if got := out.Targets[0]; got.Mode != mode || !got.Synced {
+				t.Errorf("got mode %q synced %v (error %q), want mode %q in sync", got.Mode, got.Synced, got.Error, mode)
+			}
+		})
+	}
+}
+
+// symlinkedTarget makes a target folder that is another tool's link to a real
+// directory, and returns both paths.
+func symlinkedTarget(t *testing.T, sb *testutil.Sandbox) (alias, real string) {
+	t.Helper()
+	real = filepath.Join(sb.Root, "dotfiles", "skills")
+	os.MkdirAll(real, 0755)
+	alias = filepath.Join(sb.Root, "alias")
+	if err := os.Symlink(real, alias); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	return alias, real
+}
+
+// TestTargetRemove_SymlinkedTarget_KeepsLink verifies target remove keeps
+// another tool's link and replaces the skill links behind it with copies (#1070).
+func TestTargetRemove_SymlinkedTarget_KeepsLink(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("demo", map[string]string{"SKILL.md": "---\nname: demo\n---\n# Demo"})
+	alias, real := symlinkedTarget(t, sb)
+	sb.WriteConfig(singleTargetConfig(sb.SourcePath, alias, "merge"))
+	sb.RunCLI("sync").AssertSuccess(t)
+
+	sb.RunCLI("target", "remove", "claude").AssertSuccess(t)
+
+	if !sb.IsSymlink(alias) {
+		t.Error("the target link should stay a link")
+	}
+	if demo := filepath.Join(real, "demo"); sb.IsSymlink(demo) || !sb.FileExists(filepath.Join(demo, "SKILL.md")) {
+		t.Error("demo should be a copy behind the link")
+	}
+}
+
+// The project path once followed the link too; it must keep doing so.
+func TestTargetRemove_Project_SymlinkedTarget_KeepsLink(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	projectRoot := sb.SetupProjectDir("claude")
+	sb.CreateProjectSkill(projectRoot, "demo", map[string]string{"SKILL.md": "# Demo"})
+	real := filepath.Join(sb.Root, "dotfiles", "project-skills")
+	os.MkdirAll(real, 0755)
+	alias := filepath.Join(projectRoot, ".claude", "skills")
+	os.RemoveAll(alias)
+	if err := os.Symlink(real, alias); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	sb.RunCLIInDir(projectRoot, "sync", "-p").AssertSuccess(t)
+
+	sb.RunCLIInDir(projectRoot, "target", "remove", "claude", "-p").AssertSuccess(t)
+
+	if !sb.IsSymlink(alias) {
+		t.Error("the target link should stay a link")
+	}
+	if demo := filepath.Join(real, "demo"); sb.IsSymlink(demo) || !sb.FileExists(filepath.Join(demo, "SKILL.md")) {
+		t.Error("demo should be a copy behind the link")
+	}
+}
+
+// TestBackupRestore_SymlinkedTarget verifies backup reads, and restore writes,
+// the directory behind another tool's link and keeps the link (#1070).
+func TestBackupRestore_SymlinkedTarget(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	alias, real := symlinkedTarget(t, sb)
+	local := filepath.Join(real, "mine", "SKILL.md")
+	os.MkdirAll(filepath.Dir(local), 0755)
+	os.WriteFile(local, []byte("# Original"), 0644)
+	sb.WriteConfig(singleTargetConfig(sb.SourcePath, alias, "merge"))
+
+	sb.RunCLI("backup").AssertSuccess(t)
+	os.WriteFile(local, []byte("# Modified"), 0644)
+	sb.RunCLI("restore", "claude", "--force").AssertSuccess(t)
+
+	if !sb.IsSymlink(alias) {
+		t.Error("restore should keep the target link")
+	}
+	if content, err := os.ReadFile(local); err != nil || string(content) != "# Original" {
+		t.Errorf("restored file = %q, %v; want the backed-up content", content, err)
+	}
 }

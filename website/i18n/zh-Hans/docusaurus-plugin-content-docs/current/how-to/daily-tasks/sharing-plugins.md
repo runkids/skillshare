@@ -18,8 +18,8 @@ sidebar_position: 9
 
 ![Add plugin 对话框：发现的 plugin，以及兼容与不支持的 targets](/img/plugins-add-dialog.png)
 
-大多数用户只需要一个仓库与目标复选框即可。**Advanced options** 可以新增
-一个 Git ref，用于选择某个 release。Discovery 会分别显示每个 Target 的组件与
+大多数用户只需要一个仓库与目标复选框即可。选填的 **Git 分支、标签或 commit**
+栏位可以选择某个 release。Discovery 会分别显示每个 Target 的组件与
 兼容性。当 OpenCode 因为其入口无法被检测而被列为不受支持时，该行上的
 **Set entry path** 会取用已构建好的文件，并重新在 Source 中搜索，
 同时保留你已选择的内容。安全的相对仓库符号链接会被保留。
@@ -80,6 +80,8 @@ Target**，而不是“在该 Agent 内部启用”。
 - 该套件定义仍会保留，你之后可以再次选取该 Target。
 - 在 Claude 或 Codex 内部被停用的 plugin 会保持停用状态；请在该工具中
   管理其原生设置。
+- 从同一个 Source 添加的 plugin 会合并成一行，显示其中有几个在同步。展开它可看到每个 plugin 自己的行；这一行的菜单可一次全部更新、暂停或恢复同步，或全部移除。
+- 勾选行最前面的方框（可跨区块）就能一起操作。底部的操作栏可开始或暂停同步、更新上次检查找到新版本的项目，或全部移除；不适用的 plugin 会被跳过。
 
 在控制台中，Plugins 页面右上角的 **Sync** 方框，会列出下一次同步将为
 每个 Agent 安装或移除的内容。其按钮会打开预览；在你确认之前，任何
@@ -97,12 +99,23 @@ skillshare sync plugins --no-tui
 为只读，并以渲染后的 Markdown 呈现。被 import 的 plugin 没有本地副本，因此
 也没有此选项。
 
+页面标题栏或 plugin 菜单中的 **Share** 会列出从 HTTPS Git Source 添加的 plugin。勾选几个后，
+复制一条命令即可按顺序把它们全部加入。每个 add 都带 `-g`，所以即使在项目里运行，也会加入全局配置。
+命令默认还带 `--no-tui`，加入时不会询问；运行的人之后再到 Plugins 页面勾选 Agent 安装。
+勾选「每个项目都询问要安装到哪里」会去掉 `--no-tui`，每次加入都会打开 Agent 选择界面。
+来自本地目录的 plugin 不会列出，因为那个路径只存在于你的机器上。
+
+同一个对话框还会在 plugin 之后列出 Pi 从 npm 安装的 Pi 包。npm 包由 Pi 自己下载，所以命令会指定 target：
+`skillshare plugin add npm:<package> --target pi -g --no-tui` 会直接装进 Pi。
+勾选「每个项目都询问要安装到哪里」时，命令不带 `--target pi`，改为询问要用哪些 Pi target。
+来自 Git 或本地路径的 Pi 包不会列出。
+
 Plugin 与一般的 Skill 及 MCP 同步是彼此独立的。它们所打包的
 组件不会同时被复制进独立的 Skillshare Source 中。
 
 ## 更新与恢复 {#updates-and-recovery}
 
-Plugins 页面打开时会检查更新，也可以随时用 **Check updates** 再检查一次。所有 plugin 会同时检查：每一行在自己的检查完成后就显示结果，标题栏会显示已检查的数量。无法检查的 plugin（包括 Agent 的 CLI 在 60 秒内没有响应的情况）会显示 **Check failed**，鼠标悬停可以看到原因。source 有较新版本的行会显示 `old → new`，标题栏的按钮变为 **Update N**。点击后会打开一个对话框，列出所有有更新的 plugin，默认全部勾选，并显示各 plugin 安装在哪些 Agent 上；取消勾选某个 plugin 或某个 Agent 即可排除。**Update N plugins** 会逐个执行所选项目，并把每一行显示为等待中、更新中、已更新、失败或已跳过。**Stop after this one** 会在正在更新的 plugin 完成后停止，其余不再更新。失败的行会列出已更新和失败的 Agent 以及错误信息，**Retry** 只会重新处理失败的 Agent。结果会同步到页面，无需再次检查。如果 source 在检查之后发生了变化，则不会安装任何内容；请再次检查以审核新版本。Pi 的 npm 包是例外：Pi 会安装 npm 标为 latest 的版本。全部都是最新版本时，对话框会列出每个 plugin 及其 Agent 与版本。
+返回 Plugins 页面时，会直接显示最近两分钟内的检查结果。缓存过期后，页面会在后台重新检查，期间保留已有结果。点击「工具」旁的刷新按钮，可立即重新读取工具列表并检查更新。所有 plugin 会同时检查：每一行在自己的检查完成后就显示结果，标题栏会显示已检查的数量。无法检查的 plugin（包括 Agent 的 CLI 在 60 秒内没有响应的情况）会显示 **Check failed**，鼠标悬停可以看到原因。source 有较新版本的行会显示 `old → new`，标题栏的按钮变为 **Update N**。点击后会打开一个对话框，列出所有有更新的 plugin，默认全部勾选，并显示各 plugin 安装在哪些 Agent 上；取消勾选某个 plugin 或某个 Agent 即可排除。**Update N plugins** 会逐个执行所选项目，并把每一行显示为等待中、更新中、已更新、失败或已跳过。**Stop after this one** 会在正在更新的 plugin 完成后停止，其余不再更新。失败的行会列出已更新和失败的 Agent 以及错误信息，**Retry** 只会重新处理失败的 Agent。结果会同步到页面，无需再次检查。如果 source 在检查之后发生了变化，则不会安装任何内容；请再次检查以审核新版本。Pi 的 npm 包是例外：Pi 会安装 npm 标为 latest 的版本。全部都是最新版本时，对话框会列出每个 plugin 及其 Agent 与版本。
 
 Claude 可以通过其原生 CLI 进行更新。Codex 会用经审核的快照再次 add 该 plugin；但若它在 Codex 中被停用则不会更新，因为 add 会把它重新启用；导入的 Codex plugin 则通过升级其 marketplace 来更新。Cursor 与 Antigravity 会在检查本地编辑后替换受管理的本地副本。Pi 与 OpenCode 会更新经审核的快照。Oh My Pi 会先移除自己的安装，再重新安装经审核的 commit，不会运行 OMP 原生的 upgrade。Copilot 与 Antigravity CLI 可以在保留已知启用状态的同时刷新一份经审核的 Source。Grok 的更新仍留在原生工具中处理，对话框会把这类安装单独列在 **Update inside the Agent** 下；被 import 套件的限制请参见命令参考文档。不再提供兼容 plugin 的 source 会列在 **Cannot update** 下。无法连接的 Target 会连同原因报告为失败，该 plugin 的其他 Agent 仍会照常更新。
 

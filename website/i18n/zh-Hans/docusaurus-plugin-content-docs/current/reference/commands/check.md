@@ -48,7 +48,7 @@ result=$(skillshare check --json)
 `check` 会检查你的 source 目录，并报告以下内容的更新状态：
 
 1. **已跟踪仓库**——从 origin 拉取，显示落后多少个 commit
-2. **已安装 skills（带 metadata）**——将已安装版本与 remote HEAD 进行比较
+2. **已安装 skills（带 metadata）**——将已安装版本与 remote HEAD 进行比较。两者不同时，从仓库子文件夹安装的 skill 只要该子文件夹没有变化，仍算 up to date
 3. **过时的 skills**——检测哪些 skill 的子目录已在 upstream 仓库中被删除
 4. **本地修改过的 skills**——将从仓库安装的 skill 的文件与安装时记录的文件进行比较，如果你编辑、添加或删除了其中任何文件，则报告 `"status": "modified"`
 5. **从本地路径安装的 skills**——将安装来源路径中的文件与安装时记录的文件进行比较（参见[从本地路径安装](#local-path-installs)）
@@ -185,7 +185,7 @@ skillshare check --json
 :::
 
 :::info 本地修改过的 skills
-安装后被你编辑过的 skill 会被报告为 **modified**，即使 upstream 已有更新版本；此时其 `message` 以 `update available upstream` 结尾。在你运行 `skillshare update <name> --force` 之前，`update` 不会处理它；该命令会丢弃你的更改并重新安装。操作系统的元数据文件（`.DS_Store`、`Thumbs.db`、`desktop.ini`）不算作本地修改。
+安装后被你编辑过的 skill 会被报告为 **modified**，即使 upstream 已有更新版本；此时其 `message` 以 `update available upstream` 结尾，`--json` 会设置 `"upstream_changed": true`。在你运行 `skillshare update <name> --merge`（保留你的更改并把 upstream 的更改合并进去）或 `skillshare update <name> --force`（丢弃你的更改并重新安装）之前，`update` 不会处理它。操作系统的元数据文件（`.DS_Store`、`Thumbs.db`、`desktop.ini`）不算作本地修改。
 
 如需先查看更改内容，请运行 `skillshare check <name> --diff`。它会获取该 skill 安装时所在的 commit，因此即使 upstream 已经前进，diff 也只显示你自己的修改：
 
@@ -201,7 +201,7 @@ skillshare check --json
 :::
 
 :::tip Monorepo 感知
-对于从子目录安装的 skills，`check` 只有在该特定目录发生变化时才会报告 "update available"——而不是仓库中其他不相关部分有新 commit 时。
+对于从子目录安装的 skills，`check` 只有在该特定目录发生变化时才会报告 "update available"——而不是仓库中其他不相关部分有新 commit 时。对于通过指向文件夹的 link 安装的 skill（例如 `.agents/skills/<name>`），比较的是 link 指向的文件夹。
 :::
 
 ## Project Mode
@@ -224,7 +224,7 @@ skillshare check agents -p           # 检查 project agents
 skillshare check --all               # 同时检查 skills 和 agents
 ```
 
-每个 agent 都会与安装时的分支比较。记录的 source 被之前的 `update agents` 弄丢的 agent 会报告 `error` 并提示重新安装，参见[故障排除](/docs/troubleshooting/common-errors#agent-source-lost)。
+每个 agent 都会与安装时的分支比较。该分支有新的 commit、但 agent 文件没有变化时，仍算 up to date。安装后被你编辑过的 agent 会被报告为 drifted；当 upstream 也有更新版本时，其 `message` 以 `update available upstream` 结尾，`--json` 会设置 `"upstreamChanged": true`，并且可用 `skillshare update agents <name> --merge` 合并。记录的 source 被之前的 `update agents` 弄丢的 agent 会报告 `error` 并提示重新安装，参见[故障排除](/docs/troubleshooting/common-errors#agent-source-lost)。
 
 不带 `agents` 参数或 `--all` 时，`check` 仅对 skills 起作用（默认行为）。关于背景信息，参见 [Agents](/docs/understand/agents)。
 

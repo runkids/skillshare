@@ -149,7 +149,7 @@ func countManagedAgents(targetPath, mode, extension, sourcePath string, expected
 	}
 	switch mode {
 	case "copy":
-		_, managed, _ := ssync.CheckStatusCopy(targetPath)
+		_, managed, _ := ssync.CheckStatusCopy(targetPath, sourcePath)
 		return managed + ssync.SyncedAgentCopies(targetPath, agents)
 	case "symlink":
 		if ssync.CheckStatus(targetPath, sourcePath) == ssync.StatusLinked {

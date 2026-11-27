@@ -48,7 +48,10 @@ interface Props {
 /** Unified diff of the pending save, with unchanged runs cut down to a few lines of context. */
 export default function DiffView({ oldText, newText, saving, onConfirm, onCancel }: Props) {
   const t = useT();
-  const ops = useMemo(() => diffLines(oldText.split('\n'), newText.split('\n')), [oldText, newText]);
+  const ops = useMemo(
+    () => diffLines(oldText.split('\n'), newText.split('\n')),
+    [oldText, newText],
+  );
   const changed = ops.filter((op) => op.t !== 'eq').length;
   // Distance from each line to the nearest change decides whether an unchanged line is shown
   const near = useMemo(() => {
@@ -68,21 +71,42 @@ export default function DiffView({ oldText, newText, saving, onConfirm, onCancel
   const title = t('skillEditor.review.title');
 
   return (
-    <DialogShell open onClose={onCancel} padding="none" className="!max-w-[760px]" ariaLabel={title} preventClose={saving}>
+    <DialogShell
+      open
+      onClose={onCancel}
+      padding="none"
+      className="!max-w-[760px]"
+      ariaLabel={title}
+      preventClose={saving}
+    >
       <div className="dh">
         <div className="flex flex-col gap-1">
           <h2 className="ss-h2">{title}</h2>
-          <p className="text-[13px] text-ink-2">{t(changed === 1 ? 'skillEditor.review.line' : 'skillEditor.review.lines', { count: changed })}</p>
+          <p className="text-[13px] text-ink-2">
+            {t(changed === 1 ? 'skillEditor.review.line' : 'skillEditor.review.lines', {
+              count: changed,
+            })}
+          </p>
         </div>
       </div>
       <div className="db">
         <div className="ss-code !overflow-auto max-h-[60vh]">
           <div className="min-w-max">
             {ops.map((op, i) => {
-              if (!near[i]) return near[i - 1] ? <span key={i} className="block text-ink-3">⋯</span> : null;
+              if (!near[i])
+                return near[i - 1] ? (
+                  <span key={i} className="block text-ink-3">
+                    ⋯
+                  </span>
+                ) : null;
               return (
                 <Fragment key={i}>
-                  {op.t === 'eq' && <span className="block">{'  '}{op.a}</span>}
+                  {op.t === 'eq' && (
+                    <span className="block">
+                      {'  '}
+                      {op.a}
+                    </span>
+                  )}
                   {op.t === 'del' && <span className="del">- {op.a}</span>}
                   {op.t === 'ins' && <span className="add">+ {op.b}</span>}
                 </Fragment>
@@ -93,8 +117,12 @@ export default function DiffView({ oldText, newText, saving, onConfirm, onCancel
       </div>
       <div className="df">
         <span className="flex-1" />
-        <Button variant="ghost" onClick={onCancel} disabled={saving}>{t('common.back')}</Button>
-        <Button variant="primary" loading={saving} onClick={onConfirm}>{t('skillEditor.saveButton')}</Button>
+        <Button variant="ghost" onClick={onCancel} disabled={saving}>
+          {t('common.back')}
+        </Button>
+        <Button variant="primary" loading={saving} onClick={onConfirm}>
+          {t('skillEditor.saveButton')}
+        </Button>
       </div>
     </DialogShell>
   );

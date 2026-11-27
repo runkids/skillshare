@@ -4,9 +4,11 @@ import { ArrowUpRight, Bot, FolderInput, Puzzle, Target, Trash2 } from 'lucide-r
 import type { Skill } from '../../api/client';
 import { useT } from '../../i18n';
 import { formatTrackedRepoName, resourceHref } from '../../lib/resourceNames';
-import AgentIcon from '../AgentIcon';
+import { formatVersion } from '../../lib/format';
+import AgentStack from '../AgentStack';
 import Tooltip from '../Tooltip';
 import Button from '../Button';
+import Switch from '../Switch';
 import { isRepoRoot, summarize } from './tree';
 import type { FolderNode } from './tree';
 
@@ -35,33 +37,36 @@ interface Props {
 
 /** "_team-repo/frontend" → "team-repo / frontend": the repo's leading "_" is how it is stored, not its name. */
 function crumb(path: string): string {
-  return path.split('/').filter(Boolean).map((seg, i) => (i === 0 && seg.startsWith('_') ? formatTrackedRepoName(seg) : seg)).join(' / ');
-}
-
-function Switch({ on, mixed, label, disabled, onClick }: { on: boolean; mixed?: boolean; label: string; disabled: boolean; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={mixed ? 'mixed' : on}
-      aria-label={label}
-      disabled={disabled}
-      className={`ss-sw ${on ? 'on' : mixed ? 'mix' : ''}`}
-      onClick={onClick}
-    >
-      <i />
-    </button>
-  );
+  return path
+    .split('/')
+    .filter(Boolean)
+    .map((seg, i) => (i === 0 && seg.startsWith('_') ? formatTrackedRepoName(seg) : seg))
+    .join(' / ');
 }
 
 /** Right side of the tree view: what is selected, whether it is on, and where it goes. */
-export default function TreeDetailPane({ kind, subject, busy, onToggleAll, onToggleOne, onSetTargets, onUninstall, move, repoActions, syncedTo }: Props) {
+export default function TreeDetailPane({
+  kind,
+  subject,
+  busy,
+  onToggleAll,
+  onToggleOne,
+  onSetTargets,
+  onUninstall,
+  move,
+  repoActions,
+  syncedTo,
+}: Props) {
   const t = useT();
   const isAgent = kind === 'agent';
   const ItemIcon = isAgent ? Bot : Puzzle;
 
   if (subject.type === 'none') {
-    return <div className="grid h-full place-items-center p-6 text-[13px] text-ink-3">{t(isAgent ? 'resources.tree.pane.emptyAgent' : 'resources.tree.pane.empty')}</div>;
+    return (
+      <div className="grid h-full place-items-center p-6 text-[13px] text-ink-3">
+        {t(isAgent ? 'resources.tree.pane.emptyAgent' : 'resources.tree.pane.empty')}
+      </div>
+    );
   }
 
   const skills = subject.type === 'skill' ? [subject.skill] : subject.skills;
@@ -77,13 +82,17 @@ export default function TreeDetailPane({ kind, subject, busy, onToggleAll, onTog
     path = node.path.slice(0, node.path.length - node.name.length);
     title = link ? link.name : repo ? formatTrackedRepoName(node.name) : node.name;
     tracked = !link && node.path.startsWith('_');
-    meta = [link?.warning ?? count(skills.length), repo ? skills[0]?.branch : ''].filter(Boolean).join(' · ');
+    meta = [link?.warning ?? count(skills.length), repo ? skills[0]?.branch : '']
+      .filter(Boolean)
+      .join(' · ');
   } else if (subject.type === 'skill') {
     const { skill } = subject;
     path = skill.relPath.slice(0, Math.max(0, skill.relPath.lastIndexOf('/')));
     title = skill.name;
     tracked = skill.isInRepo;
-    meta = skill.isInRepo ? '' : skill.branch ?? '';
+    meta = [formatVersion(skill.metadataVersion), skill.isInRepo ? '' : skill.branch]
+      .filter(Boolean)
+      .join(' · ');
   } else {
     title = t('resources.tree.pane.selected', { what: count(skills.length) });
   }
@@ -91,7 +100,11 @@ export default function TreeDetailPane({ kind, subject, busy, onToggleAll, onTog
   const enabled = skills.filter((s) => !s.disabled).length;
   const allOn = enabled === skills.length;
   const noneOn = enabled === 0;
-  const state = allOn ? t('resources.status.enabled') : noneOn ? t('resources.status.disabled') : t('resources.tree.pane.partial', { count: enabled, total: skills.length });
+  const state = allOn
+    ? t('resources.status.enabled')
+    : noneOn
+      ? t('resources.status.disabled')
+      : t('resources.tree.pane.partial', { count: enabled, total: skills.length });
   const summary = summarize(skills);
 
   return (
@@ -99,7 +112,11 @@ export default function TreeDetailPane({ kind, subject, busy, onToggleAll, onTog
       <div className="flex flex-col gap-1.5">
         {path && <div className="truncate font-mono text-xs text-ink-3">{crumb(path)} /</div>}
         <div className="flex min-w-0 items-center gap-2.5">
-          <h2 className={`min-w-0 truncate text-lg font-bold tracking-tight ${subject.type === 'multi' ? '' : 'font-mono'}`}>{title}</h2>
+          <h2
+            className={`min-w-0 truncate text-lg font-bold tracking-tight ${subject.type === 'multi' ? '' : 'font-mono'}`}
+          >
+            {title}
+          </h2>
           {tracked && <span className="ss-tag shrink-0">tracked</span>}
           <span className="flex-1" />
           {move && (
@@ -126,17 +143,19 @@ export default function TreeDetailPane({ kind, subject, busy, onToggleAll, onTog
       </div>
 
       <div className="ss-tree-props">
-        {skills.length > 0 && <div>
-          <span className="lb">{t('resources.col.status')}</span>
-          <Switch
-            on={allOn}
-            mixed={!allOn && !noneOn}
-            label={title}
-            disabled={busy}
-            onClick={() => onToggleAll(skills, !allOn)}
-          />
-          <span className="text-[13px] font-semibold">{state}</span>
-        </div>}
+        {skills.length > 0 && (
+          <div>
+            <span className="lb">{t('resources.col.status')}</span>
+            <Switch
+              checked={allOn}
+              mixed={!allOn && !noneOn}
+              aria-label={title}
+              disabled={busy}
+              onChange={() => onToggleAll(skills, !allOn)}
+            />
+            <span className="text-[13px] font-semibold">{state}</span>
+          </div>
+        )}
         {skills.length > 0 && (!isAgent || syncedTo) && (
           <div>
             <span className="lb">{t('resources.col.targets')}</span>
@@ -156,9 +175,7 @@ export default function TreeDetailPane({ kind, subject, busy, onToggleAll, onTog
               <span className="text-[13px]">{t('targetMenu.allTargets')}</span>
             ) : (
               <span className="flex min-w-0 items-center gap-2">
-                <span className="ss-stack shrink-0">
-                  {summary.targets.slice(0, 4).map((n) => <span key={n} className="ss-at"><AgentIcon target={n} size={14} /></span>)}
-                </span>
+                <AgentStack targets={summary.targets} max={4} iconSize={14} className="shrink-0" />
                 <span className="truncate text-[13px]">{summary.display}</span>
               </span>
             )}
@@ -181,14 +198,24 @@ export default function TreeDetailPane({ kind, subject, busy, onToggleAll, onTog
 
       {subject.type !== 'skill' && (
         <div className="flex flex-col gap-1">
-          <div className="mb-1 text-xs font-semibold text-ink-3">{t(isAgent ? 'layout.nav.agents' : 'layout.nav.skills')}</div>
+          <div className="mb-1 text-xs font-semibold text-ink-3">
+            {t(isAgent ? 'layout.nav.agents' : 'layout.nav.skills')}
+          </div>
           {skills.map((s) => (
             <div key={s.flatName} className="ss-tree-item">
               <ItemIcon size={14} className="shrink-0 text-ink-3" />
-              <Link to={resourceHref(s)} className={`min-w-0 flex-1 truncate font-mono text-[13px] font-medium hover:underline ${s.disabled ? 'text-ink-3' : ''}`}>
+              <Link
+                to={resourceHref(s)}
+                className={`min-w-0 flex-1 truncate font-mono text-[13px] font-medium hover:underline ${s.disabled ? 'text-ink-3' : ''}`}
+              >
                 {s.name}
               </Link>
-              <Switch on={!s.disabled} label={s.name} disabled={busy} onClick={() => onToggleOne(s)} />
+              <Switch
+                checked={!s.disabled}
+                aria-label={s.name}
+                disabled={busy}
+                onChange={() => onToggleOne(s)}
+              />
             </div>
           ))}
         </div>

@@ -17,7 +17,6 @@ cmd/skillshare/helpers.go	copyDir	os.MkdirAll	dstPath	source-unmigrated
 cmd/skillshare/helpers.go	copyFile	os.OpenFile	dst	source-unmigrated
 cmd/skillshare/helpers.go	removeEmptyDir	os.Remove	dir	extras
 cmd/skillshare/init_apply.go	applyInitPlan	os.MkdirAll	dir	source-root
-cmd/skillshare/init_apply.go	replaceIdenticalCopies	os.RemoveAll	dst	target
 cmd/skillshare/init_project.go	createProjectTargetDirs	os.MkdirAll	absPath	target
 cmd/skillshare/init_project.go	ensureProjectGitignore	os.WriteFile	gitignorePath	project
 cmd/skillshare/init_project.go	performProjectInit	os.MkdirAll	filepath.Join(projectDir, "agents")	agents
@@ -148,7 +147,7 @@ internal/hub/drafts.go	(DraftStore).persist	os.Remove	tmp.Name()	config
 internal/hub/drafts.go	(DraftStore).persist	os.Rename	tmp.Name(), path	config
 internal/hub/index.go	WriteIndex	os.MkdirAll	filepath.Dir(path)	source-unmigrated
 internal/hub/index.go	WriteIndex	os.WriteFile	path	source-unmigrated
-internal/install/copy.go	copyDirExcluding	os.MkdirAll	dstPath	source-unmigrated
+internal/install/copy.go	copyDirWithState	os.MkdirAll	dstPath	source-unmigrated
 internal/install/copy.go	copyFile	os.OpenFile	dst	source-unmigrated
 internal/install/git_candidate.go	(*GitUpdateCandidate).Close	os.RemoveAll	c.tempDir	tmp
 internal/install/git_candidate.go	StageGitUpdate	os.MkdirAll	filepath.Dir(dst)	tmp
@@ -188,8 +187,15 @@ internal/install/install_update.go	handleUpdate	os.MkdirTemp	""	tmp
 internal/install/install_update.go	handleUpdate	os.RemoveAll	tempDir	tmp
 internal/install/install_update.go	updateRepoRootOrchestrator	os.MkdirTemp	""	tmp
 internal/install/install_update.go	updateRepoRootOrchestrator	os.RemoveAll	tempDir	tmp
-internal/install/local_changes.go	LocalChanges	os.MkdirTemp	""	tmp
+internal/install/installed_shape.go	keepInstalledShape	os.RemoveAll	filepath.Join(dir, filepath.FromSlash(skill.Path))	tmp
+internal/install/installed_shape.go	keepOnlySkillFile	os.RemoveAll	filepath.Join(dir, e.Name())	tmp
+internal/install/local_changes.go	fetchVersion	os.MkdirTemp	""	tmp
+internal/install/local_changes.go	fetchVersion	os.RemoveAll	tmp	tmp
 internal/install/local_changes.go	LocalChanges	os.RemoveAll	tmp	tmp
+internal/install/merge.go	mergeFile	os.MkdirTemp	""	tmp
+internal/install/merge.go	mergeFile	os.RemoveAll	tmp	tmp
+internal/install/merge.go	mergeFile	os.WriteFile	filepath.Join(tmp, names[i])	tmp
+internal/install/merge.go	mergeLocalEdits	os.RemoveAll	tmp	tmp
 internal/install/lock.go	(*Lock).Save	os.Remove	path	project
 internal/install/lock.go	(*Lock).Save	os.WriteFile	path	project
 internal/install/meta.go	WriteMeta	os.WriteFile	metaPath	source-unmigrated
@@ -203,6 +209,8 @@ internal/install/metadata.go	(*MetadataStore).Save	os.Rename	tmpName, target	sou
 internal/install/metadata_migrate.go	cleanupOldRegistry	os.Remove	filepath.Join(dir, "registry.yaml")	source-unmigrated
 internal/install/metadata_migrate.go	walkAgentSidecars	os.Remove	sidecarPath	agents
 internal/install/metadata_migrate.go	walkSkillDir	os.Remove	sidecarPath	source-unmigrated
+internal/install/upstream_changes.go	UpstreamChanges	os.RemoveAll	newTmp	tmp
+internal/install/upstream_changes.go	UpstreamChanges	os.RemoveAll	oldTmp	tmp
 internal/instructions/convert.go	Apply	os.Remove	c.Path	plugin
 internal/instructions/convert.go	WriteFile	os.MkdirAll	filepath.Dir(path)	plugin
 internal/instructions/convert.go	WriteFile	os.WriteFile	path	plugin
@@ -260,15 +268,15 @@ internal/plugin/config.go	(*Service).save	os.Rename	f.Name(), path	plugin
 internal/plugin/lifecycle.go	(*Service).Lock	os.MkdirAll	filepath.Dir(path)	config
 internal/plugin/lifecycle.go	(*Service).Lock	os.OpenFile	path	config
 internal/plugin/lifecycle.go	(*Service).Lock	os.Remove	path	config
-internal/plugin/local_bundle.go	(*Service).applyLocal	os.MkdirAll	root	plugin
-internal/plugin/local_bundle.go	(*Service).applyLocal	os.MkdirTemp	root	plugin
-internal/plugin/local_bundle.go	(*Service).applyLocal	os.Remove	marker	plugin
-internal/plugin/local_bundle.go	(*Service).applyLocal	os.RemoveAll	backup	plugin
-internal/plugin/local_bundle.go	(*Service).applyLocal	os.RemoveAll	dest	plugin
-internal/plugin/local_bundle.go	(*Service).applyLocal	os.RemoveAll	temp	plugin
-internal/plugin/local_bundle.go	(*Service).applyLocal	os.Rename	backup, dest	plugin
-internal/plugin/local_bundle.go	(*Service).applyLocal	os.Rename	dest, backup	plugin
-internal/plugin/local_bundle.go	(*Service).applyLocal	os.Rename	temp, dest	plugin
+internal/plugin/local_bundle.go	(*Service).applyLocalIn	os.MkdirAll	root	plugin
+internal/plugin/local_bundle.go	(*Service).applyLocalIn	os.MkdirTemp	layout.scratch	plugin
+internal/plugin/local_bundle.go	(*Service).applyLocalIn	os.Remove	marker	plugin
+internal/plugin/local_bundle.go	(*Service).applyLocalIn	os.RemoveAll	backup	plugin
+internal/plugin/local_bundle.go	(*Service).applyLocalIn	os.RemoveAll	dest	plugin
+internal/plugin/local_bundle.go	(*Service).applyLocalIn	os.RemoveAll	temp	plugin
+internal/plugin/local_bundle.go	(*Service).applyLocalIn	os.Rename	backup, dest	plugin
+internal/plugin/local_bundle.go	(*Service).applyLocalIn	os.Rename	dest, backup	plugin
+internal/plugin/local_bundle.go	(*Service).applyLocalIn	os.Rename	temp, dest	plugin
 internal/plugin/local_bundle.go	atomicNativeWrite	os.CreateTemp	filepath.Dir(path)	plugin
 internal/plugin/local_bundle.go	atomicNativeWrite	os.MkdirAll	filepath.Dir(path)	plugin
 internal/plugin/local_bundle.go	atomicNativeWrite	os.Remove	f.Name()	plugin
@@ -451,9 +459,10 @@ internal/sync/sync.go	MigrateToSource	os.RemoveAll	targetPath	target
 internal/sync/sync.go	MigrateToSource	os.Rename	targetPath, sourcePath	source-unmigrated
 internal/sync/sync.go	PruneOrphanLinksWithSkills	os.RemoveAll	entryPath	target
 internal/sync/sync.go	SyncTarget	os.Remove	sc.Path	target
-internal/sync/sync.go	SyncTargetMergeWithSkills	os.Remove	targetSkillPath	target
+internal/sync/sync.go	SyncTargetMergeWithSkillsOptions	os.Remove	targetSkillPath	target
 internal/sync/sync.go	copyDirectoryWithState	os.MkdirAll	dstPath	source-unmigrated
 internal/sync/sync.go	copyFile	os.OpenFile	dst	source-unmigrated
+internal/sync/sync.go	createPendingDirs	os.MkdirAll	dir	target
 internal/sync/sync.go	ensureRealTargetDir	os.MkdirAll	targetPath	target
 internal/sync/sync.go	ensureRealTargetDir	os.MkdirAll	targetPath	target
 internal/sync/sync.go	ensureRealTargetDir	os.Remove	targetPath	target

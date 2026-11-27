@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"path/filepath"
+	"strings"
 
 	"skillshare/internal/check"
 	"skillshare/internal/install"
@@ -25,14 +26,37 @@ type skillCheckResult struct {
 	InstalledAt string `json:"installed_at,omitempty"`
 	Kind        string `json:"kind,omitempty"`
 	Message     string `json:"message,omitempty"`
+	// DefaultBranch names the branch the remote HEAD points at, so a source
+	// link can open that branch instead of HEAD.
+	DefaultBranch string `json:"default_branch,omitempty"`
+}
+
+// checkNames reads the names query param (comma-separated): the tracked repos
+// and skills a check is limited to. Without it, nil: everything is checked.
+func checkNames(r *http.Request) map[string]bool {
+	param := r.URL.Query().Get("names")
+	if param == "" {
+		return nil
+	}
+	only := map[string]bool{}
+	for name := range strings.SplitSeq(param, ",") {
+		if name = strings.TrimSpace(name); name != "" {
+			only[name] = true
+		}
+	}
+	return only
 }
 
 // planSkillCheck plans the update check of every installed skill outside a
-// followed checkout. It takes s.mu.RLock, so the caller must not hold s.mu.
-func (s *Server) planSkillCheck(sourceDir, projectRoot string, walk sourcewalk.Options) *check.Resolution {
+// followed checkout, or of those in only when it is not nil. It takes
+// s.mu.RLock, so the caller must not hold s.mu.
+func (s *Server) planSkillCheck(sourceDir, projectRoot string, walk sourcewalk.Options, only map[string]bool) *check.Resolution {
 	names, _ := install.GetUpdatableSkills(sourceDir)
 	var skills []check.Skill
 	for _, name := range names {
+		if only != nil && !only[name] {
+			continue
+		}
 		if followedCheckout(filepath.Join(sourceDir, name), walk.Follow) != "" {
 			continue
 		}
@@ -52,13 +76,23 @@ func dashboardSkillResults(results []check.SkillResult) []skillCheckResult {
 			continue
 		}
 		out = append(out, skillCheckResult{
-			Name:        r.Name,
-			Source:      r.Source,
-			Version:     r.Version,
-			Status:      r.Status,
-			InstalledAt: r.InstalledAt,
-			Message:     r.Message,
+			Name:          r.Name,
+			Source:        r.Source,
+			Version:       r.Version,
+			Status:        r.Status,
+			InstalledAt:   r.InstalledAt,
+			Message:       r.Message,
+			DefaultBranch: r.DefaultBranch,
 		})
+	}
+	return out
+}
+
+// dashboardAgentResults converts agent statuses to the dashboard payload.
+func dashboardAgentResults(results []check.AgentCheckResult) []skillCheckResult {
+	out := make([]skillCheckResult, 0, len(results))
+	for _, r := range results {
+		out = append(out, skillCheckResult{Name: r.Name, Source: r.Source, Version: r.Version, Status: r.Status, Message: r.Message, DefaultBranch: r.DefaultBranch})
 	}
 	return out
 }
@@ -80,7 +114,7 @@ func (s *Server) handleCheck(w http.ResponseWriter, r *http.Request) {
 	s.mu.RUnlock()
 
 	repos, linked := dashboardRepos(sourceDir, walk)
-	plan := s.planSkillCheck(sourceDir, projectRoot, walk)
+	plan := s.planSkillCheck(sourceDir, projectRoot, walk, nil)
 
 	var repoResults []repoCheckResult
 	for _, repo := range repos {

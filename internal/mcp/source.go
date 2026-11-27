@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -49,8 +50,12 @@ type Source struct {
 // Project is what a project's own config.yaml would hold under mcp, declared in the
 // global config instead so one sync reaches every root.
 type Project struct {
-	Targets []string          `yaml:"targets,omitempty" json:"targets,omitempty"`
-	Servers map[string]Server `yaml:"servers,omitempty" json:"servers,omitempty"`
+	Targets []string `yaml:"targets,omitempty" json:"targets,omitempty"`
+	// Use names servers of the global mcp.servers marked global: false that this root loads.
+	Use []string `yaml:"use,omitempty" json:"use,omitempty"`
+	// Overrides change, for this root only, settings of shared servers it uses, by name.
+	Overrides map[string]Override `yaml:"overrides,omitempty" json:"overrides,omitempty"`
+	Servers   map[string]Server   `yaml:"servers,omitempty" json:"servers,omitempty"`
 }
 
 func mapping(node *yaml.Node) *yaml.Node {
@@ -241,12 +246,8 @@ func LoadSource(configPath string) (*Source, error) {
 			if servers != nil {
 				return nil, fmt.Errorf("choose sources.mcp or mcp.servers, not both")
 			}
-			s.Path, err = expandHome(external.Value)
-			if err != nil {
+			if s.Path, err = externalPath(path, external.Value); err != nil {
 				return nil, err
-			}
-			if !filepath.IsAbs(s.Path) {
-				s.Path = filepath.Join(filepath.Dir(path), s.Path)
 			}
 			if s.Path == path {
 				return nil, fmt.Errorf("sources.mcp cannot refer to config.yaml itself")
@@ -290,7 +291,38 @@ func LoadSource(configPath string) (*Source, error) {
 			s.piExtensionSettings = true
 		}
 	}
-	return s, s.checkTargets()
+	return s, s.check()
+}
+
+// externalPath is where sources.mcp points: from home, or beside config.yaml.
+func externalPath(configPath, value string) (string, error) {
+	path, err := expandHome(value)
+	if err != nil || filepath.IsAbs(path) {
+		return path, err
+	}
+	return filepath.Join(filepath.Dir(configPath), path), nil
+}
+
+// ExternalServers reads the servers of a sources.mcp file, as LoadSource does, so the config
+// editor can check what mcp.projects uses against them before the config is saved.
+func ExternalServers(configPath, value string) (map[string]Server, error) {
+	path, err := externalPath(configPath, value)
+	if err != nil {
+		return nil, err
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var doc yaml.Node
+	if err := parseYAML(data, &doc); err != nil {
+		return nil, err
+	}
+	servers := field(&doc, "servers")
+	if servers == nil {
+		return nil, fmt.Errorf("external MCP source requires servers")
+	}
+	return ParseServers(servers)
 }
 
 // legacyName is a server that had a setting 0.23.0 retired, and the mcp.projects root it
@@ -414,8 +446,146 @@ func (s *Source) checkTargets() error {
 				return err
 			}
 		}
+		for _, override := range project.Overrides {
+			if err := check(override.Targets, false); err != nil {
+				return err
+			}
+		}
 	}
 	return nil
+}
+
+// check settles what holds across sections: account targets and what each root uses.
+func (s *Source) check() error {
+	if err := s.checkTargets(); err != nil {
+		return err
+	}
+	if err := CheckUse(s.Servers, s.Projects); err != nil {
+		return err
+	}
+	// A project's files are read by every account of an Agent, so a server written only
+	// there names the Agent, as a project's own server does.
+	for _, name := range sortedKeys(s.Servers) {
+		server := s.Servers[name]
+		if !server.Shared() {
+			continue
+		}
+		for _, target := range server.Targets {
+			if account, ok := s.Accounts[target]; ok {
+				return fmt.Errorf("MCP %s loads only in projects, and every account reads the same project files; use %s, not %s", name, account.Agent, target)
+			}
+		}
+	}
+	return nil
+}
+
+// CheckUse checks each mcp.projects root's use list against the servers it names. The
+// config editor shares it, so it never accepts a list that sync would then refuse.
+func CheckUse(servers map[string]Server, projects map[string]Project) error {
+	for _, root := range sortedKeys(projects) {
+		project := projects[root]
+		seen := map[string]bool{}
+		for _, name := range project.Use {
+			server, ok := servers[name]
+			switch {
+			case !ok:
+				return fmt.Errorf("mcp.projects: %s uses %s, which is not in mcp.servers", root, name)
+			case !server.Shared():
+				return fmt.Errorf("mcp.projects: %s uses %s, which already loads in every project; set global: false on it to choose projects", root, name)
+			case seen[name]:
+				return fmt.Errorf("mcp.projects: %s lists %s twice under use", root, name)
+			}
+			if _, declared := project.Servers[name]; declared {
+				return fmt.Errorf("mcp.projects: %s has %s both under use and under servers; keep one", root, name)
+			}
+			seen[name] = true
+		}
+		for _, name := range sortedKeys(project.Overrides) {
+			if !seen[name] {
+				return fmt.Errorf("mcp.projects: %s overrides %s, which it does not use", root, name)
+			}
+			// The server as this root loads it meets every rule the shared one does.
+			if err := project.Overrides[name].apply(servers[name]).Validate(name); err != nil {
+				return fmt.Errorf("mcp.projects: %s overrides %s: %w", root, name, err)
+			}
+		}
+	}
+	return nil
+}
+
+// globalServers are the servers written to the Agents' global files. Every reader of the
+// servers goes through it or projectScopes, so a shared server is never taken for a global one.
+func (s *Source) globalServers() map[string]Server {
+	servers := map[string]Server{}
+	for name, server := range s.Servers {
+		if !server.Shared() {
+			servers[name] = server
+		}
+	}
+	return servers
+}
+
+// globalServer is the server of that name in the Agents' global files, if there is one.
+func (s *Source) globalServer(name string) (Server, bool) {
+	server, ok := s.Servers[name]
+	return server, ok && !server.Shared()
+}
+
+// projectScope is what one mcp.projects root is written: its own servers and the shared ones
+// it uses, with the targets a server that names none goes to.
+type projectScope struct {
+	root     string
+	servers  map[string]Server
+	defaults []string
+}
+
+// projectScopes are the mcp.projects roots in order, each with what it is written.
+func (s *Source) projectScopes() []projectScope {
+	var out []projectScope
+	for _, root := range sortedKeys(s.Projects) {
+		project := s.Projects[root]
+		servers := maps.Clone(project.Servers)
+		if servers == nil {
+			servers = map[string]Server{}
+		}
+		for _, name := range project.Use {
+			if server, ok := s.Servers[name]; ok {
+				servers[name] = project.Overrides[name].apply(server)
+			}
+		}
+		out = append(out, projectScope{root, servers, project.defaults(s)})
+	}
+	return out
+}
+
+// Users are the roots that use a shared server, sorted.
+func (s *Source) Users(name string) []string {
+	var roots []string
+	for _, root := range sortedKeys(s.Projects) {
+		if slices.Contains(s.Projects[root].Use, name) {
+			roots = append(roots, root)
+		}
+	}
+	return roots
+}
+
+// SharedTargets is where a shared server goes: in each project that uses it, the targets
+// that project's override names, else the server's own, else the project's.
+func (s *Source) SharedTargets(name string) TargetList {
+	targets := TargetList{}
+	users := s.Users(name)
+	if len(users) == 0 {
+		// Used by no project yet, it shows the targets it names, if any.
+		return append(targets, s.Servers[name].Targets...)
+	}
+	for _, root := range users {
+		for _, target := range s.inRoot(root, name, s.Servers[name]).Targets {
+			if !slices.Contains(targets, target) {
+				targets = append(targets, target)
+			}
+		}
+	}
+	return targets
 }
 
 // References names every place in the MCP config that still selects target. Removing a
@@ -515,7 +685,7 @@ func ParseProjects(node *yaml.Node) (map[string]Project, error) {
 			}
 			reason = strings.Join(typeErr.Errors, "; ")
 		}
-		return nil, fmt.Errorf("mcp.projects: %s; each project root takes only targets and servers", reason)
+		return nil, fmt.Errorf("mcp.projects: %s; each project root takes only targets, use, overrides and servers, and an override only targets, tools, piOptions and options", reason)
 	}
 	projects := map[string]Project{}
 	for root, project := range declared {
@@ -536,6 +706,9 @@ func ParseProjects(node *yaml.Node) (map[string]Project, error) {
 		for name, server := range project.Servers {
 			if err := server.Validate(name); err != nil {
 				return nil, err
+			}
+			if server.Global != nil {
+				return nil, fmt.Errorf("mcp.projects: %s: %s: global applies only to servers in mcp.servers", root, name)
 			}
 		}
 		projects[path] = project

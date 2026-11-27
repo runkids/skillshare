@@ -42,7 +42,8 @@ type DiscoveredSkill struct {
 // isSkillIgnored checks whether a skill inside a tracked repo should be
 // skipped based on the repo's .skillignore matcher.
 // relPath and repoRelPath are slash paths relative to the source root, and
-// ignoreMatchers is keyed by repo root in the same form.
+// ignoreMatchers is keyed by repo root in the same form. The skill is matched
+// as a directory, so a directory-only rule such as "name/" applies to it.
 func isSkillIgnored(relPath, repoRelPath string, ignoreMatchers map[string]*skillignore.Matcher) bool {
 	if relPath == repoRelPath {
 		return false
@@ -51,7 +52,7 @@ func isSkillIgnored(relPath, repoRelPath string, ignoreMatchers map[string]*skil
 	if !ok {
 		return false
 	}
-	return m.Match(strings.TrimPrefix(relPath, repoRelPath+"/"), false)
+	return m.Match(strings.TrimPrefix(relPath, repoRelPath+"/"), true)
 }
 
 // walkOptions returns the optional traversal policy passed to a Discover
@@ -379,6 +380,11 @@ func copyDirectory(src, dst string) error {
 type copyDirectoryOpts struct {
 	SkipGit bool // skip .git directories
 	Ignore  *skillignore.Matcher
+
+	// relPrefix is the skill-root-relative path of src when the walk re-roots
+	// at a dereferenced directory symlink, so ignore rules match the same
+	// paths as the checksum walk.
+	relPrefix string
 }
 
 // copyDirectorySkipGit copies a directory recursively, skipping .git directories.
@@ -409,9 +415,15 @@ func copyDirectoryWithState(src, dst string, active map[string]bool, opts *copyD
 
 	skipGit := opts != nil && opts.SkipGit
 	var ignore *skillignore.Matcher
+	relPrefix := ""
 	if opts != nil {
 		ignore = opts.Ignore
+		relPrefix = opts.relPrefix
 	}
+
+	// Ignored directories entered only because a later negation may re-include
+	// something inside them. Each is created when a kept entry needs it.
+	pending := map[string]os.FileMode{}
 
 	// Walk the operation root itself as a directory, not as a second link hop.
 	src = resolvedSrc
@@ -424,17 +436,37 @@ func copyDirectoryWithState(src, dst string, active map[string]bool, opts *copyD
 		relPath = strings.ReplaceAll(relPath, "\\", "/")
 		dstPath := filepath.Join(dst, relPath)
 
+		// Ignore rules match paths relative to the skill root, like the
+		// checksum walk, even below a dereferenced directory symlink.
+		ignoreRel := relPath
+		if ignoreRel == "." {
+			ignoreRel = ""
+		}
+		if relPrefix != "" {
+			ignoreRel = strings.TrimSuffix(relPrefix+"/"+ignoreRel, "/")
+		}
+
 		if info.IsDir() {
 			if skipGit && info.Name() == ".git" {
 				return filepath.SkipDir
 			}
-			if relPath != "." && isFileIgnored(ignore, relPath, true) {
-				return filepath.SkipDir
+			if ignoreRel != "" && isFileIgnored(ignore, ignoreRel, true) {
+				if ignore.CanSkipDir(ignoreRel) {
+					return filepath.SkipDir
+				}
+				pending[dstPath] = info.Mode()
+				return nil
+			}
+			if err := createPendingDirs(filepath.Dir(dstPath), pending); err != nil {
+				return err
 			}
 			return os.MkdirAll(dstPath, info.Mode())
 		}
-		if isFileIgnored(ignore, relPath, false) {
+		if isFileIgnored(ignore, ignoreRel, false) {
 			return nil
+		}
+		if err := createPendingDirs(filepath.Dir(dstPath), pending); err != nil {
+			return err
 		}
 
 		// In copy mode we need real files/dirs, so directory symlinks are
@@ -449,12 +481,31 @@ func copyDirectoryWithState(src, dst string, active map[string]bool, opts *copyD
 				if resolveErr != nil {
 					return fmt.Errorf("failed to resolve symlink directory %s: %w", path, resolveErr)
 				}
-				return copyDirectoryWithState(resolvedDir, dstPath, active, opts)
+				subOpts := &copyDirectoryOpts{relPrefix: ignoreRel}
+				if opts != nil {
+					*subOpts = *opts
+					subOpts.relPrefix = ignoreRel
+				}
+				return copyDirectoryWithState(resolvedDir, dstPath, active, subOpts)
 			}
 		}
 
 		return copyFile(path, dstPath)
 	})
+}
+
+// createPendingDirs creates dir when the copy walk deferred it, after its
+// deferred parents, with the mode of the matching source directory.
+func createPendingDirs(dir string, pending map[string]os.FileMode) error {
+	mode, ok := pending[dir]
+	if !ok {
+		return nil
+	}
+	delete(pending, dir)
+	if err := createPendingDirs(filepath.Dir(dir), pending); err != nil {
+		return err
+	}
+	return os.MkdirAll(dir, mode)
 }
 
 // copyFile copies a single file
@@ -483,17 +534,17 @@ func copyFile(src, dst string) error {
 // MergeResult holds the result of a merge sync operation
 type MergeResult struct {
 	Linked     []string // Skills that were symlinked
-	Skipped    []string // Skills that already exist in target (kept local)
+	Skipped    []string // Skills whose name a local folder or another tool's link holds (kept local)
 	Updated    []string // Skills that had broken symlinks fixed
 	DirCreated string   // Non-empty if target directory was auto-created (or would be in dry-run)
 	// UnmatchedIncludes are the include patterns that select no skill.
 	UnmatchedIncludes []UnmatchedInclude
 }
 
-// isSymlinkToSource checks whether targetPath is a symlink pointing to sourcePath.
+// IsSymlinkToSource checks whether targetPath is a symlink pointing to sourcePath.
 // Both sides are canonicalized (EvalSymlinks) so that symlink aliases of the same
 // physical directory are recognized as equal.
-func isSymlinkToSource(targetPath, sourcePath string) bool {
+func IsSymlinkToSource(targetPath, sourcePath string) bool {
 	absLink, err := utils.ResolveLinkTarget(targetPath)
 	if err != nil {
 		return false
@@ -520,7 +571,7 @@ func isSymlinkToSource(targetPath, sourcePath string) bool {
 func ensureRealTargetDir(targetPath, sourcePath, modeName string, dryRun bool) (created bool, err error) {
 	info, lstatErr := os.Lstat(targetPath)
 	if lstatErr == nil && info != nil && utils.IsSymlinkOrJunction(targetPath) {
-		if isSymlinkToSource(targetPath, sourcePath) {
+		if IsSymlinkToSource(targetPath, sourcePath) {
 			if dryRun {
 				fmt.Fprintf(DiagOutput, "[dry-run] Would convert from symlink mode to %s mode: %s\n", modeName, targetPath)
 				return false, nil
@@ -576,6 +627,20 @@ func SyncTargetMerge(name string, target config.TargetConfig, sourcePath string,
 // avoiding redundant filesystem walks when syncing multiple targets.
 // sourcePath is the skills source directory, used to detect symlink-mode targets.
 func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkills []DiscoveredSkill, sourcePath string, dryRun, force bool, projectRoot string) (*MergeResult, error) {
+	return SyncTargetMergeWithSkillsOptions(name, target, allSkills, sourcePath, dryRun, force, projectRoot, MergeOptions{
+		IgnorePatterns: DefaultFileIgnorePatterns(),
+	})
+}
+
+// MergeOptions controls merge-mode sync behavior.
+type MergeOptions struct {
+	// IgnorePatterns are the effective copy-mode patterns, used to recognize
+	// an unedited copy that copy mode left behind.
+	IgnorePatterns []string
+}
+
+// SyncTargetMergeWithSkillsOptions is SyncTargetMergeWithSkills with options.
+func SyncTargetMergeWithSkillsOptions(name string, target config.TargetConfig, allSkills []DiscoveredSkill, sourcePath string, dryRun, force bool, projectRoot string, opts MergeOptions) (*MergeResult, error) {
 	sc := target.SkillsConfig()
 	result := &MergeResult{}
 	if !sc.IsEnabled() {
@@ -647,7 +712,12 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 					continue
 				}
 
-				// Symlink points elsewhere - broken or wrong
+				// Symlink points elsewhere - broken or wrong. A same-name link from
+				// another tool is kept, like a local copy, unless --force.
+				if !force && !manifest.OwnsLink(activeName, targetSkillPath, sourcePath) {
+					result.Skipped = append(result.Skipped, activeName)
+					continue
+				}
 				if dryRun {
 					if !quietDryRun {
 						fmt.Fprintf(DiagOutput, "[dry-run] Would fix symlink: %s\n", activeName)
@@ -661,7 +731,7 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 				result.Updated = append(result.Updated, activeName)
 			} else {
 				// It's a real directory
-				if force || manifest.OwnsCopy(activeName, targetSkillPath) {
+				if force || manifest.OwnsCopy(activeName, targetSkillPath, opts.IgnorePatterns) {
 					// Force, or an unedited copy left by copy mode: replace it with a symlink
 					if dryRun {
 						if !quietDryRun {
@@ -762,9 +832,9 @@ type PruneOptions struct {
 	DryRun        bool
 	Force         bool
 	// ManagedOnly removes only entries that are provably skillshare's: broken
-	// links into the source and manifest-tracked links and directories. The name heuristic and
-	// broken-external-link cleanup are skipped. For directories that are not a
-	// configured target's own path.
+	// links into the source and manifest-tracked links and directories. The name
+	// heuristic is skipped. For directories that are not a configured target's
+	// own path.
 	ManagedOnly bool
 }
 
@@ -835,8 +905,6 @@ func PruneOrphanLinksWithSkills(opts PruneOptions) (*PruneResult, error) {
 		return nil, fmt.Errorf("failed to read target directory: %w", err)
 	}
 
-	absSource, _ := filepath.Abs(sourcePath)
-
 	for _, entry := range entries {
 		name := entry.Name()
 
@@ -862,54 +930,39 @@ func PruneOrphanLinksWithSkills(opts PruneOptions) (*PruneResult, error) {
 		// Entry is orphan - determine if we should remove it
 		shouldRemove := false
 		reason := ""
+		_, inManifest := manifest.Managed[name]
 
 		if utils.IsSymlinkOrJunction(entryPath) {
-			absLink, err := utils.ResolveLinkTarget(entryPath)
-			if err != nil {
-				result.Warnings = append(result.Warnings,
-					fmt.Sprintf("%s: unable to resolve link target, kept", name))
+			verdict := OrphanLink(entryPath, sourcePath, inManifest, force)
+			switch {
+			case verdict.RemoveReason != "":
+				shouldRemove = true
+				reason = verdict.RemoveReason
+			case verdict.KeptWarning != "":
+				result.Warnings = append(result.Warnings, name+": "+verdict.KeptWarning)
 				continue
-			}
-
-			targetExists := false
-			if _, err := os.Stat(absLink); err == nil {
-				targetExists = true
-			}
-
-			if utils.PathHasPrefix(absLink, absSource+string(filepath.Separator)) {
-				if !targetExists {
-					shouldRemove = true
-					reason = "broken symlink to source"
-				} else if _, inManifest := manifest.Managed[name]; inManifest || force {
-					shouldRemove = true
-					reason = "orphan symlink to source"
-				} else {
-					// A live link into the source that skillshare never created is the
-					// user's own wiring. Keep it, like the directory branch below.
-					result.LocalDirs = append(result.LocalDirs, name)
-					continue
-				}
-			} else if !targetExists && !opts.ManagedOnly {
-				// External symlink whose target no longer exists (e.g. after data migration)
-				shouldRemove = true
-				reason = "broken external symlink"
-			} else if force {
-				// Valid external symlink, but force mode requested
-				shouldRemove = true
-				reason = "external symlink (force)"
-			} else {
-				result.Warnings = append(result.Warnings,
-					fmt.Sprintf("%s: symlink to external location (%s), kept", name, absLink))
+			default:
+				// Keep it, like the directory branch below.
+				result.LocalDirs = append(result.LocalDirs, name)
+				continue
 			}
 		} else if info.IsDir() {
 			// Check manifest first (most reliable)
-			if _, inManifest := manifest.Managed[name]; inManifest {
+			if inManifest {
 				shouldRemove = true
 				reason = "orphan skillshare-managed directory (manifest)"
 			} else if naming == "flat" && !opts.ManagedOnly && (utils.HasNestedSeparator(name) || utils.IsTrackedRepoDir(name)) {
-				// Fallback: naming pattern heuristic
-				shouldRemove = true
-				reason = "orphan skillshare-managed directory"
+				// The name looks like skillshare's flat naming (team__x, _repo), but the
+				// manifest does not record it. A folder the user named that way is not
+				// skillshare's to delete, so only --force removes it.
+				if force {
+					shouldRemove = true
+					reason = "orphan skillshare-named directory (force)"
+				} else {
+					result.Warnings = append(result.Warnings,
+						fmt.Sprintf("%s: named like a skillshare folder but not in its manifest, kept (delete it yourself, or sync with --force)", name))
+					result.LocalDirs = append(result.LocalDirs, name)
+				}
 			} else {
 				// User-created local directory — record but don't warn
 				result.LocalDirs = append(result.LocalDirs, name)
@@ -928,7 +981,7 @@ func PruneOrphanLinksWithSkills(opts PruneOptions) (*PruneResult, error) {
 			}
 			result.Removed = append(result.Removed, name)
 			// Track manifest changes for cleanup
-			if _, inManifest := manifest.Managed[name]; inManifest {
+			if inManifest {
 				manifest.Remove(name)
 				manifestChanged = true
 			}
@@ -1032,25 +1085,8 @@ func CheckStatusMerge(targetPath, sourcePath string) (TargetStatus, int, int) {
 		return StatusUnknown, 0, 0
 	}
 
-	// If it's a symlink/junction to source, it's using symlink mode not merge
-	if utils.IsSymlinkOrJunction(targetPath) {
-		absLink, err := utils.ResolveLinkTarget(targetPath)
-		if err != nil {
-			return StatusUnknown, 0, 0
-		}
-		absSource, _ := filepath.Abs(sourcePath)
-		if utils.PathsEqual(absLink, absSource) {
-			return StatusLinked, 0, 0
-		}
-		// External symlink (e.g., dotfiles manager) — follow it and treat
-		// the resolved directory as a normal target directory.
-		resolved, statErr := os.Stat(targetPath)
-		if statErr != nil || !resolved.IsDir() {
-			return StatusConflict, 0, 0
-		}
-		// Fall through to count linked/local skills in the resolved directory
-	} else if !info.IsDir() {
-		return StatusUnknown, 0, 0
+	if status, done := rootLinkStatus(targetPath, sourcePath, info); done {
+		return status, 0, 0
 	}
 
 	// Count linked vs local skills

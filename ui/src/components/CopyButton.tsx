@@ -17,7 +17,8 @@ interface CopyButtonProps {
   strokeWidth?: number;
 }
 
-const baseClassName = 'inline-flex items-center gap-0.5 text-pencil-light hover:text-pencil transition-all duration-150 cursor-pointer shrink-0 active:scale-95 focus-visible:ring-2 focus-visible:ring-pencil/20 rounded-sm';
+const baseClassName =
+  'inline-flex items-center gap-0.5 text-pencil-light hover:text-pencil transition-all duration-150 cursor-pointer shrink-0 active:scale-95 focus-visible:ring-2 focus-visible:ring-pencil/20 rounded-sm';
 
 export default function CopyButton({
   value,

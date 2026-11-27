@@ -184,31 +184,18 @@ func cmdMCP(args []string) (resultErr error) {
 		if err != nil {
 			return err
 		}
-		if o.json {
-			return printMCPPlan(p, true)
-		}
 		source, err := mcp.LoadSource(service.ConfigPath)
 		if err != nil {
 			return err
 		}
-		// The plan lists what a sync would touch, which leaves out a server no Agent receives.
-		parked := mcpServersWithoutTargets(source, p)
-		if len(parked) == 0 || len(p.Changes) > 0 {
-			if err := printMCPPlan(p, false); err != nil {
-				return err
-			}
-		} else {
-			printMCPSource(p.SourcePath)
+		shared := mcpSharedServers(source)
+		if o.json {
+			return json.NewEncoder(os.Stdout).Encode(struct {
+				*mcp.Plan
+				Shared []mcpSharedServer `json:"shared,omitempty"`
+			}{p, shared})
 		}
-		names := make([]string, len(parked))
-		for i, server := range parked {
-			names[i] = server[0]
-		}
-		width := ui.RowWidth(names...)
-		for _, server := range parked {
-			ui.Row(ui.MarkNone, server[0], "kept  "+ui.DimText(server[1]), width)
-		}
-		return nil
+		return printMCPList(p, source, shared)
 	case "add":
 		return runMCPAdd(service, o)
 	case "edit":
@@ -267,6 +254,9 @@ func cmdSyncMCP(args []string) error {
 			return outputErr
 		}
 	}
+	if err == nil && !o.json {
+		printServiceMCPToolCosts(service)
+	}
 	return err
 }
 
@@ -280,7 +270,8 @@ func mcpServersWithoutTargets(source *mcp.Source, p *mcp.Plan) [][2]string {
 	var names [][2]string
 	add := func(root string, servers map[string]mcp.Server) {
 		for _, name := range slices.Sorted(maps.Keys(servers)) {
-			if server := servers[name]; server.Targets != nil && len(server.Targets) == 0 && !planned[root+"\x00"+name] {
+			// A shared server has its own row, which names the projects that use it.
+			if server := servers[name]; server.Targets != nil && len(server.Targets) == 0 && !server.Shared() && !planned[root+"\x00"+name] {
 				note := "no targets"
 				if root != "" {
 					note += " (" + root + ")"
@@ -314,8 +305,11 @@ func printMCPPlan(p *mcp.Plan, asJSON bool) error {
 	width := ui.RowWidth(names...)
 	for _, c := range p.Changes {
 		detail := c.Target
+		// Name the file when one server goes to several roots; otherwise the project is enough.
 		if seen[c.Name+"\x00"+c.Target] > 1 {
 			detail += " (" + c.Path + ")"
+		} else if c.Root != "" {
+			detail += " (" + c.Root + ")"
 		}
 		if c.Message != "" {
 			detail += " — " + c.Message

@@ -30,6 +30,7 @@ const (
 	StageStatus  Stage = "status"
 	StageDiscard Stage = "discard"
 	StagePull    Stage = "pull"
+	StageLinks   Stage = "links"
 )
 
 // Error is a failure before the audit gate. A blocked audit is reported as
@@ -45,6 +46,8 @@ func (e *Error) Error() string {
 		return fmt.Sprintf("failed to check git status: %v", e.Err)
 	case StageDiscard:
 		return fmt.Sprintf("failed to discard changes: %v", e.Err)
+	case StageLinks:
+		return fmt.Sprintf("update refused: %v", e.Err)
 	}
 	return fmt.Sprintf("git pull failed: %v", e.Err)
 }
@@ -139,6 +142,14 @@ func TrackedRepo(repoPath string, opts TrackedRepoOptions) (*TrackedRepoResult, 
 	res.Info = info
 	if !info.UpToDate {
 		res.Changes, _ = git.GetChangedFiles(candidate.Path, info.BeforeHash, info.AfterHash)
+	}
+
+	// Checked before the audit, whose block offers --force and --skip-audit,
+	// neither of which lets such a link through.
+	if !info.UpToDate {
+		if err := candidate.LinksWithin(); err != nil {
+			return res, &Error{Stage: StageLinks, Err: err}
+		}
 	}
 
 	if !info.UpToDate && !opts.SkipAudit {

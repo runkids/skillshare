@@ -30,6 +30,9 @@ skillshare hooks enable check --sync
 skillshare hooks sync --dry-run --json
 skillshare hooks sync
 skillshare hooks sync check --replace --dry-run
+skillshare hooks sync --trust -g
+skillshare hooks sync --trust --yes -g
+skillshare hooks sync --trust --yes --json -g
 skillshare sync hooks --dry-run --json
 skillshare sync hooks
 skillshare hooks remove check --sync
@@ -44,6 +47,16 @@ Agent event or file; choose one name to save. Saving an import takes over the
 registrations it read in place: the next sync adopts them without `--replace`,
 and events you did not import stay unmanaged. Import only reads configuration or
 code and never runs it.
+
+The dashboard's **Hooks in targets** dialog opens with no hook selected; tick the ones to
+import. It can also edit or remove a hook in its Agent's
+settings file without importing it. This works for every Agent whose hooks are
+configuration: events in one settings file (Claude, Codex, Gemini, Cursor, Qwen,
+and Droid's `hooks.json`), an Antigravity named block, or a Copilot hooks file,
+where removing the hook deletes that file. Hooks that are code (Pi, Oh My Pi,
+Amp, OpenCode) must be imported first. The dialog shows the file diff before
+anything is written and backs the file up; the hook stays unmanaged.
+
 Add, edit, import, enable, disable and remove save source only unless `--sync`
 is supplied. Sync and restore always preview again before applying.
 `sync hooks` is the resource-only alias; `sync --all` includes hooks and checks
@@ -58,6 +71,8 @@ not one transaction.
 | `--sync` | Save and synchronize the mutation |
 | `--keep-files` | With `remove`: stop managing the hook and leave its native entries as they are. Not with `--sync`. See [below](#stop-managing-a-hook) |
 | `--replace` | Explicitly replace an existing source entry or conflicting native output for that entry |
+| `--trust` | With `hooks sync`: also record Codex trust for the hooks Skillshare owns. See [Codex trust](#codex-trust) |
+| `--yes`, `-y` | With `--trust`: skip the question and trust the listed hooks. See [Codex trust](#codex-trust) |
 | `--dry-run`, `-n` | Preview without saving or writing native configuration |
 | `--json` | Structured output |
 | `--revision ID` | Require the matching preview revision |
@@ -143,7 +158,7 @@ Agents add events over time. Pi, OMP, Amp and OpenCode code is not checked.
 
 Pi, OMP, Amp and OpenCode use their own extension/plugin APIs. Supply code matching
 the installed Agent version, including its imports. Skillshare writes it to a
-dedicated `skillshare-NAME.ts` file without generating a universal hook runtime.
+dedicated `skillshare-NAME.ts` file (OpenCode v1), or an OpenCode v2 directory package, without generating a universal hook runtime.
 
 Longer code and scripts can live in their own files, which a tsconfig, shellcheck or
 an editor can check. Use `codeFile` instead of `code`, and `{from: path}` instead of a
@@ -210,11 +225,10 @@ you provide. Inspect the exact paths in the preview.
 | [Pi](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/extensions.md) | `~/.pi/agent/extensions/skillshare-NAME.ts` | `.pi/extensions/skillshare-NAME.ts` | Native extension code |
 | [Oh My Pi](https://github.com/can1357/oh-my-pi/blob/v18.6.1/docs/extensions.md) | `~/.omp/agent/extensions/skillshare-NAME.ts` | `.omp/extensions/skillshare-NAME.ts` | Native OMP extension code |
 | [Amp](https://ampcode.com/docs/plugin-api) | `~/.config/amp/plugins/skillshare-NAME.ts` | `.amp/plugins/skillshare-NAME.ts` | Native plugin code |
-| [OpenCode](https://opencode.ai/docs/plugins/) | `~/.config/opencode/plugins/skillshare-NAME.ts` | `.opencode/plugins/skillshare-NAME.ts` | Supplied v1/v2 plugin code |
+| [OpenCode](https://opencode.ai/docs/plugins/) | `~/.config/opencode/plugins/skillshare-NAME[.ts]` | `.opencode/plugins/skillshare-NAME[.ts]` | v1 file; v2 directory package (see below) |
 
 Native config-directory environment overrides apply in global scope, unless
-they point at an account's `config_dir`. Project
-operations write inside that project and never fall back to a global path.
+they point at an account's `config_dir`. Project sync writes native hook files inside the checkout. Confirming `--trust` separately records trust in each verified user’s Codex home.
 Other native sources, such as Codex inline TOML declarations, remain separate.
 Antigravity and its CLI (`agy`) read the same `hooks.json`; each hook is one
 block named after it, so importing a block keeps its name. Hooks in the CLI's
@@ -278,7 +292,45 @@ bindings still name it; remove those bindings too before the next hooks sync.
 Import from an account with `skillshare hooks import --from codex-2 -g --json`.
 The dashboard labels it **codex-2 (Codex)** and uses Codex's events and editor.
 Each Codex home needs its own review and trust of changed hooks in `/hooks`;
-sync never changes trust or executes a hook.
+sync never changes trust or executes a hook unless you pass `--trust`.
+
+### Codex trust {#codex-trust}
+
+Codex runs a user-level hook only after it is trusted, and keeps that trust in
+the same home's `config.toml` as `hooks.state."<hooks.json>:<event>:<group>:<handler>".trusted_hash`.
+The key is the hook's position, so a hook Skillshare adds or moves starts
+untrusted, and `codex exec` skips it.
+
+```bash
+skillshare hooks sync --trust -g
+skillshare hooks sync --trust --yes -g
+skillshare hooks sync --trust --yes --json -g
+```
+
+`--trust` first writes the hook files as a normal sync does. Then it asks Codex which of the hooks Skillshare owns need trust, in every Codex home it manages, account homes included. It gets each hook's hash from `codex app-server`, the same calls the `/hooks` review uses, so `codex` must be on `PATH`. Skillshare never computes the hash.
+
+Hooks that are already trusted are reported as `unchanged` and need no answer. If a hook is new, or its command changed since it was trusted, the command lists those hooks with their commands and asks once. If nothing needs trust, it does not ask.
+
+```
+Codex trust
+  stop  needs trust  codex  /home/me/.codex/hooks.json:stop:1:0
+  /usr/local/bin/notify-done
+
+? Trust 1 hook in Codex?  Yes  No
+```
+
+After you confirm:
+
+```
+Codex trust
+✓ stop  trusted  codex  /home/me/.codex/hooks.json:stop:1:0
+```
+
+`--yes` (`-y`) skips the question. Codex's review exists so that a person sees the command before it runs. Without a terminal and without `--yes`, nothing is trusted: the command lists the hooks and exits with an error that names `--yes`. `--json` never asks either: without `--yes` it reports the hooks as `needed` and exits non-zero. Project JSON includes the reason in `codexTrustError` and the destination `home` on each verified hook. `--yes` is only valid with `--trust`. The `--json` output has a `codexTrust` list. Each item has `target`, `entry`, `key`, `command`, `action` (`needed`, `trusted` or `unchanged`), and `disabled` when true.
+
+Only `trusted_hash` is written, and only ever added. A hook you disabled in Codex stays disabled and is reported. `enabled`, the rest of `config.toml` and hooks Skillshare does not own are left alone. When a hook moves or is removed, its old entry stays in `config.toml`. It matches only a hook with the same event, matcher and handler at that position, so it cannot trust a different hook.
+
+If `codex` is not on `PATH` or Codex fails, the hook files are still written and the command fails with "hook files were written, but Codex trust was not recorded". With several Codex homes, a home that Codex cannot list, or whose write fails, does not stop the others: the error names the homes that were recorded and the ones that were not. Plain `hooks sync` never starts Codex and never changes trust. Use `skillshare hooks sync -p --trust` to review this checkout’s owned hooks. Trust is recorded in the listed user homes, not in the checkout. Each home must already trust the folder in Codex. A home that cannot verify every owned command is skipped; use its native `/hooks` to review. If other homes were updated, the result reports partial completion (non-zero exit; `codexTrustError` in project JSON output). `sync hooks` and `hooks list` reject `--trust`. Hooks that `hooks.projects` writes into a project are not included; trust them in Codex's `/hooks`. The dashboard's Hooks page (global or project mode) has the same action: it lists the hooks that need trust with their commands and records trust only after you confirm in the dialog.
 
 ## Git hooks
 
@@ -386,9 +438,13 @@ See the [Roborev recipe](../../how-to/recipes/git-hooks.md) for portable wrapper
 ## Projects, conflicts and recovery
 
 In a global config, `hooks.projects` maps absolute project roots to an `entries`
-mapping using the same Entry format. Manage these in **Projects → Hooks**.
+mapping using the same Entry format. Manage these in **Projects → Hooks**; **Stop managing hooks here**
+there takes the root out of `hooks.projects`, and the next sync removes the hooks
+Skillshare wrote under it.
 A project with its own `.skillshare/config.yaml` must be managed in project
-scope. Project-only sync applies that project's hook changes.
+scope. Project-only sync applies that project's hook changes. See the
+[session start recipe](../../how-to/recipes/session-start-command.md) for one
+project Entry with a binding for each Agent.
 
 Sync preserves unrelated settings and unowned hooks. Matching content alone
 does not establish ownership. Modified owned outputs are conflicts, including
@@ -412,4 +468,17 @@ not replace your source definition. Use **Settings → Backups → Hooks** or
 **Synced** describes configuration written by Skillshare. Restart or reload the
 Agent as its native workflow requires; native trust, enabling hooks and code
 compatibility remain controlled by that Agent. Skillshare never executes hook
-commands during management or changes native trust automatically.
+commands during management or changes native trust automatically; only
+[`--trust`](#codex-trust) records Codex trust, when you ask for it.
+
+### OpenCode v2 directory packages
+
+On Windows, the hook version probe resolves npm's standard native `.cmd` shims for `opencode-ai` (later v1) and `@opencode/cli` (v2) directly to their installed `bin/opencode.exe`, without a shell. Older v1 Node-based launchers and custom batch wrappers are not inferred or executed. For those installations, set the OpenCode account's `cli` to the absolute path of its installed native `opencode.exe` (for example, the matching `opencode-windows-x64-baseline` package's `bin/opencode.exe`), or put that native executable's directory first on `PATH`. Skillshare does not run postinstall scripts or repair missing binaries.
+
+Skillshare probes only `opencode --version` (or the account's `cli`). When the version cannot be detected, because the binary is missing or fails or reports a major version other than 1 or 2, only the OpenCode bindings are skipped: the preview shows a warning, existing OpenCode output is left as it is, and every other Agent syncs normally. v1 keeps the flat `.ts` file. v2 writes `plugins/skillshare-NAME/index.ts` plus `package.json`, declaring `@opencode/plugin: ^2.0.0`, and adds the directory's `file://` URL to `plugins` in `opencode.json(c)`. Project hooks use `.opencode/opencode.json(c)`. Comments and unrelated registrations remain unchanged. Conflicting JSON/JSONC files or `OPENCODE_CONFIG`/`OPENCODE_CONFIG_CONTENT` overrides are refused for hooks. A `code` binding is written as given on either version; Skillshare does not check that it matches the v1 or v2 plugin API.
+
+For a complete v2 package, use `bindings.opencode.package` instead of `code`/`codeFile`: a map of relative filenames to UTF-8 contents, including `package.json`. The manifest and its dependency requirements are preserved verbatim. Nested files are allowed; traversal, symlinks, file/directory collisions, `.git`, and `node_modules` are not package payloads. The native editor displays this file map as JSON. The server entry must be a string root or `./server` export with a package name, or a conventional root `server`/`index` file (`.ts`, `.tsx`, `.js`). Conditional and fallback server exports are refused rather than guessed. A `package` binding needs OpenCode v2; on v1 it is skipped with a warning.
+
+`hooks import --from opencode` also reads immediate package directories under the native `plugins` folder. Like flat code imports, it copies them to Skillshare's named output and warns you to remove the original files and registration after syncing to avoid duplicate loading. Installed `node_modules` and `.git` are not imported. A package holding a file that cannot be read, such as a symlink, is listed with that problem; the other packages and flat files stay importable. On OpenCode v1, directories under `plugins` are not listed as hooks. Sync, edits and removal use the same ownership checks and backups as other hooks; an externally edited package file conflicts rather than being overwritten.
+
+Provision declared dependencies yourself before loading; the preview says so whenever it writes package files. Skillshare never runs plugin code, installs dependencies, or converts v1 code to v2. Registration is not proof the plugin loaded. The dashboard intentionally supplies no OpenCode starter code because the two APIs differ.

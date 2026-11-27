@@ -66,8 +66,9 @@ skillshare sync --all
 서브커맨드 없이 실행하면 `mcp`는 대화형 터미널에서 검색 가능한 관리자를 열거나,
 noninteractive mode에서는 상태를 출력합니다. 이름 없이 noninteractive import를 실행하면
 선택할 수 있도록 파싱된 후보 목록을 표시하며 저장하지 않습니다. 후보는 이식 가능한
-정의를 포함하며, 인식 가능한 시크릿은 참조로 변환됩니다. Agent 고유 필드는 경고로
-표시되고 제외되며, 비활성화된 서버와 지원되지 않는 전송 방식은 후보를 차단합니다.
+정의를 포함하며, 인식 가능한 시크릿은 참조로 변환됩니다. Agent 고유 필드는 해당 Agent의 [`options`](#agent-options)에
+들어가며, `options`가 담을 수 없는 필드는 경고로 표시되고 제외됩니다.
+비활성화된 서버와 지원되지 않는 전송 방식은 후보를 차단합니다.
 `restore`는 적용 전에 항상 다시 미리보기를 표시하며, 적용하지 않고 확인하려면
 `--dry-run`을 사용하세요.
 
@@ -127,6 +128,7 @@ source가 한 번 저장되기 전에 검증되며, 이후의 네이티브 파�
 | `options` | 다른 Agent의 네이티브 서버별 필드. client ID를 키로 사용하며, 예를 들어 Codex 승인 모드나 Claude Code 타임아웃. [아래](#agent-options) 참고 |
 | `piOptions` | Pi 내장 MCP의 그 밖의 서버별 필드. [Pi](#pi-options) 참고 |
 | `disabled` | `true`만 가능, 다른 연결 필드 불가, 그리고 project가 scope 안에 있어야 합니다: project mode이거나 `mcp.projects` 아래의 root. [아래](#turn-off-a-global-server-in-one-project) 참고 |
+| `global` | global 설정의 `mcp.servers`에서만 사용합니다. `false`이면 기본적으로 어떤 project에도 서버를 로드하지 않으며, `use`에 나열한 root만 받습니다. 기본값은 `true`입니다. [Share a server with chosen projects](#share-a-server-with-chosen-projects) 참고 |
 
 Client ID는 `claude`, `codex`, `cursor`, `vscode`, `opencode`, `kilocode`,
 `grok`, `antigravity`, `amp`, `claude-desktop`, `cline`, `copilot`, `factory`, `gemini`,
@@ -163,6 +165,7 @@ servers:
   있으므로 평문이나 참조 앞뒤에 글자가 붙은 값은 거부됩니다. Codex, Antigravity, Claude Desktop, Goose, Junie, LM Studio, Warp는
   그곳의 참조를 읽지 않으므로 해당 options에는 자격 증명을 둘 수 없습니다.
 - 서버가 도달하지 않는 client의 options는 유지되며 작성되지 않습니다.
+- import는 여기에 이식 가능한 형태가 없는 Agent의 네이티브 필드를 해당 Agent의 ID 아래에 넣습니다. 예를 들어 Claude Code의 `alwaysLoad`는 `options.claude` 아래에 들어갑니다. 이름(또는 내부 이름)이 자격 증명을 나타내는 필드(`auth`, `key`, `token`, `secret`, `bearer`, `cookie` 등)와 위 규칙이 거부하는 필드는 경고와 함께 제외됩니다. `--from` 없이 가져온 파일이나 붙여넣은 텍스트, 또는 대시보드에서 **From**을 **Any Agent**로 둔 채 붙여넣은 JSON은 형식을 추측하므로, 그 네이티브 필드는 경고로 표시되고 제외됩니다.
 - sync는 이름 변경 후처럼 항목을 다시 만들 때 해당 필드를 다시 작성합니다.
   source에서 option을 빼면 다음 sync가 작성했던 필드를 제거합니다. 단, 그 뒤 Agent가 변경했다면 제거하지 않으며, 이는 import 또는 replace로 해결할 충돌입니다.
 - 대시보드에서는 서버 대화 상자의 **기타 Agent 설정**에서 편집합니다. Agent를 고른 뒤 필드를 JSON
@@ -230,7 +233,7 @@ client에서 동작합니다.
 | [Windsurf (Cascade)](https://docs.devin.ai/desktop/cascade/mcp) | `~/.codeium/windsurf/mcp_config.json` | Global only | `mcpServers` |
 | [Oh My Pi (OMP)](https://github.com/can1357/oh-my-pi/blob/v18.6.1/docs/mcp-config.md) | `~/.omp/agent/mcp.json` | `.omp/mcp.json` | `mcpServers` |
 
-Hermes는 Global MCP만 지원하며 `mcp_servers`(YAML)를 사용합니다. stdio와 Streamable HTTP를 지원하고 SSE 가져오기는 거부합니다. 절대 경로 `HERMES_HOME`으로 다른 home/profile을 선택할 수 있습니다. 지정하지 않으면 default profile(Windows: `%LOCALAPPDATA%/hermes`)을 사용하며 active profile, `--profile`, `HERMES_DATA_DIR_SUFFIX`는 추적하지 않습니다. `fromEnv`는 `${VAR}`를 출력하고 env/header 가져오기는 `${env:VAR}`도 허용합니다. OAuth는 `options.hermes: {auth: oauth}`로 설정합니다. 가져오기는 `auth`/`oauth`를 유지하지만 일반 텍스트 자격 증명은 거부하므로 전체 값을 `${VAR}` 참조로 바꾸세요. 다른 매핑되지 않은 필드는 경고합니다. 로그인, `.env`, token 및 refresh state는 Hermes가 관리합니다. 같은 profile에서 `hermes mcp login NAME`을 실행하세요. YAML 보존 규칙과 제한은 Goose와 같습니다.
+Hermes는 Global MCP만 지원하며 `mcp_servers`(YAML)를 사용합니다. stdio와 Streamable HTTP를 지원하고 SSE 가져오기는 거부합니다. 절대 경로 `HERMES_HOME`으로 다른 home/profile을 선택할 수 있습니다. 지정하지 않으면 default profile(Windows: `%LOCALAPPDATA%/hermes`)을 사용하며 active profile, `--profile`, `HERMES_DATA_DIR_SUFFIX`는 추적하지 않습니다. `fromEnv`는 `${VAR}`를 출력하고 env/header 가져오기는 `${env:VAR}`도 허용합니다. OAuth는 `options.hermes: {auth: oauth}`로 설정합니다. 가져오기는 `auth`/`oauth`를 유지하지만 일반 텍스트 자격 증명은 거부하므로 전체 값을 `${VAR}` 참조로 바꾸세요. 다른 네이티브 필드는 모든 Agent와 마찬가지로 `options.hermes` 아래에 들어갑니다. 로그인, `.env`, token 및 refresh state는 Hermes가 관리합니다. 같은 profile에서 `hermes mcp login NAME`을 실행하세요. YAML 보존 규칙과 제한은 Goose와 같습니다.
 
 대시보드의 서버 폼은 `fromEnv` 참조를 포함해 HTTP 헤더를 환경 변수와 동일한 방식으로
 편집합니다. 서버 메뉴와 폼의 파일 개수 옆에 있는 **View what each Agent gets**는,
@@ -242,7 +245,7 @@ JSON 항목은 파일 자체의 들여쓰기에 맞춰 필드마다 한 줄씩 �
 소유하지 않는 항목과 사람이 직접 서식을 지정한 항목은 레이아웃이 유지됩니다.
 
 대시보드는 현재 scope와 호스트 플랫폼에서 사용 가능한 대상만 제공합니다. 각 서버는
-한 행이며, 이름 아래에 전달될 client가 chip으로 표시됩니다. 오른쪽의 카운트 버튼은 해당 서버의 전체 client 목록을 엽니다. Global 전용
+한 행이며, 오른쪽의 카운트 버튼에 전달될 client의 로고가 표시됩니다. 이 버튼은 해당 서버의 전체 client 목록을 엽니다. Global 전용
 client는 project mode에서 선택할 수 없습니다. 오른쪽의 **Sync** 박스는 아직 작성되지
 않은 변경 사항을 나열합니다: client를 체크하면 source만 편집됩니다. **Sync MCP**는 그
 변경 사항을 나열하고, 확인하면 MCP 설정 파일만 작성하며 각 파일의 백업을 남깁니다. 같은 박스의 구분선 아래에서는 서버가 있으면
@@ -252,11 +255,17 @@ client는 project mode에서 선택할 수 없습니다. 오른쪽의 **Sync** �
 존재하면 감지된 것으로 간주하므로, MCP 파일이 아직 없는 새 설치도 표시됩니다. project
 mode에서는 프로젝트에 MCP 파일이 있거나 client가 전역적으로 감지된 경우 나열됩니다.
 감지된 각 client에는 MCP 파일 이름이 표시되고, **Copy path**는 전체 경로를 복사합니다.
-파일이 존재하면 **Open in editor**가 skill의 **Open in editor**와 같은 편집기로 파일을 엽니다.
+파일이 존재하면 **View file**은 페이지 안에서 읽기 전용으로 보여 줍니다. WSL이 Windows와
+끊겨 있는 경우처럼 대시보드를 실행하는 머신에서 아무것도 열 수 없을 때도 동작하며,
+1 MB를 넘는 파일은 표시되지 않습니다. **Open in editor**가 skill의 **Open in editor**와 같은 편집기로 파일을 엽니다.
+대시보드에는 편집기를 보여 줄 터미널이 없으므로 `$VISUAL`이나 `$EDITOR`의 nano, vim 같은
+일반적인 터미널 편집기는 건너뜁니다. WSL에서 GUI 편집기를 찾지 못하면 Windows가 그 파일에
+연결된 프로그램으로 엽니다.
 **Open folder**는 파일이 있는 폴더를, client가 아직 파일을 쓰지 않았다면 존재하는 가장 가까운
-폴더를 파일 관리자(Finder, 파일 탐색기, Linux에서는 기본 핸들러)로 열어 주므로, `$EDITOR`를
+폴더를 파일 관리자(Finder, Windows와 WSL에서는 파일 탐색기, Linux에서는 기본 핸들러)로
+열어 주므로, `$EDITOR`를
 설정하지 않아도 원하는 프로그램으로 파일을 열 수 있습니다. 둘 다 대시보드를 실행하는 머신에서
-열리므로, 이 버튼들은 브라우저도 그 머신에서 (`localhost` 또는 SSH 포트 포워딩으로) 열었을
+열리고 파일에 토큰이 들어 있을 수 있으므로, 이 버튼들과 **View file**은 브라우저도 그 머신에서 (`localhost` 또는 SSH 포트 포워딩으로) 열었을
 때만 나타나며, LAN 주소나 리버스 프록시를 통해서는 나타나지 않습니다.
 
 추가 client 세부 정보:
@@ -267,7 +276,7 @@ mode에서는 프로젝트에 MCP 파일이 있거나 client가 전역적으로 
   프로젝트에서만 `.codex/config.toml`을 읽습니다. 신뢰하지 않는 프로젝트에서는
   동기화된 서버가 오류 없이 로드되지 않습니다. `cwd`, `http_headers_helper`, 승인
   모드, 타임아웃, `oauth` 테이블은 이식 가능한 형태가 없습니다: import는
-  이를 경고와 함께 제외하고, sync는 기존 항목에 그대로 유지합니다. source에서 설정하려면 [`options.codex`](#agent-options)를 사용합니다. `enabled_tools`와
+  이를 [`options.codex`](#agent-options) 아래에 넣고 sync가 다시 작성합니다. 단, `oauth` 테이블처럼 자격 증명을 담을 수 있는 필드는 경고와 함께 제외됩니다. `enabled_tools`와
   `disabled_tools`는 [도구 정책](#tool-policy)에서 만들어지며, import 시 도구 정책으로
   가져옵니다. Codex 플러그인이
   번들하는 MCP 서버는 `plugins.<plugin>.mcp_servers` 아래에 구성되며 여기서 관리되지
@@ -353,9 +362,10 @@ Kilo Code는 프로젝트 구성을 신뢰할 수 없는 것으로 취급합니�
 OpenCode와 Kilo Code는 `local`/`remote` 유형과 `{env:VARIABLE}` 참조를 사용하며,
 Grok은 `${VARIABLE}` 참조를 사용합니다. Skillshare가 이를 자동으로 변환합니다.
 Claude의 `"type": "streamable-http"`는 HTTP로 import됩니다. 비활성화된 연결은
-import를 차단합니다. Codex의 `startup_timeout_sec`나 `envFile`처럼 이식 가능한
-대응 항목이 없는 다른 네이티브 옵션은 경고와 함께 import에서 제외되며, sync는
-Agent의 기존 항목에 이를 유지합니다. Pi는 내장 MCP를 사용합니다.
+import를 차단합니다. Codex의 `startup_timeout_sec`나 Claude Code의 `alwaysLoad`처럼 이식 가능한
+대응 항목이 없는 다른 네이티브 옵션은 해당 Agent의 [`options`](#agent-options) 아래로 import되므로,
+sync가 이를 해당 Agent에만 다시 작성합니다. 일반 텍스트 자격 증명이나 `null`처럼 `options`가 담을 수 없는 필드는
+경고와 함께 import에서 제외되며, sync는 Agent의 기존 항목에 이를 유지합니다. Pi는 내장 MCP를 사용합니다.
 [아래](#pi)를 참고하세요.
 
 VS Code Stable의 기본 사용자 파일은 다음과 같습니다.
@@ -503,7 +513,7 @@ skillshare sync mcp
 - **Skillshare가 직접 정의하는 서버는 이것이 필요 없습니다.** 대신 해당 서버에서
   Agent 선택을 해제하면, 다음 sync에서 그 항목이 제거됩니다.
 
-대시보드에서는 **전역 서버 끄기** 버튼이 이에 해당합니다. project mode에서는 **서버** 제목 옆에,
+대시보드에서는 **이름으로 끄기** 버튼이 이에 해당합니다. project mode에서는 **서버** 제목 옆에,
 프로젝트의 MCP 탭에서는 **서버 추가** 옆에 있습니다.
 
 ## Manage several projects from the global config {#manage-several-projects-from-the-global-config}
@@ -555,25 +565,104 @@ context7     add          opencode (~/work/project01/opencode.json)
 목록에서 프로젝트를 제거하면, 서버를 제거할 때와 마찬가지로 Skillshare가 그곳에
 작성한 항목이 다음 sync에서 제거됩니다.
 
-여러 프로젝트에 같은 서버를 제공하려면, YAML anchor로 한 번 정의하고 재사용하세요:
+### Share a server with chosen projects {#share-a-server-with-chosen-projects}
+
+각 프로젝트에 사본을 두지 않고 여러 프로젝트에 같은 서버를 제공하려면,
+`mcp.servers`에 `global: false`로 한 번 정의하고, 이를 로드할 각 프로젝트의 `use`에
+나열하세요:
+
+```yaml
+# ~/.config/skillshare/config.yaml
+mcp:
+  targets: [claude]
+  servers:
+    context7:                    # global: 모든 폴더에서 로드
+      command: npx
+      args: ["-y", "@upstash/context7-mcp@4.4.1"]
+    internal-docs:
+      global: false              # root가 사용하지 않으면 어떤 project에도 로드되지 않음
+      url: https://docs.example.com/mcp
+  projects:
+    ~/work/project01:
+      use: [internal-docs]
+      servers:
+        local-db:                # 이 project에만
+          command: ./scripts/db-mcp
+    ~/work/project02:
+      use: [internal-docs]
+```
+
+`global: false` 서버는 Agent의 global 파일에 절대 작성되지 않습니다. Sync는 이를 사용하는
+각 root에, 서버가 자체 `targets`를 지정하지 않으면 해당 root의 `targets`에 작성합니다.
+한 번 수정하면 다음 sync에서 이를 사용하는 모든 root가 갱신됩니다. 어떤 root도 사용하지
+않는 shared 서버는 어디에도 작성되지 않습니다. global이던 서버의 `global`을 끄면 다음
+sync에서 global 파일에 있는 Skillshare의 항목이 제거됩니다.
+
+규칙:
+
+- 각 `use` 이름은 `mcp.servers`의 `global: false` 서버여야 하며, 한 번만 나타날 수 있습니다.
+- 같은 이름을 root의 `use`와 해당 root 자체 `servers`(서버 또는 `disabled` 항목)에
+  동시에 둘 수 없습니다.
+- `global`은 `mcp.projects.<root>.servers` 아래, 프로젝트 자체 설정(`-p`), 그리고
+  `disabled`와 함께 사용하면 거부됩니다. 생략하거나 `global: true`로 두는 것이 기본값이며,
+  설정을 저장할 때 제거됩니다.
+- shared 서버의 `targets`에는 `claude-work` 같은 [account](#accounts)를 지정할 수 없습니다.
+  모든 account가 같은 프로젝트 파일을 읽기 때문입니다. `claude` 같은 Agent를 지정하세요.
+- shared 서버를 제거하거나 global로 되돌리면, 같은 저장에서 모든 `use` 목록에서 그 이름이
+  제거됩니다.
+- shared 서버를 편집해도 편집에서 `global`을 설정하지 않는 한 `global: false`가 유지됩니다.
+
+#### 한 프로젝트에서만 shared 서버 바꾸기 {#override-a-shared-server}
+
+root는 사용하는 shared 서버의 일부 설정을 `overrides` 아래에서 서버 이름을 key로 바꿀 수
+있습니다. 연결 설정(`command`, `args`, `url`, `headers`, `env`)은 shared 서버의 것을 그대로
+쓰므로 한 곳에만 정의합니다:
 
 ```yaml
 mcp:
+  targets: [pi]
+  servers:
+    internal-docs:
+      global: false
+      url: https://docs.example.com/mcp
+      piOptions:
+        exposure: codemode
   projects:
     ~/work/project01:
-      servers:
-        internal-docs: &internal-docs
-          url: https://example.com/mcp
-          targets: [opencode]
+      use: [internal-docs]
     ~/work/project02:
-      servers:
-        internal-docs: *internal-docs
+      use: [internal-docs]
+      overrides:
+        internal-docs:
+          piOptions:
+            exposure: direct     # project02만; project01은 codemode 유지
 ```
 
-anchor는 `mcp.projects` 안에 두세요. `mcp.servers`에 있는 anchor를 가리키는 alias도
-동작하지만, `skillshare mcp add`와 대시보드는 `mcp.servers`를 다시 씁니다. 저장할 때
-파일이 유효하게 유지되도록 그런 alias를 전체 내용으로 풀어서 작성하므로, 이후 global
-서버를 수정해도 더 이상 따라가지 않습니다.
+| 필드 | 그 root에서 |
+|---|---|
+| `targets` | 서버의 targets를 대체합니다. 빈 목록이면 그 root에는 서버를 쓰지 않습니다 |
+| `tools` | 서버의 도구 정책을 대체합니다 |
+| `piOptions` | 서버의 값에 key 단위로 병합됩니다 |
+| `options` | 서버의 값에 Agent와 key 단위로 병합됩니다 |
+
+root가 실제로 로드하는 서버도 위의 모든 규칙을 따라야 하므로, override의 `targets`에
+account를 지정하거나 Pi에 없는 exposure를 설정할 수 없습니다. override는 그 root의 `use`에
+있는 서버만 지정할 수 있습니다. 그 root에서 서버를 끄거나, 서버를 제거하거나, global로
+되돌리면 같은 저장에서 override도 제거됩니다.
+
+`skillshare mcp list`는 shared 서버마다 `shared` 행을 추가하며, 이를 사용하는 프로젝트 또는
+`not used by any project`를 표시합니다. `mcp list --json`에는 최상위 `shared` 배열이 있습니다:
+
+```json
+{"shared": [{"name": "internal-docs", "projects": ["~/work/project01", "~/work/project02"]}]}
+```
+
+대화형 목록은 shared 서버를 사용하는 프로젝트의 target을 표시하고, 상세 정보에 그 프로젝트들을 나열합니다. `mcp check`는 shared 서버를 사용하는 프로젝트가 없으면 그렇게 알려 줍니다.
+
+이 버전은 기존 프로젝트별 사본을 shared 서버로 변환하지 않으며, `use`나 `overrides`를 편집하는 명령도
+없습니다. `config.yaml`을 편집하거나 [대시보드](#projects-in-the-dashboard)의 스위치와
+**Override** 대화상자를 사용하세요. `mcp.projects` 안에 둔 YAML anchor로 공유한 서버도 여전히 동작하지만,
+대시보드와 `skillshare mcp add`는 그 사본들을 연결된 것으로 취급하지 않습니다.
 
 ### Projects in the dashboard {#projects-in-the-dashboard}
 
@@ -585,18 +674,23 @@ Global mode에서는 대시보드에 **프로젝트** 페이지가 있습니다.
 
 - **프로젝트 추가**는 폴더와 그 target을 받습니다. **MCP**를 체크하면 해당 폴더가
   `mcp.projects` 아래에도 나열됩니다.
-- **MCP** 탭은 모든 global 서버를 스위치와 함께 나열합니다. 하나를 끄면
-  `targets` 없이 `disabled` 항목이 저장되므로,
+- **MCP** 탭에는 세 개의 섹션이 있습니다. **On in every project**는 global 서버를
+  스위치와 함께 나열합니다. 하나를 끄면 `targets` 없이 `disabled` 항목이 저장되므로,
   [위](#turn-off-a-global-server-in-one-project)에서 설명한 대로 프로젝트의
-  target을 따릅니다. 다시 켜면 그 항목이 제거됩니다. 그 아래에는 해당
-  프로젝트에만 존재하는 서버가 있습니다.
+  target을 따릅니다. 다시 켜면 그 항목이 제거됩니다. **Opt-in servers**는
+  [shared 서버](#share-a-server-with-chosen-projects)를 나열하며 기본적으로 꺼져 있습니다.
+  이 스위치는 프로젝트의 `use`에 이름을 추가하거나 제거합니다.
+  **Only in this project**는 해당 프로젝트에만 존재하는 서버를 나열합니다.
+- MCP 페이지에서 서버의 대화상자에는 **Loads in**이 있습니다: **Every project** 또는
+  **Chosen projects**. shared 서버가 있으면 목록이 **Global**과 **Only in chosen projects**로 나뉘고, shared 서버의 행에는 **N projects**가 표시됩니다. 그 행을 펼치거나 대화 상자에서 **Chosen projects**를 고르면 `mcp.projects`의 루트마다 체크박스가 나옵니다. **Save**는 체크하거나 해제한 모든 루트의 `use`에서 이름을 한 번에 추가하거나 제거합니다. **Add folder…**는 아직 목록에 없는 루트를 추가하며, 자체 `targets`가 없으므로 `mcp.targets`를 사용합니다. 같은 이름의 서버를 자체적으로 정의한 루트에는 **Has its own**과 그 이름이 표시됩니다. 각 루트의 화살표는 그 프로젝트의 **MCP** 탭을 엽니다. 체크 표시가 저장되거나 취소될 때까지(대화상자에서는 다른 필드도 포함해) 기다립니다.
+- shared 서버를 사용하는 프로젝트는 그 설정 일부를 [override](#override-a-shared-server)할 수 있습니다. MCP 페이지에서 행을 펼치면 그 서버를 쓰는 각 프로젝트의 override가 표시되고, override 없이 Pi의 tool exposure를 상속하면 그 값이 표시됩니다. 각 행에는 **Override** 또는 **Edit override**가 있으며, 행 헤더에는 override 개수가 표시됩니다. 서버 대화상자의 프로젝트 목록도 같은 내용을 버튼 없이 보여 줍니다. 프로젝트의 **MCP** 탭에서는 override한 서버에 **Overridden** 태그가 붙고, 그 아래 한 줄에 프로젝트가 바꾸는 내용이 표시되며, 연필 버튼을 누르면 같은 대화상자가 열립니다. 대화상자는 연결을 읽기 전용으로 보여 주고 Agents, Pi의 tool exposure, tool policy를 설정할 수 있게 하며, 각각 값을 고르기 전까지는 MCP 페이지를 따릅니다. **Reset to default**는 하나를 되돌립니다. 저장하면 root의 override가 교체되지만, 대화상자에 표시되지 않는 설정(다른 `piOptions`나 `options` 등)은 유지됩니다. shared 서버가 Pi의 `toolExposure`를 설정하면 Pi가 tool policy와 함께 쓰는 것을 거부하므로 도구는 잠깁니다.
 - 꺼져 있는 서버는 꺼져 있는 Agent의 로고를 표시합니다. 켜져 있는 서버는 로드되는 Agent를 표시하고,
   같은 이름의 프로젝트 서버로 대체되면 아무것도 표시하지 않습니다. 프로젝트의 Agent 중 하나에
   프로젝트별 스위치가 없으면, 해당 행은 그 Agent에서는 서버가 여전히 로드된다고
   알려줍니다. 프로젝트의 target과 다른 자체 `targets`를 나열한 항목에는
   **프로젝트에 맞추기**가 표시되며, 이는 `targets` 없이 항목을 다시 저장합니다.
 - 탭 오른쪽의 **Agents** 목록은 이 project의 Agent, project 전용 서버가 가는 Agent, 파일이 이미
-  project에 있는 다른 Agent를 파일 이름 및 **Copy path**와 함께 보여 줍니다. **Open folder**와 **Open in editor**는
+  project에 있는 다른 Agent를 파일 이름 및 **Copy path**와 함께 보여 줍니다. **View file**, **Open folder**, **Open in editor**는
   MCP 페이지와 같이 동작합니다.
 - 탭의 Sync 박스에 있는 **Sync MCP**는 전체 MCP 계획을 작성하며, 그 변경 사항 중
   몇 개가 이 프로젝트 밖에 있는지 알려줍니다. 프로젝트 페이지 상단의 **Sync project**는
@@ -615,7 +709,7 @@ Sync가 작성합니다.
 - `mcp.projects`는 global 설정에서만 읽습니다. 이를 포함한 프로젝트 설정은
   거부됩니다.
 - 이를 편집하는 명령은 없습니다. `skillshare mcp add`는 `mcp.servers`를 관리하며
-  `mcp.projects`는 작성된 그대로 둡니다. `config.yaml`에서 직접 편집하거나
+  `use`를 포함한 `mcp.projects`는 작성된 그대로 둡니다. `config.yaml`에서 직접 편집하거나
   [대시보드](#projects-in-the-dashboard)에서 편집하세요.
 - Claude Code에 대한 `disabled` 항목은 global 서버가 작성되는 것과 같은 파일인
   `~/.claude.json`에 작성됩니다. Claude Code가 프로젝트별 off 목록을 그곳에 보관하기
@@ -648,6 +742,7 @@ skillshare mcp check --no-dns
 | Agent의 항목이 source와 충돌함 (`sync mcp --dry-run`과 동일) | error |
 | Agent의 항목이 아직 작성되지 않았거나 업데이트되지 않음 | warning |
 | 서버가 `targets: []`를 가지며 Skillshare에만 보관됨 | info |
+| 서버가 shared(`global: false`)이고 어떤 프로젝트도 `use`에 나열하지 않음 | info |
 | 선택한 Agent가 서버의 [도구 정책](#tool-policy) 일부를 담을 수 없음 | warning |
 
 변수 값은 출력되지 않습니다. error가 하나라도 있으면 1로, 그렇지 않으면 0으로 종료하며,
@@ -701,8 +796,8 @@ warning으로는 실패하지 않습니다. 알 수 없는 서버 이름은 erro
 
 대시보드에서는 MCP 페이지 Sync 박스의 **검사** 버튼이 같은 검사를 실행합니다. 검사할 서버가 있을 때
 나타나고, 클릭할 때만 실행되며, 서버 목록 위에 요약을, 각 서버 아래에 해당 error나 warning을 표시하고,
-페이지를 새로 고치면 아무것도 남기지 않습니다. MCP 페이지는 global 서버만 나열하므로, 요약과 각 행에는
-global 서버와 이름이 같은 것이라도 프로젝트 서버가 포함되지 않습니다. 프로젝트의 MCP 탭에는 Sync 박스에
+페이지를 새로 고치면 아무것도 남기지 않습니다. MCP 페이지는 global 서버와 shared 서버를 나열하므로, 요약과 각 행에는
+global 서버와 이름이 같은 것이라도 프로젝트 전용 서버가 포함되지 않습니다. 프로젝트의 MCP 탭에는 Sync 박스에
 자체 **검사**가 있어 해당 프로젝트 자체 서버를 보고합니다. 변수는 `skillshare ui`를 시작한
 터미널에서 읽습니다.
 
@@ -736,7 +831,7 @@ error가 있는 서버나 비활성화된 항목에는 접속하지 않으며, `
 
 | 결과 | 수준 |
 |---|---|
-| 서버가 응답함: 이름과 버전, 프로토콜 버전, 도구 수 | info |
+| 서버가 응답함: 이름과 버전, 프로토콜 버전, 도구 수와 그 추정 토큰 수 | info |
 | 원격 서버가 로그인을 요구함 (HTTP 401) | warning |
 | 명령을 시작할 수 없거나, 일찍 종료되었거나, 제한 시간 안에 응답하지 않음 | error |
 | 프로토콜 error, 지원되지 않는 프로토콜 버전, 또는 그 밖의 HTTP 상태 | error |
@@ -748,7 +843,8 @@ error가 있는 서버나 비활성화된 항목에는 접속하지 않으며, `
 `bearerToken`의 값은 모든 메시지에서 제거되며, 네 글자보다 짧은 값은 그대로 남습니다. 값은 작성된
 그대로 전달됩니다: Skillshare는 Pi `!command` 값을 실행하지 않으며 `piOptions`를 읽지 않습니다.
 종료 코드는 같은 규칙을 따르며, error가 하나라도 있으면 1입니다. `--live`는 설정 파일도, 작업 로그
-항목도 쓰지 않으며, state 디렉터리에 [도구 고정](#pin-tool-definitions)만 보관합니다.
+항목도 쓰지 않으며, state 디렉터리에 [도구 고정](#pin-tool-definitions)과
+[도구 토큰 수](#count-tool-tokens)만 보관합니다.
 
 `--json`을 사용하면 응답한 서버에는 `live` 객체도 추가됩니다:
 
@@ -757,9 +853,9 @@ error가 있는 서버나 비활성화된 항목에는 접속하지 않으며, `
   "name": "docs",
   "ok": true,
   "findings": [
-    { "level": "info", "check": "live", "target": "", "message": "responds: docs-server 1.4.0, protocol 2026-07-28, 12 tool(s)", "subject": "docs-server" }
+    { "level": "info", "check": "live", "target": "", "message": "responds: docs-server 1.4.0, protocol 2026-07-28, 12 tool(s), ~4810 tokens", "subject": "docs-server" }
   ],
-  "live": { "protocolVersion": "2026-07-28", "serverInfo": { "name": "docs-server", "version": "1.4.0" }, "tools": 12 }
+  "live": { "protocolVersion": "2026-07-28", "serverInfo": { "name": "docs-server", "version": "1.4.0" }, "tools": 12, "toolTokens": 4810 }
 }
 ```
 
@@ -769,7 +865,13 @@ error가 있는 서버나 비활성화된 항목에는 접속하지 않으며, `
 대시보드의 **검사** 버튼은 정적 검사만 실행합니다. 대시보드가 서버를 프로브하는 곳은
 한 군데뿐입니다: 서버 대화상자의 [도구 섹션](#tool-policy-dashboard)에 있는 **도구 불러오기**로,
 대화상자의 현재 입력값으로 서버를 한 번 시작해 도구 목록을 가져옵니다. `--json`을 사용하면 `live`에는
-`tools/list`가 반환한 이름인 `toolNames`도 들어갑니다.
+`tools/list`가 반환한 이름인 `toolNames`와, 모든 도구의 이름, description, 입력 스키마의 추정 토큰 수인 `toolTokens`도 들어갑니다([도구 토큰 세기](#count-tool-tokens) 참고).
+
+### 도구 토큰 세기 {#count-tool-tokens}
+
+Agent는 어떤 도구를 호출하기 전에 모든 도구의 이름, description, 입력 스키마를 모델의 context에 불러옵니다. `--live`는 [`analyze`](/docs/reference/commands/analyze)와 같은 추정기로 서버별 비용을 추정합니다: 토큰 하나당 ASCII 문자 약 4개, 또는 전각 문자 하나입니다. info 줄에 `~4810 tokens`로 표시되고, `--json`에서는 `live.toolTokens`로 나옵니다. 보고서 뒤에 텍스트 출력은 각 MCP target이 불러오는 양의 합계도 보여 주며, 요약과 예산 경고는 [`analyze`](/docs/reference/commands/analyze#mcp-tool-definitions)와 같습니다.
+
+프로브에 성공할 때마다 도구 수, 토큰 수, 검사 시각이 범위와 서버 이름별로 state 디렉터리의 `mcp/tool-costs.json`에 저장되며, `tool-pins.json` 옆에 놓입니다. 이 파일은 캐시이고 다음 live 검사가 다시 쓰며, 읽을 수 없는 파일은 빈 것으로 취급합니다. [`analyze`](/docs/reference/commands/analyze#mcp-tool-definitions), `sync`, 대시보드의 **Context** 페이지는 이 값을 MCP target별로 합산하고 [`context_budget.warn_mcp_tool_tokens`](/docs/reference/targets/configuration#context_budget)를 넘으면 경고하며, 서버는 시작하지 않습니다. 어떤 live 검사로도 집계되지 않은 서버는 집계되지 않음으로 표시됩니다. `--live` 없이는 `mcp check`가 이 값을 읽지도 쓰지도 않습니다. 편집한 서버는 다음 live 검사 전까지 같은 이름의 값을 그대로 유지합니다.
 
 ### 도구 정의 고정하기 {#pin-tool-definitions}
 
@@ -798,7 +900,7 @@ error가 있는 서버나 비활성화된 항목에는 접속하지 않으며, `
 `--live` 없이는 고정 내용을 읽지도 쓰지도 않습니다. 편집한 서버(다른 명령, 다른 URL)나 삭제한 뒤 다시 추가한
 서버는 같은 이름으로 고정 내용을 그대로 유지합니다. 도구가 정당하게 달라졌다면 새 정의를 한 번 수락하세요.
 `GET /api/mcp/check?live=1`(대시보드 **검사** 버튼이 호출하는 엔드포인트이며, 버튼은
-`live`를 보내지 않습니다)도 고정하고 비교하지만 수락은 할 수 없습니다.
+`live`를 보내지 않습니다)도 고정하고 비교하며 도구 토큰 수를 저장하지만 수락은 할 수 없습니다. 대시보드 **Context** 페이지의 **Check live** 버튼이 이 엔드포인트를 호출합니다.
 
 ## Stop managing a server {#stop-managing-a-server}
 
@@ -835,6 +937,10 @@ plan은 `existing entry is not managed` 충돌을 보고하고, 그 항목에 �
   그대로 채택됩니다. `mcp.projects` 아래 폴더의 충돌이라면 버튼은 그 폴더의 파일을 읽고
   해당 project로 가져옵니다.
 - source 정의로 교체: 대시보드의 **Replace with source**, 또는 import의 `--replace`.
+  대시보드 버튼은 그 서버에서 충돌하는 모든 Agent의 항목을 한 번에 교체합니다.
+
+Agent마다 서버 버전이 다르면 원하는 것을 먼저 import하세요. import는 다른 Agent가 아직
+충돌 중이어도 그 Agent의 항목을 채택합니다. 나머지는 그다음에 교체하세요.
 
 ## Serve skills over MCP {#serve-skills-over-mcp}
 
@@ -847,16 +953,24 @@ SKILLSHARE_MCP_TOKEN=change-me skillshare mcp serve --http 0.0.0.0:8765 \
 
 `mcp serve`는 skill이 동기화되는 폴더에 접근할 수 없는 Agent(일회용 VM에 있거나 MCP 게이트웨이 뒤에 있는 Agent 등)를 위한 MCP 서버이며, [편집을 켜지 않는 한](#edit-skills-over-mcp) 읽기 전용입니다.
 [Skills extension](https://modelcontextprotocol.io/seps/2640-skills-extension)
-(`io.modelcontextprotocol/skills`, SEP-2640)의 `skills/list`, `skills/get`, `resources/read`를 구현합니다.
+(`io.modelcontextprotocol/skills`, SEP-2640)의 `skills/list`, `skills/get`, `resources/list`, `resources/read`, `resources/directory/read`를 구현합니다.
 각 skill은 하나의 항목이며, URI는 `skill://_team/tools/pdf/SKILL.md`처럼 source 경로를 따릅니다.
 전체 frontmatter와 함께 모든 파일이 `sha256` digest 및 크기와 함께 제공됩니다.
 내 컴퓨터의 Agent는 이미 `sync`로 skill을 받으므로, 여기에 `mcp serve`까지 연결하면 각 skill이 두 번 보입니다.
+
+`resources/list`는 제공되는 `SKILL.md`의 frontmatter 이름과 설명을 나열합니다.
+`directoryRead: true`로 client는 `resources/directory/read`(`uri`, 선택 사항인 `cursor`)를 통해
+`skill://_team/tools/pdf` 같은 skill 루트와 그 하위 디렉터리를 탐색할 수 있습니다. 응답의 `resources`는 바로 아래 항목만 포함하며,
+MIME 타입이 `inode/directory`인 빈 디렉터리도 포함합니다. 디렉터리 URI에는 끝 슬래시가 없으며,
+파일이나 알 수 없는 디렉터리는 `-32602`를 반환합니다. 두 목록 모두 URI 순서로 페이지당 최대
+100개를 반환합니다. `nextCursor`를 `cursor`로 전달하여 계속하며, skill과 같은 선택 및 갱신 규칙을 따릅니다.
 
 대부분의 Agent는 아직 Skills extension을 지원하지 않으므로(아래 참고), 서버는 도구 두 개도 제공합니다.
 `list_skills`는 이름, 설명, URI를 나열하며(`query`로 좁힐 수 있고, 한 번의 응답에 최대 200개),
 `read_skill`은 skill의 `SKILL.md`나 다른 파일을 읽고, `SKILL.md`를 읽을 때는 그 skill의 다른 파일 목록도 보여 줍니다.
 MCP 도구를 사용하는 Agent라면 도구를 그대로 전달하는 게이트웨이를 거쳐도 이 방식으로 skill을 읽을 수 있습니다.
 Skills extension을 선언한 client는 skill을 네이티브로 로드하며 이 두 도구를 제공받지 않으므로 각 skill이 두 번 보이지 않습니다.
+Claude Code(v2.1.332)는 skill 목록을 요청할 때만 extension을 선언하므로 skill을 네이티브로 로드하지만 두 도구도 계속 제공받습니다.
 두 도구 모두 `readOnlyHint`가 표시되어 있어, 데이터를 바꾸는 도구 앞에서 확인을 요청하는 client나 게이트웨이도 확인 없이 호출합니다.
 도구로 읽은 내용은 Agent에게 일반 텍스트이며, Agent 자체의 skill 승인은 적용되지 않습니다.
 
@@ -913,9 +1027,16 @@ mcp:
       targets: [codex]
 ```
 
-skill을 네이티브로 로드하려면 Skills extension이 필요합니다. 2026년 10월 기준 일반적인 코딩 Agent는
-아직 이를 지원하지 않으므로 도구를 사용합니다. Codex, Cursor, VS Code, Goose, Pi는 지원하지 않으며, Claude Code는
-기본적으로 켜져 있지 않은 지원을 포함합니다. mcpc, fast-agent, MCP Inspector 같은 소수의 client만 지원하며,
+skill을 네이티브로 로드하려면 Skills extension이 필요합니다. Claude Code는 v2.1.331부터 공개 베타로
+지원하며, 대화형 세션에서만 동작하고 `claude -p`에서는 동작하지 않습니다. `/login`으로 로그인한 Pro, Max,
+Ultra 플랜에서는 켜져 있고, Team과 Enterprise에서는 조직이 켤 때까지 꺼져 있으며, API 키와 Console 로그인에는
+순차적으로 적용되고 있습니다. Claude Code의
+[요건](https://code.claude.com/docs/en/mcp#use-skills-from-mcp-servers)을 참고하세요. 2026년 11월에
+Claude Code v2.1.332로 테스트한 결과, stdio `mcp serve`의 skill은 `/skills`에 `<server>:<skill>` 형태(예:
+`skillshare:pdf`)로 나타나고, 그 명령에서 실행되며, 다른 파일은 `resources/read`로 읽습니다.
+
+2026년 10월 기준 그 밖의 일반적인 코딩 Agent는 아직 이를 지원하지 않으므로 도구를 사용합니다. Codex, Cursor,
+VS Code, Goose, Pi는 지원하지 않습니다. Claude Code 외에는 mcpc, fast-agent, MCP Inspector 같은 소수의 client만 지원하며,
 일부는 부분적으로만 지원합니다. SEP의 프로토타입 host 목록(예: Codex fork)이 출시된 Agent의 지원을 의미하지는 않습니다.
 현재 client는 [extension support matrix](https://modelcontextprotocol.io/extensions/client-matrix)에서 확인하세요.
 
@@ -1062,7 +1183,8 @@ export default defineApp({ app: { accounts: { skillshare } } }, async (ctx) => (
   해석되지 않은 채로 도달합니다.
 - 로컬 작업 기록은 Skillshare state 디렉터리의 `mcp/` 아래에 존재합니다:
   `state.json`, 쓰기 중의 `pending.json`, `tool-pins.json`(`mcp check --live`의
-  [도구 고정](#pin-tool-definitions)), 그리고 `backups/`(Agent 파일별 최신 20개).
+  [도구 고정](#pin-tool-definitions)), `tool-costs.json`(그
+  [도구 토큰 수](#count-tool-tokens)), 그리고 `backups/`(Agent 파일별 최신 20개).
   이 디렉터리를 이식 가능한 매니페스트로 공유하지 마세요.
 
 
@@ -1186,7 +1308,7 @@ sync는 `$schema`, `disabledServers`, `enabledServers`와 관련 없는 서버�
 기존 연결을 업데이트할 때 `enabled`, `timeout`, `instructions`, `requestIdFormat`, `cwd`,
 `auth`, `oauth` 같은 서버별 네이티브 필드도 유지합니다. 이 필드는 `piOptions`가 아니며,
 Pi 전용 설정은 OMP로 전달되지 않습니다. import는 이식 가능한 모델로 표현할 수 없는
-네이티브 필드에 대해 경고합니다. 그런 필드는 OMP의 파일에 유지하세요. 이식 가능한 모델은
+네이티브 필드를 `options.omp`에 넣고, `options`가 담을 수 없는 필드는 경고합니다. 이식 가능한 모델은
 stdio와 Streamable HTTP를 지원하지만 OMP의 레거시 SSE 전송은 지원하지 않습니다.
 지원되지 않는 import는 변환하지 않고 거부합니다.
 
@@ -1312,7 +1434,7 @@ skillshare mcp edit docs --pi-options '{}' --no-tui
 옆의 링크는 Pi의 MCP 문서를 엽니다. 대화상자는 저장하기 전에 **기타 Pi 설정**의
 `pi-mcp-adapter` 필드를 표시해 줍니다. 도구 섹션에 설정이 있어도 **도구 노출 모드**는
 편집할 수 있습니다. 이때는 `tools`가 작성하는 **기타 Pi 설정**의 `toolExposure`만 거부됩니다.
-서버 행의 Pi 칩은 노출 모드를 짧은 말로 보여 줍니다(예: `codemode`는 `코드로 호출`).
+서버의 client 목록에서 Pi 토글은 노출 모드를 짧은 말로 보여 줍니다(예: `codemode`는 `코드로 호출`).
 
 ### 0.22에서 Pi 업그레이드하기 {#pi-migration}
 

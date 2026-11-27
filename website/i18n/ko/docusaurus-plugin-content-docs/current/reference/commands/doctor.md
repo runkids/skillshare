@@ -196,7 +196,7 @@ OpenCode를 다른 환경(예: 데스크톱 런처)에서 실행한다면 그쪽
 ### Version
 
 - CLI 버전
-- skillshare skill 버전 (더 새로운 skill이 공개되면 경고, `skillshare upgrade --skill`)
+- skillshare skill 버전 (더 새로운 skill이 공개되면 경고, `skillshare upgrade --skill`; `.skillignore`가 비활성화한 경우에도 경고, `skillshare enable skillshare`)
 - 사용 가능한 업데이트 확인
 
 ### Skill Integrity
@@ -304,6 +304,8 @@ skillshare sync  # 고아 symlink를 정리함
 
 해당 줄이 대신 `behind an unavailable source link, kept until it is back`이라고 표시되면, 그 skill은 대상이 사라진 [따라간 source 링크](../targets/configuration.md#follow_source_links) 뒤에 있는 것입니다. prune할 것은 없습니다. 드라이브를 마운트하거나 checkout을 복구한 뒤 `skillshare sync`를 실행하세요.
 
+해당 줄이 `broken link skillshare did not create, kept`라고 표시되면, 그 링크는 source 밖을 가리키고 manifest에 기록되어 있지 않으므로 다른 도구나 사용자가 만든 것입니다. `sync`는 이 링크를 그대로 두며, `doctor --json`의 `broken_symlinks` 검사는 `error`가 아니라 `warning`이 됩니다. 필요 없는 링크라면 직접 삭제하세요. manifest에 기록된 이름의 깨진 링크는 source의 어떤 skill도 그 이름을 쓰지 않게 되면 `sync`가 제거하므로 broken symlink로 보고됩니다.
+
 ### "Skills without SKILL.md"
 
 필수 파일이 없는 skill 폴더:
@@ -360,6 +362,8 @@ Next
 ```
 
 `nix profile`로 설치했다면 Next 줄에 `nix profile upgrade skillshare`가 표시됩니다. NixOS나 Home Manager가 skillshare를 제공하는 경우에는 Update 줄에 Nix 설정을 업데이트하고 다시 빌드하라는 안내가 붙고, Next 줄은 표시되지 않습니다.
+
+uv, pipx 또는 pip으로 설치했다면 Next 줄에 `uv tool upgrade skillshare-cli`처럼 해당 설치 도구의 명령이 표시됩니다.
 
 ## JSON 출력
 

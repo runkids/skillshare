@@ -23,6 +23,8 @@ skillshare disable my-skill -p      # Project mode
 
 `disable` 會把 pattern 加進 `.skillignore`；`enable` 則會移除它。被停用的 skill 仍留在 source 目錄中，但會被排除在 `sync` 與 `collect` 之外。
 
+skill 名稱指向所有位於同名資料夾中的 skill，因此 `enable inner` 會同時作用於 `group/inner` 和 `other/inner`。像 `group/inner` 這樣的完整路徑，或像 `group__inner` 這樣的 flat name，只指向該 skill。對名稱指向的每個 skill，`enable` 也會移除其路徑那一行（list TUI 和 dashboard 寫入的行），因此 `enable inner` 也會移除 `group/inner`；每個 `✓` 列會顯示實際寫入或移除的那一行。若輸入的名稱作為一行能比對到該 skill，`disable` 會照輸入寫入；flat name 無法被任何一行比對到，因此會改為寫入該 skill 的路徑。
+
 ```mermaid
 flowchart LR
     DIS["skillshare disable my-skill"]
@@ -85,10 +87,31 @@ $ skillshare disable my-skill --dry-run
 
 Dry run — nothing was written
 
+# 預覽會列出每一行，包括 enable 會移除的路徑行
+$ skillshare enable inner --dry-run
+  inner        would be removed from ~/.config/skillshare/skills/.skillignore
+  group/inner  would be removed from ~/.config/skillshare/skills/.skillignore
+
+Dry run — nothing was written
+
 # 已經被停用
 $ skillshare disable my-draft
 ! my-draft  already disabled
 ```
+
+## When Another Rule Decides
+
+`disable` 和 `enable` 只寫入或移除一行，但其他規則仍可能決定 skill 的狀態：像 `draft-*` 這樣的 glob、像 `frontend/` 這樣的資料夾規則、`.skillignore.local` 中的 `!` 規則，或 tracked repo 自己的 `.skillignore`。寫入後，skillshare 會依 `skillshare list` 顯示的狀態檢查你指定的每個 skill 或 agent。如果仍維持原本的狀態，會輸出一行 `✗` 並指出要編輯的檔案，然後以狀態碼 1 結束：
+
+```bash
+$ skillshare enable draft-one
+
+✗ could not enable draft-one: still disabled: another rule in .skillignore or .skillignore.local matches it — remove that rule to enable it
+```
+
+若有多個被擋下，每個都會有自己的 `✗` 列。已生效的變更會保留並以 `✓` 顯示，操作紀錄會把這次執行記為 `partial`。如果 `disable` 寫入的那一行，對它指定的每個 skill 都被 `!` 規則推翻，這一行會被移除，ignore 檔維持原樣。
+
+像 `"draft-*"` 這樣的 glob 參數不對應單一 skill，因此會直接寫入或移除，不做這項檢查。
 
 ## Disable a Whole Folder
 
@@ -118,7 +141,7 @@ Next
 
 ## TUI Toggle
 
-你也可以在 `skillshare list` TUI 中開關 skills。變更會立即寫入 `.skillignore`。
+你也可以在 `skillshare list` TUI 中開關 skills。變更會立即寫入 `.skillignore`。如果其他規則讓 skill 維持原狀態，該列不會改變，按鍵列會顯示與 CLI 相同的 `✗` 訊息。在 TUI 或 dashboard 啟用 skill 時，也會移除 `skillshare disable <name>` 寫入的資料夾名稱那一行，除非這一行也符合這次沒有要啟用的 skill。
 
 ## Where is the .skillignore?
 
@@ -138,6 +161,8 @@ skillshare disable --kind agent draft-reviewer     # 停用一個 agent
 skillshare enable --kind agent draft-reviewer      # 重新啟用一個 agent
 skillshare disable --kind agent "experimental-*"   # 依 pattern 停用
 ```
+
+`.agentignore` 的每一行比對的是檔名（包含 `.md`）。不帶 `.md` 的名稱若對應到同名檔案的 agent，寫入時會自動補上 `.md`，因此 `draft-reviewer` 會寫入 `draft-reviewer.md`。使用 agent 的 frontmatter `name` 時則改寫入其路徑，因此對 `rev.md` 執行 `disable --kind agent critic` 會寫入 `rev.md`。
 
 | 模式 | `.agentignore` 路徑 |
 |------|---------------------|

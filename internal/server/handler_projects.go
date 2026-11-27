@@ -110,14 +110,9 @@ func (s *Server) handleSaveProject(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "root is required")
 		return
 	}
-	for _, rc := range []*projectResource{body.Skills, body.Agents} {
-		if rc == nil {
-			continue
-		}
-		if _, err := ssync.FilterSkills(nil, rc.Include, rc.Exclude); err != nil {
-			writeError(w, http.StatusBadRequest, "invalid include/exclude pattern: "+err.Error())
-			return
-		}
+	if err := body.checkFilters(); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
 	}
 
 	s.mu.Lock()
@@ -163,6 +158,80 @@ func (s *Server) handleSaveProject(w http.ResponseWriter, r *http.Request) {
 	}
 	s.writeOpsLog("project", "ok", start, map[string]any{"action": action, "root": root, "scope": "ui"}, "")
 	writeJSON(w, map[string]any{"success": true, "root": root, "origin": result.Item.Origin, "originPath": result.Item.OriginPath})
+}
+
+// handleScanProjects adds a folder and each Git checkout below its scan folders
+// with the same settings, like project add --scan. It only adds; a dry run
+// reports each folder's result and writes nothing.
+func (s *Server) handleScanProjects(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	var body struct {
+		projectBody
+		Scan   []string `json:"scan"`
+		DryRun bool     `json:"dryRun"`
+	}
+	if err := decodeJSON(w, r, &body, defaultJSONBodyLimit); err != nil {
+		if !errors.Is(err, errBodyTooLarge) {
+			writeError(w, http.StatusBadRequest, "invalid JSON body")
+		}
+		return
+	}
+	if body.Root == "" || len(body.Scan) == 0 {
+		writeError(w, http.StatusBadRequest, "root and at least one scan folder are required")
+		return
+	}
+	if err := body.checkFilters(); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	release, err := projects.LockConfig(r.Context(), s.configPath())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	defer release()
+	if err := s.reloadProjectsReadOnly(); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	entry := config.ManagedProject{Name: body.Name, Targets: body.Targets, Skills: body.Skills.config(), Agents: body.Agents.config()}
+	result, err := s.projectService().Scan(body.Root, entry, body.Scan, projects.PutOptions{DryRun: body.DryRun, Storage: body.Storage})
+	if err != nil {
+		status := http.StatusBadRequest
+		if errors.Is(err, projects.ErrSave) {
+			status = http.StatusInternalServerError
+		}
+		writeError(w, status, err.Error())
+		return
+	}
+	// A dry run's Expanded is the candidate config, so only a write installs it.
+	applied := !body.DryRun && result.Registration == "updated"
+	if applied {
+		s.installGlobalConfig(result.Expanded)
+		s.writeOpsLog("project", "ok", start, map[string]any{"action": "add", "root": body.Root, "scan": body.Scan, "added": result.Added(), "scope": "ui"}, "")
+	}
+	warnings := result.Warnings
+	if warnings == nil {
+		warnings = []projects.ScanWarning{}
+	}
+	writeJSON(w, map[string]any{"applied": applied, "rows": result.Rows, "warnings": warnings})
+}
+
+// checkFilters rejects include/exclude patterns a sync could not use.
+func (b projectBody) checkFilters() error {
+	for _, rc := range []*projectResource{b.Skills, b.Agents} {
+		if rc == nil {
+			continue
+		}
+		if _, err := ssync.FilterSkills(nil, rc.Include, rc.Exclude); err != nil {
+			return fmt.Errorf("invalid include/exclude pattern: %w", err)
+		}
+	}
+	return nil
 }
 
 func (s *Server) handleRemoveProject(w http.ResponseWriter, r *http.Request) {

@@ -559,3 +559,26 @@ func TestConfigGet_PathAndSyntaxBrokenRecovery(t *testing.T) {
 		}
 	}
 }
+
+func TestHandlePutConfig_RefusesAMisplacedSharedServer(t *testing.T) {
+	t.Run("global use of a server every project loads", func(t *testing.T) {
+		s, sourceDir := newTestServer(t)
+		raw := "source: " + sourceDir + "\nmode: merge\ntargets: {}\nmcp:\n  servers:\n    docs: {url: https://example.com/mcp}\n  projects:\n    /work/app: {use: [docs]}\n"
+		body, _ := json.Marshal(map[string]string{"raw": raw})
+		w := httptest.NewRecorder()
+		s.handler.ServeHTTP(w, httptest.NewRequest(http.MethodPut, "/api/config", strings.NewReader(string(body))))
+		if w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), "already loads in every project") {
+			t.Fatalf("%d %s", w.Code, w.Body)
+		}
+	})
+	t.Run("global: false in a project config", func(t *testing.T) {
+		s, _ := newTestProjectServerWithExtras(t, nil)
+		raw := "targets: [claude]\nmcp:\n  servers:\n    docs: {url: https://example.com/mcp, global: false}\n"
+		body, _ := json.Marshal(map[string]string{"raw": raw})
+		w := httptest.NewRecorder()
+		s.handler.ServeHTTP(w, httptest.NewRequest(http.MethodPut, "/api/config", strings.NewReader(string(body))))
+		if w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), "global: false") {
+			t.Fatalf("%d %s", w.Code, w.Body)
+		}
+	})
+}

@@ -1,7 +1,7 @@
 # CLI E2E Runbook: Symlinked Source/Target Directories
 
 Validates that all commands (sync, status, diff, list, collect, update, uninstall,
-reconcile) work correctly when source and/or target directories are symlinks —
+reconcile, backup, restore, target remove) work correctly when source and/or target directories are symlinks —
 the "dotfiles manager" scenario.
 
 ## Scope
@@ -19,6 +19,9 @@ the "dotfiles manager" scenario.
 - `ss uninstall --group` walks group dirs through symlinked source
 - Reconcile (global) detects installed skills through symlinked source
 - Idempotency: re-sync doesn't break existing symlinks
+- `ss diff` reports a symlinked merge/copy target in sync after sync
+- `ss backup` / `ss restore` go through a symlinked target and keep the link
+- `ss target remove` keeps a symlinked target's link and copies skills back behind it
 
 ## Environment
 
@@ -556,9 +559,58 @@ ls "$REAL_TARGET/alpha/SKILL.md" && echo "STILL WORKS" || echo "BROKEN"
 - exit_code: 0
 - STILL WORKS
 
+## Step 20: Diff reports the symlinked targets in sync
+
+```bash
+ss sync
+ss diff --json
+```
+
+**Expected:**
+- exit_code: 0
+- jq: [.targets[] | select(.name == "claude" or .name == "agents-copy") | .synced] | length == 2 and all
+- Not Symlink points to different location
+
+## Step 21: Backup and restore through the symlinked target
+
+```bash
+REAL_TARGET="$HOME/dotfiles/claude-skills"
+CLAUDE_TARGET="$HOME/.claude/skills"
+mkdir -p "$REAL_TARGET/backup-local"
+echo "# Original" > "$REAL_TARGET/backup-local/SKILL.md"
+sleep 1  # a second backup within the same second keeps the first snapshot
+ss backup claude
+echo "# Modified" > "$REAL_TARGET/backup-local/SKILL.md"
+ss restore claude --force
+test -L "$CLAUDE_TARGET" && echo "LINK KEPT" || echo "LINK REPLACED"
+cat "$REAL_TARGET/backup-local/SKILL.md"
+```
+
+**Expected:**
+- exit_code: 0
+- LINK KEPT
+- # Original
+- Not LINK REPLACED
+
+## Step 22: Target remove keeps the symlinked target's link
+
+```bash
+REAL_TARGET="$HOME/dotfiles/claude-skills"
+CLAUDE_TARGET="$HOME/.claude/skills"
+ss sync  # restore brought back only local content
+echo y | ss target remove claude
+test -L "$CLAUDE_TARGET" && echo "LINK KEPT" || echo "LINK REPLACED"
+test -d "$REAL_TARGET/alpha" && ! test -L "$REAL_TARGET/alpha" && echo "COPIED BACK" || echo "NOT COPIED"
+```
+
+**Expected:**
+- exit_code: 0
+- LINK KEPT
+- COPIED BACK
+
 ## Pass Criteria
 
-- All 20 steps (0-19) pass
+- All 23 steps (0-22) pass
 - No symlinks are incorrectly deleted during sync
 - Skills discovered through symlinked source directories in all commands
 - `update --all` and `update --group` walk symlinked source correctly
@@ -570,3 +622,4 @@ ls "$REAL_TARGET/alpha/SKILL.md" && echo "STILL WORKS" || echo "BROKEN"
 - Copy mode preserves target symlinks (doesn't unconditionally delete)
 - Collect detects local skills through symlinked target directories
 - Re-sync is idempotent — doesn't break existing links
+- Diff, backup, restore and target remove treat a symlinked target as the directory it leads to and keep the link

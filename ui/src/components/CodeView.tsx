@@ -15,7 +15,14 @@ interface Props {
 }
 
 /** Read-only code with line numbers. Markdown wraps (prose lines are long); code scrolls sideways. */
-export default function CodeView({ content, lang = '', line = 0, marks, tints, className = '' }: Props) {
+export default function CodeView({
+  content,
+  lang = '',
+  line = 0,
+  marks,
+  tints,
+  className = '',
+}: Props) {
   const box = useRef<HTMLDivElement>(null);
   const cur = useRef<HTMLDivElement>(null);
   const lines = useMemo(() => highlightLines(content.replace(/\n$/, ''), lang), [content, lang]);
@@ -27,7 +34,8 @@ export default function CodeView({ content, lang = '', line = 0, marks, tints, c
 
   useEffect(() => {
     // Scroll the box only, so jumping to a line does not move the page
-    if (box.current && cur.current) box.current.scrollTop = cur.current.offsetTop - box.current.clientHeight / 2;
+    if (box.current && cur.current)
+      box.current.scrollTop = cur.current.offsetTop - box.current.clientHeight / 2;
   }, [content, target]);
 
   return (
@@ -39,8 +47,12 @@ export default function CodeView({ content, lang = '', line = 0, marks, tints, c
             ref={i + 1 === target ? cur : undefined}
             className={`grid grid-cols-[auto_minmax(0,1fr)] ${i + 1 === line || tinted.has(i + 1) ? 'cur' : marked.has(i + 1) ? 'mark' : ''}`}
           >
-            <span className="ln text-right" style={{ minWidth: `${digits}ch` }}>{i + 1}</span>
-            <span className={wrap ? 'whitespace-pre-wrap [overflow-wrap:anywhere]' : ''}>{node}</span>
+            <span className="ln text-right" style={{ minWidth: `${digits}ch` }}>
+              {i + 1}
+            </span>
+            <span className={wrap ? 'whitespace-pre-wrap [overflow-wrap:anywhere]' : ''}>
+              {node}
+            </span>
           </div>
         ))}
       </div>

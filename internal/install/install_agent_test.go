@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"skillshare/internal/audit"
@@ -35,9 +36,6 @@ func TestInstallAgentFromDiscovery_TrackedDestinationEscape(t *testing.T) {
 	}
 	repo := initTestRepo(t)
 	outside := t.TempDir()
-	if err := os.Symlink(outside, filepath.Join(repo, "escape")); err != nil {
-		t.Fatal(err)
-	}
 	agentPath := "agents/_trap/escape/CLAUDE.md"
 	path := filepath.Join(repo, filepath.FromSlash(agentPath))
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
@@ -47,7 +45,7 @@ func TestInstallAgentFromDiscovery_TrackedDestinationEscape(t *testing.T) {
 		t.Fatal(err)
 	}
 	gitAdd(t, repo, ".")
-	gitCommit(t, repo, "add agent and destination link")
+	gitCommit(t, repo, "add agent")
 	source, err := ParseSource(fileURL(repo))
 	if err != nil {
 		t.Fatal(err)
@@ -58,9 +56,10 @@ func TestInstallAgentFromDiscovery_TrackedDestinationEscape(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	link := filepath.Join(root, "_trap", "escape")
-	if info, err := os.Lstat(link); err != nil || info.Mode()&os.ModeSymlink == 0 {
-		t.Fatalf("tracked fixture did not plant destination link: %v, %v", info, err)
+	// A tracked install now refuses a link out of the repository, so plant the
+	// destination link as a repository installed before that check left it.
+	if err := os.Symlink(outside, filepath.Join(root, "_trap", "escape")); err != nil {
+		t.Fatal(err)
 	}
 	discovery, err := DiscoverFromGit(source)
 	if err != nil {
@@ -178,6 +177,83 @@ func TestDiscoveredAgent_BlockedAuditPreservesInstalledContent(t *testing.T) {
 	}
 }
 
+// Regression for #1013: a source naming one agent file discovers only that
+// agent and records a source from which update discovers it again.
+func TestDiscoverFromGitSubdir_AgentFile(t *testing.T) {
+	writeRepo := func(files ...string) string {
+		repo := initTestRepo(t)
+		for _, p := range files {
+			path := filepath.Join(repo, filepath.FromSlash(p))
+			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(path, []byte("# "+p+"\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+		gitAdd(t, repo, ".")
+		gitCommit(t, repo, "add files")
+		return repo
+	}
+	discover := func(source *Source) *DiscoveryResult {
+		t.Helper()
+		discover := DiscoverFromGit
+		if source.HasSubdir() {
+			discover = DiscoverFromGitSubdir
+		}
+		discovery, err := discover(source)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { CleanupDiscovery(discovery) })
+		return discovery
+	}
+	mixed := writeRepo("agents/demo.md", "agents/group/deep.md", "agents/README.md", "solo.md", "skills/s/SKILL.md")
+	pure := writeRepo("solo.md")
+
+	for _, tt := range []struct{ repo, file, name string }{
+		{mixed, "agents/demo.md", "demo"},
+		{mixed, "agents/group/deep.md", "deep"},
+		{pure, "solo.md", "solo"},
+	} {
+		t.Run(tt.file, func(t *testing.T) {
+			raw := fileURL(tt.repo) + "//" + tt.file
+			source, err := ParseSource(raw)
+			if err != nil {
+				t.Fatal(err)
+			}
+			discovery := discover(source)
+			if len(discovery.Skills) != 0 || len(discovery.Agents) != 1 || discovery.Agents[0].Name != tt.name {
+				t.Fatalf("discovered skills %+v agents %+v, want only agent %q", discovery.Skills, discovery.Agents, tt.name)
+			}
+			meta := NewMetaFromSource(buildDiscoveredAgentSource(discovery, discovery.Agents[0]))
+			if meta.Source != raw {
+				t.Fatalf("recorded source %q, want %q", meta.Source, raw)
+			}
+			repoSource, err := AgentRepoSource(&MetadataEntry{Source: meta.Source, Subdir: meta.Subdir}, ParseOptions{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			again := discover(repoSource)
+			if !slices.ContainsFunc(again.Agents, func(a AgentInfo) bool { return a.Name == tt.name && a.Path == meta.Subdir }) {
+				t.Fatalf("update discovery of %q found %+v, want %q at %q", repoSource.Raw, again.Agents, tt.name, meta.Subdir)
+			}
+		})
+	}
+
+	// Files that `<dir> -a <name>` would not find either.
+	for _, file := range []string{"agents/missing.md", "agents/README.md", "solo.md"} {
+		source, err := ParseSource(fileURL(mixed) + "//" + file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if discovery, err := DiscoverFromGitSubdir(source); err == nil {
+			CleanupDiscovery(discovery)
+			t.Errorf("%s: expected an error, got agents %+v", file, discovery.Agents)
+		}
+	}
+}
+
 func TestDiscoveredAgent_InstallUpdateMetadataAndDryRun(t *testing.T) {
 	discovery, agent := agentDiscoveryFixture(t, "# Reviewer\nReview changes carefully.\n")
 	root := filepath.Join(t.TempDir(), "agents")
@@ -277,5 +353,92 @@ func TestDiscoveredAgent_FollowPolicyAndLinkedSourceRoot(t *testing.T) {
 				t.Fatalf("supported link target not updated: %q, %v", data, err)
 			}
 		})
+	}
+}
+
+// check finds an agent's blob hash by parsing its recorded source, so the hash
+// is recorded only where that lookup lands. Elsewhere check keeps comparing
+// commits, instead of reporting an update that reinstalling never clears.
+func TestWriteDiscoveredAgentMetadata_BlobHashWhereCheckLooks(t *testing.T) {
+	for _, tc := range []struct {
+		name, raw string
+		want      bool
+	}{
+		{"source names the path", "agents", true},
+		{"path resolved from another name", "agnts", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			root := t.TempDir()
+			repo := filepath.Join(root, "repo")
+			if err := os.MkdirAll(filepath.Join(repo, "agents"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			agentFile := filepath.Join(repo, "agents", "a.md")
+			if err := os.WriteFile(agentFile, []byte("# a\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			runGit(t, repo, "init", "-q")
+			runGit(t, repo, "add", ".")
+			runGit(t, repo, "commit", "-q", "-m", "v1")
+
+			source, err := ParseSource("file://" + repo + "//" + tc.raw)
+			if err != nil {
+				t.Fatal(err)
+			}
+			source.Subdir = "agents" // what the clone resolved it to
+			discovery := &DiscoveryResult{RepoPath: root, Source: source}
+			sourceDir := t.TempDir()
+			dest := filepath.Join(sourceDir, "a.md")
+			if err := writeDiscoveredAgentMetadata(discovery, AgentInfo{Name: "a", Path: "a.md"}, dest, agentFile, sourceDir); err != nil {
+				t.Fatal(err)
+			}
+			store, err := LoadMetadata(sourceDir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := store.Get("a").TreeHash != ""; got != tc.want {
+				t.Errorf("blob hash recorded = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+// Install records an agent's blob hash only where its own parse of the
+// recorded source lands, while check parses it with every configured host.
+// Whenever install records one, check must look it up at the same path, and
+// the common source forms must record one.
+func TestAgentBlobPath_InstallAndCheckAgree(t *testing.T) {
+	full := ParseOptions{GitLabHosts: []string{"git.corp.com"}, AzureHosts: []string{"azuredevops.corp.com"}, GiteaHosts: []string{"gitea.corp.com"}}
+	for _, tc := range []struct {
+		input, agentPath string
+		recorded         bool
+	}{
+		{"o/r", "agents/a.md", true},
+		{"o/r/agents/team", "a.md", true},
+		{"https://github.com/o/r.git", "agents/a.md", true},
+		{"https://github.com/o/r/tree/main/agents", "a.md", true},
+		{"git.corp.com/g/sub/r", "agents/a.md", true},
+		{"git.corp.com/g/sub/r/-/tree/main/agents", "a.md", true},
+		{"https://dev.azure.com/Org/Project/_git/Repo", "agents/a.md", true},
+		{"gitea.corp.com/o/r", "agents/a.md", true},
+		{"git@github.com:o/r.git//agents", "a.md", true},
+		// The source does not carry Azure hosts, so install cannot tell.
+		{"https://azuredevops.corp.com/Org/Project/_git/Repo", "agents/a.md", false},
+	} {
+		source, err := ParseSourceWithOptions(tc.input, full)
+		if err != nil {
+			t.Fatalf("%s: %v", tc.input, err)
+		}
+		discovery := &DiscoveryResult{Source: source}
+		agent := AgentInfo{Name: "a", Path: tc.agentPath}
+		raw := buildDiscoveredAgentSource(discovery, agent).Raw
+		file := discoveredAgentFile(discovery, agent)
+		recorded := checkFindsAgentFile(discovery, agent, raw)
+		if recorded != tc.recorded {
+			t.Errorf("%s: recorded = %v, want %v", tc.input, recorded, tc.recorded)
+		}
+		if recorded && AgentBlobPath(raw, full) != file {
+			t.Errorf("%s: install records %q, check looks up %q", tc.input, file, AgentBlobPath(raw, full))
+		}
 	}
 }

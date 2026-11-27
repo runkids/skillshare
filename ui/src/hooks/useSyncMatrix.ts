@@ -39,7 +39,7 @@ export function useSyncMatrix(enabled = true) {
     }
 
     return {
-      getSkillTargets(flatName: string): SyncMatrixEntry[] {
+      getSkillTargets: (flatName: string): SyncMatrixEntry[] => {
         return bySkill.get(flatName) ?? [];
       },
       getTargetSkills(targetName: string): SyncMatrixEntry[] {

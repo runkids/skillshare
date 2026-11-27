@@ -12,6 +12,7 @@ skillshare update a b c              # 一次更新多個
 skillshare update --group frontend   # 更新群組中所有 skills
 skillshare update team-skills        # 更新 tracked 儲存庫
 skillshare update --all              # 更新全部
+skillshare update my-skill --merge   # 保留你的編輯，並把 upstream 變更合併進去
 skillshare update agents --all       # 更新所有 tracked/可更新的 agents
 ```
 
@@ -68,6 +69,7 @@ flowchart TD
 | `--all, -a` | 更新所有 tracked 儲存庫/skills，或在 `update agents --all` 中更新所有 agents。位於[已跟進的 source 連結](../targets/configuration.md#follow_source_links)背後的 tracked repo 會被略過並顯示警告，因為那是你自己的 checkout；請以名稱更新它 |
 | `--group, -G <name>` | 更新群組中所有可更新的 skills，或某個 agent 子目錄中所有 agents |
 | `--force, -f` | 捨棄本機變更並強制執行，即使有 audit 發現的問題，並重新安裝已在 upstream commit 的遠端 skill |
+| `--merge` | 保留從儲存庫安裝的 skill 或 agent 的本機變更，並把 upstream 變更合併進去；見[合併 upstream 變更](#merging-upstream-changes)。不能與 `--force` 併用 |
 | `--dry-run, -n` | 預覽而不做任何變更 |
 | `--skip-audit` | 跳過安全性 audit 關卡 |
 | `--audit-threshold <t>`, `--threshold <t>`, `-T <t>` | 覆寫更新 audit 的封鎖門檻（`critical|high|medium|low|info`；簡寫：`c|h|m|l|i`，以及 `crit`、`med`） |
@@ -79,7 +81,7 @@ flowchart TD
 | `--json` | 以 JSON 輸出 |
 | `--help, -h` | 顯示說明 |
 
-`update agents` 支援：`--all`、`--group`、`--force`、`--dry-run`、`--skip-audit`、`--audit-threshold` / `--threshold` / `-T`、`--json`，以及 `--project` / `--global`。它**不**支援 `--diff`、`--audit-verbose` 或 `--prune`。
+`update agents` 支援：`--all`、`--group`、`--force`、`--merge`、`--dry-run`、`--skip-audit`、`--audit-threshold` / `--threshold` / `-T`、`--json`，以及 `--project` / `--global`。它**不**支援 `--diff`、`--audit-verbose` 或 `--prune`。
 
 ## JSON 輸出
 
@@ -104,7 +106,7 @@ skillshare update --all --json
 }
 ```
 
-可能的 `status` 值：`updated`、`skipped`、`failed`、`security_blocked`。當某個項目失敗時，會包含 `error` 欄位。因本機變更而被略過的遠端 skill，是一個帶有 `"error": "local changes since install"` 的 `skipped` 項目。
+可能的 `status` 值：`updated`、`merged`、`conflict`、`skipped`、`failed`、`security_blocked`。當某個項目失敗時，會包含 `error` 欄位。因本機變更而被略過的遠端 skill，是一個帶有 `"error": "local changes since install"` 的 `skipped` 項目。使用 `--merge` 時，upstream 變更已合併進其編輯內容的 skill 是一個 `merged` 項目，並計入已更新；無法合併的是一個 `conflict` 項目，其 `error` 會列出衝突的檔案，並計入已略過。
 
 批次更新時，若遠端 skill 已在 upstream commit，會保持不變並計入 `up_to_date` 欄位。數量為 0 時省略此欄位。
 
@@ -119,7 +121,7 @@ skillshare update --all --json
   ],
   "missing_tracked_repos": {
     "names": ["_team-skills"],
-    "hint": "Run 'skillshare install' to rehydrate tracked repositories"
+    "hint": "Run 'skillshare install -g' to rehydrate tracked repositories, or 'skillshare uninstall <name> -g' to remove an unwanted declaration"
   }
 }
 ```
@@ -143,7 +145,7 @@ skillshare update agents --all --json
 }
 ```
 
-可能的 agent `status` 值包括 `updated`、`failed`、`skipped`、`up_to_date`、`update_available`、`dirty`、`drifted`、`local` 與 `error`。`error` 表示該 agent 無法檢查，例如連不上 remote 或讀不到 metadata。此時指令不會把 agents 回報為最新，而是以非零結束碼結束。
+可能的 agent `status` 值包括 `updated`、`merged`、`conflict`、`failed`、`skipped`、`up_to_date`、`update_available`、`dirty`、`drifted`、`local` 與 `error`。`error` 表示該 agent 無法檢查，例如連不上 remote 或讀不到 metadata。此時指令不會把 agents 回報為最新，而是以非零結束碼結束。
 
 ## 更新 Agents
 
@@ -224,7 +226,7 @@ skillshare update --all
 1. 所有 tracked 儲存庫（git pull）
 2. 所有帶有來源 metadata 的 skills（upstream 有變更時重新安裝）
 
-`update --all` 與 `update --group` 會依儲存庫將遠端 skill 分組，每個儲存庫只 clone 一次。資料夾在 upstream 沒有變更的 skill 維持不動，並計為 up to date。資料夾中含有 symlink 的 skill 例外：資料夾不變時檔案也可能改變，因此只要 upstream commit 有變動就會重新安裝。在專案模式（`-p`）下依名稱指定多個 skill 時也相同。使用 `--force` 可重新安裝所有 skill。只更新一個 skill，或在全域模式下依名稱指定時，一律重新安裝。安裝後你修改過檔案的 skill，在任何情況下都會被略過，直到你加上 `--force`（參見[處理衝突](#處理衝突)）。無法取得某個儲存庫時，其 skill 計為 skipped，`update` 會顯示一則警告，寫明該儲存庫與錯誤，並移除 URL 中的憑證。
+`update --all` 與 `update --group` 會依儲存庫將遠端 skill 分組，每個儲存庫只 clone 一次。資料夾在 upstream 沒有變更的 skill 維持不動，並計為 up to date。資料夾中含有 symlink 的 skill 例外：資料夾不變時檔案也可能改變，因此只要 upstream commit 有變動就會重新安裝。透過指向資料夾的 link 安裝的 skill（例如 `.agents/skills/<name>`）會依 link 指向的資料夾比對。在專案模式（`-p`）下依名稱指定多個 skill 時也相同。使用 `--force` 可重新安裝所有 skill。只更新一個 skill，或在全域模式下依名稱指定時，一律重新安裝。從儲存庫子資料夾重新安裝的檔案沒有變化時，`.metadata.json` 維持不變，因此用 Git 管理的 skills source 不會出現變更。安裝後你修改過檔案的 skill，在任何情況下都會被略過，直到你加上 `--merge` 或 `--force`（參見[處理衝突](#處理衝突)）。無法取得某個儲存庫時，其 skill 計為 skipped，`update` 會顯示一則警告，寫明該儲存庫與錯誤，並移除 URL 中的憑證。
 
 同一個 git checkout 一次只由一個 skillshare 程序更新。若另一個 `update` 或 dashboard 正在更新同一個 tracked repo 或透過 git 安裝的 skill，這次更新會等它完成。等待一分鐘後仍未完成，就以 `another skillshare process is still updating <path>` 放棄。
 
@@ -248,10 +250,12 @@ Next
 ```
 ! 1 tracked repo declared in metadata but missing on disk
 ! _team-skills  clone directory absent
-  Run 'skillshare install' to rehydrate tracked repositories
+  Run 'skillshare install -g' to rehydrate tracked repositories, or 'skillshare uninstall <name> -g' to remove an unwanted declaration
 ```
 
 這適用於 global 與 project（`-p`）模式。若要從 metadata 重新建立 clones，執行不帶參數的 [install](/docs/reference/commands/install)（詳見 [Rehydrating After a Fresh Clone](/docs/understand/tracked-repositories#rehydrating-after-a-fresh-clone)）。
+
+在 global 模式下，也可以執行 `skillshare uninstall <name> -g` 移除沒有 checkout 的多餘宣告；不會移入 trash，因此無法透過 trash 復原。project 模式僅提示 `skillshare install -p`，不支援只移除宣告。
 
 ## 清理過期 Skills（`--prune`）
 
@@ -316,7 +320,7 @@ skillshare update --all --skip-audit
 ```
 
 :::caution
-`--skip-audit` 會完全停用安全性掃描。僅在你信任來源，或有外部 audit 流程時才使用。
+`--skip-audit` 會完全停用安全性掃描。僅在你信任來源，或有外部 audit 流程時才使用。但它不會讓 tracked repository 或整個儲存庫作為 skill 的安裝，接收含有指向儲存庫之外或其 `.git` 資料夾之 symlink 的新 commit：這樣的 update 會以錯誤停止，`--force` 也無法覆寫。
 :::
 
 ### 已接受的發現 {#accepted-findings}
@@ -387,7 +391,29 @@ skillshare update _team-skills --force
 skillshare update my-skill --force
 ```
 
-在 dashboard 的 **Updates** 分頁中，該 skill 顯示為 **Modified locally**，並有 **View changes** 按鈕，可於該 skill 的頁面查看變更；更新前請勾選 **Force overwrite local edits**，或對被略過的列使用 **Force Retry**。從該 skill 自己的頁面更新時，會顯示這些變更，並在捨棄前詢問。`update <name> --dry-run` 會將該 skill 回報為將被略過。若一個 modified 的 skill 同時已在 upstream 被刪除，即使使用 `--prune`，在你加上 `--force` 之前也會保留它。
+若想保留你的編輯並同時採用 upstream 的變更，請改用 `--merge`；見[合併 upstream 變更](#merging-upstream-changes)。
+
+在 dashboard 的 **Updates** 分頁中，該 skill 顯示為 **Modified locally**，並有 **View changes** 按鈕，可查看這些變更，並可選擇 **Merge** 或 **Force overwrite local edits**；也可在更新前勾選 **Force overwrite local edits**，或對被略過的列使用 **Merge** 或 **Force Retry**。從該 skill 自己的頁面更新時，會顯示這些變更，並在捨棄選項旁提供 **Merge**。`update <name> --dry-run` 會將該 skill 回報為將被略過。若一個 modified 的 skill 同時已在 upstream 被刪除，即使使用 `--prune`，在你加上 `--force` 之前也會保留它。
+
+安裝後編輯過的 agent 也受到同樣的保護。當新版本會覆寫這些編輯時，更新會被略過：`skillshare check agents` 會將該 agent 回報為 `update available upstream`，`update agents` 會將其列在 **Modified locally** 下。可用 `skillshare update agents <name> --merge` 合併；在 dashboard 上則對被略過的列使用 **Merge** 或 **Force Retry**，或從該 agent 自己的頁面更新。
+
+### 合併 upstream 變更 {#merging-upstream-changes}
+
+`--merge` 會把你的編輯與 upstream 的變更合併，而不是二選一。它會取得該 skill 或 agent 安裝時所在的 commit，將其作為 3-way merge 的 base，並像 `git merge` 一樣逐個檔案合併：
+
+```text
+$ skillshare update my-skill --merge
+✓ Update    my-skill · merged local changes · from github.com/team/skills/my-skill
+```
+
+- 只有你修改過的檔案保留你的版本，只有 upstream 修改過的檔案採用 upstream 的版本，雙方都修改過的檔案則逐行合併。
+- 當雙方修改了相同的行、刪除了對方修改過的檔案，或修改了同一個二進位檔時，不會寫入任何內容。skill 維持原樣，`update` 會列出衝突的檔案並以錯誤結束，你可以手動解決，或用 `--force` 捨棄你的編輯。
+- 乾淨合併之後，該 skill 仍與 upstream 發布的內容不同，因此仍為 **modified**：一般的 `update` 會繼續略過它，下一次 `update --merge` 會以新版本為基礎合併。
+- 當 upstream 沒有修改該 skill 的任何內容時，檔案維持不變，該 skill 會被回報為已是最新。
+- 只有檔案會參與合併。你加入 skill 的目錄 symlink 或空目錄不會被保留，與一般更新相同。
+- 沒有本機變更的 skill 會正常更新。`--merge` 不適用於 tracked 儲存庫（`_repo`）：請在其中 commit 你的變更，讓 `git pull` 去合併。
+
+`update --all --merge` 和 `update --group <name> --merge` 會合併每個 modified 的 skill 並更新其餘的；發生衝突的會列在 **Not merged** 下。`--merge` 需要安裝時的 commit 來重建 base：記錄的檔案無法由它重現的 skill 會以 `cannot rebuild the installed version to merge against` 失敗。位於[已跟進的 source 連結](../targets/configuration.md#follow_source_links)背後的 skill 是你自己的 checkout，請在那裡用 git 合併。
 
 ## 更新後
 

@@ -3,13 +3,19 @@ import { parseApiErrorPayload } from './client';
 
 describe('parseApiErrorPayload', () => {
   it('parses the new structured error format', () => {
-    expect(parseApiErrorPayload({
-      error: {
-        code: 'target.not_found',
-        message: 'target not found: claude',
-        params: { target: 'claude' },
-      },
-    }, 404, 'Not Found')).toEqual({
+    expect(
+      parseApiErrorPayload(
+        {
+          error: {
+            code: 'target.not_found',
+            message: 'target not found: claude',
+            params: { target: 'claude' },
+          },
+        },
+        404,
+        'Not Found',
+      ),
+    ).toEqual({
       code: 'target.not_found',
       message: 'target not found: claude',
       params: { target: 'claude' },
@@ -17,11 +23,17 @@ describe('parseApiErrorPayload', () => {
   });
 
   it('parses legacy string errors with sidecar codes', () => {
-    expect(parseApiErrorPayload({
-      error: 'target not found: claude',
-      error_code: 'target.not_found',
-      error_params: { target: 'claude' },
-    }, 404, 'Not Found')).toEqual({
+    expect(
+      parseApiErrorPayload(
+        {
+          error: 'target not found: claude',
+          error_code: 'target.not_found',
+          error_params: { target: 'claude' },
+        },
+        404,
+        'Not Found',
+      ),
+    ).toEqual({
       code: 'target.not_found',
       message: 'target not found: claude',
       params: { target: 'claude' },

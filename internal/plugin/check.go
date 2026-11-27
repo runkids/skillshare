@@ -134,6 +134,10 @@ func (s *Service) sourceUnmoved(ctx context.Context, b Binding, source, ref, plu
 	if ref != "" || b.Commit == "" || b.Digest == "" || b.Pending != "" || source != b.Source || ref != b.SourceRef || plugin != b.Plugin || entry != b.Entry {
 		return false
 	}
+	// A GitHub web link may name a different ref than the clone's HEAD.
+	if link, _ := githubPluginLink(source); link != nil {
+		return false
+	}
 	head, err := s.reads.heads.get(source, func() (string, error) { return remoteHead(ctx, source) })
 	return err == nil && head == b.Commit
 }

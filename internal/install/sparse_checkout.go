@@ -1,7 +1,11 @@
 package install
 
 import (
+	"bytes"
+	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -80,4 +84,74 @@ func sparseCloneSubdir(url, subdir, destPath, branch string, extraEnv []string, 
 		return runGitCommandWithProgress([]string{"checkout", "--quiet", "--detach", "FETCH_HEAD"}, destPath, extraEnv, nil)
 	}
 	return runGitCommandWithProgress([]string{"checkout"}, destPath, extraEnv, nil)
+}
+
+// sparseLinksFetched fails when a link under subdir points to something the
+// sparse checkout left out, such as ../../shared/ref.md, so a caller that
+// copies subdir falls back to a full clone where the link resolves. A
+// tracked checkout keeps such links instead (#1030).
+func sparseLinksFetched(repoPath, subdir string, extraEnv []string) error {
+	entries, err := gitLsTree(repoPath, extraEnv, strings.Trim(subdir, "/"))
+	if err != nil {
+		return err
+	}
+	for _, e := range entries {
+		if e.mode != "120000" {
+			continue
+		}
+		if _, err := os.Stat(filepath.Join(repoPath, filepath.FromSlash(e.path))); err != nil {
+			return fmt.Errorf("%s links to something the sparse checkout did not fetch", e.path)
+		}
+	}
+	return nil
+}
+
+type gitTreeEntry struct {
+	mode string
+	kind string
+	oid  string
+	path string
+}
+
+func gitLsTree(repoPath string, extraEnv []string, paths ...string) ([]gitTreeEntry, error) {
+	args := append([]string{"ls-tree", "-r", "-z", "HEAD", "--"}, paths...)
+	out, err := gitBytesOutput(repoPath, extraEnv, args...)
+	if err != nil {
+		return nil, err
+	}
+	return parseLsTreeEntries(out), nil
+}
+
+func gitBytesOutput(repoPath string, extraEnv []string, args ...string) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), gitCommandTimeout)
+	defer cancel()
+
+	cmd := gitCommand(ctx, args...)
+	cmd.Dir = repoPath
+	cmd.Env = append(cmd.Env, extraEnv...)
+	return cmd.Output()
+}
+
+func parseLsTreeEntries(raw []byte) []gitTreeEntry {
+	var entries []gitTreeEntry
+	for _, rec := range bytes.Split(raw, []byte{0}) {
+		if len(rec) == 0 {
+			continue
+		}
+		tab := bytes.IndexByte(rec, '\t')
+		if tab <= 0 {
+			continue
+		}
+		fields := strings.Fields(string(rec[:tab]))
+		if len(fields) < 3 {
+			continue
+		}
+		entries = append(entries, gitTreeEntry{
+			mode: fields[0],
+			kind: fields[1],
+			oid:  fields[2],
+			path: string(rec[tab+1:]),
+		})
+	}
+	return entries
 }

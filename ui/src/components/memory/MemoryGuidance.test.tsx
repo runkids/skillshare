@@ -10,21 +10,67 @@ import MemoryGuidance from './MemoryGuidance';
 
 vi.mock('../../api/client', async (load) => {
   const actual = await load<typeof import('../../api/client')>();
-  return { ...actual, api: { ...actual.api, getMemoryGuidance: vi.fn(), planMemoryGuidance: vi.fn(), applyMemoryGuidance: vi.fn() } };
+  return {
+    ...actual,
+    api: {
+      ...actual.api,
+      getMemoryGuidance: vi.fn(),
+      planMemoryGuidance: vi.fn(),
+      applyMemoryGuidance: vi.fn(),
+    },
+  };
 });
-const renderGuidance = () => render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-  <I18nProvider><ToastProvider><MemoryRouter><MemoryGuidance initialized root="/notes" instructions={{ passive: 'Read the notes', active: 'Save lasting facts' }} /></MemoryRouter></ToastProvider></I18nProvider>
-</QueryClientProvider>);
+const renderGuidance = () =>
+  render(
+    <QueryClientProvider
+      client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+    >
+      <I18nProvider>
+        <ToastProvider>
+          <MemoryRouter>
+            <MemoryGuidance
+              initialized
+              root="/notes"
+              instructions={{ passive: 'Read the notes', active: 'Save lasting facts' }}
+            />
+          </MemoryRouter>
+        </ToastProvider>
+      </I18nProvider>
+    </QueryClientProvider>,
+  );
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(api.getMemoryGuidance).mockResolvedValue({ scope: 'global', instructions: { passive: 'Read the notes', active: 'Save lasting facts' }, targets: [{ name: 'codex', state: 'unconfigured' }] });
-  vi.mocked(api.planMemoryGuidance).mockResolvedValue({ token: 'reviewed', changes: [{ path: '/shared/AGENTS.md', before: '# Existing rules', after: '# Existing rules\nMemory block', targets: ['codex'], created: false }], skipped: [], warnings: [] });
-  vi.mocked(api.applyMemoryGuidance).mockResolvedValue({ success: true, applied: ['/shared/AGENTS.md'], errors: [], targets: [{ name: 'codex', state: 'configured' }] });
+  vi.mocked(api.getMemoryGuidance).mockResolvedValue({
+    scope: 'global',
+    instructions: { passive: 'Read the notes', active: 'Save lasting facts' },
+    targets: [{ name: 'codex', state: 'unconfigured' }],
+  });
+  vi.mocked(api.planMemoryGuidance).mockResolvedValue({
+    token: 'reviewed',
+    changes: [
+      {
+        path: '/shared/AGENTS.md',
+        before: '# Existing rules',
+        after: '# Existing rules\nMemory block',
+        targets: ['codex'],
+        created: false,
+      },
+    ],
+    skipped: [],
+    warnings: [],
+  });
+  vi.mocked(api.applyMemoryGuidance).mockResolvedValue({
+    success: true,
+    applied: ['/shared/AGENTS.md'],
+    errors: [],
+    targets: [{ name: 'codex', state: 'configured' }],
+  });
 });
 
 it('reviews the exact before/after text and applies only after confirmation', async () => {
-  const user = userEvent.setup(); renderGuidance();
+  const user = userEvent.setup();
+  renderGuidance();
   await user.click(await screen.findByRole('button', { name: 'Connect to agents' }));
   await user.click(screen.getByRole('checkbox', { name: /codex/ }));
   await user.click(screen.getByRole('button', { name: 'Review changes' }));
@@ -36,22 +82,35 @@ it('reviews the exact before/after text and applies only after confirmation', as
 
 it('returns to selection after a stale preview instead of reapplying silently', async () => {
   vi.mocked(api.applyMemoryGuidance).mockRejectedValue(new Error('Files changed since preview'));
-  const user = userEvent.setup(); renderGuidance();
+  const user = userEvent.setup();
+  renderGuidance();
   await user.click(await screen.findByRole('button', { name: 'Connect to agents' }));
   await user.click(screen.getByRole('checkbox', { name: /codex/ }));
   await user.click(screen.getByRole('button', { name: 'Review changes' }));
   await user.click(await screen.findByRole('button', { name: 'Apply changes' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('Files changed since preview');
-  expect(within(screen.getByRole('dialog')).getByRole('button', { name: 'Review changes' })).toBeInTheDocument();
+  expect(
+    within(screen.getByRole('dialog')).getByRole('button', { name: 'Review changes' }),
+  ).toBeInTheDocument();
   expect(api.applyMemoryGuidance).toHaveBeenCalledTimes(1);
 });
 
 it('updates every outdated target without reconnecting', async () => {
-  vi.mocked(api.getMemoryGuidance).mockResolvedValue({ scope: 'global', instructions: { passive: 'Read the notes', active: 'Save lasting facts' }, targets: [
-    { name: 'claude', state: 'outdated', mode: 'active' }, { name: 'codex', state: 'outdated', mode: 'passive' }, { name: 'gemini', state: 'unconfigured' },
-  ] });
-  const user = userEvent.setup(); renderGuidance();
+  vi.mocked(api.getMemoryGuidance).mockResolvedValue({
+    scope: 'global',
+    instructions: { passive: 'Read the notes', active: 'Save lasting facts' },
+    targets: [
+      { name: 'claude', state: 'outdated', mode: 'active' },
+      { name: 'codex', state: 'outdated', mode: 'passive' },
+      { name: 'gemini', state: 'unconfigured' },
+    ],
+  });
+  const user = userEvent.setup();
+  renderGuidance();
   await user.click(await screen.findByRole('button', { name: 'Update to latest' }));
   await user.click(screen.getByRole('button', { name: 'Review changes' }));
-  expect(api.planMemoryGuidance).toHaveBeenCalledWith(['claude', 'codex'], { claude: 'active', codex: 'passive' });
+  expect(api.planMemoryGuidance).toHaveBeenCalledWith(['claude', 'codex'], {
+    claude: 'active',
+    codex: 'passive',
+  });
 });

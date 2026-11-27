@@ -23,6 +23,8 @@ skillshare disable my-skill -p      # Project mode
 
 `disable` adds a pattern to `.skillignore`; `enable` removes it. Disabled skills stay in the source directory but are excluded from `sync` and `collect`.
 
+A skill name refers to every skill in a folder of that name, so `enable inner` affects both `group/inner` and `other/inner`. An exact path such as `group/inner`, or a flat name such as `group__inner`, refers to that skill alone. For each skill a name refers to, `enable` also removes the line for its path (the line the list TUI and dashboard write), so `enable inner` removes `group/inner` too; each `✓` row shows the line that was written or removed. `disable` writes the name as typed when that line matches the skill; a flat name, which no line can match, writes the skill's path instead.
+
 ```mermaid
 flowchart LR
     DIS["skillshare disable my-skill"]
@@ -85,10 +87,31 @@ $ skillshare disable my-skill --dry-run
 
 Dry run — nothing was written
 
+# The preview lists every line, including the path lines enable removes
+$ skillshare enable inner --dry-run
+  inner        would be removed from ~/.config/skillshare/skills/.skillignore
+  group/inner  would be removed from ~/.config/skillshare/skills/.skillignore
+
+Dry run — nothing was written
+
 # Already disabled
 $ skillshare disable my-draft
 ! my-draft  already disabled
 ```
+
+## When Another Rule Decides
+
+`disable` and `enable` write or remove one line, but other rules can still decide a skill's state: a glob such as `draft-*`, a folder rule such as `frontend/`, a `!` rule in `.skillignore.local`, or a tracked repo's own `.skillignore`. After writing, skillshare checks each skill or agent you named as `skillshare list` reports it. If one is still in its old state, a `✗` line names the file to edit and the command exits with status 1:
+
+```bash
+$ skillshare enable draft-one
+
+✗ could not enable draft-one: still disabled: another rule in .skillignore or .skillignore.local matches it — remove that rule to enable it
+```
+
+When several are blocked, each gets its own `✗` row. Changes that did take effect are kept and shown with `✓`, and the operation log records the run as `partial`. A line `disable` wrote that a `!` rule overrides for every skill it names is removed again, so the ignore file is left as it was.
+
+A glob argument such as `"draft-*"` names no single skill, so it is written or removed without this check.
 
 ## Disable a Whole Folder
 
@@ -118,7 +141,7 @@ Always wrap folder patterns in quotes (`"frontend/**"`) so your shell doesn't ex
 
 ## TUI Toggle
 
-You can also turn skills on and off in the `skillshare list` TUI. The change is written to `.skillignore` immediately.
+You can also turn skills on and off in the `skillshare list` TUI. The change is written to `.skillignore` immediately. If another rule keeps the skill in its old state, the row stays as it was and the key line shows the same `✗` message as the CLI. Enabling a skill in the TUI or the dashboard also removes its folder-name line, the one `skillshare disable <name>` writes, unless that line also matches a skill you are not enabling.
 
 ## Where is the .skillignore?
 
@@ -138,6 +161,8 @@ skillshare disable --kind agent draft-reviewer     # Disable an agent
 skillshare enable --kind agent draft-reviewer      # Re-enable an agent
 skillshare disable --kind agent "experimental-*"   # Disable by pattern
 ```
+
+`.agentignore` lines match the file name, `.md` included. A name without `.md` that resolves to an agent with that file name is written with `.md` added, so `draft-reviewer` writes `draft-reviewer.md`. An agent's frontmatter `name` writes its path instead, so `disable --kind agent critic` for `rev.md` writes `rev.md`.
 
 | Mode | `.agentignore` path |
 |------|---------------------|

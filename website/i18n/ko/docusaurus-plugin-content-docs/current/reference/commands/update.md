@@ -12,6 +12,7 @@ skillshare update a b c              # 여러 개를 한 번에 업데이트
 skillshare update --group frontend   # 그룹의 모든 skill 업데이트
 skillshare update team-skills        # tracked 저장소 업데이트
 skillshare update --all              # 전체 업데이트
+skillshare update my-skill --merge   # 내 편집을 유지한 채 upstream 변경 사항을 병합
 skillshare update agents --all       # 모든 tracked/updatable agent 업데이트
 ```
 
@@ -68,6 +69,7 @@ flowchart TD
 | `--all, -a` | 모든 tracked 저장소/skill을 업데이트하거나, `update agents --all`로 사용 시 모든 agent를 업데이트. [따라간 source 링크](../targets/configuration.md#follow_source_links) 뒤의 tracked repo는 여러분 자신의 checkout이므로 경고와 함께 건너뜁니다. 이름을 지정해 update하세요 |
 | `--group, -G <name>` | 그룹 내 업데이트 가능한 모든 skill을 업데이트하거나, agent 하위 디렉터리의 모든 agent를 업데이트 |
 | `--force, -f` | 로컬 변경 사항을 버리고 audit findings에도 불구하고 진행하며, 이미 upstream commit에 있는 원격 skill도 재설치 |
+| `--merge` | 저장소에서 설치한 skill 또는 agent의 로컬 변경 사항을 유지한 채 upstream 변경 사항을 그 위에 병합합니다. [upstream 변경 사항 병합](#merging-upstream-changes)을 참고하세요. `--force`와 함께 사용할 수 없습니다 |
 | `--dry-run, -n` | 변경 없이 미리보기 |
 | `--skip-audit` | 보안 audit gate를 건너뜀 |
 | `--audit-threshold <t>`, `--threshold <t>`, `-T <t>` | update audit block threshold 재정의(`critical|high|medium|low|info`; 축약형: `c|h|m|l|i`, 그리고 `crit`, `med`) |
@@ -79,7 +81,7 @@ flowchart TD
 | `--json` | JSON으로 출력 |
 | `--help, -h` | 도움말 표시 |
 
-`update agents`는 `--all`, `--group`, `--force`, `--dry-run`, `--skip-audit`, `--audit-threshold` / `--threshold` / `-T`, `--json`, 그리고 `--project` / `--global`을 지원합니다. `--diff`, `--audit-verbose`, `--prune`은 지원하지 **않습니다**.
+`update agents`는 `--all`, `--group`, `--force`, `--merge`, `--dry-run`, `--skip-audit`, `--audit-threshold` / `--threshold` / `-T`, `--json`, 그리고 `--project` / `--global`을 지원합니다. `--diff`, `--audit-verbose`, `--prune`은 지원하지 **않습니다**.
 
 ## JSON 출력
 
@@ -104,7 +106,7 @@ skillshare update --all --json
 }
 ```
 
-가능한 `status` 값: `updated`, `skipped`, `failed`, `security_blocked`. 항목이 실패하면 `error` 필드가 포함됩니다. 로컬 변경 때문에 건너뛴 원격 skill은 `"error": "local changes since install"`이 있는 `skipped` 항목입니다.
+가능한 `status` 값: `updated`, `merged`, `conflict`, `skipped`, `failed`, `security_blocked`. 항목이 실패하면 `error` 필드가 포함됩니다. 로컬 변경 때문에 건너뛴 원격 skill은 `"error": "local changes since install"`이 있는 `skipped` 항목입니다. `--merge`를 사용하면 upstream 변경 사항이 편집 내용에 병합된 skill은 `merged` 항목이 되며 업데이트된 것으로 집계됩니다. 병합하지 못한 skill은 `conflict` 항목이 되고, 그 `error`에 충돌한 파일이 표시되며 건너뜀으로 집계됩니다.
 
 배치 업데이트에서 원격 skill이 이미 upstream commit에 있으면 그대로 두고 `up_to_date` 필드에 집계합니다. 개수가 0이면 이 필드는 생략됩니다.
 
@@ -119,7 +121,7 @@ tracked 저장소가 메타데이터에 선언되어 있지만 디스크에 없�
   ],
   "missing_tracked_repos": {
     "names": ["_team-skills"],
-    "hint": "Run 'skillshare install' to rehydrate tracked repositories"
+    "hint": "Run 'skillshare install -g' to rehydrate tracked repositories, or 'skillshare uninstall <name> -g' to remove an unwanted declaration"
   }
 }
 ```
@@ -143,7 +145,7 @@ skillshare update agents --all --json
 }
 ```
 
-가능한 agent `status` 값에는 `updated`, `failed`, `skipped`, `up_to_date`, `update_available`, `dirty`, `drifted`, `local`, `error`가 포함됩니다. `error` agent는 remote에 연결할 수 없거나 metadata를 읽을 수 없는 등의 이유로 확인하지 못한 agent입니다. 이 경우 명령은 agent를 최신 상태로 보고하지 않고 0이 아닌 종료 코드로 끝납니다.
+가능한 agent `status` 값에는 `updated`, `merged`, `conflict`, `failed`, `skipped`, `up_to_date`, `update_available`, `dirty`, `drifted`, `local`, `error`가 포함됩니다. `error` agent는 remote에 연결할 수 없거나 metadata를 읽을 수 없는 등의 이유로 확인하지 못한 agent입니다. 이 경우 명령은 agent를 최신 상태로 보고하지 않고 0이 아닌 종료 코드로 끝납니다.
 
 ## Agent 업데이트
 
@@ -224,7 +226,7 @@ skillshare update --all
 1. 모든 tracked 저장소(git pull)
 2. source metadata가 있는 모든 skill(upstream이 바뀌었을 때 재설치)
 
-`update --all`과 `update --group`은 원격 skill을 저장소별로 묶어 저장소마다 한 번만 clone합니다. upstream에서 폴더가 바뀌지 않은 skill은 그대로 두고 up to date로 집계합니다. 단, 폴더에 symlink가 있는 skill은 예외입니다. 폴더가 바뀌지 않아도 파일이 바뀔 수 있으므로 upstream commit이 바뀔 때마다 다시 설치합니다. 프로젝트 모드(`-p`)에서 여러 skill을 이름으로 지정해도 같습니다. 모든 skill을 다시 설치하려면 `--force`를 사용하세요. skill이 하나뿐이거나 글로벌 모드에서 이름으로 지정하면 항상 다시 설치합니다. 설치 후 파일을 변경한 skill은 어떤 경우에도 `--force`를 추가하기 전까지 건너뜁니다([충돌 처리](#충돌-처리) 참고). 저장소를 가져오지 못하면 해당 skill은 skipped로 집계되고, 저장소와 오류를 알려 주는 경고가 표시됩니다. URL에 포함된 인증 정보는 제거됩니다.
+`update --all`과 `update --group`은 원격 skill을 저장소별로 묶어 저장소마다 한 번만 clone합니다. upstream에서 폴더가 바뀌지 않은 skill은 그대로 두고 up to date로 집계합니다. 단, 폴더에 symlink가 있는 skill은 예외입니다. 폴더가 바뀌지 않아도 파일이 바뀔 수 있으므로 upstream commit이 바뀔 때마다 다시 설치합니다. `.agents/skills/<name>`처럼 폴더를 가리키는 링크로 설치한 skill은 링크가 가리키는 폴더로 비교합니다. 프로젝트 모드(`-p`)에서 여러 skill을 이름으로 지정해도 같습니다. 모든 skill을 다시 설치하려면 `--force`를 사용하세요. skill이 하나뿐이거나 글로벌 모드에서 이름으로 지정하면 항상 다시 설치합니다. 저장소 하위 폴더에서 같은 파일을 다시 설치하면 `.metadata.json`은 바뀌지 않으므로, Git으로 관리하는 skills source는 깨끗하게 유지됩니다. 설치 후 파일을 변경한 skill은 어떤 경우에도 `--merge` 또는 `--force`를 추가하기 전까지 건너뜁니다([충돌 처리](#충돌-처리) 참고). 저장소를 가져오지 못하면 해당 skill은 skipped로 집계되고, 저장소와 오류를 알려 주는 경고가 표시됩니다. URL에 포함된 인증 정보는 제거됩니다.
 
 skillshare는 하나의 git checkout을 한 번에 한 프로세스만 업데이트합니다. 같은 tracked 저장소나 git으로 설치한 skill을 다른 `update`나 대시보드가 이미 업데이트하고 있으면 끝날 때까지 기다립니다. 1분이 지나도 끝나지 않으면 `another skillshare process is still updating <path>`와 함께 중단합니다.
 
@@ -248,10 +250,12 @@ Next
 ```
 ! 1 tracked repo declared in metadata but missing on disk
 ! _team-skills  clone directory absent
-  Run 'skillshare install' to rehydrate tracked repositories
+  Run 'skillshare install -g' to rehydrate tracked repositories, or 'skillshare uninstall <name> -g' to remove an unwanted declaration
 ```
 
 이는 global mode와 project(`-p`) mode 모두에 적용됩니다. metadata로부터 클론을 다시 생성하려면 인수 없이 [install](/docs/reference/commands/install)을 실행하세요([Rehydrating After a Fresh Clone](/docs/understand/tracked-repositories#rehydrating-after-a-fresh-clone) 참고).
+
+global mode에서는 checkout이 없는 불필요한 선언을 `skillshare uninstall <name> -g`로 제거할 수도 있습니다. trash로 이동하지 않으므로 trash에서 복원할 수 없습니다. project mode에서는 `skillshare install -p`를 안내하며 선언만 제거하는 기능은 지원하지 않습니다.
 
 ## Stale Skill 정리 (`--prune`)
 
@@ -316,7 +320,7 @@ skillshare update --all --skip-audit
 ```
 
 :::caution
-`--skip-audit`는 보안 스캔을 완전히 비활성화합니다. source를 신뢰하거나 외부 audit 프로세스가 있는 경우에만 사용하세요.
+`--skip-audit`는 보안 스캔을 완전히 비활성화합니다. source를 신뢰하거나 외부 audit 프로세스가 있는 경우에만 사용하세요. 다만 tracked repository나 저장소 전체 skill이 저장소 밖이나 `.git` 폴더를 가리키는 symlink가 있는 새 commit을 받는 것은 허용하지 않습니다. 그런 update는 오류로 멈추며, `--force`로도 무시할 수 없습니다.
 :::
 
 ### 수락된 Findings {#accepted-findings}
@@ -387,7 +391,29 @@ skillshare가 repo의 git status를 읽을 수 없으면 해당 repo의 업데�
 skillshare update my-skill --force
 ```
 
-대시보드의 **Updates** 탭에서는 해당 skill이 **Modified locally**로 표시되고, 변경 사항을 skill 페이지에서 열어 보는 **View changes** 버튼이 나타납니다. 업데이트하기 전에 **Force overwrite local edits**를 선택하거나, 건너뛴 행의 **Force Retry**를 사용하세요. skill 자체 페이지에서 업데이트하면 변경 사항을 보여 주고 버리기 전에 확인을 요청합니다. `update <name> --dry-run`은 이 skill을 건너뛸 대상으로 보고합니다. upstream에서도 삭제된 modified skill은 `--prune`을 사용해도 `--force`를 추가하기 전까지 유지됩니다.
+편집 내용을 유지하면서 upstream 변경 사항도 가져오려면 대신 `--merge`를 사용하세요. [upstream 변경 사항 병합](#merging-upstream-changes)을 참고하세요.
+
+대시보드의 **Updates** 탭에서는 해당 skill이 **Modified locally**로 표시되고, 변경 사항을 보여 주고 **Merge** 또는 **Force overwrite local edits**를 선택할 수 있는 **View changes** 버튼이 나타납니다. 업데이트하기 전에 **Force overwrite local edits**를 선택하거나, 건너뛴 행의 **Merge** 또는 **Force Retry**를 사용하세요. skill 자체 페이지에서 업데이트하면 변경 사항을 보여 주고, 버리기 옵션 옆에 **Merge**도 제공합니다. `update <name> --dry-run`은 이 skill을 건너뛸 대상으로 보고합니다. upstream에서도 삭제된 modified skill은 `--prune`을 사용해도 `--force`를 추가하기 전까지 유지됩니다.
+
+설치 후 편집한 agent도 같은 방식으로 보호됩니다. 새 버전이 편집 내용을 덮어쓰게 되는 경우 업데이트를 건너뜁니다. `skillshare check agents`는 해당 agent를 `update available upstream`으로 보고하고, `update agents`는 **Modified locally** 아래에 나열합니다. `skillshare update agents <name> --merge`로 병합하거나, 대시보드에서는 건너뛴 행의 **Merge** 또는 **Force Retry**를 사용하거나 agent 자체 페이지에서 업데이트하세요.
+
+### upstream 변경 사항 병합 {#merging-upstream-changes}
+
+`--merge`는 둘 중 하나를 고르는 대신 내 편집과 upstream의 변경을 합칩니다. skill 또는 agent가 설치된 시점의 commit을 가져와 3-way 병합의 base로 사용하고, `git merge`처럼 파일 단위로 병합합니다.
+
+```text
+$ skillshare update my-skill --merge
+✓ Update    my-skill · merged local changes · from github.com/team/skills/my-skill
+```
+
+- 나만 변경한 파일은 내 버전이 유지되고, upstream만 변경한 파일은 upstream 버전을 따르며, 양쪽이 모두 변경한 파일은 줄 단위로 병합됩니다.
+- 양쪽이 같은 줄을 변경했거나, 한쪽이 다른 쪽이 변경한 파일을 삭제했거나, 같은 바이너리 파일을 변경한 경우에는 아무것도 기록하지 않습니다. skill은 그대로 유지되고, `update`는 충돌한 파일을 나열한 뒤 오류로 종료하며, 직접 해결하거나 `--force`로 내 편집을 버릴 수 있습니다.
+- 깔끔하게 병합된 뒤에도 skill은 upstream이 게시한 것과 다르므로 **modified** 상태로 남습니다. 일반 `update`는 계속 건너뛰고, 다음 `update --merge`는 새 버전을 기준으로 병합합니다.
+- upstream이 skill에서 아무것도 변경하지 않았다면 파일은 그대로 두고 skill은 최신 상태로 보고됩니다.
+- 파일만 병합 대상입니다. skill에 추가한 디렉터리 symlink나 빈 디렉터리는 일반 업데이트와 마찬가지로 유지되지 않습니다.
+- 로컬 변경이 없는 skill은 평소처럼 업데이트됩니다. `--merge`는 tracked 저장소(`_repo`)에는 적용되지 않습니다. 그곳에서는 변경 사항을 commit하고 `git pull`이 병합하도록 하세요.
+
+`update --all --merge`와 `update --group <name> --merge`는 modified 상태인 모든 skill을 병합하고 나머지는 업데이트합니다. 충돌한 skill은 **Not merged** 아래에 나열됩니다. `--merge`는 base를 다시 만들기 위해 설치 시점의 commit이 필요합니다. 기록된 파일을 그 commit에서 재현할 수 없는 skill은 `cannot rebuild the installed version to merge against` 오류로 실패합니다. [따라간 source 링크](../targets/configuration.md#follow_source_links) 뒤의 skill은 여러분 자신의 checkout이므로 그곳에서 git으로 병합하세요.
 
 ## 업데이트 후
 

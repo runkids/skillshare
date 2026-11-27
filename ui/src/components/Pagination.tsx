@@ -18,7 +18,13 @@ interface PaginationProps {
   pageSize?: PageSizeConfig;
 }
 
-export default function Pagination({ page, totalPages, onPageChange, rangeText, pageSize }: PaginationProps) {
+export default function Pagination({
+  page,
+  totalPages,
+  onPageChange,
+  rangeText,
+  pageSize,
+}: PaginationProps) {
   const t = useT();
   return (
     <div className="flex items-center justify-between pt-4 mt-4 [border-top:var(--sep)]">
@@ -37,11 +43,25 @@ export default function Pagination({ page, totalPages, onPageChange, rangeText, 
       </div>
 
       <div className="ss-pager">
-        <button type="button" className="ss-ib" onClick={() => onPageChange(Math.max(0, page - 1))} disabled={page === 0} aria-label={t('pagination.previous')}>
+        <button
+          type="button"
+          className="ss-ib"
+          onClick={() => onPageChange(Math.max(0, page - 1))}
+          disabled={page === 0}
+          aria-label={t('pagination.previous')}
+        >
           <ChevronLeft size={16} />
         </button>
-        <span className="!cursor-default font-mono">{page + 1} / {totalPages}</span>
-        <button type="button" className="ss-ib" onClick={() => onPageChange(Math.min(totalPages - 1, page + 1))} disabled={page >= totalPages - 1} aria-label={t('pagination.next')}>
+        <span className="!cursor-default font-mono">
+          {page + 1} / {totalPages}
+        </span>
+        <button
+          type="button"
+          className="ss-ib"
+          onClick={() => onPageChange(Math.min(totalPages - 1, page + 1))}
+          disabled={page >= totalPages - 1}
+          aria-label={t('pagination.next')}
+        >
           <ChevronRight size={16} />
         </button>
       </div>

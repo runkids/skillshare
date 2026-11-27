@@ -11,17 +11,41 @@ const docs: Record<string, string> = {
   pi: 'https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/packages.md',
   omp: 'https://github.com/can1357/oh-my-pi/blob/v18.6.1/docs/extensions.md',
   opencode: 'https://opencode.ai/docs/plugins/',
-  copilot: 'https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/plugins-finding-installing',
+  copilot:
+    'https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/plugins-finding-installing',
   grok: 'https://docs.x.ai/build/features/skills-plugins-marketplaces',
   kimi: 'https://www.kimi.com/code/docs/en/kimi-code-cli/customization/plugins',
   hermes: 'https://hermes-agent.nousresearch.com/docs/user-guide/features/plugins',
   devin: 'https://docs.devin.ai/cli/extensibility/plugins/overview',
 };
 
-export default function PluginDocsLink({ target, label }: { target: string; label: string }) {
+export default function PluginDocsLink({
+  target,
+  label,
+  iconOnly = false,
+}: {
+  target: string;
+  label: string;
+  /** Just the arrow, for a row whose reason already fills the line. */
+  iconOnly?: boolean;
+}) {
   const t = useT();
   if (!docs[target]) return null;
-  return <a href={docs[target]} target="_blank" rel="noopener noreferrer" className="inline-flex shrink-0 items-center gap-1 text-xs text-link underline" aria-label={`${label} · ${t('plugins.officialDocs')}`}>
-    {t('plugins.officialDocs')}<ExternalLink size={12} aria-hidden="true" />
-  </a>;
+  return (
+    <a
+      href={docs[target]}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={
+        iconOnly
+          ? 'grid h-5 w-6 shrink-0 place-items-center text-ink-3 hover:text-ink'
+          : 'inline-flex shrink-0 items-center gap-1 text-xs text-link underline'
+      }
+      aria-label={`${label} · ${t('plugins.officialDocs')}`}
+      title={iconOnly ? t('plugins.officialDocs') : undefined}
+    >
+      {!iconOnly && t('plugins.officialDocs')}
+      <ExternalLink size={iconOnly ? 14 : 12} aria-hidden="true" />
+    </a>
+  );
 }

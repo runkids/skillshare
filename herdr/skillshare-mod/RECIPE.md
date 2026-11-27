@@ -1,6 +1,8 @@
 # skillshare
 
-A skillshare button and panel added to your existing Herdr window. See which skills, agents, MCP servers, plugins and hooks need an update or a sync in the focused project's source and your global source. Preview, install with an audit first, update, sync, enable or disable, uninstall, hand an audit to an agent, sync the source repository and check every machine. Your status bar, usage meters, sidebar, theme and other panels stay as they are.
+Install this panel with Skillshare: paste this mod's GitHub URL into Plugins → Add plugin, preview the changes, and apply. The panel opens in a copy of your current Herdr layout; your original stays unchanged. Use Skillshare to update or remove the mod, and to manage other Herdr mods and launchers from GitHub.
+
+The panel shows what needs a sync or update across your current project and global library, including skills, agents, MCP servers, plugins, hooks and extras.
 
 ![skillshare](preview.png)
 
@@ -9,8 +11,8 @@ A skillshare button and panel added to your existing Herdr window. See which ski
 - A 118px **skillshare** button beside the existing tab bar. It uses the 16px skillshare mark and the selected background while the panel is open.
 - A 400px panel beside the work area, resizable from 380 to 720px. Its 44px header shows the folder, machine, CLI version, Update panel when available and a close button.
 - **Overview**, **Library** and **Machines** tabs. In a project, All · Project · Global selects the scope; outside one, Global is shown.
-- Overview answers with Everything is in sync, targets/resources waiting, or Syncing. A Sync button handles pending work. Five counts open Library by kind; up to six target lines show what waits. Hovering a collapsed count opens the remaining target lines.
-- Library has kind tabs, a filter, Sync and Install. Its scrollable list groups unknown, needs-attention, needs-sync, update, in-sync and disabled rows. In-sync skills and agents fold by source, with a List switch. Each row opens a preview; update rows also have Update.
+- Overview answers with Everything is in sync, targets/resources waiting, extras that need a look, or Syncing. A Sync button handles pending work. Six counts (Skills, Agents, MCP, Plugins, Hooks, Extras) open Library by kind; up to six target lines show what waits. Hovering a collapsed count opens the remaining target lines.
+- Library has kind tabs, a filter, Sync and Install. Its scrollable list groups unknown, needs-attention, needs-sync, update, in-sync and disabled rows. In-sync skills and agents fold by source, with a List switch. Extras lists file and folder extras, then memory notes on their own, without a sync state or a count; an extra whose source is missing needs attention. Each row opens a preview; update rows also have Update.
 - Machines shows one card per Herdr machine: version, remote/source/target state, doctor warnings and Pull and sync or Sync both ways. A newer CLI version offers Update.
 - A 34px notice line appears during work or after an outcome. A 40px footer shows the source repository state and opens its actions.
 - Previews use Document/Settings/About, Targets and Details tabs where applicable. Install, audit results, source actions, conflict resolution, enable/disable, uninstall and updates use confirmation overlays.
@@ -20,9 +22,9 @@ A skillshare button and panel added to your existing Herdr window. See which ski
 
 - The button toggles the panel and the close button hides it. Open/closed state survives space switches and restarts.
 - The panel follows the shown space's machine and focused terminal's folder. `.skillshare/config.yaml` or `skillshare/config.yaml` enables project scope beside global scope.
-- It refreshes every 20 seconds while shown, checks resource updates every 10 minutes and checks the latest published panel release hourly. Hidden panels do no work. Resource reads appear independently; pending or failed reads remain unconfirmed instead of claiming everything is in sync.
+- It refreshes every 20 seconds while shown, checks resource updates every 10 minutes and checks the latest published panel release hourly. Hidden panels do no work. Resource reads appear independently; pending or failed reads remain unconfirmed instead of claiming everything is in sync. Memory notes never wait for a sync and are not counted, so a pending or failed memory read leaves sync states and counts confirmed. Skillshare before 0.24 has no memory list.
 - Sync applies pending scopes and plugin changes. Hook conflicts block all resource sync until resolved. Hook notices do not inflate named-entry counts.
-- Preview reads skill/agent files or MCP settings, hiding secret values. Skills and agents offer Update, Diff, Enable/Disable, Uninstall and Ask agent to audit; declared hooks offer Enable, Disable and Remove. Destructive actions and audit hand-offs ask first.
+- Preview reads skill/agent files, MCP settings, an extra's file or folder, or a memory note, hiding secret values. Skills and agents offer Update, Diff, Enable/Disable, Uninstall and Ask agent to audit; declared hooks offer Enable, Disable and Remove. Destructive actions and audit hand-offs ask first.
 - Install takes a repository URL, uses the CLI's dry-run plan to choose skills, audits a separate clone and installs only after a passing audit or explicit Install anyway confirmation. A failed command remains a failure even when some items were installed.
 - Source actions offer Pull, Commit and push and Sync both ways. Conflicting files show both versions for a per-file choice; skill metadata merges per entry.
 - Requests show their intended outcomes while pending, then reconcile with CLI reads. Errors restore the last known rows. Work is serialized per machine; different machines can run independently.
@@ -34,7 +36,13 @@ This is a standalone mod share folder: `mods/skillshare/`, this recipe and `prev
 
 ### Add to the existing window
 
-1. Read `~/.config/herdr-app/AGENTS.md` and every mod file first. Tell the person that the panel runs programs, reaches GitHub and resource repositories, and reads source files outside its own folder.
+Read Herdr's `AGENTS.md` and the mod files first. If Skillshare is installed and
+its Dashboard supports the `herdr-app` plugin target, prefer the
+[managed installation](../README.md#install-and-open-the-panel). Ask the person
+to review and apply both the mod installation and layout placement in the Dashboard.
+Use the steps below when that managed flow is unavailable.
+
+1. Tell the person that the panel runs programs, reaches GitHub and resource repositories, and reads source files outside its own folder.
 2. Copy `mods/skillshare/` into Herdr's home. If it already holds this panel, update that installation instead of installing a duplicate. For an unrelated name collision, follow Herdr's rename procedure; a renamed panel must be updated by hand.
 3. Inspect the shown layout. Clone it first if it is Herdr-shipped; otherwise keep the user's layout name and edit only the two skillshare nodes. Preserve every unrelated node and property, especially custom status bars and CLI usage meters.
 4. Add this block beside the existing tab bar (wrap the tab block in a row only if necessary; keep its existing properties):
@@ -57,7 +65,7 @@ This is a standalone mod share folder: `mods/skillshare/`, this recipe and `prev
 - `main.js` imports `gpui-kit`, `gpui-base` and `herdr`. Its default role draws the panel; `toggle` draws the button. Dialog roles include `install`, `uninstall`, `audit`, `source`, `syncboth`, `conflict`, `upgrade`, `panelupdate`, `text`, `hook` and `able`.
 - `model.js` parses CLI output and holds shell scripts; `jobs.js` runs detached work; `channel.js` carries requests, locks and notices; `operations.js` runs mutations; `loader.js` reads resources, checks and previews. `version.js` records the release. `mark.svg` and `icons/` supply the art.
 - Herdr APIs: `exec`, `readTextFile`, `spaces`, `focused`, `machines`, `agents`, `knownAgents`, `layout`, `shared`, `setShared`, `settings`, `theme`, `props`, `openOverlay`, `closeOverlay`, `nextCommand`, `run` and `hc`. Commands: `layout.toggle`, `layout.hide` and `agent.focus`; `hc send` hands off audits.
-- Programs: `skillshare`, `git`, `curl`, `sh` and standard filesystem/process tools. skillshare must be installed on every connected machine in `~/.local/bin`, `~/go/bin`, `/opt/homebrew/bin` or `/usr/local/bin`.
+- Programs: `skillshare`, `git`, `curl`, `sh` (on Windows, Git for Windows' `bin/sh.exe`) and standard filesystem/process tools. skillshare must be installed on every connected machine in `~/.local/bin`, `~/go/bin`, `/opt/homebrew/bin` or `/usr/local/bin`.
 - Long work uses detached jobs and polled temp files. Preview reads up to 40 file names and 60 kB per file. MCP env/header/token values are redacted.
 - Panel updates fetch `herdr/skillshare/mods/skillshare` from the latest published release. Both installation options use that same updater and version. The standalone files are generated from that source with `python3 scripts/herdr/package-mod.py`.
 

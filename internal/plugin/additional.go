@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/url"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
+
+	"skillshare/internal/opencode"
 )
 
 // NormalizeTarget resolves the Antigravity CLI nickname without changing stored keys.
@@ -38,7 +39,7 @@ func validTargetID(target, id string) bool {
 		return validID(id)
 	case "claude", "codex", "omp":
 		return validID(id)
-	case "cursor", "antigravity", "antigravity-cli", "grok", "kimi", "hermes", "devin":
+	case "herdr-app", "cursor", "antigravity", "antigravity-cli", "grok", "kimi", "hermes", "devin":
 		return namePattern.MatchString(id)
 	case "copilot":
 		return namePattern.MatchString(id) || validID(id)
@@ -115,6 +116,8 @@ func (s *Service) additionalHost(ctx context.Context, target string) Host {
 	}
 	var err error
 	switch agent {
+	case "herdr-app":
+		return s.herdrHost(target)
 	case "cursor":
 		h.NoteKey = "plugins.note.cursor"
 		h.Note = "Local plugin files only. Reload Cursor and allow local plugin imports; marketplace installations take precedence."
@@ -174,7 +177,7 @@ func (s *Service) verifyAdditional(ctx context.Context, target, action, id strin
 	if !slices.Contains([]string{"install", "update", "remove", "uninstall"}, action) {
 		return fmt.Errorf("unsupported plugin action %s", action)
 	}
-	if agent == "cursor" || agent == "antigravity" || agent == "opencode" {
+	if agent == "herdr-app" || agent == "cursor" || agent == "antigravity" || agent == "opencode" {
 		return nil
 	}
 	command := action
@@ -214,6 +217,8 @@ func (s *Service) applyAdditional(ctx context.Context, c Change, b Binding) erro
 	}
 	remove := c.Action == "remove" || c.Action == "uninstall"
 	switch s.agentOf(c.Target) {
+	case "herdr-app":
+		return s.applyHerdr(c, b, root)
 	case "cursor", "antigravity":
 		return s.applyLocal(c, b, root)
 	case "opencode":
@@ -266,5 +271,28 @@ func (s *Service) applyAdditional(ctx context.Context, c Change, b Binding) erro
 }
 
 func fileURL(path string) string {
-	return (&url.URL{Scheme: "file", Path: filepath.ToSlash(path)}).String()
+	return opencode.FileURL(path)
+}
+
+func isRegularFile(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && info.Mode().IsRegular()
+}
+
+// openCodeDirectory checks only native loader files, never dependencies or code.
+func openCodeDirectory(root string) error {
+	return opencode.Package(func(name string) ([]byte, error) {
+		path := filepath.Join(root, filepath.FromSlash(name))
+		if err := noSymlink(root, path); err != nil {
+			return nil, err
+		}
+		info, err := os.Lstat(path)
+		if err != nil {
+			return nil, err
+		}
+		if !info.Mode().IsRegular() {
+			return nil, fmt.Errorf("OpenCode package entry must be a regular file: %s", path)
+		}
+		return os.ReadFile(path)
+	})
 }

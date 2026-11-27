@@ -129,9 +129,9 @@ $ skillshare install anthropics/skills
   ↑↓ move · space toggle · ctrl+a all · enter confirm · / filter · esc cancel
 ```
 
-Discovery scans all directories for `SKILL.md` files except `.git` and target directories such as `.claude/` and `.agents/`, which usually hold copies of the repository's skills. Other hidden directories like `.curated/` or `.system/` are scanned, so their skills are discovered automatically. A repository with no other skills has its root `.agents/skills/` scanned instead. When multiple skills are found, the prompt lists skills from the same folder together and shows each one's description and folder; press `/` to narrow a long list.
+Discovery scans all directories for `SKILL.md` files except `.git` and target directories such as `.claude/` and `.agents/`, which usually hold copies of the repository's skills. Other hidden directories like `.curated/` or `.system/` are scanned, so their skills are discovered automatically. A repository with no other skills has its root `.agents/skills/` scanned instead. Discovery also follows links to folders inside the repository, except into `.git` or from inside a skill folder, where a link is part of that skill. A skill reachable both directly and through a link is listed once, under its direct path. `--track` installs do not follow these links, matching what `sync` sees. When multiple skills are found, the prompt lists skills from the same folder together and shows each one's description and folder; press `/` to narrow a long list.
 
-The `.agents/skills/` fallback requires both `.agents` and `skills` to be real directories, not symlinks or junctions, even with `follow_source_links: true`. An intentionally followed repository root remains supported. Discovered agent installs and updates reject intermediate or final destination links; audits run before publication, and a blocked audit leaves existing agent contents unchanged.
+The `.agents/skills/` fallback requires both `.agents` and `skills` to be real directories, not symlinks or junctions, even with `follow_source_links: true`. An intentionally followed repository root remains supported. Discovered agent installs and updates reject intermediate or final destination links; audits run before publication, and a blocked audit leaves existing agent contents unchanged. When a symlink in a skill, agent or tracked repository from a Git source leads outside the repository or into its `.git` folder, install and update stop with an error and leave nothing from that repository or commit installed, so a repository cannot copy a file from elsewhere on your machine into a skill or a copy-mode target. A link to another file or folder in the same repository is copied as that file or folder, also when you install a single folder of the repository. A folder reached through a second link, or a link back into a folder being copied, stops the install with an error.
 
 If the repository contains a `.skillignore` file at its root, matching skills are automatically excluded from discovery. See [.skillignore](#skillignore) below.
 
@@ -293,7 +293,7 @@ See [Project Setup](/docs/how-to/sharing/project-setup) for the full guide.
 |------|-------|-------------|
 | `--name <name>` | | Override installed name when exactly one skill is installed |
 | `--into <dir>` | | Install into subdirectory (e.g. `--into frontend` or `--into frontend/react`) |
-| `--force` | `-f` | Overwrite existing skill; override audit blocking from findings (not a failed scan) and cross-path duplicate check |
+| `--force` | `-f` | Overwrite existing skill; override audit blocking from findings (not a failed scan) and cross-path duplicate check. If the new version fails to install or is blocked, the installed skill is kept |
 | `--update` | `-u` | Update if exists (git pull or reinstall) |
 | `--branch <ref>` | `-b` | Git branch, tag, or commit SHA to install from (default: remote default branch) |
 | `--track` | `-t` | Keep `.git` for tracked repos. Cannot combine with `--all`, `--yes`, `--skill`, or `--agent`. |
@@ -370,7 +370,7 @@ skillshare install github.com/user/agents --kind agent --json
 }
 ```
 
-When the install fails as a whole, for example when the security audit blocks a tracked repository, a single skill, or every skill from a source or from config, the command exits non-zero and the `error` field says why, naming each failed skill. When only some skills fail, they are listed in `failed` and the command exits 0. Add `--force` to install despite audit findings.
+When the install fails as a whole, for example when the security audit blocks a tracked repository, a single skill, or every skill from a source or from config, the command exits non-zero and the `error` field says why, naming each failed skill. When only some skills fail, they are listed in `failed` and the command exits 0. If any selected agent fails, the command exits non-zero and `error` names each failed agent, even when skills installed. Add `--force` to install despite audit findings.
 
 ```json
 {
@@ -816,11 +816,16 @@ skillshare install github.com/user/repo --kind agent
 # Install specific agents by name (-a shorthand)
 skillshare install github.com/user/repo -a tutor,reviewer
 
+# Install one agent by its file path
+skillshare install github.com/user/repo/agents/tutor.md
+
 # Combine with project mode
 skillshare install github.com/user/repo --kind agent -p
 ```
 
 The `-a <name>` flag is the agent equivalent of `-s <name>` for skills. Agents are installed into `~/.config/skillshare/agents/` (global) or `.skillshare/agents/` (project). See [Agents](/docs/understand/agents) for the full concepts.
+
+A path to one agent file installs only that agent and records the same source as `-a`, so later updates read the file's directory. It cannot be combined with `--track`.
 
 ### Scoping skills vs agents in a mixed repo
 

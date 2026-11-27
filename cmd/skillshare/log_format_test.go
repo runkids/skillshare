@@ -426,6 +426,14 @@ func TestFormatProjectLog_ShowsActionAndRoot(t *testing.T) {
 	}
 }
 
+func TestFormatProjectLog_ShowsScan(t *testing.T) {
+	// Args as read back from operations.log: JSON numbers decode as float64.
+	e := oplog.Entry{Command: "project", Args: map[string]any{"action": "add", "root": "~/work/suite", "scan": []any{".", ".worktrees"}, "added": float64(3), "scope": "cli"}}
+	if detail := formatLogDetail(e, false); detail != "add ~/work/suite, scan=., .worktrees, added=3, scope=cli" {
+		t.Fatalf("unexpected scan detail: %q", detail)
+	}
+}
+
 func TestFormatSyncLog_ShowsProjectRoot(t *testing.T) {
 	e := oplog.Entry{Command: "sync", Args: map[string]any{"action": "sync", "root": "~/work/app", "targets_total": 2, "scope": "cli"}}
 

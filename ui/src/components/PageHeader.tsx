@@ -16,9 +16,20 @@ interface PageHeaderProps {
   crumbs?: { label: string; to?: string; onClick?: () => void }[];
   /** Set the title in monospace, for resource names */
   mono?: boolean;
+  /** Start the actions on the title row and stack them at the right, instead of beside the subtitle's last line */
+  actionsOnTitleRow?: boolean;
 }
 
-export default function PageHeader({ title, subtitle, actions, className = '', backTo, crumbs, mono }: PageHeaderProps) {
+export default function PageHeader({
+  title,
+  subtitle,
+  actions,
+  className = '',
+  backTo,
+  crumbs,
+  mono,
+  actionsOnTitleRow,
+}: PageHeaderProps) {
   const t = useT();
   return (
     <div className={`ss-pgh flex flex-col gap-3 ${className}`}>
@@ -34,9 +45,13 @@ export default function PageHeader({ title, subtitle, actions, className = '', b
             <Fragment key={i}>
               {i > 0 && <ChevronRight size={13} />}
               {c.to ? (
-                <Link to={c.to} className="hover:text-ink">{c.label}</Link>
+                <Link to={c.to} className="hover:text-ink">
+                  {c.label}
+                </Link>
               ) : c.onClick ? (
-                <button type="button" className="cursor-pointer hover:text-ink" onClick={c.onClick}>{c.label}</button>
+                <button type="button" className="cursor-pointer hover:text-ink" onClick={c.onClick}>
+                  {c.label}
+                </button>
               ) : (
                 <span aria-current="page">{c.label}</span>
               )}
@@ -44,12 +59,26 @@ export default function PageHeader({ title, subtitle, actions, className = '', b
           ))}
         </nav>
       )}
-      <div className="ss-ph">
+      <div className={actionsOnTitleRow ? 'ss-ph !items-start' : 'ss-ph'}>
         <div className="tt min-w-0">
-          <h1 className="ss-h1"><span className={mono ? 'm' : undefined}>{title}</span></h1>
+          <h1 className="ss-h1">
+            <span className={mono ? 'm' : undefined}>{title}</span>
+          </h1>
           {subtitle && <p>{subtitle}</p>}
         </div>
-        {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+        {actions && (
+          // Stacked at the right, starting on the title row. The column takes the room the title leaves, down
+          // to its narrowest item, so it stays beside the title on narrow screens too.
+          <div
+            className={
+              actionsOnTitleRow
+                ? 'ml-auto flex min-w-min max-w-max grow-[9999] basis-0 flex-col items-end gap-2'
+                : 'flex shrink-0 items-center gap-2'
+            }
+          >
+            {actions}
+          </div>
+        )}
       </div>
     </div>
   );

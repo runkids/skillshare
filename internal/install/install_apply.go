@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -104,6 +105,15 @@ func discoverySourceRoot(discovery *DiscoveryResult) string {
 	return filepath.Join(discovery.RepoPath, "repo")
 }
 
+// fetchedRoot is the checkout a git source was fetched into, which bounds where
+// its symlinks may lead. It is empty for a local path the user named.
+func fetchedRoot(discovery *DiscoveryResult) string {
+	if discovery.Source == nil || !discovery.Source.IsGit() {
+		return ""
+	}
+	return discoverySourceRoot(discovery)
+}
+
 // descendantSkillPaths returns the set of slash-normalized paths (relative to
 // the source root of `skill`) of every other discovered skill that lives
 // strictly inside `skill`. The returned map is suitable as the excludes
@@ -160,15 +170,25 @@ func resolveDiscoveredAgentSourcePath(discovery *DiscoveryResult, agent AgentInf
 	return filepath.Join(sourceRoot, agent.Path)
 }
 
+// discoveredAgentSource is the source recorded for agent. A source that named
+// the agent file already ends in it.
+func discoveredAgentSource(source *Source, agent AgentInfo) string {
+	if source.AgentFile != "" {
+		return source.Raw
+	}
+	return buildDiscoverySkillSource(source, agent.Path)
+}
+
 func buildDiscoveredAgentSource(discovery *DiscoveryResult, agent AgentInfo) *Source {
 	return &Source{
 		Type:     discovery.Source.Type,
-		Raw:      buildDiscoverySkillSource(discovery.Source, agent.Path),
+		Raw:      discoveredAgentSource(discovery.Source, agent),
 		CloneURL: discovery.Source.CloneURL,
 		Subdir:   agent.Path,
 		Name:     agent.Name,
 		Branch:   discovery.Source.Branch,
 		Commit:   discovery.Source.Commit,
+		Locked:   discovery.Source.Locked,
 	}
 }
 
@@ -208,15 +228,56 @@ func AgentRepoSource(entry *MetadataEntry, opts ParseOptions) (*Source, error) {
 	return source, nil
 }
 
-func writeDiscoveredAgentMetadata(discovery *DiscoveryResult, agent AgentInfo, destFile, sourceDir string) error {
+// AgentBlobPath is the repository path of the agent file source names: where
+// check looks up the blob hash recorded for it. "" when source does not parse.
+func AgentBlobPath(source string, opts ParseOptions) string {
+	parsed, err := ParseSourceWithOptions(source, opts)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimPrefix(parsed.Subdir, "/")
+}
+
+// discoveredAgentFile is the repository path of agent's file in discovery.
+func discoveredAgentFile(discovery *DiscoveryResult, agent AgentInfo) string {
+	return strings.TrimPrefix(path.Join(filepath.ToSlash(discovery.Source.Subdir), filepath.ToSlash(agent.Path)), "/")
+}
+
+// DiscoveredAgentBlobHash is the git blob hash of agent's file in discovery's
+// clone; "" for a local path, a symlink, or a file git cannot read.
+func DiscoveredAgentBlobHash(discovery *DiscoveryResult, agent AgentInfo) string {
+	if discovery.Source.Type == SourceTypeLocalPath {
+		return ""
+	}
+	return getFileBlobHash(discoverySourceRoot(discovery), discoveredAgentFile(discovery, agent))
+}
+
+// checkFindsAgentFile reports whether parsing source, the agent's recorded
+// source, names agent's file, so check looks up its blob hash there. It uses
+// only the hosts the source carries, so the answer does not depend on which
+// command installs the agent; a source needing other hosts records no hash.
+func checkFindsAgentFile(discovery *DiscoveryResult, agent AgentInfo, source string) bool {
+	hosts := ParseOptions{CNBHosts: discovery.Source.CNBHosts, GiteaHosts: discovery.Source.GiteaHosts}
+	return AgentBlobPath(source, hosts) == discoveredAgentFile(discovery, agent)
+}
+
+// writeDiscoveredAgentMetadata records the agent at destFile, with the hash of
+// hashFile: the upstream version it was installed or updated from.
+func writeDiscoveredAgentMetadata(discovery *DiscoveryResult, agent AgentInfo, destFile, hashFile, sourceDir string) error {
 	source := buildDiscoveredAgentSource(discovery, agent)
 	meta := NewMetaFromSource(source)
 	meta.Kind = "agent"
 	if discovery.CommitHash != "" {
 		meta.Version = discovery.CommitHash
 	}
-	if hash, hashErr := computeSingleFileHash(destFile); hashErr == nil {
+	if hash, hashErr := computeSingleFileHash(hashFile); hashErr == nil {
 		meta.FileHashes = map[string]string{filepath.Base(destFile): hash}
+	}
+	// The file's blob hash lets check see the agent as current at a later
+	// commit, so a reinstall of the same file keeps its record (#1041). It is
+	// recorded only where check will look it up.
+	if checkFindsAgentFile(discovery, agent, meta.Source) {
+		meta.TreeHash = DiscoveredAgentBlobHash(discovery, agent)
 	}
 	return WriteMetaToStore(sourceDir, destFile, meta)
 }
@@ -224,7 +285,7 @@ func writeDiscoveredAgentMetadata(discovery *DiscoveryResult, agent AgentInfo, d
 func installAgentFromDiscoveryInternal(discovery *DiscoveryResult, agent AgentInfo, destFile string, opts InstallOptions, update bool) (*InstallResult, error) {
 	result := &InstallResult{
 		SkillName: agent.Name,
-		Source:    buildDiscoverySkillSource(discovery.Source, agent.Path),
+		Source:    discoveredAgentSource(discovery.Source, agent),
 		SkillPath: destFile,
 	}
 
@@ -258,7 +319,13 @@ func installAgentFromDiscoveryInternal(discovery *DiscoveryResult, agent AgentIn
 		return nil, fmt.Errorf("failed to check agent destination: %w", err)
 	}
 
-	data, err := os.ReadFile(resolveDiscoveredAgentSourcePath(discovery, agent))
+	agentPath := resolveDiscoveredAgentSourcePath(discovery, agent)
+	if root := fetchedRoot(discovery); root != "" {
+		if err := resolveWithin(root, agentPath); err != nil {
+			return nil, fmt.Errorf("failed to read agent %s: %w", agent.FileName, err)
+		}
+	}
+	data, err := os.ReadFile(agentPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read agent %s: %w", agent.FileName, err)
 	}
@@ -288,19 +355,34 @@ func installAgentFromDiscoveryInternal(discovery *DiscoveryResult, agent AgentIn
 		return nil, err
 	}
 
+	written, upstreamChanged := data, true
+	if update && opts.MergeBase != nil {
+		if written, upstreamChanged, err = mergeAgentEdits(opts.MergeBase, discovery, agent, destFile, data); err != nil {
+			return nil, err
+		}
+	}
+
 	if err := src.MkdirAll(filepath.Dir(rel), 0o755); err != nil {
 		return nil, fmt.Errorf("failed to create agents directory: %w", err)
 	}
-	if err := src.WriteFileAtomic(rel, data, 0o644); err != nil {
+	if err := src.WriteFileAtomic(rel, written, 0o644); err != nil {
 		return nil, fmt.Errorf("failed to write agent %s: %w", agent.FileName, err)
 	}
-	if err := writeDiscoveredAgentMetadata(discovery, agent, destFile, opts.SourceDir); err != nil {
+	// Hash the staged upstream file: after a merge the agent must still read
+	// as modified, or the next update would overwrite the local edits.
+	if err := writeDiscoveredAgentMetadata(discovery, agent, destFile, filepath.Join(tempDir, tempName), opts.SourceDir); err != nil {
 		result.Warnings = append(result.Warnings, fmt.Sprintf("failed to write metadata: %v", err))
 	}
 
 	result.Action = "installed"
 	if update {
 		result.Action = "updated"
+		if opts.MergeBase != nil {
+			result.Action = "merged"
+			if !upstreamChanged {
+				result.Action = "up-to-date"
+			}
+		}
 	}
 	return result, nil
 }
@@ -349,19 +431,34 @@ func installImpl(source *Source, destPath string, opts InstallOptions) (*Install
 			}
 			// nil means empty/invalid dir — safe to overwrite, fall through.
 		}
-		// Force mode (or empty dir): remove existing
+		// Force mode (or empty dir): set the existing skill aside, and put it
+		// back if the new version fails to install.
 		if !opts.DryRun {
-			if err := removeInSource(opts.SourceDir, destPath, opts.SourceFollow); err != nil {
-				return nil, fmt.Errorf("failed to remove existing skill: %w", err)
+			restore, discard, err := setAsideInSource(opts.SourceDir, destPath, opts.SourceFollow)
+			if err != nil {
+				return nil, fmt.Errorf("failed to set the existing skill aside: %w", err)
 			}
+			installed, err := installBySourceType(source, destPath, result, opts)
+			if err != nil {
+				if restoreErr := restore(); restoreErr != nil {
+					return nil, fmt.Errorf("%w; restoring the previous version failed: %v", err, restoreErr)
+				}
+				return nil, err
+			}
+			if err := discard(); err != nil {
+				installed.Warnings = append(installed.Warnings, fmt.Sprintf("failed to remove the previous version: %v", err))
+			}
+			return installed, nil
 		}
 	} else if destInfo != nil && !destInfo.IsDir() {
 		return nil, fmt.Errorf("destination exists but is not a directory")
 	}
 
-	result.SkillPath = destPath
+	return installBySourceType(source, destPath, result, opts)
+}
 
-	// Execute installation based on source type
+func installBySourceType(source *Source, destPath string, result *InstallResult, opts InstallOptions) (*InstallResult, error) {
+	result.SkillPath = destPath
 	switch source.Type {
 	case SourceTypeLocalPath:
 		return installFromLocal(source, destPath, result, opts)
@@ -451,17 +548,11 @@ func installFromGit(source *Source, destPath string, result *InstallResult, opts
 	if err := cloneRepoForSource(source, destPath, source.Branch, true, opts.OnProgress); err != nil {
 		return nil, fmt.Errorf("failed to clone repository: %w", err)
 	}
-
-	// Write metadata with file hashes
-	meta := NewMetaFromSource(source)
-	if hash, err := getGitCommit(destPath); err == nil {
-		meta.Version = hash
-	}
-	if hashes, hashErr := ComputeFileHashes(destPath, opts.SourceFollow); hashErr == nil {
-		meta.FileHashes = hashes
-	}
-	if err := WriteMetaToStore(opts.SourceDir, destPath, meta); err != nil {
-		result.Warnings = append(result.Warnings, fmt.Sprintf("failed to write metadata: %v", err))
+	if err := checkoutLinksWithin(destPath); err != nil {
+		if removeErr := removeAll(destPath); removeErr != nil {
+			return nil, fmt.Errorf("%w; the clone is left at %s: %v", err, destPath, removeErr)
+		}
+		return nil, err
 	}
 
 	// Check for SKILL.md
@@ -471,6 +562,19 @@ func installFromGit(source *Source, destPath string, result *InstallResult, opts
 	// Security audit
 	if err := auditInstalledSkill(destPath, result, opts); err != nil {
 		return nil, err
+	}
+
+	// Write metadata with file hashes once the clone is kept, so a failed
+	// --force reinstall does not leave it on the restored skill.
+	meta := NewMetaFromSource(source)
+	if hash, err := getGitCommit(destPath); err == nil {
+		meta.Version = hash
+	}
+	if hashes, hashErr := ComputeFileHashes(destPath, opts.SourceFollow); hashErr == nil {
+		meta.FileHashes = hashes
+	}
+	if err := WriteMetaToStore(opts.SourceDir, destPath, meta); err != nil {
+		result.Warnings = append(result.Warnings, fmt.Sprintf("failed to write metadata: %v", err))
 	}
 
 	result.Action = "cloned"
@@ -527,16 +631,10 @@ func installFromDiscoveryInternal(discovery *DiscoveryResult, skill SkillInfo, d
 			}
 			// nil means empty/invalid dir — safe to overwrite, fall through.
 		}
-		// Update: stage the new content in a temp dir and swap only after the
-		// audit passes, so a blocked update keeps the previously installed
-		// version on disk (mirrors handleUpdate). Fresh --force installs still
-		// overwrite in place.
-		stage = opts.Update
-		if !opts.DryRun && !stage {
-			if err := removeInSource(opts.SourceDir, destPath, opts.SourceFollow); err != nil {
-				return nil, fmt.Errorf("failed to remove existing skill: %w", err)
-			}
-		}
+		// Stage the new content in a temp dir and swap only after the copy and
+		// audit pass, so a failed or blocked install keeps the previously
+		// installed version on disk (mirrors handleUpdate).
+		stage = true
 	}
 
 	result.SkillPath = destPath
@@ -582,15 +680,26 @@ func installFromDiscoveryInternal(discovery *DiscoveryResult, skill SkillInfo, d
 	excludes := descendantSkillPaths(discovery, skill)
 	rootIsRepoRoot := skill.Path == "." && discovery.Source != nil && !discovery.Source.HasSubdir()
 
+	boundary := ""
+	if discovery.Source != nil && discovery.Source.IsGit() {
+		boundary = sourceRoot
+	}
+
 	if rootIsRepoRoot && excludes != nil {
 		// Repo-root orchestrator: copy only SKILL.md (no directory boundary).
+		if boundary != "" {
+			// Checked before creating the destination, so a refusal writes nothing.
+			if err := resolveWithin(boundary, filepath.Join(srcPath, "SKILL.md")); err != nil {
+				return nil, fmt.Errorf("failed to copy SKILL.md: %w", err)
+			}
+		}
 		if err := os.MkdirAll(workDest, 0755); err != nil {
 			return nil, fmt.Errorf("failed to create destination: %w", err)
 		}
-		if err := copyFile(filepath.Join(srcPath, "SKILL.md"), filepath.Join(workDest, "SKILL.md")); err != nil {
+		if err := copyFileWithin(filepath.Join(srcPath, "SKILL.md"), filepath.Join(workDest, "SKILL.md"), boundary); err != nil {
 			return nil, fmt.Errorf("failed to copy SKILL.md: %w", err)
 		}
-	} else if err := copyDirExcluding(srcPath, workDest, excludes); err != nil {
+	} else if err := copyDirWithin(srcPath, workDest, boundary, excludes); err != nil {
 		return nil, fmt.Errorf("failed to copy skill: %w", err)
 	}
 
@@ -629,6 +738,7 @@ func writeDiscoveredSkillMetadata(discovery *DiscoveryResult, skill SkillInfo, d
 		Name:     skill.Name,
 		Branch:   discovery.Source.Branch,
 		Commit:   discovery.Source.Commit,
+		Locked:   discovery.Source.Locked,
 	}
 	meta := NewMetaFromSource(source)
 	meta.Layout = discoveredLocalLayout(discovery, skill)
@@ -668,7 +778,7 @@ func installFromGitSubdir(source *Source, destPath string, result *InstallResult
 	subdirPath, resolved, commitHash := fetched.SubdirPath, fetched.Subdir, fetched.Commit
 
 	// Copy subdirectory to destination
-	if err := copyDir(subdirPath, destPath); err != nil {
+	if err := copyDirWithin(subdirPath, destPath, tempRepoPath, nil); err != nil {
 		return nil, fmt.Errorf("failed to copy skill: %w", err)
 	}
 
@@ -724,7 +834,11 @@ func fetchGitSubdir(source *Source, tempRepoPath string, result *InstallResult, 
 	// Works for GitHub and non-GitHub hosts.
 	if sparseCheckoutSupported() && (!gitOnly || source.Subdir != "") {
 		resolved = source.Subdir
-		if err := sparseCloneSubdir(source.CloneURL, resolved, tempRepoPath, source.ref(), source.authEnv(), opts.OnProgress); err == nil {
+		err := sparseCloneSubdir(source.CloneURL, resolved, tempRepoPath, source.ref(), source.authEnv(), opts.OnProgress)
+		if err == nil {
+			err = sparseLinksFetched(tempRepoPath, resolved, source.authEnv())
+		}
+		if err == nil {
 			if err := submoduleError(tempRepoPath, resolved, source.authEnv()); err != nil {
 				return gitFetch{}, err
 			}

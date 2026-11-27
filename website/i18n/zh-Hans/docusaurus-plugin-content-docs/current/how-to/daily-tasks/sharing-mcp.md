@@ -53,12 +53,13 @@ Agent，并检查变更内容。**Save and sync** 会立即应用设置；
 
 在控制台中，**Add server** 接受两种形式：填写字段，或粘贴
 一份配置。粘贴选项也可以加载一个文件，其作用相当于浏览器版本的
-`mcp import --file`。粘贴的 JSON 会被自动识别；对于
+`mcp import --file`。粘贴的 JSON 会被自动识别；若要保留只有该 Agent 读取的字段，例如 Claude Code 的 `alwaysLoad`，
+请在 **From** 中选择该 Agent。对于
 TOML，则需要选择它来自 Codex 还是 Grok。如果粘贴的内容只有一个服务器且勾选了 Pi，
 对话框还会显示表单中的 Pi 设置：工具暴露方式和其他 Pi 设置。表单的 **其他 Agent 设置** 以 JSON 输入其他 Agent 的原生字段，例如 Codex 的审批模式，详见 [`options`](../../reference/commands/mcp.md#agent-options)。**Skillshare** 标签页会添加 `skillshare mcp serve`，
 它会[通过 MCP 提供你的 skill](/docs/reference/commands/mcp#serve-skills-over-mcp)，给无法通过 sync
 获得这些 skill 的 Agent：选择要提供哪些 skill、勾选 Agent，它还会标出那些已经同步 skill、
-因而会看到两份的 Agent。在项目的 **MCP** 标签页中，**From another project** 会用其他项目已有的服务器填好表单；复制出来的服务器使用这个项目的 Agent，而不是原项目的。**Import from a target** 是
+因而会看到两份的 Agent。在项目的 **MCP** 标签页中，**From another project** 会用其他项目已有的服务器填好表单；复制出来的服务器使用这个项目的 Agent，而不是原项目的。列表可按服务器名称或项目文件夹搜索；多个项目以相同名称、相同设置拥有的服务器只列出一次，并附上拥有它的文件夹。**Import from a target** 是
 另一个独立功能，用于读取某个已安装 Agent 已有的服务器。无论哪种方式，
 控制台都使用与 CLI 相同的来源、验证、预览与冲突规则。MCP 页面 Sync 框中的
 **Sync MCP** 只写入 MCP 配置文件。Sync 页面也提供
@@ -215,9 +216,9 @@ URL 值中的密码）转换为引用，并回报你需要设置的变量。命�
 Codex 会依名称转发本地变量，因此当选择 Codex 时，`env.KEY.fromEnv` 也必须
 是 `KEY`。当某个 Target 无法表示某项设置时，会阻止预览，而不是直接丢弃它。
 客户端专属的占位符与输入提示，必须在 Import 前先行明确解析。Agent 专属的
-字段，例如 Codex 的 `startup_timeout_sec` 或 `cwd`，不会被 Import；Import 会将其
-列为警告，sync 则会保留该 Agent 现有条目中的这些字段。若要从 source 管理它们，请在 server 的
-[`options`](../../reference/commands/mcp.md#agent-options) 下设置。
+字段，例如 Codex 的 `startup_timeout_sec` 或 `cwd`，会被 Import 到 server 的
+[`options`](../../reference/commands/mcp.md#agent-options) 下该 Agent 的名下，因此 sync 只会把它们写回该 Agent，不会写入其他 Agent。
+`options` 无法容纳的字段，例如明文凭据，会被列为警告并被省略。
 
 ## 导入现有连接
 
@@ -239,7 +240,10 @@ CLI 的 `--replace`。在 Import 时，`--replace` 也会重写被导入 Agent �
 文件，因此下一次同步会重写它，并且仍能检测到期间所做的编辑。它
 绝不会覆盖其他有冲突的原生条目。在 MCP 控制台中，可以处理的
 冲突会提供一个以该 Agent 命名的导入操作，例如 **Import from
-cursor**，用于采用该版本；或 **Replace with source**，用于覆写该条目。
+cursor**，用于采用该版本；或 **Replace with source**，用于覆写该条目。Replace 会一次覆写所有在该 server 上
+有冲突的 Agent，因为 sync 要等它们全部处理完。若各 Agent 持有同一个 server 的不同
+版本，先导入你要的版本，再替换其余的：即使其他 Agent 仍有冲突，导入也会接管该 Agent
+的条目，控制台会列出剩下的 Agent。
 如果某个冲突是由另一份仍然存在的 Skillshare 配置所拥有，则这两个
 操作都不会出现，因为只有那份配置才能释放该条目。
 
@@ -265,8 +269,8 @@ skillshare mcp add company-docs --disabled --target opencode
 skillshare sync mcp
 ```
 
-在控制台中，从项目文件夹使用 `skillshare ui` 打开它，选择 **添加服务器** 旁边的
-**关闭全局服务器** 按钮。
+在控制台中，从项目文件夹使用 `skillshare ui` 打开它，选择 **添加 MCP** 旁边的
+**按名称关闭 MCP** 按钮。
 
 此功能适用于 Claude Code、OpenCode、Kilo Code 与 Pi 1.0.1 及以上版本。其他 Agent
 则会被拒绝。

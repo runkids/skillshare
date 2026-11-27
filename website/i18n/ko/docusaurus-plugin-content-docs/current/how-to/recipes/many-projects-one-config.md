@@ -86,6 +86,24 @@ skillshare sync mcp --dry-run   # 모든 파일 미리보기
 skillshare sync mcp
 ```
 
+서버를 한 번 정의하고 선택한 프로젝트에서만 로드하려면, `global: false`로 표시하고 `use`에 나열하세요:
+
+```yaml
+mcp:
+  targets: [claude]
+  servers:
+    internal-docs:
+      global: false          # root가 사용하지 않으면 어떤 project에도 로드되지 않음
+      url: https://docs.example.com/mcp
+  projects:
+    ~/work/project01:
+      use: [internal-docs]
+    ~/work/project02:
+      use: [internal-docs]
+```
+
+`internal-docs`를 한 번 수정하면 다음 `skillshare sync mcp`에서 두 프로젝트가 모두 갱신됩니다. 대시보드에서는 프로젝트의 **MCP** 탭에서 **Opt-in servers** 아래의 스위치로 켭니다.
+
 필드와 제한 사항은 [`mcp`: manage several projects](/docs/reference/commands/mcp#manage-several-projects-from-the-global-config)를 참고하세요.
 
 ## 검증
@@ -100,7 +118,8 @@ skillshare sync mcp
 - **Tool 경로 밖의 폴더**: Target은 이름과 경로일 뿐이므로, 어떤 tool의 프로젝트 경로도 해당하지 않는 폴더에는 `skillshare target add project01 ~/work/project01/some/folder`가 여전히 사용됩니다. 이런 Target이 실제로 어떤 tool의 프로젝트 경로를 가리키면, 대시보드의 **프로젝트** 페이지가 이를 변환하도록 제안합니다.
 - **커밋 또는 무시**: `copy` 모드에서는 Skillshare가 복사한 내용을 추적하기 위해 Target 폴더에 `.skillshare-manifest.json`도 작성합니다. Skill과 함께 커밋하거나 `.gitignore`에 추가하세요.
 - **경로 중복 경고**: 프로젝트 폴더가 다른 Target이 이미 사용하는 폴더이면 `sync`가 경로 중복(path overlap) 경고를 출력합니다. 어떤 Target이 같은 폴더를 공유하는지 보려면 `skillshare doctor`를 실행하세요.
-- **여러 프로젝트에 같은 서버**: 한 프로젝트 아래에 YAML anchor(`docs: &docs`)로 한 번 정의하고 다른 프로젝트에서 재사용하세요(`docs: *docs`). [`mcp` reference](/docs/reference/commands/mcp#manage-several-projects-from-the-global-config)를 참고하세요.
+- **여러 프로젝트에 같은 서버**: 프로젝트마다 사본을 두는 대신 위와 같이 `global: false`와 `use`를 사용하세요. [Share a server with chosen projects](/docs/reference/commands/mcp#share-a-server-with-chosen-projects)를 참고하세요. 기존 사본은 변환되지 않으므로 직접 옮기세요.
+- **한 프로젝트만 다른 설정이 필요할 때**: 사본을 두는 대신 그 root의 `overrides`에 shared 서버를 적습니다(Pi의 `exposure: direct` 등). 연결 설정은 계속 공유됩니다. [한 프로젝트에서만 shared 서버 바꾸기](/docs/reference/commands/mcp#override-a-shared-server)를 참고하세요.
 - **공유 프로젝트**: 프로젝트를 clone한 팀원은 여러분의 global 설정을 받지 못합니다. 설정이 저장소와 함께 이동해야 한다면 [project mode](/docs/how-to/recipes/skill-per-project-workflow)를 사용하세요.
 
 ## 관련 문서

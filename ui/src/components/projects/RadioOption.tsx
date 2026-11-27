@@ -11,7 +11,14 @@ interface Props {
 /** One choice of a radio group, drawn as an `ss-pick`. The group supplies `role="radiogroup"`. */
 export default function RadioOption({ checked, title, hint, onSelect, disabled }: Props) {
   return (
-    <button type="button" role="radio" aria-checked={checked} className={`ss-pick items-start text-left ${checked ? 'on' : ''}`} onClick={onSelect} disabled={disabled}>
+    <button
+      type="button"
+      role="radio"
+      aria-checked={checked}
+      className={`ss-pick items-start text-left ${checked ? 'on' : ''}`}
+      onClick={onSelect}
+      disabled={disabled}
+    >
       <span className={`ss-chk rad mt-0.5 ${checked ? 'on' : ''}`} />
       <span className="flex flex-col gap-0.5">
         <span className="font-semibold">{title}</span>

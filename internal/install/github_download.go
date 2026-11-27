@@ -51,6 +51,9 @@ func downloadGitHubDirWithAPIBase(owner, repo, path, destDir, apiBase string, so
 	}
 
 	client := ghclient.NewClient()
+	if err := checkGitHubTreeLinks(client, owner, repo, apiBase, strings.Trim(path, "/")); err != nil {
+		return "", err
+	}
 	if err := downloadDirRecursive(client, owner, repo, apiBase, strings.Trim(path, "/"), destDir, onProgress); err != nil {
 		return "", err
 	}
@@ -60,6 +63,53 @@ func downloadGitHubDirWithAPIBase(owner, repo, path, destDir, apiBase string, so
 		return "", nil
 	}
 	return commitHash, nil
+}
+
+// checkGitHubTreeLinks fails when path holds a symlink, so the caller falls
+// back to a git clone. The contents listing reports a link to a file as a
+// plain file and serves the link text as its content; only the tree shows
+// the link mode.
+func checkGitHubTreeLinks(client *http.Client, owner, repo, apiBase, path string) error {
+	treeish := "HEAD"
+	if path != "" {
+		treeish += ":" + escapeGitHubPath(path)
+	}
+	treeURL := fmt.Sprintf("%s/repos/%s/%s/git/trees/%s?recursive=1", strings.TrimRight(apiBase, "/"), owner, repo, treeish)
+	req, err := ghclient.NewRequest(treeURL)
+	if err != nil {
+		return err
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("GitHub API request failed: %w", err)
+	}
+	defer resp.Body.Close()
+	if err := ghclient.CheckRateLimit(resp); err != nil {
+		return err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("GitHub trees API returned %d", resp.StatusCode)
+	}
+
+	var tree struct {
+		Truncated bool `json:"truncated"`
+		Tree      []struct {
+			Path string `json:"path"`
+			Mode string `json:"mode"`
+		} `json:"tree"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&tree); err != nil {
+		return fmt.Errorf("failed to parse GitHub trees response: %w", err)
+	}
+	if tree.Truncated {
+		return fmt.Errorf("GitHub trees listing for %q is truncated", path)
+	}
+	for _, entry := range tree.Tree {
+		if entry.Mode == "120000" {
+			return fmt.Errorf("%s/%s is a symlink, which the GitHub API cannot download", path, entry.Path)
+		}
+	}
+	return nil
 }
 
 func downloadDirRecursive(client *http.Client, owner, repo, apiBase, path, destDir string, onProgress ProgressCallback) error {

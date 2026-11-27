@@ -11,6 +11,21 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// IsRootFrontmatterLine reports whether a nonblank, noncomment line shares the
+// first content line's indentation. Initialize *indent to -1 for each
+// frontmatter block.
+func IsRootFrontmatterLine(raw string, indent *int) bool {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" || trimmed[0] == '#' {
+		return false
+	}
+	lineIndent := len(raw) - len(strings.TrimLeft(raw, " \t"))
+	if *indent < 0 {
+		*indent = lineIndent
+	}
+	return lineIndent == *indent
+}
+
 // ParseSkillName reads the SKILL.md and extracts the top-level "name" from frontmatter.
 // It reads line by line and stops at a plain top-level name line ("name", 'name' and
 // name : count; top-level keys share the first key's indent). Any other form YAML
@@ -22,14 +37,11 @@ func ParseSkillName(skillPath string) (string, error) {
 	err := scanLenientBlock(path, func(raw []byte) bool {
 		line := string(raw)
 		trimmed := strings.TrimLeft(line, " \t")
-		if trimmed == "" || trimmed[0] == '#' {
+		if !IsRootFrontmatterLine(line, &indent) {
 			return true
 		}
-		if indent < 0 {
-			indent = len(line) - len(trimmed)
-		}
 		key, value, ok := strings.Cut(trimmed, ":")
-		if !ok || len(line)-len(trimmed) != indent || strings.Trim(strings.TrimSpace(key), `"'`) != "name" {
+		if !ok || strings.Trim(strings.TrimSpace(key), `"'`) != "name" {
 			return true
 		}
 		if v := strings.TrimSpace(value); v != "" && strings.ContainsRune("*|>&!", rune(v[0])) {
@@ -141,8 +153,13 @@ func ParseFrontmatterMap(content []byte) (map[string]any, error) {
 	if len(bytes.TrimSpace(block.raw)) == 0 {
 		return nil, fmt.Errorf("no frontmatter")
 	}
+	var doc yaml.Node
+	if err := yaml.Unmarshal(block.raw, &doc); err != nil {
+		return nil, fmt.Errorf("invalid frontmatter: %w", err)
+	}
+	normalizeCoreScalars(&doc)
 	var fm map[string]any
-	if err := yaml.Unmarshal(block.raw, &fm); err != nil {
+	if err := doc.Decode(&fm); err != nil {
 		return nil, fmt.Errorf("invalid frontmatter: %w", err)
 	}
 	// A non-string key decodes to map[any]any, which JSON cannot carry.
@@ -155,7 +172,9 @@ func ParseFrontmatterMap(content []byte) (map[string]any, error) {
 // ParseFrontmatterFields reads a SKILL.md file once and returns the values of
 // multiple frontmatter fields. This avoids opening the same file repeatedly
 // when multiple fields are needed (e.g. description + license).
-// Note: does not resolve metadata.<field> — only reads top-level fields.
+// A dotted field such as "metadata.version" reads that nested scalar exactly as
+// written, so an unquoted 1.10 stays "1.10". Other fields are top-level scalars.
+// Use ParseFrontmatterMap for the complete structured frontmatter, including nested values.
 func ParseFrontmatterFields(filePath string, fields []string) map[string]string {
 	result := make(map[string]string, len(fields))
 	if len(fields) == 0 {
@@ -167,8 +186,30 @@ func ParseFrontmatterFields(filePath string, fields []string) map[string]string 
 		return result
 	}
 	fm := decodeFrontmatter(raw)
+	var doc *yaml.Node // parsed on the first dotted field
 
 	for _, field := range fields {
+		if parent, key, nested := strings.Cut(field, "."); nested {
+			if fm == nil {
+				continue
+			}
+			if doc == nil {
+				doc = &yaml.Node{}
+				_ = yaml.Unmarshal(raw, doc) // fm decoded, so raw parses
+			}
+			if len(doc.Content) == 0 {
+				continue
+			}
+			// mappingValue walks Content in pairs, so a list must not stand in for a mapping.
+			p := mappingValue(doc.Content[0], parent)
+			if p == nil || p.Kind != yaml.MappingNode {
+				continue
+			}
+			if v := mappingValue(p, key); v != nil && v.Kind == yaml.ScalarNode && v.Tag != "!!null" {
+				result[field] = v.Value
+			}
+			continue
+		}
 		val, ok := fm[field]
 		if !ok || val == nil {
 			continue
@@ -211,6 +252,7 @@ func ReadSkillBody(filePath string) string {
 // It supports both inline values and YAML block scalars (>, >-, |, |-).
 func ParseFrontmatterField(filePath, field string) string {
 	prefix := field + ":"
+	indent := -1
 	val := ""
 	var blockParts []string // set once val is a block scalar indicator
 	err := scanLenientBlock(filePath, func(raw []byte) bool {
@@ -222,8 +264,9 @@ func ParseFrontmatterField(filePath, field string) string {
 			}
 			return false
 		}
-		line := strings.TrimSpace(string(raw))
-		if !strings.HasPrefix(line, prefix) {
+		rawLine := string(raw)
+		line := strings.TrimSpace(rawLine)
+		if !IsRootFrontmatterLine(rawLine, &indent) || !strings.HasPrefix(line, prefix) {
 			return true
 		}
 		val = strings.TrimSpace(strings.SplitN(line, ":", 2)[1])

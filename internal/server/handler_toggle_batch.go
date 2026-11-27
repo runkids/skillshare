@@ -2,13 +2,12 @@ package server
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
-	"path/filepath"
+	"slices"
 	"time"
 
-	"skillshare/internal/resource"
-	"skillshare/internal/skillignore"
-	ssync "skillshare/internal/sync"
+	"skillshare/internal/toggle"
 )
 
 type batchToggleRequest struct {
@@ -57,147 +56,89 @@ func (s *Server) handleBatchToggleSkills(w http.ResponseWriter, r *http.Request)
 	agentsSource := s.agentsSource()
 	s.mu.RUnlock()
 
-	// Discover once and build a name → status lookup. First match wins, matching
-	// the resolve* helpers used by the single-resource toggle handler.
-	type entry struct {
-		relPath  string
-		disabled bool
-	}
-	lookup := map[string]entry{}
-	put := func(key string, e entry) {
-		if key == "" {
-			return
-		}
-		if _, exists := lookup[key]; !exists {
-			lookup[key] = e
-		}
-	}
-
-	var ignorePath string
-	if req.Kind == "agent" {
+	// Discover once and look names up the way the single-resource toggle does.
+	src := toggle.Source{Agent: req.Kind == "agent", Root: source, Walk: s.skillsWalk()}
+	if src.Agent {
 		if agentsSource == "" {
 			writeError(w, http.StatusNotFound, "no agents source configured")
 			return
 		}
-		discovered, err := resource.AgentKind{}.Discover(agentsSource)
-		if err != nil {
-			writeError(w, http.StatusInternalServerError, "failed to discover agents: "+err.Error())
-			return
-		}
-		for _, d := range discovered {
-			e := entry{relPath: d.RelPath, disabled: d.Disabled}
-			put(d.FlatName, e)
-			put(d.Name, e)
-			put(d.RelPath, e)
-			put(agentDisplayName(d.RelPath), e)
-		}
-		ignorePath = filepath.Join(agentsSource, ".agentignore")
-	} else {
-		discovered, err := ssync.DiscoverSourceSkillsAll(source, s.skillsWalk())
-		if err != nil {
-			writeError(w, http.StatusInternalServerError, "failed to discover skills: "+err.Error())
-			return
-		}
-		for _, d := range discovered {
-			e := entry{relPath: d.RelPath, disabled: d.Disabled}
-			put(d.FlatName, e)
-			put(filepath.Base(d.SourcePath), e)
-			put(d.RelPath, e)
-		}
-		ignorePath = filepath.Join(source, ".skillignore")
+		src.Root = agentsSource
+	}
+	items, err := src.Discover()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
 	}
 
 	var resp batchToggleResponse
-	resp.Results = make([]batchToggleItemResult, 0, len(req.Names))
-	// Each successful result, so its outcome can be checked after writing.
-	type pending struct {
-		relPath string
-		updated bool
+	resp.Results = make([]batchToggleItemResult, len(req.Names))
+	fail := func(i int, disabled bool, msg string) {
+		resp.Results[i] = batchToggleItemResult{Name: req.Names[i], Disabled: disabled, Error: msg}
+		resp.Summary.Failed++
 	}
-	written := map[int]pending{}
-	succeed := func(name, relPath string, updated bool) {
-		written[len(resp.Results)] = pending{relPath, updated}
-		resp.Results = append(resp.Results, batchToggleItemResult{Name: name, Success: true, Disabled: !req.Enable})
-		if updated {
-			resp.Summary.Updated++
-		} else {
-			resp.Summary.Unchanged++
+	// Each name to write, so its outcome can be checked after writing.
+	written := map[int]string{}
+	var relPaths []string
+	for i, name := range req.Names {
+		matches := items.Named(name)
+		if len(matches) == 0 {
+			fail(i, false, "resource not found: "+name)
+			continue
 		}
+		if req.Enable && !matches[0].Disabled {
+			resp.Results[i] = batchToggleItemResult{Name: name, Success: true}
+			resp.Summary.Unchanged++
+			continue
+		}
+		written[i] = matches[0].RelPath
+		relPaths = append(relPaths, matches[0].RelPath)
 	}
 
 	// Hold the write lock while writing and re-checking the outcome.
-	s.mu.Lock()
-	for _, name := range req.Names {
-		e, ok := lookup[name]
-		if !ok {
-			resp.Results = append(resp.Results, batchToggleItemResult{Name: name, Error: "resource not found: " + name})
-			resp.Summary.Failed++
-			continue
-		}
-
-		if req.Enable {
-			if !e.disabled {
-				succeed(name, e.relPath, false)
+	if len(relPaths) > 0 {
+		s.mu.Lock()
+		res, err := src.Apply(req.Enable, items.ItemLines(relPaths, req.Enable), relPaths)
+		s.mu.Unlock()
+		counted := map[string]bool{}
+		for i := range req.Names {
+			relPath, ok := written[i]
+			if !ok {
 				continue
 			}
-			removed, err := skillignore.RemovePattern(ignorePath, e.relPath)
 			if err != nil {
-				resp.Results = append(resp.Results, batchToggleItemResult{Name: name, Disabled: true, Error: err.Error()})
-				resp.Summary.Failed++
+				fail(i, req.Enable, err.Error())
 				continue
 			}
-			if !removed {
-				resp.Results = append(resp.Results, batchToggleItemResult{
-					Name:     name,
-					Disabled: true,
-					Error:    "disabled by a glob or directory pattern — edit the ignore file manually to remove the matching rule",
-				})
-				resp.Summary.Failed++
+			// A written rule can still be overridden by another one, such as
+			// a "!" line in the .local file; Apply re-checks it as discovery sees it.
+			out := res.Items[slices.Index(relPaths, relPath)]
+			if out.Blocked != "" {
+				fail(i, req.Enable, out.Blocked)
 				continue
 			}
-			succeed(name, e.relPath, true)
-			continue
-		}
-
-		added, err := skillignore.AddPattern(ignorePath, e.relPath)
-		if err != nil {
-			resp.Results = append(resp.Results, batchToggleItemResult{Name: name, Error: err.Error()})
-			resp.Summary.Failed++
-			continue
-		}
-		succeed(name, e.relPath, added)
-	}
-
-	// A written rule can still be overridden by a later one, such as a "!" line
-	// in the .local file, so re-check the outcome the way discovery sees it.
-	if len(written) > 0 {
-		states, err := s.disabledByRelPath(req.Kind, source, agentsSource)
-		if err != nil {
-			s.mu.Unlock()
-			writeError(w, http.StatusInternalServerError, err.Error())
-			return
-		}
-		for i, p := range written {
-			msg := toggleOverrideError(req.Kind, req.Enable, states[p.relPath])
-			if msg == "" {
-				continue
-			}
-			if p.updated {
-				resp.Summary.Updated--
+			resp.Results[i] = batchToggleItemResult{Name: req.Names[i], Success: true, Disabled: !req.Enable}
+			if len(out.Lines) > 0 && !counted[relPath] {
+				counted[relPath] = true
+				resp.Summary.Updated++
 			} else {
-				resp.Summary.Unchanged--
+				resp.Summary.Unchanged++
 			}
-			resp.Results[i] = batchToggleItemResult{Name: resp.Results[i].Name, Disabled: req.Enable, Error: msg}
-			resp.Summary.Failed++
 		}
 	}
-	s.mu.Unlock()
 
+	status, msg := "ok", ""
+	if resp.Summary.Failed > 0 {
+		status, msg = "partial", fmt.Sprintf("%d of %d failed", resp.Summary.Failed, len(req.Names))
+		if resp.Summary.Failed == len(req.Names) {
+			status = "error"
+		}
+	}
 	action := "batch-disable"
 	if req.Enable {
 		action = "batch-enable"
 	}
-	s.writeOpsLog(action, "ok", start, map[string]any{
+	s.writeOpsLog(action, status, start, map[string]any{
 		"kind":      req.Kind,
 		"enable":    req.Enable,
 		"count":     len(req.Names),
@@ -205,7 +146,7 @@ func (s *Server) handleBatchToggleSkills(w http.ResponseWriter, r *http.Request)
 		"unchanged": resp.Summary.Unchanged,
 		"failed":    resp.Summary.Failed,
 		"scope":     "ui",
-	}, "")
+	}, msg)
 
 	writeJSON(w, resp)
 }

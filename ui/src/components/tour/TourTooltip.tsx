@@ -10,7 +10,8 @@ const OFFSET = 12;
 
 export default function TourTooltip() {
   const t = useT();
-  const { isActive, currentStep, steps, targetRect, isWaiting, nextStep, prevStep, skipTour } = useTour();
+  const { isActive, currentStep, steps, targetRect, isWaiting, nextStep, prevStep, skipTour } =
+    useTour();
   const focusRef = useFocusTrap(isActive && !isWaiting && !!targetRect);
   const tooltipRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
@@ -29,12 +30,25 @@ export default function TourTooltip() {
     if (!targetRect || !tooltipRef.current || isMobile) return;
     const tt = tooltipRef.current.getBoundingClientRect();
     const placement = step?.placement ?? 'bottom';
-    let top = 0, left = 0;
+    let top = 0,
+      left = 0;
     switch (placement) {
-      case 'bottom': top = targetRect.bottom + OFFSET; left = targetRect.left + targetRect.width / 2 - tt.width / 2; break;
-      case 'top': top = targetRect.top - tt.height - OFFSET; left = targetRect.left + targetRect.width / 2 - tt.width / 2; break;
-      case 'left': top = targetRect.top + targetRect.height / 2 - tt.height / 2; left = targetRect.left - tt.width - OFFSET; break;
-      case 'right': top = targetRect.top + targetRect.height / 2 - tt.height / 2; left = targetRect.right + OFFSET; break;
+      case 'bottom':
+        top = targetRect.bottom + OFFSET;
+        left = targetRect.left + targetRect.width / 2 - tt.width / 2;
+        break;
+      case 'top':
+        top = targetRect.top - tt.height - OFFSET;
+        left = targetRect.left + targetRect.width / 2 - tt.width / 2;
+        break;
+      case 'left':
+        top = targetRect.top + targetRect.height / 2 - tt.height / 2;
+        left = targetRect.left - tt.width - OFFSET;
+        break;
+      case 'right':
+        top = targetRect.top + targetRect.height / 2 - tt.height / 2;
+        left = targetRect.right + OFFSET;
+        break;
     }
     left = Math.max(8, Math.min(left, window.innerWidth - tt.width - 8));
     top = Math.max(8, Math.min(top, window.innerHeight - tt.height - 8));
@@ -51,27 +65,76 @@ export default function TourTooltip() {
     const base: React.CSSProperties = { position: 'absolute', width: 0, height: 0 };
     const color = 'var(--line)';
     switch (step.placement) {
-      case 'bottom': return { ...base, top: -ARROW_SIZE, left: '50%', transform: 'translateX(-50%)', borderLeft: `${ARROW_SIZE}px solid transparent`, borderRight: `${ARROW_SIZE}px solid transparent`, borderBottom: `${ARROW_SIZE}px solid ${color}` };
-      case 'top': return { ...base, bottom: -ARROW_SIZE, left: '50%', transform: 'translateX(-50%)', borderLeft: `${ARROW_SIZE}px solid transparent`, borderRight: `${ARROW_SIZE}px solid transparent`, borderTop: `${ARROW_SIZE}px solid ${color}` };
-      case 'left': return { ...base, right: -ARROW_SIZE, top: '50%', transform: 'translateY(-50%)', borderTop: `${ARROW_SIZE}px solid transparent`, borderBottom: `${ARROW_SIZE}px solid transparent`, borderLeft: `${ARROW_SIZE}px solid ${color}` };
-      case 'right': return { ...base, left: -ARROW_SIZE, top: '50%', transform: 'translateY(-50%)', borderTop: `${ARROW_SIZE}px solid transparent`, borderBottom: `${ARROW_SIZE}px solid transparent`, borderRight: `${ARROW_SIZE}px solid ${color}` };
+      case 'bottom':
+        return {
+          ...base,
+          top: -ARROW_SIZE,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          borderLeft: `${ARROW_SIZE}px solid transparent`,
+          borderRight: `${ARROW_SIZE}px solid transparent`,
+          borderBottom: `${ARROW_SIZE}px solid ${color}`,
+        };
+      case 'top':
+        return {
+          ...base,
+          bottom: -ARROW_SIZE,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          borderLeft: `${ARROW_SIZE}px solid transparent`,
+          borderRight: `${ARROW_SIZE}px solid transparent`,
+          borderTop: `${ARROW_SIZE}px solid ${color}`,
+        };
+      case 'left':
+        return {
+          ...base,
+          right: -ARROW_SIZE,
+          top: '50%',
+          transform: 'translateY(-50%)',
+          borderTop: `${ARROW_SIZE}px solid transparent`,
+          borderBottom: `${ARROW_SIZE}px solid transparent`,
+          borderLeft: `${ARROW_SIZE}px solid ${color}`,
+        };
+      case 'right':
+        return {
+          ...base,
+          left: -ARROW_SIZE,
+          top: '50%',
+          transform: 'translateY(-50%)',
+          borderTop: `${ARROW_SIZE}px solid transparent`,
+          borderBottom: `${ARROW_SIZE}px solid transparent`,
+          borderRight: `${ARROW_SIZE}px solid ${color}`,
+        };
     }
   })();
 
   const content = (
     <div ref={focusRef}>
       <p className="mb-1 text-[15px] font-semibold text-ink">{title}</p>
-      <p className="mb-3 text-[13px] leading-relaxed text-ink-2">{t(`tour.steps.${step.id}.${step.empty ? 'emptyDescription' : 'description'}`)}</p>
+      <p className="mb-3 text-[13px] leading-relaxed text-ink-2">
+        {t(`tour.steps.${step.id}.${step.empty ? 'emptyDescription' : 'description'}`)}
+      </p>
       <div className="flex items-center gap-1.5 mb-3">
         {steps.map((_, i) => (
-          <div key={i} className={`w-1.5 h-1.5 rounded-full transition-colors ${i <= currentStep ? 'bg-accent' : 'bg-line-soft'}`} />
+          <div
+            key={i}
+            className={`w-1.5 h-1.5 rounded-full transition-colors ${i <= currentStep ? 'bg-accent' : 'bg-line-soft'}`}
+          />
         ))}
       </div>
       <div className="flex items-center justify-between">
-        <Button variant="ghost" size="sm" onClick={skipTour}>{t('tour.skip')}</Button>
+        <Button variant="ghost" size="sm" onClick={skipTour}>
+          {t('tour.skip')}
+        </Button>
         <div className="flex items-center gap-2">
-          {!isFirst && <Button variant="ghost" size="sm" onClick={prevStep}>{t('tour.back')}</Button>}
-          <Button variant="primary" size="sm" onClick={nextStep}>{isLast ? t('tour.done') : t('tour.next')}</Button>
+          {!isFirst && (
+            <Button variant="ghost" size="sm" onClick={prevStep}>
+              {t('tour.back')}
+            </Button>
+          )}
+          <Button variant="primary" size="sm" onClick={nextStep}>
+            {isLast ? t('tour.done') : t('tour.next')}
+          </Button>
         </div>
       </div>
     </div>
@@ -79,14 +142,29 @@ export default function TourTooltip() {
 
   if (isMobile) {
     return (
-      <div key={currentStep} ref={tooltipRef} className="ss-box fixed bottom-0 left-0 right-0 z-[70] !rounded-none !p-4 animate-fade-in" role="dialog" aria-modal="true" aria-label={`Tour step ${currentStep + 1} of ${steps.length}: ${title}`}>
+      <div
+        key={currentStep}
+        ref={tooltipRef}
+        className="ss-box fixed bottom-0 left-0 right-0 z-[70] !rounded-none !p-4 animate-fade-in"
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Tour step ${currentStep + 1} of ${steps.length}: ${title}`}
+      >
         {content}
       </div>
     );
   }
 
   return (
-    <div key={currentStep} ref={tooltipRef} className="ss-box fixed z-[70] !p-4 animate-fade-in" style={{ top: pos.top, left: pos.left, maxWidth: MAX_WIDTH }} role="dialog" aria-modal="true" aria-label={`Tour step ${currentStep + 1} of ${steps.length}: ${title}`}>
+    <div
+      key={currentStep}
+      ref={tooltipRef}
+      className="ss-box fixed z-[70] !p-4 animate-fade-in"
+      style={{ top: pos.top, left: pos.left, maxWidth: MAX_WIDTH }}
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Tour step ${currentStep + 1} of ${steps.length}: ${title}`}
+    >
       <div style={arrowStyle} />
       {content}
     </div>

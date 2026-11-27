@@ -497,9 +497,9 @@
   },
   {
     "file": "internal/install/copy.go",
-    "function": "copyDirExcluding",
+    "function": "copyDirWithState",
     "callee": "filepath.Walk",
-    "root": "src",
+    "root": "resolvedSrc",
     "reason": "skill-dir",
     "note": "Copy individual skill or install staging tree"
   },
@@ -521,19 +521,19 @@
   },
   {
     "file": "internal/install/install_discovery.go",
-    "function": "discoverSkillsByDirectory",
-    "callee": "filepath.Walk",
-    "root": "repoPath",
-    "reason": "clone",
-    "note": "Discover skills in downloaded repository; followed repo-root consumer deferred to step 3"
-  },
-  {
-    "file": "internal/install/install_discovery.go",
-    "function": "discoverSkillsByDirectory",
+    "function": "discoverSkillsIn",
     "callee": "filepath.Walk",
     "root": "dir",
     "reason": "clone",
-    "note": "Repository-root .agents/skills when the repository has no other skills"
+    "note": "Discover skills in a downloaded repository or its repository-root .agents/skills; followed repo-root consumer deferred to step 3"
+  },
+  {
+    "file": "internal/install/install_discovery.go",
+    "function": "walkFollowingLinksWithin",
+    "callee": "filepath.Walk",
+    "root": "real",
+    "reason": "clone",
+    "note": "Discover skills behind links to folders inside a downloaded repository"
   },
   {
     "file": "internal/install/install_discovery.go",
@@ -616,6 +616,14 @@
     "note": "Read nested legacy skill sidecars without following source entries"
   },
   {
+    "file": "internal/install/installed_shape.go",
+    "function": "keepOnlySkillFile",
+    "callee": "os.ReadDir",
+    "root": "dir",
+    "reason": "clone",
+    "note": "Trim a fresh clone of a repository-root skill to its SKILL.md"
+  },
+  {
     "file": "internal/instructions/instructions.go",
     "function": "countMarkdown",
     "callee": "filepath.WalkDir",
@@ -648,12 +656,28 @@
     "note": "Discover shared memory notes for full listing and the bounded recent overview"
   },
   {
-    "file": "internal/plugin/files.go",
-    "function": "(*Service).Files",
+    "file": "internal/filepreview/filepreview.go",
+    "function": "List",
     "callee": "filepath.WalkDir",
     "root": "dir",
+    "reason": "preview",
+    "note": "List a plugin package or the extensions folder for the dashboard's read-only viewer"
+  },
+  {
+    "file": "internal/plugin/herdr_app.go",
+    "function": "herdrCandidates",
+    "callee": "os.ReadDir",
+    "root": "filepath.Join(root, \"mods\")",
     "reason": "plugin",
-    "note": "List plugin package files"
+    "note": "Discover root-level Herdr mods"
+  },
+  {
+    "file": "internal/plugin/herdr_app.go",
+    "function": "(*Service).herdrHost",
+    "callee": "os.ReadDir",
+    "root": "layout.root",
+    "reason": "plugin",
+    "note": "List Herdr installation folders"
   },
   {
     "file": "internal/plugin/local_bundle.go",
@@ -712,8 +736,16 @@
     "note": "Validate plugin source links"
   },
   {
+    "file": "internal/projects/scan.go",
+    "function": "ScanCheckouts",
+    "callee": "filepath.WalkDir",
+    "root": "scanRoot",
+    "reason": "project",
+    "note": "Find Git checkouts below a project folder for project add --scan"
+  },
+  {
     "file": "internal/resource/agent.go",
-    "function": "(AgentKind).Discover",
+    "function": "discoverAgents",
     "callee": "filepath.Walk",
     "root": "walkRoot",
     "reason": "agents",
@@ -721,7 +753,7 @@
   },
   {
     "file": "internal/resource/agent.go",
-    "function": "(AgentKind).Discover",
+    "function": "discoverAgents",
     "callee": "os.ReadDir",
     "root": "walkRoot",
     "reason": "agents",
@@ -897,11 +929,11 @@
   },
   {
     "file": "internal/sync/copy.go",
-    "function": "collectChecksumEntries",
+    "function": "walkCopiedFiles",
     "callee": "filepath.Walk",
     "root": "root",
     "reason": "skill-dir",
-    "note": "Compute checksums for one skill directory"
+    "note": "List the files copy mode copies from one skill directory, for checksums and file diffs"
   },
   {
     "file": "internal/sync/extension.go",
@@ -1102,5 +1134,13 @@
     "root": "uiDir",
     "reason": "assets",
     "note": "Clean old extracted UI distributions"
+  },
+  {
+    "file": "internal/hooks/opencode.go",
+    "function": "(*Service).importOpenCodePackages",
+    "callee": "fs.WalkDir",
+    "root": "\".\"",
+    "reason": "hooks",
+    "note": "Read native package files without following symlinks; dependencies excluded"
   }
 ]

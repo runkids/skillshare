@@ -214,3 +214,65 @@ func TestInstallTrackedUpdatePublishesExactCandidate(t *testing.T) {
 		t.Errorf("published unscanned upstream content: %q", got)
 	}
 }
+
+// A sparse checkout materializes root files but not the directories their
+// links point into, as with vercel/next.js's readme.md (#1030).
+func TestInstallTrackedUpdateAcceptsSparseDanglingSymlink(t *testing.T) {
+	base := t.TempDir()
+	testutil.SetIsolatedXDG(t, base)
+	remote := testutil.SetupBareRemoteRepo(t, base)
+	testutil.SeedRemoteBranch(t, base, remote, "main", map[string]string{
+		"skills/demo/SKILL.md": "# Demo\n", "packages/next/README.md": "# Next\n",
+	})
+	seed := filepath.Join(base, "seed-main")
+	if err := os.Symlink("packages/next/README.md", filepath.Join(seed, "readme.md")); err != nil {
+		t.Skip(err)
+	}
+	testutil.RunGit(t, seed, "add", "readme.md")
+	testutil.RunGit(t, seed, "commit", "-m", "link readme")
+	testutil.RunGit(t, seed, "push", "origin", "HEAD:main")
+	source := filepath.Join(base, "source")
+	repo := filepath.Join(source, "_demo")
+	testutil.RunGit(t, "", "clone", remote, repo)
+	testutil.RunGit(t, repo, "sparse-checkout", "set", "--cone", "skills")
+	if err := os.WriteFile(filepath.Join(seed, "skills/demo/SKILL.md"), []byte("# Demo v2\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	testutil.RunGit(t, seed, "commit", "-am", "update skill")
+	testutil.RunGit(t, seed, "push", "origin", "HEAD:main")
+
+	if _, err := updateTrackedRepo(repo, &TrackedRepoResult{}, InstallOptions{SourceDir: source}); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := testutil.RunGit(t, repo, "rev-parse", "HEAD"), testutil.RunGit(t, seed, "rev-parse", "HEAD"); got != want {
+		t.Errorf("published %s, want %s", got, want)
+	}
+}
+
+func TestPrepareCandidateAuditRejectsEscapingSymlinks(t *testing.T) {
+	for _, tc := range []struct {
+		name, target string
+	}{
+		{"dangling outside", "../outside/SKILL.md"},
+		{"dangling absolute", "/nonexistent/SKILL.md"},
+		{"missing parent then outside", "missing/../../outside/SKILL.md"},
+		{"existing outside", "../outside"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			base := t.TempDir()
+			if err := os.Mkdir(filepath.Join(base, "outside"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			candidate := filepath.Join(base, "candidate")
+			if err := os.Mkdir(candidate, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Symlink(tc.target, filepath.Join(candidate, "readme.md")); err != nil {
+				t.Skip(err)
+			}
+			if err := prepareCandidateAudit("", filepath.Join(base, "source", "_repo"), candidate, false); err == nil {
+				t.Error("escaping symlink was accepted")
+			}
+		})
+	}
+}

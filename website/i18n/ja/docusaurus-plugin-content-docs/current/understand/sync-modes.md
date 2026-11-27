@@ -55,6 +55,7 @@ skills/                         ~/.claude/skills/
 - 細かい制御ができる
 - target ごとの include/exclude フィルタリング
 - マニフェストベースの孤立ファイル削除(uninstall 後、symlink 以外の残骸を安全に削除)
+- 他のツールが target に置いたリンクには手を加えません。同名のリンクが source の外を指していてマニフェストに記録がない場合は、そのまま残してローカルとして報告します（`sync --force` で置き換えられます）。copy mode でも同じです
 
 :::info Project mode における相対 symlink
 project mode(`-p`)では、symlink は絶対パスではなく **相対パス**(例: `../../.skillshare/skills/my-skill`)として作成されます。これにより、ディレクトリを移動・リネームしても symlink が機能し続けるため、プロジェクトの可搬性が高まります。global mode では、source と target が異なる場所にあるため絶対パスが使われます。
@@ -307,7 +308,8 @@ merge mode と copy mode の両方で、`sync` は自動的に孤立ファイル
 
 - 削除された source Skill を指す **symlink** は常に削除される
 - `.skillshare-manifest.json` に記録されている(以前 skillshare が管理していた)**実ディレクトリ** は削除される
-- マニフェストにない **未知のディレクトリ** はユーザーが作成したものとみなされ、警告とともに保持される
+- マニフェストにない **未知のディレクトリ** はユーザーが作成したものとみなされ、警告とともに保持される。名前が skillshare のものに似ているだけのフォルダー（`_repo`、`group__skill`）も含まれ、`sync --force` で削除される
+- **source の外を指す壊れたリンク** は、マニフェストに記録がある場合（source を移動した後など）だけ削除される。他のツールやユーザーが作った壊れたリンクは、警告とともに保持される
 
 つまり `uninstall` + `sync` の後は、symlink 以外の残骸(例: 以前の `copy` mode から残ったディレクトリ)も安全にクリーンアップされます。
 

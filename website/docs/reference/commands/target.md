@@ -91,6 +91,8 @@ skillshare target remove cursor --dry-run # Preview
 
 If another target writes to the same skills folder, such as `codex` and `universal` in `~/.agents/skills`, step 2 is skipped: the skills stay linked for that target, and only the removed one leaves the config.
 
+If the skills folder is another tool's link (a dotfiles manager), the link stays and step 2 runs in the directory it leads to. A target whose folder leads to the same directory as another target's counts as sharing it.
+
 A target with [skills off](#skills-off) has nothing synced, so step 2 is skipped for it too and its folder is left as is.
 
 ### target list
@@ -286,7 +288,7 @@ From then on, `sync`, `diff`, `status` and `doctor` skip the target's skills; `s
 
 `--skills` cannot be combined with include/exclude flags in one command; run them separately. It works the same in project mode (`-p`).
 
-In the web dashboard, use **Stop syncing skills** on the target's Skills tab. Before anything is removed, it lists what goes and what stays, and warns when other tools read the same folder.
+In the web dashboard, turn off the **Sync skills to** switch at the top of the target's Skills tab. Before anything is removed, it lists what goes and what stays, and warns when other tools read the same folder.
 
 ## Options
 

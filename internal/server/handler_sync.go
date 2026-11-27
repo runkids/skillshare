@@ -256,7 +256,7 @@ func failedTargetNames(failed []syncFailure) []string {
 func (s *Server) backupBeforeSync(targets map[string]config.TargetConfig, skills, agents bool) []string {
 	return ssync.BackupTargets(targets, skills, agents, ssync.BackupTargetsOptions{
 		Dir: s.backupDir(), Retention: s.backupRetention(), ProjectMode: s.IsProjectMode(), ProjectRoot: s.projectRoot,
-		BuiltinAgentTargets: s.builtinAgentTargets(),
+		BuiltinAgentTargets: s.builtinAgentTargets(), SkillsSource: s.skillsSource(), AgentsSource: s.agentsSource(),
 	})
 }
 

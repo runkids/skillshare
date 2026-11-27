@@ -32,6 +32,7 @@ import { auditSourceLinkNote } from '../lib/auditDisplay';
 import { formatLogDetail } from '../lib/logFormat';
 import { formatDateTime, formatRelativeTime, useI18n, useT, plural } from '../i18n';
 import AgentIcon from '../components/AgentIcon';
+import AgentTile from '../components/AgentTile';
 import Button from '../components/Button';
 import ConfirmDialog from '../components/ConfirmDialog';
 import PageHeader from '../components/PageHeader';
@@ -42,8 +43,11 @@ import { useRepoUpdate } from '../hooks/useRepoUpdate';
 import { useUpdatePolicy } from '../hooks/useUpdatePolicy';
 import { useHooksQuery, useMcpQuery, useOverviewQuery } from '../hooks/useSharedQueries';
 import { invalidate } from '../lib/queryEvents';
+import { formatVersion } from '../lib/format';
 import MemoryOverview from '../components/memory/MemoryOverview';
 import { useHeldWhileClosing, useMenuPresence } from '../hooks/usePresence';
+import { useDismiss } from '../hooks/useDismiss';
+import EmptyState from '../components/EmptyState';
 
 const STAR_CTA_DISMISSED_KEY = 'skillshare.dashboard.starCta.dismissed';
 
@@ -59,17 +63,39 @@ function useTargetHealth() {
   const t = useT();
   return (tgt: Target, sourceSkillCount: number): Health => {
     // Skills off: nothing is synced into the folder, so there is nothing to count or fall behind.
-    if (tgt.skillsEnabled === false) return { kind: 'ok', label: t('dashboard.targets.inSync'), detail: '', pending: 0 };
-    if (tgt.status === 'not exist') return { kind: 'bad', label: t('dashboard.targets.problem'), detail: t('dashboard.targets.folderMissing'), pending: 0 };
-    if (tgt.status === 'conflict' || tgt.status === 'broken') return { kind: 'bad', label: t('dashboard.targets.problem'), detail: tgt.status, pending: 0 };
+    if (tgt.skillsEnabled === false)
+      return { kind: 'ok', label: t('dashboard.targets.inSync'), detail: '', pending: 0 };
+    if (tgt.status === 'not exist')
+      return {
+        kind: 'bad',
+        label: t('dashboard.targets.problem'),
+        detail: t('dashboard.targets.folderMissing'),
+        pending: 0,
+      };
+    if (tgt.status === 'conflict' || tgt.status === 'broken')
+      return { kind: 'bad', label: t('dashboard.targets.problem'), detail: tgt.status, pending: 0 };
     // Only a symlink target has to give its folder up; merge and copy keep local files, so they are counted below.
-    if (tgt.status === 'has files' && tgt.mode === 'symlink') return { kind: 'warn', label: t('targets.state.migrate'), detail: t('targets.syncing.migrate'), pending: 0 };
+    if (tgt.status === 'has files' && tgt.mode === 'symlink')
+      return {
+        kind: 'warn',
+        label: t('targets.state.migrate'),
+        detail: t('targets.syncing.migrate'),
+        pending: 0,
+      };
     if (tgt.status === 'unknown') return { kind: 'off', label: tgt.status, detail: '', pending: 0 };
-    const counted = tgt.status === 'has files' || (tgt.mode === 'merge' && tgt.status === 'merged') || (tgt.mode === 'copy' && tgt.status === 'copied');
-    const pending = counted ? Math.max(0, (tgt.expectedSkillCount ?? sourceSkillCount) - tgt.linkedCount) : 0;
-    const linked = tgt.linkedCount > 0
-      ? t(tgt.mode === 'copy' ? 'dashboard.targets.managed' : 'dashboard.targets.linked', { count: tgt.linkedCount })
-      : '';
+    const counted =
+      tgt.status === 'has files' ||
+      (tgt.mode === 'merge' && tgt.status === 'merged') ||
+      (tgt.mode === 'copy' && tgt.status === 'copied');
+    const pending = counted
+      ? Math.max(0, (tgt.expectedSkillCount ?? sourceSkillCount) - tgt.linkedCount)
+      : 0;
+    const linked =
+      tgt.linkedCount > 0
+        ? t(tgt.mode === 'copy' ? 'dashboard.targets.managed' : 'dashboard.targets.linked', {
+            count: tgt.linkedCount,
+          })
+        : '';
     if (pending > 0) {
       const label = t('dashboard.pending', { count: pending });
       return { kind: 'warn', label, detail: [linked, label].filter(Boolean).join(' · '), pending };
@@ -95,7 +121,10 @@ export default function DashboardPage() {
   });
   const { data: mcpData } = useMcpQuery();
   const { data: hooksData } = useHooksQuery({ staleTime: staleTimes.extras });
-  const { data: pluginData } = useQuery({ queryKey: queryKeys.pluginPackages, queryFn: () => pluginsApi.list(false) });
+  const { data: pluginData } = useQuery({
+    queryKey: queryKeys.pluginPackages,
+    queryFn: () => pluginsApi.list(false),
+  });
   const { data: lastSync } = useQuery({
     queryKey: queryKeys.log('ops', 1, { cmd: 'sync' }),
     queryFn: () => api.listLog('ops', 1, { cmd: 'sync' }),
@@ -106,11 +135,12 @@ export default function DashboardPage() {
   if (isPending) return <PageSkeleton />;
   if (error) {
     return (
-      <div className="ss-empty">
-        <TriangleAlert size={24} className="text-bad" />
-        <h3 className="font-semibold text-ink">{t('dashboard.error.title')}</h3>
-        <p className="text-[13px]">{error.message}</p>
-      </div>
+      <EmptyState
+        tone="bad"
+        icon={TriangleAlert}
+        title={t('dashboard.error.title')}
+        description={error.message}
+      />
     );
   }
   if (!data) return null;
@@ -121,19 +151,57 @@ export default function DashboardPage() {
   const pending = healths.reduce((max, h) => Math.max(max, h.pending), 0);
   const lastSyncTs = lastSync?.entries[0]?.ts;
   const counts = [
-    { kind: 'skill', icon: Puzzle, value: data.skillCount, label: t('dashboard.stats.skills'), to: '/skills' },
-    { kind: 'agent', icon: Bot, value: data.agentCount, label: t('dashboard.stats.agents'), to: '/agents' },
-    { kind: 'extra', icon: FolderPlus, value: extrasData?.extras?.length ?? 0, label: t('dashboard.stats.extras'), to: '/extras' },
-    { kind: 'mcp', icon: Plug, value: mcpData ? Object.keys(mcpData.source.servers ?? {}).length : 0, label: t('mcp.title'), to: '/mcp' },
-    { kind: 'hooks', icon: Webhook, value: Object.keys(hooksData?.source.entries ?? {}).length, label: t('hooks.title'), to: '/hooks' },
-    { kind: 'plugin', icon: Package, value: Object.keys(pluginData?.packages ?? {}).length, label: t('plugins.title'), to: '/plugins' },
+    {
+      kind: 'skill',
+      icon: Puzzle,
+      value: data.skillCount,
+      label: t('dashboard.stats.skills'),
+      to: '/skills',
+    },
+    {
+      kind: 'agent',
+      icon: Bot,
+      value: data.agentCount,
+      label: t('dashboard.stats.agents'),
+      to: '/agents',
+    },
+    {
+      kind: 'extra',
+      icon: FolderPlus,
+      value: extrasData?.extras?.length ?? 0,
+      label: t('dashboard.stats.extras'),
+      to: '/extras',
+    },
+    {
+      kind: 'mcp',
+      icon: Plug,
+      value: mcpData ? Object.keys(mcpData.source.servers ?? {}).length : 0,
+      label: t('mcp.title'),
+      to: '/mcp',
+    },
+    {
+      kind: 'hooks',
+      icon: Webhook,
+      value: Object.keys(hooksData?.source.entries ?? {}).length,
+      label: t('hooks.title'),
+      to: '/hooks',
+    },
+    {
+      kind: 'plugin',
+      icon: Package,
+      value: Object.keys(pluginData?.packages ?? {}).length,
+      label: t('plugins.title'),
+      to: '/plugins',
+    },
   ];
 
   const subtitle = [
     isProjectMode ? t('dashboard.projectSummary') : '',
     t(plural('dashboard.summary', targets.length), { synced, total: targets.length }),
     lastSyncTs ? t('dashboard.lastSync', { time: formatRelativeTime(lastSyncTs, locale) }) : '',
-  ].filter(Boolean).join(' ');
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   return (
     <div className="ss-wrap animate-page-in">
@@ -143,7 +211,9 @@ export default function DashboardPage() {
         subtitle={subtitle}
         actions={
           <span data-tour="quick-actions" className="flex items-center gap-3">
-            {pending > 0 && <span className="ss-st warn">{t('dashboard.pending', { count: pending })}</span>}
+            {pending > 0 && (
+              <span className="ss-st warn">{t('dashboard.pending', { count: pending })}</span>
+            )}
             <Link to="/sync" className="ss-btn pri">
               <RefreshCw size={15} />
               {t('layout.nav.sync')}
@@ -163,7 +233,9 @@ export default function DashboardPage() {
         <div className="ss-counts ss-only-clean !grid-cols-6">
           {counts.map(({ kind, icon: Icon, value, label, to }) => (
             <Link key={kind} to={to}>
-              <span className={`ss-cat ${kind}`}><Icon size={17} /></span>
+              <span className={`ss-cat ${kind}`}>
+                <Icon size={17} />
+              </span>
               <span className="flex flex-col gap-[3px]">
                 <b>{value}</b>
                 <span className="lbl">{label}</span>
@@ -176,20 +248,40 @@ export default function DashboardPage() {
           <div className="ss-sec ss-only-clean">
             <h2>{t('dashboard.stats.targets')}</h2>
             <span className="ss-cnt">{targets.length}</span>
-            <Link to="/targets" className="more">{t('dashboard.targets.manage')}</Link>
+            <Link to="/targets" className="more">
+              {t('dashboard.targets.manage')}
+            </Link>
           </div>
           <div className="ss-list ss-only-clean">
-            {targets.length === 0 && <div className="ss-r text-[13px] text-ink-2">{t('dashboard.targets.noTargets')}</div>}
+            {targets.length === 0 && (
+              <div className="ss-r text-[13px] text-ink-2">{t('dashboard.targets.noTargets')}</div>
+            )}
             {targets.map((tgt, i) => (
-              <Link key={tgt.name} to={`/targets/${encodeURIComponent(tgt.name)}`} className="ss-r link">
-                <span className="ss-at"><AgentIcon target={tgt.name} size={17} /></span>
+              <Link
+                key={tgt.name}
+                to={`/targets/${encodeURIComponent(tgt.name)}`}
+                className="ss-r link"
+              >
+                <AgentTile target={tgt.name} />
                 <span className="flex flex-col min-w-0 flex-1 gap-px">
                   <span className="font-semibold">{tgt.name}</span>
                   <span className="font-mono text-xs text-ink-3 truncate">{tgt.path}</span>
                 </span>
-                <span className="w-[100px]">{tgt.skillsEnabled === false ? <span className="ss-tag !text-ink-3 whitespace-nowrap">{t('targets.skillsOff')}</span> : <span className="ss-tag">{tgt.mode}</span>}</span>
-                <span className="w-[190px] text-[13px] text-ink-2 truncate">{healths[i].detail}</span>
-                <span className="w-[96px]"><span className={`ss-st ${healths[i].kind}`}>{healths[i].label}</span></span>
+                <span className="w-[100px]">
+                  {tgt.skillsEnabled === false ? (
+                    <span className="ss-tag !text-ink-3 whitespace-nowrap">
+                      {t('targets.skillsOff')}
+                    </span>
+                  ) : (
+                    <span className="ss-tag">{tgt.mode}</span>
+                  )}
+                </span>
+                <span className="w-[190px] text-[13px] text-ink-2 truncate">
+                  {healths[i].detail}
+                </span>
+                <span className="w-[96px]">
+                  <span className={`ss-st ${healths[i].kind}`}>{healths[i].label}</span>
+                </span>
                 <ChevronRight size={15} className="text-ink-3" />
               </Link>
             ))}
@@ -198,7 +290,9 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {extrasData?.extras.some((extra) => extra.name.toLowerCase() === 'memory' && !extra.file) && <MemoryOverview />}
+      {extrasData?.extras.some((extra) => extra.name.toLowerCase() === 'memory' && !extra.file) && (
+        <MemoryOverview />
+      )}
 
       <div className="grid grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)] gap-10">
         <NeedsAttention targets={targets} healths={healths} />
@@ -224,7 +318,12 @@ const STRING_STYLE: Record<Kind, { stroke: string; width: number; dash?: string 
   off: { stroke: '#B9AF9A', width: 1.8, dash: '3 6' },
 };
 
-function TargetBoard({ data, targets, healths, counts }: {
+function TargetBoard({
+  data,
+  targets,
+  healths,
+  counts,
+}: {
   data: Overview;
   targets: Target[];
   healths: Health[];
@@ -238,30 +337,64 @@ function TargetBoard({ data, targets, healths, counts }: {
   const dashed = healths.some((h) => h.kind !== 'ok');
   return (
     <div className="ss-board ss-only-playful" style={{ height }}>
-      <svg className="strings" width="1080" height={height} viewBox={`0 0 1080 ${height}`} aria-hidden="true">
+      <svg
+        className="strings"
+        width="1080"
+        height={height}
+        viewBox={`0 0 1080 ${height}`}
+        aria-hidden="true"
+      >
         {targets.map((tgt, i) => {
           const ty = 24 + i * 66 + 27;
           const s = STRING_STYLE[healths[i].kind];
           return (
-            <path key={tgt.name} d={`M${sx} ${sy} C ${sx + 190} ${sy}, 516 ${ty}, 716 ${ty}`} fill="none" strokeLinecap="round" stroke={s.stroke} strokeWidth={s.width} strokeDasharray={s.dash} />
+            <path
+              key={tgt.name}
+              d={`M${sx} ${sy} C ${sx + 190} ${sy}, 516 ${ty}, 716 ${ty}`}
+              fill="none"
+              strokeLinecap="round"
+              stroke={s.stroke}
+              strokeWidth={s.width}
+              strokeDasharray={s.dash}
+            />
           );
         })}
         {dashed && (
           <>
-            <path d="M468 86 q 26 10 34 40" fill="none" stroke="#5A5A5A" strokeWidth="1.6" strokeLinecap="round" />
-            <path d="M494 118 l 8 8 l 3 -11" fill="none" stroke="#5A5A5A" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+            <path
+              d="M468 86 q 26 10 34 40"
+              fill="none"
+              stroke="#5A5A5A"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+            />
+            <path
+              d="M494 118 l 8 8 l 3 -11"
+              fill="none"
+              stroke="#5A5A5A"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
           </>
         )}
       </svg>
-      <div className="ss-pinnote src flex-col !items-stretch justify-center gap-2.5 !px-5 !py-4" style={{ left: 40, top: sy - 142, width: 300, height: 284 }}>
+      <div
+        className="ss-pinnote src flex-col !items-stretch justify-center gap-2.5 !px-5 !py-4"
+        style={{ left: 40, top: sy - 142, width: 300, height: 284 }}
+      >
         <span className="flex flex-col gap-0.5">
-          <span className="ss-hand !text-[22px] !font-bold !text-ink">{t('dashboard.board.source')}</span>
+          <span className="ss-hand !text-[22px] !font-bold !text-ink">
+            {t('dashboard.board.source')}
+          </span>
           <span className="font-mono text-[11.5px] text-ink-3 truncate">{data.source}</span>
         </span>
         <span className="flex flex-col gap-[7px]">
           {counts.map(({ kind, icon: Icon, value, label, to }) => (
             <Link key={kind} to={to} className="flex items-center gap-[9px]">
-              <span className={`ss-cat sm ${kind}`}><Icon size={14} /></span>
+              <span className={`ss-cat sm ${kind}`}>
+                <Icon size={14} />
+              </span>
               <b className="w-[26px]">{value}</b>
               <span className="text-[13px] text-ink-2">{label}</span>
             </Link>
@@ -274,7 +407,11 @@ function TargetBoard({ data, targets, healths, counts }: {
         const h = healths[i];
         return (
           <span key={tgt.name}>
-            <Link to={`/targets/${encodeURIComponent(tgt.name)}`} className={`ss-pinnote ${h.kind === 'off' ? 'off' : ''}`} style={{ left: 716, top: y, width: 324, height: 54 }}>
+            <Link
+              to={`/targets/${encodeURIComponent(tgt.name)}`}
+              className={`ss-pinnote ${h.kind === 'off' ? 'off' : ''}`}
+              style={{ left: 716, top: y, width: 324, height: 54 }}
+            >
               <AgentIcon target={tgt.name} size={20} />
               <span className="flex flex-col min-w-0 flex-1 gap-px">
                 <span className="font-semibold">{tgt.name}</span>
@@ -282,12 +419,21 @@ function TargetBoard({ data, targets, healths, counts }: {
               </span>
               <span className={`ss-st ${h.kind}`}>{h.label}</span>
             </Link>
-            <span className={`ss-pin ${h.kind === 'off' ? 'off' : ''}`} style={{ left: 709, top: y + 20 }} />
+            <span
+              className={`ss-pin ${h.kind === 'off' ? 'off' : ''}`}
+              style={{ left: 709, top: y + 20 }}
+            />
           </span>
         );
       })}
-      {dashed && <span className="ss-hand absolute -rotate-3" style={{ left: 372, top: 44 }}>{t('dashboard.board.dashed')}</span>}
-      <span className="ss-hand absolute -rotate-[1.5deg]" style={{ left: 60, top: sy + 149 }}>{t('dashboard.board.caption')}</span>
+      {dashed && (
+        <span className="ss-hand absolute -rotate-3" style={{ left: 372, top: 44 }}>
+          {t('dashboard.board.dashed')}
+        </span>
+      )}
+      <span className="ss-hand absolute -rotate-[1.5deg]" style={{ left: 60, top: sy + 149 }}>
+        {t('dashboard.board.caption')}
+      </span>
     </div>
   );
 }
@@ -299,7 +445,12 @@ function NeedsAttention({ targets, healths }: { targets: Target[]; healths: Heal
   const queryClient = useQueryClient();
   const { toast } = useToast();
   // Shared with TrackedRepos, which offers Update only for a repo this check found behind.
-  const { data: check } = useQuery<CheckResult>({ queryKey: queryKeys.check, queryFn: () => api.check(), enabled: false, staleTime: Infinity });
+  const { data: check } = useQuery<CheckResult>({
+    queryKey: queryKeys.check,
+    queryFn: () => api.check(),
+    enabled: false,
+    staleTime: Infinity,
+  });
   // Updates made elsewhere (Skills page, CLI) never correct this result, so it lives only while the Dashboard is open.
   useEffect(() => () => queryClient.removeQueries({ queryKey: queryKeys.check }), [queryClient]);
   const [checking, setChecking] = useState(false);
@@ -317,7 +468,10 @@ function NeedsAttention({ targets, healths }: { targets: Target[]; healths: Heal
     try {
       const res = await api.check();
       queryClient.setQueryData(queryKeys.check, res);
-      if (!res.tracked_repos.some((r) => r.status === 'behind') && !res.skills.some((s) => s.status === 'update_available' || s.status === 'modified')) {
+      if (
+        !res.tracked_repos.some((r) => r.status === 'behind') &&
+        !res.skills.some((s) => s.status === 'update_available' || s.status === 'modified')
+      ) {
         toast(t('dashboard.updates.allUpToDate'), 'success');
       }
     } catch (e: unknown) {
@@ -336,7 +490,12 @@ function NeedsAttention({ targets, healths }: { targets: Target[]; healths: Heal
       if (res.incomplete && note) toast(t(note.key, { count: note.count }), 'warning');
       else if (res.summary.critical + res.summary.high === 0) {
         const accepted = res.summary.accepted ?? 0;
-        toast(accepted > 0 ? t(plural('dashboard.security.allClearAccepted', accepted), { count: accepted }) : t('dashboard.security.allClear'), 'success');
+        toast(
+          accepted > 0
+            ? t(plural('dashboard.security.allClearAccepted', accepted), { count: accepted })
+            : t('dashboard.security.allClear'),
+          'success',
+        );
       }
     } catch (e: unknown) {
       toast((e as Error).message, 'error');
@@ -345,33 +504,92 @@ function NeedsAttention({ targets, healths }: { targets: Target[]; healths: Heal
     }
   };
 
-  const rows: { key: string; kind: 'warn' | 'bad'; icon: typeof Puzzle; title: string; sub: string; action: string; to: string }[] = [];
+  const rows: {
+    key: string;
+    kind: 'warn' | 'bad';
+    icon: typeof Puzzle;
+    title: string;
+    sub: string;
+    action: string;
+    to: string;
+  }[] = [];
   if (check) {
     const names = [
-      ...check.tracked_repos.filter((r) => r.status === 'behind').map((r) => r.name.replace(/^_/, '')),
+      ...check.tracked_repos
+        .filter((r) => r.status === 'behind')
+        .map((r) => r.name.replace(/^_/, '')),
       ...check.skills.filter((s) => s.status === 'update_available').map((s) => s.name),
     ];
     if (names.length > 0) {
-      rows.push({ key: 'updates', kind: 'warn', icon: CircleArrowUp, title: t('dashboard.attention.updates', { count: names.length }), sub: names.join(', '), action: t('dashboard.trackedRepos.update'), to: '/skills?tab=updates' });
+      rows.push({
+        key: 'updates',
+        kind: 'warn',
+        icon: CircleArrowUp,
+        title: t('dashboard.attention.updates', { count: names.length }),
+        sub: names.join(', '),
+        action: t('dashboard.trackedRepos.update'),
+        to: '/skills?tab=updates',
+      });
     }
     const modified = check.skills.filter((s) => s.status === 'modified').map((s) => s.name);
     if (modified.length > 0) {
-      rows.push({ key: 'modified', kind: 'warn', icon: FilePen, title: t('dashboard.attention.modified', { count: modified.length }), sub: modified.join(', '), action: t('dashboard.trackedRepos.update'), to: '/skills?tab=updates' });
+      rows.push({
+        key: 'modified',
+        kind: 'warn',
+        icon: FilePen,
+        title: t('dashboard.attention.modified', { count: modified.length }),
+        sub: modified.join(', '),
+        action: t('dashboard.trackedRepos.update'),
+        to: '/skills?tab=updates',
+      });
     }
   }
   if (audit && audit.summary.critical + audit.summary.high > 0) {
     // Findings accepted earlier with --force are left out of the summary counts, so leave their resources out too.
-    const names = audit.results.filter((r) => r.findings.some((f) => !f.acknowledged && (f.severity === 'CRITICAL' || f.severity === 'HIGH'))).map((r) => r.skillName);
-    rows.push({ key: 'audit', kind: 'bad', icon: ShieldAlert, title: t('dashboard.attention.audit', { count: audit.summary.critical + audit.summary.high }), sub: names.join(', '), action: t('dashboard.attention.review'), to: '/audit' });
+    const names = audit.results
+      .filter((r) =>
+        r.findings.some(
+          (f) => !f.acknowledged && (f.severity === 'CRITICAL' || f.severity === 'HIGH'),
+        ),
+      )
+      .map((r) => r.skillName);
+    rows.push({
+      key: 'audit',
+      kind: 'bad',
+      icon: ShieldAlert,
+      title: t('dashboard.attention.audit', { count: audit.summary.critical + audit.summary.high }),
+      sub: names.join(', '),
+      action: t('dashboard.attention.review'),
+      to: '/audit',
+    });
   }
   const sourceLinkNote = audit?.incomplete && auditSourceLinkNote(audit);
   if (sourceLinkNote) {
-    rows.push({ key: 'audit-incomplete', kind: 'warn', icon: TriangleAlert, title: t(sourceLinkNote.key, { count: sourceLinkNote.count }), sub: '', action: t('dashboard.attention.review'), to: '/audit' });
+    rows.push({
+      key: 'audit-incomplete',
+      kind: 'warn',
+      icon: TriangleAlert,
+      title: t(sourceLinkNote.key, { count: sourceLinkNote.count }),
+      sub: '',
+      action: t('dashboard.attention.review'),
+      to: '/audit',
+    });
   }
   targets.forEach((tgt, i) => {
     if (healths[i].kind !== 'bad') return;
-    const title = tgt.status === 'not exist' ? t('dashboard.attention.targetMissing', { name: tgt.name }) : `${tgt.name}: ${tgt.status}`;
-    rows.push({ key: `target-${tgt.name}`, kind: 'bad', icon: TriangleAlert, title, sub: tgt.path, action: t('dashboard.attention.open'), to: `/targets/${encodeURIComponent(tgt.name)}` });
+    const title =
+      tgt.status === 'not exist'
+        ? t('dashboard.attention.targetMissing', { name: tgt.name })
+        : `${tgt.name}: ${tgt.status}`;
+    rows.push({
+      key: `target-${tgt.name}`,
+      kind: 'bad',
+      icon: TriangleAlert,
+      title,
+      sub: tgt.path,
+      action: t('dashboard.attention.open'),
+      to: `/targets/${encodeURIComponent(tgt.name)}`,
+    });
   });
 
   return (
@@ -380,10 +598,20 @@ function NeedsAttention({ targets, healths }: { targets: Target[]; healths: Heal
         <h2>{t('dashboard.attention.title')}</h2>
         {rows.length > 0 && <span className="ss-cnt">{rows.length}</span>}
         <span className="ml-auto flex items-center gap-4">
-          <button type="button" className="ss-more cursor-pointer disabled:opacity-50" onClick={runCheck} disabled={checking}>
+          <button
+            type="button"
+            className="ss-more cursor-pointer disabled:opacity-50"
+            onClick={runCheck}
+            disabled={checking}
+          >
             {checking ? t('dashboard.updates.checking') : t('dashboard.attention.checkUpdates')}
           </button>
-          <button type="button" className="ss-more cursor-pointer disabled:opacity-50" onClick={runScan} disabled={scanning}>
+          <button
+            type="button"
+            className="ss-more cursor-pointer disabled:opacity-50"
+            onClick={runScan}
+            disabled={scanning}
+          >
             {t('dashboard.security.quickScan')}
           </button>
         </span>
@@ -394,21 +622,33 @@ function NeedsAttention({ targets, healths }: { targets: Target[]; healths: Heal
             <CircleCheck size={16} className="text-ok" />
             {t('dashboard.attention.none')}
           </div>
-        ) : rows.map(({ key, kind, icon: Icon, title, sub, action, to }) => (
-          <div key={key} className="ss-r">
-            <span className={`ss-cat sm ${kind}`}><Icon size={14} /></span>
-            <span className="flex flex-col min-w-0 flex-1">
-              <span className="font-semibold">{title}</span>
-              {sub && <span className="font-mono text-[13px] text-ink-2 truncate">{sub}</span>}
-            </span>
-            <Link to={to} className="ss-btn sm">{action}</Link>
-          </div>
-        ))}
+        ) : (
+          rows.map(({ key, kind, icon: Icon, title, sub, action, to }) => (
+            <div key={key} className="ss-r">
+              <span className={`ss-cat sm ${kind}`}>
+                <Icon size={14} />
+              </span>
+              <span className="flex flex-col min-w-0 flex-1">
+                <span className="font-semibold">{title}</span>
+                {sub && <span className="font-mono text-[13px] text-ink-2 truncate">{sub}</span>}
+              </span>
+              <Link to={to} className="ss-btn sm">
+                {action}
+              </Link>
+            </div>
+          ))
+        )}
         {(audit?.summary.accepted ?? 0) > 0 && (
           <div className="ss-r !min-h-[40px] bg-sunken text-[12.5px] text-ink-2">
             <ShieldCheck size={14} className="shrink-0 text-ok" aria-hidden="true" />
-            <span className="flex-1">{t(plural('dashboard.attention.accepted', audit?.summary.accepted ?? 0), { count: audit?.summary.accepted ?? 0 })}</span>
-            <Link to="/audit" className="font-semibold text-accent hover:underline">{t('dashboard.attention.viewAudit')}</Link>
+            <span className="flex-1">
+              {t(plural('dashboard.attention.accepted', audit?.summary.accepted ?? 0), {
+                count: audit?.summary.accepted ?? 0,
+              })}
+            </span>
+            <Link to="/audit" className="font-semibold text-accent hover:underline">
+              {t('dashboard.attention.viewAudit')}
+            </Link>
           </div>
         )}
       </div>
@@ -429,7 +669,8 @@ function RecentLog() {
   const when = (e: LogEntry) => {
     const d = new Date(e.ts);
     const age = Date.now() - d.getTime();
-    if (new Date().toDateString() === d.toDateString()) return formatDateTime(d, locale, { hour: '2-digit', minute: '2-digit', hour12: false });
+    if (new Date().toDateString() === d.toDateString())
+      return formatDateTime(d, locale, { hour: '2-digit', minute: '2-digit', hour12: false });
     if (age < 6 * 24 * 3600 * 1000) return formatDateTime(d, locale, { weekday: 'short' });
     return formatDateTime(d, locale, { month: 'numeric', day: 'numeric' });
   };
@@ -438,15 +679,25 @@ function RecentLog() {
     <div>
       <div className="ss-sec">
         <h2>{t('dashboard.recent.title')}</h2>
-        <Link to="/log" className="more">{t('dashboard.recent.openLog')}</Link>
+        <Link to="/log" className="more">
+          {t('dashboard.recent.openLog')}
+        </Link>
       </div>
       <div className="ss-plain">
-        {entries.length === 0 && <div className="ss-r text-[13px] text-ink-2">{t('dashboard.recent.empty')}</div>}
+        {entries.length === 0 && (
+          <div className="ss-r text-[13px] text-ink-2">{t('dashboard.recent.empty')}</div>
+        )}
         {entries.map((e, i) => (
           <div key={`${e.ts}-${i}`} className="ss-r">
             <span className="w-11 font-mono text-xs text-ink-3">{when(e)}</span>
-            <span className={`min-w-16 shrink-0 whitespace-nowrap font-semibold ${e.status === 'error' ? 'text-bad' : ''}`}>{e.cmd}</span>
-            <span className="flex-1 min-w-0 truncate text-[13px] text-ink-2">{formatLogDetail(e)}</span>
+            <span
+              className={`min-w-16 shrink-0 whitespace-nowrap font-semibold ${e.status === 'error' ? 'text-bad' : ''}`}
+            >
+              {e.cmd}
+            </span>
+            <span className="flex-1 min-w-0 truncate text-[13px] text-ink-2">
+              {formatLogDetail(e)}
+            </span>
           </div>
         ))}
       </div>
@@ -467,30 +718,26 @@ function TrackedRepos({ repos }: { repos: Overview['trackedRepos'] }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { updating, update } = useRepoUpdate();
-  const { data: check } = useQuery<CheckResult>({ queryKey: queryKeys.check, queryFn: () => api.check(), enabled: false, staleTime: Infinity });
-  const behind = new Set(check?.tracked_repos.filter((r) => r.status === 'behind').map((r) => r.name));
+  const { data: check } = useQuery<CheckResult>({
+    queryKey: queryKeys.check,
+    queryFn: () => api.check(),
+    enabled: false,
+    staleTime: Infinity,
+  });
+  const behind = new Set(
+    check?.tracked_repos.filter((r) => r.status === 'behind').map((r) => r.name),
+  );
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const menu = useMenuPresence(menuFor !== null);
   // The repo whose menu is still fading out after menuFor went back to null.
   const heldMenuFor = useHeldWhileClosing(menuFor, menuFor !== null);
   const menuShownFor = menu.shown ? heldMenuFor : null;
-  const [toDelete, setToDelete] = useState<string | null>(null);
+  const [toDelete, setToDelete] = useState<Overview['trackedRepos'][number] | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [refusal, setRefusal] = useState<keyof typeof forceableRefusals | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!menuFor) return;
-    const close = (e: MouseEvent | KeyboardEvent) => {
-      if (e instanceof KeyboardEvent ? e.key === 'Escape' : !menuRef.current?.contains(e.target as Node)) setMenuFor(null);
-    };
-    document.addEventListener('mousedown', close);
-    document.addEventListener('keydown', close);
-    return () => {
-      document.removeEventListener('mousedown', close);
-      document.removeEventListener('keydown', close);
-    };
-  }, [menuFor]);
+  useDismiss(menuRef, menuFor !== null, () => setMenuFor(null));
 
   const refresh = async () => {
     clearAuditCache(queryClient);
@@ -501,13 +748,30 @@ function TrackedRepos({ repos }: { repos: Overview['trackedRepos'] }) {
     if (!toDelete) return;
     setDeleting(true);
     try {
-      await api.deleteRepo(toDelete, refusal !== null);
-      toast(t('dashboard.toast.repoUninstalled', { name: toDelete.replace(/^_/, '') }), 'success');
+      const result = await api.deleteRepo(
+        toDelete.name,
+        !toDelete.noCheckout && refusal !== null,
+        !!toDelete.noCheckout,
+      );
+      toast(
+        t(
+          result.movedToTrash
+            ? 'dashboard.toast.repoUninstalled'
+            : 'dashboard.toast.repoRecordRemoved',
+          { name: result.movedToTrash ? result.name.replace(/^_/, '') : result.name },
+        ),
+        'success',
+      );
       setToDelete(null);
       await refresh();
     } catch (e: unknown) {
-      if (e instanceof ApiError && e.code && e.code in forceableRefusals) setRefusal(e.code as keyof typeof forceableRefusals);
-      else toast((e as Error).message, 'error');
+      if (e instanceof ApiError && e.code === 'repo_checkout_restored') {
+        setToDelete(null);
+        toast(t('dashboard.trackedRepos.checkoutRestored'), 'warning');
+        await refresh();
+      } else if (e instanceof ApiError && e.code && e.code in forceableRefusals) {
+        setRefusal(e.code as keyof typeof forceableRefusals);
+      } else toast((e as Error).message, 'error');
     } finally {
       setDeleting(false);
     }
@@ -524,24 +788,71 @@ function TrackedRepos({ repos }: { repos: Overview['trackedRepos'] }) {
           <div key={repo.name} className="ss-r">
             <Github size={15} />
             <span className="flex flex-col min-w-0 flex-1 gap-px">
-              <span className="font-mono text-[13px] font-semibold truncate">{repo.name.replace(/^_/, '')}</span>
-              <span className="text-[13px] text-ink-2">{t(plural('dashboard.trackedRepos.skillCount', repo.skillCount), { count: repo.skillCount })}{(repo.variantCount ?? repo.skillCount) > repo.skillCount && <>{', '}{t('dashboard.trackedRepos.variantCount', { count: repo.variantCount! })}</>}</span>
+              <span className="font-mono text-[13px] font-semibold truncate">
+                {repo.name.replace(/^_/, '')}
+              </span>
+              <span className="text-[13px] text-ink-2">
+                {repo.noCheckout ? (
+                  t('dashboard.trackedRepos.noCheckout')
+                ) : (
+                  <>
+                    {t(plural('dashboard.trackedRepos.skillCount', repo.skillCount), {
+                      count: repo.skillCount,
+                    })}
+                    {(repo.variantCount ?? repo.skillCount) > repo.skillCount && (
+                      <>
+                        {', '}
+                        {t('dashboard.trackedRepos.variantCount', { count: repo.variantCount! })}
+                      </>
+                    )}
+                  </>
+                )}
+              </span>
             </span>
-            <span className={`ss-st ${repo.dirty ? 'warn' : 'ok'}`}>
-              {repo.dirty ? t('dashboard.trackedRepos.modified') : t('dashboard.trackedRepos.clean')}
-            </span>
-            {behind.has(repo.name) && (
-              <Button variant="secondary" size="sm" onClick={() => update(repo.name)} loading={updating === repo.name} disabled={updating !== null || deleting}>
+            {!repo.noCheckout && (
+              <span className={`ss-st ${repo.dirty ? 'warn' : 'ok'}`}>
+                {repo.dirty
+                  ? t('dashboard.trackedRepos.modified')
+                  : t('dashboard.trackedRepos.clean')}
+              </span>
+            )}
+            {!repo.noCheckout && behind.has(repo.name) && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => update(repo.name)}
+                loading={updating === repo.name}
+                disabled={updating !== null || deleting}
+              >
                 {t('dashboard.trackedRepos.update')}
               </Button>
             )}
             <div className="relative" ref={menuFor === repo.name ? menuRef : undefined}>
-              <button type="button" className="ss-ib" aria-label={t('dashboard.trackedRepos.actions')} aria-expanded={menuFor === repo.name} onClick={() => setMenuFor(menuFor === repo.name ? null : repo.name)}>
+              <button
+                type="button"
+                className="ss-ib"
+                aria-label={t('dashboard.trackedRepos.actions')}
+                aria-expanded={menuFor === repo.name}
+                onClick={() => setMenuFor(menuFor === repo.name ? null : repo.name)}
+              >
                 <Ellipsis size={16} />
               </button>
               {menuShownFor === repo.name && (
-                <div {...menu.exitProps} className={`ss-menu absolute right-0 top-full mt-1 z-20 !w-44 origin-top-right ${menu.motion}`} role="menu">
-                  <button type="button" role="menuitem" className="dng" onClick={() => { setMenuFor(null); setToDelete(repo.name); setRefusal(null); }}>
+                <div
+                  {...menu.exitProps}
+                  className={`ss-menu absolute right-0 top-full mt-1 z-20 !w-44 origin-top-right ${menu.motion}`}
+                  role="menu"
+                >
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="dng"
+                    onClick={() => {
+                      setMenuFor(null);
+                      setToDelete(repo);
+                      setRefusal(null);
+                    }}
+                  >
                     <Trash2 size={15} />
                     {t('dashboard.trackedRepos.uninstall')}
                   </button>
@@ -554,8 +865,21 @@ function TrackedRepos({ repos }: { repos: Overview['trackedRepos'] }) {
       <ConfirmDialog
         open={toDelete !== null}
         title={t('dashboard.trackedRepos.uninstallConfirm.title')}
-        message={toDelete ? t(refusal ? forceableRefusals[refusal] : 'dashboard.trackedRepos.uninstallConfirm.message', { name: toDelete.replace(/^_/, '') }) : ''}
-        confirmText={t(refusal ? 'resources.uninstall.retryForce' : 'dashboard.trackedRepos.uninstall')}
+        message={
+          toDelete
+            ? t(
+                toDelete.noCheckout
+                  ? 'dashboard.trackedRepos.uninstallConfirm.record'
+                  : refusal
+                    ? forceableRefusals[refusal]
+                    : 'dashboard.trackedRepos.uninstallConfirm.message',
+                { name: toDelete.noCheckout ? toDelete.name : toDelete.name.replace(/^_/, '') },
+              )
+            : ''
+        }
+        confirmText={t(
+          refusal ? 'resources.uninstall.retryForce' : 'dashboard.trackedRepos.uninstall',
+        )}
         variant="danger"
         loading={deleting}
         onConfirm={uninstall}
@@ -569,13 +893,13 @@ function TrackedRepos({ repos }: { repos: Overview['trackedRepos'] }) {
 
 function Versions({ data }: { data: Overview }) {
   const t = useT();
+  const { isProjectMode } = useAppContext();
   const policy = useUpdatePolicy();
   const { data: v, isPending } = useQuery({
     queryKey: queryKeys.versionCheck,
     queryFn: () => api.getVersionCheck(),
     staleTime: staleTimes.version,
   });
-  const ver = (s?: string) => (s && /^\d/.test(s) ? `v${s}` : s);
   const sources = [data.source, data.agentsSource, data.extrasSource].filter(Boolean);
   return (
     <div>
@@ -584,28 +908,51 @@ function Versions({ data }: { data: Overview }) {
       </div>
       <div className="ss-list">
         {isPending ? (
-          <div className="ss-r"><span className="ss-skel w-2/3" /></div>
+          <div className="ss-r">
+            <span className="ss-skel w-2/3" />
+          </div>
         ) : !v ? (
           <div className="ss-r text-[13px] text-ink-2">{t('dashboard.version.couldNotCheck')}</div>
         ) : (
           <>
             <div className="ss-r">
               <span className="w-[120px] font-semibold">{t('dashboard.version.cli')}</span>
-              <span className="flex-1 font-mono text-[13px]">{ver(v.cliVersion)}</span>
-              {policy.data?.enabled === true && (v.cliUpdateAvailable
-                ? <span className="ss-st warn">{t('dashboard.version.update', { version: ver(v.cliLatest) })}</span>
-                : <span className="ss-st ok">{t('dashboard.version.upToDate')}</span>)}
+              <span className="flex-1 font-mono text-[13px]">{formatVersion(v.cliVersion)}</span>
+              {policy.data?.enabled === true &&
+                (v.cliUpdateAvailable ? (
+                  <span className="ss-st warn">
+                    {t('dashboard.version.update', { version: formatVersion(v.cliLatest) })}
+                  </span>
+                ) : (
+                  <span className="ss-st ok">{t('dashboard.version.upToDate')}</span>
+                ))}
             </div>
             <div className="ss-r">
               <span className="w-[120px] font-semibold">{t('dashboard.version.builtInSkill')}</span>
-              <span className="flex-1 font-mono text-[13px]">{ver(v.skillVersion) || '—'}</span>
-              {policy.data?.enabled === true && (!v.skillVersion
-                ? <span className="ss-st off">{t('dashboard.version.notInstalled')}</span>
-                : v.skillUpdateAvailable
-                  ? <span className="ss-st warn">{t('dashboard.version.update', { version: ver(v.skillLatest) })}</span>
-                  : v.skillLatest
-                    ? <span className="ss-st ok">{t('dashboard.version.upToDate')}</span>
-                    : <span className="ss-st off">{t('dashboard.version.checkFailed')}</span>)}
+              <span className="flex-1 font-mono text-[13px]">
+                {formatVersion(v.skillVersion) || '—'}
+                {/* Project mode still reads the global source, the only place the built-in skill lives. */}
+                {isProjectMode && v.skillVersion && (
+                  <span className="font-sans text-ink-3"> · {t('app.global')}</span>
+                )}
+              </span>
+              {/* Disabled is read from the local .skillignore, so it shows even with update checks off. */}
+              {v.skillDisabled ? (
+                <span className="ss-st off">{t('resources.status.disabled')}</span>
+              ) : (
+                policy.data?.enabled === true &&
+                (!v.skillVersion ? (
+                  <span className="ss-st off">{t('dashboard.version.notInstalled')}</span>
+                ) : v.skillUpdateAvailable ? (
+                  <span className="ss-st warn">
+                    {t('dashboard.version.update', { version: formatVersion(v.skillLatest) })}
+                  </span>
+                ) : v.skillLatest ? (
+                  <span className="ss-st ok">{t('dashboard.version.upToDate')}</span>
+                ) : (
+                  <span className="ss-st off">{t('dashboard.version.checkFailed')}</span>
+                ))
+              )}
             </div>
           </>
         )}
@@ -613,7 +960,9 @@ function Versions({ data }: { data: Overview }) {
       <div className="mt-2.5 flex flex-col gap-0.5 min-w-0 text-[13px] text-ink-3">
         <span>{t('dashboard.source.label')}</span>
         {sources.map((s) => (
-          <span key={s} className="font-mono text-xs truncate">{s}</span>
+          <span key={s} className="font-mono text-xs truncate">
+            {s}
+          </span>
         ))}
       </div>
     </div>
@@ -645,11 +994,21 @@ function StarReminder() {
       <Star size={14} />
       <span>
         {t('dashboard.starCta.enjoying')}{' '}
-        <a href="https://github.com/runkids/skillshare" target="_blank" rel="noopener noreferrer" className="font-semibold text-ink hover:underline">
+        <a
+          href="https://github.com/runkids/skillshare"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-semibold text-ink hover:underline"
+        >
           {t('dashboard.starCta.link')}
         </a>
       </span>
-      <button type="button" className="ss-ib !w-6 !h-6" onClick={dismiss} aria-label={t('dashboard.starCta.dismiss')}>
+      <button
+        type="button"
+        className="ss-ib !w-6 !h-6"
+        onClick={dismiss}
+        aria-label={t('dashboard.starCta.dismiss')}
+      >
         <X size={14} />
       </button>
     </div>

@@ -130,6 +130,9 @@ type Source struct {
 	// install; a clone fills it with the full SHA it ended up on. Unlike
 	// Branch it is never written back to the config as the skill's ref.
 	Commit string
+	// Locked is set when Commit came from a lockfile, so the install records
+	// that commit even when the files match what is installed.
+	Locked bool
 	// CNBHosts contains configured CNB hostnames for platform-specific auth/API behavior.
 	CNBHosts []string
 	// GiteaHosts contains configured Gitea hostnames for platform-specific auth/API behavior.
@@ -137,6 +140,10 @@ type Source struct {
 	// ExplicitSkill is true when the user pointed directly at a SKILL.md file.
 	// That intent should resolve to exactly one skill, not a pack/discovery view.
 	ExplicitSkill bool
+	// AgentFile is the agent file the source's path ended in (demo.md for
+	// repo/agents/demo.md). Discovery reads Subdir, the file's directory,
+	// and returns only that agent.
+	AgentFile string
 	// webRef is the {ref}/{path} tail of a tree/, blob/ or src/ web URL,
 	// kept so a ref containing "/" can be resolved at install time.
 	webRef webRef

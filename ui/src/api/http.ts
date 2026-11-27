@@ -21,6 +21,13 @@ export class ApiError extends Error {
   }
 }
 
+const CONNECTION_LOST = 'connection_lost';
+
+/** The request got no reply. The server may still have finished a change it started. */
+export function isConnectionLost(e: unknown): boolean {
+  return e instanceof ApiError && e.code === CONNECTION_LOST;
+}
+
 interface ParsedApiError {
   code?: string;
   message: string;
@@ -45,28 +52,36 @@ function defaultErrorCode(status: number): string {
   }
 }
 
-export function parseApiErrorPayload(data: any, status: number, statusText: string): ParsedApiError {
+export function parseApiErrorPayload(
+  data: any,
+  status: number,
+  statusText: string,
+): ParsedApiError {
   const rawError = data?.error;
   if (rawError && typeof rawError === 'object') {
     const code = typeof rawError.code === 'string' ? rawError.code : defaultErrorCode(status);
-    const message = typeof rawError.message === 'string' ? rawError.message : statusText || 'Request failed';
-    const params = rawError.params && typeof rawError.params === 'object'
-      ? rawError.params as Record<string, unknown>
-      : undefined;
+    const message =
+      typeof rawError.message === 'string' ? rawError.message : statusText || 'Request failed';
+    const params =
+      rawError.params && typeof rawError.params === 'object'
+        ? (rawError.params as Record<string, unknown>)
+        : undefined;
     return { code, message, params };
   }
 
   const message = typeof rawError === 'string' ? rawError : statusText || 'Request failed';
-  const code = typeof data?.error_code === 'string'
-    ? data.error_code
-    : typeof data?.code === 'string'
-      ? data.code
-      : defaultErrorCode(status);
-  const params = data?.error_params && typeof data.error_params === 'object'
-    ? data.error_params as Record<string, unknown>
-    : data?.params && typeof data.params === 'object'
-      ? data.params as Record<string, unknown>
-      : undefined;
+  const code =
+    typeof data?.error_code === 'string'
+      ? data.error_code
+      : typeof data?.code === 'string'
+        ? data.code
+        : defaultErrorCode(status);
+  const params =
+    data?.error_params && typeof data.error_params === 'object'
+      ? (data.error_params as Record<string, unknown>)
+      : data?.params && typeof data.params === 'object'
+        ? (data.params as Record<string, unknown>)
+        : undefined;
   return { code, message, params };
 }
 
@@ -82,16 +97,21 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
       headers: { 'Content-Type': 'application/json' },
       ...init,
     });
-  } catch {
+  } catch (error) {
+    if (init?.signal?.aborted) throw error;
     throw new ApiError(0, 'Server connection lost - try restarting with "skillshare ui".', {
-      code: 'connection_lost',
+      code: CONNECTION_LOST,
     });
   }
   const text = await res.text();
   if (!text) {
-    throw new ApiError(res.status || 502, 'Empty response from server (request may have timed out)', {
-      code: 'empty_response',
-    });
+    throw new ApiError(
+      res.status || 502,
+      'Empty response from server (request may have timed out)',
+      {
+        code: 'empty_response',
+      },
+    );
   }
   let data: any;
   try {
@@ -112,6 +132,23 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   }
   return data as T;
 }
+
+export type SuccessResponse = { success: boolean };
+
+function jsonRequest(method: 'POST' | 'PUT' | 'PATCH' | 'DELETE') {
+  return <T>(path: string, body?: unknown) =>
+    apiFetch<T>(path, { method, body: JSON.stringify(body) });
+}
+
+export const http = {
+  get: <T>(path: string, signal?: AbortSignal) => apiFetch<T>(path, { signal }),
+  // Import already-serialized JSON without quoting it a second time.
+  postRaw: <T>(path: string, body: string) => apiFetch<T>(path, { method: 'POST', body }),
+  post: jsonRequest('POST'),
+  put: jsonRequest('PUT'),
+  patch: jsonRequest('PATCH'),
+  delete: jsonRequest('DELETE'),
+};
 
 // createSSEStream creates an EventSource with the standard done/error lifecycle.
 // The `handlers` map registers named SSE event listeners; the special key "done"
@@ -145,7 +182,11 @@ export function createSSEStream(
     const data = (e as MessageEvent).data;
     let reason: unknown;
     if (typeof data === 'string') {
-      try { reason = JSON.parse(data)?.error; } catch { /* not JSON: use the fallback message */ }
+      try {
+        reason = JSON.parse(data)?.error;
+      } catch {
+        /* not JSON: use the fallback message */
+      }
     }
     onError(new Error(typeof reason === 'string' && reason ? reason : errorMessage));
   });

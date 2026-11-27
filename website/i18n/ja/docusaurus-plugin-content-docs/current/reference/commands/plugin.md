@@ -34,7 +34,7 @@ skillshare plugin remove review --no-tui
 | コマンド | 動作 |
 |---|---|
 | `list` | 設定済みのバインディングとネイティブインストール状態。ターミナルではインタラクティブマネージャー |
-| `discover SOURCE` | ローカルディレクトリ、`owner/repo`、または HTTPS Git リポジトリを検査 |
+| `discover SOURCE` | ローカルフォルダー、`owner/repo`、HTTPS Git リポジトリ、GitHub のパッケージフォルダーや Herdr mod のリンクを検査 |
 | `add [SOURCE]` | plugin 全体とその target アダプタを選択してインストール。または Pi 経由で `npm:` パッケージをインストール |
 | `import [NATIVE-ID]` | 再インストールや有効化を行わずに既存のインストールを取り込む |
 | `unimport NAME` | 指定したターゲットのローカル import をアンインストールし、共有ソース宣言を保持 |
@@ -51,14 +51,14 @@ skillshare plugin remove review --no-tui
 
 | オプション | 意味 |
 |---|---|
-| `--target TARGET` | 繰り返し指定可能な選択: `claude`、`codex`、`cursor`、`antigravity`（エイリアス `agy`）、`antigravity-cli`、`copilot`、`grok`、`pi`、`omp`、`opencode`、または [Agent の別のアカウント](#accounts)の名前。下の capability 表を参照 |
+| `--target TARGET` | 繰り返し指定可能な選択: `claude`、`codex`、`cursor`、`antigravity`（エイリアス `agy`）、`antigravity-cli`、`copilot`、`grok`、`pi`、`omp`、`opencode`、`herdr-app`、または [Agent の別のアカウント](#accounts)の名前。下の capability 表を参照 |
 | `--plugin NAME` | source のマーケットプレイスから 1 つの plugin を選択 |
 | `--name NAME` | 追加またはインポート時の論理的な package 名 |
 | `--from TARGET` | Claude、Codex、Antigravity CLI、Copilot、Grok、Pi、OMP のマーケットプレイス、OpenCode、または [Agent の別のアカウント](#accounts)からインポート |
 | `--all`, `-a` | すべての管理下 plugin を更新（`update` のみ。package 名や `--source-ref` とは併用不可） |
 | `--dry-run`, `-n` | Skillshare または Agent の設定を変更せずにプレビュー |
 | `--source-ref REF` | `discover`、`add`、`update` 用の git ブランチ、タグ、またはコミット。リモート source のみ |
-| `--entry PATH` | package ルートからの相対パスで明示的にビルド済みの OpenCode JS/TS エントリを指定（`discover` と `add`） |
+| `--entry PATH` | package ルートからの相対パスで明示的にビルド済みの OpenCode JS/TS エントリ、または [Herdr ランチャー](#herdr-app)の実行ファイルを指定（`discover` と `add`） |
 | `--revision ID` | プレビュー以降に source、設定、またはネイティブインベントリが変わっていた場合に適用を拒否 |
 | `--json` | 機械可読な出力。TUI を無効化 |
 | `--no-tui` | インタラクティブメニューを無効化。`tui: false` でも同様 |
@@ -74,12 +74,13 @@ JSON 出力には source パスとネイティブ識別子が含まれます。s
 | Claude Code | `.claude-plugin/plugin.json` | Yes | Yes | ネイティブ update |
 | Codex | `.codex-plugin/plugin.json`、Agent Plugins ルートマニフェスト、または Claude マニフェスト | Yes | No | レビュー済みの Source を更新して再度 add。Codex で有効な場合のみ |
 | Cursor | `.cursor-plugin/plugin.json` または Agent Plugins ルートマニフェスト | Yes | No | reviewed されたローカルコピーを置き換え |
-| Antigravity Desktop | 明示的な name を持つルート `plugin.json` | Yes | Yes | reviewed されたローカルコピーを置き換え |
+| Antigravity Desktop | `.antigravity-plugin/plugin.json`、`.gemini-plugin/plugin.json`、またはルートの `plugin.json`（明示的な名前が必要） | Yes | Yes | reviewed されたローカルコピーを置き換え |
 | Pi | `pi` resources を持つ `package.json`、または `pi-package` キーワードと慣例的な resource フォルダ | Yes | Yes（ネイティブな project trust が必要） | 管理下 source スナップショットを更新 |
 | Oh My Pi | ネイティブ互換のメタデータを持つ、マーケットプレイス経由のローカル/Git plugin | 新しい cache へのインストール/再インストール、インポート、スコープを限定した削除 | OMP の project アンカーで | 更新は新しい cache に再インストール。削除しても共有 cache は保持 |
 | OpenCode | SDK 依存を持つ `package.json`、`.opencode/plugins/` エントリ、または明示的な `--entry` | Yes | Yes | 管理下 source スナップショットを更新 |
+| Herdr app | plugin マニフェストのない source のルートにある `mods/<id>/main.js`、または `--entry` で指定したランチャー | Yes | No | Skillshare がインストールしたファイルを置き換え |
 
-| Antigravity CLI | `agy` に受け入れられるネイティブルートマニフェストまたは Claude マニフェスト | Yes | No | reviewed された source を更新（ネイティブな enabled 状態がわかっており enabled の場合のみ） |
+| Antigravity CLI | `.antigravity-plugin/plugin.json`、`.gemini-plugin/plugin.json`、ルートの `plugin.json`、または `agy` が受け付ける Claude マニフェスト | Yes | No | reviewed された source を更新（ネイティブな enabled 状態がわかっており enabled の場合のみ） |
 | GitHub Copilot CLI | `.plugin/plugin.json`、`.github/plugin/plugin.json`、Claude マニフェスト、または Agent Plugins ルートマニフェスト | Yes | No | reviewed された source を更新（ネイティブな enabled 状態がわかっており enabled の場合のみ） |
 | Grok Build | `.grok-plugin/plugin.json` または Claude マニフェスト | インポート/削除のみ。インストールにはネイティブな trust が必要 | No | ネイティブに update |
 | Kimi Code | `kimi.plugin.json` または `.kimi-plugin/plugin.json` | 検出のみ | No | 自動化されていない |
@@ -115,9 +116,47 @@ skillshare plugin import demo@market --from claude-work
 
 - Cursor: `~/.cursor/plugins/local/<name>`。ローカルインポートを許可しておく必要があります。Cursor を再読み込みし、Customize を確認してください。同名のインストール済みマーケットプレイス plugin はローカルコピーより優先されます。
 - Antigravity desktop: global では `~/.gemini/config/plugins/<name>`。workspace では `.agents/plugins/<name>`（または既存の `_agents/plugins/` ディレクトリ）。両方の workspace ディレクトリが存在する場合は、先に統合してください。
+  ネイティブマニフェストは `.antigravity-plugin/plugin.json`、`.gemini-plugin/plugin.json`、ルートの `plugin.json` の順に検索します。複数のプラグインを含むリポジトリに `.antigravity-plugin/marketplace.json` がある場合、`antigravity` と `antigravity-cli` はこのカタログだけを使用し、`.claude-plugin/marketplace.json` にはフォールバックしません。
 - スタンドアロンの **agy CLI** は独自の plugin ストアを持ちます。`antigravity` target はデスクトップ/workspace の discovery パスを管理するものであり、その CLI ストアではありません。`agy` は単なる Skillshare target のエイリアスです。スタンドアロン CLI には `--target antigravity-cli` を使ってください。`--target agy` は既存のデスクトップの意味のままです。
 
 これらのローカル package には `plugin add` を使ってください。既存のローカルフォルダやマーケットプレイスインストールのインポートには対応していません。Skillshare は、所有していないフォルダ、symlink、またはローカルで編集された管理下コンテンツを上書きすることを拒否します。明示的な Antigravity マニフェスト名を指定すると、Git のチェックアウトやスナップショットをまたいで identity を安定させられます。
+
+### Herdr app {#herdr-app}
+
+`herdr-app` target は、ファイルをコピーして Herdr の mod とランチャーアプリをインストールします。global 専用です。Skillshare はパッケージのコードを直接実行しません。Herdr のホームは `$HERDR_APP_HOME`、未設定なら `~/.config/herdr-app` です。
+
+マニフェストや marketplace カタログがない source では、ルートの `mods/<id>/main.js` を mod として検出し、`<herdr home>/mods/<id>` にインストールします。リポジトリの途中にあるパッケージの場合は、`mods/` を含む GitHub フォルダーのリンクを貼り付けてください。特定の mod を選ぶには、その `mods/<id>/main.js` のリンクを貼り付けます。更新ではリンクの ref を使います。別の ref は `--source-ref` で指定できます。
+
+ダッシュボードでは **リポジトリまたはフォルダー** にリンクを貼り付けて検索します。ランチャーの場合は **Herdr ランチャーの実行ファイル** にパスも入力し、mod の場合は空のままにします。ランチャーは通常の `package.json` も利用できます。
+
+複数の Herdr mod が表示されたら、まとめて選択してから変更を確認できます。mod は個別に管理され、レイアウトやテーマは読み込みません。Herdr が `place` に従って追加したレイアウト項目は、mod をアンインストールしても残ります。
+
+`mod.json` に `left`、`right`、`top`、`bottom` の配置を指定する mod を 1 つ追加する場合、**Herdr で mod パネルを表示** は既定でオンです。Herdr を開いたまま適用すると、再インストール時も現在のレイアウトのコピーにパネルが表示されます。
+
+公式 Skillshare mod をインストールする際は、**Herdr に Skillshare パネルを表示**から、現在のレイアウトのコピーへの追加をプレビューできます。Herdr を開いた状態で適用すると、元を変更せずにボタンとパネルを追加したコピーへ切り替わります。
+
+Herdr の選択を外して同期すると、mod がアンインストールされますが、登録とレイアウトのコピーは再インストール用に残ります。**削除**では、Skillshare が記録した未編集のコピーも削除します。使用中のレイアウトにその mod のパネルがあれば、先にパネルのないレイアウトへ切り替えます。編集済みまたは記録されていないレイアウトは保持します。 このコピーから後で作られたコピーにもパネルが表示されます。どちらかを使用中に同期で mod を無効にすると、開いている Herdr はその mod のパネルがない最新のレイアウトに戻ります。再び選択して同期すると、ウィンドウがまだ Skillshare が切り替えたレイアウトにあれば、離れたコピーに表示される mod がすべてインストールされた時点でそのコピーに戻ります。**削除**する mod のコピーから、残る別の mod のコピーが作られている場合、そのコピーは保持され、削除した mod のパネルが残ります。
+
+mod のフォルダ外を指すリンクはコピーされません。
+
+```bash
+skillshare plugin add owner/herdr-mods --plugin my-mod --target herdr-app --no-tui -g
+skillshare plugin add owner/lantern --entry bin/lantern-app --target herdr-app --no-tui -g
+```
+
+Lantern のようなランチャーアプリには `--entry`（source 内の実行ファイルへのパス）が必要です。コマンド名はエントリファイルの名前になり、`bin/lantern-app` なら `lantern-app` です。Skillshare は source を state ディレクトリにコピーし、管理対象のエントリのパスを表示します。コマンドをそのパスに向けてください。パスは更新後も変わりません。ランチャーは macOS と Linux でのみ動作します。
+
+Skillshare はインストール先フォルダ全体を管理し、更新時に置き換えます。ローカル編集は退避するまで更新と削除をブロックします。インストール先の隠しファイル、`node_modules`、`__pycache__`は編集チェックから除外し、mod のルートの `jsconfig.json` と `.d.ts` ファイルも除外し、更新時に保持しません。source に含まれる場合はコピーします。削除は生成ファイルを含むフォルダ全体を削除します。置き換えが中断した場合は、再試行前に表示されたバックアップを確認してください。
+
+Skillshare は自分がインストールしていない mod やランチャーを引き継がず、`import` もできません。同名の mod やランチャーが存在する場合、`add` は拒否します。先に退避してから、もう一度 add してください。
+
+```bash
+mv ~/.config/herdr-app/mods/my-mod ~/my-mod.bak
+```
+
+`update` はインストール先を表示し、mod が動いているとは断言しません。Herdr はファイルが変わると mod を再読み込みします。`herdr-app status` で確認してください。`place: none` の mod は自動で配置されないため、手動でレイアウトに追加してください。ランチャーの update の前にはアプリのチャットと readout を閉じ、update の後に開き直してください。
+
+Herdr app のないマシン（ホームが存在しない）では、`sync`、`check`、`update` は `herdr-app` のバインディングを（ランチャーも含め）何も取得せずにスキップし、plugin の他の target は通常どおり実行されます。バインディングの宣言は残ります。そのようなマシンでの `herdr-app` への `add` は拒否されます。`remove` はホームを作らずにバインディングを削除し、その他の操作はスキップします。ホームが存在してもフォルダでない場合、この target はブロックされます。
 
 ### Oh My Pi (OMP) {#omp}
 
@@ -251,13 +290,14 @@ Skillshare はパッケージを実行せずに読み取るため、このタブ
 
 Pi に同期するプロジェクトにも、プロジェクトページに同じタブがあります。プロジェクトの設定をグローバルの設定に重ねた結果、各パッケージで何が選択されるかを示し、`pi (global)` から継承したものかプロジェクトの上書きかを表示します。スイッチはルールをプロジェクトの `.pi/settings.json` だけに保存し、`pi config` と同じ方法で書きます。グローバルのパッケージには、指定したファイルだけを変更するプロジェクトエントリ `{"source": ..., "autoload": false, "extensions": [...]}` が追加され、グローバルのエントリはそのままです。ローカルのソースは `.pi` からの相対パスで、npm や git のソースはグローバル設定の記述どおりに書かれます。そのようなエントリの最後のプロジェクトルールを削除した場合、以前の登録の filters が有効にならないときだけエントリを削除します。それ以外は空の winning override を保持します。明示的な JSON `false` だけが delta を意味し、`autoload: null` は `false` ではありません。対応するグローバルエントリがなく `autoload: false` のプロジェクトエントリは、`+` で指定したファイルだけを読み込みます。ファイルとその `.pi` フォルダは適用したときにだけ作成されます。グローバル設定と Pi の `trust.json` は書き込まれず、Skillshare が代わりにプロジェクトを信頼することもありません。Pi はプロジェクトを信頼している場合にだけプロジェクトの設定を使います。認証情報やクエリを含むグローバルのソースはプロジェクトにコピーされないため、そのパッケージはプロジェクトでは読み取り専用です。プロジェクトの設定に Skillshare が読み取れないエントリがある場合は、すべてのパッケージが読み取り専用になります。適用時は Pi のプロジェクトファイルのロックを保持し、書き込む直前に両方の設定ファイルとパッケージを再確認します。Pi 自身の `extensions` フォルダにある拡張機能（[extras](./extras.md) がそこにリンクしたファイルを含む）は、変更する場所とともに読み取り専用で一覧表示されます。プロジェクトは自身のフォルダ（Pi はプロジェクトを信頼している場合にだけ読み込みます）とグローバルのフォルダを表示します。
 
-OpenCode は、管理下エントリを `opencode.json` または既存の `opencode.jsonc` にファイル URL として登録し、コメントや無関係なエントリを保持します。version 1 は `plugin` を、version 2 は `plugins` を使用します。`XDG_CONFIG_HOME` と絶対パスの global `OPENCODE_CONFIG` は尊重されます。曖昧または非対応のオーバーライドは拒否されます。Skillshare が version のスキーマを選択できるよう、OpenCode は PATH 上にある必要があります。
+OpenCode v1 は管理下のエントリファイルを、v2 はパッケージディレクトリを `opencode.json` または既存の `opencode.jsonc` にファイル URL として登録し、コメントや無関係なエントリを保持します。version 1 は `plugin` を、version 2 は `plugins` を使用します。`XDG_CONFIG_HOME` と絶対パスの global `OPENCODE_CONFIG` は尊重されます。曖昧または非対応のオーバーライドは拒否されます。Skillshare が version のスキーマを選択できるよう、OpenCode は PATH 上にある必要があります。
+v2 のディレクトリパッケージのうち、[`hooks`](./hooks.md) が同じ `plugins` 配列に登録するもの（`plugins/skillshare-NAME`）は hooks の管理下にあり、`plugin list` と `plugin import` には表示されません。
 
-ローカルの OpenCode source は、ビルド済みのエントリ（`main`、文字列のルート export、または `index.js`）と必要なランタイム依存関係をすでに含んでいる必要があります。Skillshare はビルドスクリプトを実行したり、source に依存関係をインストールしたりしません。登録はモジュールが正常にロードされたことの証明ではありません。再読み込み後に OpenCode を確認してください。
+ローカルの OpenCode v1 source にはビルド済みのエントリ（`main`、文字列のルート export、または `index.js`）が必要です。v2 はディレクトリローダーを使い、`name` と文字列のルートまたは `./server` export、あるいはルートの `server`/`index` ファイル（`.ts`、`.tsx`、`.js`）を必要とします。`--entry` は v2 のディレクトリ読み込みを変更しません。条件付き・フォールバックの server export は拒否します。`@opencode-ai/plugin` と `@opencode/plugin` のどちらも OpenCode パッケージの識別に使われます。manifest と依存関係の要件は変更しません。Skillshare はビルドスクリプトを実行したり、source に依存関係をインストールしたりしません。登録はモジュールが正常にロードされたことの証明ではありません。再読み込み後に OpenCode を確認してください。
 
 ユーザースコープの npm 登録に managed cache がない場合は Unknown／読み取り専用です。未インストールとは限りません。Pi は Skillshare が調べない legacy global npm/pnpm パスを使うことがあります。
 
-インポートは通常の Pi source に加え、Pi 0.99.2 以降の対応する source とオプション形式を持つ filtered object を受け付けます。プレビューは保持するキー名だけを表示し、opaque 値を表示しません。ネイティブ設定とファイルは変更せず、元のエントリを Skillshare の非公開 state に保存し、ローカル receipt に digest だけを記録します。sync/update は現在のエントリを保持します。アンインストール前に最新のオプションを保存し、再インストール時はネイティブ install の前に object を復元して、他のリソースが一時的に既定で有効になるのを防ぎます。同じ Apply で複数を復元するときは、その操作自身が書いた正確な内容だけを受け入れます。他の設定変更がある場合は後続の復元を止めます。非公開 state を保持してください。記録の欠落・変更や別 target の記録は復元を拒否します。Windows の新しい登録ディレクトリは owner/SYSTEM 用の保護された ACL で作成します。既存ディレクトリと記録は、現在のユーザーと特権を持つ SYSTEM/Administrators 以外にアクセスを許可している場合、または ACL を確認できない場合、インポート・復元を拒否します。既存 ACL は変更しません。記録を保持し、所有者がアクセス保護を修復してから再試行してください。不明な source・優先順位、非対応のエンコーディング、Pi が正規化するローカル参照は読み取り専用です。通常の OpenCode エントリは取り込めますが、filtered OpenCode は引き続き拒否します。10 秒の stale 閾値を超えた空のロックディレクトリは inode と mtime が変わっていない場合だけ回収します。新しい・更新された・置換されたロック、空でないディレクトリ、ファイル、symlink は保持します。古さは所有者の終了を証明せず、最終確認と削除は atomic CAS ではありません。インポートされた Pi の package は、global モードでは `pi update SOURCE` で更新され、設定エントリは保持されます。project のものは Pi で更新してください。`pi update` は global の package にも及ぶためです。インポートされた OpenCode v1 の package は、そのネイティブツール上で更新されます。OpenCode v2 の global インポートはネイティブの update コマンドを使用できますが、v2 の update コマンドは global 向けであるため、project のインポートはネイティブに更新する必要があります。
+インポートは通常の Pi source に加え、Pi 0.99.2 以降の対応する source とオプション形式を持つ filtered object を受け付けます。プレビューは保持するキー名だけを表示し、opaque 値を表示しません。ネイティブ設定とファイルは変更せず、元のエントリを Skillshare の非公開 state に保存し、ローカル receipt に digest だけを記録します。sync/update は現在のエントリを保持します。アンインストール前に最新のオプションを保存し、再インストール時はネイティブ install の前に object を復元して、他のリソースが一時的に既定で有効になるのを防ぎます。同じ Apply で複数を復元するときは、その操作自身が書いた正確な内容だけを受け入れます。他の設定変更がある場合は後続の復元を止めます。非公開 state を保持してください。記録の欠落・変更や別 target の記録は復元を拒否します。Windows の新しい登録ディレクトリは owner/SYSTEM 用の保護された ACL で作成します。既存ディレクトリと記録は、現在のユーザーと特権を持つ SYSTEM/Administrators 以外にアクセスを許可している場合、または ACL を確認できない場合、インポート・復元を拒否します。既存 ACL は変更しません。記録を保持し、所有者がアクセス保護を修復してから再試行してください。不明な source・優先順位、非対応のエンコーディング、Pi が正規化するローカル参照は読み取り専用です。通常の OpenCode エントリは取り込めますが、filtered OpenCode は引き続き拒否します。10 秒の stale 閾値を超えた空のロックディレクトリは inode と mtime が変わっていない場合だけ回収します。新しい・更新された・置換されたロック、空でないディレクトリ、ファイル、symlink は保持します。古さは所有者の終了を証明せず、最終確認と削除は atomic CAS ではありません。インポートされた Pi の package は、global モードでは `pi update SOURCE` で更新され、設定エントリは保持されます。project のものは Pi で更新してください。`pi update` は global の package にも及ぶためです。インポートされた OpenCode v1 の package は、そのネイティブツール上で更新されます。OpenCode v2 の global パッケージインポートはネイティブの update コマンドを使用できます。インポートしたローカルディレクトリは依存関係のインストーラーを実行せず、利用者が元の場所で更新します。v2 の update コマンドは global 向けであるため、project のインポートはネイティブに更新する必要があります。 OpenCode はプラグインをまだ読み込んでいないフォルダーでの update に `Plugin is not configured` と答えることがあるため（[anomalyco/opencode#54654](https://github.com/anomalyco/opencode/issues/54654)）、Skillshare はそのエラーを報告する前に 3 秒間隔で最大 3 回 update を再実行します。OpenCode の設定にもう無いパッケージはスキップします。
 
 ```bash
 skillshare plugin add ./cursor-plugin --target cursor --no-tui
@@ -269,12 +309,13 @@ skillshare plugin import npm:my-pi-package --from pi --name my-package --no-tui
 
 ## Ref と明示的なエントリ
 
-**Add plugin** の詳細オプションでは、任意の Git ref と OpenCode entry を指定できます。通常のガイド付きフローでは空のままにしてください。ターミナルウィザードも同じフラグを受け付け、自動化には以下を使用できます。
+**Add plugin** では、ソースの横で任意の Git ref を、OpenCode の entry を検出できないときは OpenCode の行で entry を指定できます。通常のガイド付きフローでは空のままにしてください。ターミナルウィザードも同じフラグを受け付け、自動化には以下を使用できます。
 
 ```bash
 skillshare plugin discover obra/superpowers --source-ref v6.3.0 --json
 skillshare plugin add owner/repo --source-ref v1.0.0 --target copilot --no-tui
 skillshare plugin add ./package --entry dist/plugin.js --target opencode --no-tui
+skillshare plugin add ./lantern --entry bin/lantern-app --target herdr-app --no-tui -g
 skillshare plugin update review --source-ref v1.1.0 --target claude --dry-run --json
 ```
 
@@ -301,7 +342,7 @@ Copilot と Antigravity CLI のインストールは、reviewed されたロー�
 - これらの登録は、user 設定でも project 設定でも、このマシンの Skillshare 状態ディレクトリを指します。Git や dotfile マネージャーで Agent の設定を共有すると、ほかのマシンには存在しないパスが持ち込まれます。各マシンで source から plugin を追加してください。
 - Claude は、skills ディレクトリ内で plugin manifest を持つ skill フォルダも `<name>@skills-dir` という plugin として読み込み、同じ名前の plugin は 1 つしか読み込みません。同名の Claude plugin を追加するとプレビューでそのことを伝えます。名前を変えるかどちらかを削除するまで、Claude は plugin を読み込み、skill フォルダはスキップします。
 
-ネイティブなライフサイクルは、Claude Code `2.1.276`、Codex CLI `0.154.0`、Pi `0.85.1`、Copilot CLI `1.0.86` で動作確認されています。Antigravity CLI `1.2.6` は分離されたネイティブの install/list/remove 操作で確認済みです。OpenCode `1.18.31` は version 対応登録の検証に使用され、v2 スキーマは fixture テストでカバーされています。Cursor と Antigravity のファイルシステム上のライフサイクルは分離されたディレクトリでテストされていますが、GUI 上でのランタイム有効化は保証しません。インストール済みコマンドの capability とインベントリスキーマは実行時に確認され、非対応の操作は理由とともにブロックされます。
+ネイティブなライフサイクルは、Claude Code `2.1.276`、Codex CLI `0.154.0`、Pi `0.85.1`、Copilot CLI `1.0.86` で動作確認されています。Antigravity CLI `1.2.6` は分離されたネイティブの install/list/remove 操作で確認済みです。OpenCode `1.18.31` は version 対応登録の検証に使用され、v2 スキーマは fixture テストでカバーされています。Cursor、Antigravity、Herdr app のファイルシステム上のライフサイクルは分離されたディレクトリでテストされていますが、GUI 上でのランタイム有効化は保証しません。インストール済みコマンドの capability とインベントリスキーマは実行時に確認され、非対応の操作は理由とともにブロックされます。
 
 ## 公式フォーマットの参考資料
 
@@ -356,3 +397,5 @@ skillshare plugin sync NAME --no-tui
 `unimport` には 1 つ以上の明示的な `--target` と、各ターゲットの既存のローカル import 記録および共有ソース設定が必要です。ターゲットの削除アダプターを使って、このマシンのインポート済みのインストールを解除してからローカル記録を削除します。共有宣言と他のマシンのインストールは変更しません。次の sync が共有ソースからインストールします。
 
 アンインストールすると、そのインストールに関連するネイティブクライアントの設定やログイン情報も削除されます。
+
+古い Skillshare の OpenCode v2 アダプターが残した単一ファイルの登録は、add/import/sync/update では拒否されます。古い管理下の binding を削除し、そのディレクトリパッケージを追加し直してください。削除は引き続き可能で、無関係なネイティブ登録には触れません。プレビュー後にランタイムのバージョンが変わった場合は、プレビューをやり直す必要があります。

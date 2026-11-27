@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -83,27 +84,16 @@ func cmdInstallProjectParsed(parsed *installArgs, root string) (installLogSummar
 
 	if resolvedFromMeta {
 		summary, err = handleDirectInstall(source, cfg, parsed.opts)
-		summary.Mode = "project"
-		if err != nil {
-			return summary, err
-		}
-		if !parsed.opts.DryRun {
-			return summary, reconcileProjectInstalledSkills(runtime)
-		}
-		return summary, nil
+	} else {
+		summary, err = dispatchInstall(source, cfg, parsed.opts)
 	}
-
-	summary, err = dispatchInstall(source, cfg, parsed.opts)
 	summary.Mode = "project"
-	if err != nil {
+	if parsed.opts.DryRun || (err != nil && len(summary.InstalledSkills) == 0) {
 		return summary, err
 	}
-
-	if parsed.opts.DryRun {
-		return summary, nil
-	}
-
-	return summary, reconcileProjectInstalledSkills(runtime)
+	// Record what installed even when part of the install failed, such as an
+	// agent, so another checkout can reproduce it.
+	return summary, errors.Join(err, reconcileProjectInstalledSkills(runtime))
 }
 
 func installFromProjectConfig(runtime *projectRuntime, opts install.InstallOptions) (installLogSummary, error) {

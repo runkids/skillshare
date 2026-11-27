@@ -370,6 +370,8 @@ Use SSH URL for private repos:
 skillshare init --remote git@github.com:you/private-skills.git
 ```
 
+To skip hosted Git entirely, keep the repository on one of your own machines and reach it over SSH. See [Machines on a Private Network](/docs/how-to/sharing/private-network).
+
 ---
 
 ## Tips
@@ -445,4 +447,5 @@ skillshare sync
 - [pull](/docs/reference/commands/pull) — Pull from remote
 - [install](/docs/reference/commands/install#install-from-config-no-arguments) — Install from config
 - [Organization-Wide Skills](./organization-sharing.md) — Team sharing
+- [Machines on a Private Network](/docs/how-to/sharing/private-network) — No hosted Git, remote dashboard, skills over MCP
 - [init](/docs/reference/commands/init) — Init with `--remote`

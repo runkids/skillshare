@@ -176,19 +176,10 @@ func (s *Service) Put(root string, entry config.ManagedProject, opts PutOptions)
 	} else if storage == "" {
 		storage = cfg.NewProjectOrigin()
 	}
-	if storage != OriginShared && storage != OriginLocal {
-		return Result{}, fmt.Errorf("invalid project storage %q (valid: %s, %s)", storage, OriginShared, OriginLocal)
+	if err := checkStorage(storage); err != nil {
+		return Result{}, err
 	}
-	c, err := PrepareLayers(s.path, cfg, func(l *config.ProjectLayers) error {
-		if storage == OriginLocal {
-			l.SetLocal(root, entry)
-		} else {
-			// A re-added project is no longer hidden on this machine.
-			l.SetShared(root, entry)
-			l.ClearLocal(root)
-		}
-		return nil
-	})
+	c, err := layerEntries(s.path, cfg, map[string]config.ManagedProject{root: entry}, storage)
 	if err != nil {
 		return Result{}, err
 	}
@@ -211,6 +202,29 @@ func (s *Service) Put(root string, entry config.ManagedProject, opts PutOptions)
 	result.Item = &v
 	result.Expanded = c.Save.Expanded
 	return result, nil
+}
+
+func checkStorage(storage string) error {
+	if storage != OriginShared && storage != OriginLocal {
+		return fmt.Errorf("invalid project storage %q (valid: %s, %s)", storage, OriginShared, OriginLocal)
+	}
+	return nil
+}
+
+// layerEntries saves each entry in storage. An entry saved in config.yaml is
+// no longer hidden on this machine.
+func layerEntries(path string, cfg *config.Config, entries map[string]config.ManagedProject, storage string) (*Candidate, error) {
+	return PrepareLayers(path, cfg, func(l *config.ProjectLayers) error {
+		for root, entry := range entries {
+			if storage == OriginLocal {
+				l.SetLocal(root, entry)
+			} else {
+				l.SetShared(root, entry)
+				l.ClearLocal(root)
+			}
+		}
+		return nil
+	})
 }
 
 // detachDeparting compares paths, rather than target names, so renamed and
@@ -241,7 +255,7 @@ func (s *Service) detachDeparting(before, after *config.Config, affected []strin
 		// including a target with the same name after an edit.
 		probe := maps.Clone(survivors)
 		probe["@departing"] = config.TargetConfig{Skills: &config.ResourceTargetConfig{Path: path}}
-		if config.SkillsPathKeptBy(probe, "@departing", nil) != "" {
+		if ssync.SkillsFolderKeptBy(probe, "@departing", nil, before.EffectiveSkillsSource()) != "" {
 			report.Retained = append(report.Retained, path)
 			continue
 		}
@@ -343,22 +357,32 @@ func field(node *yaml.Node, key string) *yaml.Node {
 	}
 	return nil
 }
+
+// leftoverWarnings names the MCP and hook settings a removed project leaves behind.
+// They are separate lists that no project command edits, so each says where to remove them.
 func leftoverWarnings(cfg *config.Config, root string) []string {
 	normalizedRoot := filepath.Clean(config.ExpandPath(root))
-	sections := map[string]*yaml.Node{"hooks.projects": field(&cfg.Hooks, "projects")}
+	var mcpProjects *yaml.Node
 	if cfg.MCP != nil {
-		sections["mcp.projects"] = cfg.MCP.Projects
+		mcpProjects = cfg.MCP.Projects
+	}
+	sections := []struct {
+		name, what string
+		node       *yaml.Node
+	}{
+		{"mcp.projects", "MCP settings", mcpProjects},
+		{"hooks.projects", "Hook settings", field(&cfg.Hooks, "projects")},
 	}
 	var warnings []string
-	for _, name := range []string{"mcp.projects", "hooks.projects"} {
-		node := sections[name]
+	for _, section := range sections {
+		node := section.node
 		if node == nil {
 			continue
 		}
 		for i := 0; i+1 < len(node.Content); i += 2 {
 			key := node.Content[i].Value
 			if utils.PathsEqual(filepath.Clean(config.ExpandPath(key)), normalizedRoot) {
-				warnings = append(warnings, fmt.Sprintf("%s still contains root %s", name, key))
+				warnings = append(warnings, fmt.Sprintf("%s for %s stay in %s; remove them on the dashboard's Projects page or in config.yaml", section.what, key, section.name))
 			}
 		}
 	}

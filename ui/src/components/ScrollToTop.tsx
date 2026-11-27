@@ -17,7 +17,13 @@ export default function ScrollToTop({ threshold = 400 }: { threshold?: number })
   if (!visible) return null;
   const label = t('common.scrollToTop');
   return (
-    <button type="button" className="ss-top animate-fade-in" aria-label={label} title={label} onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+    <button
+      type="button"
+      className="ss-top animate-fade-in"
+      aria-label={label}
+      title={label}
+      onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+    >
       <ArrowUp size={18} />
     </button>
   );

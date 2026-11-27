@@ -242,8 +242,19 @@ func printUsage() {
 			{"trash", "Restore something you uninstalled"},
 			{"log", "See what ran"},
 		}},
-		helpGroup{title: "Git", rows: []helpRow{{"commit · push · pull", ""}}},
-		helpGroup{title: "CLI", rows: []helpRow{{"upgrade · updates · hub · tui · completion · version", ""}}},
+		helpGroup{title: "Git", rows: []helpRow{
+			{"commit", "Commit source changes without pushing"},
+			{"push", "Commit and push the source to its remote"},
+			{"pull", "Pull the source and sync every Target"},
+		}},
+		helpGroup{title: "CLI", rows: []helpRow{
+			{"upgrade", "Upgrade the CLI and the built-in skill"},
+			{"updates", "Turn automatic update checks on or off"},
+			{"hub", "Manage saved hubs for search"},
+			{"tui", "Turn the full-screen UI on or off"},
+			{"completion", "Generate shell completion scripts"},
+			{"version", "Show the installed version"},
+		}},
 		helpGroup{title: "Common options", rows: []helpRow{
 			{"-p, --project", "Use this project's config"},
 			{"-g, --global", "Use the global config"},

@@ -135,6 +135,32 @@ func TestHandleSyncMatrix_WithSkillsAndTargets(t *testing.T) {
 	}
 }
 
+// A target without its own mode syncs with the config's; in symlink mode
+// filters do not apply.
+func TestHandleSyncMatrix_UsesConfigMode(t *testing.T) {
+	s, sourceDir := newTestServerWithTargets(t, map[string]string{"claude": t.TempDir()})
+	addSkill(t, sourceDir, "alpha")
+	s.cfg.Mode = "symlink"
+	if err := s.cfg.Save(); err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodGet, "/api/sync-matrix", nil)
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Entries []struct {
+			Status string `json:"status"`
+		} `json:"entries"`
+	}
+	json.Unmarshal(rr.Body.Bytes(), &resp)
+	if len(resp.Entries) != 1 || resp.Entries[0].Status != "na" {
+		t.Errorf("entries = %+v, want one not-applicable entry", resp.Entries)
+	}
+}
+
 func TestHandleSyncMatrix_WithFilters(t *testing.T) {
 	tgtPath := filepath.Join(t.TempDir(), "claude-skills")
 	s, sourceDir := newTestServerWithTargets(t, map[string]string{"claude": tgtPath})

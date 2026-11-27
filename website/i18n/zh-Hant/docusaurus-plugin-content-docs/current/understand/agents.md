@@ -193,7 +193,7 @@ skillshare collect -p agents --json
 
 ## `.agentignore`
 
-運作方式與 `.skillignore` 完全相同 — 以 gitignore 風格的模式，將 agents 排除在 sync 之外。
+運作方式與 `.skillignore` 完全相同 — 以 gitignore 風格的模式，將 agents 排除在 sync 之外。`list` 和儀表板仍會把被忽略的 agents 顯示為已停用，包括 `archive/` 這類被忽略資料夾中的所有 agents。
 
 | 範圍 | 路徑 |
 |-------|------|
@@ -206,7 +206,7 @@ skillshare collect -p agents --json
 # Disable draft agents
 draft-*
 # Disable a specific agent
-experimental-reviewer
+experimental-reviewer.md
 ```
 
 使用 `enable`/`disable` 搭配 `--kind agent` 來管理項目：

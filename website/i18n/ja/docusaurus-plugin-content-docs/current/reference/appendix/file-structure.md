@@ -65,6 +65,7 @@ skillshare のディレクトリレイアウトとファイルの場所です。
 ├── mcp/                     # MCP sync state (auto-managed)
 │   ├── state.json           # Which native entries Skillshare owns
 │   ├── tool-pins.json       # Tool definition hashes recorded by mcp check --live
+│   ├── tool-costs.json      # mcp check --live が数えたツールのトークン数（キャッシュ）
 │   └── backups/             # Agent files before each write (newest 20 per file)
 └── plugins/                 # Reviewed local copies of plugin sources
 
@@ -334,7 +335,7 @@ Sync から Agent を除外します。Agent の Source ルートに置きます
 draft-*
 
 # Disable a specific agent
-experimental-reviewer
+experimental-reviewer.md
 ```
 
 [gitignore の構文](https://git-scm.com/docs/gitignore) を使用します。`.skillignore` と同じ

@@ -5,6 +5,7 @@ package integration
 import (
 	"encoding/json"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -655,6 +656,37 @@ func TestList_Agents_FilterByStatus(t *testing.T) {
 	result.AssertSuccess(t)
 	result.AssertOutputContains(t, "reviewer")
 	result.AssertOutputNotContains(t, "tutor")
+}
+
+func TestList_Agents_IgnoredFolderListedAsDisabled(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	agentsDir := createAgentSource(t, sb, map[string]string{
+		"active.md":        "# Active agent",
+		"demo/reviewer.md": "# Ignored by a folder rule",
+	})
+	sb.WriteFile(filepath.Join(agentsDir, ".agentignore"), "demo/\n")
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	result := sb.RunCLI("list", "agents", "--json")
+	result.AssertSuccess(t)
+
+	var entries []struct {
+		RelPath  string `json:"relPath"`
+		Disabled bool   `json:"disabled"`
+	}
+	if err := json.Unmarshal([]byte(result.Stdout), &entries); err != nil {
+		t.Fatalf("invalid JSON output: %v\nStdout: %s", err, result.Stdout)
+	}
+	got := map[string]bool{}
+	for _, e := range entries {
+		got[e.RelPath] = e.Disabled
+	}
+	want := map[string]bool{"active.md": false, "demo/reviewer.md": true}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("relPath → disabled = %v, want %v", got, want)
+	}
 }
 
 func TestList_InvalidStatus(t *testing.T) {

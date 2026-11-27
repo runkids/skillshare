@@ -159,7 +159,7 @@ func (s *Server) handleListTargets(w http.ResponseWriter, r *http.Request) {
 				item.LinkedCount = linked
 				item.LocalCount = local
 			} else {
-				status, managed, local := ssync.CheckStatusCopy(sc.Path)
+				status, managed, local := ssync.CheckStatusCopy(sc.Path, source)
 				item.Status = status.String()
 				item.LinkedCount = managed
 				item.LocalCount = local
@@ -354,7 +354,7 @@ func (s *Server) handleRemoveTarget(w http.ResponseWriter, r *http.Request) {
 	}
 	// Another target writing the same folder (codex and universal) still owns its
 	// links; a target with skills off no longer manages its folder.
-	if sc.IsEnabled() && config.SkillsPathKeptBy(s.cfg.Targets, name, nil) == "" {
+	if sc.IsEnabled() && ssync.SkillsFolderKeptBy(s.cfg.Targets, name, nil, s.skillsSource()) == "" {
 		if status, err := s.detachSkillsTarget(sc.Path); err != nil {
 			writeError(w, status, err.Error())
 			return

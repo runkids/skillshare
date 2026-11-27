@@ -20,7 +20,7 @@ sidebar_position: 8
 使用独立的 [Mod 分享包](https://github.com/runkids/skillshare/tree/main/herdr/skillshare-mod)，添加面板而不替换整个窗口。把下面这段 prompt 贴给 Herdr 里的 agent：
 
 ```text
-Read ~/.config/herdr-app/AGENTS.md, then add this mod from https://github.com/runkids/skillshare/tree/main/herdr/skillshare-mod. Follow its RECIPE.md: add only the skillshare toggle and panel to my current layout, preserving my status bar, usage meters and all other customizations. Reuse existing skillshare nodes instead of duplicating them.
+Read ~/.config/herdr-app/AGENTS.md and the recipe at https://github.com/runkids/skillshare/tree/main/herdr/skillshare-mod. If my Skillshare Dashboard supports the herdr-app target, use it to preview installing this mod and showing its panel in Herdr. Let me review and apply. Otherwise follow the manual recipe, preserving my current layout and reusing existing Skillshare nodes.
 ```
 
 这个分享包没有 `layouts/` 文件夹。Recipe 只添加或复用 skillshare 开关和面板，保留你的状态栏、CLI 额度、主题及其他自定义设置。Herdr 内置的 layout 会先复制再修改。
@@ -57,15 +57,25 @@ tab bar 会出现 **skillshare** 按钮，用来显示或隐藏面板。切换 s
 
 面板跟随 Herdr 显示的 space，在该 space 的机器上、聚焦中 terminal 的文件夹里运行 skillshare。
 
-- **Overview** 先给出答案：“Everything is in sync”，或者有多少个 target 需要同步，并提供一个 Sync 按钮。下面列出 source 中每种资源的数量，以及通向每个 target 的一行，可以看出哪些 target 在等待同步。标签页其余部分只列出需要你处理的内容：等待同步的、有更新的，以及 hooks 通知。在有 `.skillshare/config.yaml` 的项目中，标签页旁边的 All · Project · Global 可以切换 scope。
-- **Library** 列出 skills、agents、MCP servers、plugins 和 hooks，分为“Needs sync”“Update available”“In sync”三组，已禁用的项目归入“Off”。对于 skills 和 agents，“In sync”会把同一个仓库的项目收进可折叠的分组；切换到 List 则显示为平铺列表。
-- **行**会打开预览。skill 显示其 `SKILL.md` 和文件，MCP server 显示隐藏了密钥值的设置，预览的 Targets 标签页显示各 target 的状态。skills 和 agents 提供 Update、Diff、Disable（已禁用的则是 Enable；下次 sync 时应用）、Uninstall，以及“Ask &lt;agent&gt; to audit…”：确认后把该项交给 Herdr 中聚焦的 agent。顶层声明的 hooks 提供 Enable、Disable 和 Remove，每项都先确认；Sync 会应用保存的更改。
+- **Overview** 先给出答案：“Everything is in sync”，或者有多少个 target 需要同步，并提供一个 Sync 按钮。下面列出 source 中每种资源的数量，以及通向每个 target 的一行，可以看出哪些 target 在等待同步。标签页其余部分只列出需要你处理的内容：等待同步的、有更新的、hooks 通知，以及来源缺失的 extras。在有 `.skillshare/config.yaml` 的项目中，标签页旁边的 All · Project · Global 可以切换 scope。
+- **Library** 列出 skills、agents、MCP servers、plugins、hooks 和 extras（文件和文件夹 extras），分为“Needs sync”“Update available”“In sync”三组，已禁用的项目归入“Off”。memory 笔记没有同步状态，单独列在 extras 下方。对于 skills 和 agents，“In sync”会把同一个仓库的项目收进可折叠的分组；切换到 List 则显示为平铺列表。
+- **行**会打开预览。skill 显示其 `SKILL.md` 和文件，MCP server 显示隐藏了密钥值的设置，extra 显示其文件或文件夹中的文件，预览的 Targets 标签页显示各 target 的状态。skills 和 agents 提供 Update、Diff、Disable（已禁用的则是 Enable；下次 sync 时应用）、Uninstall，以及“Ask &lt;agent&gt; to audit…”：确认后把该项交给 Herdr 中聚焦的 agent。顶层声明的 hooks 提供 Enable、Disable 和 Remove，每项都先确认；Sync 会应用保存的更改。
 - hooks 计数包含具名条目和待清理条目；诊断通知有单独的行。hooks 冲突会阻止所有资源同步，需先在 CLI 或仪表板中解决。无法读取计划时，条目会在分组外显示同步状态未知。
 - **Install** 接受仓库 URL。包含多个 skills 的仓库会列出清单供你挑选。面板会先 clone，对 clone 运行 [`skillshare audit`](/docs/reference/commands/audit)，通过才安装。audit 拦下时会显示 findings，并提供“Install anyway”（`--force`）和“Ask &lt;agent&gt; to review…”。
 - **Source** 显示 source 仓库的状态，对话框提供 Pull、Commit and push 和 Sync both ways。pull 遇到两台机器都改过的文件时，可以从左右对照预览逐个文件选择要保留的版本。`.metadata.json` 会逐条合并，与 [`skillshare pull`](/docs/reference/commands/pull) 的做法相同。
 - **Machines** 显示每台 Herdr 机器的 skillshare 版本、remote、source 和 target 状态以及 doctor 警告，提供 Pull and sync；有新版本时也提供 Update。有未提交或未推送更改的机器会改为提供 Sync both ways，因为普通的 pull 会被拒绝。
 
 面板显示时每 20 秒刷新一次，每 10 分钟运行 `skillshare check`，隐藏时不做任何事。
+
+## 其他 Herdr mod 与启动器
+
+[`skillshare plugin`](/docs/reference/commands/plugin#herdr-app) 的 `herdr-app` target 可以安装其他 Herdr mod，以及 Lantern 这类启动器应用，并像其他 plugin 一样用 `check` 和 `update` 保持最新：
+
+```bash
+skillshare plugin add owner/herdr-mods --target herdr-app -g
+```
+
+如果 mod 位于大型仓库的子目录中，请把软件包文件夹或 `mods/<id>/main.js` 的 GitHub 链接粘贴到 Dashboard 的添加插件窗口。[这个面板的 Mod 包](https://github.com/runkids/skillshare/tree/main/herdr/skillshare-mod)也可以这样安装。在同一台电脑上打开 Herdr，并保持勾选 **在 Herdr 显示 Skillshare 面板**。预览会显示副本名称，应用后会切换到已添加按钮和面板的副本，原布局不变。如果通过 Skillshare 管理面板，请用 `skillshare plugin update skillshare -g` 更新，而不是使用面板的更新按钮。
 
 ## 相关
 

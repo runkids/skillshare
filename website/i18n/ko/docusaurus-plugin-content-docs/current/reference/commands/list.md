@@ -70,7 +70,7 @@ TTY에서 `skillshare list`는 skill과 agent를 두 탭으로 나눈 대화형 
   ```
   이는 "security" 그룹에 속한 tracked skill 중 이름에 "audit"이 포함된 것만 표시합니다.
 
-- **Manual only toggle** — `m`을 눌러 선택한 skill의 `SKILL.md`에서 `disable-model-invocation`을 전환합니다. skill은 설치된 상태로 남고 이름으로 여전히 호출할 수 있지만, 모델이 자동으로 로드하지는 않습니다. detail panel에는 **manual only** 배지가 표시됩니다. `t`와 달리 이는 skill 파일 자체를 수정합니다: tracked 또는 설치된 skill의 경우 TUI가 먼저 확인을 묻는데, `skillshare update`가 로컬 변경 사항이 있는 tracked repo와 설치된 skill을 `m`을 다시 누르거나 `--force`로 업데이트할 때까지 건너뛰며, `--force`를 사용하면 편집 내용이 사라지기 때문입니다. `m`을 다시 누르면 해당 줄이 제거되어 파일이 정확히 원래대로 복원됩니다. Agent는 영향을 받지 않습니다. [대시보드](/docs/reference/commands/ui)에도 동일한 **manual only** 태그가 표시되며 skill 편집기에 해당 스위치가 있습니다.
+- **Manual only toggle** — `m`을 눌러 선택한 skill의 `SKILL.md`에서 `disable-model-invocation`을 전환합니다. skill은 설치된 상태로 남고 이름으로 여전히 호출할 수 있지만, 모델이 자동으로 로드하지는 않습니다. detail panel에는 **manual only** 배지가 표시됩니다. `t`와 달리 이는 skill 파일 자체를 수정합니다: tracked 또는 설치된 skill의 경우 TUI가 먼저 확인을 묻는데, `skillshare update`가 로컬 변경 사항이 있는 tracked repo와 설치된 skill을 `m`을 다시 누르거나 `--force`로 업데이트할 때까지 건너뛰며, `--force`를 사용하면 편집 내용이 사라지기 때문입니다. `m`을 다시 누르면 해당 줄이 제거되어 파일이 정확히 원래대로 복원됩니다. frontmatter의 `---` 줄이 들여쓰기되어 있거나, 닫히지 않았거나, 다른 텍스트 뒤에 있는 `SKILL.md`는 변경되지 않으며 TUI에 이유가 표시됩니다. Agent는 영향을 받지 않습니다. [대시보드](/docs/reference/commands/ui)에도 동일한 **manual only** 태그가 표시되며 skill 편집기에 해당 스위치가 있습니다.
 
 TUI를 건너뛰고 일반 텍스트를 출력하려면 `--no-tui`를 사용하세요.
 
@@ -294,7 +294,7 @@ skillshare install owner/repo -s vue-patterns --into frontend
 
 ## Agent Support
 
-`skillshare list agents`는 agent만 필터링하여 agent source 디렉터리(`~/.config/skillshare/agents/` 또는 `.skillshare/agents/`)의 `.md` 파일을 표시합니다.
+`skillshare list agents`는 agent만 필터링하여 agent source 디렉터리(`~/.config/skillshare/agents/` 또는 `.skillshare/agents/`)의 `.md` 파일을 표시합니다. `.agentignore`로 무시된 폴더 안의 agent는 비활성화 상태로 표시됩니다.
 
 ```bash
 skillshare list agents              # List agents only

@@ -54,7 +54,12 @@ skillshare mcp serve --check [--target NAME]         # List skipped, editable an
 - `mcp check --live [--timeout 10s]` also starts each local server (your environment plus
   its `env`) and POSTs to each remote one, skipping servers with a static error. A 401 is a
   warning with the resource metadata URL; it never signs in. Use it only for trusted
-  servers. `--json` adds `live: {protocolVersion, serverInfo, tools, toolNames}`.
+  servers. `--json` adds `live: {protocolVersion, serverInfo, tools, toolNames, toolTokens}`; the
+  info line shows `~N tokens`, an estimate of every tool's name, description and schema, saved
+  per server in `mcp/tool-costs.json` (a cache). The text output of `mcp check --live`, `analyze`,
+  `sync mcp` and the dashboard Context page add these up per MCP target (a project root also
+  counts the global servers it keeps on) and warn above `context_budget.warn_mcp_tool_tokens`
+  (default 30000, `0` disables); uncounted servers are listed, not counted as 0.
 - `mcp check --live` also pins each tool's definition (hash of name, description and input
   schema) on a server's first probe, in `mcp/tool-pins.json` of the state directory. Later
   probes warn (`tool-change`) about a changed or new tool and note a removed one; the pin is
@@ -63,15 +68,24 @@ skillshare mcp serve --check [--target NAME]         # List skipped, editable an
   again. Without `--live` the pins are untouched.
 - `mcp serve` serves skills to Agents that cannot reach the synced folders (VMs, MCP
   gateways): stdio by default, global unless `-p`. `--target NAME` applies that target's
-  filters. Skipped skills (`SKILL.md` a link or not starting with frontmatter, name not matching
+  filters. `resources/list` lists served `SKILL.md` files with frontmatter name and description.
+  `directoryRead: true` enables `resources/directory/read` (`uri`, optional `cursor`):
+  direct children in `resources`, including empty directories (`inode/directory`).
+  Directory URIs have no trailing slash; unknown directories and files return `-32602`.
+  Both listings return at most 100 resources in URI order; continue with `nextCursor` as `cursor`.
+  Skipped skills (`SKILL.md` a link or not starting with frontmatter, name not matching
   its directory, description missing or over 1,024 characters, compatibility empty or over 500, over 512 files/16 MiB) are
   listed on stderr; `--check` lists them without serving. `--http` on a non-loopback address requires `SKILLSHARE_MCP_TOKEN` and, by default, `--tls-cert`/`--tls-key` (or bind loopback behind a TLS proxy). On a trusted private network, explicitly opt in to plain HTTP with `--http-allow-insecure`; this logs a startup warning and still requires the token. Cross-origin browser requests to the MCP endpoint are refused.
   Do not connect local Agents that already sync skills; they would see each skill twice.
   Connect one with `mcp add skillshare --target CLIENT --sync -- skillshare mcp serve`, or a
   remote `url` with `bearerToken: {fromEnv: SKILLSHARE_MCP_TOKEN}`. Agents with the Skills
-  extension load skills natively; as of October 2026 Codex, Cursor, VS Code, Goose and Pi
-  lack it and Claude Code's is off by default, so the server also offers `list_skills`
-  (`query` filters) and `read_skill` tools, marked `readOnlyHint` and hidden from clients that declare the extension. Verify the server with
+  extension load skills natively. Claude Code has it in public beta from v2.1.331 (interactive
+  sessions, not `claude -p`); verified with v2.1.332: skills show in `/skills` as `<server>:<skill>`,
+  run from that command, and other files are read through `resources/read`. As of October 2026
+  Codex, Cursor, VS Code, Goose and Pi lack it, so the server also offers `list_skills`
+  (`query` filters) and `read_skill` tools, marked `readOnlyHint` and hidden from requests that
+  declare the extension. Claude Code v2.1.332 declares it only on `skills/list`, so it still
+  gets both tools. Verify the server with
   `npx @modelcontextprotocol/inspector --cli skillshare mcp serve --method skills/list --verify`.
 - `mcp.serve.edit.skills` (flat-name patterns, like `include`) lets clients change
   existing files of those skills; `preview_ttl` defaults to `30m`. `preview_skill_edit`
@@ -123,9 +137,10 @@ mcp:
 | `transport` | Optional `stdio` or `streamable-http`; inferred when omitted. Legacy SSE is not supported |
 | `targets` | Receiving clients for this server. `[]` keeps it in Skillshare only |
 | `tools` | `{allow, deny}`: which tools reach the model, translated per Agent. See [Tool policy](#tool-policy) |
-| `options` | `{<client>: {field: value}}`: other Agents' native per-server fields written as given, e.g. `codex: {default_tools_approval_mode: approve}`, `claude: {timeout: 600000}`. Values: scalars, lists of scalars, or mappings; no `null`. Managed fields (`url`, `command`, `env`, `headers`, `type`, `enabled`, Codex `enabled_tools`…) and `options.pi` (use `piOptions`) are refused; credentials (by field name or a URL password) must be a whole-value environment reference in the Agent's own syntax (`${VAR}`, `{env:VAR}`), never plain text, and options of an Agent that reads no references there (Codex, Antigravity, Claude Desktop, Goose, Junie, LM Studio, Warp) cannot hold one; not allowed with `disabled`. Sync removes an option it wrote once the source drops it |
+| `options` | `{<client>: {field: value}}`: other Agents' native per-server fields written as given, e.g. `codex: {default_tools_approval_mode: approve}`, `claude: {timeout: 600000}`. Values: scalars, lists of scalars, or mappings; no `null`. Managed fields (`url`, `command`, `env`, `headers`, `type`, `enabled`, Codex `enabled_tools`…) and `options.pi` (use `piOptions`) are refused; credentials (by field name or a URL password) must be a whole-value environment reference in the Agent's own syntax (`${VAR}`, `{env:VAR}`), never plain text, and options of an Agent that reads no references there (Codex, Antigravity, Claude Desktop, Goose, Junie, LM Studio, Warp) cannot hold one; not allowed with `disabled`. Sync removes an option it wrote once the source drops it. Import puts an Agent's other native fields (e.g. Claude Code `alwaysLoad`) here; a field these rules refuse, one whose name or nested name suggests a credential (`auth`, `key`, `token`, `bearer`, `cookie`…), or any field of a file imported without `--from` or of JSON pasted in the dashboard with **From** at Any Agent (guessed format), is left out with a warning |
 | `piOptions` | Other Pi built-in per-server fields. See [Pi](#pi) |
 | `disabled` | `true` only, no connection fields, and a project must be in scope: project mode, or a root under `mcp.projects`. See [Turn off a global server in one project](#turn-off-a-global-server-in-one-project) |
+| `global` | Global config `mcp.servers` only. `false` loads the server only in roots that list it under `use`. Default `true`. See [Several projects from the global config](#several-projects-from-the-global-config) |
 
 Client IDs: `claude`, `codex`, `cursor`, `vscode`, `opencode`, `kilocode`, `grok`,
 `antigravity`, `amp`, `claude-desktop`, `cline`, `copilot`, `factory`, `gemini`, `goose`, `hermes`,
@@ -164,8 +179,8 @@ setups usually go wrong.
   Names have a 100-character limit. Portable SSE imports are not supported.
 - Sync keeps `$schema`, `disabledServers`, `enabledServers`, unrelated servers and
   native entry settings (`enabled`, `timeout`, `instructions`, `requestIdFormat`,
-  `cwd`, `auth`, `oauth`). Import warns about entry fields it cannot represent;
-  keep them in OMP, not `piOptions`.
+  `cwd`, `auth`, `oauth`). Import puts other entry fields under `options.omp`,
+  not `piOptions`, and warns about one `options` cannot hold.
 - The user `disabledServers` denylist wins over every enable setting. Import blocks
   denylisted servers; an entry's `enabled: false` is importable only if the same file's
   `enabledServers` force-enables it. Sync never removes these lists to activate a server.
@@ -231,8 +246,8 @@ setups usually go wrong.
 - Only `[mcp_servers.NAME]` tables and their subtables can be edited. Inline or dotted
   definitions are rejected without touching the file; convert them to tables first.
 - `cwd`, `http_headers_helper`, approval modes, timeouts (`startup_timeout_sec`) and
-  the `oauth` table have no portable form. Import leaves them out with a warning, and
-  sync keeps them in the existing entry; set them from the source with `options.codex`. `enabled_tools`/`disabled_tools` come from
+  the `oauth` table have no portable form. Import puts them under `options.codex`, which
+  sync writes back, except a field that may hold a credential, such as the `oauth` table (left out with a warning). `enabled_tools`/`disabled_tools` come from
   `tools` (exact names only) and import back into it.
 - Servers bundled by a Codex plugin live under `plugins.<plugin>.mcp_servers` and are
   not managed here.
@@ -270,7 +285,7 @@ setups usually go wrong.
   are not followed. No project MCP destination.
 - Stdio and Streamable HTTP use native `command`/`args`/`env` and `url`/`headers`.
   `fromEnv` writes `${VAR}`; env/header import also accepts `${env:VAR}`.
-  SSE imports are blocked. Other unmapped native fields produce import warnings.
+  SSE imports are blocked. Other native fields import under `options.hermes`.
 - Set `options.hermes: {auth: oauth}` for OAuth. Import preserves `auth` and
   `oauth` in `options.hermes`, rejecting literal credentials there; use
   whole-value `${VAR}` references. Hermes owns login, `.env`, tokens and refresh:
@@ -464,17 +479,36 @@ mcp:
 - A project lists only what differs. Global servers already load in every project,
   because the Agent reads its global and project files together; do not repeat them. A
   `disabled` entry only switches one off in that folder.
-- No command edits `mcp.projects`; `mcp add` leaves it as written. Edit `config.yaml`, or
+- No command edits `mcp.projects` (including `use`); `mcp add` leaves it as written. Edit `config.yaml`, or
   use the dashboard: the **Projects** page adds and removes projects, and each project's
   **MCP** tab turns global servers off there, edits project servers and lists the
-  project's Agent files with **Open folder**, **Open in editor** and **Copy path**.
+  project's Agent files with **View file**, **Open folder**, **Open in editor** and **Copy path**.
 - `disabled` under `mcp.projects` cannot target `claude`. Use project mode in that
   folder instead.
 - It is refused inside a project config. A folder whose own `.skillshare/config.yaml`
   manages the same entry produces a conflict, not an overwrite.
 - Removing a project from the list removes the entries Skillshare wrote there.
-- To share one definition between projects, use a YAML anchor kept inside
-  `mcp.projects`.
+- **Share one definition:** set `global: false` on a server in the global `mcp.servers`, then
+  list it under `use: [name]` in each root that should load it. It is never written to a
+  global file; sync writes it into each using root, to that root's `targets` unless the server
+  names its own. Editing it once updates every using root. A shared server no root uses is
+  written nowhere.
+  - `use` names must exist, be `global: false`, and appear once; a name cannot also be
+    in that root's `servers`.
+  - `global` is refused under `mcp.projects.<root>.servers`, in project mode, and with
+    `disabled`. A shared server's `targets` cannot name an account (`claude-work`): name the Agent.
+  - Removing a shared server, or setting it back to global, clears it from every `use` list.
+  - `mcp list` adds a `shared` row per shared server with its projects; `mcp list --json` has
+    a top-level `shared: [{name, projects}]`.
+  - A root's `overrides: {<name>: {...}}` changes a shared server it uses for that root only:
+    `targets` and `tools` replace the server's, `piOptions` and `options` merge key by key.
+    `command`, `args`, `url`, `headers` and `env` cannot be overridden. Dropping the server from
+    that root's `use`, removing it, or making it global drops the override.
+  - No command edits `use` or `overrides`, and existing per-project copies are not converted. Edit
+    `config.yaml`, or use the dashboard: **Loads in** in the server dialog or
+    **Projects** in a shared server's expanded row on the **MCP** page, and
+    **Opt-in servers** on a project's **MCP** tab. Both places open an **Override** dialog
+    for a project that uses the server; saving it replaces that root's override.
 - The preview names the file when one server appears in several places.
 
 ## Interactive use

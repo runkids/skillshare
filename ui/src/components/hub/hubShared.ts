@@ -2,6 +2,7 @@ import type { HubSavedEntry } from '../../api/client';
 import type { HubEntry, HubProblem, HubRefs } from '../../api/hubDrafts';
 import type { SelectOption } from '../Select';
 import type { useT } from '../../i18n';
+import { downloadJson } from '../../lib/downloadJson';
 
 type T = ReturnType<typeof useT>;
 
@@ -15,10 +16,13 @@ export const COMMUNITY: HubSavedEntry = {
 /** Prefix that marks a list key as one of the user's own hubs rather than a hosted index. */
 export const DRAFT = 'draft:';
 
-export const sameURL = (a: string, b: string) => a.trim().replace(/\/+$/, '') === b.trim().replace(/\/+$/, '');
+export const sameURL = (a: string, b: string) =>
+  a.trim().replace(/\/+$/, '') === b.trim().replace(/\/+$/, '');
 
 export const newEntryId = () =>
-  Array.from(crypto.getRandomValues(new Uint8Array(16)), (byte) => byte.toString(16).padStart(2, '0')).join('');
+  Array.from(crypto.getRandomValues(new Uint8Array(16)), (byte) =>
+    byte.toString(16).padStart(2, '0'),
+  ).join('');
 
 /** Entries a recipient could not install; the draft-wide "empty" problem has no entry. */
 export const blockedEntries = (problems: HubProblem[]) =>
@@ -46,22 +50,31 @@ export function skillSource(root: string, path: string) {
 }
 
 /** Version choices for a source: the default branch first, then branches, then tags. */
-export function refOptions(t: T, refs: HubRefs | undefined, current: string, loading = false): SelectOption[] {
-  const options: SelectOption[] = [{
-    value: '',
-    label: t('hubs.ref.default'),
-    note: refs?.defaultBranch ? `· ${refs.defaultBranch}` : undefined,
-  }];
+export function refOptions(
+  t: T,
+  refs: HubRefs | undefined,
+  current: string,
+  loading = false,
+): SelectOption[] {
+  const options: SelectOption[] = [
+    {
+      value: '',
+      label: t('hubs.ref.default'),
+      note: refs?.defaultBranch ? `· ${refs.defaultBranch}` : undefined,
+    },
+  ];
   const seen = new Set(['']);
   const add = (value: string, group?: string) => {
     if (seen.has(value)) return;
     seen.add(value);
     options.push({ value, label: value, group });
   };
-  if (current && !(refs?.branches ?? []).includes(current) && !(refs?.tags ?? []).includes(current)) add(current);
+  if (current && !(refs?.branches ?? []).includes(current) && !(refs?.tags ?? []).includes(current))
+    add(current);
   for (const b of refs?.branches ?? []) add(b, 'Branch');
   for (const tag of refs?.tags ?? []) add(tag, 'Tag');
-  if (loading) options.push({ value: '\u0000loading', label: t('hubs.ref.loading'), disabled: true });
+  if (loading)
+    options.push({ value: '\u0000loading', label: t('hubs.ref.loading'), disabled: true });
   return options;
 }
 
@@ -71,12 +84,5 @@ export const publishable = (location: string) =>
   !Array.from(location).some((char) => char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127);
 
 export function downloadIndex(data: Record<string, unknown>) {
-  const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2) + '\n'], { type: 'application/json' }));
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = 'skillshare-hub.json';
-  document.body.append(anchor);
-  anchor.click();
-  anchor.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  downloadJson('skillshare-hub.json', data);
 }

@@ -1,25 +1,53 @@
-// Extras types
+export interface CreateExtraRequest {
+  name: string;
+  source?: string;
+  folder?: string; // a folder in the shared extras folder; the server stores it as the source
+  file?: string; // single-file extra: the file in the source folder
+  targets: Array<{
+    path: string;
+    mode: string;
+    flatten?: boolean;
+    extension?: string;
+    as?: string;
+  }>;
+}
+
+export interface EditExtraTarget {
+  path: string;
+  mode: string;
+  flatten: boolean;
+  extension: string;
+  as: string;
+  include: string[];
+  exclude: string[];
+}
+
+export interface ExtensionActionResult {
+  success: boolean;
+  name: string;
+}
+
 export interface ExtraTarget {
   path: string;
   mode: string;
   flatten: boolean;
-  extension?: string;  // transform extension name; presence implies copy mode
+  extension?: string; // transform extension name; presence implies copy mode
   as?: string; // single-file extra: target filename
   include?: string[];
   exclude?: string[];
   file_count: number; // source files this target syncs after include/exclude
-  status: string;  // "synced" | "drift" | "modified" | "not synced" | "no source"
+  status: string; // "synced" | "drift" | "modified" | "not synced" | "no source"
 }
 
 export interface Extra {
   remote?: string;
   branch?: string;
   commit?: string;
-  state?: "intact" | "modified" | "interrupted" | "missing" | "error";
+  state?: 'intact' | 'modified' | 'interrupted' | 'missing' | 'error';
   name: string;
   file?: string; // single-file extra: the file in source_dir (AGENTS.md ones are shared instruction files)
   source_dir: string;
-  source_type: "per-extra" | "extras_source" | "default";
+  source_type: 'per-extra' | 'extras_source' | 'default';
   file_count: number;
   source_exists: boolean;
   targets: ExtraTarget[];
@@ -47,7 +75,7 @@ export interface ExtensionInfo {
 }
 
 export interface ExtraDiffItem {
-  action: string;  // "create" | "update" | "prune"
+  action: string; // "create" | "update" | "prune"
   file: string;
   reason: string;
 }

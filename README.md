@@ -5,7 +5,7 @@
 <h1 align="center" style="margin-top: 0.5rem; margin-bottom: 0.5rem;">skillshare</h1>
 
 <p align="center">
-  <a href="README.md">English</a> · <a href="README-de.md">Deutsch</a> · <a href="README-es.md">Español</a> · <a href="README-fr.md">Français</a> · <a href="README-ja.md">日本語</a> · <a href="README-ko.md">한국어</a> · <a href="README-pt-BR.md">Português</a> · <a href="README-zh-CN.md">简体中文</a> · <a href="README-zh-TW.md">繁體中文</a>
+  <a href="README.md">English</a> · <a href="README-de.md">Deutsch</a> · <a href="README-es.md">Español</a> · <a href="README-fr.md">Français</a> · <a href="README-ja.md">日本語</a> · <a href="README-ko.md">한국어</a> · <a href="README-pt-BR.md">Português</a> · <a href="README-tr.md">Türkçe</a> · <a href="README-zh-CN.md">简体中文</a> · <a href="README-zh-TW.md">繁體中文</a>
 </p>
 
 <p align="center">
@@ -14,7 +14,7 @@
   <a href="https://github.com/runkids/skillshare/releases"><img src="https://img.shields.io/github/v/release/runkids/skillshare" alt="Release"></a>
   <a href="https://github.com/runkids/skillshare/releases"><img src="https://img.shields.io/github/downloads/runkids/skillshare/total" alt="Downloads"></a>
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-blue" alt="Platform">
-  <a href="https://deepwiki.com/runkids/skillshare"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
+  <a href="https://deepwiki.com/runkids/skillshare"><img src="https://img.shields.io/badge/Ask-DeepWiki-blue" alt="Ask DeepWiki"></a>
   <a href="https://ko-fi.com/williehung"><img src="https://img.shields.io/badge/Support-skillshare-FF5E5B?logo=kofi&logoColor=white" alt="Support skillshare on Ko-fi"></a>
 </p>
 
@@ -48,7 +48,7 @@
 </p>
 
 > [!NOTE]
-> **Latest**: v0.30.7 — Let accepted findings pass in CI: `skillshare audit --respect-accepted` no longer fails on findings you accepted with `--force` during `install` or `update`, the same way the update gate treats them. They stay in the report, marked as accepted. [audit reference →](https://skillshare.runkids.cc/docs/reference/commands/audit#accepted-findings) · [All releases →](https://github.com/runkids/skillshare/releases)
+> **Latest**: v0.33.0 — Make the dashboard your own: **Settings → Appearance** has a Custom theme editor with 14 presets, or your own accent, background tint, corners and font. Dark mode is derived for you, every text color stays readable at 4.5:1, and a theme can be shared as a link or JSON file. Clean and Playful are restyled too. `skillshare hooks sync -p --trust` now records Codex trust for a project's hooks, and MiniMax Code is a built-in target. [Theme guide →](https://skillshare.runkids.cc/docs/reference/commands/ui#theme-system) · [All releases →](https://github.com/runkids/skillshare/releases)
 
 ## Why skillshare
 
@@ -124,6 +124,14 @@ nix profile add github:runkids/skillshare
 ```
 
 Update with `nix profile upgrade skillshare`. Requires Nix 2.30+ with flakes enabled; on older Nix or Lix, use `nix profile install`. NixOS and Home Manager configurations can use the flake's `overlays.default`.
+
+### CLI: PyPI
+
+```bash
+uv tool install skillshare-cli
+```
+
+Or `pipx install skillshare-cli`, or `pip install skillshare-cli`. To try skillshare without installing it, run `uvx --from skillshare-cli skillshare`. Update with your installer, such as `uv tool upgrade skillshare-cli` or `pipx upgrade skillshare-cli`.
 
 ### GitHub Actions
 
@@ -301,7 +309,11 @@ make check  # format + lint + test
 
 ## Contributors
 
-Thanks to everyone who helped shape skillshare.
+[View contributors on GitHub](https://github.com/runkids/skillshare/graphs/contributors)
+
+### Community thanks
+
+Thank you to everyone who has reported a bug, suggested an improvement, or helped test a fix.
 
 <a href="https://github.com/leeeezx"><img src="https://github.com/leeeezx.png" width="50" style="border-radius:50%" alt="leeeezx"></a>
 <a href="https://github.com/Vergil333"><img src="https://github.com/Vergil333.png" width="50" style="border-radius:50%" alt="Vergil333"></a>
@@ -406,6 +418,19 @@ Thanks to everyone who helped shape skillshare.
 <a href="https://github.com/servaasvdc"><img src="https://github.com/servaasvdc.png" width="50" style="border-radius:50%" alt="servaasvdc"></a>
 <a href="https://github.com/tomerzcod7"><img src="https://github.com/tomerzcod7.png" width="50" style="border-radius:50%" alt="tomerzcod7"></a>
 <a href="https://github.com/ErykJakubik"><img src="https://github.com/ErykJakubik.png" width="50" style="border-radius:50%" alt="ErykJakubik"></a>
+<a href="https://github.com/maciejniec"><img src="https://github.com/maciejniec.png" width="50" style="border-radius:50%" alt="maciejniec"></a>
+<a href="https://github.com/jani-nieminen-framehaus"><img src="https://github.com/jani-nieminen-framehaus.png" width="50" style="border-radius:50%" alt="jani-nieminen-framehaus"></a>
+<a href="https://github.com/endgame302"><img src="https://github.com/endgame302.png" width="50" style="border-radius:50%" alt="endgame302"></a>
+<a href="https://github.com/eirikc"><img src="https://github.com/eirikc.png" width="50" style="border-radius:50%" alt="eirikc"></a>
+<a href="https://github.com/AlexisSerneels"><img src="https://github.com/AlexisSerneels.png" width="50" style="border-radius:50%" alt="AlexisSerneels"></a>
+<a href="https://github.com/digitalflex-io"><img src="https://github.com/digitalflex-io.png" width="50" style="border-radius:50%" alt="digitalflex-io"></a>
+<a href="https://github.com/WslzGmzs"><img src="https://github.com/WslzGmzs.png" width="50" style="border-radius:50%" alt="WslzGmzs"></a>
+<a href="https://github.com/NieZhuZhu"><img src="https://github.com/NieZhuZhu.png" width="50" style="border-radius:50%" alt="NieZhuZhu"></a>
+<a href="https://github.com/vivekkushalch"><img src="https://github.com/vivekkushalch.png" width="50" style="border-radius:50%" alt="vivekkushalch"></a>
+<a href="https://github.com/raphaelbahat"><img src="https://github.com/raphaelbahat.png" width="50" style="border-radius:50%" alt="raphaelbahat"></a>
+<a href="https://github.com/dev-seahouse"><img src="https://github.com/dev-seahouse.png" width="50" style="border-radius:50%" alt="dev-seahouse"></a>
+<a href="https://github.com/cazador481"><img src="https://github.com/cazador481.png" width="50" style="border-radius:50%" alt="cazador481"></a>
+<a href="https://github.com/SaladDay"><img src="https://github.com/SaladDay.png" width="50" style="border-radius:50%" alt="SaladDay"></a>
 
 ---
 

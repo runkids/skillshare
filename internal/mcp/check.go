@@ -139,7 +139,7 @@ func (s *Service) Check(opts CheckOptions) (*CheckReport, error) {
 			result.Findings = append(result.Findings, checkPin(server)...)
 		}
 		result.Findings = append(result.Findings, preflight[k]...)
-		result.Findings = append(result.Findings, checkToolPolicy(source, k.root, server)...)
+		result.Findings = append(result.Findings, checkToolPolicy(source, k.root, k.name, server)...)
 		report.Servers = append(report.Servers, result)
 	}
 	byKey := map[checkKey]*CheckServer{}
@@ -165,10 +165,49 @@ func (s *Service) Check(opts CheckOptions) (*CheckReport, error) {
 	}
 	accepted := *source
 	accepted.Servers = accept("", source.Servers, source.Targets)
+	// A shared server that names no targets follows each using project's. Once an Agent
+	// refuses it, it becomes each project's own entry here, so every project keeps its targets.
+	var inherited []string
+	for name, server := range source.Servers {
+		if k := (checkKey{name: name}); server.Shared() && server.Targets == nil && len(refused[k]) > 0 && !slices.Contains(refused[k], "") {
+			inherited = append(inherited, name)
+			delete(accepted.Servers, name)
+		}
+	}
 	if source.Projects != nil {
 		accepted.Projects = map[string]Project{}
 		for root, project := range source.Projects {
 			project.Servers = accept(root, project.Servers, project.defaults(source))
+			for _, name := range inherited {
+				if !slices.Contains(project.Use, name) {
+					continue
+				}
+				server := source.inRoot(root, name, source.Servers[name])
+				server.Global = nil
+				server.Targets = slices.DeleteFunc(server.Targets, func(target string) bool {
+					return slices.Contains(refused[checkKey{name: name}], target)
+				})
+				project.Servers[name] = server
+			}
+			// A root's override no longer sends a shared server where an Agent refused it.
+			for name, override := range project.Overrides {
+				if no := refused[checkKey{name: name}]; override.Targets != nil && len(no) > 0 {
+					override.Targets = slices.DeleteFunc(slices.Clone(override.Targets), func(target string) bool {
+						return slices.Contains(no, target)
+					})
+					project.Overrides = setOverride(project.Overrides, name, override)
+				}
+			}
+			// A shared server left out above cannot stay in use.
+			project.Use = slices.DeleteFunc(slices.Clone(project.Use), func(name string) bool {
+				_, ok := accepted.Servers[name]
+				return !ok
+			})
+			for name := range project.Overrides {
+				if !slices.Contains(project.Use, name) {
+					project.Overrides = setOverride(project.Overrides, name, Override{})
+				}
+			}
 			accepted.Projects[root] = project
 		}
 	}
@@ -176,17 +215,31 @@ func (s *Service) Check(opts CheckOptions) (*CheckReport, error) {
 	if err != nil {
 		return nil, err
 	}
+	// A shared server is checked once, in the global list, though each project that uses
+	// it has its own entries.
+	keyOf := func(c Change) checkKey {
+		if c.Root != "" && slices.Contains(source.Projects[c.Root].Use, c.Name) {
+			return checkKey{name: c.Name}
+		}
+		return checkKey{c.Root, c.Name}
+	}
 	var synced []Change
 	for _, c := range p.Changes {
-		k := checkKey{c.Root, c.Name}
+		k := keyOf(c)
 		if byKey[k] != nil && !slices.Contains(refused[k], c.Target) {
 			synced = append(synced, c)
 		}
 	}
 	slices.SortStableFunc(synced, func(a, b Change) int { return strings.Compare(a.Target, b.Target) })
 	for _, c := range synced {
-		result := byKey[checkKey{c.Root, c.Name}]
-		result.Findings = append(result.Findings, syncFinding(c))
+		k := keyOf(c)
+		f := syncFinding(c)
+		if k.root != c.Root {
+			// One entry stands for every project that uses it; say which one this is.
+			f.Message += " (" + c.Root + ")"
+		}
+		result := byKey[k]
+		result.Findings = append(result.Findings, f)
 	}
 	if opts.Live {
 		s.checkLive(source, report, opts)
@@ -381,25 +434,52 @@ func pinTargets(args, pkgFlags, valueFlags []string) (pkgs []string, command str
 // names that Agent. A project server is rendered in its root. A server that names no targets
 // is kept in Skillshare only.
 func (s *Service) checkClientRules(source *Source, root, name string, server Server) []CheckFinding {
-	if server.Targets != nil && len(server.Targets) == 0 {
+	shared := root == "" && server.Shared()
+	if server.Targets != nil && len(server.Targets) == 0 && (!shared || len(source.SharedTargets(name)) == 0) {
 		return []CheckFinding{{Level: "info", Check: "targets", Message: "kept in Skillshare only; no Agent receives it"}}
 	}
 	defaults := source.Targets
+	if shared {
+		if len(source.Users(name)) == 0 {
+			return []CheckFinding{{Level: "info", Check: "use", Message: "not used by any project"}}
+		}
+		defaults = source.SharedTargets(name)
+	}
 	if root != "" {
 		project := source.Projects[root]
 		defaults = project.defaults(source)
 		// Rendered alone, a switch-only entry could not see what decides its targets.
 		server = followingSwitches(project.Servers, defaults, source)[name]
 	}
-	render := func(server Server) error {
+	// render checks the server for target, or as written when target is empty.
+	render := func(server Server, target string) error {
 		alone := *source
 		alone.Servers = map[string]Server{}
 		alone.Projects = nil
 		if root == "" {
 			alone.Servers[name] = server
+			// A shared server is written only to the projects that use it.
+			if server.Shared() {
+				alone.Projects = map[string]Project{}
+				for _, user := range source.Users(name) {
+					project := source.Projects[user]
+					override := project.Overrides[name]
+					if target != "" {
+						// A project takes part only where it sends the server.
+						if !slices.Contains(source.inRoot(user, name, source.Servers[name]).Targets, target) {
+							continue
+						}
+						override.Targets = nil
+					}
+					project.Servers, project.Use = nil, []string{name}
+					project.Overrides = setOverride(nil, name, override)
+					alone.Projects[user] = project
+				}
+			}
 		} else {
 			project := source.Projects[root]
-			project.Servers = map[string]Server{name: server}
+			// The shared servers it uses are checked on their own, under the global list.
+			project.Servers, project.Use, project.Overrides = map[string]Server{name: server}, nil, nil
 			alone.Projects = map[string]Project{root: project}
 		}
 		_, err := s.render(&alone)
@@ -410,9 +490,13 @@ func (s *Service) checkClientRules(source *Source, root, name string, server Ser
 		return err
 	}
 	selected := server.Targets.orDefault(defaults)
+	if shared {
+		// A project's override may send it to targets of its own.
+		selected = defaults
+	}
 	// A switch-only entry works out its own targets, so it is rendered as written.
 	if server.Disabled || len(selected) == 0 {
-		if err := render(server); err != nil {
+		if err := render(server, ""); err != nil {
 			return []CheckFinding{{Level: "error", Check: "client-rule", Message: err.Error()}}
 		}
 		return nil
@@ -421,7 +505,7 @@ func (s *Service) checkClientRules(source *Source, root, name string, server Ser
 	for _, target := range selected {
 		one := server
 		one.Targets = TargetList{target}
-		if err := render(one); err != nil {
+		if err := render(one, target); err != nil {
 			out = append(out, CheckFinding{Level: "error", Check: "client-rule", Target: target, Message: err.Error()})
 		}
 	}
@@ -430,19 +514,34 @@ func (s *Service) checkClientRules(source *Source, root, name string, server Ser
 
 // checkToolPolicy names each selected Agent that cannot hold a part of the server's tool
 // policy, the same gaps the plan's notices list.
-func checkToolPolicy(source *Source, root string, server Server) []CheckFinding {
-	defaults := source.Targets
-	if root != "" {
-		defaults = source.Projects[root].defaults(source)
+func checkToolPolicy(source *Source, root, name string, server Server) []CheckFinding {
+	var loads []Server
+	switch {
+	case root != "":
+		server.Targets = server.Targets.orDefault(source.Projects[root].defaults(source))
+		loads = []Server{server}
+	case server.Shared():
+		// Each project that uses it may change its targets and tools.
+		for _, user := range source.Users(name) {
+			loads = append(loads, source.inRoot(user, name, server))
+		}
+	default:
+		server.Targets = server.Targets.orDefault(source.Targets)
+		loads = []Server{server}
 	}
 	var out []CheckFinding
-	for _, target := range server.Targets.orDefault(defaults) {
-		agent := target
-		if account, ok := source.Accounts[target]; ok {
-			agent = account.Agent
-		}
-		if gaps := toolPolicyGaps(agent, server.Tools); len(gaps) > 0 {
-			out = append(out, CheckFinding{Level: "warning", Check: "tools", Target: target, Message: toolPolicyMessage(target, gaps)})
+	for _, load := range loads {
+		for _, target := range load.Targets {
+			agent := target
+			if account, ok := source.Accounts[target]; ok {
+				agent = account.Agent
+			}
+			if gaps := toolPolicyGaps(agent, load.Tools); len(gaps) > 0 {
+				f := CheckFinding{Level: "warning", Check: "tools", Target: target, Message: toolPolicyMessage(target, gaps)}
+				if !slices.Contains(out, f) {
+					out = append(out, f)
+				}
+			}
 		}
 	}
 	return out

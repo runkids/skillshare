@@ -349,7 +349,7 @@ func runDoctorChecks(cfg *config.Config, result *doctorResult, isProject bool, p
 	checkSharedTargetPaths(cfg, result, isProject)
 	checkCrossTargetDiscovery(cfg, result, isProject, discovered)
 	checkSyncDrift(cfg, result, discovered, targetCache)
-	checkBrokenSymlinks(cfg, walk.Follow, result)
+	checkBrokenSymlinks(cfg, walk.Follow, result, discovered, discoverErr == nil)
 	checkDuplicateSkills(cfg, result, discovered)
 }
 
@@ -801,7 +801,7 @@ func displayTargetStatus(target config.TargetConfig, source, mode string, row fu
 			statusWord = status.String()
 		}
 	case "copy":
-		status, managedCount, localCount := sync.CheckStatusCopy(sc.Path)
+		status, managedCount, localCount := sync.CheckStatusCopy(sc.Path, source)
 		cached.status = status
 		cached.syncedCount = managedCount
 		switch status {
@@ -969,10 +969,7 @@ func checkMissingTrackedRepos(source string, result *doctorResult, isProject boo
 		details = append(details, detail)
 	}
 
-	suggestion := "Run 'skillshare install' to rehydrate tracked repositories from metadata."
-	if isProject {
-		suggestion = "Run 'skillshare install -p' to rehydrate tracked repositories from project metadata."
-	}
+	suggestion := missingTrackedRepoHint(isProject) + "."
 
 	result.addWarning()
 	result.addCheckWithSuggestions(
@@ -1178,8 +1175,11 @@ func checkSkillTargetsField(result *doctorResult, discovered []sync.DiscoveredSk
 // checkBrokenSymlinks finds broken symlinks in targets. Links to skills behind
 // a source link whose target is away (an unmounted drive) are expected to be
 // broken and are kept by sync, so they are reported as waiting, not as errors.
-func checkBrokenSymlinks(cfg *config.Config, follow *sourcewalk.Follow, result *doctorResult) {
-	var allBroken, allWaiting []string
+// So are broken links skillshare did not create: sync keeps those too, and only
+// the user can say whether they should go. A broken link that sync would prune
+// is an error either way, so the split follows what sync does.
+func checkBrokenSymlinks(cfg *config.Config, follow *sourcewalk.Follow, result *doctorResult, discovered []sync.DiscoveredSkill, discoveredOK bool) {
+	var allBroken, allWaiting, allForeign []string
 	unavailable := follow.Unavailable()
 	names := targetNamesFromConfig(cfg.Targets)
 	sort.Strings(names)
@@ -1189,12 +1189,18 @@ func checkBrokenSymlinks(cfg *config.Config, follow *sourcewalk.Follow, result *
 		if !target.SkillsConfig().IsEnabled() {
 			continue
 		}
-		var broken, waiting []string
+		var broken, waiting, foreign []string
+		manifest, _ := sync.ReadManifest(target.SkillsConfig().Path)
+		orphan := orphanNames(name, target, cfg.Mode, manifest, discovered, discoveredOK)
 		for _, b := range findBrokenSymlinks(target.SkillsConfig().Path) {
-			if behindUnavailableLink(filepath.Join(target.SkillsConfig().Path, b), cfg.EffectiveSkillsSource(), unavailable) {
+			link := filepath.Join(target.SkillsConfig().Path, b)
+			if behindUnavailableLink(link, cfg.EffectiveSkillsSource(), unavailable) {
 				waiting = append(waiting, b)
-			} else {
+			} else if manifest.OwnsLink(b, link, cfg.EffectiveSkillsSource()) ||
+				(orphan != nil && orphan(b) && sync.OrphanLink(link, cfg.EffectiveSkillsSource(), manifest.Records(b), false).RemoveReason != "") {
 				broken = append(broken, b)
+			} else {
+				foreign = append(foreign, b)
 			}
 		}
 		if len(broken) > 0 {
@@ -1212,14 +1218,27 @@ func checkBrokenSymlinks(cfg *config.Config, follow *sourcewalk.Follow, result *
 				allWaiting = append(allWaiting, fmt.Sprintf("%s/%s", name, b))
 			}
 		}
+		if len(foreign) > 0 {
+			ui.Row(ui.MarkWarn, name, plural(len(foreign), "broken link")+" skillshare did not create, kept: "+strings.Join(foreign, ", ")+" (delete by hand if stale)", width)
+			result.addWarning()
+			for _, b := range foreign {
+				allForeign = append(allForeign, fmt.Sprintf("%s/%s", name, b))
+			}
+		}
 	}
 	switch {
 	case len(allBroken) > 0:
 		result.addCheck("broken_symlinks", checkError,
-			fmt.Sprintf("%d broken symlink(s) found", len(allBroken)), allBroken)
-	case len(allWaiting) > 0:
-		result.addCheck("broken_symlinks", checkWarning,
-			fmt.Sprintf("%d link(s) behind an unavailable source link", len(allWaiting)), allWaiting)
+			fmt.Sprintf("%d broken symlink(s) found", len(allBroken)), append(allBroken, allForeign...))
+	case len(allWaiting)+len(allForeign) > 0:
+		var parts []string
+		if len(allWaiting) > 0 {
+			parts = append(parts, fmt.Sprintf("%d link(s) behind an unavailable source link", len(allWaiting)))
+		}
+		if len(allForeign) > 0 {
+			parts = append(parts, fmt.Sprintf("%d broken link(s) skillshare did not create", len(allForeign)))
+		}
+		result.addCheck("broken_symlinks", checkWarning, strings.Join(parts, ", "), append(allWaiting, allForeign...))
 	default:
 		result.addCheck("broken_symlinks", checkPass, "No broken symlinks", nil)
 	}
@@ -1246,6 +1265,28 @@ func behindUnavailableLink(path, source string, unavailable []string) bool {
 		}
 	}
 	return false
+}
+
+// orphanNames returns a test for entry names in a target that no skill in the
+// source maps to, which is what sync prunes. It returns nil when the skills
+// could not be discovered or the target's filters are invalid, so that failure
+// does not make every entry look like an orphan. An empty source is not a
+// failure: every entry is an orphan then.
+func orphanNames(name string, target config.TargetConfig, defaultMode string, manifest *sync.Manifest, discovered []sync.DiscoveredSkill, discoveredOK bool) func(string) bool {
+	if !discoveredOK {
+		return nil
+	}
+	sc := target.SkillsConfig()
+	resolution, err := sync.ResolveTargetSkillsForTarget(name, sc, discovered)
+	if err != nil {
+		return nil
+	}
+	valid := resolution.ValidTargetNames()
+	legacy := resolution.LegacyNames(getTargetMode(sc.Mode, defaultMode), sc.Path, manifest)
+	return func(entry string) bool {
+		_, isLegacy := legacy[entry]
+		return !valid[entry] && !isLegacy
+	}
 }
 
 func findBrokenSymlinks(dir string) []string {
@@ -1630,18 +1671,18 @@ func checkVersionDoctor(cfg *config.Config, result *doctorResult, isProject bool
 	result.addCheck("cli_version", checkPass, fmt.Sprintf("CLI: %s", version), nil)
 
 	// Skill version: try SKILL.md frontmatter first, then metadata store
-	localVersion := versioncheck.ReadLocalSkillVersion(cfg.EffectiveSkillsSource())
-	if localVersion == "" {
+	skill, found := versioncheck.FindLocalSkill(cfg.EffectiveSkillsSource(), cfg.SkillsWalk())
+	localVersion := skill.Version
+	if localVersion == "" && found {
 		// Try metadata store (tracks installed version even without metadata.version in SKILL.md)
 		store := install.LoadMetadataOrNew(cfg.EffectiveSkillsSource())
-		if entry := store.Get("skillshare"); entry != nil && entry.Version != "" {
+		if entry := store.GetByPath(skill.RelPath); entry != nil && entry.Version != "" {
 			localVersion = strings.TrimPrefix(entry.Version, "v")
 		}
 	}
 
 	if localVersion == "" {
-		skillFile := filepath.Join(cfg.EffectiveSkillsSource(), "skillshare", "SKILL.md")
-		if _, err := os.Stat(skillFile); os.IsNotExist(err) {
+		if !found {
 			if isProject {
 				ui.Row(ui.MarkNone, "Skill", "not installed", doctorWidth)
 				result.addCheck("skill_version", checkInfo, "Skill: not installed in project", nil)
@@ -1656,6 +1697,19 @@ func checkVersionDoctor(cfg *config.Config, result *doctorResult, isProject bool
 			result.addCheck("skill_version", checkWarning, "Skill: missing version", nil)
 			result.addWarning()
 		}
+		return
+	}
+
+	if skill.Disabled {
+		ui.Row(ui.MarkWarn, "Skill", localVersion+" (disabled)", doctorWidth)
+		// Name the mode: without it, both commands pick project mode inside a project folder.
+		enable := "skillshare enable skillshare -g && skillshare sync -g"
+		if isProject {
+			enable = "skillshare enable skillshare -p && skillshare sync -p"
+		}
+		result.suggest(enable, "sync the built-in skill to your tools again")
+		result.addCheck("skill_version", checkWarning, fmt.Sprintf("Skill: %s (disabled)", localVersion), nil)
+		result.addWarning()
 		return
 	}
 

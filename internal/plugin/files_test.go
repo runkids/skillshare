@@ -12,6 +12,8 @@ import (
 	"testing"
 
 	"gopkg.in/yaml.v3"
+
+	"skillshare/internal/filepreview"
 )
 
 func TestFilesListsTheSnapshotAndReadsOnlyInsideIt(t *testing.T) {
@@ -19,7 +21,7 @@ func TestFilesListsTheSnapshotAndReadsOnlyInsideIt(t *testing.T) {
 	s := &Service{ConfigPath: filepath.Join(home, "config.yaml"), StateDir: filepath.Join(home, "state")}
 	writePluginFile(t, home, "config.yaml", "plugins:\n  packages:\n    demo:\n      bindings:\n        claude:\n          id: demo@skillshare-abc\n          source: /src/demo\n          plugin: demo\n    imported:\n      bindings:\n        claude:\n          id: other@market\n")
 	content := filepath.Join(s.snapshotPath(Binding{ID: "demo@skillshare-abc", Source: "/src/demo", Plugin: "demo"}, "claude"), "content")
-	for path, body := range map[string]string{"skills/hi/SKILL.md": "# hi", "node_modules/dep/index.js": "x", "../secret": "no"} {
+	for path, body := range map[string]string{"skills/hi/SKILL.md": "# hi", "big.js": strings.Repeat("a", filepreview.MaxSize+1), "node_modules/dep/index.js": "x", "../secret": "no"} {
 		full := filepath.Join(content, filepath.FromSlash(path))
 		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
 			t.Fatal(err)
@@ -34,11 +36,14 @@ func TestFilesListsTheSnapshotAndReadsOnlyInsideIt(t *testing.T) {
 	writePluginFile(t, filepath.Dir(content), ".skillshare-digest", b.Digest)
 	seedLocalBinding(t, s, "demo", "claude", b)
 	files, err := s.Files("demo")
-	if err != nil || !slices.Equal(files, []string{"skills/hi/SKILL.md"}) {
+	if err != nil || !slices.Equal(files, []string{"big.js", "skills/hi/SKILL.md"}) {
 		t.Fatalf("files = %v, %v", files, err)
 	}
 	if data, err := s.ReadFile("demo", "skills/hi/SKILL.md"); err != nil || string(data) != "# hi" {
 		t.Fatalf("read = %q, %v", data, err)
+	}
+	if _, err := s.ReadFile("demo", "big.js"); !errors.Is(err, filepreview.ErrTooLarge) {
+		t.Fatalf("an oversized file: %v", err)
 	}
 	if _, err := s.ReadFile("demo", "../secret"); err == nil {
 		t.Fatal("a path outside the snapshot was read")

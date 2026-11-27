@@ -272,3 +272,34 @@ func assertDetachAbsent(t *testing.T, path string) {
 		t.Fatalf("%s should be absent, got %v", path, err)
 	}
 }
+
+// Another tool's link stays; what sync wrote through it goes, as in a plain
+// folder: the manifest, and each skill link replaced by a copy.
+func TestDetachSkillsTarget_ExternalRootLinkCleanedThrough(t *testing.T) {
+	root := t.TempDir()
+	source, other, target := filepath.Join(root, "source"), filepath.Join(root, "other"), filepath.Join(root, "target")
+	writeDetachFile(t, filepath.Join(source, "alpha", "SKILL.md"), "source")
+	writeDetachFile(t, filepath.Join(other, ManifestFile), "manifest")
+	if err := os.Symlink(filepath.Join(source, "alpha"), filepath.Join(other, "alpha")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if err := os.Symlink(other, target); err != nil {
+		t.Fatal(err)
+	}
+
+	report, err := DetachSkillsTarget(target, DetachOptions{Source: source})
+	if err != nil {
+		t.Fatal(err)
+	}
+	alpha := filepath.Join(target, "alpha")
+	want := DetachReport{Removed: []string{filepath.Join(target, ManifestFile), alpha}, CopiedBack: []string{alpha}}
+	if !reflect.DeepEqual(report, want) {
+		t.Errorf("report = %+v, want %+v", report, want)
+	}
+	if info, err := os.Lstat(target); err != nil || info.Mode()&os.ModeSymlink == 0 {
+		t.Errorf("the target link should stay: %v", err)
+	}
+	if info, err := os.Lstat(filepath.Join(other, "alpha")); err != nil || !info.IsDir() {
+		t.Errorf("alpha should be a copy behind the link: %v", err)
+	}
+}

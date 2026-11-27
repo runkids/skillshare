@@ -65,6 +65,7 @@ skillshare 的目錄配置與檔案位置。
 ├── mcp/                     # MCP sync 狀態（自動管理）
 │   ├── state.json           # Skillshare 擁有哪些原生項目
 │   ├── tool-pins.json       # mcp check --live 記錄的工具定義雜湊
+│   ├── tool-costs.json      # mcp check --live 記錄的工具 token 數（快取）
 │   └── backups/             # 每次寫入前的 agent 檔案（每個檔案保留最新 20 份）
 └── plugins/                 # Plugin 來源經審查後的本機副本
 
@@ -311,7 +312,7 @@ Agent 檔名只能使用 `a-z`、`0-9`、`_`、`-`、`.`。與 skills 不同，a
 draft-*
 
 # 停用特定 agent
-experimental-reviewer
+experimental-reviewer.md
 ```
 
 採用 [gitignore 語法](https://git-scm.com/docs/gitignore)。與 `.skillignore` 相同的規則語法皆適用（`*`、`**`、`!negation`、`#` 註解等）。被停用的 agents 仍會留在 source 目錄中，但不會出現在 sync 結果裡。

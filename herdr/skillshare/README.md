@@ -2,14 +2,15 @@
 
 ![The skillshare panel in Herdr: what needs a sync and a line to every target, everything installed, and every machine](panels.png)
 
-[skillshare](../../README.md) keeps your skills, agents, MCP servers, plugins and hooks in one
+[skillshare](../../README.md) keeps your skills, agents, MCP servers, plugins, hooks and extras in one
 source you control and syncs them to Claude Code, Codex, Gemini CLI and the other AI coding tools
 you use. This panel puts it beside your agents in [Herdr](https://herdr.dev):
 
 - **See what needs you.** Overview answers in one line, with one Sync button, a count of everything
   in the source and a line to every target that shows which ones are waiting.
 - **Read before you act.** Click any row to preview it: a skill's `SKILL.md` and files, an agent, an
-  MCP server's settings with secret values hidden, a hook, a plugin, and the targets each goes to.
+  MCP server's settings with secret values hidden, a hook, a plugin, an extra's file or folder, a
+  memory note, and the targets each goes to.
 - **Fix it without leaving Herdr.** Update, sync, enable or disable, uninstall, or install from a URL; every install
   is audited first, and a blocked one shows its findings before anything is written.
 - **Ask your agent.** Hand an audit of any skill to the focused agent.
@@ -31,11 +32,16 @@ separate complete window. Both use the same panel and updater.
 
 ### Mod: keep your current window
 
-The standalone package is [`herdr/skillshare-mod`](../skillshare-mod/RECIPE.md). Paste this
-prompt into an agent in Herdr:
+[Install and manage the mod with Skillshare](../README.md#install-and-open-the-panel)
+if your Dashboard supports `herdr-app`. It can add the button and panel to a copy
+of your current layout, then manage future updates and removal.
+
+To have an agent walk you through the installation, paste this prompt in Herdr.
+It prefers Skillshare when available and falls back to the
+[standalone Mod recipe](../skillshare-mod/RECIPE.md):
 
 ```text
-Read ~/.config/herdr-app/AGENTS.md, then add this mod from https://github.com/runkids/skillshare/tree/main/herdr/skillshare-mod. Follow its RECIPE.md: add only the skillshare toggle and panel to my current layout, preserving my status bar, usage meters and all other customizations. Reuse existing skillshare nodes instead of duplicating them.
+Read ~/.config/herdr-app/AGENTS.md and the recipe at https://github.com/runkids/skillshare/tree/main/herdr/skillshare-mod. If my Skillshare Dashboard supports the herdr-app target, use Plugins → Add plugin to preview installing this mod and showing its panel in Herdr. Let me review and apply. Otherwise follow the manual recipe, preserving my current layout and reusing any existing Skillshare nodes.
 ```
 
 It contains no layout file. The agent clones a Herdr-shipped layout before editing it, or
@@ -98,13 +104,18 @@ Read ~/.config/herdr-app/AGENTS.md, then update only the installed skillshare mo
 ## How it reads
 
 - It runs on the shown space's machine (`exec` with `on`), in the focused terminal's folder.
+  On Windows, which has no `sh`, it runs through Git for Windows' `bin/sh.exe`.
 - A folder with `.skillshare/config.yaml` or `skillshare/config.yaml` is a project; both
   scopes show and the All · Project · Global switch appears beside the tabs.
-- Per scope, independent detached reads run `list --all`, `diff`, `mcp list`, `plugin list` and
-  `hooks list` with `--json`. Each result appears as soon as it is ready; a slow plugin inventory
-  does not hold up other resources or the source's Git state. Refreshes keep existing rows visible.
+- Per scope, independent detached reads run `list --all`, `diff`, `mcp list`, `plugin list`,
+  `hooks list`, `extras list` and `extras memory list` with `--json`. Each result appears as soon
+  as it is ready; a slow plugin inventory does not hold up other resources or the source's Git
+  state. Refreshes keep existing rows visible.
   Pending or failed inventories show `…` instead of zero, and sync states remain unconfirmed until
-  the reads succeed. Read errors stay visible beside the available data; the next refresh retries.
+  the reads succeed. Memory notes never wait for a sync and are not counted, so their read is the
+  exception: a pending or failed memory read leaves sync states and counts confirmed; skillshare
+  before 0.24 has no memory list. Read errors stay visible beside the available data; the next
+  refresh retries.
   `check` and `check agents` run every 10 minutes. Git state comes from `git status` in the
   source repository, because the CLI has no JSON for it.
 - The install dialog reads canonical names and repository-relative paths from
@@ -125,14 +136,24 @@ Read ~/.config/herdr-app/AGENTS.md, then update only the installed skillshare mo
   which version to keep for each file.
 
 - A preview reads on the item's machine: a skill's file names (40 at most) and the first 60 kB of
-  the file shown, an agent's `.md`, or the MCP source file. Env, header and bearer-token values are
-  replaced before the dialog gets them, so it shows names only.
+  the file shown, an agent's `.md`, the MCP source file, an extra's file or a folder extra's file
+  names (40 at most, saying so when there are more) and one file, or a memory note. Env, header and bearer-token values are replaced before
+  the dialog gets them, so it shows names only.
 - The map's target names come from `status --json` and `diff --json`. A target's count is what
-  `diff` reports for skills and agents, plus each MCP server, plugin or hook that waits on it.
+  `diff` reports for skills and agents, plus each MCP server, plugin, hook or extra waiting on it.
+  An extra's target is named by the target whose skills folder shares its parent folder; a
+  project's relative extras paths start from the project folder, and when targets share a folder
+  the first by name names it. Windows paths match in any case; POSIX paths match only in the same
+  case.
 
-Overview lists only what needs you: what waits for a sync, what has an update, hook notices, and
-machines that are behind once the Machines tab has read them. Library lists everything by kind,
-in Need a look, Needs sync, Update available, In sync and Off; disabled rows are always under Off.
+Overview lists only what needs you: what waits for a sync, what has an update, hook notices, extras
+whose source is missing, and machines that are behind once the Machines tab has read them. Library
+lists everything by kind, in Need a look, Needs sync, Update available, In sync and Off; disabled rows are always under Off.
+Extras lists each file or folder extra, then each memory note under Memory notes. A note has no
+sync state and is not counted; the memory folder is also listed as the `memory` extra, and that
+row is the one counted. An extra waits for a sync while a target's status in `extras list` is not `synced`. A missing source is the
+exception: a sync can't fix it, so that extra is under Need a look as "source missing", and with
+nothing waiting Overview says how many extras need a look instead of "Everything is in sync".
 For skills and agents, In sync switches between List and By source (the default), which folds
 rows from the same repository, or local ones, into collapsible groups. A source with one row stays
 a plain row, and a filter opens every group.

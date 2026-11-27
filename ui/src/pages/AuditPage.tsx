@@ -16,13 +16,25 @@ import { formatRelativeTime, useI18n, useT, plural } from '../i18n';
 import { getCachedAuditResult } from '../lib/auditCache';
 import { queryKeys } from '../lib/queryKeys';
 import { useOverviewQuery } from '../hooks/useSharedQueries';
-import { AUDIT_SEVERITIES as SEVERITIES, auditSeverityRank as rank, auditSourceLinkNote, displayAuditFindings } from '../lib/auditDisplay';
+import {
+  AUDIT_SEVERITIES as SEVERITIES,
+  auditSeverityRank as rank,
+  auditSourceLinkNote,
+  displayAuditFindings,
+} from '../lib/auditDisplay';
 import { segSlide } from '../lib/segSlide';
+import Tabs, { TabLink } from '../components/Tabs';
 
 type Kind = 'skills' | 'agents';
 type Severity = AuditFinding['severity'];
 
-const SEV_CLASS: Record<Severity, string> = { CRITICAL: 'c', HIGH: 'h', MEDIUM: 'md', LOW: 'l', INFO: 'n' };
+const SEV_CLASS: Record<Severity, string> = {
+  CRITICAL: 'c',
+  HIGH: 'h',
+  MEDIUM: 'md',
+  LOW: 'l',
+  INFO: 'n',
+};
 // Cross-skill analysis is a derived insight, not a scanned resource.
 const CROSS_SKILL = '_cross-skill';
 // Findings accepted earlier with --force sort after every open one.
@@ -49,7 +61,10 @@ export default function AuditPage() {
 
   useEffect(() => () => stream.current?.close(), []);
 
-  const counts = { skills: (overview.data?.variantCount ?? overview.data?.skillCount), agents: overview.data?.agentCount };
+  const counts = {
+    skills: overview.data?.variantCount ?? overview.data?.skillCount,
+    agents: overview.data?.agentCount,
+  };
   const installed = counts[kind];
   const data = getCachedAuditResult(queryClient, kind, installed);
   const sourceLinkNote = data && auditSourceLinkNote(data);
@@ -68,9 +83,17 @@ export default function AuditPage() {
         setScanning(false);
         setProgress(null);
         const note = auditSourceLinkNote(res);
-        if (res.summary.failed > 0) toast(t(plural('audit.toast.blocked', res.summary.failed), { count: res.summary.failed, threshold: res.summary.threshold }), 'warning');
+        if (res.summary.failed > 0)
+          toast(
+            t(plural('audit.toast.blocked', res.summary.failed), {
+              count: res.summary.failed,
+              threshold: res.summary.threshold,
+            }),
+            'warning',
+          );
         else if (res.incomplete && note) toast(t(note.key, { count: note.count }), 'warning');
-        else if (res.summary.total > 0 && res.results.every((r) => r.findings.length === 0)) toast(t('audit.toast.clean'), 'success');
+        else if (res.summary.total > 0 && res.results.every((r) => r.findings.length === 0))
+          toast(t('audit.toast.clean'), 'success');
       },
       (err) => {
         setError(err.message);
@@ -102,15 +125,40 @@ export default function AuditPage() {
   };
 
   const results = (data?.results ?? [])
-    .filter((r) => r.skillName !== CROSS_SKILL && (r.findings.length > 0 || (r.skippedFiles ?? 0) > 0))
-    .map((r) => ({ ...r, findings: displayAuditFindings(r.findings.filter((f) => showAccepted || !f.acknowledged), only, minimum)
-      .sort((a, b) => order(a) - order(b)) }))
-    .filter((r) => (minimum && only !== null && r.isBlocked) || r.findings.length > 0 || (!only && (r.skippedFiles ?? 0) > 0))
-    .sort((a, b) => (a.findings[0] ? order(a.findings[0]) : 2 * SEVERITIES.length) - (b.findings[0] ? order(b.findings[0]) : 2 * SEVERITIES.length) || b.riskScore - a.riskScore);
-  const findingCount = (data?.results ?? []).reduce((n, r) => n + (r.skillName === CROSS_SKILL ? 0 : r.findings.length), 0);
+    .filter(
+      (r) => r.skillName !== CROSS_SKILL && (r.findings.length > 0 || (r.skippedFiles ?? 0) > 0),
+    )
+    .map((r) => ({
+      ...r,
+      findings: displayAuditFindings(
+        r.findings.filter((f) => showAccepted || !f.acknowledged),
+        only,
+        minimum,
+      ).sort((a, b) => order(a) - order(b)),
+    }))
+    .filter(
+      (r) =>
+        (minimum && only !== null && r.isBlocked) ||
+        r.findings.length > 0 ||
+        (!only && (r.skippedFiles ?? 0) > 0),
+    )
+    .sort(
+      (a, b) =>
+        (a.findings[0] ? order(a.findings[0]) : 2 * SEVERITIES.length) -
+          (b.findings[0] ? order(b.findings[0]) : 2 * SEVERITIES.length) ||
+        b.riskScore - a.riskScore,
+    );
+  const findingCount = (data?.results ?? []).reduce(
+    (n, r) => n + (r.skillName === CROSS_SKILL ? 0 : r.findings.length),
+    0,
+  );
   const accepted = data?.summary.accepted ?? 0;
 
-  const visibleCount = results.reduce((n, r) => n + displayAuditFindings(r.findings, null, false, !!only || open.has(r.skillName)).length, 0);
+  const visibleCount = results.reduce(
+    (n, r) =>
+      n + displayAuditFindings(r.findings, null, false, !!only || open.has(r.skillName)).length,
+    0,
+  );
 
   const header = (
     <PageHeader
@@ -121,10 +169,21 @@ export default function AuditPage() {
         <>
           {data && scannedAt ? (
             <span className="text-[13px] text-ink-3">
-              {t(plural(`audit.scanned.${kind === 'agents' ? 'agents' : 'skills'}`, data.summary.total), { count: data.summary.total, when: formatRelativeTime(scannedAt, locale) })}
+              {t(
+                plural(
+                  `audit.scanned.${kind === 'agents' ? 'agents' : 'skills'}`,
+                  data.summary.total,
+                ),
+                { count: data.summary.total, when: formatRelativeTime(scannedAt, locale) },
+              )}
             </span>
           ) : null}
-          <Button variant={data ? 'secondary' : 'primary'} onClick={scan} loading={scanning} disabled={scanning || installed === 0}>
+          <Button
+            variant={data ? 'secondary' : 'primary'}
+            onClick={scan}
+            loading={scanning}
+            disabled={scanning || installed === 0}
+          >
             {!scanning && <ShieldCheck size={15} />}
             {t(data ? 'audit.scanAgain' : 'audit.scan')}
           </Button>
@@ -137,18 +196,27 @@ export default function AuditPage() {
     <div className="ss-wrap animate-page-in">
       {header}
 
-      <nav className="ss-tabs" aria-label={t('audit.header.title')} data-tour="audit-summary">
-        <Link to="/audit" className="on" aria-current="page">
+      <Tabs slideKey="audit" aria-label={t('audit.header.title')} data-tour="audit-summary">
+        <TabLink to="/audit" on count={findingCount > 0 ? findingCount : undefined}>
           {t('audit.tab.findings')}
-          {findingCount > 0 && <span className="ss-cnt">{findingCount}</span>}
-        </Link>
-        <Link to="/audit/rules">{t('audit.tab.rules')}</Link>
-      </nav>
+        </TabLink>
+        <TabLink to="/audit/rules" on={false}>
+          {t('audit.tab.rules')}
+        </TabLink>
+      </Tabs>
 
       <div className="flex flex-wrap items-center gap-3">
         <div ref={segSlide} className="ss-seg" role="tablist">
           {(['skills', 'agents'] as Kind[]).map((k) => (
-            <button key={k} type="button" role="tab" aria-selected={kind === k} className={kind === k ? 'on' : ''} disabled={scanning} onClick={() => setKind(k)}>
+            <button
+              key={k}
+              type="button"
+              role="tab"
+              aria-selected={kind === k}
+              className={kind === k ? 'on' : ''}
+              disabled={scanning}
+              onClick={() => setKind(k)}
+            >
               {k === 'skills' ? <Puzzle size={14} /> : <Bot size={14} />}
               {t(k === 'agents' ? 'resources.tab.agents' : 'resources.tab.skills')}
               {counts[k] != null && <span className="ss-cnt">{counts[k]}</span>}
@@ -157,14 +225,28 @@ export default function AuditPage() {
         </div>
         {data && (
           <>
-            {sourceLinkNote && <span className="text-[13px] text-warn">{t(sourceLinkNote.key, { count: sourceLinkNote.count })}</span>}
+            {sourceLinkNote && (
+              <span className="text-[13px] text-warn">
+                {t(sourceLinkNote.key, { count: sourceLinkNote.count })}
+              </span>
+            )}
             {(data.summary.skippedFiles ?? 0) > 0 && (
-              <span className="text-[13px] text-ink-2">{t(plural('audit.coverage', data.summary.skippedFiles ?? 0), { skipped: data.summary.skippedFiles ?? 0, binary: data.summary.binaryFiles ?? 0, oversized: data.summary.oversizedFiles ?? 0 })}</span>
+              <span className="text-[13px] text-ink-2">
+                {t(plural('audit.coverage', data.summary.skippedFiles ?? 0), {
+                  skipped: data.summary.skippedFiles ?? 0,
+                  binary: data.summary.binaryFiles ?? 0,
+                  oversized: data.summary.oversizedFiles ?? 0,
+                })}
+              </span>
             )}
             <span className="flex-1" />
             <span className="text-[13px] text-ink-2">{t('audit.overallRisk')}</span>
-            <span className="ss-prog w-[120px]"><i style={{ width: `${data.summary.riskScore}%` }} /></span>
-            <span className="font-mono text-[13px] font-semibold">{data.summary.riskScore} / 100</span>
+            <span className="ss-prog w-[120px]">
+              <i style={{ width: `${data.summary.riskScore}%` }} />
+            </span>
+            <span className="font-mono text-[13px] font-semibold">
+              {data.summary.riskScore} / 100
+            </span>
           </>
         )}
       </div>
@@ -178,25 +260,37 @@ export default function AuditPage() {
         <div className="pb-[28px] pr-1">
           <div className="ss-note inf !items-center">
             <Spinner size="sm" />
-            <span className="flex-1">{t(kind === 'agents' ? 'audit.scanning.agents' : 'audit.scanning.skills')}</span>
+            <span className="flex-1">
+              {t(kind === 'agents' ? 'audit.scanning.agents' : 'audit.scanning.skills')}
+            </span>
             {progress && progress.total > 0 && (
               <>
-                <span className="ss-prog w-[160px]"><i style={{ width: `${(progress.scanned / progress.total) * 100}%` }} /></span>
-                <span className="font-mono text-[13px]">{progress.scanned} / {progress.total}</span>
+                <span className="ss-prog w-[160px]">
+                  <i style={{ width: `${(progress.scanned / progress.total) * 100}%` }} />
+                </span>
+                <span className="font-mono text-[13px]">
+                  {progress.scanned} / {progress.total}
+                </span>
               </>
             )}
           </div>
         </div>
       </Reveal>
 
-      {error && <div className="ss-note bad"><AlertCircle size={16} /><span className="flex-1 break-words">{error}</span></div>}
+      {error && (
+        <div className="ss-note bad">
+          <AlertCircle size={16} />
+          <span className="flex-1 break-words">{error}</span>
+        </div>
+      )}
 
       {data && (
         <>
           <div className="flex items-stretch gap-6">
             <div className={`ss-counts flex-1 ${accepted > 0 ? '!grid-cols-6' : '!grid-cols-5'}`}>
               {SEVERITIES.map((s) => {
-                const n = data.summary[s.toLowerCase() as 'critical' | 'high' | 'medium' | 'low' | 'info'];
+                const n =
+                  data.summary[s.toLowerCase() as 'critical' | 'high' | 'medium' | 'low' | 'info'];
                 return (
                   <button
                     key={s}
@@ -205,11 +299,20 @@ export default function AuditPage() {
                     aria-pressed={only === s}
                     aria-label={`${n} ${s}`}
                     disabled={n === 0 && !minimum && only !== s}
-                    title={t(only === s ? 'audit.filter.clear' : minimum ? 'audit.filter.minimumHint' : 'audit.filter.only', { severity: s })}
+                    title={t(
+                      only === s
+                        ? 'audit.filter.clear'
+                        : minimum
+                          ? 'audit.filter.minimumHint'
+                          : 'audit.filter.only',
+                      { severity: s },
+                    )}
                     onClick={() => setOnly(only === s ? null : s)}
                   >
                     <span className="flex flex-col items-start gap-1.5">
-                      <b className={n === 0 ? 'text-ink-3' : only === s ? 'text-accent' : ''}>{n}</b>
+                      <b className={n === 0 ? 'text-ink-3' : only === s ? 'text-accent' : ''}>
+                        {n}
+                      </b>
                       <span className={`ss-sev ${SEV_CLASS[s]}`}>{s}</span>
                     </span>
                   </button>
@@ -219,7 +322,10 @@ export default function AuditPage() {
                 <div className="!py-3.5 rounded-r-[10px] bg-ok-bg">
                   <span className="flex flex-col items-start gap-1.5">
                     <b className="text-ok">{accepted}</b>
-                    <span className="ss-tag ok"><ShieldCheck size={12} aria-hidden="true" />{t('audit.acceptedCount')}</span>
+                    <span className="ss-tag ok">
+                      <ShieldCheck size={12} aria-hidden="true" />
+                      {t('audit.acceptedCount')}
+                    </span>
                   </span>
                 </div>
               )}
@@ -230,7 +336,13 @@ export default function AuditPage() {
                 value={data.summary.threshold}
                 onChange={setThreshold}
                 disabled={scanning}
-                options={SEVERITIES.map((s) => ({ value: s, label: t(s === 'CRITICAL' ? 'audit.threshold.criticalOnly' : 'audit.threshold.andAbove', { severity: s }) }))}
+                options={SEVERITIES.map((s) => ({
+                  value: s,
+                  label: t(
+                    s === 'CRITICAL' ? 'audit.threshold.criticalOnly' : 'audit.threshold.andAbove',
+                    { severity: s },
+                  ),
+                }))}
               />
             </div>
           </div>
@@ -246,51 +358,106 @@ export default function AuditPage() {
                 { value: 'minimum', label: t('audit.filter.minimum') },
               ]}
             />
-            {accepted > 0 && <Checkbox size="sm" label={t('audit.filter.showAccepted')} checked={showAccepted} onChange={setShowAccepted} />}
-            <span className="text-[13px] text-ink-2" aria-live="polite">{t('audit.filter.counts', { visible: visibleCount, hidden: findingCount - visibleCount })}</span>
+            {accepted > 0 && (
+              <Checkbox
+                size="sm"
+                label={t('audit.filter.showAccepted')}
+                checked={showAccepted}
+                onChange={setShowAccepted}
+              />
+            )}
+            <span className="text-[13px] text-ink-2" aria-live="polite">
+              {t('audit.filter.counts', {
+                visible: visibleCount,
+                hidden: findingCount - visibleCount,
+              })}
+            </span>
           </div>
 
           {findingCount === 0 && results.length === 0 ? (
-
-            <EmptyState icon={ShieldCheck} title={t(kind === 'agents' ? 'audit.empty.clean.agents' : 'audit.empty.clean.skills')} description={t('audit.empty.clean.hint', { threshold: data.summary.threshold })} />
-          ) : results.length > 0 && (
-            <div className="ss-list">
-              {results.map((r) => (
-                <ResultGroup
-                  key={r.skillName}
-                  result={r}
-                  kind={kind}
-                  only={only}
-                  expanded={open.has(r.skillName)}
-                  onToggle={() => setOpen((s) => { const next = new Set(s); if (!next.delete(r.skillName)) next.add(r.skillName); return next; })}
-                  onIgnore={setIgnoring}
-                />
-              ))}
-            </div>
+            <EmptyState
+              icon={ShieldCheck}
+              title={t(kind === 'agents' ? 'audit.empty.clean.agents' : 'audit.empty.clean.skills')}
+              description={t('audit.empty.clean.hint', { threshold: data.summary.threshold })}
+            />
+          ) : (
+            results.length > 0 && (
+              <div className="ss-list">
+                {results.map((r) => (
+                  <ResultGroup
+                    key={r.skillName}
+                    result={r}
+                    kind={kind}
+                    only={only}
+                    expanded={open.has(r.skillName)}
+                    onToggle={() =>
+                      setOpen((s) => {
+                        const next = new Set(s);
+                        if (!next.delete(r.skillName)) next.add(r.skillName);
+                        return next;
+                      })
+                    }
+                    onIgnore={setIgnoring}
+                  />
+                ))}
+              </div>
+            )
           )}
 
           <p className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[13px] text-ink-2">
-            {data.summary.passed > 0 && <span className="ss-st ok">{t(plural(`audit.passed.${kind === 'agents' ? 'agents' : 'skills'}`, data.summary.passed), { count: data.summary.passed })}</span>}
-            {accepted > 0 && <span className="ss-st ok">{t(plural('audit.acceptedSummary', accepted), { count: accepted })}</span>}
+            {data.summary.passed > 0 && (
+              <span className="ss-st ok">
+                {t(
+                  plural(
+                    `audit.passed.${kind === 'agents' ? 'agents' : 'skills'}`,
+                    data.summary.passed,
+                  ),
+                  { count: data.summary.passed },
+                )}
+              </span>
+            )}
+            {accepted > 0 && (
+              <span className="ss-st ok">
+                {t(plural('audit.acceptedSummary', accepted), { count: accepted })}
+              </span>
+            )}
             {(data.summary.scanErrors ?? 0) > 0 && (
-              <span className="ss-st bad">{t(plural('audit.scanErrors', data.summary.scanErrors ?? 0), { count: data.summary.scanErrors })}</span>
+              <span className="ss-st bad">
+                {t(plural('audit.scanErrors', data.summary.scanErrors ?? 0), {
+                  count: data.summary.scanErrors,
+                })}
+              </span>
             )}
           </p>
         </>
       )}
 
-      {!data && !scanning && !error && (
-        installed === 0 ? (
-          <EmptyState icon={ShieldCheck} title={t(kind === 'agents' ? 'audit.empty.none.agents' : 'audit.empty.none.skills')} description={t(kind === 'agents' ? 'audit.empty.none.hintAgents' : 'audit.empty.none.hintSkills')} />
+      {!data &&
+        !scanning &&
+        !error &&
+        (installed === 0 ? (
+          <EmptyState
+            icon={ShieldCheck}
+            title={t(kind === 'agents' ? 'audit.empty.none.agents' : 'audit.empty.none.skills')}
+            description={t(
+              kind === 'agents' ? 'audit.empty.none.hintAgents' : 'audit.empty.none.hintSkills',
+            )}
+          />
         ) : (
           <EmptyState
             icon={ShieldCheck}
-            title={t(kind === 'agents' ? 'audit.empty.notScanned.agents' : 'audit.empty.notScanned.skills')}
+            title={t(
+              kind === 'agents' ? 'audit.empty.notScanned.agents' : 'audit.empty.notScanned.skills',
+            )}
             description={t('audit.empty.notScanned.hint')}
-            action={<Button variant="primary" onClick={scan}><ShieldCheck size={15} />{t('audit.scan')}</Button>}
+            action={
+              <Button variant="primary" onClick={scan}>
+                <ShieldCheck size={15} />
+                {t('audit.scan')}
+              </Button>
+            }
           />
-        )
-      )}
+        ))}
 
       <ConfirmDialog
         open={ignoring !== null}
@@ -299,14 +466,25 @@ export default function AuditPage() {
         message={t('audit.ignore.message', { rule: ignoring?.ruleId || ignoring?.pattern || '' })}
         confirmText={t('audit.ignore.confirm')}
         onCancel={() => setIgnoring(null)}
-        onConfirm={() => { const f = ignoring; setIgnoring(null); if (f) void ignoreRule(f); }}
+        onConfirm={() => {
+          const f = ignoring;
+          setIgnoring(null);
+          if (f) void ignoreRule(f);
+        }}
       />
     </div>
   );
 }
 
 /** One resource with its findings. LOW and INFO stay collapsed unless the reader asks for them. */
-function ResultGroup({ result, kind, only, expanded, onToggle, onIgnore }: {
+function ResultGroup({
+  result,
+  kind,
+  only,
+  expanded,
+  onToggle,
+  onIgnore,
+}: {
   result: AuditResult;
   kind: Kind;
   only: Severity | null;
@@ -320,15 +498,23 @@ function ResultGroup({ result, kind, only, expanded, onToggle, onIgnore }: {
   const minor = result.findings.filter((f) => !major.includes(f));
   const accepted = result.findings.filter((f) => f.acknowledged).length;
   const row = (f: AuditFinding, i: number) => (
-    <div key={`${f.file}:${f.line}:${i}`} className={`ss-r !items-start !py-3.5 ${f.acknowledged ? 'bg-sunken/40' : ''}`}>
+    <div
+      key={`${f.file}:${f.line}:${i}`}
+      className={`ss-r !items-start !py-3.5 ${f.acknowledged ? 'bg-sunken/40' : ''}`}
+    >
       <span className="w-[74px] shrink-0 pt-px">
-        <span className={`ss-sev ${f.acknowledged ? '!bg-sunken !text-ink-3 line-through' : SEV_CLASS[f.severity]}`}>{f.severity}</span>
+        <span
+          className={`ss-sev ${f.acknowledged ? '!bg-sunken !text-ink-3 line-through' : SEV_CLASS[f.severity]}`}
+        >
+          {f.severity}
+        </span>
       </span>
       <div className={`flex min-w-0 flex-1 flex-col gap-2 ${f.acknowledged ? 'opacity-75' : ''}`}>
         <span className="text-[13.5px] font-semibold">{f.message}</span>
         {f.snippet && (
           <div className="ss-code max-w-full overflow-x-auto !px-3.5 !py-2.5">
-            <span className="ln">{f.line}</span>{f.snippet}
+            <span className="ln">{f.line}</span>
+            {f.snippet}
           </div>
         )}
         {f.severityContext === 'python-inert' && (
@@ -344,11 +530,14 @@ function ResultGroup({ result, kind, only, expanded, onToggle, onIgnore }: {
           </span>
         )}
         <span className="truncate font-mono text-[12px] text-ink-3" title={f.file}>
-          {f.file}:{f.line}{(f.ruleId || f.pattern) && ` · ${t('audit.rule', { rule: f.ruleId || f.pattern })}`}
+          {f.file}:{f.line}
+          {(f.ruleId || f.pattern) && ` · ${t('audit.rule', { rule: f.ruleId || f.pattern })}`}
         </span>
       </div>
       {(f.ruleId || f.pattern) && (
-        <Button variant="ghost" size="sm" onClick={() => onIgnore(f)}>{t('audit.ignore.button')}</Button>
+        <Button variant="ghost" size="sm" onClick={() => onIgnore(f)}>
+          {t('audit.ignore.button')}
+        </Button>
       )}
     </div>
   );
@@ -356,21 +545,53 @@ function ResultGroup({ result, kind, only, expanded, onToggle, onIgnore }: {
   return (
     <>
       <div className="ss-gh !min-h-[46px]">
-        <span className={`ss-cat sm ${kind === 'agents' ? 'agent' : 'skill'}`}>{kind === 'agents' ? <Bot size={14} /> : <Puzzle size={14} />}</span>
-        <Link to={`/${kind === 'agents' ? 'agents' : 'skills'}/${encodeURIComponent(result.skillName)}`} className="truncate font-mono font-semibold">{result.skillName}</Link>
+        <span className={`ss-cat sm ${kind === 'agents' ? 'agent' : 'skill'}`}>
+          {kind === 'agents' ? <Bot size={14} /> : <Puzzle size={14} />}
+        </span>
+        <Link
+          to={`/${kind === 'agents' ? 'agents' : 'skills'}/${encodeURIComponent(result.skillName)}`}
+          className="truncate font-mono font-semibold"
+        >
+          {result.skillName}
+        </Link>
         {result.skillName.startsWith('_') && <span className="ss-tag">tracked</span>}
         <span className="flex-1" />
-        {(result.skippedFiles ?? 0) > 0 && <span className="text-[12px] text-ink-2">{t(plural('audit.coverage', result.skippedFiles ?? 0), { skipped: result.skippedFiles ?? 0, binary: result.binaryFiles ?? 0, oversized: result.oversizedFiles ?? 0 })}</span>}
-        <span className="font-mono text-[12px] text-ink-3">{t('audit.risk', { score: result.riskScore })}</span>
+        {(result.skippedFiles ?? 0) > 0 && (
+          <span className="text-[12px] text-ink-2">
+            {t(plural('audit.coverage', result.skippedFiles ?? 0), {
+              skipped: result.skippedFiles ?? 0,
+              binary: result.binaryFiles ?? 0,
+              oversized: result.oversizedFiles ?? 0,
+            })}
+          </span>
+        )}
+        <span className="font-mono text-[12px] text-ink-3">
+          {t('audit.risk', { score: result.riskScore })}
+        </span>
         {result.isBlocked && <span className="ss-st bad">{t('audit.blocked')}</span>}
-        {accepted > 0 && <span className="ss-tag ok">{t(plural('audit.acceptedTag', accepted), { count: accepted })}</span>}
+        {accepted > 0 && (
+          <span className="ss-tag ok">
+            {t(plural('audit.acceptedTag', accepted), { count: accepted })}
+          </span>
+        )}
       </div>
       {major.map(row)}
       {/* Keyed by the filter so a filter change swaps the rows at once instead of shrinking away a copy of them. */}
-      <Reveal key={only ?? ''} open={expanded && minor.length > 0} className="ss-rv">{minor.map(row)}</Reveal>
+      <Reveal key={only ?? ''} open={expanded && minor.length > 0} className="ss-rv">
+        {minor.map(row)}
+      </Reveal>
       {minor.length > 0 && (
-        <button type="button" className="ss-r w-full text-left text-[13px] text-ink-2" aria-expanded={expanded} onClick={onToggle}>
-          <span className="ml-[74px]">{t(expanded ? 'audit.minor.hide' : plural('audit.minor.show', minor.length), { count: minor.length })}</span>
+        <button
+          type="button"
+          className="ss-r w-full text-left text-[13px] text-ink-2"
+          aria-expanded={expanded}
+          onClick={onToggle}
+        >
+          <span className="ml-[74px]">
+            {t(expanded ? 'audit.minor.hide' : plural('audit.minor.show', minor.length), {
+              count: minor.length,
+            })}
+          </span>
         </button>
       )}
     </>

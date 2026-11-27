@@ -127,9 +127,9 @@ $ skillshare install anthropics/skills
   ↑↓ move · space toggle · ctrl+a all · enter confirm · / filter · esc cancel
 ```
 
-Discovery는 `.git`과, 보통 저장소 skill의 복사본을 담는 `.claude/`, `.agents/` 같은 타깃 디렉터리를 제외한 모든 디렉터리에서 `SKILL.md` 파일을 스캔합니다. `.curated/`나 `.system/`과 같은 그 밖의 숨김 디렉터리는 스캔되므로 그 안의 skill도 자동으로 발견됩니다. 다른 skill이 없는 저장소는 대신 루트의 `.agents/skills/`를 스캔합니다. 여러 skill이 발견되면, 선택 화면은 같은 폴더의 skill을 함께 나열하고 각 skill의 설명과 폴더를 보여 줍니다. 목록이 길면 `/`로 필터링할 수 있습니다.
+Discovery는 `.git`과, 보통 저장소 skill의 복사본을 담는 `.claude/`, `.agents/` 같은 타깃 디렉터리를 제외한 모든 디렉터리에서 `SKILL.md` 파일을 스캔합니다. `.curated/`나 `.system/`과 같은 그 밖의 숨김 디렉터리는 스캔되므로 그 안의 skill도 자동으로 발견됩니다. 다른 skill이 없는 저장소는 대신 루트의 `.agents/skills/`를 스캔합니다. Discovery는 저장소 안의 폴더를 가리키는 링크도 따라가지만, `.git` 안으로는 따라가지 않고, skill 폴더 안의 링크는 그 skill의 일부이므로 따라가지 않습니다. 직접 경로와 링크 양쪽으로 도달할 수 있는 skill은 직접 경로로 한 번만 표시됩니다. `--track` 설치는 이 링크를 따라가지 않으며, `sync`가 보는 내용과 일치합니다. 여러 skill이 발견되면, 선택 화면은 같은 폴더의 skill을 함께 나열하고 각 skill의 설명과 폴더를 보여 줍니다. 목록이 길면 `/`로 필터링할 수 있습니다.
 
-`.agents/skills/` 폴백은 `.agents`와 `skills` 모두 실제 디렉터리여야 하며, `follow_source_links: true`여도 symlink나 junction은 허용하지 않습니다. 의도적으로 따라가는 저장소 루트는 계속 지원됩니다. 발견한 agent 설치 및 업데이트는 중간 또는 최종 대상 링크를 거부하고 게시 전에 감사합니다. 감사가 차단되면 기존 agent 내용은 유지됩니다.
+`.agents/skills/` 폴백은 `.agents`와 `skills` 모두 실제 디렉터리여야 하며, `follow_source_links: true`여도 symlink나 junction은 허용하지 않습니다. 의도적으로 따라가는 저장소 루트는 계속 지원됩니다. 발견한 agent 설치 및 업데이트는 중간 또는 최종 대상 링크를 거부하고 게시 전에 감사합니다. 감사가 차단되면 기존 agent 내용은 유지됩니다. Git 소스에서 설치하는 skill, agent, 추적 저장소의 symlink가 저장소 밖이나 `.git` 폴더를 가리키면, 설치와 업데이트는 오류로 중단되며, 그 저장소나 커밋의 내용은 아무것도 설치되지 않습니다. 따라서 저장소가 컴퓨터의 다른 위치에 있는 파일을 skill이나 copy 모드 target으로 복사할 수 없습니다. 같은 저장소의 다른 파일이나 폴더를 가리키는 링크는 그 파일이나 폴더로 복사되며, 저장소의 폴더 하나만 설치할 때도 마찬가지입니다. 두 번째 링크로 같은 폴더에 다시 도달하거나, 복사 중인 폴더로 되돌아가는 링크가 있으면 설치가 오류로 멈춥니다.
 
 repository 루트에 `.skillignore` 파일이 있으면, 일치하는 skill은 discovery에서 자동으로 제외됩니다. 아래 [.skillignore](#skillignore)를 참고하세요.
 
@@ -287,7 +287,7 @@ skillshare sync
 |------|-------|-------------|
 | `--name <name>` | | 정확히 하나의 skill이 설치될 때 설치된 이름을 재정의 |
 | `--into <dir>` | | 하위 디렉터리에 설치 (예: `--into frontend` 또는 `--into frontend/react`) |
-| `--force` | `-f` | 기존 skill을 덮어쓰기; audit findings 차단(스캔 실패 제외) 및 cross-path 중복 검사를 재정의 |
+| `--force` | `-f` | 기존 skill을 덮어쓰기; audit findings 차단(스캔 실패 제외) 및 cross-path 중복 검사를 재정의. 새 버전 설치가 실패하거나 차단되면 설치된 skill은 그대로 유지됨 |
 | `--update` | `-u` | 존재하면 업데이트 (git pull 또는 재설치) |
 | `--branch <ref>` | `-b` | 설치할 git branch, tag 또는 commit SHA (기본값: remote 기본 브랜치) |
 | `--track` | `-t` | tracked repo용으로 `.git`을 유지. `--all`, `--yes`, `--skill`, `--agent`와 함께 사용할 수 없습니다. |
@@ -364,7 +364,7 @@ skillshare install github.com/user/agents --kind agent --json
 }
 ```
 
-tracked 저장소, 단일 skill, 또는 소스나 config의 모든 skill이 보안 감사에 차단되는 등 설치 전체가 실패하면 명령은 0이 아닌 코드로 종료되고 `error` 필드에 실패한 각 skill과 이유가 담깁니다. 일부 skill만 실패하면 `failed`에 기록되고 명령은 0으로 종료됩니다. 감사 결과가 있어도 설치하려면 `--force`를 추가하세요.
+tracked 저장소, 단일 skill, 또는 소스나 config의 모든 skill이 보안 감사에 차단되는 등 설치 전체가 실패하면 명령은 0이 아닌 코드로 종료되고 `error` 필드에 실패한 각 skill과 이유가 담깁니다. 일부 skill만 실패하면 `failed`에 기록되고 명령은 0으로 종료됩니다. 선택한 agent 중 하나라도 실패하면 skill이 설치되었더라도 명령은 0이 아닌 코드로 종료되고 `error` 필드에 실패한 각 agent가 담깁니다. 감사 결과가 있어도 설치하려면 `--force`를 추가하세요.
 
 ```json
 {
@@ -808,11 +808,16 @@ skillshare install github.com/user/repo --kind agent
 # 이름으로 특정 agent 설치 (-a shorthand)
 skillshare install github.com/user/repo -a tutor,reviewer
 
+# 파일 경로로 agent 하나 설치
+skillshare install github.com/user/repo/agents/tutor.md
+
 # project 모드와 조합
 skillshare install github.com/user/repo --kind agent -p
 ```
 
 `-a <name>` 플래그는 skill의 `-s <name>`에 해당하는 agent용 플래그입니다. Agent는 `~/.config/skillshare/agents/`(global) 또는 `.skillshare/agents/`(project)에 설치됩니다. 전체 개념은 [Agents](/docs/understand/agents)를 참고하세요.
+
+agent 파일 하나를 가리키는 경로는 그 agent만 설치하고 `-a`와 같은 source를 기록하므로, 이후 업데이트는 파일이 있는 디렉터리를 읽습니다. `--track`과 함께 쓸 수 없습니다.
 
 ### 혼합 Repo에서 Skill과 Agent 범위 지정
 

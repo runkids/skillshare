@@ -1,6 +1,8 @@
 package server
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -121,7 +123,7 @@ func TestUpdateRegularSkill_NestedSkillRefreshesRootMetadataStore(t *testing.T) 
 	}
 	s.skillsStore = store
 
-	result := s.updateRegularSkill("tools/agent-browser", localSkill, false, true)
+	result := s.updateRegularSkill("tools/agent-browser", localSkill, false, true, false)
 	if result.Action != "updated" {
 		t.Fatalf("expected updated action, got %q: %s", result.Action, result.Message)
 	}
@@ -172,9 +174,85 @@ func TestUpdateRegularSkill_LocallyModifiedIsSkippedWithoutForce(t *testing.T) {
 		FileHashes: map[string]string{"SKILL.md": "sha256:original"},
 	})
 
-	result := s.updateRegularSkill("edited", skillPath, false, true)
+	result := s.updateRegularSkill("edited", skillPath, false, true, false)
 	if result.Action != "skipped" || !strings.Contains(result.Message, "(try force update)") {
 		t.Fatalf("got %q: %s, want skipped with a force hint", result.Action, result.Message)
+	}
+}
+
+// addEditedAgent installs agents/edited.md from a new local remote at version,
+// edits the installed file, and returns its path and the remote's commit.
+func addEditedAgent(t *testing.T, s *Server, version string) (file, head string) {
+	t.Helper()
+	remote := t.TempDir()
+	initGitRepo(t, remote)
+	if err := os.MkdirAll(filepath.Join(remote, "agents"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(remote, "agents", "edited.md"), []byte("# upstream\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	runGit(t, remote, "add", ".")
+	runGit(t, remote, "commit", "-m", "add edited")
+	head = strings.TrimSpace(string(runGit(t, remote, "rev-parse", "--short", "HEAD")))
+	if version == "" {
+		version = head
+	}
+
+	agentsDir := s.agentsSource()
+	if err := os.MkdirAll(agentsDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	file = filepath.Join(agentsDir, "edited.md")
+	if err := os.WriteFile(file, []byte("# my edit\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	s.agentsStore = install.NewMetadataStore()
+	s.agentsStore.Set("edited", &install.MetadataEntry{
+		Source:     "file://" + remote + "//agents/edited.md",
+		Kind:       "agent",
+		RepoURL:    "file://" + remote,
+		Subdir:     "agents/edited.md",
+		Version:    version,
+		FileHashes: map[string]string{"edited.md": "sha256:original"},
+	})
+	return file, head
+}
+
+func TestUpdateAgent_LocallyModifiedIsSkippedWithoutForce(t *testing.T) {
+	s, _ := newTestServer(t)
+	file, _ := addEditedAgent(t, s, "outdated")
+
+	result := s.updateAgent("edited", false, true, false)
+	if result.Action != "skipped" || !strings.Contains(result.Message, "(try force update)") {
+		t.Fatalf("got %q: %s, want skipped with a force hint", result.Action, result.Message)
+	}
+	if got, _ := os.ReadFile(file); string(got) != "# my edit\n" {
+		t.Errorf("the local edit was overwritten: %q", got)
+	}
+}
+
+// Force has nothing to apply at the installed version, so it is not offered.
+func TestUpdateAgent_LocallyModifiedAtTheRemoteVersionIsUpToDate(t *testing.T) {
+	s, _ := newTestServer(t)
+	addEditedAgent(t, s, "")
+
+	if result := s.updateAgent("edited", false, true, false); result.Action != "up-to-date" {
+		t.Fatalf("got %q: %s, want up-to-date", result.Action, result.Message)
+	}
+}
+
+// A later commit that left the agent's file alone has nothing to apply either:
+// its blob hash matches the one recorded at install (#1041).
+func TestUpdateAgent_UnchangedFileAtANewerCommitIsUpToDate(t *testing.T) {
+	s, _ := newTestServer(t)
+	addEditedAgent(t, s, "outdated")
+	entry := s.agentsStore.Get("edited")
+	remote := strings.TrimPrefix(entry.RepoURL, "file://")
+	entry.TreeHash = strings.TrimSpace(string(runGit(t, remote, "rev-parse", "HEAD:agents/edited.md")))
+
+	if result := s.updateAgent("edited", false, true, false); result.Action != "up-to-date" {
+		t.Fatalf("got %q: %s, want up-to-date", result.Action, result.Message)
 	}
 }
 
@@ -221,5 +299,159 @@ func TestUpdateAgent_AzureOnPrem_UsesParseOpts(t *testing.T) {
 	}
 	if source.Subdir != "agents/my-agent.md" {
 		t.Errorf("Subdir = %q, want %q", source.Subdir, "agents/my-agent.md")
+	}
+}
+
+// writeRemoteSkill commits skills/<name>/SKILL.md with body to remote.
+func writeRemoteSkill(t *testing.T, remote, name, body string) {
+	t.Helper()
+	dir := filepath.Join(remote, "skills", name)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("---\nname: "+name+"\n---\n"+body+"\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	runGit(t, remote, "add", ".")
+	runGit(t, remote, "commit", "-m", name+" "+body)
+}
+
+// recordRemoteSkills creates a remote holding the named skills and records an
+// outdated local copy of each in the server's store.
+func recordRemoteSkills(t *testing.T, s *Server, src string, names ...string) string {
+	t.Helper()
+	remote := t.TempDir()
+	initGitRepo(t, remote)
+	for _, name := range names {
+		writeRemoteSkill(t, remote, name, "v1")
+		if err := os.MkdirAll(filepath.Join(src, name), 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(src, name, "SKILL.md"), []byte("---\nname: "+name+"\n---\nold\n"), 0644); err != nil {
+			t.Fatal(err)
+		}
+		s.skillsStore.Set(name, &install.MetadataEntry{
+			Source:  "file://" + remote + "//skills/" + name,
+			RepoURL: "file://" + remote,
+			Subdir:  "skills/" + name,
+		})
+	}
+	if err := s.skillsStore.Save(src); err != nil {
+		t.Fatal(err)
+	}
+	return remote
+}
+
+func streamUpdate(t *testing.T, s *Server, names string) []updateResultItem {
+	t.Helper()
+	rr := httptest.NewRecorder()
+	s.handleUpdateStream(rr, httptest.NewRequest(http.MethodGet, "/api/update/stream?skipAudit=true&names="+names, nil))
+	return updateResults(t, rr, true)
+}
+
+// Skills of one repository share a fetch, so the stream must still answer in
+// request order (the dashboard pairs results with names by position) and
+// report a skill that already matches the remote as up to date.
+func TestHandleUpdateStream_SameRepoSkillsReportInRequestOrder(t *testing.T) {
+	s, src := newTestServer(t)
+	s.skillsStore = install.NewMetadataStore()
+	shared := recordRemoteSkills(t, s, src, "a1", "a2")
+	recordRemoteSkills(t, s, src, "b")
+
+	run := func() string {
+		var got []string
+		for _, item := range streamUpdate(t, s, "a1,b,a2") {
+			got = append(got, item.Name+"="+item.Action)
+		}
+		return strings.Join(got, " ")
+	}
+
+	if got, want := run(), "a1=updated b=updated a2=updated"; got != want {
+		t.Fatalf("first update: got %q, want %q", got, want)
+	}
+	writeRemoteSkill(t, shared, "a2", "v2")
+	if got, want := run(), "a1=up-to-date b=up-to-date a2=updated"; got != want {
+		t.Fatalf("after a2 changed upstream: got %q, want %q", got, want)
+	}
+}
+
+// One skill's outcome must not change its repo-mates', and the messages the
+// dashboard matches for Force Retry and Purge must survive the shared fetch.
+func TestHandleUpdate_AllReportsEachSkillOfSharedRepo(t *testing.T) {
+	s, src := newTestServer(t)
+	s.skillsStore = install.NewMetadataStore()
+	remote := recordRemoteSkills(t, s, src, "current", "edited", "gone")
+	streamUpdate(t, s, "current,edited,gone")
+
+	if err := os.WriteFile(filepath.Join(src, "edited", "SKILL.md"), []byte("# my edit\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	runGit(t, remote, "rm", "-r", "skills/gone")
+	runGit(t, remote, "commit", "-m", "drop gone")
+
+	got := map[string]updateResultItem{}
+	for _, item := range updateResults(t, postUpdate(s, `{"all":true,"skipAudit":true}`), false) {
+		got[item.Name] = item
+	}
+	for name, want := range map[string]struct{ action, message string }{
+		"current": {"up-to-date", ""},
+		"edited":  {"skipped", "(try force update)"},
+		"gone":    {"error", "not found in repository"},
+	} {
+		if item := got[name]; item.Action != want.action || !strings.Contains(item.Message, want.message) {
+			t.Errorf("%s: got %q (%s), want %q containing %q", name, item.Action, item.Message, want.action, want.message)
+		}
+	}
+}
+
+// A root skill kept as a Git checkout updates by pulling, so the shared fetch
+// must not swap a plain copy over it and drop its .git directory.
+func TestHandleUpdateStream_RootSkillCheckoutKeepsItsRepository(t *testing.T) {
+	s, src := newTestServer(t)
+	s.skillsStore = install.NewMetadataStore()
+	remote := t.TempDir()
+	initGitRepo(t, remote)
+	writeRootSkill := func(body string) {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(remote, "SKILL.md"), []byte("---\nname: solo\n---\n"+body+"\n"), 0644); err != nil {
+			t.Fatal(err)
+		}
+		runGit(t, remote, "add", ".")
+		runGit(t, remote, "commit", "-m", body)
+	}
+	writeRootSkill("v1")
+	runGit(t, src, "clone", "file://"+remote, "solo")
+	s.skillsStore.Set("solo", &install.MetadataEntry{Source: "file://" + remote, RepoURL: "file://" + remote})
+	if err := s.skillsStore.Save(src); err != nil {
+		t.Fatal(err)
+	}
+	writeRootSkill("v2")
+
+	if got := streamUpdate(t, s, "solo"); len(got) != 1 || got[0].Action != "updated" {
+		t.Fatalf("update: got %+v, want one updated item", got)
+	}
+	if !install.IsGitRepo(filepath.Join(src, "solo")) {
+		t.Fatal("the checkout lost its .git directory")
+	}
+}
+
+// The shared fetch records the source in the repository's canonical spelling.
+// A project declares the skill by the spelling it was installed with, so the
+// record must keep that spelling or the declaration stops matching.
+func TestHandleUpdateStream_KeepsRecordedSourceSpelling(t *testing.T) {
+	s, src := newTestServer(t)
+	s.skillsStore = install.NewMetadataStore()
+	remote := recordRemoteSkills(t, s, src, "demo")
+	spelling := "file://" + remote + "/.//skills/demo"
+	s.skillsStore.GetByPath("demo").Source = spelling
+	if err := s.skillsStore.Save(src); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := streamUpdate(t, s, "demo"); len(got) != 1 || got[0].Action != "updated" {
+		t.Fatalf("update: got %+v, want one updated item", got)
+	}
+	if got := s.skillsStore.GetByPath("demo").Source; got != spelling {
+		t.Fatalf("recorded source = %q, want %q", got, spelling)
 	}
 }

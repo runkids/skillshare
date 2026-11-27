@@ -684,7 +684,7 @@ Each entry in `targets` is a [supported target](./supported-targets.md) name. Sk
 - **`target` and `collect` leave projects alone.** `skillshare target` lists and edits the `targets` section only, and `collect` does not pull a project's own skills into the source. Use [`skillshare project`](/docs/reference/commands/project) to add, edit, sync, or remove projects, or use the dashboard’s **Projects** page.
 - Skills with a `targets` frontmatter field are matched against the tool, so `targets: [claude]` reaches `shop-web@claude`.
 
-MCP servers for the same folders are listed under [`mcp.projects`](/docs/reference/commands/mcp#manage-several-projects-from-the-global-config), keyed by the same folder. For a step-by-step setup see [Many Projects, One Config](/docs/how-to/recipes/many-projects-one-config).
+MCP servers for the same folders are listed under [`mcp.projects`](/docs/reference/commands/mcp#manage-several-projects-from-the-global-config), keyed by the same folder. A server set to `global: false` loads only in the folders that list it under `use`; see [Share a server with chosen projects](/docs/reference/commands/mcp#share-a-server-with-chosen-projects). For a step-by-step setup see [Many Projects, One Config](/docs/how-to/recipes/many-projects-one-config).
 
 ### `projects_storage` {#projects-storage}
 
@@ -760,7 +760,7 @@ See [sync extras](/docs/reference/commands/sync#sync-extras) for usage details.
 
 ### `ignore`
 
-Glob patterns for files to skip during sync.
+Glob patterns for files to skip during sync. `diff` leaves the same files out when it compares a copy-mode target.
 
 ```yaml
 ignore:
@@ -770,8 +770,11 @@ ignore:
 ```
 
 **Default patterns:**
-- `**/.DS_Store`
-- `**/.git/**`
+- `.DS_Store`
+- `.git/`
+- `__pycache__/`
+
+A later `!` pattern re-includes a path, even a file inside an ignored folder: with `docs/` and `!docs/keep.md`, only `docs/keep.md` is copied from `docs/`. A negation that is not anchored, such as `!*.md`, re-includes matching files inside every ignored folder, so sync also walks those folders.
 
 ### `gitlab_hosts`
 
@@ -940,14 +943,16 @@ Token budget warning thresholds. Warnings appear after `sync` and `analyze` when
 context_budget:
   warn_always_loaded_tokens: 10000
   warn_on_demand_tokens: 100000
+  warn_mcp_tool_tokens: 30000
 ```
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `warn_always_loaded_tokens` | integer | `10000` | Warn when always-loaded tokens exceed this value. `0` disables |
 | `warn_on_demand_tokens` | integer | `100000` | Warn when on-demand tokens exceed this value. `0` disables |
+| `warn_mcp_tool_tokens` | integer | `30000` | Warn when the MCP tool definitions of one MCP target (an `mcp.targets` Agent such as `claude`, not a skill target) exceed this value in one place: the global list, or each `mcp.projects` root. Counts come from `mcp check --live`; servers not counted yet are left out. `0` disables |
 
-When omitted, defaults apply (10K / 100K). Use `skillshare sync --quiet` to suppress warnings. See [sync — Context Cost](/docs/reference/commands/sync#context-cost) for output format.
+When omitted, defaults apply (10K / 100K / 30K). Use `skillshare sync --quiet` to suppress warnings. See [sync — Context Cost](/docs/reference/commands/sync#context-cost) for output format.
 
 ### `preserve_tilde_on_save`
 

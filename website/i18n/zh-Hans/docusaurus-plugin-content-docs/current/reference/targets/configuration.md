@@ -674,7 +674,7 @@ projects:
 - **`target` 和 `collect` 不会改动 projects。** `skillshare target` 只列出并编辑 `targets` 部分，`collect` 也不会把项目自己的 Skill 拉回 Source。使用 [`skillshare project`](/docs/reference/commands/project) 添加、编辑、同步或移除项目，也可以使用仪表盘的 **Projects** 页面。
 - 带有 `targets` frontmatter 字段的 Skill 会与工具进行匹配，因此 `targets: [claude]` 能到达 `shop-web@claude`。
 
-同样，这些文件夹下的 MCP server 列在 [`mcp.projects`](/docs/reference/commands/mcp#manage-several-projects-from-the-global-config) 中，以相同的文件夹作为 key。完整的分步设置参见 [Many Projects, One Config](/docs/how-to/recipes/many-projects-one-config)。
+同样，这些文件夹下的 MCP server 列在 [`mcp.projects`](/docs/reference/commands/mcp#manage-several-projects-from-the-global-config) 中，以相同的文件夹作为 key。设为 `global: false` 的 server 只会在 `use` 中列出它的文件夹里加载；参见[与选定的项目共享 server](/docs/reference/commands/mcp#share-a-server-with-chosen-projects)。完整的分步设置参见 [Many Projects, One Config](/docs/how-to/recipes/many-projects-one-config)。
 
 ### `projects_storage` {#projects-storage}
 
@@ -750,7 +750,7 @@ Extras 在 Global mode 和 Project mode 下都可用。在 Project mode 下，So
 
 ### `ignore`
 
-Sync 时要跳过的文件 glob pattern。
+Sync 时要跳过的文件 glob pattern。`diff` 比较 copy 模式的 target 时也会排除相同的文件。
 
 ```yaml
 ignore:
@@ -760,8 +760,11 @@ ignore:
 ```
 
 **默认 pattern：**
-- `**/.DS_Store`
-- `**/.git/**`
+- `.DS_Store`
+- `.git/`
+- `__pycache__/`
+
+后面的 `!` pattern 会重新包含路径，即使是被忽略文件夹中的文件：设置 `docs/` 和 `!docs/keep.md` 时，`docs/` 中只有 `docs/keep.md` 会被复制。像 `!*.md` 这样未锚定的否定 pattern 会重新包含每个被忽略文件夹中匹配的文件，因此 sync 也会遍历这些文件夹。
 
 ### `gitlab_hosts`
 
@@ -930,14 +933,16 @@ Token 预算警告阈值。当 token 数量超过预算时，会在 `sync` 和 `
 context_budget:
   warn_always_loaded_tokens: 10000
   warn_on_demand_tokens: 100000
+  warn_mcp_tool_tokens: 30000
 ```
 
 | 字段 | 类型 | 默认值 | 说明 |
 |-------|------|---------|-------------|
 | `warn_always_loaded_tokens` | integer | `10000` | 当始终加载的 token 超过此值时警告。`0` 表示禁用 |
 | `warn_on_demand_tokens` | integer | `100000` | 当按需加载的 token 超过此值时警告。`0` 表示禁用 |
+| `warn_mcp_tool_tokens` | integer | `30000` | 当某个 MCP target（`mcp.targets` 中的 Agent，例如 `claude`，不是 skill target）的 MCP 工具定义在同一个位置超过此值时警告：全局列表，或每个 `mcp.projects` 根目录。数值来自 `mcp check --live`；尚未统计的 server 不计入。`0` 表示禁用 |
 
-省略时，采用默认值（10K / 100K）。使用 `skillshare sync --quiet` 可抑制警告。输出格式参见 [sync — Context Cost](/docs/reference/commands/sync#context-cost)。
+省略时，采用默认值（10K / 100K / 30K）。使用 `skillshare sync --quiet` 可抑制警告。输出格式参见 [sync — Context Cost](/docs/reference/commands/sync#context-cost)。
 
 ### `preserve_tilde_on_save`
 

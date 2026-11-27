@@ -679,7 +679,7 @@ projects:
 - **`target`과 `collect`는 프로젝트를 건드리지 않습니다.** `skillshare target`은 `targets` 섹션만 나열하고 편집하며, `collect`는 프로젝트 자체 skill을 source로 가져오지 않습니다. [`skillshare project`](/docs/reference/commands/project)로 프로젝트를 추가·편집·동기화·제거하거나 대시보드의 **프로젝트** 페이지를 사용하세요.
 - `targets` frontmatter 필드가 있는 skill은 tool을 기준으로 매칭되므로, `targets: [claude]`는 `shop-web@claude`에 도달합니다.
 
-같은 폴더의 MCP 서버는 같은 폴더를 키로 하는 [`mcp.projects`](/docs/reference/commands/mcp#manage-several-projects-from-the-global-config) 아래에 나열됩니다. 단계별 설정은 [Many Projects, One Config](/docs/how-to/recipes/many-projects-one-config)를 참고하세요.
+같은 폴더의 MCP 서버는 같은 폴더를 키로 하는 [`mcp.projects`](/docs/reference/commands/mcp#manage-several-projects-from-the-global-config) 아래에 나열됩니다. `global: false`로 설정한 서버는 `use`에 나열한 폴더에서만 로드됩니다. [Share a server with chosen projects](/docs/reference/commands/mcp#share-a-server-with-chosen-projects)를 참고하세요. 단계별 설정은 [Many Projects, One Config](/docs/how-to/recipes/many-projects-one-config)를 참고하세요.
 
 ### `projects_storage` {#projects-storage}
 
@@ -755,7 +755,7 @@ Extras는 global mode와 project mode 모두에서 동작합니다. Project mode
 
 ### `ignore`
 
-Sync 중 건너뛸 파일에 대한 glob 패턴.
+Sync 중 건너뛸 파일에 대한 glob 패턴. `diff`도 copy 모드 target을 비교할 때 같은 파일을 제외합니다.
 
 ```yaml
 ignore:
@@ -765,8 +765,11 @@ ignore:
 ```
 
 **Default patterns:**
-- `**/.DS_Store`
-- `**/.git/**`
+- `.DS_Store`
+- `.git/`
+- `__pycache__/`
+
+뒤에 오는 `!` 패턴은 무시된 폴더 안의 파일이라도 경로를 다시 포함합니다. `docs/`와 `!docs/keep.md`를 지정하면 `docs/`에서는 `docs/keep.md`만 복사됩니다. `!*.md`처럼 고정되지 않은 부정 패턴은 무시된 모든 폴더 안의 일치하는 파일을 다시 포함하므로, sync는 해당 폴더도 탐색합니다.
 
 ### `gitlab_hosts`
 
@@ -935,14 +938,16 @@ audit:
 context_budget:
   warn_always_loaded_tokens: 10000
   warn_on_demand_tokens: 100000
+  warn_mcp_tool_tokens: 30000
 ```
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `warn_always_loaded_tokens` | integer | `10000` | Always-loaded 토큰이 이 값을 초과하면 경고. `0`은 비활성화 |
 | `warn_on_demand_tokens` | integer | `100000` | On-demand 토큰이 이 값을 초과하면 경고. `0`은 비활성화 |
+| `warn_mcp_tool_tokens` | integer | `30000` | 한 곳(global 목록 또는 각 `mcp.projects` 루트)에서 MCP target 하나(skill target이 아니라 `claude` 같은 `mcp.targets` Agent)의 MCP 도구 정의가 이 값을 초과하면 경고. 집계 값은 `mcp check --live`에서 가져오며, 아직 집계되지 않은 서버는 제외됨. `0`은 비활성화 |
 
-생략하면 기본값(10K / 100K)이 적용됩니다. 경고를 억제하려면 `skillshare sync --quiet`를 사용하세요. 출력 형식은 [sync — Context Cost](/docs/reference/commands/sync#context-cost)를 참고하세요.
+생략하면 기본값(10K / 100K / 30K)이 적용됩니다. 경고를 억제하려면 `skillshare sync --quiet`를 사용하세요. 출력 형식은 [sync — Context Cost](/docs/reference/commands/sync#context-cost)를 참고하세요.
 
 ### `preserve_tilde_on_save`
 

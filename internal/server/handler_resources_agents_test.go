@@ -15,82 +15,92 @@ import (
 )
 
 func TestHandleGetSkill_AgentKind(t *testing.T) {
-	s, _ := newTestServer(t)
-	agentsDir := s.agentsSource()
-	if err := os.MkdirAll(agentsDir, 0o755); err != nil {
-		t.Fatalf("create agents dir: %v", err)
-	}
-	addAgent(t, agentsDir, "demo/reviewer.md")
-	if err := os.WriteFile(filepath.Join(agentsDir, ".agentignore"), []byte("demo/reviewer.md\n"), 0o644); err != nil {
-		t.Fatalf("write .agentignore: %v", err)
-	}
+	// A file rule and a folder rule both list the agent as disabled.
+	for _, rule := range []string{"demo/reviewer.md\n", "demo/\n"} {
+		t.Run(strings.TrimSpace(rule), func(t *testing.T) {
+			s, _ := newTestServer(t)
+			agentsDir := s.agentsSource()
+			if err := os.MkdirAll(agentsDir, 0o755); err != nil {
+				t.Fatalf("create agents dir: %v", err)
+			}
+			addAgent(t, agentsDir, "demo/reviewer.md")
+			if err := os.WriteFile(filepath.Join(agentsDir, ".agentignore"), []byte(rule), 0o644); err != nil {
+				t.Fatalf("write .agentignore: %v", err)
+			}
 
-	req := httptest.NewRequest(http.MethodGet, "/api/resources/demo__reviewer.md?kind=agent", nil)
-	req.SetPathValue("name", "demo__reviewer.md")
-	rr := httptest.NewRecorder()
-	s.handleGetSkill(rr, req)
+			req := httptest.NewRequest(http.MethodGet, "/api/resources/demo__reviewer.md?kind=agent", nil)
+			req.SetPathValue("name", "demo__reviewer.md")
+			rr := httptest.NewRecorder()
+			s.handleGetSkill(rr, req)
 
-	if rr.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
-	}
+			if rr.Code != http.StatusOK {
+				t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+			}
 
-	var resp struct {
-		Resource struct {
-			Kind     string `json:"kind"`
-			RelPath  string `json:"relPath"`
-			Disabled bool   `json:"disabled"`
-		} `json:"resource"`
-	}
-	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
-		t.Fatalf("decode response: %v", err)
-	}
-	if resp.Resource.Kind != "agent" {
-		t.Fatalf("expected kind=agent, got %q", resp.Resource.Kind)
-	}
-	if resp.Resource.RelPath != "demo/reviewer.md" {
-		t.Fatalf("expected relPath demo/reviewer.md, got %q", resp.Resource.RelPath)
-	}
-	if !resp.Resource.Disabled {
-		t.Fatal("expected agent detail to report disabled=true")
+			var resp struct {
+				Resource struct {
+					Kind     string `json:"kind"`
+					RelPath  string `json:"relPath"`
+					Disabled bool   `json:"disabled"`
+				} `json:"resource"`
+			}
+			if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+				t.Fatalf("decode response: %v", err)
+			}
+			if resp.Resource.Kind != "agent" {
+				t.Fatalf("expected kind=agent, got %q", resp.Resource.Kind)
+			}
+			if resp.Resource.RelPath != "demo/reviewer.md" {
+				t.Fatalf("expected relPath demo/reviewer.md, got %q", resp.Resource.RelPath)
+			}
+			if !resp.Resource.Disabled {
+				t.Fatal("expected agent detail to report disabled=true")
+			}
+		})
 	}
 }
 
 func TestHandleListSkills_AgentDisabled(t *testing.T) {
-	s, _ := newTestServer(t)
-	agentsDir := s.agentsSource()
-	if err := os.MkdirAll(agentsDir, 0o755); err != nil {
-		t.Fatalf("create agents dir: %v", err)
-	}
-	addAgent(t, agentsDir, "demo/reviewer.md")
-	if err := os.WriteFile(filepath.Join(agentsDir, ".agentignore"), []byte("demo/reviewer.md\n"), 0o644); err != nil {
-		t.Fatalf("write .agentignore: %v", err)
-	}
+	// A file rule and a folder rule both list the agent as disabled.
+	for _, rule := range []string{"demo/reviewer.md\n", "demo/\n"} {
+		t.Run(strings.TrimSpace(rule), func(t *testing.T) {
+			s, _ := newTestServer(t)
+			agentsDir := s.agentsSource()
+			if err := os.MkdirAll(agentsDir, 0o755); err != nil {
+				t.Fatalf("create agents dir: %v", err)
+			}
+			addAgent(t, agentsDir, "demo/reviewer.md")
+			if err := os.WriteFile(filepath.Join(agentsDir, ".agentignore"), []byte(rule), 0o644); err != nil {
+				t.Fatalf("write .agentignore: %v", err)
+			}
 
-	req := httptest.NewRequest(http.MethodGet, "/api/resources?kind=agent", nil)
-	rr := httptest.NewRecorder()
-	s.handleListSkills(rr, req)
+			req := httptest.NewRequest(http.MethodGet, "/api/resources?kind=agent", nil)
+			rr := httptest.NewRecorder()
+			s.handleListSkills(rr, req)
 
-	if rr.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
-	}
+			if rr.Code != http.StatusOK {
+				t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+			}
 
-	var resp struct {
-		Resources []struct {
-			FlatName string `json:"flatName"`
-			Disabled bool   `json:"disabled"`
-		} `json:"resources"`
-	}
-	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
-		t.Fatalf("decode response: %v", err)
-	}
-	if len(resp.Resources) != 1 {
-		t.Fatalf("expected 1 agent, got %d", len(resp.Resources))
-	}
-	if resp.Resources[0].FlatName != "demo__reviewer.md" {
-		t.Fatalf("expected demo__reviewer.md, got %q", resp.Resources[0].FlatName)
-	}
-	if !resp.Resources[0].Disabled {
-		t.Fatal("expected disabled=true in agent list response")
+			var resp struct {
+				Resources []struct {
+					FlatName string `json:"flatName"`
+					Disabled bool   `json:"disabled"`
+				} `json:"resources"`
+			}
+			if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+				t.Fatalf("decode response: %v", err)
+			}
+			if len(resp.Resources) != 1 {
+				t.Fatalf("expected 1 agent, got %d", len(resp.Resources))
+			}
+			if resp.Resources[0].FlatName != "demo__reviewer.md" {
+				t.Fatalf("expected demo__reviewer.md, got %q", resp.Resources[0].FlatName)
+			}
+			if !resp.Resources[0].Disabled {
+				t.Fatal("expected disabled=true in agent list response")
+			}
+		})
 	}
 }
 
@@ -211,7 +221,7 @@ func TestUpdateSingleByKind_Agent(t *testing.T) {
 	}
 	s.agentsStore = store
 
-	result := s.updateSingleByKind("demo__reviewer.md", "agent", false, true)
+	result := s.updateSingleByKind("demo__reviewer.md", "agent", false, true, false)
 	if result.Action != "updated" {
 		t.Fatalf("expected updated, got %+v", result)
 	}

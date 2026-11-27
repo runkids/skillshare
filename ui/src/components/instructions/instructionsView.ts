@@ -1,12 +1,23 @@
 import { ApiError } from '../../api/client';
 import type { ExtrasSyncResult, InstructionsWarning } from '../../api/client';
 import type { useT } from '../../i18n';
-import type { InstructionLocation, InstructionsAssignment, InstructionsEntry, SharedCopyResult, SharedInstructionsFile, SharedInstructionsTarget } from '../../api/client';
+import type {
+  InstructionLocation,
+  InstructionsAssignment,
+  InstructionsEntry,
+  SharedCopyResult,
+  SharedInstructionsFile,
+  SharedInstructionsTarget,
+} from '../../api/client';
 import { fileName, shortenHome } from '../../lib/paths';
 import type { LineDecor } from '../CodeEditor';
 import { buildSyncToast, sumAll } from '../../lib/extrasSyncToast';
 
-export function sharedSyncFeedback(extras: ExtrasSyncResult[], success: string, t: ReturnType<typeof useT>): [string, 'success' | 'warning'] {
+export function sharedSyncFeedback(
+  extras: ExtrasSyncResult[],
+  success: string,
+  t: ReturnType<typeof useT>,
+): [string, 'success' | 'warning'] {
   const failed = extras.flatMap((e) => e.targets).find((r) => r.error);
   if (failed) throw new Error(failed.error);
   const totals = sumAll(extras);
@@ -39,14 +50,20 @@ export const isOtherExtra = (name: string, extras: { name: string; file?: string
 
 /** A free name for a new shared file made from a target: the target's name, else <name>-2, <name>-3, … */
 export function defaultShareName(target: string, taken: string[]): string {
-  const base = sharedNameProblem(target, []) === 'invalid' ? target.replace(/[^A-Za-z0-9_-]+/g, '-').replace(/^[^A-Za-z0-9]+/, '') || 'shared' : target;
+  const base =
+    sharedNameProblem(target, []) === 'invalid'
+      ? target.replace(/[^A-Za-z0-9_-]+/g, '-').replace(/^[^A-Za-z0-9]+/, '') || 'shared'
+      : target;
   let name = base;
   for (let n = 2; takenName(name, taken); n++) name = `${base}-${n}`;
   return name;
 }
 
 /** Why a target's instruction file path would be refused, checked as the user types. Same rule as the server. */
-export function setupPathProblem(path: string, project: boolean): 'directory' | 'absolute' | 'relative' | null {
+export function setupPathProblem(
+  path: string,
+  project: boolean,
+): 'directory' | 'absolute' | 'relative' | null {
   const p = path.trim();
   if (!p) return null;
   if (p.endsWith('/') || p.endsWith('\\')) return 'directory';
@@ -67,7 +84,11 @@ export function setupPathOf(path: string, project: boolean, projectRoot = ''): s
 }
 
 /** What saving a shared file did to its copies: targets updated, and problems to show, each named by target. */
-export function saveCopiesSummary(copies: SharedCopyResult[]): { updated: string[]; warnings: string[]; errors: string[] } {
+export function saveCopiesSummary(copies: SharedCopyResult[]): {
+  updated: string[];
+  warnings: string[];
+  errors: string[];
+} {
   return {
     updated: copies.filter((c) => !c.error).map((c) => c.target),
     warnings: copies.flatMap((c) => (c.warnings ?? []).map((w) => `${c.target}: ${w}`)),
@@ -86,7 +107,9 @@ export const isImportLine = (text: string) => /^\s*@\S+\s*$/.test(text);
 export function managedBlock(lines: string[]): [number, number] | null {
   const begin = lines.findIndex((l) => l.trim() === '<!-- skillshare:instructions:begin -->');
   if (begin === -1) return null;
-  const end = lines.findIndex((l, i) => i > begin && l.trim() === '<!-- skillshare:instructions:end -->');
+  const end = lines.findIndex(
+    (l, i) => i > begin && l.trim() === '<!-- skillshare:instructions:end -->',
+  );
   return end === -1 ? null : [begin + 1, end + 1];
 }
 
@@ -101,20 +124,33 @@ export function sharedOfImport(line: string, names: string[]): string | undefine
  * list of what it imports (shared file names where known), and HTML comments,
  * which Markdown would show as text, are dropped.
  */
-export function previewParts(content: string, names: string[]): { before: string; imports: string[]; after: string } {
+export function previewParts(
+  content: string,
+  names: string[],
+): { before: string; imports: string[]; after: string } {
   const strip = (s: string) => s.replace(/<!--[\s\S]*?-->/g, '');
   const lines = content.split('\n');
   const blk = managedBlock(lines);
   if (!blk) return { before: strip(content), imports: [], after: '' };
-  const imports = lines.slice(blk[0], blk[1] - 1).filter(isImportLine).map((l) => sharedOfImport(l, names) ?? l.trim().slice(1));
-  return { before: strip(lines.slice(0, blk[0] - 1).join('\n')), imports, after: strip(lines.slice(blk[1]).join('\n')) };
+  const imports = lines
+    .slice(blk[0], blk[1] - 1)
+    .filter(isImportLine)
+    .map((l) => sharedOfImport(l, names) ?? l.trim().slice(1));
+  return {
+    before: strip(lines.slice(0, blk[0] - 1).join('\n')),
+    imports,
+    after: strip(lines.slice(blk[1]).join('\n')),
+  };
 }
 
 /**
  * Line styling for an instruction file: the managed import block and every
  * @import line are tinted; each @import line gets note(line, inBlock) at its end.
  */
-export function importDecor(lines: string[], note: (line: string, inBlock: boolean) => string): LineDecor[] {
+export function importDecor(
+  lines: string[],
+  note: (line: string, inBlock: boolean) => string,
+): LineDecor[] {
   const imports = new Set(importLines(lines.join('\n')));
   const blk = managedBlock(lines);
   return lines.map((line, i) => {
@@ -153,7 +189,7 @@ export type DiffLine = { kind: 'add' | 'del' | 'same'; text: string };
 export function lineDiff(before: string, after: string): DiffLine[] {
   const a = before ? before.replace(/\n$/, '').split('\n') : [];
   const b = after ? after.replace(/\n$/, '').split('\n') : [];
-  const lcs = Array.from({ length: a.length + 1 }, () => new Array<number>(b.length + 1).fill(0));
+  const lcs = Array.from({ length: a.length + 1 }, () => new Uint32Array(b.length + 1));
   for (let i = a.length - 1; i >= 0; i--) {
     for (let j = b.length - 1; j >= 0; j--) {
       lcs[i][j] = a[i] === b[j] ? lcs[i + 1][j + 1] + 1 : Math.max(lcs[i + 1][j], lcs[i][j + 1]);
@@ -193,12 +229,18 @@ export function worstStatus(assigned: InstructionsAssignment[]): string | null {
   return worst;
 }
 
-export const formatSize = (bytes: number) => (bytes < 1024 ? `${bytes} B` : `${(bytes / 1024).toFixed(1)} KB`);
+export const formatSize = (bytes: number) =>
+  bytes < 1024 ? `${bytes} B` : `${(bytes / 1024).toFixed(1)} KB`;
 
 /** Shared files over the limit of a target that cuts its global file short. */
-export function overLimit(target: SharedInstructionsTarget, files: SharedInstructionsFile[]): SharedInstructionsFile[] {
+export function overLimit(
+  target: SharedInstructionsTarget,
+  files: SharedInstructionsFile[],
+): SharedInstructionsFile[] {
   if (!target.max_chars) return [];
-  return files.filter((f) => f.chars > target.max_chars! && target.assigned.some((a) => a.name === f.name));
+  return files.filter(
+    (f) => f.chars > target.max_chars! && target.assigned.some((a) => a.name === f.name),
+  );
 }
 
 /** Names of the shared files a target uses. */
@@ -209,20 +251,32 @@ export const connectedTo = (targets: SharedInstructionsTarget[], name: string) =
   targets.filter((tg) => !tg.same_as && usesOf(tg).includes(name));
 
 /** A mode that keeps a managed part of the target file (an @import line or a content block) rather than replacing the whole file; several can share one file. */
-export const managedMode = (mode: string) => mode === 'import' || mode === 'prepend' || mode === 'append';
+export const managedMode = (mode: string) =>
+  mode === 'import' || mode === 'prepend' || mode === 'append';
 
 /** Whether the target's file already holds a shared file in a managed part (an @import line or a block), so another one can join it. */
-export const holdsManaged = (target: SharedInstructionsTarget) => target.assigned.some((a) => managedMode(a.mode));
+export const holdsManaged = (target: SharedInstructionsTarget) =>
+  target.assigned.some((a) => managedMode(a.mode));
 
 /** What a target should use after connecting it: a target holding managed files adds one more, a link or copy target holds one. */
 export const connectExtras = (target: SharedInstructionsTarget, name: string) =>
-  (target.import || holdsManaged(target) ? [...usesOf(target).filter((n) => n !== name), name] : [name]);
+  target.import || holdsManaged(target)
+    ? [...usesOf(target).filter((n) => n !== name), name]
+    : [name];
 
 /** Connected targets a sync would fix: the file or its link is gone, or points elsewhere. */
 export const needsSync = (targets: SharedInstructionsTarget[], name: string) =>
-  connectedTo(targets, name).filter((tg) => ['not synced', 'drift'].includes(tg.assigned.find((a) => a.name === name)!.status));
+  connectedTo(targets, name).filter((tg) =>
+    ['not synced', 'drift'].includes(tg.assigned.find((a) => a.name === name)!.status),
+  );
 
-export type ConnectStep = { target: string; extras: string[]; note: 'import' | 'block' | 'link' | 'tooLong' | 'held'; other?: string; max?: number };
+export type ConnectStep = {
+  target: string;
+  extras: string[];
+  note: 'import' | 'block' | 'link' | 'tooLong' | 'held';
+  other?: string;
+  max?: number;
+};
 
 /**
  * One step per target that would be connected to file, with what changes for it.
@@ -230,18 +284,29 @@ export type ConnectStep = { target: string; extras: string[]; note: 'import' | '
  * or it is assigned in link or copy mode) is skipped (held): connecting it
  * would change that file or silently take the target away from it.
  */
-export function connectPlan(targets: SharedInstructionsTarget[], file: SharedInstructionsFile): ConnectStep[] {
-  return targets.filter((tg) => !tg.same_as && !usesOf(tg).includes(file.name)).map((tg) => {
-    const step = { target: tg.name, extras: connectExtras(tg, file.name) };
-    if (tg.linked_shared && tg.linked_shared !== file.name) return { ...step, note: 'held', other: tg.linked_shared };
-    const holder = tg.assigned.find((a) => !managedMode(a.mode));
-    if (holder) return { ...step, note: 'held', other: holder.name };
-    if (tg.max_chars && file.chars > tg.max_chars) return { ...step, note: 'tooLong', max: tg.max_chars };
-    return { ...step, note: tg.import ? 'import' : holdsManaged(tg) ? 'block' : 'link' };
-  });
+export function connectPlan(
+  targets: SharedInstructionsTarget[],
+  file: SharedInstructionsFile,
+): ConnectStep[] {
+  return targets
+    .filter((tg) => !tg.same_as && !usesOf(tg).includes(file.name))
+    .map((tg) => {
+      const step = { target: tg.name, extras: connectExtras(tg, file.name) };
+      if (tg.linked_shared && tg.linked_shared !== file.name)
+        return { ...step, note: 'held', other: tg.linked_shared };
+      const holder = tg.assigned.find((a) => !managedMode(a.mode));
+      if (holder) return { ...step, note: 'held', other: holder.name };
+      if (tg.max_chars && file.chars > tg.max_chars)
+        return { ...step, note: 'tooLong', max: tg.max_chars };
+      return { ...step, note: tg.import ? 'import' : holdsManaged(tg) ? 'block' : 'link' };
+    });
 }
 
-export type RestoreStep = { target: string; note: 'import' | 'importKeep' | 'block' | 'blockKeep' | 'link' | 'modified'; others?: string[] };
+export type RestoreStep = {
+  target: string;
+  note: 'import' | 'importKeep' | 'block' | 'blockKeep' | 'link' | 'modified';
+  others?: string[];
+};
 
 /** One step per target that would stop using name, with what happens to its file. */
 export function restorePlan(targets: SharedInstructionsTarget[], name: string): RestoreStep[] {
@@ -249,18 +314,28 @@ export function restorePlan(targets: SharedInstructionsTarget[], name: string): 
     const a = tg.assigned.find((x) => x.name === name)!;
     const others = usesOf(tg).filter((n) => n !== name);
     if (a.status === 'modified') return { target: tg.name, note: 'modified' };
-    if (a.mode === 'import') return others.length ? { target: tg.name, note: 'importKeep', others } : { target: tg.name, note: 'import' };
-    if (managedMode(a.mode)) return others.length ? { target: tg.name, note: 'blockKeep', others } : { target: tg.name, note: 'block' };
+    if (a.mode === 'import')
+      return others.length
+        ? { target: tg.name, note: 'importKeep', others }
+        : { target: tg.name, note: 'import' };
+    if (managedMode(a.mode))
+      return others.length
+        ? { target: tg.name, note: 'blockKeep', others }
+        : { target: tg.name, note: 'block' };
     return { target: tg.name, note: 'link' };
   });
 }
 
 export type SharedMode = 'import' | 'prepend' | 'append' | 'symlink' | 'copy';
-export type ModeOption = { mode: SharedMode; isDefault: boolean; blocked?: 'fileLinks' | 'several' | 'noImport' };
+export type ModeOption = {
+  mode: SharedMode;
+  isDefault: boolean;
+  blocked?: 'fileLinks' | 'several' | 'noImport';
+};
 
 /** The mode a newly connected target gets, as the server picks it: import where the tool reads @import lines; a block when its file already holds a shared file in one; else a link, or a copy when file links are unavailable (Windows without Developer Mode). */
 export const defaultMode = (target: SharedInstructionsTarget, fileLinks: boolean): SharedMode =>
-  (target.import ? 'import' : holdsManaged(target) ? 'prepend' : fileLinks ? 'symlink' : 'copy');
+  target.import ? 'import' : holdsManaged(target) ? 'prepend' : fileLinks ? 'symlink' : 'copy';
 
 /** The picker's value for an assignment's mode: a single file written with merge is linked, as symlink does. */
 export const pickedMode = (mode: string) => (mode === 'merge' ? 'symlink' : mode);
@@ -270,9 +345,14 @@ export function modeOptions(target: SharedInstructionsTarget, fileLinks: boolean
   const modes: SharedMode[] = ['import', 'prepend', 'append', 'symlink', 'copy'];
   const def = defaultMode(target, fileLinks);
   return modes.map((mode) => {
-    const blocked = mode === 'import' && !target.import ? 'noImport'
-      : !managedMode(mode) && target.assigned.length > 1 ? 'several'
-        : mode === 'symlink' && !fileLinks ? 'fileLinks' : undefined;
+    const blocked =
+      mode === 'import' && !target.import
+        ? 'noImport'
+        : !managedMode(mode) && target.assigned.length > 1
+          ? 'several'
+          : mode === 'symlink' && !fileLinks
+            ? 'fileLinks'
+            : undefined;
     return blocked ? { mode, isDefault: mode === def, blocked } : { mode, isDefault: mode === def };
   });
 }
@@ -288,14 +368,19 @@ export type RowHint =
   | { kind: 'alsoUses'; names: string[] };
 
 /** The one line under a target row that says what matters most about it for file. */
-export function rowHint(target: SharedInstructionsTarget, file: SharedInstructionsFile): RowHint | null {
+export function rowHint(
+  target: SharedInstructionsTarget,
+  file: SharedInstructionsFile,
+): RowHint | null {
   if (target.same_as) return { kind: 'sameAs', name: target.same_as };
   const a = target.assigned.find((x) => x.name === file.name);
   if (a?.reason === 'folder_link') return { kind: 'folderLink' };
   if (a?.reason === 'directory') return { kind: 'directory' };
-  if (a?.status === 'not synced' || a?.status === 'drift') return { kind: a.status === 'drift' ? 'drift' : 'notSynced', mode: a.mode };
+  if (a?.status === 'not synced' || a?.status === 'drift')
+    return { kind: a.status === 'drift' ? 'drift' : 'notSynced', mode: a.mode };
   if (a?.status === 'no source') return { kind: 'noSource' };
-  if (target.max_chars && file.chars > target.max_chars) return { kind: 'tooLong', max: target.max_chars };
+  if (target.max_chars && file.chars > target.max_chars)
+    return { kind: 'tooLong', max: target.max_chars };
   const others = usesOf(target).filter((n) => n !== file.name);
   if (!others.length) return null;
   // A managed part joins the others; a link or copy would take the other file's place.
@@ -307,7 +392,11 @@ export function rowHint(target: SharedInstructionsTarget, file: SharedInstructio
 export const blockMode = (mode: string) => mode === 'prepend' || mode === 'append';
 
 /** A managed block in a target file: the source it was written from and its 1-based line range, markers included. */
-export interface ManagedBlock { src: string; start: number; end: number }
+export interface ManagedBlock {
+  src: string;
+  start: number;
+  end: number;
+}
 
 // ponytail: markers inside code fences are taken as real; the server's parser decides what counts, this only tints lines.
 /** The managed blocks in a target file's content. */
@@ -318,22 +407,30 @@ export function managedBlocks(content: string): ManagedBlock[] {
     const line = raw.trim();
     const m = /^<!-- skillshare:extra src="([^"]+)" sha256=[0-9a-f]{16} -->$/.exec(line);
     if (m && !open) open = { src: m[1], start: i + 1, end: i + 1 };
-    else if (line === '<!-- /skillshare:extra -->' && open) { out.push({ ...open, end: i + 1 }); open = null; }
+    else if (line === '<!-- /skillshare:extra -->' && open) {
+      out.push({ ...open, end: i + 1 });
+      open = null;
+    }
   });
   return out;
 }
 
 /** The shared file a block was written from, by the extras folder named in its source path. */
-export const blockOwner = (block: ManagedBlock, names: string[]) => names.find((n) => block.src.split('/').slice(0, -1).at(-1) === n) ?? null;
+export const blockOwner = (block: ManagedBlock, names: string[]) =>
+  names.find((n) => block.src.split('/').slice(0, -1).at(-1) === n) ?? null;
 
 /** Other locations a sync would fix: the file or its link is gone, or points elsewhere. */
-export const staleLocations = (locations: InstructionLocation[]) => locations.filter((l) => ['not synced', 'drift'].includes(l.status));
+export const staleLocations = (locations: InstructionLocation[]) =>
+  locations.filter((l) => ['not synced', 'drift'].includes(l.status));
 
 /** The modes a location can get: a folder has no tool deciding for it, so symlink is the default where file links work. */
 export function locationModeOptions(fileLinks: boolean): ModeOption[] {
   const def: SharedMode = fileLinks ? 'symlink' : 'copy';
-  return (['symlink', 'copy', 'import', 'prepend', 'append'] as const).map((mode) => (mode === 'symlink' && !fileLinks
-    ? { mode, isDefault: false, blocked: 'fileLinks' as const } : { mode, isDefault: mode === def }));
+  return (['symlink', 'copy', 'import', 'prepend', 'append'] as const).map((mode) =>
+    mode === 'symlink' && !fileLinks
+      ? { mode, isDefault: false, blocked: 'fileLinks' as const }
+      : { mode, isDefault: mode === def },
+  );
 }
 
 /** The file a location writes: the folder as typed, then the custom name or the shared file's own. */
@@ -345,7 +442,11 @@ export function locationFile(folder: string, as: string, file: string): string {
 
 /** The file a project location writes, relative to the project root: ./docs/ai/AGENTS.md, or ./AGENTS.md for the root. */
 export function projectLocationFile(folder: string, as: string, file: string): string {
-  const dir = folder.trim().replace(/\\/g, '/').replace(/^(\.\/)+/, '').replace(/\/+$/, '');
+  const dir = folder
+    .trim()
+    .replace(/\\/g, '/')
+    .replace(/^(\.\/)+/, '')
+    .replace(/\/+$/, '');
   const name = as.trim() || file;
   if (dir === '' || dir === '.') return `./${name}`;
   // A path the server will refuse (../x, /x, ~/x) is shown as typed, not as ./../x.
@@ -354,7 +455,7 @@ export function projectLocationFile(folder: string, as: string, file: string): s
 
 /** How a location row names its file: relative to the project root in a project, else by its full path. */
 export const locationLabel = (l: InstructionLocation, project: boolean) =>
-  (project ? projectLocationFile(l.path, '', fileName(l.file)) : shortenHome(l.file));
+  project ? projectLocationFile(l.path, '', fileName(l.file)) : shortenHome(l.file);
 
 /** A project's shared file named from the project root (.skillshare/extras/…), else by its full path. */
 export function projectSourcePath(path: string): string {
@@ -362,7 +463,14 @@ export function projectSourcePath(path: string): string {
   return i >= 0 ? path.slice(i + 1).replace(/\\/g, '/') : shortenHome(path);
 }
 
-export type LocationHint = 'folderLink' | 'directory' | 'noSource' | 'notSynced' | 'drift' | 'driftImport' | 'import';
+export type LocationHint =
+  | 'folderLink'
+  | 'directory'
+  | 'noSource'
+  | 'notSynced'
+  | 'drift'
+  | 'driftImport'
+  | 'import';
 
 /** The one line under a location row: a problem first, else what import leaves in the file. */
 export function locationHint(l: InstructionLocation): LocationHint | null {
@@ -377,19 +485,32 @@ export function locationHint(l: InstructionLocation): LocationHint | null {
 }
 
 /** Line count of a file as an editor shows it: a trailing newline does not start a new line. */
-export const lineCount = (content: string) => (content ? content.replace(/\n$/, '').split('\n').length : 0);
+export const lineCount = (content: string) =>
+  content ? content.replace(/\n$/, '').split('\n').length : 0;
 
 /** Translate backend messages while keeping unknown codes readable. */
-export function instructionsWarningMessage(warning: InstructionsWarning, t: ReturnType<typeof useT>): string {
-  const params = Object.fromEntries(Object.entries(warning.params).map(([key, value]) => [key, shortenHome(value)]));
-  return t(`instructions.warning.${warning.code}`, params, warning.message)
-    .replace(/\/(?:Users|home)\/[^/\s]+|[A-Z]:\\Users\\[^\\\s]+/gi, shortenHome);
+export function instructionsWarningMessage(
+  warning: InstructionsWarning,
+  t: ReturnType<typeof useT>,
+): string {
+  const params = Object.fromEntries(
+    Object.entries(warning.params).map(([key, value]) => [key, shortenHome(value)]),
+  );
+  return t(`instructions.warning.${warning.code}`, params, warning.message).replace(
+    /\/(?:Users|home)\/[^/\s]+|[A-Z]:\\Users\\[^\\\s]+/gi,
+    shortenHome,
+  );
 }
 
 export function instructionsErrorMessage(error: unknown, t: ReturnType<typeof useT>): string {
   let message = (error as Error).message;
   if (error instanceof ApiError && error.code?.startsWith('instructions_')) {
-    const params = Object.fromEntries(Object.entries(error.params ?? {}).map(([key, value]) => [key, typeof value === 'string' ? shortenHome(value) : String(value)]));
+    const params = Object.fromEntries(
+      Object.entries(error.params ?? {}).map(([key, value]) => [
+        key,
+        typeof value === 'string' ? shortenHome(value) : String(value),
+      ]),
+    );
     message = t(`instructions.error.${error.code}`, params, message);
   }
   return message.replace(/\/(?:Users|home)\/[^/\s]+|[A-Z]:\\Users\\[^\\\s]+/gi, shortenHome);

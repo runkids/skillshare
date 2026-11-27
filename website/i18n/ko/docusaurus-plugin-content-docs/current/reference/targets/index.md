@@ -15,7 +15,7 @@ flowchart LR
     TGT_CURSOR["cursor &nbsp; ~/.cursor/skills"]
     TGT_CODEX["codex &nbsp; ~/.agents/skills"]
     TGT_GEMINI["gemini &nbsp; ~/.gemini/skills"]
-    TGT_MORE["... &nbsp; 79 supported"]
+    TGT_MORE["... &nbsp; 80 supported"]
 
     SRC -->|sync| TGT_CLAUDE
     SRC -->|sync| TGT_CURSOR
@@ -36,7 +36,7 @@ flowchart LR
 
 | Topic | Description |
 |-------|-------------|
-| [Supported Targets](./supported-targets.md) | 지원되는 79개 AI CLI 전체 목록 |
+| [Supported Targets](./supported-targets.md) | 지원되는 80개 AI CLI 전체 목록 |
 | [Adding Custom Targets](./adding-custom-targets.md) | skill 디렉터리를 가진 어떤 도구든 추가 |
 | [Configuration](./configuration.md) | Config 파일 참조 |
 

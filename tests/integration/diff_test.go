@@ -381,6 +381,33 @@ targets:
 	result.AssertOutputContains(t, "SKILL.md")
 }
 
+func TestDiff_CopyMode_FileStatLeavesOutIgnoredFiles(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("skill-a", map[string]string{
+		"SKILL.md": "# Original",
+		"notes.md": "not for the target",
+	})
+	targetPath := sb.CreateTarget("claude")
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+ignore:
+  - notes.md
+targets:
+  claude:
+    path: ` + targetPath + `
+    mode: copy
+`)
+	sb.RunCLI("sync").AssertSuccess(t)
+	os.WriteFile(filepath.Join(sb.SourcePath, "skill-a", "SKILL.md"), []byte("# Changed"), 0644)
+
+	result := sb.RunCLI("diff", "--stat")
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "SKILL.md")
+	result.AssertOutputNotContains(t, "notes.md")
+}
+
 func TestDiff_PatchFlag_ShowsUnifiedDiff(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

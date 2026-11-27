@@ -51,6 +51,16 @@ func TestRemoveByNames(t *testing.T) {
 			remove:  []string{"_team"},
 		},
 		{
+			name: "repo installed into the legacy group stays",
+			entries: map[string]*MetadataEntry{
+				"_team":   {Tracked: true},
+				"team/a":  {Group: "team", Tracked: true},
+				"team/_b": {Group: "team", Tracked: true},
+			},
+			remove: []string{"_team"},
+			kept:   []string{"team/_b"},
+		},
+		{
 			name:    "untracked group that shares the repo's name stays",
 			entries: map[string]*MetadataEntry{"team/a": {Group: "team"}},
 			remove:  []string{"_team"},

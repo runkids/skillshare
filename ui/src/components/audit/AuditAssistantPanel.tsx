@@ -73,8 +73,11 @@ export default function AuditAssistantPanel({
           <span className={`ss-st ${errorCount > 0 ? 'bad' : 'warn'}`}>
             {[
               errorCount > 0 && t(plural('config.panel.errors', errorCount), { count: errorCount }),
-              warningCount > 0 && t(plural('config.panel.warnings', warningCount), { count: warningCount }),
-            ].filter(Boolean).join(', ')}
+              warningCount > 0 &&
+                t(plural('config.panel.warnings', warningCount), { count: warningCount }),
+            ]
+              .filter(Boolean)
+              .join(', ')}
           </span>
         )}
         <span className="text-xs text-ink-3">
@@ -95,22 +98,47 @@ export default function AuditAssistantPanel({
         </>
       ) : (
         <>
-          <div ref={segSlide} className="ss-seg self-start" role="radiogroup" aria-label={t('audit.tab.rules')}>
+          <div
+            ref={segSlide}
+            className="ss-seg self-start"
+            role="radiogroup"
+            aria-label={t('audit.tab.rules')}
+          >
             {VIEWS.map((v) => (
-              <button key={v} type="button" role="radio" aria-checked={view === v} className={view === v ? 'on' : ''} onClick={() => setView(v)}>
+              <button
+                key={v}
+                type="button"
+                role="radio"
+                aria-checked={view === v}
+                className={view === v ? 'on' : ''}
+                onClick={() => setView(v)}
+              >
                 {t(`config.panel.tab.${v}`)}
               </button>
             ))}
           </div>
           <div className="max-h-[420px] overflow-y-auto">
             {view === 'field' ? (
-              fieldPath ? <FieldDocs fieldPath={fieldPath} docs={auditFieldDocs} /> : <p className="text-[13px] text-ink-3">{t('config.panel.fieldHint')}</p>
+              fieldPath ? (
+                <FieldDocs fieldPath={fieldPath} docs={auditFieldDocs} />
+              ) : (
+                <p className="text-[13px] text-ink-3">{t('config.panel.fieldHint')}</p>
+              )
             ) : view === 'structure' ? (
-              <StructureTree source={source} cursorLine={cursorLine} parseError={false} onClickNode={jumpToLine} />
+              <StructureTree
+                source={source}
+                cursorLine={cursorLine}
+                parseError={false}
+                onClickNode={jumpToLine}
+              />
             ) : view === 'changes' ? (
               <DiffPreview diff={diff} onClickLine={jumpToLine} onRevert={onRevert} />
             ) : (
-              <RegexTester pattern={pattern} excludePattern={cursorExclude} onPatternChange={setPattern} />
+              <RegexTester
+                pattern={pattern}
+                excludePattern={cursorExclude}
+                onPatternChange={setPattern}
+              />
             )}
           </div>
         </>

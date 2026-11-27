@@ -63,7 +63,7 @@ skillshare sync --all
 | `--global`, `-g` | global の Skillshare 設定を使う |
 | `--project`, `-p` | project の Skillshare 設定を使う |
 
-サブコマンドを指定しない場合、`mcp` はインタラクティブなターミナルで検索可能なマネージャーを開くか、非インタラクティブモードではステータスを表示します。名前を指定しない非インタラクティブなインポートは、解析済みの候補を選択のために一覧表示し、保存は行いません。候補にはポータブルな定義が含まれ、認識可能な secret は参照に変換されます。Agent 固有のフィールドは警告として一覧表示され除外されます。無効化されたサーバーと非対応のトランスポートは候補をブロックします。`restore` は適用前に必ず再度プレビューします。適用せずに確認するには `--dry-run` を使ってください。
+サブコマンドを指定しない場合、`mcp` はインタラクティブなターミナルで検索可能なマネージャーを開くか、非インタラクティブモードではステータスを表示します。名前を指定しない非インタラクティブなインポートは、解析済みの候補を選択のために一覧表示し、保存は行いません。候補にはポータブルな定義が含まれ、認識可能な secret は参照に変換されます。Agent 固有のフィールドはその Agent の [`options`](#agent-options) に入ります。`options` に保持できないフィールドは警告として一覧表示され除外されます。無効化されたサーバーと非対応のトランスポートは候補をブロックします。`restore` は適用前に必ず再度プレビューします。適用せずに確認するには `--dry-run` を使ってください。
 
 `--pi-extension`、`--pi-options-prune`、`--direct-tools` は 0.23.0 で削除され、現在は代わりに何を使うべきかを示すメッセージとともに失敗します。[0.22 からの Pi のアップグレード](#pi-migration)を参照してください。
 
@@ -100,6 +100,7 @@ Add、edit、remove、import では、**Save and sync** または **Save only** 
 | `options` | 他の Agent のネイティブなサーバー別フィールド。クライアント ID をキーにする。Codex の承認モードや Claude Code のタイムアウトなど。[下記](#agent-options)を参照 |
 | `piOptions` | Pi の内蔵 MCP のその他のサーバー別フィールド。[Pi](#pi-options)を参照 |
 | `disabled` | `true` のみ、他の接続フィールドを伴わない、かつ project がスコープ内にあること: project mode、または `mcp.projects` 配下の root。[下記](#turn-off-a-global-server-in-one-project)を参照 |
+| `global` | global config の `mcp.servers` のみ。`false` にすると、サーバーはデフォルトではどの project にも読み込まれず、`use` に列挙した root だけが受け取る。デフォルトは `true`。[選んだ project とサーバーを共有する](#share-a-server-with-chosen-projects)を参照 |
 
 クライアント ID は `claude`、`codex`、`cursor`、`vscode`、`opencode`、`kilocode`、
 `grok`、`antigravity`、`amp`、`claude-desktop`、`cline`、`copilot`、`factory`、`gemini`、
@@ -137,6 +138,7 @@ servers:
   Agent のファイルはコミットされることがあるため、平文や参照の前後に文字がある値は拒否されます。
   Codex、Antigravity、Claude Desktop、Goose、Junie、LM Studio、Warp はそこで参照を読まないため、その options に認証情報は置けません。
 - サーバーが届かないクライアントの options は保持され、書き込まれません。
+- Import は、ここにポータブルな形式がない Agent のネイティブフィールドを、その Agent の ID の下に置きます。たとえば Claude Code の `alwaysLoad` は `options.claude` の下に入ります。名前（または内部の名前）が認証情報を示すフィールド（`auth`、`key`、`token`、`secret`、`bearer`、`cookie` など）と、上記のルールで拒否されるフィールドは、警告付きで除外されます。`--from` を指定せずにインポートしたファイルや貼り付けたテキスト、またはダッシュボードで **From** を **Any Agent** のまま貼り付けた JSON は形式を推測するため、そのネイティブフィールドは警告として一覧表示され、除外されます。
 - sync は、リネームの後などにエントリを作り直すとき、そのフィールドを再び書き込みます。
   source から option を外すと、次の sync は書き込んだフィールドを削除します。ただし、その後に Agent が変更していた場合は除きます。それは import または replace で解決する競合です。
 - ダッシュボードでは、サーバーダイアログの **その他の Agent 設定** で編集できます。Agent を選び、
@@ -203,20 +205,20 @@ Grok の場合、名前は文字またはアンダースコアで始まり、文
 | [Windsurf (Cascade)](https://docs.devin.ai/desktop/cascade/mcp) | `~/.codeium/windsurf/mcp_config.json` | Global のみ | `mcpServers` |
 | [Oh My Pi (OMP)](https://github.com/can1357/oh-my-pi/blob/v18.6.1/docs/mcp-config.md) | `~/.omp/agent/mcp.json` | `.omp/mcp.json` | `mcpServers` |
 
-Hermes は Global MCP のみ対応し、`mcp_servers`（YAML）を使用します。stdio と Streamable HTTP に対応し、SSE のインポートは拒否します。絶対パスの `HERMES_HOME` で別の home/profile を選択できます。未指定時は default profile（Windows は `%LOCALAPPDATA%/hermes`）を使い、active profile、`--profile`、`HERMES_DATA_DIR_SUFFIX` は追跡しません。`fromEnv` は `${VAR}` を出力し、env/header のインポートは `${env:VAR}` も受け付けます。OAuth は `options.hermes: {auth: oauth}` で指定します。インポートでは `auth`／`oauth` を保持しますが、平文の認証情報は拒否するため、値全体を `${VAR}` 参照に置き換えてください。その他の未対応フィールドは警告されます。ログイン、`.env`、token、refresh state は Hermes が管理します。同じ profile で `hermes mcp login NAME` を実行してください。YAML の保持と制限は Goose と同じです。
+Hermes は Global MCP のみ対応し、`mcp_servers`（YAML）を使用します。stdio と Streamable HTTP に対応し、SSE のインポートは拒否します。絶対パスの `HERMES_HOME` で別の home/profile を選択できます。未指定時は default profile（Windows は `%LOCALAPPDATA%/hermes`）を使い、active profile、`--profile`、`HERMES_DATA_DIR_SUFFIX` は追跡しません。`fromEnv` は `${VAR}` を出力し、env/header のインポートは `${env:VAR}` も受け付けます。OAuth は `options.hermes: {auth: oauth}` で指定します。インポートでは `auth`／`oauth` を保持しますが、平文の認証情報は拒否するため、値全体を `${VAR}` 参照に置き換えてください。その他のネイティブフィールドは、他の Agent と同様に `options.hermes` の下に入ります。ログイン、`.env`、token、refresh state は Hermes が管理します。同じ profile で `hermes mcp login NAME` を実行してください。YAML の保持と制限は Goose と同じです。
 
 ダッシュボードのサーバーフォームは、HTTP ヘッダーを環境変数と同じ方法で編集し、`fromEnv` 参照にも対応します。サーバーのメニューとフォーム内のファイル数の横にある **View what each Agent gets** は、選択したクライアントに対して Sync が書き込む予定のネイティブテキストを読み取り専用で表示します。フォーム内では、まだ保存されていない編集内容が反映されます。secret は参照のままです。
 
 JSON エントリは、そのファイル自体のインデントに合わせて 1 行に 1 フィールドで書き込まれます。Skillshare が所有しているにもかかわらず 1 行にまとまっているエントリは `update` として報告され、改めてレイアウトされて書き込まれます。Skillshare が所有していないエントリや、手動でフォーマットされたエントリは、そのレイアウトを保持します。
 
-ダッシュボードは、現在の scope とホストのプラットフォームで利用可能な送信先のみを提供します。各サーバーは 1 行として表示され、名前の下に送信先のクライアントがチップで並びます。右側のカウントボタンからそのサーバーの全クライアント一覧を開けます。Global 専用のクライアントは project mode では選択できません。
-右側の **Sync** ボックスには、まだ書き込まれていない変更が一覧表示されます。クライアントにチェックを入れるだけでは source のみが編集されます。**Sync MCP** はそれらの変更を一覧表示し、確認後に MCP の設定ファイルだけを書き込み、それぞれのバックアップを保存します。同じボックスの区切り線の下では、サーバーがあれば **チェック** で[サーバーをチェック](#check-servers-before-an-agent-starts-them)でき、**バックアップと復元** でそれらのバックアップを参照できます。その下の **Agents** には、このマシン上で検出されたクライアントが一覧表示されます。クライアントの MCP ファイルが存在するか、そのクライアントが設定を保存するフォルダが存在すれば「検出済み」と見なされるため、MCP ファイルがまだない新規インストールでも表示されます。project mode では、project が MCP ファイルを持っているか、そのクライアントが global で検出されている場合に一覧表示されます。検出された各クライアントには MCP ファイル名が表示され、**Copy path** でフルパスをコピーできます。ファイルが存在すると、**Open in editor** で skill の **Open in editor** と同じエディターで開けます。**Open folder** はファイルを含むフォルダを、クライアントがまだファイルを書いていなければ存在する最も近いフォルダを、ファイルマネージャー（Finder、エクスプローラー、Linux では既定のハンドラー）で開くので、`$EDITOR` を設定しなくても好きなプログラムでファイルを開けます。どちらもダッシュボードを実行しているマシン上で起動するため、これらのボタンはブラウザも同じマシン上（`localhost` または SSH ポートフォワーディング経由）で開いているときだけ表示され、LAN アドレスやリバースプロキシ経由では表示されません。
+ダッシュボードは、現在の scope とホストのプラットフォームで利用可能な送信先のみを提供します。各サーバーは 1 行として表示され、右側のカウントボタンに送信先のクライアントのロゴが並びます。このボタンからそのサーバーの全クライアント一覧を開けます。Global 専用のクライアントは project mode では選択できません。
+右側の **Sync** ボックスには、まだ書き込まれていない変更が一覧表示されます。クライアントにチェックを入れるだけでは source のみが編集されます。**Sync MCP** はそれらの変更を一覧表示し、確認後に MCP の設定ファイルだけを書き込み、それぞれのバックアップを保存します。同じボックスの区切り線の下では、サーバーがあれば **チェック** で[サーバーをチェック](#check-servers-before-an-agent-starts-them)でき、**バックアップと復元** でそれらのバックアップを参照できます。その下の **Agents** には、このマシン上で検出されたクライアントが一覧表示されます。クライアントの MCP ファイルが存在するか、そのクライアントが設定を保存するフォルダが存在すれば「検出済み」と見なされるため、MCP ファイルがまだない新規インストールでも表示されます。project mode では、project が MCP ファイルを持っているか、そのクライアントが global で検出されている場合に一覧表示されます。検出された各クライアントには MCP ファイル名が表示され、**Copy path** でフルパスをコピーできます。ファイルが存在すると、**View file** でページ内に読み取り専用で表示できます。WSL が Windows から切り離されているなど、ダッシュボードを実行しているマシンで何も開けない場合でも使えます。1 MB を超えるファイルは表示されません。**Open in editor** で skill の **Open in editor** と同じエディターで開けます。ダッシュボードには表示先のターミナルがないため、`$VISUAL` や `$EDITOR` に nano や vim などの一般的なターミナルエディターが設定されていても使われません。WSL では、GUI エディターが見つからない場合、Windows がそのファイルに関連付けられたプログラムで開きます。**Open folder** はファイルを含むフォルダを、クライアントがまだファイルを書いていなければ存在する最も近いフォルダを、ファイルマネージャー（Finder、Windows と WSL ではエクスプローラー、Linux では既定のハンドラー）で開くので、`$EDITOR` を設定しなくても好きなプログラムでファイルを開けます。どちらもダッシュボードを実行しているマシン上で起動し、ファイルにはトークンが含まれていることがあるため、これらのボタンと **View file** はブラウザも同じマシン上（`localhost` または SSH ポートフォワーディング経由）で開いているときだけ表示され、LAN アドレスやリバースプロキシ経由では表示されません。
 
 追加のクライアント詳細:
 
 - `codex` の送信先は、Codex CLI、Codex IDE 拡張機能、ChatGPT デスクトップアプリが共有する 1 つの `config.toml` です。そのため、`codex` に同期したサーバーはこの 3 つすべてに表示されます。ChatGPT デスクトップアプリでは **Settings → MCP servers** の下に表示されます。
   Codex は、trust している project でのみ `.codex/config.toml` を読み込みます。trust していない project では、同期されたサーバーはエラーなく読み込まれません。`cwd`、
-  `http_headers_helper`、承認モード、タイムアウト、`oauth` テーブルにはポータブルな形式がありません。インポートではこれらを警告付きで除外し、sync は既存のエントリ内にそれらを維持します。source から設定するには [`options.codex`](#agent-options) を使います。`enabled_tools` と `disabled_tools` は[ツールポリシー](#tool-policy)から書き込まれ、インポート時もそこに取り込まれます。Codex の plugin が同梱する MCP サーバーは `plugins.<plugin>.mcp_servers` の下に設定され、ここでは管理されません。
+  `http_headers_helper`、承認モード、タイムアウト、`oauth` テーブルにはポータブルな形式がありません。インポートではこれらを [`options.codex`](#agent-options) の下に置き、sync がそれを書き戻します。ただし、`oauth` テーブルのように認証情報を含みうるフィールドは警告付きで除外されます。`enabled_tools` と `disabled_tools` は[ツールポリシー](#tool-policy)から書き込まれ、インポート時もそこに取り込まれます。Codex の plugin が同梱する MCP サーバーは `plugins.<plugin>.mcp_servers` の下に設定され、ここでは管理されません。
 - Claude Desktop のファイル sync は macOS と Windows で **stdio のみ**に対応します。
   ディレクトリは macOS では `~/Library/Application Support/Claude`、
   Windows では `%APPDATA%/Claude` です。リモートコネクタはアプリケーション内で設定してください。
@@ -265,8 +267,8 @@ mode では、Skillshare は `fromEnv` または `bearerToken` を使う Kilo Co
 OpenCode と Kilo Code は `local`/`remote` タイプと `{env:VARIABLE}` 参照を使用し、Grok は
 `${VARIABLE}` 参照を使用します。Skillshare はこれらを自動的に変換します。Claude の
 `"type": "streamable-http"` は HTTP としてインポートされます。無効化された接続はインポートをブロックします。
-Codex の `startup_timeout_sec` や `envFile` のような、ポータブルな対応形式がないその他のネイティブオプションは、
-警告付きでインポートから除外されます。sync はそれらを Agent の既存エントリ内に維持します。Pi は内蔵 MCP を使います。
+Codex の `startup_timeout_sec` や Claude Code の `alwaysLoad` のような、ポータブルな対応形式がないその他のネイティブオプションは、
+その Agent の [`options`](#agent-options) の下にインポートされるため、sync はそれを書き戻しますが、他の Agent には書き込みません。平文の認証情報や `null` のように `options` に保持できないフィールドは、警告付きでインポートから除外され、sync は Agent の既存エントリ内にそれを維持します。Pi は内蔵 MCP を使います。
 [下記](#pi)を参照してください。
 
 VS Code Stable のデフォルトのユーザーファイルは以下のとおりです。
@@ -396,7 +398,7 @@ skillshare sync mcp
 - **Skillshare 自身が定義したサーバーにはこれは不要です。** 代わりにそのサーバーで Agent の選択を外せば、
   次の sync でそのエントリが削除されます。
 
-ダッシュボードでは、**グローバルサーバーをオフにする** ボタンがこれに当たります。project mode では **サーバー** 見出しの横に、project の MCP タブでは **サーバーを追加** の横にあります。
+ダッシュボードでは、**名前でオフにする** ボタンがこれに当たります。project mode では **サーバー** 見出しの横に、project の MCP タブでは **サーバーを追加** の横にあります。
 
 ## global config から複数の project を管理する {#manage-several-projects-from-the-global-config}
 
@@ -446,24 +448,100 @@ context7     add          opencode (~/work/project01/opencode.json)
 リストから project を削除すると、サーバーを削除した場合と同様に、Skillshare がそこに書き込んだエントリが
 次の sync で削除されます。
 
-複数の project に同じサーバーを持たせるには、YAML アンカーで一度だけ定義して再利用します。
+### 選んだ project とサーバーを共有する {#share-a-server-with-chosen-projects}
+
+各 project にコピーを置かずに複数の project に同じサーバーを持たせるには、`mcp.servers` で
+`global: false` を指定して一度だけ定義し、読み込ませたい project ごとに `use` に列挙します。
+
+```yaml
+# ~/.config/skillshare/config.yaml
+mcp:
+  targets: [claude]
+  servers:
+    context7:                    # global: loads in every folder
+      command: npx
+      args: ["-y", "@upstash/context7-mcp@4.4.1"]
+    internal-docs:
+      global: false              # loads in no project unless a root uses it
+      url: https://docs.example.com/mcp
+  projects:
+    ~/work/project01:
+      use: [internal-docs]
+      servers:
+        local-db:                # this project only
+          command: ./scripts/db-mcp
+    ~/work/project02:
+      use: [internal-docs]
+```
+
+`global: false` のサーバーは Agent の global ファイルには書き込まれません。sync は、それを使う各 root に、
+サーバー自身が `targets` を指定していなければその root の `targets` へ書き込みます。一度編集すれば、
+次の sync でそれを使うすべての root が更新されます。どの root も使っていない共有サーバーはどこにも書き込まれません。
+global だったサーバーの `global` をオフにすると、次の sync で global ファイルから Skillshare のエントリが削除されます。
+
+ルール:
+
+- 各 `use` の名前は `mcp.servers` 内の `global: false` サーバーでなければならず、1 回だけ指定できます。
+- ある名前を、root の `use` とその root 自身の `servers`（サーバーとしても `disabled` エントリとしても）の両方に
+  置くことはできません。
+- `global` は `mcp.projects.<root>.servers` の下、project 自身の config（`-p`）、および `disabled` との併用では
+  拒否されます。省略するか `global: true` にするのがデフォルトで、config を保存するときに削除されます。
+- 共有サーバーの `targets` に `claude-work` のような[アカウント](#accounts)は指定できません。すべてのアカウントが
+  同じ project ファイルを読むためです。`claude` のように Agent を指定してください。
+- 共有サーバーを削除する、または global に戻すと、同じ保存で、すべての `use` リストからその名前も削除されます。
+- 共有サーバーを編集しても、編集で `global` を設定しない限り `global: false` は維持されます。
+
+#### 1 つの project だけで共有サーバーを変える {#override-a-shared-server}
+
+root は、使っている共有サーバーの一部の設定を、`overrides` の下でサーバー名を key にして
+変更できます。接続設定（`command`、`args`、`url`、`headers`、`env`）は共有サーバーのものを
+そのまま使うため、定義は 1 か所だけです。
 
 ```yaml
 mcp:
+  targets: [pi]
+  servers:
+    internal-docs:
+      global: false
+      url: https://docs.example.com/mcp
+      piOptions:
+        exposure: codemode
   projects:
     ~/work/project01:
-      servers:
-        internal-docs: &internal-docs
-          url: https://example.com/mcp
-          targets: [opencode]
+      use: [internal-docs]
     ~/work/project02:
-      servers:
-        internal-docs: *internal-docs
+      use: [internal-docs]
+      overrides:
+        internal-docs:
+          piOptions:
+            exposure: direct     # project02 のみ。project01 は codemode のまま
 ```
 
-アンカーは `mcp.projects` の中に置いてください。`mcp.servers` 上のアンカーへのエイリアスも機能しますが、
-`skillshare mcp add` とダッシュボードは `mcp.servers` を書き換えます。保存時には、ファイルが有効なままになるよう
-そうしたエイリアスを完全な形に展開して書き出すため、それ以降は global サーバーへの編集に追従しなくなります。
+| フィールド | その root での扱い |
+|---|---|
+| `targets` | サーバーの targets を置き換えます。空のリストにすると、その root にはサーバーを書き込みません |
+| `tools` | サーバーのツールポリシーを置き換えます |
+| `piOptions` | サーバーの値に key ごとにマージされます |
+| `options` | サーバーの値に Agent と key ごとにマージされます |
+
+root が実際に読み込むサーバーも上のすべてのルールを満たす必要があるため、override の
+`targets` にアカウントを指定したり、Pi にない exposure を設定したりはできません。override に
+指定できるのは、その root の `use` にあるサーバーだけです。その root でサーバーをオフにする、
+サーバーを削除する、または global に戻すと、同じ保存で override も削除されます。
+
+`skillshare mcp list` は共有サーバーごとに `shared` 行を追加し、それを使う project、または
+`not used by any project` を表示します。`mcp list --json` にはトップレベルの `shared` 配列があります。
+
+```json
+{"shared": [{"name": "internal-docs", "projects": ["~/work/project01", "~/work/project02"]}]}
+```
+
+インタラクティブな一覧には、共有サーバーを使う project の target が表示され、詳細にはそれらの project が表示されます。`mcp check` は、どの project も共有サーバーを使っていなければそう表示します。
+
+このバージョンでは、既存の project ごとのコピーを共有サーバーに変換することはなく、`use` や `overrides` を編集するコマンドも
+ありません。`config.yaml` を編集するか、[ダッシュボード](#projects-in-the-dashboard)のスイッチと **Override** ダイアログを使ってください。
+`mcp.projects` の中に置いた YAML アンカーで共有するサーバーも引き続き機能しますが、ダッシュボードと
+`skillshare mcp add` はそれらのコピーをリンクされたものとして扱いません。
 
 ### ダッシュボードでの project {#projects-in-the-dashboard}
 
@@ -474,16 +552,21 @@ global mode では、ダッシュボードに **プロジェクト** ページ�
 
 - **プロジェクトを追加** では、フォルダーとその target を指定します。**MCP** にチェックを入れると、そのフォルダーは
   `mcp.projects` にも一覧されます。
-- **MCP** タブには、すべての global サーバーがスイッチ付きで一覧表示されます。オフにすると、`targets` を
-  持たない `disabled` エントリが保存されるため、[上記](#turn-off-a-global-server-in-one-project)のとおり
-  project の target に従います。オンに戻すとそのエントリは削除されます。
-  その下には、その project にのみ存在するサーバーが並びます。
+- **MCP** タブには 3 つのセクションがあります。**On in every project** には global サーバーがスイッチ付きで
+  一覧表示されます。オフにすると、`targets` を持たない `disabled` エントリが保存されるため、
+  [上記](#turn-off-a-global-server-in-one-project)のとおり project の target に従います。オンに戻すとそのエントリは
+  削除されます。**Opt-in servers** には[共有サーバー](#share-a-server-with-chosen-projects)が一覧表示され、
+  デフォルトではオフです。そのスイッチは project の `use` に名前を追加または削除します。
+  **Only in this project** には、その project にのみ存在するサーバーが並びます。
+- MCP ページでは、サーバーのダイアログに **Loads in** があり、**Every project** または
+  **Chosen projects** を選べます。共有サーバーがあると一覧は **Global** と **Only in chosen projects** に分かれ、共有サーバーの行には **N projects** と表示されます。その行を展開するか、ダイアログで **Chosen projects** を選ぶと、`mcp.projects` のルートごとにチェックボックスが並びます。**Save** はチェックを入れた、または外したすべてのルートの `use` に名前を一度に追加・削除します。**Add folder…** はまだ一覧にないルートを追加します。そのルートには独自の `targets` がないため、`mcp.targets` が使われます。同じ名前のサーバーを独自に定義しているルートには、**Has its own** とその名前が表示されます。各ルートの矢印はその project の **MCP** タブを開きます。ただし、チェックが保存または破棄されるまで（ダイアログではほかの項目も含めて）待機します。
+- 共有サーバーを使う project は、その設定の一部を [override](#override-a-shared-server) できます。MCP ページで行を展開すると、そのサーバーを使う各 project の override が表示されます。override がなく Pi の tool exposure を継承している場合は、それが表示されます。各行には **Override** または **Edit override** があり、行のヘッダーには override の数が表示されます。サーバーのダイアログの project 一覧にも同じ内容が表示されますが、ボタンはありません。project の **MCP** タブでは、override したサーバーに **Overridden** タグが付き、その下の 1 行に project が変更する内容が表示され、鉛筆ボタンで同じダイアログが開きます。ダイアログでは接続を読み取り専用で表示し、Agents、Pi の tool exposure、tool policy を設定できます。どれも値を選ぶまでは MCP ページに従い、**Reset to default** で 1 つずつ元に戻せます。保存すると root の override が置き換えられますが、ダイアログに表示されない設定（ほかの `piOptions` や `options` など）は保持されます。共有サーバーが Pi の `toolExposure` を設定している場合、Pi は tool policy を併用できないため、ツールは固定されます。
 - オフになっているサーバーには、オフになっている Agent のロゴが表示されます。オンのサーバーには読み込まれる Agent が表示され、
   同じ名前の project サーバーに置き換えられている場合は何も表示されません。project の Agent の中に
   project ごとのスイッチを持たないものがある場合、その行にはサーバーがそこでは引き続き読み込まれることが
   表示されます。project のものとは異なる独自の `targets` を持つエントリには **プロジェクトに合わせる** が
   表示され、`targets` なしでそのエントリを保存し直します。
-- タブ右側の **Agents** には、この project の Agent、project 専用サーバーの送信先 Agent、ファイルがすでに project にあるその他の Agent が、ファイル名と **Copy path** 付きで表示されます。**Open folder** と **Open in editor** は MCP ページと同じように動作します。
+- タブ右側の **Agents** には、この project の Agent、project 専用サーバーの送信先 Agent、ファイルがすでに project にあるその他の Agent が、ファイル名と **Copy path** 付きで表示されます。**View file**、**Open folder**、**Open in editor** は MCP ページと同じように動作します。
 - タブの Sync ボックスにある **Sync MCP** は MCP の計画全体を書き込み、そのうち何件の変更がこの project の外に
   あるかを表示します。project ページの上部にある **Sync project** は、この project の skills、agents、MCP だけを
   書き込みます。
@@ -499,7 +582,7 @@ YAML が書かれたまま保持され、`~/work/app` と書かれたフォル�
 
 - `mcp.projects` は global config からのみ読み込まれます。これを含む project config は拒否されます。
 - これを編集するコマンドはありません。`skillshare mcp add` は `mcp.servers` を管理し、
-  `mcp.projects` は書かれたままにします。編集は `config.yaml`、または
+  `mcp.projects`（`use` を含む）は書かれたままにします。編集は `config.yaml`、または
   [ダッシュボード](#projects-in-the-dashboard)で行ってください。
 - Claude Code 向けの `disabled` エントリは、global サーバーが書き込まれるのと同じファイルである
   `~/.claude.json` に書き込まれます。Claude Code は project ごとのオフリストをそこに保持しているためです。
@@ -533,6 +616,7 @@ HTTP リクエストの送信、コマンドの実行、ファイルの書き込
 | Agent のエントリが source と競合する(`sync mcp --dry-run` と同様) | error |
 | Agent のエントリがまだ書き込まれていない、または更新されていない | warning |
 | サーバーが `targets: []` を持ち、Skillshare 内にのみ保持されている | info |
+| サーバーが共有（`global: false`）で、どの project も `use` に挙げていない | info |
 | 選択された Agent がサーバーの[ツールポリシー](#tool-policy)の一部を保持できない | warning |
 
 変数の値は表示されません。error が 1 件でもあれば終了コードは 1、それ以外は 0 です。warning で
@@ -585,8 +669,8 @@ HTTP リクエストの送信、コマンドの実行、ファイルの書き込
 
 ダッシュボードでは、MCP ページの Sync ボックスにある **チェック** ボタンで同じチェックを実行します。チェックする
 サーバーがあるときに表示され、クリックしたときにだけ実行され、サーバー一覧の上に概要を、各サーバーの下にそれぞれの
-error や warning を表示し、ページを再読み込みすると何も残りません。MCP ページには global サーバーしか一覧表示
-されないため、その概要と各行には project のサーバーは含まれません。global サーバーと同じ名前のものも同様です。
+error や warning を表示し、ページを再読み込みすると何も残りません。MCP ページには global サーバーと共有サーバーが一覧表示
+されるため、その概要と各行には project 専用のサーバーは含まれません。global サーバーと同じ名前のものも同様です。
 project の MCP タブには Sync ボックスに専用の **チェック** があり、その project 自身のサーバーを報告します。
 変数は `skillshare ui` を起動したターミナルから読み込まれます。
 
@@ -620,7 +704,7 @@ error になります。
 
 | 結果 | レベル |
 |---|---|
-| サーバーが応答した: その名前とバージョン、プロトコルバージョン、ツール数 | info |
+| サーバーが応答した: その名前とバージョン、プロトコルバージョン、ツール数、その推定トークン数 | info |
 | リモートサーバーがサインインを必要とする (HTTP 401) | warning |
 | コマンドを起動できなかった、早期に終了した、または時間内に応答しなかった | error |
 | プロトコルエラー、未対応のプロトコルバージョン、またはその他の HTTP ステータス | error |
@@ -632,7 +716,7 @@ error になります。
 `bearerToken` の値はすべてのメッセージから取り除かれます。4 文字未満の値はそのまま残ります。値は書かれた
 とおりに渡されます。Skillshare は Pi の `!command` の値を実行せず、`piOptions` も読みません。終了コードは
 同じ規則に従い、error が 1 件でもあれば 1 です。`--live` は設定ファイルも操作ログのエントリも書き込みません。
-書き込むのは state ディレクトリの[ツール定義の固定](#pin-tool-definitions)だけです。
+書き込むのは state ディレクトリの[ツール定義の固定](#pin-tool-definitions)と[ツールのトークン数](#count-tool-tokens)だけです。
 
 `--json` を指定すると、応答したサーバーには `live` オブジェクトも付きます:
 
@@ -641,9 +725,9 @@ error になります。
   "name": "docs",
   "ok": true,
   "findings": [
-    { "level": "info", "check": "live", "target": "", "message": "responds: docs-server 1.4.0, protocol 2026-07-28, 12 tool(s)", "subject": "docs-server" }
+    { "level": "info", "check": "live", "target": "", "message": "responds: docs-server 1.4.0, protocol 2026-07-28, 12 tool(s), ~4810 tokens", "subject": "docs-server" }
   ],
-  "live": { "protocolVersion": "2026-07-28", "serverInfo": { "name": "docs-server", "version": "1.4.0" }, "tools": 12 }
+  "live": { "protocolVersion": "2026-07-28", "serverInfo": { "name": "docs-server", "version": "1.4.0" }, "tools": 12, "toolTokens": 4810 }
 }
 ```
 
@@ -653,7 +737,13 @@ error になります。
 ダッシュボードの **チェック** ボタンは静的チェックだけを実行します。ダッシュボードがサーバーをプローブするのは
 1 か所だけで、サーバーダイアログの[ツールセクション](#tool-policy-dashboard)にある **ツールを読み込む** です。
 これはダイアログの現在の入力内容でサーバーを一度起動してツールを一覧にします。`--json` では、`live` に `toolNames`
-（`tools/list` が返した名前）も含まれます。
+（`tools/list` が返した名前）と、`toolTokens`（すべてのツールの名前、説明、入力スキーマの推定トークン数。[ツールのトークンを数える](#count-tool-tokens)を参照）も含まれます。
+
+### ツールのトークンを数える {#count-tool-tokens}
+
+Agent は、ツールを呼び出す前にすべてのツールの名前、説明、入力スキーマをモデルのコンテキストに読み込みます。`--live` はそのコストをサーバーごとに、[`analyze`](/docs/reference/commands/analyze) と同じ見積もり方式（ASCII 約 4 文字、または全角文字 1 文字で 1 トークン）で推定します。info 行にそれが表示され（`~4810 tokens`）、`--json` では `live.toolTokens` に入ります。レポートの後、テキスト出力では各 MCP Target が読み込む合計も表示され、要約と予算の警告は [`analyze`](/docs/reference/commands/analyze#mcp-tool-definitions) と同じです。
+
+プローブが成功するたびに、ツール数、トークン数、チェック時刻が、スコープとサーバー名ごとに state ディレクトリの `mcp/tool-costs.json` に保存されます。`tool-pins.json` の隣のファイルです。これはキャッシュで、次のライブチェックが書き直し、読めないファイルは空として扱われます。[`analyze`](/docs/reference/commands/analyze#mcp-tool-definitions)、`sync`、ダッシュボードの **Context** ページはこの数を MCP Target ごとに合計し、[`context_budget.warn_mcp_tool_tokens`](/docs/reference/targets/configuration#context_budget) を超えると警告します。これらはサーバーを起動しません。ライブチェックがまだ数えていないサーバーは「未カウント」と表示されます。`--live` なしでは、`mcp check` はこの数を読むことも書くこともありません。編集したサーバーは、次のライブチェックまで同じ名前の数を使い続けます。
 
 ### ツール定義を固定する {#pin-tool-definitions}
 
@@ -685,7 +775,7 @@ error になります。
 削除してから追加し直したサーバーは、同じ名前のまま 固定内容を引き継ぎます。ツールが正当に変わった場合は、
 新しい定義を一度受け入れてください。
 `GET /api/mcp/check?live=1`（ダッシュボードの **チェック** ボタンが呼ぶエンドポイントで、
-ボタンは `live` を付けません）も 固定内容と比較を行いますが、受け入れはできません。
+ボタンは `live` を付けません）も固定内容の保存と比較に加えてツールのトークン数も保存しますが、受け入れはできません。ダッシュボードの **Context** ページの **Check live** ボタンがこれを呼びます。
 
 ## サーバーの管理をやめる {#stop-managing-a-server}
 
@@ -721,6 +811,10 @@ Agent ファイルがすでに使っている名前でサーバーを追加し�
   採用されます。`mcp.projects` 配下のフォルダーでの競合では、ボタンはそのフォルダーのファイルを読み込み、
   その project にインポートします。
 - source の定義で置き換える: ダッシュボードの **Replace with source**、またはインポート時の `--replace`。
+  ダッシュボードのボタンは、そのサーバーで競合しているすべての Agent のエントリをまとめて置き換えます。
+
+Agent ごとにサーバーのバージョンが異なる場合は、まず使いたいものをインポートします。インポートは他の
+Agent がまだ競合していてもその Agent のエントリを採用します。残りはその後で置き換えます。
 
 ## MCP で Skill を提供する {#serve-skills-over-mcp}
 
@@ -732,9 +826,17 @@ SKILLSHARE_MCP_TOKEN=change-me skillshare mcp serve --http 0.0.0.0:8765 \
 ```
 
 `mcp serve` は、Skill の同期先フォルダーにアクセスできない Agent（使い捨ての VM 上の Agent や MCP gateway の背後にある Agent など）向けの MCP サーバーで、[編集をオンにしない限り](#edit-skills-over-mcp)読み取り専用です。[Skills extension](https://modelcontextprotocol.io/seps/2640-skills-extension)
-（`io.modelcontextprotocol/skills`、SEP-2640）の `skills/list`、`skills/get`、`resources/read` を実装しています。各 Skill は 1 つのエントリで、その URI は `skill://_team/tools/pdf/SKILL.md` のように source 内のパスに従います。エントリには frontmatter 全体と、`sha256` ダイジェストとサイズ付きのすべてのファイルが含まれます。自分のマシン上の Agent はすでに `sync` で Skill を受け取っているため、それらを `mcp serve` にも接続すると各 Skill が二重に表示されます。
+（`io.modelcontextprotocol/skills`、SEP-2640）の `skills/list`、`skills/get`、`resources/list`、`resources/read`、`resources/directory/read` を実装しています。各 Skill は 1 つのエントリで、その URI は `skill://_team/tools/pdf/SKILL.md` のように source 内のパスに従います。エントリには frontmatter 全体と、`sha256` ダイジェストとサイズ付きのすべてのファイルが含まれます。自分のマシン上の Agent はすでに `sync` で Skill を受け取っているため、それらを `mcp serve` にも接続すると各 Skill が二重に表示されます。
 
-ほとんどの Agent はまだ Skills extension に対応していないため（下記参照）、サーバーは 2 つのツールも提供します。`list_skills` は名前、説明、URI を一覧表示し（`query` で絞り込み可能。1 回の応答は最大 200 件）、`read_skill` は Skill の `SKILL.md` または他のファイルを読み、`SKILL.md` の場合はその Skill の他のファイルも一覧表示します。MCP ツールを使える Agent なら、ツールを中継する gateway 経由でも、この方法で Skill を読めます。Skills extension を宣言したクライアントは Skill をネイティブに読み込み、この 2 つのツールは提供されないため、各 Skill が二重に表示されることはありません。両方のツールには `readOnlyHint` が付いているため、データを変更するツールの前に確認するクライアントや gateway も、確認なしで呼び出します。ツール経由で読んだ内容は Agent にとって通常のテキストであり、Agent 自身の Skill 承認は適用されません。
+`resources/list` は、提供する `SKILL.md` の frontmatter の名前と説明を一覧表示します。
+`directoryRead: true` により、client は `resources/directory/read`（`uri`、任意の `cursor`）で
+`skill://_team/tools/pdf` のような Skill のルートとそのサブディレクトリを参照できます。応答の `resources` は直下の項目のみで、
+MIME タイプが `inode/directory` の空ディレクトリも含みます。ディレクトリ URI に末尾の
+スラッシュは付けません。ファイルや不明なディレクトリは `-32602` を返します。
+両方の一覧は URI 順で、1 ページ最大 100 件です。`nextCursor` を `cursor` として渡すと
+続きが取得でき、Skill と同じ選択・更新ルールが適用されます。
+
+ほとんどの Agent はまだ Skills extension に対応していないため（下記参照）、サーバーは 2 つのツールも提供します。`list_skills` は名前、説明、URI を一覧表示し（`query` で絞り込み可能。1 回の応答は最大 200 件）、`read_skill` は Skill の `SKILL.md` または他のファイルを読み、`SKILL.md` の場合はその Skill の他のファイルも一覧表示します。MCP ツールを使える Agent なら、ツールを中継する gateway 経由でも、この方法で Skill を読めます。Skills extension を宣言したクライアントは Skill をネイティブに読み込み、この 2 つのツールは提供されないため、各 Skill が二重に表示されることはありません。Claude Code（v2.1.332）は Skill 一覧を要求するときにだけ extension を宣言するため、Skill はネイティブに読み込まれますが、2 つのツールも提供されます。両方のツールには `readOnlyHint` が付いているため、データを変更するツールの前に確認するクライアントや gateway も、確認なしで呼び出します。ツール経由で読んだ内容は Agent にとって通常のテキストであり、Agent 自身の Skill 承認は適用されません。
 
 - **選択。** `--target` を指定しない場合、有効なすべての Skill が提供されます。`--target NAME`
   は、sync mode にかかわらず、その target の `include`/`exclude` フィルターと frontmatter の `targets` を適用します。Skill は常に source から取得されます。Skill がオフになっている target を指定するとエラーになります。
@@ -783,7 +885,9 @@ mcp:
       targets: [codex]
 ```
 
-Skill をネイティブに読み込むには Skills extension が必要です。2026 年 10 月時点で、一般的なコーディング Agent はまだ対応していないため、ツールを使います。Codex、Cursor、VS Code、Goose、Pi は未対応で、Claude Code は対応を含んでいますがデフォルトでは有効になっていません。対応しているのは mcpc、fast-agent、MCP Inspector など一部のクライアントだけで、その一部は部分的な対応です。SEP のプロトタイプホスト一覧（Codex のフォークなど）は、リリース済みの Agent が対応していることを意味しません。
+Skill をネイティブに読み込むには Skills extension が必要です。Claude Code は v2.1.331 からパブリックベータで対応しており、対話セッションが対象で `claude -p` は対象外です。`/login` でサインインした Pro、Max、Ultra プランでは有効、Team と Enterprise では組織が有効にするまで無効で、API キーと Console ログインには順次展開中です。Claude Code の[要件](https://code.claude.com/docs/en/mcp#use-skills-from-mcp-servers)を参照してください。2026 年 11 月に Claude Code v2.1.332 で確認したところ、stdio の `mcp serve` の Skill は `/skills` に `<server>:<skill>`（例: `skillshare:pdf`）として表示され、そのコマンドから実行でき、他のファイルは `resources/read` で読み取られます。
+
+2026 年 10 月時点で、その他の一般的なコーディング Agent はまだ対応していないため、ツールを使います。Codex、Cursor、VS Code、Goose、Pi は未対応です。Claude Code 以外で対応しているのは mcpc、fast-agent、MCP Inspector など一部のクライアントだけで、その一部は部分的な対応です。SEP のプロトタイプホスト一覧（Codex のフォークなど）は、リリース済みの Agent が対応していることを意味しません。
 [extension support matrix](https://modelcontextprotocol.io/extensions/client-matrix) に現在のクライアントが一覧されています。
 
 サーバー自体を確認するには、MCP Inspector 2.6.0 以降ですべての Skill を読み、frontmatter を比較し、各ファイルのダイジェストを検証できます。
@@ -912,7 +1016,8 @@ export default defineApp({ app: { accounts: { skillshare } } }, async (ctx) => (
   そのため、VS Code に同期されたヘッダーと `bearerToken` の参照は、それが修正されるまで解決されないままサーバーに届きます。
 - ローカルの操作記録は Skillshare の state ディレクトリの `mcp/` 配下にあります。
   `state.json`、書き込み中の `pending.json`、`tool-pins.json`（`mcp check --live` の
-  [ツール定義の固定](#pin-tool-definitions)）、そして `backups/`（Agent ファイルごとに最新 20 件）です。この
+  [ツール定義の固定](#pin-tool-definitions)）、`tool-costs.json`（その
+  [ツールのトークン数](#count-tool-tokens)）、そして `backups/`（Agent ファイルごとに最新 20 件）です。この
   ディレクトリをポータブルなマニフェストとして共有しないでください。
 
 
@@ -1032,7 +1137,7 @@ sync は `$schema`、`disabledServers`、`enabledServers`、無関係なサー�
 既存の接続を更新する際は、`enabled`、`timeout`、`instructions`、
 `requestIdFormat`、`cwd`、`auth`、`oauth` などのネイティブなサーバー別フィールドも保持します。
 これらのフィールドは `piOptions` ではなく、Pi 専用の設定が OMP に送られることはありません。インポートは
-ポータブルなモデルで表現できないネイティブフィールドについて警告します。それらは OMP のファイルに残してください。ポータブルなモデルは stdio と Streamable HTTP に対応し、
+ポータブルなモデルで表現できないネイティブフィールドを `options.omp` に入れ、`options` に保持できないフィールドについては警告します。ポータブルなモデルは stdio と Streamable HTTP に対応し、
 OMP のレガシー SSE トランスポートには対応しません。非対応のインポートは変換されずに拒否されます。
 
 `disabledServers` は `enabledServers` やエントリの `enabled` の値より優先されます。
@@ -1139,7 +1244,7 @@ skillshare mcp edit docs --pi-options '{}' --no-tui
 リンクから Pi の MCP ドキュメントを開けます。ダイアログは保存前に **その他の Pi 設定** 内の
 `pi-mcp-adapter` のフィールドを指摘します。ツールセクションに設定がある間も **ツール公開モード** は
 編集できます。そのとき拒否されるのは **その他の Pi 設定** 内の `toolExposure` だけで、`tools` が書き込むため
-です。サーバー行の Pi チップは公開モードを短い言葉で表示します（`codemode` なら `コード経由`）。
+です。サーバーのクライアント一覧では、Pi のトグルが公開モードを短い言葉で表示します（`codemode` なら `コード経由`）。
 
 ### 0.22 からの Pi のアップグレード {#pi-migration}
 

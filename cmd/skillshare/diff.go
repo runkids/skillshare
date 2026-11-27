@@ -14,6 +14,7 @@ import (
 
 	"skillshare/internal/config"
 	"skillshare/internal/oplog"
+	"skillshare/internal/sourcewalk"
 	"skillshare/internal/sync"
 	"skillshare/internal/textdiff"
 	"skillshare/internal/ui"
@@ -164,6 +165,9 @@ type copyDiffEntry struct {
 	files  []fileDiffEntry // file-level diffs (nil until populated)
 	srcDir string          // source directory path (for lazy diff)
 	dstDir string          // target directory path (for lazy diff)
+	// copyIgnore holds a copy-mode target's ignore patterns, so the file
+	// diff leaves out source files sync does not copy.
+	copyIgnore []string
 }
 
 // ensureFiles lazily populates file-level diffs on first access.
@@ -175,7 +179,7 @@ func (e *copyDiffEntry) ensureFiles() {
 	if e.srcDir == "" && e.dstDir == "" {
 		return
 	}
-	e.files = diffSkillFiles(e.srcDir, e.dstDir)
+	e.files = diffSkillFiles(e.srcDir, e.dstDir, e.copyIgnore)
 }
 
 // label is the item's name, plus the old name a kept skill stays at.
@@ -209,6 +213,22 @@ func latestMtime(dir string) time.Time {
 		}
 		return nil
 	})
+	return latest
+}
+
+// copiedMtime returns the newest mtime among the files copy mode copies from
+// dir, so a file ignore: keeps out does not count as a source change.
+func copiedMtime(dir string, ignorePatterns []string) time.Time {
+	files, err := sync.CopiedFiles(dir, ignorePatterns)
+	if err != nil {
+		return latestMtime(dir)
+	}
+	var latest time.Time
+	for _, info := range files {
+		if info.ModTime().After(latest) {
+			latest = info.ModTime()
+		}
+	}
 	return latest
 }
 
@@ -601,9 +621,16 @@ func collectTargetDiff(name string, target config.TargetConfig, source, mode str
 		sourceMap[resolved.TargetName] = resolved.Skill.SourcePath
 	}
 
-	if utils.IsSymlinkOrJunction(sc.Path) {
+	// An external link (a dotfiles manager) counts as the directory it leads
+	// to, as in sync; only symlink mode compares the link itself.
+	switch root := sync.ClassifyTargetRoot(sc.Path, source); {
+	case root == sync.TargetRootSourceLink || (mode == "symlink" && root != sync.TargetRootPlain):
 		r.mode = "symlink"
 		collectSymlinkDiff(&r, sc.Path, source)
+		dp.add(len(resolution.Skills))
+		return r
+	case root == sync.TargetRootBrokenLink:
+		r.errMsg = fmt.Sprintf("Target link does not lead to a directory: %s", sc.Path)
 		dp.add(len(resolution.Skills))
 		return r
 	}
@@ -614,10 +641,13 @@ func collectTargetDiff(name string, target config.TargetConfig, source, mode str
 	}
 	legacyNames := resolution.LegacyNames(mode, sc.Path, manifest)
 	if mode == "copy" {
-		collectCopyDiff(&r, name, sc.Path, resolution.Skills, resolution.Naming, sourceSkills, legacyNames, manifest, ignorePatterns, dp)
+		collectCopyDiff(&r, name, sc.Path, source, resolution.Skills, resolution.Naming, sourceSkills, legacyNames, manifest, ignorePatterns, dp)
+		for i := range r.items {
+			r.items[i].copyIgnore = ignorePatterns
+		}
 	} else {
 		// Merge mode (instant)
-		collectMergeDiff(&r, sc.Path, sourceSkills, sourceMap, legacyNames)
+		collectMergeDiff(&r, sc.Path, source, sourceSkills, sourceMap, legacyNames, ignorePatterns)
 		dp.add(len(resolution.Skills))
 	}
 
@@ -630,10 +660,10 @@ func collectTargetDiff(name string, target config.TargetConfig, source, mode str
 
 	// Compute mtime only for copy mode (merge uses symlinks, mtime is misleading)
 	if mode == "copy" {
-		r.dstMtime = latestMtime(sc.Path)
+		r.dstMtime = latestMtime(sourcewalk.Canonical(sc.Path))
 		var srcLatest time.Time
 		for _, resolved := range resolution.Skills {
-			mt := latestMtime(resolved.Skill.SourcePath)
+			mt := copiedMtime(resolved.Skill.SourcePath, ignorePatterns)
 			if mt.After(srcLatest) {
 				srcLatest = mt
 			}
@@ -658,7 +688,7 @@ func collectSymlinkDiff(r *targetDiffResult, targetPath, source string) {
 	}
 }
 
-func collectCopyDiff(r *targetDiffResult, targetName, targetPath string, filtered []sync.ResolvedTargetSkill, naming string, sourceSkills map[string]bool, legacyNames map[string]sync.ResolvedTargetSkill, manifest *sync.Manifest, ignorePatterns []string, dp *diffProgress) {
+func collectCopyDiff(r *targetDiffResult, targetName, targetPath, source string, filtered []sync.ResolvedTargetSkill, naming string, sourceSkills map[string]bool, legacyNames map[string]sync.ResolvedTargetSkill, manifest *sync.Manifest, ignorePatterns []string, dp *diffProgress) {
 	renamedFrom := sync.RenamedFrom(legacyNames)
 	for _, resolved := range filtered {
 		skill := resolved.Skill
@@ -667,6 +697,11 @@ func collectCopyDiff(r *targetDiffResult, targetName, targetPath string, filtere
 		targetSkillPath := filepath.Join(targetPath, resolved.TargetName)
 		srcDir := skill.SourcePath
 		dstDir := targetSkillPath
+		// Another tool's link on the skill's name: sync keeps it, like a local copy.
+		if utils.IsSymlinkOrJunction(targetSkillPath) && !manifest.OwnsLink(resolved.TargetName, targetSkillPath, source) {
+			r.items = append(r.items, copyDiffEntry{action: "modify", name: resolved.TargetName, reason: sync.ForeignLinkReason, isSync: true, srcDir: srcDir, dstDir: dstDir})
+			continue
+		}
 		if !isManaged {
 			if info, err := os.Stat(targetSkillPath); err == nil {
 				if old, ok := renamedFrom[resolved.TargetName]; ok {
@@ -759,7 +794,7 @@ func collectCopyDiff(r *targetDiffResult, targetName, targetPath string, filtere
 	r.synced = len(r.items) == 0
 }
 
-func collectMergeDiff(r *targetDiffResult, targetPath string, sourceSkills map[string]bool, sourceMap map[string]string, legacyNames map[string]sync.ResolvedTargetSkill) {
+func collectMergeDiff(r *targetDiffResult, targetPath, source string, sourceSkills map[string]bool, sourceMap map[string]string, legacyNames map[string]sync.ResolvedTargetSkill, ignorePatterns []string) {
 	targetSkills := make(map[string]bool)
 	targetSymlinks := make(map[string]bool)
 	entries, err := os.ReadDir(targetPath)
@@ -795,10 +830,14 @@ func collectMergeDiff(r *targetDiffResult, targetPath string, sourceSkills map[s
 			r.items = append(r.items, copyDiffEntry{action: "remove", name: skill, reason: sync.KeptLegacyReason(old), keptAt: old})
 		} else if !targetSymlinks[skill] {
 			reason := "local copy (sync --force to replace)"
-			if manifest.OwnsCopy(skill, dstDir) {
+			if manifest.OwnsCopy(skill, dstDir, ignorePatterns) {
 				reason = sync.CopyToLinkReason
 			}
 			r.items = append(r.items, copyDiffEntry{action: "modify", name: skill, reason: reason, isSync: true, srcDir: srcDir, dstDir: dstDir})
+			r.syncCount++
+		} else if !manifest.OwnsLink(skill, dstDir, source) {
+			// Another tool's link on the skill's name: sync keeps it, like a local copy.
+			r.items = append(r.items, copyDiffEntry{action: "modify", name: skill, reason: sync.ForeignLinkReason, isSync: true, srcDir: srcDir, dstDir: dstDir})
 			r.syncCount++
 		}
 	}
@@ -808,9 +847,19 @@ func collectMergeDiff(r *targetDiffResult, targetPath string, sourceSkills map[s
 		if _, keepLegacy := legacyNames[skill]; keepLegacy {
 			continue
 		}
-		if !sourceSkills[skill] && !targetSymlinks[skill] {
-			r.items = append(r.items, copyDiffEntry{action: "remove", name: skill, reason: "local only", isSync: false, dstDir: filepath.Join(targetPath, skill)})
+		if sourceSkills[skill] {
+			continue
+		}
+		dstDir := filepath.Join(targetPath, skill)
+		if !targetSymlinks[skill] {
+			r.items = append(r.items, copyDiffEntry{action: "remove", name: skill, reason: "local only", isSync: false, dstDir: dstDir})
 			r.localCount++
+			continue
+		}
+		// A link no skill maps to: listed only when sync would prune it.
+		if sync.OrphanLink(dstDir, source, manifest.Records(skill), false).RemoveReason != "" {
+			r.items = append(r.items, copyDiffEntry{action: "remove", name: skill, reason: "orphan (will be pruned)", isSync: true, dstDir: dstDir})
+			r.syncCount++
 		}
 	}
 
@@ -872,7 +921,7 @@ func categorizeItems(items []copyDiffEntry) []actionCategory {
 			add("modified", "modified", "Modified", item.name)
 		case strings.HasPrefix(item.reason, "renamed from "):
 			add("renamed", "modified", "Renamed", item.name)
-		case strings.Contains(item.reason, "local copy"):
+		case strings.Contains(item.reason, "local copy"), item.reason == sync.ForeignLinkReason:
 			add("override", "override", "Local Override", item.name)
 		case strings.Contains(item.reason, "orphan"):
 			add("orphan", "orphan", "Orphan", item.name)

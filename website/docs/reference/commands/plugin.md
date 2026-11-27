@@ -43,7 +43,7 @@ removed. `remove NAME` without `--target` removes it from Skillshare.
 | Command | Behavior |
 |---|---|
 | `list` | Configured bindings and native installation state; interactive manager in a terminal |
-| `discover SOURCE` | Inspect a local directory, `owner/repo`, or HTTPS Git repository |
+| `discover SOURCE` | Inspect a local directory, `owner/repo`, an HTTPS Git repository, or a GitHub package folder or Herdr mod link |
 | `add [SOURCE]` | Choose and install a whole plugin with its target adapter, or an `npm:` package through Pi |
 | `import [NATIVE-ID]` | Adopt an existing installation without reinstalling or enabling it |
 | `unimport NAME` | Uninstall this machine’s imported bindings for explicit targets; keep shared source declarations |
@@ -67,14 +67,14 @@ anything to update, or the update names a single `--target`, it is blocked inste
 
 | Option | Meaning |
 |---|---|
-| `--target TARGET` | Repeatable selection: `claude`, `codex`, `cursor`, `antigravity` (`agy` alias), `antigravity-cli`, `copilot`, `grok`, `pi`, `omp`, `opencode`, or the name of [another account of an Agent](#accounts); see the capability table below |
+| `--target TARGET` | Repeatable selection: `claude`, `codex`, `cursor`, `antigravity` (`agy` alias), `antigravity-cli`, `copilot`, `grok`, `pi`, `omp`, `opencode`, `herdr-app`, or the name of [another account of an Agent](#accounts); see the capability table below |
 | `--plugin NAME` | Select one plugin from a source marketplace |
 | `--name NAME` | Logical package name when adding or importing |
 | `--from TARGET` | Import from Claude, Codex, Antigravity CLI, Copilot, Grok, Pi, OMP marketplaces, OpenCode, or [another account of an Agent](#accounts) |
 | `--all`, `-a` | Update all managed plugins (`update` only; cannot be combined with a package name or `--source-ref`) |
 | `--dry-run`, `-n` | Preview without changing Skillshare or Agent configuration |
 | `--source-ref REF` | Git branch, tag, or commit for `discover`, `add`, and `update`; remote sources only |
-| `--entry PATH` | Explicit built OpenCode JS/TS entry, relative to the package root (`discover` and `add`) |
+| `--entry PATH` | Explicit built OpenCode JS/TS entry, or a [Herdr launcher](#herdr-app) executable, relative to the package root (`discover` and `add`) |
 | `--revision ID` | Refuse application if source, configuration, or native inventory changed since preview |
 | `--json` | Machine-readable output; disables TUI |
 | `--no-tui` | Disable interactive menus; also respects `tui: false` |
@@ -92,12 +92,13 @@ the CLI exits nonzero when any target fails. Inspect the result before retrying.
 | Claude Code | `.claude-plugin/plugin.json` | Yes | Yes | Native update |
 | Codex | `.codex-plugin/plugin.json`, Agent Plugins root manifest, or Claude manifest | Yes | No | Refresh reviewed source and add it again, only if enabled in Codex |
 | Cursor | `.cursor-plugin/plugin.json` or Agent Plugins root manifest | Yes | No | Replace reviewed local copy |
-| Antigravity Desktop | Root `plugin.json` with an explicit name | Yes | Yes | Replace reviewed local copy |
+| Antigravity Desktop | `.antigravity-plugin/plugin.json`, `.gemini-plugin/plugin.json`, or root `plugin.json` with an explicit name | Yes | Yes | Replace reviewed local copy |
 | Pi | `package.json` with `pi` resources, or `pi-package` keyword and conventional resource folders | Yes | Yes, with native project trust | Refresh managed source snapshot |
 | Oh My Pi | Marketplace-backed local/Git plugins with native-compatible metadata | Fresh-cache install/reinstall, import and scoped removal | At OMP's project anchor | Updates reinstall into fresh cache; removal retains shared cache |
 | OpenCode | `package.json` with an SDK dependency, `.opencode/plugins/` entry, or explicit `--entry` | Yes | Yes | Refresh managed source snapshot |
+| Herdr app | Root `mods/<id>/main.js` in a source with no plugin manifest, or a launcher named by `--entry` | Yes | No | Replace the files Skillshare installed |
 
-| Antigravity CLI | Native root manifest or Claude manifest accepted by `agy` | Yes | No | Refresh reviewed source, only if native enabled state is known and enabled |
+| Antigravity CLI | `.antigravity-plugin/plugin.json`, `.gemini-plugin/plugin.json`, root `plugin.json`, or Claude manifest accepted by `agy` | Yes | No | Refresh reviewed source, only if native enabled state is known and enabled |
 | GitHub Copilot CLI | `.plugin/plugin.json`, `.github/plugin/plugin.json`, Claude manifest, or Agent Plugins root manifest | Yes | No | Refresh reviewed source, only if native enabled state is known and enabled |
 | Grok Build | `.grok-plugin/plugin.json` or Claude manifest | Import/remove only; native trust required for install | No | Update natively |
 | Kimi Code | `kimi.plugin.json` or `.kimi-plugin/plugin.json` | Discovery only | No | Not automated |
@@ -143,7 +144,12 @@ They do not require a CLI executable or modify marketplace registries:
   takes precedence over a local copy.
 - Antigravity desktop: `~/.gemini/config/plugins/<name>` globally; `.agents/plugins/<name>`
   in a workspace (or an existing `_agents/plugins/` directory). If both workspace
-  directories exist, consolidate them first.
+  directories exist, consolidate them first. Native manifests are discovered in
+  precedence order `.antigravity-plugin/plugin.json`, `.gemini-plugin/plugin.json`,
+  then root `plugin.json`. Multi-plugin repositories can ship
+  `.antigravity-plugin/marketplace.json`; when present, `antigravity` and
+  `antigravity-cli` resolve exclusively from it and never fall back to
+  `.claude-plugin/marketplace.json`.
 - The standalone **agy CLI** has a separate plugin store. The `antigravity` target
   manages the desktop/workspace discovery paths, not that CLI store. `agy` is only
   a Skillshare target alias. Use `--target antigravity-cli` for the standalone CLI;
@@ -153,6 +159,80 @@ Use `plugin add` for these local packages. Importing pre-existing local folders 
 marketplace installs is not supported. Skillshare refuses to overwrite unowned
 folders, symlinks, or locally edited managed content. An explicit Antigravity
 manifest name keeps the identity stable across Git checkouts and snapshots.
+
+### Herdr app {#herdr-app}
+
+The `herdr-app` target installs Herdr mods and launcher apps by copying files. It
+is global only. Installing does not run package code. Herdr's home is
+`$HERDR_APP_HOME`, or `~/.config/herdr-app` when that is not set.
+
+For a repository or local folder without a plugin manifest or marketplace catalog,
+Skillshare looks for `mods/<id>/main.js` at the source root. For a package inside a
+larger repository, paste its GitHub folder link (the folder containing `mods/`),
+or paste a mod's `mods/<id>/main.js` link to select just that mod. Skillshare follows
+that link's ref on update unless you choose another with `--source-ref`.
+Mods are installed to `<herdr home>/mods/<id>`.
+
+In the Dashboard, paste the link into **Repository or folder** and choose **Find
+plugins**. For a launcher, also enter its path in **Herdr launcher executable**;
+leave it empty for mods. A launcher can also use a plain `package.json`.
+When the source lists several Herdr mods, select any combination or use **Select all**,
+then review them together before applying. Skillshare tracks each mod separately;
+it does not import layout or theme files.
+
+When adding one mod with an explicit `left`, `right`, `top`, or `bottom` dock in
+`mod.json`, **Show the mod panel in Herdr** is checked by default. With the window
+open on the same computer, the preview includes installing the files and showing
+its panel in a copy of the current layout, including on reinstall. The first-party
+Skillshare mod adds its button and panel in the same way. Existing placements are
+not duplicated. To only install files, uncheck the option before previewing.
+Deselecting Herdr and syncing uninstalls the mod, but keeps the declaration and
+its layout copy. A copy made later from that copy shows its panel too. When either
+is active, Skillshare switches the open Herdr window back to the newest layout
+without the mod's panel. Selecting Herdr and syncing reinstalls the mod and, if the
+window is still on the layout Skillshare switched it to, returns it to the copy it
+left once every mod that copy shows is installed. **Remove** also switches the window off the mod's panel and
+deletes unchanged copies recorded by Skillshare. Edited and unrecorded layouts are
+kept, as is a copy that a remaining mod's copy was made from, which still shows the
+removed mod's panel. Open Herdr for any required layout switch.
+
+Links that leave the mod's folder are not copied.
+
+```bash
+skillshare plugin add owner/herdr-mods --plugin my-mod --target herdr-app --no-tui -g
+skillshare plugin add owner/lantern --entry bin/lantern-app --target herdr-app --no-tui -g
+```
+
+A launcher app such as Lantern needs `--entry`, the path to its executable inside
+the source. The command takes the entry file's name: `bin/lantern-app` becomes
+`lantern-app`. Skillshare copies the source into its state directory and prints the managed entry
+path. Point your command at that path; it stays the same across updates. Launchers work on macOS and Linux only.
+
+Skillshare owns the whole installed folder and replaces it on update. A local edit
+blocks update and remove until you preserve it. Hidden files, `node_modules` and `__pycache__` in an installed folder are ignored when checking for edits, as are root `jsconfig.json` and root `.d.ts` files in a mod; an
+update does not keep them. Source files with those names are still copied.
+Removal deletes the whole folder,
+including generated files. If a replacement was interrupted, inspect the backup
+path reported by Skillshare before retrying.
+
+Skillshare does not adopt a mod or launcher it did not install, and `import` is not
+offered. If a mod or launcher with the same identity already exists, `add` refuses. Move it aside first, then add again:
+
+```bash
+mv ~/.config/herdr-app/mods/my-mod ~/my-mod.bak
+```
+
+`update` reports the installed path, without claiming the mod is running. Herdr reloads a mod
+when its files change; check it with `herdr-app status`. A mod with `place: none`
+is not placed for you; add it to a layout by hand. Herdr can place other mods in
+the layout on first discovery based on their `place` setting. Uninstalling does not delete
+layout entries written by Herdr outside of a Skillshare-managed copy. Before a launcher update, close the app's chat
+and readouts, then reopen it after the update.
+
+On a machine without the Herdr app (its home is absent), `sync`, `check` and
+`update` skip `herdr-app` bindings, launchers included, without fetching anything,
+and the plugin's other targets still run. The binding stays declared. `add` to
+`herdr-app` on such a machine is refused. `remove` still removes the binding without creating the home. Other actions skip the binding. A home that exists but is not a folder blocks the target.
 
 ### Oh My Pi (OMP) {#omp}
 
@@ -395,14 +475,16 @@ folders, including files linked there by [extras](./extras.md), are listed
 read-only with where to change them; a project lists its own folder, which Pi
 reads only if it trusts the project, and the global one.
 
-OpenCode registers the managed entry as a file URL in `opencode.json` or the
+OpenCode v1 registers the managed entry file; v2 registers the package directory as a file URL in `opencode.json` or the
 existing `opencode.jsonc`, preserving comments and unrelated entries. Version 1
 uses `plugin`; version 2 uses `plugins`. `XDG_CONFIG_HOME` and an absolute global
 `OPENCODE_CONFIG` are respected; ambiguous or unsupported overrides are rejected.
 OpenCode must be on PATH so Skillshare can choose the version's schema.
+A v2 directory package that [`hooks`](./hooks.md) registers in the same `plugins`
+array (`plugins/skillshare-NAME`) belongs to hooks; `plugin list` and
+`plugin import` do not show it.
 
-A local OpenCode source must already include its built entry (`main`, a string
-root export, or `index.js`) and required runtime dependencies. Skillshare does not
+A local OpenCode v1 source needs its built entry (`main`, a string root export, or `index.js`). v2 uses the directory loader: `name` plus a string root or `./server` export, or a root `server`/`index` file (`.ts`, `.tsx`, `.js`). `--entry` does not override v2 directory loading; conditional and fallback server exports are refused. Both `@opencode-ai/plugin` and `@opencode/plugin` identify OpenCode packages. Manifests and dependency requirements remain unchanged. Skillshare does not
 run build scripts or install dependencies into the source. Registration is not
 proof the module loaded successfully; check OpenCode after reload.
 
@@ -426,8 +508,12 @@ can be imported; filtered OpenCode entries are still rejected.
 Imported Pi packages are updated with `pi update SOURCE` in global mode, which
 keeps their settings entry; a project's are updated in Pi, because `pi update`
 also reaches global packages. Imported OpenCode v1 packages are updated in their
-native tool. OpenCode v2 global imports can use its native update command; project imports must be
+native tool. OpenCode v2 global package imports can use its native update command; imported local directories are left for you to update without running dependency installers; project imports must be
 updated natively because the v2 update command is global.
+OpenCode answers an update in a folder whose plugins it has not loaded yet with
+`Plugin is not configured` ([anomalyco/opencode#54654](https://github.com/anomalyco/opencode/issues/54654)),
+so Skillshare runs the update again up to three times, three seconds apart, before
+it reports that error. A package that OpenCode's settings no longer list is skipped.
 
 ```bash
 skillshare plugin add ./cursor-plugin --target cursor --no-tui
@@ -439,14 +525,15 @@ skillshare plugin import npm:my-pi-package --from pi --name my-package --no-tui
 
 ## Refs and explicit entries
 
-Advanced options in **Add plugin** accept an optional Git ref and OpenCode entry.
-Leave them empty for the normal guided flow. The terminal wizard accepts the same
+**Add plugin** accepts an optional Git ref beside the source, and an OpenCode entry on
+the OpenCode row when it cannot detect one. Leave them empty for the normal guided flow. The terminal wizard accepts the same
 flags; automation can use:
 
 ```bash
 skillshare plugin discover obra/superpowers --source-ref v6.3.0 --json
 skillshare plugin add owner/repo --source-ref v1.0.0 --target copilot --no-tui
 skillshare plugin add ./package --entry dist/plugin.js --target opencode --no-tui
+skillshare plugin add ./lantern --entry bin/lantern-app --target herdr-app --no-tui -g
 skillshare plugin update review --source-ref v1.1.0 --target claude --dry-run --json
 ```
 
@@ -530,8 +617,8 @@ never supplies native trust approval flags.
 The native lifecycle is exercised with Claude Code `2.1.276`, Codex CLI
 `0.154.0`, Pi `0.85.1`, and Copilot CLI `1.0.86`. Antigravity CLI
 `1.2.6` was checked with isolated native install/list/remove operations. OpenCode `1.18.31` is used to verify version-aware
-registration; the v2 schema is covered by fixture tests. Cursor and Antigravity
-filesystem lifecycles are tested in isolated directories, without claiming GUI
+registration; the v2 schema is covered by fixture tests. Cursor, Antigravity and
+Herdr app filesystem lifecycles are tested in isolated directories, without claiming GUI
 runtime activation. Installed command capabilities and inventory schemas are checked at
 runtime; unsupported operations are blocked with an explanation.
 
@@ -640,3 +727,5 @@ its local receipt. Shared declarations and other machines' installations stay
 unchanged. The next sync installs the shared source recipe.
 
 Uninstalling also removes native-client configuration or login associated with that installation.
+
+A flat-file registration left by an older Skillshare OpenCode v2 adapter is rejected for add/import/sync/update. Remove the old managed binding and add its directory package again. Removal remains available and leaves unrelated native registrations untouched. A runtime version change after preview requires a fresh preview.

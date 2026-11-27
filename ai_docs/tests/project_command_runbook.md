@@ -3,7 +3,8 @@
 ## Scope
 
 Verify the global `project` CLI: defaults, selection, resource settings, previews,
-JSON failures, saved partial sync and retry, and merge/copy/symlink removal.
+JSON failures, saved partial sync and retry, merge/copy/symlink removal, and
+registering Git checkouts with `--scan`.
 Tests use local fixture skills and agents; no network or external repositories.
 Native Windows link behavior is outside this Linux acceptance runbook.
 
@@ -460,8 +461,39 @@ Expected:
 - exit_code: 0
 - jq: .registration == "removed" and (.detach.removed | length) > 0
 
+### 15. Scan registers checkouts once and a rescan only adds
+
+```bash
+set -euo pipefail
+ss() { /workspace/bin/skillshare "$@"; }
+fixture=$(mktemp -d "$HOME/project-command-XXXXXX")
+suite="$fixture/suite"
+mkdir -p "$suite/app-a/.git" "$suite/app-b/.git" "$suite/docs" "$suite/.worktrees/app-a" "$fixture/skills/team-alpha" "$XDG_CONFIG_HOME/skillshare"
+printf 'gitdir: %s\n' "$suite/app-a/.git/worktrees/app-a" > "$suite/.worktrees/app-a/.git"
+printf '%s\n' '---' 'name: team-alpha' 'description: Team fixture' '---' '# Team' > "$fixture/skills/team-alpha/SKILL.md"
+cat > "$XDG_CONFIG_HOME/skillshare/config.yaml" <<CONFIG
+sources:
+  skills: $fixture/skills
+targets: {}
+CONFIG
+args=(project add "$suite" --scan . --scan .worktrees --target codex --skills-include 'team-*')
+before=$(cat "$XDG_CONFIG_HOME/skillshare/config.yaml")
+ss "${args[@]}" -n --json >/dev/null
+test "$before" = "$(cat "$XDG_CONFIG_HOME/skillshare/config.yaml")"
+ss "${args[@]}" --sync --json >/dev/null
+test -L "$suite/.worktrees/app-a/.agents/skills/team-alpha"
+grep -q 'name: worktrees-app-a' "$XDG_CONFIG_HOME/skillshare/config.yaml"
+ss project edit app-b --target codex,claude --json >/dev/null
+mkdir -p "$suite/app-c/.git"
+ss "${args[@]}" --json
+```
+
+Expected:
+- exit_code: 0
+- jq: ([.scan[] | select(.result == "added")] | length) == 1 and (.scan[] | select(.root | endswith("/app-c")) | .result) == "added" and (.scan[] | select(.root | endswith("/app-b")) | .result) == "skipped" and ([.scan[] | select(.root | endswith("/docs"))] | length) == 0
+
 ## Pass Criteria
 
-All 14 mdproof steps pass with zero failures or skips. JSON steps satisfy their
+All 15 mdproof steps pass with zero failures or skips. JSON steps satisfy their
 jq assertions, expected rejection/partial-failure steps exit 1, and filesystem
 checks prove preview safety, sync scope, retry, detach behavior, and source survival.

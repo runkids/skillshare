@@ -304,6 +304,20 @@ func uninstallForceCode(err error) string {
 	return ""
 }
 
+// writeUninstallConflict preserves the dashboard's existing refusal codes.
+// A restored checkout requires refresh/reselection, never a force retry.
+func writeUninstallConflict(w http.ResponseWriter, res uninstall.Result) bool {
+	code := uninstallForceCode(res.Err)
+	if errors.Is(res.Err, uninstall.ErrCheckoutRestored) {
+		code = "repo_checkout_restored"
+	}
+	if code == "" {
+		return false
+	}
+	writeCodedError(w, http.StatusConflict, code, uninstallErrorMessage(res), nil)
+	return true
+}
+
 // uninstallErrorMessage words a failed result for the dashboard.
 func uninstallErrorMessage(r uninstall.Result) string {
 	var trashErr *uninstall.TrashError

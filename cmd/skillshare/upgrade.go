@@ -20,6 +20,7 @@ import (
 	"skillshare/internal/config"
 	"skillshare/internal/install"
 	"skillshare/internal/oplog"
+	"skillshare/internal/sourcewalk"
 	"skillshare/internal/ui"
 	"skillshare/internal/uidist"
 	"skillshare/internal/utils"
@@ -118,7 +119,7 @@ func cmdUpgrade(args []string) error {
 // Swapped in tests to fake the install location and the latest release.
 var (
 	upgradeExecPath    = resolveExecPath
-	fetchLatestRelease = versionpkg.FetchLatestRelease
+	fetchLatestVersion = versionpkg.FetchLatestVersionFor
 )
 
 // upgradeRowWidth lines up the CLI and Skill rows.
@@ -173,12 +174,12 @@ func upgradeCLIBinary(dryRun, force bool) (string, error) {
 		return runBrewUpgrade(start)
 	}
 
-	// Get latest version from GitHub
+	// Get the latest version from where the install updates: PyPI for a
+	// wheel, whose upload follows the GitHub release, and GitHub otherwise.
 	spinner := ui.StartSpinner("Checking latest version...")
-	release, err := fetchLatestRelease()
+	latestVersion, err := fetchLatestVersion(method)
 	spinner.Stop()
 
-	var latestVersion string
 	if err != nil {
 		// API failed - try to use cached version
 		cachedVersion := versionpkg.GetCachedVersion()
@@ -187,19 +188,25 @@ func upgradeCLIBinary(dryRun, force bool) (string, error) {
 			return "", nil
 		}
 		latestVersion = cachedVersion
-	} else {
-		latestVersion = release.Version
 	}
 
 	// --force reinstalls the same version, which only skillshare's own installs can do.
-	if version == latestVersion && (!force || method.IsNix()) {
+	if version == latestVersion && (!force || method.IsPackageManaged()) {
 		printUpgradeRow(ui.MarkOK, "CLI", current+", already up to date", time.Time{})
 		return "", nil
 	}
 
-	// Replacing a file in the Nix store would corrupt it, so Nix updates it instead.
-	if method.IsNix() {
-		printUpgradeRow(ui.MarkWarn, "CLI", fmt.Sprintf("%s → v%s available · installed with Nix, %s", current, latestVersion, method.UpgradeInstruction()), time.Time{})
+	// Replacing a file in the Nix store would corrupt it, and replacing a
+	// wheel's or conda package's binary would leave pip, uv, pipx or pixi
+	// recording the old version, so the package manager updates it instead.
+	if method.IsPackageManaged() {
+		source := "with Nix"
+		if method.IsPyPI() {
+			source = "from PyPI"
+		} else if method.IsPixi() {
+			source = "with pixi"
+		}
+		printUpgradeRow(ui.MarkWarn, "CLI", fmt.Sprintf("%s → v%s available · installed %s, %s", current, latestVersion, source, method.UpgradeInstruction()), time.Time{})
 		return "", nil
 	}
 
@@ -288,8 +295,14 @@ func upgradeSkillshareSkill(dryRun, force bool) (bool, error) {
 	}
 
 	sourceDir := cfg.EffectiveSkillsSource()
+	// Update the skill where it is, so one moved into a folder is not installed twice.
 	skillshareSkillDir := filepath.Join(sourceDir, "skillshare")
-	localVersion := versionpkg.ReadLocalSkillVersion(sourceDir)
+	walk := cfg.SkillsWalk()
+	skill, found := versionpkg.FindLocalSkill(sourceDir, walk)
+	if found {
+		skillshareSkillDir = skill.Dir
+	}
+	localVersion := skill.Version
 
 	// Skill not installed
 	if localVersion == "" {
@@ -298,7 +311,7 @@ func upgradeSkillshareSkill(dryRun, force bool) (bool, error) {
 				printUpgradeRow(ui.MarkNone, "Skill", "not installed · would download", time.Time{})
 				return false, nil
 			}
-			return true, doSkillDownload(skillshareSkillDir, sourceDir, "")
+			return true, doSkillDownload(skillshareSkillDir, sourceDir, walk.Follow, "")
 		}
 
 		if dryRun {
@@ -315,7 +328,7 @@ func upgradeSkillshareSkill(dryRun, force bool) (bool, error) {
 			return false, nil
 		}
 
-		return true, doSkillDownload(skillshareSkillDir, sourceDir, "")
+		return true, doSkillDownload(skillshareSkillDir, sourceDir, walk.Follow, "")
 	}
 
 	// Skill installed — compare versions
@@ -325,7 +338,7 @@ func upgradeSkillshareSkill(dryRun, force bool) (bool, error) {
 			printUpgradeRow(ui.MarkNone, "Skill", current+" · would download again", time.Time{})
 			return false, nil
 		}
-		return true, doSkillDownload(skillshareSkillDir, sourceDir, localVersion)
+		return true, doSkillDownload(skillshareSkillDir, sourceDir, walk.Follow, localVersion)
 	}
 
 	spinner := ui.StartSpinner("Checking latest skill version...")
@@ -349,10 +362,11 @@ func upgradeSkillshareSkill(dryRun, force bool) (bool, error) {
 		return false, nil
 	}
 
-	return true, doSkillDownload(skillshareSkillDir, sourceDir, localVersion)
+	return true, doSkillDownload(skillshareSkillDir, sourceDir, walk.Follow, localVersion)
 }
 
-func doSkillDownload(skillshareSkillDir, sourceDir, fromVersion string) error {
+// follow is the source link policy, so a skill in a followed linked folder can be replaced.
+func doSkillDownload(skillshareSkillDir, sourceDir string, follow *sourcewalk.Follow, fromVersion string) error {
 	start := time.Now()
 	spinner := ui.StartSpinner("Downloading the skillshare skill...")
 
@@ -366,9 +380,11 @@ func doSkillDownload(skillshareSkillDir, sourceDir, fromVersion string) error {
 
 	// Update stages the download, so a failed audit keeps the installed skill.
 	_, err = install.Install(source, skillshareSkillDir, install.InstallOptions{
-		Force:  true,
-		Update: true,
-		DryRun: false,
+		Force:        true,
+		Update:       true,
+		DryRun:       false,
+		SourceDir:    sourceDir, // records a skill in a folder under its full path
+		SourceFollow: follow,
 	})
 	spinner.Stop()
 	if err != nil {
@@ -376,7 +392,7 @@ func doSkillDownload(skillshareSkillDir, sourceDir, fromVersion string) error {
 		return skillPermissionHint(err, sourceDir)
 	}
 
-	newVersion := versionpkg.ReadLocalSkillVersion(sourceDir)
+	newVersion := strings.TrimPrefix(versionpkg.ParseMetadataVersion(filepath.Join(skillshareSkillDir, "SKILL.md")), "v")
 	switch {
 	case newVersion != "" && fromVersion != "" && fromVersion != newVersion:
 		printUpgradeRow(ui.MarkOK, "Skill", fmt.Sprintf("v%s → v%s", fromVersion, newVersion), start)

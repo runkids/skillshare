@@ -140,6 +140,8 @@ _skillshare() {
                         '--sync[Sync after saving]' \
                         '--replace[Replace an existing entry]' \
                         '--keep-files[remove: leave Agent entries as they are]' \
+                        '--trust[sync: record Codex trust]' \
+                        '(-y --yes)'{-y,--yes}'[sync --trust: record trust without asking]' \
                         '--revision[Preview revision]:revision:' \
                         '--dry-run[Preview changes]' \
                         '-n[Preview changes]' \
@@ -150,12 +152,12 @@ _skillshare() {
                 plugin)
                     _arguments \
                         '1:command:(add discover import unimport list inspect sync check update enable disable remove)' \
-                        '--target[Receiving target]:target:(claude codex cursor antigravity agy antigravity-cli copilot grok kimi hermes devin pi opencode omp)' \
+                        '--target[Receiving target]:target:(claude codex cursor antigravity agy antigravity-cli copilot grok kimi hermes devin pi opencode omp herdr-app)' \
                         '--from[Import target]:target:(claude codex cursor antigravity agy antigravity-cli copilot grok kimi hermes devin pi opencode omp)' \
                         '--plugin[Source plugin]:name:' \
                         '--name[Logical package name]:name:' \
                         '--source-ref[Git branch, tag or commit]:ref:' \
-                        '--entry[OpenCode entry path]:path:' \
+                        '--entry[OpenCode or Herdr entry path]:path:' \
                         '--revision[Preview revision]:revision:' \
                         '--all[Update all managed plugins (update only)]' \
                         '-a[Update all managed plugins (update only)]' \
@@ -402,7 +404,7 @@ _skillshare() {
                     _arguments \
                         '1:project command:(list show add edit sync remove localize share)' \
                         '2:project: ' \
-                        '*--target[Replace targets]:target:(adal aiderdesk amp antigravity antigravity-cli astrbot augment autohand-code bob claude cline codearts codebuddy codestudio codex comate commandcode continue copilot cortex crush cursor deepagents deepseek-harness devin dexto droid firebender forgecode fx gemini gitlab-duo goose grok hermes iflow jazz junie kilocode kimchi kimi kimi-code kiro kode letta lingma mcpjam mux neovate omp ona openclaw opencode openhands pi pochi posit-assistant purecode qoder qoder-cn qwen reasonix replit roo rovodev tabnine trae trae-cn universal verdent vibe warp windsurf witsy xcode-claude xcode-codex zcode zed zencoder)' \
+                        '*--target[Replace targets]:target:(adal aiderdesk amp antigravity antigravity-cli astrbot augment autohand-code bob claude cline codearts codebuddy codestudio codex comate commandcode continue copilot cortex crush cursor deepagents deepseek-harness devin dexto droid firebender forgecode fx gemini gitlab-duo goose grok hermes iflow jazz junie kilocode kimchi kimi kimi-code kiro kode letta lingma mcpjam minimax-code mux neovate omp ona openclaw opencode openhands pi pochi posit-assistant purecode qoder qoder-cn qwen reasonix replit roo rovodev tabnine trae trae-cn universal verdent vibe warp windsurf witsy xcode-claude xcode-codex zcode zed zencoder)' \
                         '--name[Set project name]:name: ' \
                         '--skills[Enable skills]' \
                         '--no-skills[Disable skills]' \
@@ -415,6 +417,7 @@ _skillshare() {
                         '*--skills-exclude[Replace skills exclude filters]:pattern: ' \
                         '*--agents-include[Replace agents include filters]:pattern: ' \
                         '*--agents-exclude[Replace agents exclude filters]:pattern: ' \
+                        '*--scan[Also add Git checkouts below this folder]:folder:_directories' \
                         '--machine-local[Save a new project on this machine only]' \
                         '--shared[Save in config.yaml, or also remove its copy]' \
                         '--sync[Sync after add or edit]' \
@@ -489,6 +492,7 @@ _skillshare() {
                         '-n[Preview changes]' \
                         '--force[Force update]' \
                         '-f[Force update]' \
+                        '--merge[Merge upstream changes into local edits]' \
                         '--skip-audit[Skip security audit]' \
                         '--audit-threshold[Set audit threshold]:level:(low medium high critical)' \
                         '--threshold[Set audit threshold]:level:(low medium high critical)' \

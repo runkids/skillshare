@@ -158,7 +158,7 @@ skillshare sync
 
 **更新过程中的安全行为：**
 - 在隔离候选中拉取并审计；已有 target 链接继续读取正式 checkout。
-- 保留 sparse-checkout 的选择范围和现有 integrity hashes。无法解析或指向候选之外的 symlink 会作为扫描错误拒绝更新。
+- 保留 sparse-checkout 的选择范围和现有 integrity hashes。目标在候选内但不存在的 symlink 会被接受，例如根目录文件指向被 sparse checkout 排除的目录。指向候选之外，或因其他原因（例如循环）无法解析的 symlink 会作为扫描错误拒绝更新。指向候选之外或其 `.git` 文件夹的链接，即使指定 `--skip-audit` 也会拒绝更新，与首次安装相同。
 - 阻止行为使用当前阈值（默认为 `audit.block_threshold`，或按命令覆盖的 `--threshold`/`-T`）。
 - 在 TTY 模式下，`skillshare update` 会在发现达到阈值时提示确认；非 TTY 模式下默认拒绝候选。
 - 拒绝候选或扫描出错时，正式 checkout 和 metadata 保持不变。`--force` 不能覆盖扫描错误；`--skip-audit` 禁用扫描。
@@ -172,10 +172,18 @@ skillshare sync
 skillshare uninstall _team-skills
 ```
 
+对于现有 checkout（包括指向 Git checkout 的链接）：
+
 **发生了什么：**
 1. 检查是否存在未提交的变更；若存在变更或无法读取 git status，则停止（可用 `--force` 覆盖）
 2. 将目录移到回收站（保留 7 天）
 3. 下一次 `sync` 会从 Target 中移除对应的符号链接
+
+在 global mode 中，可以按名称明确移除没有 checkout 的追踪声明（路径不存在、普通文件夹或非 checkout 链接）。不会连接源，因此源不可访问时也适用。只移除记录及其审计接受记录，占用路径的内容和 `.gitignore` 不变，不检查 Git，也不移到回收站，无法通过 `trash restore` 撤销。请使用带 `_` 的规范名称或记录的完整路径，如 `skillshare uninstall devops/_team-skills -g`；简写可能选中现有 Skill 或文件夹。glob、`--all` 和 `--group` 不会选中没有 checkout 的声明。
+
+手动删除 checkout 会保留 global 声明。若想恢复而非移除声明，请在源可访问且目标路径空闲时运行 `skillshare install -g`。后续 `install` 或 reconcile 若遍历了声明路径的普通文件夹或被跟随的非 checkout 链接，会将其规范化为普通记录（`Tracked=false`），此后普通卸载会把占用路径的内容移到回收站。不存在的路径、未跟随或不可用的链接不会被这样规范化。
+
+在 global mode 中，`unlink` 也会移除为该链接名称保留的追踪仓库记录及其审计接受记录；链接目标不受影响。
 
 ---
 

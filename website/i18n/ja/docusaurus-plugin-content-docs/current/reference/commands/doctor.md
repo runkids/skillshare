@@ -196,7 +196,7 @@ OpenCode を別の環境（デスクトップのランチャーなど）から�
 ### バージョン
 
 - CLI のバージョン
-- skillshare skill のバージョン（新しい skill が公開されていれば警告。`skillshare upgrade --skill`）
+- skillshare skill のバージョン（新しい skill が公開されていれば警告。`skillshare upgrade --skill`。`.skillignore` で無効になっている場合も警告。`skillshare enable skillshare`）
 - 利用可能な更新のチェック
 
 ### Skill の整合性
@@ -304,6 +304,8 @@ skillshare sync  # 孤立したシンボリックリンクを削除します
 
 代わりに行に `behind an unavailable source link, kept until it is back` と表示される場合、その Skill はリンク先が利用できない[たどられた source リンク](../targets/configuration.md#follow_source_links)の背後にあります。prune するものはありません。ドライブをマウントするかチェックアウトを復元して、`skillshare sync` を実行してください。
 
+行に `broken link skillshare did not create, kept` と表示される場合、そのリンクは source の外を指していてマニフェストに記録がないため、他のツールかユーザー自身が作ったものです。`sync` はこれを残し、`doctor --json` の `broken_symlinks` チェックは `error` ではなく `warning` になります。不要なリンクであれば自分で削除してください。マニフェストに記録がある名前の壊れたリンクは、source のどの Skill もその名前を使わなくなると、`sync` が刈り取るため broken symlink として報告されます。
+
 ### "Skills without SKILL.md"
 
 必須ファイルがない Skill フォルダです。
@@ -360,6 +362,8 @@ Next
 ```
 
 `nix profile` でインストールした場合、Next 行は `nix profile upgrade skillshare` になります。NixOS や Home Manager が skillshare を提供している場合は、Update 行に Nix の設定を更新してリビルドするよう表示され、Next 行は出ません。
+
+uv、pipx、pip でインストールした場合、Next 行は `uv tool upgrade skillshare-cli` のようなインストーラーのコマンドになります。
 
 ## JSON 出力
 

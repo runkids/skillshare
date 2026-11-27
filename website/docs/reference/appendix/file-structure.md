@@ -65,6 +65,7 @@ Directory layout and file locations for skillshare.
 ├── mcp/                     # MCP sync state (auto-managed)
 │   ├── state.json           # Which native entries Skillshare owns
 │   ├── tool-pins.json       # Tool definition hashes recorded by mcp check --live
+│   ├── tool-costs.json      # Tool token counts from mcp check --live (cache)
 │   └── backups/             # Agent files before each write (newest 20 per file)
 └── plugins/                 # Reviewed local copies of plugin sources
 
@@ -311,7 +312,7 @@ Excludes agents from sync. Lives at the agents source root:
 draft-*
 
 # Disable a specific agent
-experimental-reviewer
+experimental-reviewer.md
 ```
 
 Uses [gitignore syntax](https://git-scm.com/docs/gitignore). The same pattern rules as `.skillignore` apply (`*`, `**`, `!negation`, `#` comments, etc.). Disabled agents remain in the source directory but are excluded from sync.

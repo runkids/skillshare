@@ -196,7 +196,7 @@ opencode skips ~/.claude/skills: OPENCODE_DISABLE_CLAUDE_CODE_SKILLS is set in t
 ### Version
 
 - CLI 版本
-- skillshare skill 版本；有較新的 skill 發布時會提出警告（`skillshare upgrade --skill`）
+- skillshare skill 版本；有較新的 skill 發布時會提出警告（`skillshare upgrade --skill`），被 `.skillignore` 停用時也會提出警告（`skillshare enable skillshare`）
 - 檢查是否有可用更新
 
 ### Skill Integrity
@@ -304,6 +304,8 @@ skillshare sync  # Will prune orphaned symlinks
 
 如果該行顯示的是 `behind an unavailable source link, kept until it is back`，代表這個 skill 位於某個[已跟進的 source 連結](../targets/configuration.md#follow_source_links)背後，而其目標目前不在。沒有東西需要 prune：掛載硬碟或還原 checkout 後，執行 `skillshare sync` 即可。
 
+如果該行顯示的是 `broken link skillshare did not create, kept`，代表這個連結指向 source 之外，且 manifest 沒有記錄，是其他工具或你自己建立的。`sync` 會保留它，`doctor --json` 中的 `broken_symlinks` 檢查會是 `warning` 而不是 `error`。如果這個連結已經沒用，請自行刪除。如果損壞的連結所用的名稱在 manifest 中有記錄，而 source 中已沒有 skill 使用這個名稱，`sync` 會清除它，所以會回報為 broken symlink。
+
 ### "Skills without SKILL.md"
 
 Skill 資料夾缺少必要的檔案：
@@ -360,6 +362,8 @@ Next
 ```
 
 透過 `nix profile` 安裝時，Next 行顯示 `nix profile upgrade skillshare`。由 NixOS 或 Home Manager 提供 skillshare 時，Update 行會提示更新 Nix 設定並重新建置，不顯示對應的 Next 行。
+
+透過 uv、pipx 或 pip 安裝時，Next 行顯示對應安裝工具的指令，例如 `uv tool upgrade skillshare-cli`。
 
 ## JSON 輸出
 

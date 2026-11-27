@@ -209,7 +209,7 @@ $_skillshareCompleter = {
         'doctor' = '--json', '--help', '-h', '--project', '-p', '--global', '-g'
         'target' = '--json', '--no-tui', '--help', '-h', '--mode', '-m', '--agent-mode', '--target-naming', '--add-include', '--add-exclude', '--remove-include', '--remove-exclude', '--add-agent-include', '--add-agent-exclude', '--remove-agent-include', '--remove-agent-exclude', '--agent', '--config-dir', '--cli', '--skills', '--no-skills', '--all', '-a', '--dry-run', '-n', '--project', '-p', '--global', '-g'
         'upgrade' = '--dry-run', '-n', '--force', '-f', '--skill', '--cli', '--help', '-h'
-        'update' = '--all', '-a', '--dry-run', '-n', '--force', '-f', '--skip-audit', '--audit-threshold', '--threshold', '-T', '--diff', '--audit-verbose', '--prune', '--json', '--group', '-G', '--help', '-h', '--project', '-p', '--global', '-g'
+        'update' = '--all', '-a', '--dry-run', '-n', '--force', '-f', '--merge', '--skip-audit', '--audit-threshold', '--threshold', '-T', '--diff', '--audit-verbose', '--prune', '--json', '--group', '-G', '--help', '-h', '--project', '-p', '--global', '-g'
         'check' = '--json', '--diff', '--exit-code', '--all', '--group', '-G', '--help', '-h', '--project', '-p', '--global', '-g'
         'trash' = '--all', '--no-tui', '--help', '-h', '--project', '-p', '--global', '-g'
         'audit' = '--min-severity', '--init-rules', '--json', '--format', '--quiet', '-q', '--yes', '-y', '--no-tui', '--respect-accepted', '--threshold', '-T', '--group', '-G', '--profile', '--dedupe', '--analyzer', '--pattern', '--severity', '--disabled', '--help', '-h', '--project', '-p', '--global', '-g'
@@ -228,7 +228,7 @@ $_skillshareCompleter = {
         'search' = '--json', '--list', '-l', '--hub', '--limit', '-n', '--help', '-h', '--project', '-p', '--global', '-g'
         'updates' = '--json', '--help', '-h'
         'tui' = '--help', '-h'
-        'hooks' = '--file', '--from', '--sync', '--replace', '--keep-files', '--revision', '--dry-run', '-n', '--json', '--help', '-h', '--project', '-p', '--global', '-g'
+        'hooks' = '--file', '--from', '--sync', '--replace', '--keep-files', '--trust', '--yes', '-y', '--revision', '--dry-run', '-n', '--json', '--help', '-h', '--project', '-p', '--global', '-g'
         'completion' = '--install', '--help', '-h'
     }
 
@@ -256,8 +256,14 @@ $_skillshareCompleter = {
         }
         return
     }
-    if ($cmd -eq 'plugin' -and $previousIndex -ge 0 -and $elements[$previousIndex] -in @('--target', '--from')) {
+    if ($cmd -eq 'plugin' -and $previousIndex -ge 0 -and $elements[$previousIndex] -eq '--from') {
         @('claude', 'codex', 'cursor', 'antigravity', 'agy', 'antigravity-cli', 'copilot', 'grok', 'kimi', 'hermes', 'devin', 'pi', 'opencode', 'omp') | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {
+            [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
+        }
+        return
+    }
+    if ($cmd -eq 'plugin' -and $previousIndex -ge 0 -and $elements[$previousIndex] -eq '--target') {
+        @('claude', 'codex', 'cursor', 'antigravity', 'agy', 'antigravity-cli', 'copilot', 'grok', 'kimi', 'hermes', 'devin', 'pi', 'opencode', 'omp', 'herdr-app') | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {
             [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
         }
         return
@@ -274,13 +280,13 @@ $_skillshareCompleter = {
         @{ Name = 'localize'; Desc = 'Keep a copy on this machine only' }
         @{ Name = 'share'; Desc = 'Move a machine-only project into config.yaml' }
     )
-    $flags['project'] = '--target', '--name', '--skills', '--no-skills', '--agents', '--no-agents', '--skills-mode', '--agents-mode', '--skills-naming', '--skills-include', '--skills-exclude', '--agents-include', '--agents-exclude', '--machine-local', '--shared', '--sync', '--dry-run', '-n', '--yes', '--json', '--help', '-h', '--global', '-g'
+    $flags['project'] = '--target', '--name', '--skills', '--no-skills', '--agents', '--no-agents', '--skills-mode', '--agents-mode', '--skills-naming', '--skills-include', '--skills-exclude', '--agents-include', '--agents-exclude', '--scan', '--machine-local', '--shared', '--sync', '--dry-run', '-n', '--yes', '--json', '--help', '-h', '--global', '-g'
     if ($cmd -eq 'project' -and $previousIndex -ge 0) {
         $values = switch ($elements[$previousIndex]) {
             '--skills-mode' { @('merge', 'symlink', 'copy') }
             '--agents-mode' { @('merge', 'symlink', 'copy') }
             '--skills-naming' { @('flat', 'standard', 'prefixed') }
-            '--target' { @('adal', 'aiderdesk', 'amp', 'antigravity', 'antigravity-cli', 'astrbot', 'augment', 'autohand-code', 'bob', 'claude', 'cline', 'codearts', 'codebuddy', 'codestudio', 'codex', 'comate', 'commandcode', 'continue', 'copilot', 'cortex', 'crush', 'cursor', 'deepagents', 'deepseek-harness', 'devin', 'dexto', 'droid', 'firebender', 'forgecode', 'fx', 'gemini', 'gitlab-duo', 'goose', 'grok', 'hermes', 'iflow', 'jazz', 'junie', 'kilocode', 'kimchi', 'kimi', 'kimi-code', 'kiro', 'kode', 'letta', 'lingma', 'mcpjam', 'mux', 'neovate', 'omp', 'ona', 'openclaw', 'opencode', 'openhands', 'pi', 'pochi', 'posit-assistant', 'purecode', 'qoder', 'qoder-cn', 'qwen', 'reasonix', 'replit', 'roo', 'rovodev', 'tabnine', 'trae', 'trae-cn', 'universal', 'verdent', 'vibe', 'warp', 'windsurf', 'witsy', 'xcode-claude', 'xcode-codex', 'zcode', 'zed', 'zencoder') }
+            '--target' { @('adal', 'aiderdesk', 'amp', 'antigravity', 'antigravity-cli', 'astrbot', 'augment', 'autohand-code', 'bob', 'claude', 'cline', 'codearts', 'codebuddy', 'codestudio', 'codex', 'comate', 'commandcode', 'continue', 'copilot', 'cortex', 'crush', 'cursor', 'deepagents', 'deepseek-harness', 'devin', 'dexto', 'droid', 'firebender', 'forgecode', 'fx', 'gemini', 'gitlab-duo', 'goose', 'grok', 'hermes', 'iflow', 'jazz', 'junie', 'kilocode', 'kimchi', 'kimi', 'kimi-code', 'kiro', 'kode', 'letta', 'lingma', 'mcpjam', 'minimax-code', 'mux', 'neovate', 'omp', 'ona', 'openclaw', 'opencode', 'openhands', 'pi', 'pochi', 'posit-assistant', 'purecode', 'qoder', 'qoder-cn', 'qwen', 'reasonix', 'replit', 'roo', 'rovodev', 'tabnine', 'trae', 'trae-cn', 'universal', 'verdent', 'vibe', 'warp', 'windsurf', 'witsy', 'xcode-claude', 'xcode-codex', 'zcode', 'zed', 'zencoder') }
         }
         if ($values) {
             $values | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {

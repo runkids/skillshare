@@ -39,7 +39,7 @@ func diffProjectAgents(root, targetName string, opts diffRenderOpts, start time.
 			continue
 		}
 
-		r := computeAgentDiff(entry.Name, agentPath, entry.AgentsConfig(), agents)
+		r := computeAgentDiff(entry.Name, agentPath, agentsSource, entry.AgentsConfig(), agents)
 		results = append(results, r)
 	}
 
@@ -74,7 +74,7 @@ func diffGlobalAgents(cfg *config.Config, targetName string, opts diffRenderOpts
 			continue
 		}
 
-		r := computeAgentDiff(name, agentPath, tc.AgentsConfig(), agents)
+		r := computeAgentDiff(name, agentPath, agentsSource, tc.AgentsConfig(), agents)
 		results = append(results, r)
 	}
 
@@ -109,7 +109,7 @@ func mergeAgentDiffsGlobal(cfg *config.Config, results []targetDiffResult, targe
 		if agentPath == "" {
 			continue
 		}
-		agentResults = append(agentResults, computeAgentDiff(name, agentPath, tc.AgentsConfig(), agents))
+		agentResults = append(agentResults, computeAgentDiff(name, agentPath, agentsSource, tc.AgentsConfig(), agents))
 	}
 
 	return mergeAgentResults(results, agentResults)
@@ -139,7 +139,7 @@ func mergeAgentDiffsProject(root string, results []targetDiffResult, targetName 
 		if agentPath == "" {
 			continue
 		}
-		agentResults = append(agentResults, computeAgentDiff(entry.Name, agentPath, entry.AgentsConfig(), agents))
+		agentResults = append(agentResults, computeAgentDiff(entry.Name, agentPath, agentsSource, entry.AgentsConfig(), agents))
 	}
 
 	return mergeAgentResults(results, agentResults)
@@ -177,8 +177,9 @@ func mergeAgentResults(skillResults, agentResults []targetDiffResult) []targetDi
 // computeAgentDiff compares the agents a target would receive against its
 // directory. Like sync, it applies the target's include/exclude and the
 // agents' frontmatter targets first, and a target with an extension compares
-// the converted outputs recorded in its manifest.
-func computeAgentDiff(targetName, targetDir string, ac config.ResourceTargetConfig, agents []resource.DiscoveredResource) targetDiffResult {
+// the converted outputs recorded in its manifest. sourceDir is the agents
+// source, which decides whether sync would prune an orphan link.
+func computeAgentDiff(targetName, targetDir, sourceDir string, ac config.ResourceTargetConfig, agents []resource.DiscoveredResource) targetDiffResult {
 	r := targetDiffResult{
 		name:   targetName,
 		mode:   "merge",
@@ -297,6 +298,10 @@ func computeAgentDiff(targetName, targetDir string, ac config.ResourceTargetConf
 		if _, ok := expected[name]; !ok {
 			targetPath := filepath.Join(targetDir, name)
 			if fileType&os.ModeSymlink != 0 || utils.IsSymlinkOrJunction(targetPath) {
+				// Sync keeps a link it would not prune, so it is not a change.
+				if !sync.PrunesAgentLink(ac.Mode, targetPath, sourceDir) {
+					continue
+				}
 				r.items = append(r.items, copyDiffEntry{
 					action: "remove",
 					name:   name,

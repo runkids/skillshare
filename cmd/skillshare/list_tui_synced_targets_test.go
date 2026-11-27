@@ -4,12 +4,16 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"skillshare/internal/config"
+	"skillshare/internal/oplog"
 	"skillshare/internal/resource"
 	"skillshare/internal/sync"
 	"skillshare/internal/utils"
+
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 func writeSourceFile(t *testing.T, path, content string) {
@@ -87,6 +91,108 @@ func TestFindSyncedTargets_DisablingSkillDropsItsTargets(t *testing.T) {
 
 	// A reopened list rediscovers the skill as disabled and shows no target; the open one must agree.
 	assertSyncedTo(t, m.findSyncedTargets(skillEntryAt("demo")))
+}
+
+// pressToggle presses t on one row whose source holds files (relative to the
+// skills source, or the agents source for an agent).
+func pressToggle(t *testing.T, entry skillEntry, files map[string]string) listTUIModel {
+	t.Helper()
+	return pressToggleLogged(t, entry, files, "")
+}
+
+// pressToggleLogged is pressToggle with the oplog written beside cfgPath.
+func pressToggleLogged(t *testing.T, entry skillEntry, files map[string]string, cfgPath string) listTUIModel {
+	t.Helper()
+	source, agents := t.TempDir(), t.TempDir()
+	root := source
+	if entry.Kind == "agent" {
+		root = agents
+	}
+	for rel, content := range files {
+		writeSourceFile(t, filepath.Join(root, rel), content)
+	}
+	m := newListTUIModel(nil, []skillItem{{entry: entry}}, 1, "global", source, agents, nil, kindAll)
+	m.cfgPath = cfgPath
+	next, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 24})
+	return pressKey(t, next.(listTUIModel), "t")
+}
+
+func TestToggleKey_AnotherRuleKeepsRowState(t *testing.T) {
+	draft := skillEntryAt("draft-one")
+	draft.Disabled = true
+	archived := skillEntry{Name: "reviewer", Kind: "agent", RelPath: "archive/reviewer.md", Disabled: true}
+	for _, tc := range []struct {
+		name  string
+		entry skillEntry
+		files map[string]string
+		file  string
+	}{
+		{"skill glob", draft, map[string]string{"draft-one/SKILL.md": "# draft", ".skillignore": "draft-one\ndraft-*\n"}, ".skillignore"},
+		{"agent folder rule", archived, map[string]string{"archive/reviewer.md": "# reviewer", ".agentignore": "archive/\n"}, ".agentignore"},
+		{"negation", skillEntryAt("mine"), map[string]string{"mine/SKILL.md": "# mine", ".skillignore.local": "!mine\n"}, ".skillignore"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			m := pressToggle(t, tc.entry, tc.files)
+
+			if m.allItems[0].entry.Disabled != tc.entry.Disabled {
+				t.Error("another rule decides the state, so the row must not change")
+			}
+			if !strings.Contains(m.View(), tc.file) {
+				t.Errorf("expected an error naming %s:\n%s", tc.file, m.View())
+			}
+		})
+	}
+}
+
+// `disable inner` writes the folder name; enabling the row removes that line too.
+func TestToggleKey_EnablesSkillDisabledByFolderName(t *testing.T) {
+	entry := skillEntryAt("group/inner")
+	entry.Disabled = true
+	m := pressToggle(t, entry, map[string]string{"group/inner/SKILL.md": "# i", ".skillignore": "inner\n"})
+
+	if m.toggleErr != nil || m.allItems[0].entry.Disabled {
+		t.Errorf("want the skill enabled, got disabled=%v err=%v", m.allItems[0].entry.Disabled, m.toggleErr)
+	}
+}
+
+func TestToggleKey_WritesOplog(t *testing.T) {
+	blocked := skillEntryAt("draft-one")
+	blocked.Disabled = true
+	for _, tc := range []struct {
+		name   string
+		entry  skillEntry
+		files  map[string]string
+		cmd    string
+		status string
+		kind   string
+	}{
+		{"disable", skillEntryAt("demo"), map[string]string{"demo/SKILL.md": "# demo"}, "disable", "ok", "skill"},
+		{"enable agent", skillEntry{Name: "reviewer", Kind: "agent", RelPath: "reviewer.md", Disabled: true},
+			map[string]string{"reviewer.md": "# r", ".agentignore": "reviewer.md\n"}, "enable", "ok", "agent"},
+		{"blocked", blocked, map[string]string{"draft-one/SKILL.md": "# d", ".skillignore": "draft-one\ndraft-*\n"}, "enable", "error", "skill"},
+		{"write error", skillEntryAt("demo"), map[string]string{"demo/SKILL.md": "# demo", ".skillignore/x": ""}, "disable", "error", "skill"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("XDG_STATE_HOME", t.TempDir()) // the global oplog lives in the state dir
+			cfgPath := filepath.Join(t.TempDir(), "config.yaml")
+			pressToggleLogged(t, tc.entry, tc.files, cfgPath)
+
+			entries, err := oplog.Read(cfgPath, oplog.OpsFile, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(entries) != 1 {
+				t.Fatalf("want 1 oplog entry, got %d", len(entries))
+			}
+			e := entries[0]
+			if e.Command != tc.cmd || e.Status != tc.status || e.Args["name"] != tc.entry.RelPath || e.Args["kind"] != tc.kind || e.Args["via"] != "tui" {
+				t.Errorf("entry = %s %s %v, want %s %s name=%s kind=%s via=tui", e.Command, e.Status, e.Args, tc.cmd, tc.status, tc.entry.RelPath, tc.kind)
+			}
+			if tc.status == "error" && !strings.Contains(e.Message, ".skillignore") {
+				t.Errorf("message %q should give the reason", e.Message)
+			}
+		})
+	}
 }
 
 func TestFindSyncedTargets_CopyMode(t *testing.T) {

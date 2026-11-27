@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
 	"time"
 
 	"skillshare/internal/install"
+	"skillshare/internal/sync"
 )
 
 // fileDiffEntry represents a single file-level difference between source and destination.
@@ -26,8 +28,15 @@ type fileDiffEntry struct {
 // diffSkillFiles walks both directories and returns file-level diffs.
 // src-only = add, dst-only = delete, both but different content = modify.
 // Results are sorted by RelPath. If dstDir doesn't exist, all src files are "add".
-func diffSkillFiles(srcDir, dstDir string) []fileDiffEntry {
-	srcFiles := walkFiles(srcDir)
+// For a copy-mode target, copyIgnore holds the copy's ignore patterns, and the
+// source side lists only the files sync copies.
+func diffSkillFiles(srcDir, dstDir string, copyIgnore []string) []fileDiffEntry {
+	var srcFiles map[string]os.FileInfo
+	if copyIgnore != nil && srcDir != "" {
+		srcFiles = copiedFiles(srcDir, copyIgnore)
+	} else {
+		srcFiles = walkFiles(srcDir)
+	}
 	dstFiles := walkFiles(dstDir)
 
 	entries := make([]fileDiffEntry, 0)
@@ -113,6 +122,22 @@ func walkFiles(root string) map[string]os.FileInfo {
 	})
 
 	return result
+}
+
+// copiedFiles lists the files copy mode copies from srcDir, by relPath, without
+// the install metadata file, as walkFiles does. When the walk fails, sync
+// cannot copy the skill either, so every file is listed.
+func copiedFiles(srcDir string, ignorePatterns []string) map[string]os.FileInfo {
+	files, err := sync.CopiedFiles(srcDir, ignorePatterns)
+	if err != nil {
+		return walkFiles(srcDir)
+	}
+	for rel := range files {
+		if path.Base(rel) == install.MetaFileName {
+			delete(files, rel)
+		}
+	}
+	return files
 }
 
 // fileContentsEqual compares two files by streaming byte comparison.

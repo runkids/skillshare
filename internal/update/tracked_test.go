@@ -344,3 +344,32 @@ func TestTrackedRepo_WarnsWhenPullAddsSubmodule(t *testing.T) {
 		t.Fatalf("warnings = %q, want a skipped-submodule warning", got)
 	}
 }
+
+// A link out of the repository is refused whether or not the audit runs, and
+// not as an audit block, whose hints (--force, --skip-audit) cannot get past it.
+func TestTrackedRepo_RefusesLinkOutsideRepository(t *testing.T) {
+	f := newFixture(t, cleanSkill+"More help.\n")
+	outside := filepath.Join(t.TempDir(), "id_ed25519")
+	if err := os.WriteFile(outside, []byte("PRIVATE KEY"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(f.seed, "notes.md")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	f.push(t, cleanSkill+"Even more help.\n")
+
+	for _, skipAudit := range []bool{false, true} {
+		opts := f.opts()
+		opts.SkipAudit = skipAudit
+		_, err := TrackedRepo(f.repo, opts)
+		if !errors.Is(err, install.ErrLinkOutside) || errors.Is(err, audit.ErrBlocked) {
+			t.Fatalf("skipAudit=%t: err = %v; want a link refusal that is not an audit block", skipAudit, err)
+		}
+		if strings.Contains(err.Error(), "git pull failed") {
+			t.Errorf("skipAudit=%t: err = %v; the pull did not fail", skipAudit, err)
+		}
+		if f.head(t) != f.before {
+			t.Fatalf("skipAudit=%t: checkout moved to the refused commit", skipAudit)
+		}
+	}
+}

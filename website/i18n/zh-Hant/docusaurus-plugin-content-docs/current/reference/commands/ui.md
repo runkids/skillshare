@@ -89,39 +89,44 @@ skillshare ui start --clear-cache
 
 | 頁面 | 說明 |
 |------|------|
-| **Dashboard** | Skills、agents、extras、MCP servers、hooks、plugins 與 targets 的數量，以及需要注意的項目。解除安裝有未提交變更、或讀不到 git 狀態的 tracked repo 時，會說明原因並再次確認，然後把 repo 原樣移到垃圾桶，等同 `uninstall --force` |
+| **Dashboard** | Skills、agents、extras、MCP servers、hooks、plugins 與 targets 的數量，以及需要注意的項目。解除安裝有未提交變更、或讀不到 git 狀態的 tracked repo 時，會說明原因並再次確認，然後把 repo 原樣移到垃圾桶，等同 `uninstall --force`。metadata 中有記錄、但這台機器沒有 clone 的 tracked repo 會顯示 **這台機器上沒有簽出副本**，解除安裝只移除它的記錄與稽核接受記錄，不會移到垃圾桶。若確認前簽出副本已出現，dashboard 會提示，需再次選擇 **解除安裝**。**版本狀態** 顯示 CLI 與內建 Skill 的版本；`.skillignore` 停用該 skill 時顯示 **已停用**，因為 sync 不會把它放進任何 target |
 | **Sync** | 在寫入前預覽每個 target 的每項變更。選擇要包含的部分（Skills、Agents、Extras、MCP）。在 target 內編輯過的檔案，除非開啟 **Force**，否則會保留。只存在於 target 中的項目可以從這裡收集回 source。每次同步都會先備份 target 資料夾。某個 target 失敗時，其他 target 仍會同步：頁面會在其他警告上方列出每個失敗的 target，以及它的部分（Skills、Agents、Extras 或 Config）和錯誤，常見原因（symlink 指向別處、權限不足、唯讀檔案系統、檔案或資料夾不存在、target 設定無效）還會附上一句易懂的說明；若 Skills 的 symlink 指向別處，會提供 **開啟 Force**；變更清單中也會標出該 target。即使所有 target 都失敗，也會以同樣方式列出。**上次同步** 卡片會列出最近一次同步中失敗的 target。收到相同變更的 targets 會合併成一張卡片，依資料夾列出 skills。**Discard all** 會在確認後，把還沒有任何 target 收到的 skills 移到垃圾桶。當某個 target 的 `include` 篩選條件沒有符合任何 skill 時，會顯示提示說明這個 target 收不到任何 skill，**Edit filter** 會開啟設定該篩選條件的地方；Git Sync 在 pull 之後也會顯示同樣的提示 |
 | **Git Sync** | Commit 並 push source repo、push 尚未在 remote 上的 commits，以及 pull。開啟頁面時會先從 remote fetch，所以 **Pull** 按鈕會顯示 remote 有幾個新的 commits。Pull 會同步 repo scope 所涵蓋的內容（`skills`、`agents`、`extras` 或 `root`），如同 [`pull`](/docs/reference/commands/pull)。**Sync both ways** 會 commit 本機變更、pull 並合併、sync targets，然後 push，如同 [`push --pull`](/docs/reference/commands/push#push-and-pull-together)；遇到衝突時會在 push 前停止。當 remote 因為有較新的 commits 而拒絕 push 時，錯誤訊息會提供 **Pull**。當第一次 pull 無法與 remote 合併時，會提供強制 pull 以本機檔案取代 remote 分支 |
 | **Hubs** | 從 Skills 頁面進入。列出內建 hub、已儲存的 hubs 與你自己的 Hub（**我的**）；選擇一個即可篩選並安裝其中的 skills。**加入或建立 Hub** 可加入現有的 hub、建立新的 Hub，或匯入 `skillshare-hub.json`。自己的 Hub 以 **編輯** 修改；**分享** 會下載索引並產生 `hub add` 指令。已儲存與內建的 hub 可按 **重新整理**，不必等兩分鐘快取過期就重新讀取清單。參見 [`hub`](/docs/reference/commands/hub) |
-| **Skills** / **Agents** | 已安裝的項目、**Updates** 分頁與 **Trash** 分頁。Skills 還有一個 **Analyze** 分頁，用來估算每個 skill 為 target 的 context 增加多少 tokens。**Install** 可搜尋 GitHub，或從 URL 或路徑安裝。選單裡也有開啟建立精靈的 **New skill** 和 **Link folder**。config 裡有尚未安裝的項目時，**Updates** 分頁和安裝對話框會提供 **Install all**，效果同不帶參數的 [`install`](/docs/reference/commands/install)。執行檢查後，已從來源 repo 刪除的 skills 會列出並提供 **Prune** 與 **Prune all**，把它們移到垃圾桶。**Link folder** 與 [`link`](/docs/reference/commands/link) 一樣把資料夾連結進 skills source：填入路徑、選填的連結名稱，`follow_source_links` 關閉時另有一個開啟它的核取方塊；被拒絕的資料夾會顯示與指令相同的原因。連結的資料夾會以獨立群組列出，帶有連結圖示與它指向的資料夾；該列的圖示按鈕（hover 時連結圖示會變成取消連結圖示）會先確認，再像 [`unlink`](/docs/reference/commands/unlink) 一樣取消連結：資料夾本身不受影響，連結可從 **Trash** 分頁還原。連結資料夾裡的 skill 仍可單獨解除安裝，它會從該資料夾移到 trash；連結的資料夾沒有 **Update repo** 與 **Uninstall repo**。列表與卡片檢視可依 **Folder**（tracked repo、`frontend/react` 這類資料夾，或 **Root**）篩選，也能依 **Folder** 分組，Root 排最前，其餘資料夾依名稱 A→Z 排序。列表檢視中，位在另一個 skill 資料夾裡的 skill 會列在那個 skill 底下：點 package 名稱後面的數量按鈕，會在下方展開它的 skill，並用淡淡的樹狀線連到 package（package 預設收合），更深的 package 再往內縮排。搜尋時會展開含有符合項目的 package，顯示 `1 / 3` 這樣的數量，並標出名稱裡符合的文字；搜尋中收合的 package 在搜尋改變後會重新展開，搜尋前展開的 package 維持不變。分頁只計算最上層的列。每一列以一行顯示 frontmatter 裡的 `description`，該列取得鍵盤焦點時顯示全文；可在 **分組與排序** → **顯示** → **描述** 隱藏。**全部展開** / **全部收合**也會展開和收合 package，選取列會顯示已選取但沒有顯示的項目數。只有點名稱才會開啟詳細頁面。解除安裝 package 時，它資料夾裡的 skill 也會一起移到 trash，確認對話框會顯示數量。**tree** 檢視左邊顯示 source 資料夾，右邊顯示詳細資訊：點資料夾或 skill 來選取，Cmd/Ctrl 點擊加入選取，Shift 點擊選取範圍，雙擊 skill 開啟它。右邊可用一個開關啟用或停用所有選取的項目（被 `.skillignore.local` 的 `!` 規則保持啟用的項目會回報為失敗並附上原因）、設定它們的 targets（包括 tracked repo 與其子資料夾），並列出每個 skill 各自的開關；tracked repo 另外提供 **Update repo** 與 **Uninstall repo**。帶有 `disable-model-invocation: true` 的 skill 會在列表、其磚塊（tile）與詳細頁面上帶有 **manual only** 標籤，這與 [`list`](/docs/reference/commands/list) 中用 `m` 切換的狀態相同。從遠端預設分支以外的分支安裝的 skill（`install --branch`）會在列表、卡片和 **Updates** 分頁上以標籤顯示該分支。從遠端來源安裝的 skill（tracked repo 除外，它在 **Git Sync** 切換分支）在詳細頁面的 **Branch** 中列出來源的分支，適用於任何主機上的 Git 遠端（HTTPS 或 SSH）。選擇分支後會先確認，再經過與 update 相同的安全稽核和本機修改檢查，從該分支重新安裝。如果該分支沒有這個 skill，會保留目前的安裝。在專案中，切換成功後也會把分支記錄到 `.skillshare/config.yaml`，讓團隊成員從該分支安裝。在 skill 編輯器中，**Add field** 說明每個 frontmatter 欄位的作用。**Sync skills** / **Sync agents** 會先預覽，再只把該類型同步到所有 targets；更新、解除安裝或 collect 之後，從 **Sync Now** 也會開啟同一個對話框。檔案瀏覽器會透過被跟隨的 source 連結列出 `SKILL.md` 與附件，包含連結本身就是 skill 根目錄的情況。 |
+| **Skills** / **Agents** | 已安裝的項目、**Updates** 分頁與 **Trash** 分頁。**Install** 可搜尋 GitHub，或從 URL 或路徑安裝。選單裡也有開啟建立精靈的 **New skill** 和 **Link folder**。config 裡有尚未安裝的項目時，**Updates** 分頁和安裝對話框會提供 **Install all**，效果同不帶參數的 [`install`](/docs/reference/commands/install)。執行檢查後，已從來源 repo 刪除的 skills 會列出並提供 **Prune** 與 **Prune all**，把它們移到垃圾桶。**Link folder** 與 [`link`](/docs/reference/commands/link) 一樣把資料夾連結進 skills source：填入路徑、選填的連結名稱，`follow_source_links` 關閉時另有一個開啟它的核取方塊；被拒絕的資料夾會顯示與指令相同的原因。連結的資料夾會以獨立群組列出，帶有連結圖示與它指向的資料夾；該列的圖示按鈕（hover 時連結圖示會變成取消連結圖示）會先確認，再像 [`unlink`](/docs/reference/commands/unlink) 一樣取消連結：資料夾本身不受影響，連結可從 **Trash** 分頁還原。連結資料夾裡的 skill 仍可單獨解除安裝，它會從該資料夾移到 trash；連結的資料夾沒有 **Update repo** 與 **Uninstall repo**。列表與卡片檢視可依 **Folder**（tracked repo、`frontend/react` 這類資料夾，或 **Root**）篩選，也能依 **Folder** 分組，Root 排最前，其餘資料夾依名稱 A→Z 排序。群組標題（依來源或依資料夾）上的 checkbox 會選取該群組中符合搜尋與篩選的所有 skill，包含後面頁面或收合列裡的，其他地方已選的項目不受影響。列表檢視中，位在另一個 skill 資料夾裡的 skill 會列在那個 skill 底下：點 package 名稱後面的數量按鈕，會在下方展開它的 skill，並用淡淡的樹狀線連到 package（package 預設收合），更深的 package 再往內縮排。搜尋時會展開含有符合項目的 package，顯示 `1 / 3` 這樣的數量，並標出名稱裡符合的文字；搜尋中收合的 package 在搜尋改變後會重新展開，搜尋前展開的 package 維持不變。分頁只計算最上層的列。每一列以一行顯示 frontmatter 裡的 `description`，該列取得鍵盤焦點時顯示全文；可在 **分組與排序** → **顯示** → **描述** 隱藏。**全部展開** / **全部收合**也會展開和收合 package，選取列會顯示已選取但沒有顯示的項目數。只有點名稱才會開啟詳細頁面。解除安裝 package 時，它資料夾裡的 skill 也會一起移到 trash，確認對話框會顯示數量。**tree** 檢視左邊顯示 source 資料夾，右邊顯示詳細資訊：點資料夾或 skill 來選取，Cmd/Ctrl 點擊加入選取，Shift 點擊選取範圍，雙擊 skill 開啟它。右邊可用一個開關啟用或停用所有選取的項目（被 `.skillignore.local` 的 `!` 規則保持啟用的項目會回報為失敗並附上原因）、設定它們的 targets（包括 tracked repo 與其子資料夾），並列出每個 skill 各自的開關；tracked repo 另外提供 **Update repo** 與 **Uninstall repo**。帶有 `disable-model-invocation: true` 的 skill 會在列表、其磚塊（tile）與詳細頁面上帶有 **manual only** 標籤，這與 [`list`](/docs/reference/commands/list) 中用 `m` 切換的狀態相同。從遠端預設分支以外的分支安裝的 skill（`install --branch`）會在列表、卡片和 **Updates** 分頁上以標籤顯示該分支。frontmatter 設定了 `metadata.version` 的 skill 和 agent 會在列表、卡片、樹狀檢視的詳細資訊和 **Updates** 分頁上以 `v1.2.0` 這樣的標籤顯示它；**Updates** 上 tracked repo 的列包含多個 skill，不顯示版本。詳細頁面以 **Version** 列出它，下方的 **Commit** 是安裝時的 commit。從遠端來源安裝的 skill（tracked repo 除外，它在 **Git Sync** 切換分支）在詳細頁面的 **Branch** 中列出來源的分支，適用於任何主機上的 Git 遠端（HTTPS 或 SSH）。選擇分支後會先確認，再經過與 update 相同的安全稽核和本機修改檢查，從該分支重新安裝。如果該分支沒有這個 skill，會保留目前的安裝。在專案中，切換成功後也會把分支記錄到 `.skillshare/config.yaml`，讓團隊成員從該分支安裝。在 skill 編輯器中，**Add field** 說明每個 frontmatter 欄位的作用。**Sync skills** / **Sync agents** 會先預覽，再只把該類型同步到所有 targets；更新、解除安裝或 collect 之後，從 **Sync Now** 也會開啟同一個對話框。檔案瀏覽器會透過被跟隨的 source 連結列出 `SKILL.md` 與附件，包含連結本身就是 skill 根目錄的情況。 |
 | **Extras** | **目錄**：與 skills 一同同步的 rules、commands 及其他資料夾。**Edit target** 可修改 target 的資料夾、檔名、模式、flatten 設定與[檔案篩選](./extras.md#choosing-files)，並即時預覽；**Edit extra** 可重新命名 extra，或改指向另一個來源資料夾。**AGENTS.md**：在 global mode 中是共用 `AGENTS.md` 與使用它們的 targets；在專案中則是專案的 `./AGENTS.md`，以及每個 target 是否讀得到它。詳見[讓多個工具共用一份 AGENTS.md](../../how-to/daily-tasks/sharing-instructions.md)  **Memory**: [記憶共用教學](../../how-to/daily-tasks/sharing-memory.md)（英文截圖）。搜尋、預覽、編輯、刪除筆記、INDEX 連結、衝突時保留草稿、Backup Files 歷史與還原，以及 **Connect to agents** → **Review changes** → **Apply changes**；設定狀態不代表已讀取 |
-| **MCP** | 每個 server 一列，並以 chips 顯示它同步至哪些 Agents；列上的計數按鈕會開啟它們的切換開關。**新增伺服器** 接受 URL、指令、貼上的片段或檔案；**從目標匯入** 讀取已安裝 Agent 目前的設定。每個 server 的選單都有 **檢視各 Agent 會寫入的設定**，會列出來源與每個 Agent 的檔案，並顯示你選取的那一個（含尚未儲存的編輯內容）。衝突時提供 **從該 Agent 匯入** 或 **以來源覆寫**。server 對話框的 **工具** 區塊用來設定[工具政策](./mcp.md#tool-policy)：**載入工具**，它會用對話框目前的設定（不論是否已儲存）啟動 server 一次並列出工具供勾選；用於 `*` 萬用字元的 **排除規則** 列；區塊會列出每個不套用部分政策的已選 Agent，設定政策後該列也會顯示標籤。對於 Pi server，對話框另有 [Pi 內建 MCP](./mcp.md#pi) 的設定：工具曝光模式與其他 Pi 設定，後者以 JSON 填入 [`piOptions`](./mcp.md#pi-options)，說明則放在資訊提示中。**預設值** 用來編輯 `mcp.targets`。Sync 框中的 **Sync MCP** 會列出待寫入的變更，只寫入 MCP 設定檔，並為每個檔案保留備份；它下方的 [**檢查**](./mcp.md#check-servers-before-an-agent-starts-them) 會檢查 servers，**備份與還原** 則可預覽並還原這些備份。 |
-| **Plugins** | 每個 plugin 一列，並以其 Agents 作為切換開關。展開一列還會列出來源支援的其他 Agents；勾選其中之一即可預覽安裝內容。列選單可以同步、更新、移除，或開啟 **View files**，也就是唯讀瀏覽 Skillshare 已檢視過的本機副本。參見 [跨工具管理 plugins](/docs/how-to/daily-tasks/sharing-plugins) |
-| **Targets** | 附帶狀態的 target 列表。**新增目標** 也接受 **另一個帳號**：你已在使用的某個 Agent 的第二個 config 資料夾，並會預覽它寫入的位置。每個 target 的頁面可編輯 include/exclude 篩選條件，並將僅存於本機的 skills 收集回 source。篩選預覽上方的搜尋框可依名稱縮小列表，並標出符合的文字；它只改變顯示的列，不會改變篩選條件。專案頁面與 Extras 的 **Edit target** 對話框也使用同一個預覽與搜尋。**同步內容** 欄以連結列出每個 target 拿到的東西：**Skills**、**Agents**、**MCP**、**Hooks** 與數量、Pi 的 **Extensions**，以及接上共用 `AGENTS.md` 的 target 指示檔；點哪個就開 target 頁的那個分頁。有 MCP 設定檔的 target 會多一個 **MCP** 分頁，每個 server 一列；點一下就會儲存，**Sync all targets** 會寫入所有 target 的 MCP 設定檔。每個 target 還有一個以它所讀檔案命名的分頁（**CLAUDE.md**、**GEMINI.md**、**AGENTS.md**……），會顯示讀取順序、編輯該檔案，並能將它轉換成 `AGENTS.md` |
-| **Projects** | 僅限 global mode。global config 會同步進去的 project 資料夾，來自 `config.yaml` 中的 [`projects`](/docs/reference/targets/configuration#projects)、只儲存在本機的專案（標示為 **此機器**）與 [`mcp.projects`](./mcp.md#projects-in-the-dashboard)。同樣的專案也可以在終端機中透過 [`skillshare project`](./project.md) 管理。**新增專案** 會要求填入資料夾、它的 targets 與要同步的內容，除非在對話框底部的 **儲存到** 選擇 **只存在這台機器**，否則會儲存到 `config.yaml`（當 [`projects_storage`](/docs/reference/targets/configuration#projects-storage) 為 `machine-local` 時預設選擇只存在這台機器）。編輯會儲存在專案所在的位置。要移動已儲存的專案，請使用 `skillshare project localize` 或 `share`。移除一個被本機覆寫的專案時，會詢問是只移除本機的副本，還是連 `config.yaml` 中的一併移除。每個 project 都有 **Skills** 與 **Agents** 分頁，附帶篩選條件、預覽畫面與會被寫入的資料夾，還有一個 **MCP** 分頁可在該資料夾中關閉 global servers 或給它專屬的 servers，並有 **檢查** 可檢查這些 servers。**Sync project** 會先預覽，再只同步該 project 的 skills、agents 與 MCP。已經指向某個 project 資料夾的 target 可以被轉換 |
+| **MCP** | 每個 server 一列，列上的計數按鈕會顯示它同步到的 Agents 的 logo，並開啟它們的切換開關。**新增 MCP** 接受 URL、指令、貼上的片段或檔案；**從目標匯入** 讀取已安裝 Agent 目前的設定。每個 server 的選單都有 **檢視各 Agent 會寫入的設定**，會列出來源與每個 Agent 的檔案，並顯示你選取的那一個（含尚未儲存的編輯內容）。衝突時提供 **從該 Agent 匯入** 或 **以來源覆寫**。server 對話框的 **工具** 區塊用來設定[工具政策](./mcp.md#tool-policy)：**載入工具**，它會用對話框目前的設定（不論是否已儲存）啟動 server 一次並列出工具供勾選；用於 `*` 萬用字元的 **排除規則** 列；區塊會列出每個不套用部分政策的已選 Agent，設定政策後該列也會顯示標籤。對於 Pi server，對話框另有 [Pi 內建 MCP](./mcp.md#pi) 的設定：工具曝光模式與其他 Pi 設定，後者以 JSON 填入 [`piOptions`](./mcp.md#pi-options)，說明則放在資訊提示中。**預設值** 用來編輯 `mcp.targets`。Sync 框中的 **Sync MCP** 會列出待寫入的變更，只寫入 MCP 設定檔，並為每個檔案保留備份；它下方的 [**檢查**](./mcp.md#check-servers-before-an-agent-starts-them) 會檢查 servers，**備份與還原** 則可預覽並還原這些備份。 server 對話框的 **載入範圍** 可選 **所有專案** 或 **指定專案**，後者即[共用 server](./mcp.md#share-a-server-with-chosen-projects)，只要有這類 server，清單就會分成 **全域** 與 **只在指定專案** 兩區，其列會顯示 **N 個專案**。展開該列，或在對話框選擇 **指定專案**，即可勾選要載入它的專案，**新增資料夾…** 可加入尚未列出的專案。每個使用它的專案會顯示它的[覆寫](./mcp.md#override-a-shared-server)（繼承時顯示 Pi 的 tool exposure）；在該列中還附一個按鈕，可為該專案開啟 **覆寫** 對話框。自己定義了同名 server 的專案會標上 **有自己的 …**。每個專案上的箭頭會開啟它的 **MCP** 分頁，但要等勾選與對話框的欄位已儲存或放棄後才可用。 |
+| **Plugins** | 每個 plugin 一列，並以其 Agents 作為切換開關。展開一列還會列出來源支援的其他 Agents；勾選其中之一即可預覽安裝內容。列選單可以同步、更新、移除，或開啟 **View files**，也就是唯讀瀏覽 Skillshare 已檢視過的本機副本。從同一個來源新增的 plugin 會合併成一列，它的選單一次作用於全部。列最前面的方塊可選取該列，**全選** 可選取整個區塊，底部的操作列可對選取項目開始同步、暫停同步、更新或移除。**Share** 會複製一行指令，從 HTTPS 來源加入勾選的 plugin，並讓 Pi 安裝勾選的 npm Pi 套件。 參見 [跨工具管理 plugins](/docs/how-to/daily-tasks/sharing-plugins) |
+| **Targets** | 附帶狀態的 target 列表。**新增目標** 也接受 **另一個帳號**：你已在使用的某個 Agent 的第二個 config 資料夾，並會預覽它寫入的位置。每個 target 的頁面可編輯 include/exclude 篩選條件，並將僅存於本機的 skills 收集回 source。篩選放在右欄：每條規則顯示它符合的列數，什麼都不符合的規則是虛線框，超過 6 條時其餘收進 **+N 條**。滑過規則會標出它符合的列；滑過一列會出現 **排除**、**加入包含** 或 **取消排除**，結果因改動而變化的列會短暫上色。篩選預覽上方的搜尋框可依名稱縮小列表，並標出符合的文字；它只改變顯示的列，不會改變篩選條件。專案頁面與 Extras 的 **Edit target** 對話框也使用同一個預覽與搜尋。**同步內容** 欄以連結列出每個 target 拿到的東西：**Skills**、**Agents**、**MCP**、**Hooks** 與數量、Pi 的 **Extensions**，以及接上共用 `AGENTS.md` 的 target 指示檔；點哪個就開 target 頁的那個分頁。有 MCP 設定檔的 target 會多一個 **MCP** 分頁，每個 server 一列；點一下就會儲存，**Sync all targets** 會寫入所有 target 的 MCP 設定檔。每個 target 還有一個以它所讀檔案命名的分頁（**CLAUDE.md**、**GEMINI.md**、**AGENTS.md**……），會顯示讀取順序、編輯該檔案，並能將它轉換成 `AGENTS.md` |
+| **Projects** | 僅限 global mode。global config 會同步進去的 project 資料夾，來自 `config.yaml` 中的 [`projects`](/docs/reference/targets/configuration#projects)、只儲存在本機的專案（標示為 **此機器**）與 [`mcp.projects`](./mcp.md#projects-in-the-dashboard)。同樣的專案也可以在終端機中透過 [`skillshare project`](./project.md) 管理。**新增專案** 會要求填入資料夾、它的 targets 與要同步的內容，除非在對話框底部的 **儲存到** 選擇 **只存在這台機器**，否則會儲存到 `config.yaml`（當 [`projects_storage`](/docs/reference/targets/configuration#projects-storage) 為 `machine-local` 時預設選擇只存在這台機器）。**一併加入這個資料夾裡的每個 checkout** 的效果和 [`project add --scan`](./project.md#scan) 相同：在**搜尋位置**列出 `.worktrees` 這類資料夾，按**檢查**後會先列出每個資料夾是 Added、Kept 還是 Skipped 以及原因，確認後才寫入。有勾選 MCP 與 Hooks 時，會為每個新增的專案設定。編輯會儲存在專案所在的位置。要移動已儲存的專案，請使用 `skillshare project localize` 或 `share`。移除一個被本機覆寫的專案時，會詢問是只移除本機的副本，還是連 `config.yaml` 中的一併移除。移除專案後，它在 `mcp.projects` 和 `hooks.projects` 的設定會保留，所以資料夾仍會列出；再移除一次就會刪掉這些設定。每個 project 都有 **Skills** 與 **Agents** 分頁，附帶篩選條件、預覽畫面與會被寫入的資料夾，還有一個 **MCP** 分頁可在該資料夾中關閉 global servers 或給它專屬的 servers，並有 **檢查** 可檢查這些 servers。**Sync project** 會先預覽，再只同步該 project 的 skills、agents 與 MCP。已經指向某個 project 資料夾的 target 可以被轉換。project 的 **MCP** 分頁還能在 **選用** 中打開[共用 server](./mcp.md#share-a-server-with-chosen-projects)，其中的鉛筆按鈕可修改該專案[覆寫](./mcp.md#override-a-shared-server)的內容，被覆寫的 server 會帶 **已覆寫** 標籤，**載入流程** 會畫出 server 從哪來、sync 會寫入哪些 Agent 檔案。**Skills** 與 **Agents** 分頁會顯示目標、開關、可分開看同步與略過項目的預覽和篩選、會寫入的資料夾以及同步模式。**Hooks** 分頁列出該 project 的 hook，**停止管理這裡的 hook** 會把資料夾從 `hooks.projects` 移除，下次同步時會刪掉 Skillshare 寫在那裡的 hook |
+| **Context** | 位於 **Maintain** 之下、**Audit** 之上。**Skills** 分頁會針對你選的 skill target（`?target=`）估算每個 skill 為該 target 的 context 增加多少 tokens，與 [`analyze`](./analyze.md) 相同。**MCP** 分頁（`?tab=mcp&agent=<target>`，project 則為 `<root>@<target>`）有 Agent 選擇器，並顯示已計算的 tokens 與 [`warn_mcp_tool_tokens`](/docs/reference/targets/configuration#context_budget) 的對照、工具數量、已計算的 server 數、超出預算的警告，以及每個 server 一條長條；尚未被即時檢查計算過的 server 會標上 **not counted**。**Check live** 會執行 [`mcp check --live`](./mcp.md#count-tool-tokens)（它會啟動每個 server）並更新數字。**Sync** 頁面在同步後會針對每個超出預算的 MCP target 顯示警告，並附 **Open Context**，**MCP** 頁面右側欄則有 **Context cost** 卡片，顯示 tokens 最多的全域 target（只有專案載入 server 時，顯示最重的專案 target） |
 | **Audit** | 對 skills 與 agents 進行安全掃描，依嚴重程度列出發現項目。[跟進的 source 連結](/docs/reference/targets/configuration#follow_source_links)無法讀取時，Skills / Agents 分頁旁會標出 **掃描不完整**，以免把部分掃描誤認為完整掃描；此時掃描完成後會顯示警告而不是一切正常，dashboard 的 **Needs attention** 中也會列出。**Rules** 分頁可依分類瀏覽每一項規則：關閉某項、變更其嚴重程度、對整個分類套用嚴重程度、選擇掃描設定檔（`default`、`strict`、`permissive`），或開啟編輯器自訂 `audit-rules.yaml` |
-| **Settings** | 分頁式：**General**（source 路徑、同步模式、外觀）、**Backup**（target 資料夾快照、`AGENTS.md` 這類檔案的較早版本，以及 MCP 設定備份；參見 [`backup`](./backup.md#dashboard)）、**Log**（操作歷史）、**Health**（與 [`doctor`](/docs/reference/commands/doctor) 相同的檢查）、**Extensions**（同步時的檔案轉換）、**Files**（直接編輯 `config.yaml`、`.skillignore` 與 `.agentignore`；有 `.skillignore.local` 或 `.agentignore.local` 時，因為它在該檔案之後套用、可以覆蓋它，編輯器會在上方顯示它的規則） |
+| **Settings** | 分頁式：**General**（source 路徑、同步模式）、**Appearance**（風格、模式、語言與自訂主題編輯器）、**Backup**（target 資料夾快照、`AGENTS.md` 這類檔案的較早版本，以及 MCP 設定備份；參見 [`backup`](./backup.md#dashboard)）、**Log**（操作歷史）、**Health**（與 [`doctor`](/docs/reference/commands/doctor) 相同的檢查）、**Extensions**（同步時的檔案轉換；**View files** 在頁面中以唯讀方式顯示 extensions 資料夾，**Open directory** 在檔案管理員中開啟它）、**Files**（直接編輯 `config.yaml`、`.skillignore` 與 `.agentignore`；有 `.skillignore.local` 或 `.agentignore.local` 時，因為它在該檔案之後套用、可以覆蓋它，編輯器會在上方顯示它的規則） |
 
 變更清單旁的 **捨棄變更** 會在確認後，將所選 Git 範圍內所有已追蹤的檔案與暫存區還原至最後一次提交，並刪除未追蹤的檔案與資料夾。被 Git 忽略的檔案、巢狀 Git 儲存庫，以及 `root` 範圍的 `config.yaml` 都會保留。此操作不會更動提交紀錄，也不會推送至遠端，且無法復原。**試跑** 只會預覽，不會變更檔案。儲存庫必須已有第一次提交，才能捨棄變更。
 
 Git 衝突比較使用完整檔案版本。可以逐個檔案選擇本機或遠端，也能用 **全部保留本機**／**全部保留遠端** 一次選擇，再於套用前調整個別檔案。選擇已刪除的一方會在合併中刪除該檔案。雙方的提交紀錄都會保留；取消不會修改檔案。
 
-在 **Updates** 分頁中，進度列會顯示更新進度，正在更新的列也會標示出來。被阻擋或失敗的更新會顯示在獨立區塊。更新成功後，分頁會檢查該類型是否有待同步變更。只有有變更可套用時才會顯示 **Sync Now**；沒有差異時會提示無需同步。既有的 symlink 已能讀取更新後的 source 內容。同步檢查失敗時會顯示錯誤與 **Retry**，不會誤報全部為最新狀態。 連結指向的 Git checkout 會以資訊列顯示連結名稱和目標路徑。與 `skillshare update --all` 一樣，此分頁不會檢查、更新或強制重試這些 checkout；請自行管理，或在 CLI 中按名稱明確更新。
+在 **Updates** 分頁中，進度列會顯示更新進度，正在更新的列也會標示出來。被阻擋或失敗的更新會顯示在獨立區塊。同一個儲存庫的 skill 只取得一次，在 upstream 沒有變更的 skill 維持不動，並顯示為已是最新版本。更新成功後，分頁會檢查該類型是否有待同步變更。只有有變更可套用時才會顯示 **Sync Now**；沒有差異時會提示無需同步。既有的 symlink 已能讀取更新後的 source 內容。同步檢查失敗時會顯示錯誤與 **Retry**，不會誤報全部為最新狀態。 連結指向的 Git checkout 會以資訊列顯示連結名稱和目標路徑。與 `skillshare update --all` 一樣，此分頁不會檢查、更新或強制重試這些 checkout；請自行管理，或在 CLI 中按名稱明確更新。 **Check for updates** 會檢查已安裝的 skill、agent 和追蹤的儲存庫。在 Skills 分頁勾選列後會出現 **Check N selected**，只檢查選取的 skill 和追蹤儲存庫；其他列保留上次的結果。 搜尋框可輸入文字或 `pr-*` 這類 glob，與名稱和目錄比對（不含 glob 的文字也會與 source 比對）；**Source**、**Status** 和 **Folder** 篩選器可進一步縮小清單，每個選項都會顯示選取後剩下的列數。在未設定搜尋或狀態篩選時，已是最新的列會摺疊到 **Show N up to date** 中。**Update all** 會略過上次檢查為已是最新或已在上游刪除的列（後者交給 **Prune**）；尚未檢查、檢查失敗以及有本機修改的項目仍會納入。檢查失敗的列會在名稱下方說明原因，點選分頁標題下的失敗數量，即可只篩選出這些列。在 Skills 分頁，來自 Git source 且有更新的列帶有 **Preview**，可在執行前查看更新會帶來什麼：對 skill 顯示每個變更檔案在已安裝 commit 與最新 commit 之間的 diff；對追蹤的儲存庫顯示新的 commit 及其涉及的檔案。有本機修改的 skill 帶有 **View changes**，可查看這些修改，並可選擇 **Merge** 或 **Force overwrite local edits**。每一列的 `⋯` 選單包含適用於該列的操作：**Check for updates**（僅限 skill）、**Update**，以及對於位於 GitHub、GitLab 或 Bitbucket 的 source 的 **Open on GitHub**（或 GitLab、Bitbucket）。連結會開啟 source 所跟隨的分支。未指定分支安裝的 source，檢查得知遠端的預設分支後，連結會以該分支名稱開啟；檢查之前則開啟 `HEAD`。
 
-舊連結如 `/collect`、`/install`、`/search`、`/trash`、`/analyze`、`/backup`、`/log` 與 `/doctor` 會重新導向至新的位置。
+舊連結如 `/collect`、`/install`、`/search`、`/trash`、`/backup`、`/log` 與 `/doctor` 會重新導向至新的位置，`/analyze` 與 `/skills?tab=analyze` 會重新導向至 `/context` 的 **Context** 頁面，並保留 `target`。
 
 **Files** 分頁會在編輯器旁顯示一個面板。對於 `config.yaml`，它會顯示游標所在欄位的作用、檔案結構與尚未儲存的變更；對於 ignore 檔案，它會列出目前 patterns 隱藏了哪些內容。`Cmd+S` / `Ctrl+S` 可儲存。**Audit -> Rules -> Edit YAML** 下的 rules 編輯器有相同的面板，外加一個 **Test** 分頁，可用你貼上的行來測試規則的正規表示式。
 
 ### 主題系統
 
-Dashboard 支援兩種視覺風格與三種色彩模式，可透過側邊欄的 **Theme** 按鈕切換：
+Dashboard 有三種視覺風格與三種色彩模式，可透過側邊欄的 **Theme** 按鈕或 **Settings -> Appearance** 切換：
 
 | 設定 | 選項 | 預設值 |
 |---------|---------|---------|
-| **Style** | `Clean`（專業風格）、`Playful`（粗體外框、硬陰影、手寫標題） | Playful |
+| **Style** | `Clean`（安靜、緊湊；桌面寬度下頁面會置於內嵌面板之上）、`Playful`（墨色外框、偏移陰影、手寫標題）、`Custom`（在 Clean 或 Playful 之上使用你自己的顏色） | Clean |
 | **Mode** | `Light`、`Dark`、`System`（跟隨作業系統偏好設定） | Light |
 
-主題偏好設定會持久保存在 localStorage 中，跨 session 保留。
+**Custom** 會在 **Settings -> Appearance** 下開啟主題編輯器。你可以從 14 個預設（Clean 10 個、Playful 4 個）中選一個開始，也可以自行選擇基礎風格、強調色、背景色調、圓角與字型；基礎風格為 Clean 時，還能為頁面加上點點紋理，並設定卡片與列表浮起的程度。**Advanced** 另外提供獨立的連結顏色；基礎風格為 Clean 時，還有版面配置、標題與按鈕樣式、邊線與圖示粗細，以及讓選單改用實色而非毛玻璃。除非你自行設定深色強調色，否則深色模式的顏色會由強調色推導而來。所有文字顏色都會調整到在其所在表面上達到 4.5:1 以上的對比，若編輯器更動了你選擇的顏色，會提示你。字型只會改變英文字母和數字，中日韓文字仍使用系統字型；介面是這三種語言時會多一個開關，打開後會載入對應的 Noto Sans。System 以外的字型會從 Google Fonts 載入。編輯器頂端的預覽會在你調整選項時一直保持可見，並短暫標亮每次變更影響的部分；修改過的預設會標示為已修改，再選一次即可還原。每個色碼欄位也能開啟系統的取色器。
+
+**Share** 可以將主題匯出為小型 JSON 檔案、匯入 JSON 檔案，或複製一個連結；開啟該連結會進入 **Settings -> Appearance**，並詢問是否套用該主題。連結會在複製它時所用的同一個 dashboard 位址上開啟。
+
+主題偏好設定（包括自訂主題）會持久保存在此瀏覽器的 localStorage 中。在 dashboard URL 加上 `?style=clean|playful|custom` 與 `?mode=light|dark`，即可為該瀏覽器指定風格或模式。
 
 ### Project Mode 的差異
 
@@ -133,6 +138,7 @@ Dashboard 支援兩種視覺風格與三種色彩模式，可透過側邊欄的 
 - Settings 中的 **Backup 分頁**被隱藏（請改用版本控制）
 - Dashboard 中的 **Tracked Repos 區塊**被隱藏（不適用）
 - **Settings -> Files** 會顯示 `.skillshare/config.yaml` 與 project 層級的 `.skillignore`，而非 global 版本
+- Dashboard 的 **版本狀態** 顯示 global source 中的內建 Skill（它安裝在那裡），並標示 **全域**
 - **Available targets** 會列出 project 層級的 targets（例如相對於 project 根目錄的 `.claude/skills/`）
 - **Targets** 會統計並切換 project 的 MCP servers，寫入 project 自己的檔案（例如 `.mcp.json`）。Claude Code、OpenCode、Kilo Code 與 Pi 的 **MCP** 分頁也會列出在這個 project 關閉 global server 的開關
 - **Install** 會自動調和 project config 中的 `skills:` 項目
@@ -190,8 +196,8 @@ Web dashboard 在 `/api/` 上提供 REST API。所有端點皆回傳 JSON。
 | GET | `/api/doctor` | 執行所有健康檢查（JSON） |
 | GET | `/api/doctor/stream` | 以 Server-Sent Events 執行所有健康檢查：每完成一項送出一個 `check` 事件。較慢的檢查會先以狀態 `pending` 送出，之後同名的 `check` 事件會取代它，不需要它結果的檢查會先送出；最後以 `done` 送出與 `/api/doctor` 相同的 JSON |
 | GET | `/api/health` | 存活探測；伺服器就緒後回傳 `200` |
-| GET | `/api/version` | 目前/最新版本 + 是否有可用升級 + Nix 安裝時更新 CLI 的指令（`nixUpgradeCommand`） |
-| POST | `/api/upgrade` | 就地執行 `skillshare upgrade`（若執行檔為開發版本則回傳 `devMode: true`；透過 Nix 安裝且有較新的 CLI 待安裝時回傳 `409`，錯誤碼為 `upgrade.nix`） |
+| GET | `/api/version` | 目前/最新版本 + 是否有可用升級 + Nix、PyPI 或 pixi 安裝時更新 CLI 的指令（`nixUpgradeCommand`、`pypiUpgradeCommand` 或 `pixiUpgradeCommand`）+ `.skillignore` 停用內建 Skill 時 `skillDisabled` 為 true |
+| POST | `/api/upgrade` | 就地執行 `skillshare upgrade`（若執行檔為開發版本則回傳 `devMode: true`；透過 Nix、PyPI 或 pixi 安裝且有較新的 CLI 待安裝時回傳 `409`，錯誤碼為 `upgrade.nix`、`upgrade.pypi` 或 `upgrade.pixi`） |
 | POST | `/api/restart` | 重啟本機 UI 伺服器；可選的 `{ "clearCache": true }` body 會先清除快取的 UI 資源 |
 
 ## 就地升級
@@ -204,11 +210,17 @@ Web dashboard 在 `/api/` 上提供 REST API。所有端點皆回傳 JSON。
 
 如果 skillshare 透過 Nix 安裝，該端點仍會更新內建的 skillshare skill，但 CLI 交由 Nix 更新。有較新的 CLI 時，它會回傳 `409`（`upgrade.nix`），對話框接著說明如何透過 Nix 更新。點擊之前，對話框就會說明如何透過 Nix 更新 CLI：`nix profile` 安裝為 `nix profile upgrade skillshare`，否則為重新建置 Nix 設定。參見 [upgrade](./upgrade.md#nix-users)。
 
+透過 uv、pipx、pip 或 pixi 安裝 `skillshare-cli` 時處理方式相同：該端點會更新內建 skill，有較新的 CLI 時回傳 `409`（`upgrade.pypi`），對話框在點擊前後都會顯示對應安裝工具的指令，例如 `uv tool upgrade skillshare-cli`。參見 [upgrade](./upgrade.md#pypi-users)。
+
+由 pixi 安裝的 `skillshare` conda 套件同樣回傳 `409`（`upgrade.pixi`），並提示 `pixi global update skillshare` 或 `pixi upgrade skillshare`。參見 [upgrade](./upgrade.md#pixi-users)。
+
 如果正在執行的是開發版本（`version == "dev"`），upgrade 端點會回傳 `devMode: true`，UI 會模擬重啟而不修改磁碟上的任何內容。
 
 如果自動重新載入沒有完成，對話框會提示你執行 `skillshare ui start` 以重新啟動背景伺服器。
 
 ## Reverse Proxy {#reverse-proxy}
+
+若要在不使用 proxy 的情況下，透過 SSH 或 Tailscale 等私有網路開啟你另一台機器的 dashboard，請參考 [私有網路上的機器](/docs/how-to/sharing/private-network)。
 
 如果你在共用伺服器上、透過 reverse proxy 執行 dashboard（例如 homelab、內部工具平台），可用 `--trusted-origin` 傳入你在瀏覽器中開啟的位址，並使用 `--base-path` 讓它在子路徑下與其他服務並存：
 
@@ -231,6 +243,7 @@ location /skillshare/ {
     proxy_pass http://127.0.0.1:19420;
     proxy_set_header Host $http_host;
     proxy_set_header X-Real-IP $remote_addr;
+    proxy_read_timeout 600s;
 }
 ```
 
@@ -243,6 +256,8 @@ handle_path /skillshare/* {
 ```
 
 如兩個範例所示，請保留瀏覽器的 `Host` 標頭，包括連接埠。dashboard 會將 `Host` 與 trusted origin 比對，而且請求的 `Origin` 與 `Host` 不一致時，dashboard 會拒絕變更，這樣其他網站就無法透過你的瀏覽器進行變更。Caddy 預設會保留 `Host`，不要用 `header_up Host` 改寫它。
+
+在慢速網路上從大型儲存庫安裝或更新可能需要幾分鐘。Nginx 預設在 60 秒後中斷請求，所以範例把 `proxy_read_timeout` 調高到 600 秒。Caddy 預設會等到完成。
 
 :::tip
 不使用 `--base-path` 時，dashboard 的行為與以往完全相同——直接在 `localhost:19420` 存取不需要任何額外設定。
@@ -285,7 +300,7 @@ Dashboard 會讀寫 `.skillshare/config.yaml`、同步至 project 本機的 targ
 
 ## Homebrew 說明
 
-所有安裝方式（Homebrew、Nix、安裝腳本、手動下載執行檔）都使用執行時 UI 下載。當你執行 `skillshare ui` 時，它會在首次啟動時自動從 GitHub 下載 UI 資源。之後，會使用快取的資源離線運作。
+所有安裝方式（Homebrew、Nix、PyPI、安裝腳本、手動下載執行檔）都使用執行時 UI 下載。當你執行 `skillshare ui` 時，它會在首次啟動時自動從 GitHub 下載 UI 資源。之後，會使用快取的資源離線運作。
 
 若要清除已下載的 UI 快取：
 

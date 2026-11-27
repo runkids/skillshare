@@ -4,7 +4,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -19,7 +18,7 @@ type manifestSpec struct{ path, target string }
 func inspect(root string, explicit ...string) (Candidate, error) {
 	c := Candidate{Targets: []string{}, Components: []string{}, TargetInfo: map[string]TargetPackage{}}
 	var claudeFields map[string]json.RawMessage
-	specs := []manifestSpec{{".codex-plugin/plugin.json", "codex"}, {".claude-plugin/plugin.json", "claude"}, {".omp-plugin/plugin.json", "omp"}, {".cursor-plugin/plugin.json", "cursor"}, {"package.json", "pi"}, {"package.json", "opencode"}, {".plugin/plugin.json", "copilot"}, {".github/plugin/plugin.json", "copilot"}, {".grok-plugin/plugin.json", "grok"}, {"kimi.plugin.json", "kimi"}, {".kimi-plugin/plugin.json", "kimi"}, {".devin-plugin/plugin.json", "devin"}, {".hermes-plugin/plugin.yaml", "hermes"}, {"plugin.json", "codex"}, {"package.json", "omp"}}
+	specs := []manifestSpec{{".codex-plugin/plugin.json", "codex"}, {".claude-plugin/plugin.json", "claude"}, {".omp-plugin/plugin.json", "omp"}, {".cursor-plugin/plugin.json", "cursor"}, {".antigravity-plugin/plugin.json", "antigravity"}, {".gemini-plugin/plugin.json", "antigravity"}, {"package.json", "pi"}, {"package.json", "opencode"}, {".plugin/plugin.json", "copilot"}, {".github/plugin/plugin.json", "copilot"}, {".grok-plugin/plugin.json", "grok"}, {"kimi.plugin.json", "kimi"}, {".kimi-plugin/plugin.json", "kimi"}, {".devin-plugin/plugin.json", "devin"}, {".hermes-plugin/plugin.yaml", "hermes"}, {"plugin.json", "codex"}, {"package.json", "omp"}}
 	for _, spec := range specs {
 		data, err := os.ReadFile(filepath.Join(root, spec.path))
 		if os.IsNotExist(err) {
@@ -94,13 +93,20 @@ func inspect(root string, explicit ...string) (Candidate, error) {
 				for _, key := range []string{"dependencies", "peerDependencies", "devDependencies"} {
 					var deps map[string]json.RawMessage
 					_ = json.Unmarshal(m[key], &deps)
-					sdk = sdk || deps["@opencode-ai/plugin"] != nil
+					sdk = sdk || deps["@opencode-ai/plugin"] != nil || deps["@opencode/plugin"] != nil
 				}
 				if !sdk && (len(explicit) == 0 || explicit[0] == "") && !strings.HasPrefix(filepath.ToSlash(filepath.Clean(main)), ".opencode/plugins/") {
 					continue
 				}
 				info.Entry, err = openCodeEntry(root, explicit...)
 				if err != nil {
+					info.openCodeV1Error = err.Error()
+				}
+				v2Err := openCodeDirectory(root)
+				if v2Err != nil {
+					info.openCodeV2Error = v2Err.Error()
+				}
+				if err != nil && v2Err != nil {
 					var keyed agentError
 					errors.As(err, &keyed)
 					info.block(keyed.key, err.Error(), keyed.args)
@@ -200,7 +206,10 @@ func inspect(root string, explicit ...string) (Candidate, error) {
 	}
 	c.collectTargets()
 	if c.Name == "" {
-		return c, fmt.Errorf("no valid supported plugin manifest found; choose a plugin or marketplace directory")
+		return c, agentError{
+			key:     "plugins.error.noPluginSource",
+			message: "No plugin found here. Paste a link to the package folder, or a Herdr mod's main.js link.",
+		}
 	}
 	return c, nil
 }

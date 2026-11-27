@@ -1,0 +1,376 @@
+@layer components {
+  /* Update progress: a bar on the status card, a light that sweeps the status text of the row being updated, and a pop when a row finishes.
+   Those two are the only things that keep moving; icons stay still. */
+  .ss-update-icon {
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    border-radius: 11px;
+    background: var(--sunken);
+    color: var(--ink);
+    transition:
+      background-color 0.3s,
+      color 0.3s;
+  }
+  .ss-update-icon.ok {
+    background: var(--ok-bg);
+    color: var(--ok);
+  }
+  .ss-update-icon.warn {
+    background: var(--warn-bg);
+    color: var(--warn);
+  }
+  /* ProgressBar.tsx: ::before is a faint runner that shows work even at zero, <i> the fill that covers it. */
+  .ss-bar {
+    position: relative;
+    display: block;
+    height: 6px;
+    border-radius: 99px;
+    background: var(--sunken);
+    overflow: hidden;
+    transition: opacity 0.2s ease-out;
+  }
+  .ss-bar::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 30%;
+    border-radius: inherit;
+    background: var(--pri);
+    opacity: 0.18;
+    transition: opacity 0.2s ease-out;
+    animation: ss-indet 1.8s ease-in-out infinite;
+  }
+  .ss-bar > i {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: var(--pri);
+    transition: transform 0.45s cubic-bezier(0.3, 0.7, 0.3, 1);
+  }
+  /* Nothing to count: the runner alone, at full strength. */
+  .ss-bar.indet::before {
+    width: 35%;
+    opacity: 1;
+  }
+  /* Ended: the runner stops, the fill gets .6s to arrive and be seen, then the bar fades and its slot closes. */
+  .ss-bar.end {
+    opacity: 0;
+    transition-delay: 0.6s;
+  }
+  .ss-bar.end::before {
+    opacity: 0;
+    animation: none;
+  }
+  .ss-bar.indet.end {
+    transition-delay: 0s;
+  }
+  .ss-barslot {
+    display: grid;
+    grid-template-rows: 1fr;
+    margin-top: calc(-1 * var(--bar-gap, 0px));
+    transition: grid-template-rows 0.25s cubic-bezier(0.3, 0.7, 0.3, 1);
+  }
+  .ss-barslot > span {
+    display: block;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .ss-barslot .ss-bar {
+    margin-top: var(--bar-gap, 0px);
+  }
+  /* First in its column: the gap it takes back is the one below it. */
+  .ss-barslot.lead {
+    margin-top: 0;
+    margin-bottom: calc(-1 * var(--bar-gap, 0px));
+  }
+  .ss-barslot.lead .ss-bar {
+    margin-top: 0;
+    margin-bottom: var(--bar-gap, 0px);
+  }
+  .ss-barslot.shut {
+    grid-template-rows: 0fr;
+    transition-delay: 0.8s;
+  }
+  .ss-barslot.shut:has(.indet) {
+    transition-delay: 0.2s;
+  }
+  /* A row status that is under way: a dot in the primary colour, no spinner. */
+  .ss-st.on {
+    font-weight: 600;
+  }
+  .ss-st.on::before {
+    background: var(--pri);
+  }
+  .ss-r.dim .nm {
+    color: var(--ink-3);
+  }
+  .ss-r.updating {
+    background: var(--sunken);
+  }
+  /* Text of something under way: a light sweeps across it, in step with the bar's runner. */
+  .ss-shimmer {
+    background: linear-gradient(90deg, var(--ink-2) 0 40%, var(--ink) 50%, var(--ink-2) 60% 100%) 0
+      0 / 250% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: ss-shimmer 1.8s linear infinite;
+  }
+  .ss-r.flash {
+    animation: ss-flash 1.1s ease-out;
+  }
+  .ss-pop {
+    animation: ss-pop 0.32s cubic-bezier(0.22, 0.9, 0.24, 1);
+  }
+  /* DrawnCheck.tsx: the check that ends a run draws itself once. */
+  .ss-draw path {
+    stroke-dasharray: 24;
+    stroke-dashoffset: 24;
+    animation: ss-draw 0.32s cubic-bezier(0.23, 1, 0.32, 1) 0.12s forwards;
+  }
+  @keyframes ss-draw {
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+  @keyframes ss-indet {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(340%);
+    }
+  }
+  @keyframes ss-shimmer {
+    from {
+      background-position: 100% 0;
+    }
+    to {
+      background-position: 0 0;
+    }
+  }
+  @keyframes ss-breathe {
+    0%,
+    100% {
+      opacity: 0.08;
+    }
+    50% {
+      opacity: 0.24;
+    }
+  }
+  @keyframes ss-flash {
+    from {
+      background: var(--ok-bg);
+    }
+    to {
+      background: transparent;
+    }
+  }
+  @keyframes ss-pop {
+    from {
+      transform: scale(0.5);
+      opacity: 0;
+    }
+    to {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+  /* Collapse a block to nothing: wrap it in .ss-collapse and add .shut */
+  .ss-collapse {
+    display: grid;
+    grid-template-rows: 1fr;
+    transition:
+      grid-template-rows 0.45s cubic-bezier(0.3, 0.7, 0.3, 1),
+      opacity 0.3s;
+  }
+  .ss-collapse > * {
+    overflow: hidden;
+    min-height: 0;
+  }
+  .ss-collapse.shut {
+    grid-template-rows: 0fr;
+    opacity: 0;
+  }
+  /* A disclosure grows open from nothing and shrinks shut, quicker than a removal; its margins close with it. */
+  .ss-collapse.grow {
+    transition:
+      grid-template-rows 0.25s cubic-bezier(0.3, 0.7, 0.3, 1),
+      opacity 0.2s,
+      margin 0.25s cubic-bezier(0.3, 0.7, 0.3, 1);
+  }
+  /* Shutting, the content fades first and the height follows. Reveal.tsx waits for the whole of it. */
+  .ss-collapse.grow.shut {
+    margin-block: 0;
+    transition:
+      opacity 0.12s,
+      grid-template-rows 0.25s cubic-bezier(0.3, 0.7, 0.3, 1) 0.1s,
+      margin 0.25s cubic-bezier(0.3, 0.7, 0.3, 1) 0.1s;
+  }
+  @starting-style {
+    .ss-collapse.grow:not(.shut) {
+      grid-template-rows: 0fr;
+      opacity: 0;
+      margin-block: 0;
+    }
+  }
+  /* A removed row slides out, then its .ss-collapse wrapper closes the gap */
+  /* --d staggers the rows of one batch: each row and its gap start that much later. */
+  .ss-collapse.out {
+    grid-template-rows: 0fr;
+    transition-duration: 0.25s, 0.3s;
+    transition-delay: calc(0.18s + var(--d, 0s));
+  }
+  .ss-collapse.out .ss-r {
+    transform: translateX(-24px);
+    opacity: 0;
+    transition-delay: var(--d, 0s);
+  }
+  .ss-collapse .ss-r {
+    transition:
+      transform 0.22s cubic-bezier(0.5, 0, 0.75, 0),
+      opacity 0.22s,
+      background 0.3s;
+  }
+  .ss-note.ok {
+    background: var(--ok-bg);
+    border-color: transparent;
+  }
+  .ss-note.ok > svg {
+    color: var(--ok);
+  }
+  .ss-note.live {
+    position: relative;
+    overflow: hidden;
+    transition: background 0.45s;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ss-r.flash,
+    .ss-pop {
+      animation: none;
+    }
+    .ss-shimmer {
+      background: none;
+      color: var(--ink);
+      animation: none;
+    }
+    /* Nothing travels: the track breathes instead, and the fill steps. */
+    .ss-bar:not(.end)::before {
+      width: 100%;
+      animation: ss-breathe 1.4s ease-in-out infinite;
+    }
+    .ss-draw path {
+      stroke-dashoffset: 0;
+      animation: none;
+    }
+    /* The slot keeps its delay, so the finished bar is still seen before it goes. */
+    .ss-barslot {
+      transition-duration: 0s;
+    }
+    /* The badge only fades. */
+    .ss-tgl .ic > i {
+      transform: none;
+    }
+    .ss-btn .ss-one {
+      transform: none;
+    }
+    /* .grow and .grow.shut set their own transitions, so they are named to outrank them. */
+    .ss-bar > i,
+    .ss-prog i,
+    .ss-collapse,
+    .ss-collapse.grow,
+    .ss-collapse.grow.shut,
+    .ss-collapse .ss-r,
+    .ss-note.live {
+      transition: none;
+    }
+  }
+  .ss-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 11px 14px;
+    border-radius: 10px;
+    background: var(--sunken);
+    border: 1px solid var(--line);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  :root[data-theme='playful'] .ss-note {
+    border: 2px solid var(--line);
+    border-radius: 12px;
+  }
+  .ss-note.warn {
+    background: var(--warn-bg);
+    border-color: transparent;
+  }
+  .ss-note.bad {
+    background: var(--bad-bg);
+    border-color: transparent;
+  }
+  .ss-note.inf {
+    background: var(--accent-bg);
+    border-color: transparent;
+  }
+  .ss-note.warn > svg {
+    color: var(--warn);
+  }
+  .ss-note.bad > svg {
+    color: var(--bad);
+  }
+  .ss-note.inf > svg {
+    color: var(--accent);
+  }
+  :root[data-theme='playful'] .ss-note.warn {
+    border-color: var(--warn);
+  }
+  :root[data-theme='playful'] .ss-note.bad {
+    border-color: var(--bad);
+  }
+  :root[data-theme='playful'] .ss-note.inf {
+    border-color: var(--accent);
+  }
+  .ss-note > svg {
+    margin-top: 2px;
+  }
+  .ss-box {
+    background: var(--surface);
+    border: var(--frame);
+    border-radius: var(--r-box);
+    box-shadow: var(--sh-box);
+    padding: 18px 20px;
+  }
+  :root:not([data-theme='playful']) .ss-box {
+    border-radius: 12px;
+  }
+  /* Sync's tint fades in when work is pending and out once it is done. A tint this large needs the
+     time to read as a change of colour; at the height animation's 0.25s it reads as a blink. */
+  .ss-syncbox {
+    transition: background-color 0.4s ease;
+  }
+  /* An Agent ticked in an open fold joins the pill's stack with .ss-one's small pop. Rows load
+     folded, so the page's first paint stays still. */
+  .ss-btn[aria-expanded] .ss-stack .ss-at {
+    transition:
+      opacity 0.18s,
+      transform 0.18s cubic-bezier(0.23, 1, 0.32, 1);
+  }
+  @starting-style {
+    .ss-btn[aria-expanded='true'] .ss-stack .ss-at {
+      opacity: 0;
+    }
+  }
+  /* Only fades with reduced motion. */
+  @media (prefers-reduced-motion: no-preference) {
+    @starting-style {
+      .ss-btn[aria-expanded='true'] .ss-stack .ss-at {
+        transform: scale(0.85);
+      }
+    }
+  }
+}

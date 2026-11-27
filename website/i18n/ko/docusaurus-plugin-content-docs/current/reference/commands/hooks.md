@@ -22,6 +22,9 @@ skillshare hooks enable check --sync
 skillshare hooks sync --dry-run --json
 skillshare hooks sync
 skillshare hooks sync check --replace --dry-run
+skillshare hooks sync --trust -g
+skillshare hooks sync --trust --yes -g
+skillshare hooks sync --trust --yes --json -g
 skillshare sync hooks --dry-run --json
 skillshare sync hooks
 skillshare hooks remove check --sync
@@ -30,7 +33,7 @@ skillshare hooks restore BACKUP_ID --dry-run
 skillshare hooks restore BACKUP_ID
 ```
 
-하위 명령이 없으면 entries를 나열합니다. `add`／`edit`는 `--file`의 Entry JSON/YAML을 읽습니다. 이름 없는 가져오기는 후보(Agent event 또는 파일마다 하나)를 나열하고 이름을 지정하면 저장합니다. 가져오기를 저장하면 읽은 등록을 그 자리에서 인수합니다. 다음 동기화는 `--replace` 없이 adopt하며, 가져오지 않은 event는 관리되지 않은 채 남습니다. 설정과 코드만 읽고 실행하지 않습니다. 추가, 편집, 가져오기, 활성화, 비활성화, 제거는 소스만 저장하며 `--sync`를 붙이면 동기화합니다. 동기화와 복원은 적용 전 다시 미리 봅니다.
+하위 명령이 없으면 entries를 나열합니다. `add`／`edit`는 `--file`의 Entry JSON/YAML을 읽습니다. 이름 없는 가져오기는 후보(Agent event 또는 파일마다 하나)를 나열하고 이름을 지정하면 저장합니다. 가져오기를 저장하면 읽은 등록을 그 자리에서 인수합니다. 다음 동기화는 `--replace` 없이 adopt하며, 가져오지 않은 event는 관리되지 않은 채 남습니다. 설정과 코드만 읽고 실행하지 않습니다. 추가, 편집, 가져오기, 활성화, 비활성화, 제거는 소스만 저장하며 `--sync`를 붙이면 동기화합니다. 동기화와 복원은 적용 전 다시 미리 봅니다. Dashboard의 「대상에 있는 hook」 대화상자는 아무것도 선택하지 않은 상태로 열리며, 가져올 hook을 체크합니다. 가져오지 않은 hook을 Agent 설정 파일에서 바로 편집하거나 제거할 수도 있습니다(hook이 설정인 Agent 모두 해당: 하나의 설정 파일 안 event(Claude, Codex, Gemini, Cursor, Qwen, 그리고 Droid의 `hooks.json`), Antigravity의 이름 있는 블록, Copilot의 hook 파일. Copilot hook을 제거하면 그 파일을 삭제합니다. 코드인 hook(Pi, Oh My Pi, Amp, OpenCode)은 먼저 가져와야 합니다). 쓰기 전에 파일 diff를 보여 주고 백업하며, hook은 관리되지 않은 상태로 남습니다.
 
 | Option | Meaning |
 |---|---|
@@ -39,6 +42,8 @@ skillshare hooks restore BACKUP_ID
 | `--sync` | 저장 후 동기화 |
 | `--keep-files` | `remove`와 함께 사용: hook 관리를 멈추고 네이티브 항목은 그대로 둡니다. `--sync`와 함께 쓸 수 없습니다. [아래](#stop-managing-a-hook) 참고 |
 | `--replace` | 기존 소스 entry 또는 해당 entry의 충돌 출력을 명시적으로 교체 |
+| `--trust` | `hooks sync`에서만: Skillshare가 관리하는 hooks의 Codex 신뢰도 기록. [Codex 신뢰](#codex-trust) 참고 |
+| `--yes`, `-y` | `--trust`와 함께: 질문을 건너뛰고 나열된 hooks를 신뢰. [Codex 신뢰](#codex-trust) 참고 |
 | `--dry-run, -n` | 저장하거나 쓰지 않고 미리보기 |
 | `--json` | 구조화된 출력 |
 | `--revision ID` | 지정한 미리보기 revision과 일치 요구 |
@@ -91,7 +96,7 @@ Skillshare는 `hooks` 섹션을 들여쓴 block 형식으로 쓰며, 저장할 �
 | `bindings.AGENT.codeFile` | `code` 대신 config 폴더 기준 상대 경로. 파일 내용을 `code`로 사용하며 config를 읽을 때마다 다시 읽습니다. 경로는 그 폴더 안이어야 합니다 |
 | `bindings.AGENT.files` | 상대 파일명을 key로 하는 선택 UTF-8 스크립트. 값은 내용 또는 `codeFile`과 같은 규칙으로 읽는 `{from: path}` |
 
-Agent ID는 `claude`, `codex`, `gemini`, `copilot`, `cursor`, `droid`, `qwen`, `antigravity`, `pi`, `omp`, `amp`, `opencode`, `git`입니다. `factory`는 `droid`, `antigravity-cli`와 `agy`는 `antigravity`의 별칭입니다. event, matcher, handler type, command, timeout 단위와 payload는 원래 형식을 유지하고 자동 변환하지 않습니다. event 이름은 각 command Agent 문서의 event와 대조합니다. 알 수 없는 이름(예: 철자가 틀린 `Stopp`)은 미리보기와 plan의 `warnings`에 경고로 표시되지만, Agent가 event를 계속 추가하므로 동기화를 막지 않습니다. Pi, OMP, Amp, OpenCode 코드는 확인하지 않습니다. Pi, OMP, Amp, OpenCode의 코드와 imports는 설치된 버전에 맞춰 제공하며 전용 `skillshare-NAME.ts`에 기록됩니다. 공통 실행 엔진을 생성하지 않습니다. command binding 스크립트는 Agent 설정 디렉터리의 `hooks/skillshare/NAME/`에 저장하며 command의 macro／명시 경로를 변경하지 않습니다. 미리보기에서 전체 경로를 확인하세요. global binding에는 `targets` 아래 선언한 계정 target 이름도 사용할 수 있습니다.
+Agent ID는 `claude`, `codex`, `gemini`, `copilot`, `cursor`, `droid`, `qwen`, `antigravity`, `pi`, `omp`, `amp`, `opencode`, `git`입니다. `factory`는 `droid`, `antigravity-cli`와 `agy`는 `antigravity`의 별칭입니다. event, matcher, handler type, command, timeout 단위와 payload는 원래 형식을 유지하고 자동 변환하지 않습니다. event 이름은 각 command Agent 문서의 event와 대조합니다. 알 수 없는 이름(예: 철자가 틀린 `Stopp`)은 미리보기와 plan의 `warnings`에 경고로 표시되지만, Agent가 event를 계속 추가하므로 동기화를 막지 않습니다. Pi, OMP, Amp, OpenCode 코드는 확인하지 않습니다. Pi, OMP, Amp, OpenCode의 코드와 imports는 설치된 버전에 맞춰 제공하며 전용 `skillshare-NAME.ts` 파일(OpenCode v1) 또는 OpenCode v2 디렉터리 패키지에 기록됩니다. 공통 실행 엔진을 생성하지 않습니다. command binding 스크립트는 Agent 설정 디렉터리의 `hooks/skillshare/NAME/`에 저장하며 command의 macro／명시 경로를 변경하지 않습니다. 미리보기에서 전체 경로를 확인하세요. global binding에는 `targets` 아래 선언한 계정 target 이름도 사용할 수 있습니다.
 
 긴 코드나 스크립트는 `codeFile` 또는 `files`의 `{from: path}`로 별도 파일에서 읽을 수 있습니다. 경로는 entry를 가진 config 폴더 기준입니다(project에서는 `.skillshare/`, global의 `hooks.projects`에서는 global config 폴더). `hooks add|edit --file`도 entry 파일 위치가 아닌 선택한 config가 기준입니다. 경로는 그 폴더 안에 있어야 하며 symlink를 거칠 수 없습니다. 파일이 없으면 config를 읽지 못합니다. config를 읽을 때마다 다시 읽으며 미리보기 후 바뀌면 적용을 거부합니다.
 
@@ -136,9 +141,9 @@ Pi와 OMP는 모두 `PI_CODING_AGENT_DIR`을 따릅니다. binding이 같은 출
 | [Pi](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/extensions.md) | `~/.pi/agent/extensions/skillshare-NAME.ts` | `.pi/extensions/skillshare-NAME.ts` | Native extension code |
 | [Oh My Pi](https://github.com/can1357/oh-my-pi/blob/v18.6.1/docs/extensions.md) | `~/.omp/agent/extensions/skillshare-NAME.ts` | `.omp/extensions/skillshare-NAME.ts` | Native OMP extension code |
 | [Amp](https://ampcode.com/docs/plugin-api) | `~/.config/amp/plugins/skillshare-NAME.ts` | `.amp/plugins/skillshare-NAME.ts` | Native plugin code |
-| [OpenCode](https://opencode.ai/docs/plugins/) | `~/.config/opencode/plugins/skillshare-NAME.ts` | `.opencode/plugins/skillshare-NAME.ts` | Supplied v1/v2 plugin code |
+| [OpenCode](https://opencode.ai/docs/plugins/) | `~/.config/opencode/plugins/skillshare-NAME[.ts]` | `.opencode/plugins/skillshare-NAME[.ts]` | v1 file; v2 directory package (see below) |
 
-계정 target의 `config_dir`을 가리키는 경우를 제외하고 global scope는 네이티브 설정 디렉터리 환경 변수 override를 사용합니다. project scope는 프로젝트에만 쓰며 global 경로로 대체하지 않습니다. Codex inline TOML 같은 다른 소스는 별도로 유지됩니다. Antigravity와 CLI(`agy`)는 같은 `hooks.json`을 읽습니다. 각 hook은 이름이 붙은 블록 하나이며 가져와도 이름이 유지됩니다. CLI의 `~/.gemini/antigravity-cli/settings.json`에 있는 hooks는 별도로 유지됩니다. Droid의 독립 hooks 파일은 로딩 소스를 바꿀 수 있으므로 기존 inline hooks를 먼저 확인하세요. Copilot은 신뢰된 폴더에서만 `.github/hooks`의 프로젝트 hooks를 불러옵니다.
+계정 target의 `config_dir`을 가리키는 경우를 제외하고 global scope는 네이티브 설정 디렉터리 환경 변수 override를 사용합니다. 프로젝트의 네이티브 hook 파일은 프로젝트 안에 기록됩니다. `--trust`를 확인하면 검증된 각 Codex 홈에 신뢰가 별도로 기록됩니다. Codex inline TOML 같은 다른 소스는 별도로 유지됩니다. Antigravity와 CLI(`agy`)는 같은 `hooks.json`을 읽습니다. 각 hook은 이름이 붙은 블록 하나이며 가져와도 이름이 유지됩니다. CLI의 `~/.gemini/antigravity-cli/settings.json`에 있는 hooks는 별도로 유지됩니다. Droid의 독립 hooks 파일은 로딩 소스를 바꿀 수 있으므로 기존 inline hooks를 먼저 확인하세요. Copilot은 신뢰된 폴더에서만 `.github/hooks`의 프로젝트 hooks를 불러옵니다.
 
 
 Droid inline hooks가 활성화된 경우 독립 파일 생성을 거부합니다. 가져와서 검토하고 원래 inline hooks를 제거한 뒤 동기화하세요.
@@ -178,7 +183,42 @@ command 스크립트는 `<config_dir>/hooks/skillshare/NAME/`에 기록됩니다
 
 target이 삭제되거나 홈이 이동하거나 계정 홈이 없으면 관리 중인 출력과 소유권 기록을 그대로 두고 경고합니다. target이나 디렉터리를 복원하면 다시 관리할 수 있습니다. 파일을 바꾸지 않고 특정 항목의 보류된 소유권을 해제하려면 `skillshare hooks sync NAME --replace -g`를 미리 보고 실행하세요. target 제거 시 binding이 여전히 그 이름을 쓰면 경고합니다. 다음 hooks 동기화 전에 binding도 제거하세요.
 
-`skillshare hooks import --from codex-2 -g --json`으로 계정에서 가져옵니다. 대시보드는 **codex-2 (Codex)**로 표시하고 Codex event와 편집기를 사용합니다. 각 Codex 홈에서 변경된 hooks를 `/hooks`로 검토하고 신뢰해야 합니다. 동기화는 신뢰를 바꾸거나 hooks를 실행하지 않습니다.
+`skillshare hooks import --from codex-2 -g --json`으로 계정에서 가져옵니다. 대시보드는 **codex-2 (Codex)**로 표시하고 Codex event와 편집기를 사용합니다. 각 Codex 홈에서 변경된 hooks를 `/hooks`로 검토하고 신뢰해야 합니다. `--trust`를 주지 않으면 동기화는 신뢰를 바꾸거나 hooks를 실행하지 않습니다.
+
+### Codex 신뢰 {#codex-trust}
+
+Codex는 신뢰된 사용자 수준 hook만 실행하며, 그 신뢰를 같은 홈의 `config.toml`에 `hooks.state."<hooks.json>:<event>:<group>:<handler>".trusted_hash`로 저장합니다. 키가 hook의 위치이므로 Skillshare가 추가하거나 옮긴 hook은 신뢰되지 않은 상태로 시작하고, `codex exec`는 이를 건너뜁니다.
+
+```bash
+skillshare hooks sync --trust -g
+skillshare hooks sync --trust --yes -g
+skillshare hooks sync --trust --yes --json -g
+```
+
+`--trust`는 먼저 일반 동기화처럼 hook 파일을 씁니다. 그다음 Skillshare가 관리하는 모든 Codex 홈(계정 홈 포함)에서, Skillshare가 소유한 hooks 중 신뢰가 필요한 것이 무엇인지 Codex에 묻습니다. 각 hook의 hash는 `/hooks` 검토와 같은 호출로 `codex app-server`에서 받으므로 `codex`가 `PATH`에 있어야 합니다. Skillshare가 hash를 직접 계산하지는 않습니다.
+
+이미 신뢰된 hook은 `unchanged`로 보고되며 답할 필요가 없습니다. hook이 새로 추가되었거나 신뢰한 뒤 command가 바뀌었다면, 해당 hooks를 command와 함께 나열하고 한 번만 묻습니다. 신뢰가 필요한 hook이 없으면 묻지 않습니다.
+
+```
+Codex trust
+  stop  needs trust  codex  /home/me/.codex/hooks.json:stop:1:0
+  /usr/local/bin/notify-done
+
+? Trust 1 hook in Codex?  Yes  No
+```
+
+확인 후:
+
+```
+Codex trust
+✓ stop  trusted  codex  /home/me/.codex/hooks.json:stop:1:0
+```
+
+`--yes`(`-y`)는 질문을 건너뜁니다. Codex의 검토는 사람이 실행 전에 command를 확인하도록 존재합니다. 터미널이 없고 `--yes`도 없으면 아무것도 신뢰하지 않고, hooks를 나열한 뒤 `--yes`를 알려 주는 오류로 종료합니다. `--json`도 질문하지 않습니다. `--yes`가 없으면 hooks를 `needed`로 출력하고, 0이 아닌 코드로 종료합니다. 프로젝트 JSON에는 이유를 담은 `codexTrustError`와 각 hook의 대상 `home`이 포함됩니다. `--yes`는 `--trust`와 함께일 때만 유효합니다. `--json` 출력에는 `codexTrust` 목록이 있습니다. 각 항목에는 `target`, `entry`, `key`, `command`, `action`(`needed`, `trusted`, `unchanged`)이 있고, 비활성이면 `disabled`도 있습니다.
+
+`trusted_hash`만 기록하며 추가만 합니다. Codex에서 비활성화한 hook은 비활성 상태로 남고 보고됩니다. `enabled`, `config.toml`의 나머지 부분, Skillshare가 소유하지 않은 hooks는 건드리지 않습니다. hook이 옮겨지거나 제거되면 이전 항목은 `config.toml`에 남습니다. 이 항목은 그 위치에서 event, matcher, handler가 같은 hook에만 일치하므로 다른 hook을 신뢰하게 만들 수 없습니다.
+
+`codex`가 `PATH`에 없거나 Codex가 실패해도 hook 파일은 그대로 기록되고, 명령은 "hook files were written, but Codex trust was not recorded"라는 메시지로 실패합니다. Codex home이 여러 개일 때 Codex가 나열하지 못하거나 기록에 실패한 home이 있어도 나머지는 계속 기록되며, 오류에는 기록된 home과 기록되지 않은 home이 표시됩니다. `--trust` 없는 `hooks sync`는 Codex를 시작하지 않고 신뢰도 바꾸지 않습니다. `hooks sync -p --trust`는 현재 프로젝트의 명령을 검토하고 각 사용자의 Codex 홈에 신뢰를 기록합니다. 폴더 신뢰는 변경하지 않습니다. 검증할 수 없는 계정은 건너뛰며 일부만 완료되면 오류를 반환합니다. `sync hooks`와 `hooks list`는 `--trust`를 지원하지 않습니다. `hooks.projects`가 프로젝트에 기록한 hook은 포함되지 않으므로 Codex의 `/hooks`에서 신뢰하세요. 대시보드의 Hooks 페이지(전역 및 프로젝트 모드)에도 같은 동작이 있습니다. 신뢰가 필요한 hooks를 command와 함께 나열하고, 대화상자에서 확인한 뒤에만 신뢰를 기록합니다.
 
 ## Git hooks {#git-hooks}
 
@@ -226,10 +266,23 @@ plan은 실제 `add`, `update`, `remove`, `unchanged` 동작을 유지하고 실
 
 ## 프로젝트, 충돌과 복원
 
-global 설정의 `hooks.projects`는 절대 프로젝트 경로를 같은 Entry 형식의 `entries`에 연결합니다. **Projects → Hooks**에서 관리합니다. 자체 `.skillshare/config.yaml`이 있는 프로젝트는 project scope로 관리하고, 프로젝트 동기화는 해당 루트만 적용합니다.
+global 설정의 `hooks.projects`는 절대 프로젝트 경로를 같은 Entry 형식의 `entries`에 연결합니다. **Projects → Hooks**에서 관리합니다. 거기서 **여기서 hook 관리 중지**를 누르면 루트가 `hooks.projects`에서 빠지고, 다음 동기화 때 Skillshare가 그 아래에 쓴 hook이 지워집니다. 자체 `.skillshare/config.yaml`이 있는 프로젝트는 project scope로 관리하고, 프로젝트 동기화는 해당 루트만 적용합니다.
 
 관련 없는 설정과 소유하지 않은 hooks는 유지합니다. 내용이 같다고 소유권을 부여하지 않습니다. 소유 출력이 외부에서 편집되면 비활성화, 제거, 복원도 충돌로 보고합니다. 명시적 교체는 선택한 entry에만 적용됩니다. 공유 파일의 plan 각 행에는 entry가 추가(`+`), 업데이트(`~`), 제거(`−`)하는 event가 표시되며 JSON plan의 `events`에도 포함됩니다. `update`는 entry가 그 파일에 등록을 남긴다는 뜻이고, `remove`는 파일에서 완전히 빠진다는 뜻입니다. 편집은 파일의 형식(압축 또는 들여쓰기)을 유지하며, Skillshare가 추가한 `hooks` 키는 마지막 hook이 빠질 때 함께 제거합니다. Skillshare가 만든 파일은 다른 내용이 남지 않으면 삭제하며, 만들었다가 비게 된 폴더도 함께 삭제합니다. 미리보기에는 파일 삭제로 표시됩니다. 원래 있던 파일과 폴더, 그리고 사용자가 추가한 내용은 유지됩니다.
 
 백업은 이후의 관련 없는 변경을 유지하며 네이티브 출력을 복원하고 소스 정의는 바꾸지 않습니다. **Settings → Backups → Hooks** 또는 `hooks restore`로 미리 보고 복원하세요.
 
-**Synced**는 Skillshare가 설정을 기록했다는 뜻입니다. Agent 절차에 따라 다시 시작／로딩하세요. 신뢰, hooks 활성화와 코드 호환성은 Agent가 제어합니다. 관리 작업은 hook command를 실행하거나 네이티브 신뢰를 자동 변경하지 않습니다.
+**Synced**는 Skillshare가 설정을 기록했다는 뜻입니다. Agent 절차에 따라 다시 시작／로딩하세요. 신뢰, hooks 활성화와 코드 호환성은 Agent가 제어합니다. 관리 작업은 hook command를 실행하거나 네이티브 신뢰를 자동 변경하지 않습니다. Codex 신뢰는 요청할 때 [`--trust`](#codex-trust)만 기록합니다.
+
+
+### OpenCode v2 디렉터리 패키지
+
+Windows의 훅 버전 확인은 `opencode-ai`(후기 v1)와 `@opencode/cli`(v2)의 표준 npm `.cmd` 래퍼에서 설치된 `bin/opencode.exe`를 셸 없이 직접 실행합니다. 초기 v1의 Node 실행기나 사용자 지정 배치 래퍼는 추측하거나 실행하지 않습니다. 이 경우 OpenCode 계정의 `cli`를 설치된 네이티브 `opencode.exe`의 절대 경로(예: 해당 `opencode-windows-x64-baseline` 패키지의 `bin/opencode.exe`)로 설정하거나 해당 디렉터리를 `PATH` 맨 앞에 두세요. postinstall 스크립트를 실행하거나 누락된 바이너리를 복구하지 않습니다.
+
+Skillshare는 `opencode --version`(또는 계정의 `cli`)만 실행합니다. 바이너리가 없거나 실패하거나 주 버전이 1 또는 2가 아니어서 버전을 감지할 수 없으면 OpenCode binding만 건너뜁니다. 미리보기에 경고가 표시되고 기존 OpenCode 출력은 그대로 유지되며 다른 모든 Agent는 정상적으로 동기화됩니다. v1은 단일 `.ts` 파일을 유지합니다. v2는 `plugins/skillshare-NAME/index.ts`와 `package.json`(`@opencode/plugin: ^2.0.0` 선언)을 쓰고, 해당 디렉터리의 `file://` URL을 `opencode.json(c)`의 `plugins`에 추가합니다. 프로젝트 hook은 `.opencode/opencode.json(c)`를 사용합니다. 주석과 관련 없는 등록은 변경되지 않습니다. 충돌하는 JSON/JSONC 파일이나 `OPENCODE_CONFIG`/`OPENCODE_CONFIG_CONTENT` override는 hooks에서 거부됩니다. `code` binding은 두 버전 모두에서 지정한 그대로 기록되며, Skillshare는 이것이 v1 또는 v2 플러그인 API에 맞는지 확인하지 않습니다.
+
+완전한 v2 패키지에는 `code`/`codeFile` 대신 `bindings.opencode.package`를 사용합니다. `package.json`을 포함해 상대 파일명을 UTF-8 내용에 대응시킨 맵입니다. manifest와 의존성 요구 사항은 그대로 보존됩니다. 중첩된 파일은 허용되지만 경로 이탈, 심볼릭 링크, 파일/디렉터리 충돌, `.git`, `node_modules`는 패키지 내용이 될 수 없습니다. 네이티브 편집기는 이 파일 맵을 JSON으로 표시합니다. server entry는 패키지 이름이 있는 문자열 root 또는 `./server` export이거나, 관례적인 루트 `server`/`index` 파일(`.ts`, `.tsx`, `.js`)이어야 합니다. 조건부 및 폴백 server export는 추측하지 않고 거부합니다. `package` binding에는 OpenCode v2가 필요하며, v1에서는 경고와 함께 건너뜁니다.
+
+`hooks import --from opencode`는 네이티브 `plugins` 폴더 바로 아래의 패키지 디렉터리도 읽습니다. 단일 파일 코드 import와 마찬가지로 Skillshare의 이름이 지정된 출력으로 복사하고, 동기화 후 중복 로드를 피하려면 원본 파일과 등록을 제거하라고 경고합니다. 설치된 `node_modules`와 `.git`은 가져오지 않습니다. 읽을 수 없는 파일(예: 심볼릭 링크)이 있는 패키지는 해당 문제와 함께 표시되며, 다른 패키지와 단일 파일은 계속 가져올 수 있습니다. OpenCode v1에서는 `plugins` 아래의 디렉터리가 hook으로 나열되지 않습니다. 동기화, 편집, 제거는 다른 hook과 같은 소유권 검사와 백업을 사용하며, 외부에서 편집된 패키지 파일은 덮어쓰지 않고 충돌로 처리됩니다.
+
+선언된 의존성은 로드하기 전에 직접 준비하세요. 패키지 파일을 쓸 때마다 미리보기에 이 안내가 표시됩니다. Skillshare는 플러그인 코드를 실행하지 않고, 의존성을 설치하지 않으며, v1 코드를 v2로 변환하지 않습니다. 등록되었다고 해서 플러그인이 로드되었다는 증거는 아닙니다. 두 API가 다르기 때문에 대시보드는 OpenCode 시작 코드를 의도적으로 제공하지 않습니다.

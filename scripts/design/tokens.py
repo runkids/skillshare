@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Export the dashboard's Clean tokens as a Design System tokens.json.
 
-ui/src/components.css stays the source of truth. This prints the tokens.json
+ui/src/styles/ stays the source of truth. This prints the tokens.json
 the "Skillshare Dashboard" design system artifact holds, so the artifact can be
 re-synced after the CSS changes instead of being rebuilt by hand.
 
@@ -17,14 +17,17 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[2]
-CSS_PATH = "ui/src/components.css"
-LIGHT = ':root:not([data-theme="playful"])'
-DARK = ':root:not([data-theme="playful"]).dark'
+CSS_PATH = "ui/src/styles/tokens.css"
+# Imports every stylesheet in cascade order; the type and spacing tokens come from component rules.
+INDEX_PATH = "ui/src/index.css"
+LIGHT = ":root:not([data-theme='playful'])"
+DARK = LIGHT + ".dark"
 
 # Every Clean color variable needs a usage note here, or the export fails.
 COLOR_USAGE = {
     "bg": "Page background behind every screen.",
     "side": "Sidebar background.",
+    "shell": "Desktop frame behind the sidebar and the inset content panel; the sidebar is transparent on it.",
     "surface": "Cards, lists, inputs, dialogs: anything framed on top of bg.",
     "sunken": "Recessed areas inside a surface: list headers, group headers, notes, tags, icon tiles.",
     "ink": "Primary text and headings on bg, surface or sunken.",
@@ -79,10 +82,16 @@ SHADOW_USAGE = {
 }
 
 
+def read_css():
+    index = ROOT / INDEX_PATH
+    paths = re.findall(r"^@import '\./(styles/[^']+)';", index.read_text(), re.M)
+    return "".join((index.parent / path).read_text() for path in paths)
+
+
 def block(css, selector):
-    match = re.search(r"^" + re.escape(selector) + r" \{", css, re.M)
+    match = re.search(r"^[ \t]*" + re.escape(selector) + r" \{", css, re.M)
     if not match:
-        raise ValueError(f"{CSS_PATH}: no rule for {selector}")
+        raise ValueError(f"ui/src/styles: no rule for {selector}")
     return css[match.start():css.index("}", match.start())]
 
 
@@ -202,7 +211,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--out", help="write here instead of stdout")
     args = parser.parse_args(argv)
-    text = json.dumps(export((ROOT / CSS_PATH).read_text(), ref=git_ref()), indent=2, ensure_ascii=False) + "\n"
+    text = json.dumps(export(read_css(), ref=git_ref()), indent=2, ensure_ascii=False) + "\n"
     if args.out:
         Path(args.out).write_text(text)
     else:

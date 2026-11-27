@@ -168,7 +168,7 @@ func cmdStatus(args []string) error {
 	}
 	counts := sync.CountSkills(discovered)
 	output.SkillCount, output.VariantCount = counts.Skills, counts.Variants
-	output.TrackedRepos = buildTrackedRepoJSON(cfg.EffectiveSkillsSource(), trackedRepos, discovered, walk)
+	output.TrackedRepos = buildTrackedRepoJSON(cfg.EffectiveSkillsSource(), false, trackedRepos, discovered, walk)
 	warningSkills := variantWarningSkills(cfg.EffectiveSkillsSource(), cfg.Targets, cfg.Mode, walk, discovered)
 
 	for name, target := range cfg.Targets {
@@ -266,7 +266,7 @@ func extractTrackedRepos(sourcePath string, walk sourcewalk.Options) []string {
 }
 
 // buildTrackedRepoJSON builds statusJSONRepo entries with parallel git.IsDirty checks.
-func buildTrackedRepoJSON(sourcePath string, trackedRepos []string, discovered []sync.DiscoveredSkill, walks ...sourcewalk.Options) []statusJSONRepo {
+func buildTrackedRepoJSON(sourcePath string, isProject bool, trackedRepos []string, discovered []sync.DiscoveredSkill, walks ...sourcewalk.Options) []statusJSONRepo {
 	results := make([]statusJSONRepo, len(trackedRepos))
 
 	missingRepos, _ := install.GetMissingTrackedRepos(sourcePath, walks...)
@@ -301,7 +301,7 @@ func buildTrackedRepoJSON(sourcePath string, trackedRepos []string, discovered [
 		results = append(results, statusJSONRepo{
 			Name:    repo.Name,
 			Status:  "missing",
-			Message: missingTrackedRepoMessage(repo.Name),
+			Message: missingTrackedRepoMessage(repo.Name, isProject),
 		})
 	}
 	return results
@@ -398,7 +398,7 @@ func getTargetStatusDetail(target config.TargetConfig, source, mode string) targ
 	case "merge":
 		return getMergeStatusDetail(target, source, mode)
 	case "copy":
-		return getCopyStatusDetail(target, mode)
+		return getCopyStatusDetail(target, source, mode)
 	default:
 		return getSymlinkStatusDetail(target, source, mode)
 	}
@@ -415,8 +415,8 @@ func getMergeStatusDetail(target config.TargetConfig, source, mode string) targe
 	}
 }
 
-func getCopyStatusDetail(target config.TargetConfig, mode string) targetStatusResult {
-	status, managedCount, localCount := sync.CheckStatusCopy(target.SkillsConfig().Path)
+func getCopyStatusDetail(target config.TargetConfig, source, mode string) targetStatusResult {
+	status, managedCount, localCount := sync.CheckStatusCopy(target.SkillsConfig().Path, source)
 
 	switch status {
 	case sync.StatusCopied, sync.StatusLinked:
@@ -433,7 +433,8 @@ func getSymlinkStatusDetail(target config.TargetConfig, source, mode string) tar
 // checkSkillVersion prints the CLI and built-in skill versions, and how to
 // update the skill when it is missing or behind.
 func checkSkillVersion(cfg *config.Config) {
-	localVersion := versioncheck.ReadLocalSkillVersion(cfg.EffectiveSkillsSource())
+	localSkill, _ := versioncheck.FindLocalSkill(cfg.EffectiveSkillsSource(), cfg.SkillsWalk())
+	localVersion := localSkill.Version
 	cli := "CLI " + version
 
 	if localVersion == "" {
@@ -443,6 +444,11 @@ func checkSkillVersion(cfg *config.Config) {
 	}
 
 	skill := cli + theme.Dim().Render(" · ") + "skill " + localVersion
+	if localSkill.Disabled {
+		fmt.Println(statusLine("Version", skill+" "+theme.Dim().Render("(disabled)")))
+		ui.Warning("The skillshare skill is disabled %s %s", theme.Dim().Render("— run"), theme.Accent().Render("skillshare enable skillshare -g && skillshare sync -g"))
+		return
+	}
 	if !config.AutoUpdateCheckEnabled() {
 		fmt.Println(statusLine("Version", skill))
 		return

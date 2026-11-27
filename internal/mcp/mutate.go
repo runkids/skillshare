@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"path/filepath"
+	"slices"
 
 	"gopkg.in/yaml.v3"
 	"skillshare/internal/utils"
@@ -23,6 +24,12 @@ type Mutation struct {
 	Project string `json:"project,omitempty"`
 	// Settings replaces the targets of the scope, so a value left out is cleared.
 	Settings *Settings `json:"settings,omitempty"`
+	// Using, with Project and Name, turns that shared server on or off for the root. It
+	// changes one name, so two edits made from pages loaded at the same time both stay.
+	Using *bool `json:"using,omitempty"`
+	// Override, with Project and Name, replaces what that root changes in a shared server it
+	// uses; an empty one removes it. It may come with Using, so a root turned on gets it too.
+	Override *Override `json:"override,omitempty"`
 	Name     string    `json:"name,omitempty"`
 	Server   *Server   `json:"server,omitempty"`
 	Remove   bool      `json:"remove,omitempty"`
@@ -82,10 +89,30 @@ func (s *Source) draftProject(m Mutation) error {
 		if err := m.Server.Validate(m.Name); err != nil {
 			return err
 		}
+		if m.Server.Global != nil {
+			return fmt.Errorf("MCP %s: global applies only to servers in mcp.servers", m.Name)
+		}
 		if project.Servers == nil {
 			project.Servers = map[string]Server{}
 		}
 		project.Servers[m.Name] = *m.Server
+	}
+	if m.Using != nil {
+		project.Use = slices.DeleteFunc(slices.Clone(project.Use), func(name string) bool { return name == m.Name })
+		if *m.Using {
+			project.Use = append(project.Use, m.Name)
+		} else {
+			project.Overrides = setOverride(project.Overrides, m.Name, Override{})
+		}
+		if len(project.Use) == 0 {
+			project.Use = nil
+		}
+	}
+	if m.Override != nil {
+		if !slices.Contains(project.Use, m.Name) {
+			return fmt.Errorf("project %s does not use %s, so there is nothing to override", m.Project, m.Name)
+		}
+		project.Overrides = setOverride(project.Overrides, m.Name, *m.Override)
 	}
 	if m.Settings != nil {
 		if exists && m.Name == "" && !m.Replace {
@@ -121,6 +148,12 @@ func (s *Service) draftMutations(mutations []Mutation) (*Source, error) {
 		if m.Unmanage && (!m.Remove || m.Name == "") {
 			return nil, fmt.Errorf("stop managing applies only to removing a named server")
 		}
+		if m.Using != nil && (m.Project == "" || m.Name == "" || m.Server != nil || m.Remove) {
+			return nil, fmt.Errorf("using turns one shared server on or off for a project; give only the project and the name")
+		}
+		if m.Override != nil && (m.Project == "" || m.Name == "" || m.Server != nil || m.Remove) {
+			return nil, fmt.Errorf("override changes one shared server for a project; give the project and the name")
+		}
 		if m.Project != "" {
 			if s.ProjectRoot != "" {
 				return nil, fmt.Errorf("mcp.projects belongs in the global config")
@@ -144,19 +177,52 @@ func (s *Service) draftMutations(mutations []Mutation) (*Source, error) {
 			delete(source.Servers, m.Name)
 			if m.Unmanage {
 				source.unmanaged["\x00"+m.Name] = true
+				// A shared server's entries belong to the projects that use it.
+				for _, root := range source.Users(m.Name) {
+					source.unmanaged[root+"\x00"+m.Name] = true
+				}
 			}
+			source.dropUse(m.Name)
 		}
 		if m.Server != nil {
-			if _, exists := source.Servers[m.Name]; exists && !m.Replace {
+			old, exists := source.Servers[m.Name]
+			if exists && !m.Replace {
 				return nil, fmt.Errorf("MCP server %q already exists; explicitly choose edit or replace", m.Name)
 			}
 			if err := m.Server.Validate(m.Name); err != nil {
 				return nil, err
 			}
-			source.Servers[m.Name] = *m.Server
+			server := *m.Server
+			// Writers rebuild a server from its fields, so one that does not say keeps where
+			// the server loads; only an explicit global moves it.
+			if server.Global == nil {
+				server.Global = old.Global
+			}
+			if !server.Shared() {
+				server.Global = nil
+				source.dropUse(m.Name)
+			} else if s.ProjectRoot != "" {
+				return nil, RefuseShared(map[string]Server{m.Name: server})
+			}
+			source.Servers[m.Name] = server
 		}
 	}
 	return source, nil
+}
+
+// dropUse takes a server that is no longer shared out of every root that uses it, so the
+// config never names a server that loads everywhere, or none, under use.
+func (s *Source) dropUse(name string) {
+	for _, root := range s.Users(name) {
+		project := s.Projects[root]
+		project.Use = slices.DeleteFunc(slices.Clone(project.Use), func(n string) bool { return n == name })
+		if len(project.Use) == 0 {
+			project.Use = nil
+		}
+		project.Overrides = setOverride(project.Overrides, name, Override{})
+		s.Projects[root] = project
+		s.touched[root] = true
+	}
 }
 
 // PreviewMutation does not persist a draft or claim ownership.
@@ -171,6 +237,14 @@ func (s *Service) PreviewMutations(mutations []Mutation) (*Plan, error) {
 		return nil, err
 	}
 	return s.previewResolved(source, batchResolutions(mutations))
+}
+
+// ResolutionConflicts reports whether an entry one of resolutions names is still a conflict.
+// Other entries may conflict without stopping a save that only adopts or replaces these.
+func (p *Plan) ResolutionConflicts(resolutions []Resolution) bool {
+	return slices.ContainsFunc(p.Changes, func(c Change) bool {
+		return c.Action == "conflict" && slices.ContainsFunc(resolutions, func(r Resolution) bool { return r.Target == c.Target && r.Name == c.Name })
+	})
 }
 
 func batchResolutions(mutations []Mutation) []Resolution {
@@ -409,7 +483,7 @@ func (s *Service) MutateBatch(mutations []Mutation, revision string, sync bool) 
 	}
 	changed := false
 	for _, m := range mutations {
-		changed = changed || m.Server != nil || m.Remove || m.Settings != nil
+		changed = changed || m.Server != nil || m.Remove || m.Settings != nil || m.Using != nil || m.Override != nil
 	}
 	if changed {
 		if err := source.save(s.configProjectRoot()); err != nil {
@@ -419,7 +493,9 @@ func (s *Service) MutateBatch(mutations []Mutation, revision string, sync bool) 
 	if !sync {
 		// Saving an explicit import also records the native baseline. The next
 		// sync can update it, but still detects any edits made in the meantime.
-		if len(resolutions) > 0 && preview.Blocked {
+		// Only the resolved entries have to settle: another Agent that holds a
+		// different definition of the server stays a conflict of its own.
+		if len(resolutions) > 0 && preview.ResolutionConflicts(resolutions) {
 			return nil, fmt.Errorf("source saved; unresolved conflicts prevented adoption")
 		}
 		// Stopping to manage a server drops those records instead, so sync leaves its entries be.

@@ -337,7 +337,7 @@ NO_COLOR=1 ss mcp check tiny --live -g
 
 Expected:
 - exit_code: 0
-- · responds: tiny 0.1.0, protocol 2026-07-28, 1 tool(s)
+- · responds: tiny 0.1.0, protocol 2026-07-28, 1 tool(s), ~N tokens (N is a small positive estimate)
 - 1 server(s) checked: 0 error(s), 1 warning(s)
 
 ### Step 11: 401 is a sign-in warning; an unreachable URL is an error

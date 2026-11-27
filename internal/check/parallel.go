@@ -37,7 +37,9 @@ type URLCheckOutput struct {
 	RepoURL    string
 	RemoteHash string
 	Branch     string
-	Err        error
+	// DefaultBranch is the branch the remote HEAD points at, when Branch is empty.
+	DefaultBranch string
+	Err           error
 }
 
 // ParallelCheckRepos checks multiple repos concurrently using a bounded
@@ -123,12 +125,13 @@ func ParallelCheckURLs(urls []URLCheckInput, onDone func()) []URLCheckOutput {
 			defer wg.Done()
 			defer func() { <-sem }()
 
-			hash, err := (GitRemote{ParseOptions: input.ParseOptions}).Hash(input.RepoURL, input.Branch)
+			hash, defaultBranch, err := (GitRemote{ParseOptions: input.ParseOptions}).Hash(input.RepoURL, input.Branch)
 			outputs[idx] = URLCheckOutput{
-				RepoURL:    input.RepoURL,
-				RemoteHash: hash,
-				Branch:     input.Branch,
-				Err:        err,
+				RepoURL:       input.RepoURL,
+				RemoteHash:    hash,
+				Branch:        input.Branch,
+				DefaultBranch: defaultBranch,
+				Err:           err,
 			}
 			if onDone != nil {
 				onDone()

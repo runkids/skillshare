@@ -127,9 +127,9 @@ $ skillshare install anthropics/skills
   ↑↓ move · space toggle · ctrl+a all · enter confirm · / filter · esc cancel
 ```
 
-Discovery 会扫描所有目录以查找 `SKILL.md` 文件，但会跳过 `.git` 以及 `.claude/`、`.agents/` 等目标目录，这些目录通常存放仓库中 Skill 的副本。其他隐藏目录（如 `.curated/` 或 `.system/`）会被扫描，其中的 Skill 也会被自动发现。如果仓库没有其他 Skill，则改为扫描根目录的 `.agents/skills/`。当发现多个 Skill 时，选择提示会把同一文件夹中的 Skill 排在一起，并显示每个 Skill 的描述和所在文件夹；列表较长时按 `/` 筛选。
+Discovery 会扫描所有目录以查找 `SKILL.md` 文件，但会跳过 `.git` 以及 `.claude/`、`.agents/` 等目标目录，这些目录通常存放仓库中 Skill 的副本。其他隐藏目录（如 `.curated/` 或 `.system/`）会被扫描，其中的 Skill 也会被自动发现。如果仓库没有其他 Skill，则改为扫描根目录的 `.agents/skills/`。Discovery 还会跟随指向仓库内文件夹的 link，但不会进入 `.git`，也不会跟随 Skill 文件夹内的 link（那是该 Skill 的一部分）。同一个 Skill 既能直接到达、又能经由 link 到达时，只会以直接路径列出一次。`--track` 安装不跟随这些 link，与 `sync` 看到的一致。当发现多个 Skill 时，选择提示会把同一文件夹中的 Skill 排在一起，并显示每个 Skill 的描述和所在文件夹；列表较长时按 `/` 筛选。
 
-`.agents/skills/` 回退要求 `.agents` 和 `skills` 均为真实目录，即使启用 `follow_source_links: true` 也不接受符号链接或 junction。仍支持有意跟随的仓库根目录。发现的 agent 在安装和更新时会拒绝目标路径中间或末尾的链接，并在发布前审核；审核阻止操作时，现有 agent 内容保持不变。
+`.agents/skills/` 回退要求 `.agents` 和 `skills` 均为真实目录，即使启用 `follow_source_links: true` 也不接受符号链接或 junction。仍支持有意跟随的仓库根目录。发现的 agent 在安装和更新时会拒绝目标路径中间或末尾的链接，并在发布前审核；审核阻止操作时，现有 agent 内容保持不变。从 Git 来源安装的 skill、agent 或跟踪仓库中，符号链接指向仓库之外或其 `.git` 文件夹时，安装和更新会报错停止，不会装入该仓库或该 commit 的任何内容，因此仓库无法把你机器上其他位置的文件复制进 skill 或 copy 模式的 Target。指向同一仓库内其他文件或文件夹的链接，会以该文件或文件夹的形式复制；只安装仓库中的单个文件夹时也一样。若同一个文件夹经由第二个链接再次到达，或有链接指回正在复制的文件夹，安装会报错停止。
 
 如果仓库根目录下存在 `.skillignore` 文件，匹配的 Skill 会被自动从 discovery 中排除。参见下方的 [.skillignore](#skillignore)。
 
@@ -287,7 +287,7 @@ skillshare sync
 |------|-------|-------------|
 | `--name <name>` | | 当只安装了恰好一个 Skill 时，覆盖安装后的名称 |
 | `--into <dir>` | | 安装到子目录中（例如 `--into frontend` 或 `--into frontend/react`） |
-| `--force` | `-f` | 覆盖已存在的 Skill；跳过 audit 发现项拦截（扫描失败除外）和跨路径重复检测 |
+| `--force` | `-f` | 覆盖已存在的 Skill；跳过 audit 发现项拦截（扫描失败除外）和跨路径重复检测。新版本安装失败或被拦截时，已安装的 Skill 保持不变 |
 | `--update` | `-u` | 如果已存在则更新（git pull 或重新安装） |
 | `--branch <ref>` | `-b` | 要安装的 git branch、tag 或 commit SHA（默认：远程默认分支） |
 | `--track` | `-t` | 为 tracked repo 保留 `.git`。不能与 `--all`、`--yes`、`--skill` 或 `--agent` 同时使用。 |
@@ -364,7 +364,7 @@ skillshare install github.com/user/agents --kind agent --json
 }
 ```
 
-整个安装失败时，例如 tracked 仓库、单个 skill，或来源或 config 中的所有 skill 都被安全审计拦截，命令以非零状态退出，`error` 字段列出每个失败的 skill 及原因。只有部分 skill 失败时，它们会列在 `failed` 中，命令以 0 退出。要在有审计发现的情况下仍然安装，请加上 `--force`。
+整个安装失败时，例如 tracked 仓库、单个 skill，或来源或 config 中的所有 skill 都被安全审计拦截，命令以非零状态退出，`error` 字段列出每个失败的 skill 及原因。只有部分 skill 失败时，它们会列在 `failed` 中，命令以 0 退出。只要有任何所选 agent 安装失败，命令就以非零状态退出，`error` 字段列出每个失败的 agent，即使 skill 已安装成功。要在有审计发现的情况下仍然安装，请加上 `--force`。
 
 ```json
 {
@@ -808,11 +808,16 @@ skillshare install github.com/user/repo --kind agent
 # 按名称安装特定 agent（-a 简写）
 skillshare install github.com/user/repo -a tutor,reviewer
 
+# 通过文件路径安装单个 agent
+skillshare install github.com/user/repo/agents/tutor.md
+
 # 与 project mode 结合使用
 skillshare install github.com/user/repo --kind agent -p
 ```
 
 `-a <name>` flag 是 agent 版本的 `-s <name>`（用于 Skill）。Agent 会被安装到 `~/.config/skillshare/agents/`（global）或 `.skillshare/agents/`（project）。完整概念参见 [Agents](/docs/understand/agents)。
+
+指向单个 agent 文件的路径只会安装该 agent，记录的 source 与 `-a` 相同，之后的更新会读取文件所在的目录。这种写法不能与 `--track` 一起使用。
 
 ### 在混合仓库中区分 Skill 与 Agent 的范围
 

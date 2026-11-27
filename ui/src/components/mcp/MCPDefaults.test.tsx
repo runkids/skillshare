@@ -5,7 +5,11 @@ import { I18nProvider } from '../../i18n';
 import MCPDefaults from './MCPDefaults';
 
 const renderDefaults = (targets: string[], onSave = vi.fn()) =>
-  render(<I18nProvider><MCPDefaults targets={targets} offered={['claude', 'opencode', 'pi']} onSave={onSave} /></I18nProvider>);
+  render(
+    <I18nProvider>
+      <MCPDefaults targets={targets} offered={['claude', 'opencode', 'pi']} onSave={onSave} />
+    </I18nProvider>,
+  );
 
 describe('MCP defaults', () => {
   it('saves the default targets when a target is ticked', async () => {
@@ -16,5 +20,4 @@ describe('MCP defaults', () => {
     await user.click(screen.getByRole('checkbox', { name: 'Pi' }));
     expect(onSave).toHaveBeenCalledWith({ targets: ['claude', 'pi'] });
   });
-
 });

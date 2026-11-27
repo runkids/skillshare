@@ -1,0 +1,301 @@
+@layer components {
+  /* Interaction states and app-only pieces the static mockups do not show */
+  .ss-h1 {
+    font: var(--h1);
+    letter-spacing: var(--h1-track);
+  }
+  .ss-h2,
+  .ss-sec h2 {
+    font: var(--h2);
+    letter-spacing: var(--h2-track);
+  }
+  /* A button should read as clickable; the browser default cursor does not say that. */
+  button:not(:disabled),
+  summary {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
+  .ss-btn {
+    transition:
+      filter 0.12s,
+      transform 0.1s ease-out,
+      box-shadow 0.12s;
+  }
+  /* A wait too short to notice, such as a tick saving in a few dozen ms, leaves buttons as they are;
+     only a longer one dims them. Enabled again, they come back at once: .ss-btn has no opacity transition. */
+  .ss-btn:disabled {
+    transition:
+      opacity 0.15s 0.15s,
+      filter 0.12s,
+      transform 0.1s ease-out,
+      box-shadow 0.12s;
+  }
+  .ss-btn:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+  /* A playful button stands on a hard shadow, so a press pushes it flat onto the shadow instead. */
+  :root[data-theme='playful'] .ss-btn:not(.ghost, .ss-bulk *, .ss-toast *):active:not(:disabled) {
+    transform: translate(3px, 3px);
+    box-shadow: none;
+  }
+  :root[data-theme='playful'] .ss-btn:disabled {
+    transform: none;
+    box-shadow: var(--sh-btn);
+  }
+  /* Frameless buttons have nothing to cast a shadow from, and Playful's earlier hover and disabled rules
+   outrank their box-shadow: none, so without this a lone shadow arc appears under them. */
+  :root[data-theme='playful']
+    :is(.ss-btn.ghost, .ss-bulk .ss-btn, .ss-toast .ss-btn):is(:hover, :disabled) {
+    transform: none;
+    box-shadow: none;
+  }
+  /* Next to 2px ink frames a bare label does not read as a button, so ghost gets a soft outline here. */
+  :root[data-theme='playful'] .ss-btn.ghost {
+    color: var(--ink);
+    border-color: var(--line-soft);
+  }
+  :root[data-theme='playful'] .ss-btn.ghost:hover:not(:disabled) {
+    background: var(--sunken);
+    border-color: var(--ink-3);
+  }
+  /* Its outline is what has to line up here, so the pull that lined up the bare icon is undone. */
+  :root[data-theme='playful'] .ss-btn.ghost.flush {
+    margin-left: 0;
+  }
+  .ss-btn:focus-visible,
+  .ss-ib:focus-visible,
+  .ss-nv:focus-visible,
+  .ss-door:focus-visible,
+  .ss-rl:focus-visible,
+  .ss-seg > *:focus-visible,
+  .ss-tabs > *:focus-visible,
+  .ss-menu > :is(a, button):focus-visible,
+  .ss-sw:focus-visible,
+  .ss-preset:focus-visible,
+  .ss-tint:focus-visible,
+  .ss-r.link:focus-visible,
+  .ss-counts > a:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  .ss-ib {
+    transition:
+      background-color 0.12s,
+      color 0.12s;
+  }
+  .ss-ib:hover:not(:disabled) {
+    background: var(--sel);
+    color: var(--ink);
+  }
+  /* Dims late, as .ss-btn:disabled does. */
+  .ss-ib:disabled {
+    opacity: 0.42;
+    transition:
+      opacity 0.15s 0.15s,
+      background-color 0.12s,
+      color 0.12s;
+  }
+  .ss-nv:not(.on):hover {
+    color: var(--ink);
+    background: color-mix(in srgb, var(--sel) 55%, transparent);
+  }
+  :root[data-theme='playful'] .ss-nv:not(.on):hover {
+    background: var(--sunken);
+  }
+  .ss-inp input,
+  .ss-inp textarea {
+    flex: 1 1 0;
+    min-width: 0;
+    height: 100%;
+    background: transparent;
+    border: 0;
+    outline: 0;
+    padding: 0;
+    font: inherit;
+    color: var(--ink);
+  }
+  .ss-inp input::placeholder,
+  .ss-inp textarea::placeholder {
+    color: var(--ink-3);
+  }
+  .ss-inp.area textarea {
+    resize: vertical;
+    min-height: 64px;
+    line-height: 1.55;
+  }
+  .ss-seg > *,
+  .ss-tabs > *,
+  .ss-pager > *,
+  .ss-menu > a,
+  .ss-more {
+    cursor: pointer;
+  }
+  .ss-seg > *:not(.on):not(:disabled):hover,
+  .ss-tabs > *:not(.on):hover {
+    color: var(--ink);
+  }
+  .ss-menu > :is(a, button) {
+    width: 100%;
+    text-align: left;
+  }
+  .ss-menu > :is(a, button):not(.dng):hover {
+    background: var(--sel);
+    color: var(--sel-ink);
+  }
+  :root[data-theme='playful'] .ss-menu > :is(a, button):not(.dng):hover {
+    background: var(--pa);
+    color: var(--on-pa);
+  }
+  .ss-menu > :is(a, button).dng:hover {
+    background: var(--bad-bg);
+  }
+  .ss-r.link {
+    cursor: pointer;
+  }
+  .ss-r.link:hover {
+    background: var(--sunken);
+  }
+  /* A row whose name is the link: the whole row lights up, as if the row were the link. */
+  .ss-rl {
+    cursor: pointer;
+  }
+  .ss-r:has(> .ss-rl:hover) {
+    background: var(--sunken);
+  }
+  .ss-counts > :is(a, button) {
+    transition:
+      background-color 0.12s,
+      transform 0.12s,
+      box-shadow 0.12s;
+  }
+  .ss-counts > a .lbl {
+    font-size: 13px;
+    color: var(--ink-2);
+  }
+  :root:not([data-theme='playful']) .ss-counts > a:hover {
+    background: var(--sunken);
+  }
+  :root:not([data-theme='playful']) .ss-counts > a:first-child {
+    border-radius: 12px 0 0 12px;
+  }
+  :root:not([data-theme='playful']) .ss-counts > a:last-child {
+    border-radius: 0 12px 12px 0;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    :root[data-theme='playful'] .ss-counts > a:hover {
+      transform: translate(-1px, -1px);
+      box-shadow: 5px 5px 0 var(--line);
+    }
+  }
+  /* A count that filters lights on hover, gives under the press and stays tinted while its filter is on. */
+  .ss-counts > button:not(:disabled, [aria-pressed='true']):hover {
+    background: var(--sunken);
+  }
+  .ss-counts > button:not(:disabled):active {
+    transform: scale(0.97);
+  }
+  .ss-counts > button[aria-pressed='true'] {
+    background: var(--accent-bg);
+  }
+  :root:not([data-theme='playful']) .ss-counts > button:first-child {
+    border-radius: 12px 0 0 12px;
+  }
+  :root:not([data-theme='playful']) .ss-counts > button:last-child {
+    border-radius: 0 12px 12px 0;
+  }
+  .ss-sw {
+    transition: background-color 0.15s;
+  }
+  /* The knob slides rather than jumps: on moves it the track's inner width minus the knob's, mixed half
+   that. Mixed centers by transform too, so a change between any two states is one slide. */
+  .ss-sw i {
+    transition:
+      transform 0.37s var(--spring),
+      background-color 0.15s;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ss-sw i {
+      transition: background-color 0.15s;
+    }
+  }
+  .ss-sw.on i {
+    transform: translateX(14px);
+  }
+  :root[data-theme='playful'] .ss-sw.on i {
+    transform: translateX(16px);
+  }
+  .ss-sw.mix i {
+    transform: translateX(7px);
+  }
+  :root[data-theme='playful'] .ss-sw.mix i {
+    transform: translateX(8px);
+  }
+  .ss-sw:disabled {
+    opacity: 0.42;
+  }
+  .ss-chk-input:focus-visible + .ss-chk {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  .ss-more {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--accent);
+  }
+  .ss-more:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .ss-hand {
+    font: 400 17px/1.15 var(--fh);
+    color: var(--ink-2);
+  }
+  .ss-pinnote {
+    transition: transform 0.12s;
+  }
+  a.ss-pinnote:hover {
+    transform: translate(-1px, -1px);
+  }
+  /* The floating selection bar rises from the bottom edge like a material arriving: blur 6 -> 0 and
+   scale .97 -> 1 with the rise. It leaves the same way (bulkGhost in lib/exitGhost.ts). */
+  .ss-bulk:not(.static) {
+    transition:
+      transform 0.49s var(--spring),
+      filter 0.49s var(--spring),
+      opacity 0.2s ease-out;
+  }
+  @starting-style {
+    .ss-bulk:not(.static) {
+      opacity: 0;
+      transform: translateX(-50%) translateY(100%) scale(0.97);
+      filter: blur(6px);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ss-bulk:not(.static) {
+      transition: opacity 0.15s ease-out;
+    }
+    @starting-style {
+      .ss-bulk:not(.static) {
+        transform: translateX(-50%);
+        filter: none;
+      }
+    }
+  }
+
+  /* The hint shown while the shortcut modifier is held. */
+  .ss-hud {
+    display: inline-flex;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 18px;
+    background: var(--surface);
+    border: var(--frame);
+    border-radius: 14px;
+    box-shadow: var(--sh-float);
+    font-size: 13px;
+    color: var(--ink-2);
+  }
+}

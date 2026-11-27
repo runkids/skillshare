@@ -18,6 +18,8 @@ func TestDownloadGitHubDirWithAPIBase_Recursive(t *testing.T) {
 	var server *httptest.Server
 	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
+		case "/api/v3/repos/acme/repo/git/trees/HEAD:skills/bundle":
+			fmt.Fprint(w, `{"truncated":false,"tree":[{"path":"SKILL.md","mode":"100644"},{"path":"child","mode":"040000"},{"path":"child/README.md","mode":"100644"}]}`)
 		case "/api/v3/repos/acme/repo/contents/skills/bundle":
 			fmt.Fprint(w, `[
 {"type":"file","name":"SKILL.md","path":"skills/bundle/SKILL.md","download_url":"`+server.URL+`/raw/skill"},
@@ -61,6 +63,10 @@ func TestDownloadGitHubDirWithAPIBase_Recursive(t *testing.T) {
 
 func TestDownloadGitHubDirWithAPIBase_404(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v3/repos/acme/repo/git/trees/HEAD:skills/missing" {
+			fmt.Fprint(w, `{"truncated":false,"tree":[]}`)
+			return
+		}
 		http.NotFound(w, r)
 	}))
 	defer server.Close()
@@ -71,7 +77,7 @@ func TestDownloadGitHubDirWithAPIBase_404(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
-	if !strings.Contains(err.Error(), "returned 404") {
+	if !strings.Contains(err.Error(), "contents API returned 404") {
 		t.Fatalf("error = %v, want status 404", err)
 	}
 }
@@ -180,6 +186,48 @@ func TestGitHubAPIBase(t *testing.T) {
 			}
 			if got != tt.want {
 				t.Fatalf("gitHubAPIBase() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDownloadGitHubDirWithAPIBase_RejectsSymlinkForCloneFallback(t *testing.T) {
+	tests := []struct {
+		name string
+		tree string
+		want string
+	}{
+		// The contents listing shows a link to a file as a plain file, so only
+		// the tree reveals it.
+		{"link", `{"truncated":false,"tree":[{"path":"SKILL.md","mode":"100644"},{"path":"ref.md","mode":"120000"}]}`, "skills/demo/ref.md is a symlink"},
+		{"truncated tree", `{"truncated":true,"tree":[]}`, "truncated"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var server *httptest.Server
+			server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch r.URL.Path {
+				case "/api/v3/repos/acme/repo/git/trees/HEAD:skills/demo":
+					fmt.Fprint(w, tt.tree)
+				case "/api/v3/repos/acme/repo/contents/skills/demo":
+					fmt.Fprint(w, `[
+{"type":"file","name":"SKILL.md","path":"skills/demo/SKILL.md","download_url":"`+server.URL+`/raw/skill"},
+{"type":"file","name":"ref.md","path":"skills/demo/ref.md","download_url":"`+server.URL+`/raw/ref"}
+]`)
+				case "/raw/skill":
+					fmt.Fprint(w, "# skill")
+				case "/raw/ref":
+					fmt.Fprint(w, "../../shared/ref.md")
+				default:
+					http.NotFound(w, r)
+				}
+			}))
+			defer server.Close()
+
+			source := &Source{CloneURL: "https://github.acme.com/acme/repo.git"}
+			_, err := downloadGitHubDirWithAPIBase("acme", "repo", "skills/demo", t.TempDir(), server.URL+"/api/v3", source, nil)
+			if err == nil || !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("error = %v, want one containing %q", err, tt.want)
 			}
 		})
 	}

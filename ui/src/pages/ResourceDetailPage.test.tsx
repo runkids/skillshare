@@ -9,61 +9,113 @@ import { I18nProvider } from '../i18n';
 import { ToastProvider } from '../components/Toast';
 import ResourceDetailPage from './ResourceDetailPage';
 
-vi.mock('../api/client', async (load) => ({ ...await load<typeof import('../api/client')>(), api: {
-  getSyncMatrix: vi.fn(), listTargets: vi.fn(), getResource: vi.fn(), listSkills: vi.fn(),
-  auditSkill: vi.fn(), diff: vi.fn(), batchUninstall: vi.fn(), moveResources: vi.fn(), update: vi.fn(),
-} }));
+vi.mock('../api/client', async (load) => ({
+  ...(await load<typeof import('../api/client')>()),
+  api: {
+    getSyncMatrix: vi.fn(),
+    listTargets: vi.fn(),
+    getResource: vi.fn(),
+    listSkills: vi.fn(),
+    auditSkill: vi.fn(),
+    diff: vi.fn(),
+    batchUninstall: vi.fn(),
+    moveResources: vi.fn(),
+    update: vi.fn(),
+  },
+}));
 vi.mock('../api/hubDrafts', () => ({ gitRefs: vi.fn() }));
 
 it('uninstalls only the linked skill from its detail page', async () => {
   const user = userEvent.setup();
   const linked: Skill = {
-    name: 'foo', kind: 'skill', flatName: '_dev__foo', relPath: '_dev/foo',
-    sourcePath: '/skills/_dev/foo', isInRepo: true, linkName: '_dev', linkTarget: '/checkout',
+    name: 'foo',
+    kind: 'skill',
+    flatName: '_dev__foo',
+    relPath: '_dev/foo',
+    sourcePath: '/skills/_dev/foo',
+    isInRepo: true,
+    linkName: '_dev',
+    linkTarget: '/checkout',
   };
   vi.mocked(api.getResource).mockResolvedValue({ resource: linked, skillMdContent: '', files: [] });
-  vi.mocked(api.listSkills).mockResolvedValue({ resources: [linked, { ...linked, name: 'bar', flatName: '_dev__bar', relPath: '_dev/bar' }] });
+  vi.mocked(api.listSkills).mockResolvedValue({
+    resources: [linked, { ...linked, name: 'bar', flatName: '_dev__bar', relPath: '_dev/bar' }],
+  });
   vi.mocked(api.listTargets).mockResolvedValue({ targets: [], sourceSkillCount: 2 });
   vi.mocked(api.getSyncMatrix).mockResolvedValue({ entries: [] } as never);
   vi.mocked(api.diff).mockResolvedValue({ diffs: [] } as never);
   vi.mocked(api.auditSkill).mockResolvedValue({ result: { findings: [] } } as never);
-  vi.mocked(api.batchUninstall).mockResolvedValue({ results: [], summary: { succeeded: 1, failed: 0 } });
-  render(<MemoryRouter initialEntries={['/skills/_dev__foo']}>
-    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-      <I18nProvider><ToastProvider><Routes>
-        <Route path="/skills/:name" element={<ResourceDetailPage />} />
-        <Route path="/skills" element={<div>Skills</div>} />
-      </Routes></ToastProvider></I18nProvider>
-    </QueryClientProvider>
-  </MemoryRouter>);
+  vi.mocked(api.batchUninstall).mockResolvedValue({
+    results: [],
+    summary: { succeeded: 1, failed: 0 },
+  });
+  render(
+    <MemoryRouter initialEntries={['/skills/_dev__foo']}>
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+      >
+        <I18nProvider>
+          <ToastProvider>
+            <Routes>
+              <Route path="/skills/:name" element={<ResourceDetailPage />} />
+              <Route path="/skills" element={<div>Skills</div>} />
+            </Routes>
+          </ToastProvider>
+        </I18nProvider>
+      </QueryClientProvider>
+    </MemoryRouter>,
+  );
   await user.click(await screen.findByRole('button', { name: 'More actions' }));
   expect(screen.queryByRole('menuitem', { name: 'Uninstall Repo' })).toBeNull();
   expect(screen.queryByRole('menuitem', { name: 'Move to folder…' })).toBeNull();
   await user.click(screen.getByRole('menuitem', { name: 'Uninstall' }));
   const dialog = screen.getByRole('dialog');
-  expect(within(dialog).getByText('Selected skills are moved out of the linked folder to the trash.')).toBeInTheDocument();
+  expect(
+    within(dialog).getByText('Selected skills are moved out of the linked folder to the trash.'),
+  ).toBeInTheDocument();
   expect(within(dialog).getByText('foo')).toBeInTheDocument();
   expect(within(dialog).queryByText('bar')).toBeNull();
   await user.click(within(dialog).getByRole('button', { name: 'Uninstall' }));
-  await waitFor(() => expect(api.batchUninstall).toHaveBeenCalledWith({ names: ['_dev__foo'], kind: 'skill', force: false }));
+  await waitFor(() =>
+    expect(api.batchUninstall).toHaveBeenCalledWith({
+      names: ['_dev__foo'],
+      kind: 'skill',
+      force: false,
+    }),
+  );
 });
 
 it('offers Move to folder for a plain skill and opens the dialog', async () => {
   const user = userEvent.setup();
-  const plain: Skill = { name: 'demo', kind: 'skill', flatName: 'grp__demo', relPath: 'grp/demo', sourcePath: '/skills/grp/demo', isInRepo: false };
+  const plain: Skill = {
+    name: 'demo',
+    kind: 'skill',
+    flatName: 'grp__demo',
+    relPath: 'grp/demo',
+    sourcePath: '/skills/grp/demo',
+    isInRepo: false,
+  };
   vi.mocked(api.getResource).mockResolvedValue({ resource: plain, skillMdContent: '', files: [] });
   vi.mocked(api.listSkills).mockResolvedValue({ resources: [plain] });
   vi.mocked(api.listTargets).mockResolvedValue({ targets: [], sourceSkillCount: 1 });
   vi.mocked(api.getSyncMatrix).mockResolvedValue({ entries: [] } as never);
   vi.mocked(api.diff).mockResolvedValue({ diffs: [] } as never);
   vi.mocked(api.auditSkill).mockResolvedValue({ result: { findings: [] } } as never);
-  render(<MemoryRouter initialEntries={['/skills/grp__demo']}>
-    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-      <I18nProvider><ToastProvider><Routes>
-        <Route path="/skills/:name" element={<ResourceDetailPage />} />
-      </Routes></ToastProvider></I18nProvider>
-    </QueryClientProvider>
-  </MemoryRouter>);
+  render(
+    <MemoryRouter initialEntries={['/skills/grp__demo']}>
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+      >
+        <I18nProvider>
+          <ToastProvider>
+            <Routes>
+              <Route path="/skills/:name" element={<ResourceDetailPage />} />
+            </Routes>
+          </ToastProvider>
+        </I18nProvider>
+      </QueryClientProvider>
+    </MemoryRouter>,
+  );
   await user.click(await screen.findByRole('button', { name: 'More actions' }));
   await user.click(screen.getByRole('menuitem', { name: 'Move to folder…' }));
   expect(await screen.findByRole('dialog', { name: 'Move to folder' })).toBeInTheDocument();
@@ -72,29 +124,58 @@ it('offers Move to folder for a plain skill and opens the dialog', async () => {
 it('keeps the move result open after the old name stops loading, and goes to the new name on close', async () => {
   const user = userEvent.setup();
   HTMLElement.prototype.scrollIntoView = vi.fn();
-  const plain: Skill = { name: 'demo', kind: 'skill', flatName: 'grp__demo', relPath: 'grp/demo', sourcePath: '/skills/grp/demo', isInRepo: false };
+  const plain: Skill = {
+    name: 'demo',
+    kind: 'skill',
+    flatName: 'grp__demo',
+    relPath: 'grp/demo',
+    sourcePath: '/skills/grp/demo',
+    isInRepo: false,
+  };
   const moved: Skill = { ...plain, flatName: 'archive__demo', relPath: 'archive/demo' };
   vi.mocked(api.getResource).mockImplementation(async (name) => {
     if (name === 'archive__demo') return { resource: moved, skillMdContent: '', files: [] };
-    if (vi.mocked(api.moveResources).mock.calls.some(([o]) => !o.dryRun)) throw new Error('not found');
+    if (vi.mocked(api.moveResources).mock.calls.some(([o]) => !o.dryRun))
+      throw new Error('not found');
     return { resource: plain, skillMdContent: '', files: [] };
   });
-  vi.mocked(api.listSkills).mockResolvedValue({ resources: [plain, { ...plain, name: 'old', flatName: 'archive__old', relPath: 'archive/old' }] });
+  vi.mocked(api.listSkills).mockResolvedValue({
+    resources: [plain, { ...plain, name: 'old', flatName: 'archive__old', relPath: 'archive/old' }],
+  });
   vi.mocked(api.listTargets).mockResolvedValue({ targets: [], sourceSkillCount: 1 });
   vi.mocked(api.getSyncMatrix).mockResolvedValue({ entries: [] } as never);
   vi.mocked(api.diff).mockResolvedValue({ diffs: [] } as never);
   vi.mocked(api.auditSkill).mockResolvedValue({ result: { findings: [] } } as never);
   vi.mocked(api.moveResources).mockImplementation(async (o) => ({
-    results: [{ name: 'grp__demo', success: true, from: 'grp/demo', to: 'archive/demo', flatName: 'archive__demo', record: true }],
-    summary: { succeeded: 1, failed: 0 }, warnings: [], dryRun: !!o.dryRun,
+    results: [
+      {
+        name: 'grp__demo',
+        success: true,
+        from: 'grp/demo',
+        to: 'archive/demo',
+        flatName: 'archive__demo',
+        record: true,
+      },
+    ],
+    summary: { succeeded: 1, failed: 0 },
+    warnings: [],
+    dryRun: !!o.dryRun,
   }));
-  render(<MemoryRouter initialEntries={['/skills/grp__demo']}>
-    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-      <I18nProvider><ToastProvider><Routes>
-        <Route path="/skills/:name" element={<ResourceDetailPage />} />
-      </Routes></ToastProvider></I18nProvider>
-    </QueryClientProvider>
-  </MemoryRouter>);
+  render(
+    <MemoryRouter initialEntries={['/skills/grp__demo']}>
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+      >
+        <I18nProvider>
+          <ToastProvider>
+            <Routes>
+              <Route path="/skills/:name" element={<ResourceDetailPage />} />
+            </Routes>
+          </ToastProvider>
+        </I18nProvider>
+      </QueryClientProvider>
+    </MemoryRouter>,
+  );
   await user.click(await screen.findByRole('button', { name: 'More actions' }));
   await user.click(screen.getByRole('menuitem', { name: 'Move to folder…' }));
   await user.click(await screen.findByRole('combobox', { name: 'Destination' }));
@@ -113,8 +194,15 @@ it('keeps the move result open after the old name stops loading, and goes to the
 it('reinstalls from the default branch by name only after confirming', async () => {
   const user = userEvent.setup();
   const remote: Skill = {
-    name: 'foo', kind: 'skill', flatName: 'foo', relPath: 'foo', sourcePath: '/skills/foo', isInRepo: false,
-    source: 'git@git.example.com:o/r.git//skills/foo', repoUrl: 'git@git.example.com:o/r.git', branch: 'dev',
+    name: 'foo',
+    kind: 'skill',
+    flatName: 'foo',
+    relPath: 'foo',
+    sourcePath: '/skills/foo',
+    isInRepo: false,
+    source: 'git@git.example.com:o/r.git//skills/foo',
+    repoUrl: 'git@git.example.com:o/r.git',
+    branch: 'dev',
   };
   vi.mocked(api.getResource).mockResolvedValue({ resource: remote, skillMdContent: '', files: [] });
   vi.mocked(api.listSkills).mockResolvedValue({ resources: [remote] });
@@ -122,19 +210,170 @@ it('reinstalls from the default branch by name only after confirming', async () 
   vi.mocked(api.getSyncMatrix).mockResolvedValue({ entries: [] } as never);
   vi.mocked(api.diff).mockResolvedValue({ diffs: [] } as never);
   vi.mocked(api.auditSkill).mockResolvedValue({ result: { findings: [] } } as never);
-  vi.mocked(gitRefs).mockResolvedValue({ pinnable: false, current: '', defaultBranch: 'main', branches: ['dev', 'main'], tags: ['v1'] });
-  vi.mocked(api.update).mockResolvedValue({ results: [{ name: 'foo', action: 'updated' }] } as never);
-  render(<MemoryRouter initialEntries={['/skills/foo']}>
-    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-      <I18nProvider><ToastProvider><Routes>
-        <Route path="/skills/:name" element={<ResourceDetailPage />} />
-      </Routes></ToastProvider></I18nProvider>
-    </QueryClientProvider>
-  </MemoryRouter>);
+  vi.mocked(gitRefs).mockResolvedValue({
+    pinnable: false,
+    current: '',
+    defaultBranch: 'main',
+    branches: ['dev', 'main'],
+    tags: ['v1'],
+  });
+  vi.mocked(api.update).mockResolvedValue({
+    results: [{ name: 'foo', action: 'updated' }],
+  } as never);
+  render(
+    <MemoryRouter initialEntries={['/skills/foo']}>
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+      >
+        <I18nProvider>
+          <ToastProvider>
+            <Routes>
+              <Route path="/skills/:name" element={<ResourceDetailPage />} />
+            </Routes>
+          </ToastProvider>
+        </I18nProvider>
+      </QueryClientProvider>
+    </MemoryRouter>,
+  );
   await user.click(await screen.findByRole('combobox', { name: 'Branch' }));
   await user.click(await screen.findByRole('option', { name: /^Default branch/ }));
   const dialog = await screen.findByRole('dialog', { name: 'Switch branch' });
   expect(api.update).not.toHaveBeenCalled();
   await user.click(within(dialog).getByRole('button', { name: 'Switch and reinstall' }));
-  await waitFor(() => expect(api.update).toHaveBeenCalledWith({ name: 'foo', kind: 'skill', skipAudit: false, force: false, branch: 'main' }));
+  await waitFor(() =>
+    expect(api.update).toHaveBeenCalledWith({
+      name: 'foo',
+      kind: 'skill',
+      skipAudit: false,
+      force: false,
+      branch: 'main',
+    }),
+  );
+});
+
+// A merge keeps the local edits, so the skill still counts as modified afterwards.
+it.each([
+  { action: 'updated', message: 'merged local changes' },
+  { action: 'up-to-date', message: undefined },
+])('merges into a locally edited skill instead of overwriting it ($action)', async (result) => {
+  localStorage.clear();
+  const user = userEvent.setup();
+  const edited: Skill = {
+    name: 'foo',
+    kind: 'skill',
+    flatName: 'foo',
+    relPath: 'foo',
+    sourcePath: '/skills/foo',
+    isInRepo: false,
+    source: 'git@git.example.com:o/r.git//skills/foo',
+    repoUrl: 'git@git.example.com:o/r.git',
+  };
+  vi.mocked(api.getResource).mockResolvedValue({ resource: edited, skillMdContent: '', files: [] });
+  vi.mocked(api.listSkills).mockResolvedValue({ resources: [edited] });
+  vi.mocked(api.listTargets).mockResolvedValue({ targets: [], sourceSkillCount: 1 });
+  vi.mocked(api.getSyncMatrix).mockResolvedValue({ entries: [] } as never);
+  vi.mocked(api.diff).mockResolvedValue({ diffs: [] } as never);
+  vi.mocked(api.auditSkill).mockResolvedValue({ result: { findings: [] } } as never);
+  vi.mocked(gitRefs).mockResolvedValue({
+    pinnable: false,
+    current: '',
+    defaultBranch: 'main',
+    branches: ['main'],
+    tags: [],
+  });
+  vi.mocked(api.update).mockResolvedValue({
+    results: [{ name: 'foo', ...result }],
+  } as never);
+  render(
+    <MemoryRouter initialEntries={['/skills/foo?changes=1']}>
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+      >
+        <I18nProvider>
+          <ToastProvider>
+            <Routes>
+              <Route path="/skills/:name" element={<ResourceDetailPage />} />
+            </Routes>
+          </ToastProvider>
+        </I18nProvider>
+      </QueryClientProvider>
+    </MemoryRouter>,
+  );
+  const dialog = await screen.findByRole('dialog', { name: 'Modified locally' });
+  await user.click(within(dialog).getByRole('button', { name: 'Merge' }));
+  await waitFor(() =>
+    expect(api.update).toHaveBeenCalledWith({
+      name: 'foo',
+      kind: 'skill',
+      skipAudit: false,
+      force: false,
+      merge: true,
+    }),
+  );
+  await waitFor(() =>
+    expect(screen.queryByRole('dialog', { name: 'Modified locally' })).not.toBeInTheDocument(),
+  );
+  expect(localStorage.getItem('skillshare.updateCheckCache.global') ?? '').not.toContain(
+    '"status":"up-to-date"',
+  );
+});
+
+// A branch switch replaces the skill with another branch, so there is no
+// upstream of the installed version to merge into: only force applies.
+it('offers no merge when a branch switch hits local edits', async () => {
+  const user = userEvent.setup();
+  const remote: Skill = {
+    name: 'foo',
+    kind: 'skill',
+    flatName: 'foo',
+    relPath: 'foo',
+    sourcePath: '/skills/foo',
+    isInRepo: false,
+    source: 'git@git.example.com:o/r.git//skills/foo',
+    repoUrl: 'git@git.example.com:o/r.git',
+    branch: 'dev',
+  };
+  vi.mocked(api.getResource).mockResolvedValue({ resource: remote, skillMdContent: '', files: [] });
+  vi.mocked(api.listSkills).mockResolvedValue({ resources: [remote] });
+  vi.mocked(api.listTargets).mockResolvedValue({ targets: [], sourceSkillCount: 1 });
+  vi.mocked(api.getSyncMatrix).mockResolvedValue({ entries: [] } as never);
+  vi.mocked(api.diff).mockResolvedValue({ diffs: [] } as never);
+  vi.mocked(api.auditSkill).mockResolvedValue({ result: { findings: [] } } as never);
+  vi.mocked(gitRefs).mockResolvedValue({
+    pinnable: false,
+    current: '',
+    defaultBranch: 'main',
+    branches: ['dev', 'main'],
+    tags: [],
+  });
+  vi.mocked(api.update).mockResolvedValue({
+    results: [
+      {
+        name: 'foo',
+        action: 'skipped',
+        message: 'has local changes since install (try force update)',
+      },
+    ],
+  } as never);
+  render(
+    <MemoryRouter initialEntries={['/skills/foo']}>
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+      >
+        <I18nProvider>
+          <ToastProvider>
+            <Routes>
+              <Route path="/skills/:name" element={<ResourceDetailPage />} />
+            </Routes>
+          </ToastProvider>
+        </I18nProvider>
+      </QueryClientProvider>
+    </MemoryRouter>,
+  );
+  await user.click(await screen.findByRole('combobox', { name: 'Branch' }));
+  await user.click(await screen.findByRole('option', { name: /^Default branch/ }));
+  const switchDialog = await screen.findByRole('dialog', { name: 'Switch branch' });
+  await user.click(within(switchDialog).getByRole('button', { name: 'Switch and reinstall' }));
+  const dialog = await screen.findByRole('dialog', { name: 'Modified locally' });
+  expect(within(dialog).queryByRole('button', { name: 'Merge' })).not.toBeInTheDocument();
 });

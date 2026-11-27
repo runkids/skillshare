@@ -22,6 +22,9 @@ skillshare hooks enable check --sync
 skillshare hooks sync --dry-run --json
 skillshare hooks sync
 skillshare hooks sync check --replace --dry-run
+skillshare hooks sync --trust -g
+skillshare hooks sync --trust --yes -g
+skillshare hooks sync --trust --yes --json -g
 skillshare sync hooks --dry-run --json
 skillshare sync hooks
 skillshare hooks remove check --sync
@@ -30,7 +33,7 @@ skillshare hooks restore BACKUP_ID --dry-run
 skillshare hooks restore BACKUP_ID
 ```
 
-沒有子指令時列出 entries。`add`／`edit` 從 `--file` 讀取 Entry JSON 或 YAML；匯入不指定名稱時列出候選項目（每個 Agent event 或檔案各一項），指定名稱才儲存。儲存匯入即原地接管讀到的註冊：下次同步直接 adopt，不需 `--replace`；沒匯入的 event 維持不受管理。匯入只讀取設定或程式碼，不會執行。新增、編輯、匯入、啟用、停用與移除預設只儲存來源，加入 `--sync` 才同步。同步與還原會重新預覽。
+沒有子指令時列出 entries。`add`／`edit` 從 `--file` 讀取 Entry JSON 或 YAML；匯入不指定名稱時列出候選項目（每個 Agent event 或檔案各一項），指定名稱才儲存。儲存匯入即原地接管讀到的註冊：下次同步直接 adopt，不需 `--replace`；沒匯入的 event 維持不受管理。匯入只讀取設定或程式碼，不會執行。新增、編輯、匯入、啟用、停用與移除預設只儲存來源，加入 `--sync` 才同步。同步與還原會重新預覽。Dashboard 的「目標裡的 hook」對話框打開時不會預先勾選任何 hook，要匯入的自己勾選；它也能直接修改或移除 Agent 設定檔裡還沒匯入的 hook（hook 是設定的 Agent 都可以：存在同一個設定檔的 event（Claude、Codex、Gemini、Cursor、Qwen，以及 Droid 的 `hooks.json`）、Antigravity 的具名區塊，或 Copilot 的 hook 檔，移除時會刪掉那個檔案；程式碼形式的 hook（Pi、Oh My Pi、Amp、OpenCode）要先匯入）。寫入前會顯示檔案差異並備份，該 hook 維持不受管理。
 
 | Option | Meaning |
 |---|---|
@@ -39,6 +42,8 @@ skillshare hooks restore BACKUP_ID
 | `--sync` | 儲存並同步 |
 | `--keep-files` | 搭配 `remove`：停止管理該 hook，並讓它的原生項目維持原樣。不可與 `--sync` 併用。參見[下方說明](#stop-managing-a-hook) |
 | `--replace` | 明確取代既有來源 entry 或該 entry 衝突的原生輸出 |
+| `--trust` | 僅用於 `hooks sync`：同時為 Skillshare 管理的 hooks 記錄 Codex 信任。見 [Codex 信任](#codex-trust) |
+| `--yes`, `-y` | 與 `--trust` 一起使用：略過詢問並信任列出的 hooks。見 [Codex 信任](#codex-trust) |
 | `--dry-run, -n` | 只預覽，不儲存或寫入 |
 | `--json` | 結構化輸出 |
 | `--revision ID` | 要求符合指定預覽 revision |
@@ -91,7 +96,7 @@ Skillshare 以縮排的 block 格式寫入 `hooks` 區段；每次儲存也會�
 | `bindings.AGENT.codeFile` | 取代 `code`：相對於 config 所在資料夾的路徑，檔案內容作為 `code` 使用，每次讀取 config 時重新讀取；路徑必須位於該資料夾內 |
 | `bindings.AGENT.files` | 可選 UTF-8 腳本檔，以相對檔名為 key；值為檔案內容，或依 `codeFile` 相同規則讀取的 `{from: path}` |
 
-Agent ID 為 `claude`、`codex`、`gemini`、`copilot`、`cursor`、`droid`、`qwen`、`antigravity`、`pi`、`omp`、`amp`、`opencode`、`git`；`factory` 是 `droid` 的別名，`antigravity-cli` 與 `agy` 是 `antigravity` 的別名。event、matcher、handler type、command、timeout 單位與 payload 均保留原生格式，不自動跨 Agent 轉換。event 名稱會對照各 command Agent 文件列出的事件檢查：未知名稱（例如拼錯的 `Stopp`）在預覽與 plan 的 `warnings` 中顯示警告，但不阻擋同步，因為 Agent 會陸續新增事件。Pi、OMP、Amp、OpenCode 的程式碼不檢查。Pi、OMP、Amp、OpenCode 的程式碼與 imports 須符合已安裝版本；發布至獨立的 `skillshare-NAME.ts`，不產生共用執行引擎。
+Agent ID 為 `claude`、`codex`、`gemini`、`copilot`、`cursor`、`droid`、`qwen`、`antigravity`、`pi`、`omp`、`amp`、`opencode`、`git`；`factory` 是 `droid` 的別名，`antigravity-cli` 與 `agy` 是 `antigravity` 的別名。event、matcher、handler type、command、timeout 單位與 payload 均保留原生格式，不自動跨 Agent 轉換。event 名稱會對照各 command Agent 文件列出的事件檢查：未知名稱（例如拼錯的 `Stopp`）在預覽與 plan 的 `warnings` 中顯示警告，但不阻擋同步，因為 Agent 會陸續新增事件。Pi、OMP、Amp、OpenCode 的程式碼不檢查。Pi、OMP、Amp、OpenCode 的程式碼與 imports 須符合已安裝版本；發布至獨立的 `skillshare-NAME.ts` 檔案（OpenCode v1）或 OpenCode v2 目錄套件，不產生共用執行引擎。
 
 較長的程式碼與腳本可以用 `codeFile` 或 `files` 的 `{from: path}` 從獨立檔案讀取。路徑以持有該 entry 的 config 所在資料夾為準（專案是 `.skillshare/`，global 的 `hooks.projects` 則是 global config 資料夾）；`hooks add|edit --file` 也以選定的 config 為準，而非 entry 檔案所在位置。路徑必須位於該資料夾內，不能經過 symlink；檔案不存在會讓 config 讀取失敗。每次讀取 config 都會重新讀取檔案，預覽後內容有變更就會拒絕套用。
 
@@ -138,9 +143,9 @@ command binding 的腳本位於 Agent 設定目錄的 `hooks/skillshare/NAME/`�
 | [Pi](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/extensions.md) | `~/.pi/agent/extensions/skillshare-NAME.ts` | `.pi/extensions/skillshare-NAME.ts` | Native extension code |
 | [Oh My Pi](https://github.com/can1357/oh-my-pi/blob/v18.6.1/docs/extensions.md) | `~/.omp/agent/extensions/skillshare-NAME.ts` | `.omp/extensions/skillshare-NAME.ts` | Native OMP extension code |
 | [Amp](https://ampcode.com/docs/plugin-api) | `~/.config/amp/plugins/skillshare-NAME.ts` | `.amp/plugins/skillshare-NAME.ts` | Native plugin code |
-| [OpenCode](https://opencode.ai/docs/plugins/) | `~/.config/opencode/plugins/skillshare-NAME.ts` | `.opencode/plugins/skillshare-NAME.ts` | Supplied v1/v2 plugin code |
+| [OpenCode](https://opencode.ai/docs/plugins/) | `~/.config/opencode/plugins/skillshare-NAME[.ts]` | `.opencode/plugins/skillshare-NAME[.ts]` | v1 file; v2 directory package (see below) |
 
-global scope 使用原生設定目錄的環境變數 override，但指向帳號 `config_dir` 時除外；project scope 只寫入專案，不退回 global 路徑。Codex inline TOML 等其他來源仍獨立存在。Antigravity 與其 CLI（`agy`）讀取同一份 `hooks.json`；每個 hook 是一個以其名稱命名的 block，匯入時保留原名。CLI 的 `~/.gemini/antigravity-cli/settings.json` 中的 hooks 保持獨立。Droid 發布獨立 hooks 檔會影響原生載入來源，請先檢查既有 inline hooks。Copilot 只在受信任的資料夾中載入 `.github/hooks` 的專案 hooks。
+global scope 使用原生設定目錄的環境變數 override，但指向帳號 `config_dir` 時除外；專案同步會將原生 hook 檔案寫入專案目錄。確認 `--trust` 後，信任會另外寫入各個已驗證的 Codex 帳號目錄。Codex inline TOML 等其他來源仍獨立存在。Antigravity 與其 CLI（`agy`）讀取同一份 `hooks.json`；每個 hook 是一個以其名稱命名的 block，匯入時保留原名。CLI 的 `~/.gemini/antigravity-cli/settings.json` 中的 hooks 保持獨立。Droid 發布獨立 hooks 檔會影響原生載入來源，請先檢查既有 inline hooks。Copilot 只在受信任的資料夾中載入 `.github/hooks` 的專案 hooks。
 
 
 Droid 有有效 inline hooks 時，同步會拒絕建立獨立檔案。先匯入並檢查，移除原 inline hooks 後再同步。
@@ -180,7 +185,42 @@ command 腳本寫入 `<config_dir>/hooks/skillshare/NAME/`。帳號僅用於 glo
 
 如果 target 已移除、目錄移動或帳號目錄不存在，已管理的輸出及其所有權記錄會保留，並顯示警告。恢復 target 或目錄即可繼續管理。若要釋放某個項目暫存的所有權而不修改檔案，請先預覽再執行 `skillshare hooks sync NAME --replace -g`。移除 target 時若 binding 仍使用該名稱會顯示警告；下次 hooks 同步前也要移除這些 binding。
 
-用 `skillshare hooks import --from codex-2 -g --json` 從帳號匯入。Dashboard 顯示 **codex-2 (Codex)**，並使用 Codex 的事件與編輯器。每個 Codex 目錄都需要在 `/hooks` 中個別審核並信任變更的 hooks；同步不會修改信任或執行 hooks。
+用 `skillshare hooks import --from codex-2 -g --json` 從帳號匯入。Dashboard 顯示 **codex-2 (Codex)**，並使用 Codex 的事件與編輯器。每個 Codex 目錄都需要在 `/hooks` 中個別審核並信任變更的 hooks；除非傳入 `--trust`，同步不會修改信任或執行 hooks。
+
+### Codex 信任 {#codex-trust}
+
+Codex 只執行已信任的使用者層級 hook，並把信任記錄在同一目錄的 `config.toml`：`hooks.state."<hooks.json>:<event>:<group>:<handler>".trusted_hash`。鍵是 hook 的位置，因此 Skillshare 新增或移動的 hook 一開始都未受信任，`codex exec` 會略過它。
+
+```bash
+skillshare hooks sync --trust -g
+skillshare hooks sync --trust --yes -g
+skillshare hooks sync --trust --yes --json -g
+```
+
+`--trust` 先像一般同步一樣寫入 hook 檔案。接著它在 Skillshare 管理的每個 Codex 目錄（包含帳號目錄）中，向 Codex 詢問 Skillshare 擁有的 hooks 裡有哪些需要信任。它透過 `codex app-server` 取得每個 hook 的 hash，與 `/hooks` 審核使用相同的呼叫，因此 `codex` 必須在 `PATH` 上。Skillshare 自己不計算 hash。
+
+已經信任的 hook 會回報為 `unchanged`，不需回答。如果 hook 是新的，或在信任之後 command 有變動，指令會列出這些 hooks 及其 command，並只詢問一次。沒有需要信任的 hook 時不會詢問。
+
+```
+Codex trust
+  stop  needs trust  codex  /home/me/.codex/hooks.json:stop:1:0
+  /usr/local/bin/notify-done
+
+? Trust 1 hook in Codex?  Yes  No
+```
+
+確認之後：
+
+```
+Codex trust
+✓ stop  trusted  codex  /home/me/.codex/hooks.json:stop:1:0
+```
+
+`--yes`（`-y`）會略過詢問。Codex 的審核存在的原因，是讓人在 command 執行之前看到它。沒有終端機且沒有 `--yes` 時，不會信任任何 hook：指令會列出這些 hooks，並以提到 `--yes` 的錯誤結束。`--json` 同樣不會詢問：沒有 `--yes` 時，它把這些 hooks 輸出為 `needed`，並以非零狀態結束。專案 JSON 的 `codexTrustError` 會說明原因，每個 hook 的 `home` 是寫入目錄。`--yes` 只能與 `--trust` 一起使用。`--json` 輸出包含 `codexTrust` 清單。每一項有 `target`、`entry`、`key`、`command`、`action`（`needed`、`trusted` 或 `unchanged`），為 true 時還有 `disabled`。
+
+只寫入 `trusted_hash`，而且只會新增。你在 Codex 中停用的 hook 維持停用並會被回報。`enabled`、`config.toml` 的其餘部分，以及不屬於 Skillshare 的 hooks 都不會更動。hook 移動或刪除後，舊項目仍留在 `config.toml` 中。它只會對應到該位置上 event、matcher 與 handler 都相同的 hook，因此不會讓另一個 hook 變成已信任。
+
+`codex` 不在 `PATH` 上或 Codex 失敗時，hook 檔案仍會寫入，指令以 "hook files were written, but Codex trust was not recorded" 失敗。有多個 Codex home 時，Codex 無法列出或寫入失敗的 home 不會中止其他 home：錯誤會列出已記錄與未記錄的 home。不帶 `--trust` 的 `hooks sync` 不會啟動 Codex，也不會改變信任。`hooks sync -p --trust` 核對目前專案的命令，將信任寫入各使用者的 Codex home，不變更資料夾信任。無法驗證的帳號會跳過；若部分完成則以非零狀態結束。`sync hooks` 和 `hooks list` 不支援 `--trust`。`hooks.projects` 寫入專案的 hook 不在其列，請在 Codex 的 `/hooks` 中信任。Dashboard 的 Hooks 頁面（全域及專案模式）有相同的操作：它列出需要信任的 hooks 及其 command，只有在你於對話框中確認後才記錄信任。
 
 ## Git hooks {#git-hooks}
 
@@ -222,10 +262,23 @@ plan 保留實際的 `add`、`update`、`remove` 或 `unchanged` 動作，並透
 
 ## 專案、衝突與復原
 
-global 設定的 `hooks.projects` 將絕對專案路徑對應到相同 Entry 格式的 `entries`，可在「專案 → Hooks」管理。已有 `.skillshare/config.yaml` 的專案須使用 project scope；單一專案同步只處理該專案。
+global 設定的 `hooks.projects` 將絕對專案路徑對應到相同 Entry 格式的 `entries`，可在「專案 → Hooks」管理；在那裡按 **停止管理這裡的 hook** 會把該路徑從 `hooks.projects` 移除，下次同步時會刪掉 Skillshare 寫在其下的 hook。已有 `.skillshare/config.yaml` 的專案須使用 project scope；單一專案同步只處理該專案。
 
 同步保留無關設定與非 Skillshare 管理的 hooks。內容相同不代表擁有權。自有輸出若被外部修改，停用、移除與還原也會回報衝突。明確取代僅作用於選定 entry；預覽會列出完整動作與路徑。共用檔案的每一列 plan 會列出該 entry 新增（`+`）、更新（`~`）、移除（`−`）的 event，JSON plan 的 `events` 也有相同資訊。`update` 表示該 entry 在檔案中仍有註冊，`remove` 表示完全離開該檔案。編輯會保留檔案原本的格式（精簡或縮排）；Skillshare 新增的 `hooks` key 在最後一個 hook 移除時一併移除。Skillshare 建立的檔案若已沒有其他內容就會刪除，連同它建立且已清空的資料夾；預覽會把這顯示為刪除檔案。原本就存在的檔案與資料夾，以及你加入的任何內容都會保留。
 
 備份還原原生輸出並保留之後新增的無關內容，不改寫來源定義。使用「設定 → 備份 → Hooks」或 `hooks restore` 先預覽再還原。
 
-**已同步**只表示 Skillshare 已寫入設定。請依 Agent 的原生流程重啟／重新載入；信任、啟用 hooks 及程式碼相容性由 Agent 控制。管理操作不執行 hook command，也不自動改變原生信任。
+**已同步**只表示 Skillshare 已寫入設定。請依 Agent 的原生流程重啟／重新載入；信任、啟用 hooks 及程式碼相容性由 Agent 控制。管理操作不執行 hook command，也不自動改變原生信任；只有在你要求時，[`--trust`](#codex-trust) 才會記錄 Codex 信任。
+
+
+### OpenCode v2 目錄套件
+
+Windows 上的 hook 版本探測會將 `opencode-ai`（較新 v1）和 `@opencode/cli`（v2）的標準 npm `.cmd` 啟動器直接解析為已安裝的 `bin/opencode.exe`，不使用 shell。不會推測或執行早期 v1 的 Node 啟動器或自訂批次包裝器。此類安裝請將 OpenCode 帳戶的 `cli` 設為已安裝的原生 `opencode.exe` 的絕對路徑（例如相符的 `opencode-windows-x64-baseline` 套件內的 `bin/opencode.exe`），或將其目錄放在 `PATH` 最前面。Skillshare 不執行 postinstall 腳本，也不修復缺少的二進位檔。
+
+Skillshare 只探測 `opencode --version`（或帳戶的 `cli`）。當無法偵測到版本時（二進位檔缺少、執行失敗，或回報的主要版本不是 1 或 2），只會略過 OpenCode 的 binding：預覽會顯示警告，現有的 OpenCode 輸出保持不變，其他所有 Agent 照常同步。v1 保留單一的 `.ts` 檔案。v2 寫入 `plugins/skillshare-NAME/index.ts` 和 `package.json`（宣告 `@opencode/plugin: ^2.0.0`），並將該目錄的 `file://` URL 加入 `opencode.json(c)` 的 `plugins` 中。專案 hook 使用 `.opencode/opencode.json(c)`。註解和無關的註冊保持不變。存在衝突的 JSON/JSONC 檔案，或 `OPENCODE_CONFIG`/`OPENCODE_CONFIG_CONTENT` 覆寫，會被 hooks 拒絕。`code` binding 在兩個版本上都依給定內容寫入；Skillshare 不檢查它是否符合 v1 或 v2 的外掛 API。
+
+完整的 v2 套件請使用 `bindings.opencode.package` 取代 `code`/`codeFile`：這是一個從相對檔名到 UTF-8 內容的對應，其中包含 `package.json`。manifest 及其相依需求會原樣保留。允許巢狀檔案；路徑越界、符號連結、檔案與目錄衝突、`.git` 和 `node_modules` 都不屬於套件的內容。原生編輯器會將此檔案對應顯示為 JSON。server 進入點必須是帶有套件名稱的字串形式根匯出或 `./server` 匯出，或是慣例的根目錄 `server`/`index` 檔案（`.ts`、`.tsx`、`.js`）。條件式和後備式 server 匯出會被拒絕，而不是猜測。`package` binding 需要 OpenCode v2；在 v1 上會被略過並給出警告。
+
+`hooks import --from opencode` 還會讀取原生 `plugins` 資料夾下的直接子套件目錄。與單一檔案程式碼匯入一樣，它會將其複製到 Skillshare 的命名輸出，並警告你在同步後移除原始檔案和註冊，以避免重複載入。已安裝的 `node_modules` 和 `.git` 不會匯入。包含無法讀取的檔案（例如符號連結）的套件會連同該問題一起列出；其他套件和單一檔案仍可匯入。在 OpenCode v1 上，`plugins` 下的目錄不會列為 hook。同步、編輯和移除使用與其他 hook 相同的擁有權檢查和備份；被外部編輯的套件檔案會產生衝突，而不是被覆蓋。
+
+請在載入前自行準備宣告的相依套件；只要預覽會寫入套件檔案，就會提示這一點。Skillshare 從不執行外掛程式碼、安裝相依套件或將 v1 程式碼轉換為 v2。註冊並不能證明外掛已載入。由於兩種 API 不同，儀表板刻意不提供 OpenCode 入門程式碼。

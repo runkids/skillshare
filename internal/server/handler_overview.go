@@ -18,6 +18,7 @@ type trackedRepoItem struct {
 	SkillCount   int    `json:"skillCount"`
 	VariantCount int    `json:"variantCount"`
 	Dirty        bool   `json:"dirty"`
+	NoCheckout   bool   `json:"noCheckout,omitempty"`
 }
 
 func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
@@ -34,6 +35,14 @@ func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
 	targetCount := len(s.cfg.Targets)
 	projectRoot := s.projectRoot
 	configDir := filepath.Dir(s.configPath())
+	// Copy declaration fields while locked: removals mutate the cached store.
+	var store *install.MetadataStore
+	if !s.IsProjectMode() && s.skillsStore != nil {
+		store = install.NewMetadataStore()
+		for key, entry := range s.skillsStore.Entries {
+			store.Set(key, copyMetadataEntry(entry))
+		}
+	}
 	s.mu.RUnlock()
 
 	isProjectMode := projectRoot != ""
@@ -60,7 +69,7 @@ func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Tracked repos
-	trackedRepos := buildTrackedRepos(source, skills, walk)
+	trackedRepos := buildTrackedRepos(source, skills, walk, store)
 
 	// Count agents
 	agentCount := 0
@@ -97,11 +106,8 @@ func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, resp)
 }
 
-func buildTrackedRepos(sourceDir string, skills []sync.DiscoveredSkill, walk sourcewalk.Options) []trackedRepoItem {
-	repoNames, err := install.GetTrackedRepos(sourceDir, walk)
-	if err != nil || len(repoNames) == 0 {
-		return []trackedRepoItem{}
-	}
+func buildTrackedRepos(sourceDir string, skills []sync.DiscoveredSkill, walk sourcewalk.Options, store *install.MetadataStore) []trackedRepoItem {
+	repoNames, _ := install.GetTrackedRepos(sourceDir, walk)
 
 	_, counts := sync.CountSkillsByRepo(skills)
 	items := make([]trackedRepoItem, 0, len(repoNames))
@@ -117,6 +123,9 @@ func buildTrackedRepos(sourceDir string, skills []sync.DiscoveredSkill, walk sou
 			VariantCount: counts[repoName].Variants,
 			Dirty:        dirty,
 		})
+	}
+	for _, name := range install.DeclarationsWithoutCheckout(sourceDir, store) {
+		items = append(items, trackedRepoItem{Name: name, NoCheckout: true})
 	}
 	return items
 }

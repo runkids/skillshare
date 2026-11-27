@@ -40,9 +40,10 @@ func (s *Server) handleUpgrade(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
-	// Only Nix may replace a Nix-store binary, so update just the skill there.
+	// Only the package manager may replace a Nix-store, PyPI or pixi binary, so
+	// update just the skill there.
 	method := detectUIInstallMethod()
-	result, err := runUIUpgrade(method.IsNix())
+	result, err := runUIUpgrade(method.IsPackageManaged())
 	if err != nil {
 		if strings.Contains(result.Output, versioncheck.SudoUpgradeHintPrefix+versioncheck.SudoUpgradeHint) {
 			writeCodedError(w, http.StatusForbidden, "upgrade.needs_sudo",
@@ -56,6 +57,18 @@ func (s *Server) handleUpgrade(w http.ResponseWriter, r *http.Request) {
 	if method.IsNix() && uiCLIUpdateAvailable(method) {
 		writeCodedError(w, http.StatusConflict, "upgrade.nix",
 			"skillshare is installed with Nix; "+method.UpgradeInstruction(),
+			map[string]string{"command": method.UpgradeCommand()})
+		return
+	}
+	if method.IsPyPI() && uiCLIUpdateAvailable(method) {
+		writeCodedError(w, http.StatusConflict, "upgrade.pypi",
+			"skillshare is installed from PyPI; "+method.UpgradeInstruction(),
+			map[string]string{"command": method.UpgradeCommand()})
+		return
+	}
+	if method.IsPixi() && uiCLIUpdateAvailable(method) {
+		writeCodedError(w, http.StatusConflict, "upgrade.pixi",
+			"skillshare is installed with pixi; "+method.UpgradeInstruction(),
 			map[string]string{"command": method.UpgradeCommand()})
 		return
 	}
@@ -133,6 +146,8 @@ func (s *Server) handleRestart(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{"ok": true, "restarting": true})
 	go func() {
 		time.Sleep(250 * time.Millisecond)
+		// Exiting skips the deferred cleanup in StartWithContext.
+		s.discoveries.close()
 		processExit(0)
 	}()
 }

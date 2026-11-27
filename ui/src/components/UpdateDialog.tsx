@@ -1,3 +1,4 @@
+import { upgradeAndReconnect } from '../lib/upgradeWorkflow';
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { X, Copy, Check, CircleArrowUp } from 'lucide-react';
@@ -8,7 +9,12 @@ import DialogShell from './DialogShell';
 import Button from './Button';
 import { useT } from '../i18n';
 import { useUpdatePolicy } from '../hooks/useUpdatePolicy';
-import { nixUpdateNote, upgradeErrorMessage } from '../lib/upgradeError';
+import {
+  nixUpdateNote,
+  pixiUpdateNote,
+  pypiUpdateNote,
+  upgradeErrorMessage,
+} from '../lib/upgradeError';
 
 const DISMISSED_KEY = 'ss-update-dialog-dismissed';
 
@@ -22,7 +28,10 @@ const mockData: VersionCheck = {
   skillUpdateAvailable: true,
 };
 
-export default function UpdateDialog({ manualData, onDismiss }: { manualData?: VersionCheck; onDismiss?: () => void } = {}) {
+export default function UpdateDialog({
+  manualData,
+  onDismiss,
+}: { manualData?: VersionCheck; onDismiss?: () => void } = {}) {
   const t = useT();
   const policy = useUpdatePolicy();
   const [open, setOpen] = useState(false);
@@ -41,26 +50,34 @@ export default function UpdateDialog({ manualData, onDismiss }: { manualData?: V
 
   const data = manualData ?? (isMockMode ? mockData : realData);
   // Dev builds always report a simulated update; stay quiet unless ?update-test asks for the flow.
-  const hasUpdate = (!!manualData || isMockMode || policy.data?.enabled === true) && (!!manualData || data?.autoCheckEnabled !== false) && (!!manualData || !data?.cliDevMode) && (data?.cliUpdateAvailable || data?.skillUpdateAvailable);
+  const hasUpdate =
+    (!!manualData || isMockMode || policy.data?.enabled === true) &&
+    (!!manualData || data?.autoCheckEnabled !== false) &&
+    (!!manualData || !data?.cliDevMode) &&
+    (data?.cliUpdateAvailable || data?.skillUpdateAvailable);
 
   useEffect(() => {
     if (!hasUpdate) return;
     if (!isMockMode && !manualData) {
       try {
         if (sessionStorage.getItem(DISMISSED_KEY)) return;
-      } catch { /* storage unavailable */ }
+      } catch {
+        /* storage unavailable */
+      }
     }
     setOpen(true);
   }, [hasUpdate, isMockMode, manualData]);
 
   if (!data || !hasUpdate) return null;
-  const nixNote = nixUpdateNote(data, t);
+  const nixNote = nixUpdateNote(data, t) ?? pypiUpdateNote(data, t) ?? pixiUpdateNote(data, t);
 
   const dismiss = () => {
     setOpen(false);
     onDismiss?.();
     if (manualData) return;
-    try { sessionStorage.setItem(DISMISSED_KEY, '1'); } catch {
+    try {
+      sessionStorage.setItem(DISMISSED_KEY, '1');
+    } catch {
       // Ignore storage access failures.
     }
   };
@@ -75,27 +92,14 @@ export default function UpdateDialog({ manualData, onDismiss }: { manualData?: V
     }
   };
 
-  const waitForRestartThenReload = async () => {
-    await new Promise((resolve) => setTimeout(resolve, 800));
-    for (let i = 0; i < 40; i++) {
-      try {
-        await api.health();
-        window.location.reload();
-        return;
-      } catch {
-        await new Promise((resolve) => setTimeout(resolve, 500));
-      }
-    }
-    setStatus(t('updateDialog.restartManual', {}, 'Updated. Restart with skillshare ui start if this page does not reconnect.'));
-    setUpdating(false);
-  };
-
   const handleUpdateNow = async () => {
     setUpdating(true);
     setStatus(t('updateDialog.updating', {}, 'Updating Skillshare…'));
     try {
-      const result = await api.upgradeApp();
-      if (result.devMode) {
+      const outcome = await upgradeAndReconnect(() =>
+        setStatus(t('updateDialog.restarting', {}, 'Restarting local UI server…')),
+      );
+      if (outcome === 'dev') {
         setStatus(t('updateDialog.restartDev', {}, 'DEV mode restart simulated.'));
         await new Promise((resolve) => setTimeout(resolve, 900));
         setUpdating(false);
@@ -103,10 +107,16 @@ export default function UpdateDialog({ manualData, onDismiss }: { manualData?: V
         onDismiss?.();
         return;
       }
-      setStatus(t('updateDialog.restarting', {}, 'Restarting local UI server…'));
-      // The upgrade already cached the new version's UI; clearing it would force a re-download.
-      await api.restartApp({ clearCache: false });
-      void waitForRestartThenReload();
+      if (outcome === 'manual') {
+        setStatus(
+          t(
+            'updateDialog.restartManual',
+            {},
+            'Updated. Restart with skillshare ui start if this page does not reconnect.',
+          ),
+        );
+        setUpdating(false);
+      }
     } catch (err) {
       setStatus(upgradeErrorMessage(err, t));
       setUpdating(false);
@@ -114,10 +124,23 @@ export default function UpdateDialog({ manualData, onDismiss }: { manualData?: V
   };
 
   return (
-    <DialogShell open={open} onClose={dismiss} maxWidth="md" padding="none" preventClose={updating} ariaLabel={t('updateDialog.newVersion')}>
+    <DialogShell
+      open={open}
+      onClose={dismiss}
+      maxWidth="md"
+      padding="none"
+      preventClose={updating}
+      ariaLabel={t('updateDialog.newVersion')}
+    >
       <div className="dh">
         <h2 className="ss-h2">{t('updateDialog.newVersion')}</h2>
-        <button type="button" className="ss-ib" onClick={dismiss} aria-label={t('common.close')} disabled={updating}>
+        <button
+          type="button"
+          className="ss-ib"
+          onClick={dismiss}
+          aria-label={t('common.close')}
+          disabled={updating}
+        >
           <X size={16} />
         </button>
       </div>
@@ -126,13 +149,17 @@ export default function UpdateDialog({ manualData, onDismiss }: { manualData?: V
           {data.cliUpdateAvailable && (
             <>
               <dt>CLI</dt>
-              <dd className="font-mono">{data.cliVersion} → <b>{data.cliLatest}</b></dd>
+              <dd className="font-mono">
+                {data.cliVersion} → <b>{data.cliLatest}</b>
+              </dd>
             </>
           )}
           {data.skillUpdateAvailable && (
             <>
               <dt>Skill</dt>
-              <dd className="font-mono">{data.skillVersion} → <b>{data.skillLatest}</b></dd>
+              <dd className="font-mono">
+                {data.skillVersion} → <b>{data.skillLatest}</b>
+              </dd>
             </>
           )}
         </dl>
@@ -148,7 +175,9 @@ export default function UpdateDialog({ manualData, onDismiss }: { manualData?: V
           {nixNote && <p className="text-[13px] text-ink-2">{nixNote}</p>}
         </div>
         <p className="text-[13px] text-ink-2">{t('updateDialog.restartNote')}</p>
-        {status && <p className={`text-[13px] ${updating ? 'text-ink-2' : 'text-bad'}`}>{status}</p>}
+        {status && (
+          <p className={`text-[13px] ${updating ? 'text-ink-2' : 'text-bad'}`}>{status}</p>
+        )}
       </div>
       <div className="df">
         <Button variant="ghost" onClick={dismiss} disabled={updating}>

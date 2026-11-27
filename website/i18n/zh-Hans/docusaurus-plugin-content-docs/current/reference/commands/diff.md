@@ -137,6 +137,8 @@ claude
 
 `--stat` 和 `--patch` 都隐含 `--no-tui`（纯文本输出）。
 
+对于 copy 模式的 target，文件级详情不包含 sync 不会复制的文件，即匹配 [`ignore`](/docs/reference/targets/configuration#ignore) 或其默认模式的文件。
+
 ## diff 显示的内容
 
 ### Merge Mode 的 Target
@@ -145,6 +147,7 @@ claude
 - 列出 Source 中尚未 symlink 到 Target 的 Skill
 - 显示以本地副本形式存在（而非 symlink）的 Skill
 - 识别 Target 中仅本地存在的 Skill（不在 Source 中 — sync 会保留它们）
+- 显示指向 Source 中已不存在的 Skill 的链接（sync 时会被清理）
 
 ### Copy Mode 的 Target
 
@@ -159,6 +162,8 @@ claude
 对于使用 symlink mode 的 Target：
 - 仅检查 symlink 是否指向正确的 Source
 - 显示 "in sync"，或对错误的 symlink 发出警告
+
+如果 merge 或 copy mode 的 Target 的文件夹仍是指向 Source 的链接，会用同样的方式检查。如果文件夹是另一个工具的链接（dotfiles manager），则会按它指向的目录进行比较；如果该链接指向不存在的位置，`diff` 会报告这一情况，而不是列出每个 Skill。
 
 ## 使用案例
 
@@ -212,7 +217,7 @@ skillshare diff agents claude      # 指定 Target
 skillshare diff agents --json      # JSON 输出
 ```
 
-Agent diff 会显示缺失的 Agent（需要 sync）、孤立的 symlink（需要 prune），以及仅本地存在的 Agent 文件。只有配置了 `agents` 路径的 Target 才会被包含在内。完整列表参见 [Agents — Supported Targets](/docs/understand/agents#supported-targets)。
+Agent diff 会显示缺失的 Agent（需要 sync）、sync 会清理的孤立 symlink，以及仅本地存在的 Agent 文件。只有配置了 `agents` 路径的 Target 才会被包含在内。完整列表参见 [Agents — Supported Targets](/docs/understand/agents#supported-targets)。
 
 ---
 

@@ -55,6 +55,7 @@ skills/                         ~/.claude/skills/
 - 精细控制
 - 按 target 的 include/exclude 过滤
 - 基于 manifest 的孤儿清理（uninstall 后能安全地移除非 symlink 残留）
+- 其他工具放在 target 里的链接不会被改动：同名链接如果指向 source 之外，且 manifest 没有记录，会被保留并报告为本地项（`sync --force` 会替换它）。copy 模式同样保留这类链接
 
 :::info 项目模式下的相对 symlink
 在项目模式（`-p`）下，symlink 会以**相对路径**形式创建（例如 `../../.skillshare/skills/my-skill`），而不是绝对路径。这使得项目可移植 — 移动或重命名目录后，symlink 仍然有效。在 global 模式下则使用绝对路径，因为 source 和 targets 位于不同位置。
@@ -306,7 +307,8 @@ targets:
 
 - **指向已删除 source skill 的 symlink** 总是会被移除
 - **真实目录** 如果出现在 `.skillshare-manifest.json` 中（此前由 skillshare 管理），会被移除
-- **不在 manifest 中的未知目录** 会被保留，并给出警告（假定为用户自行创建）
+- **不在 manifest 中的未知目录** 会被保留，并给出警告（假定为用户自行创建）。名称只是看起来像 skillshare 条目的文件夹（`_repo`、`group__skill`）也在此列；`sync --force` 会移除它们
+- **指向 source 之外的失效链接** 只有在 manifest 有记录时才会被移除（例如 source 搬移之后）；其他工具或你自己建立的失效链接会被保留，并给出警告
 
 这意味着在 `uninstall` + `sync` 之后，即使是非 symlink 的残留（例如之前 `copy` 模式留下的目录）也会被安全清理。
 

@@ -9,28 +9,15 @@ export default function Skeleton({ className = '', variant = 'text', style }: Sk
 
   if (variant === 'circle') {
     return (
-      <div
-        className={`${base} w-12 h-12 ${className}`}
-        style={{ borderRadius: '50%', ...style }}
-      />
+      <div className={`${base} w-12 h-12 ${className}`} style={{ borderRadius: '50%', ...style }} />
     );
   }
 
   if (variant === 'card') {
-    return (
-      <div
-        className={`${base} h-32 rounded-[var(--r-box)] ${className}`}
-        style={style}
-      />
-    );
+    return <div className={`${base} h-32 rounded-[var(--r-box)] ${className}`} style={style} />;
   }
 
-  return (
-    <div
-      className={`${base} h-4 rounded-[5px] ${className}`}
-      style={style}
-    />
-  );
+  return <div className={`${base} h-4 rounded-[5px] ${className}`} style={style} />;
 }
 
 /** A full loading skeleton for a page */
@@ -86,10 +73,14 @@ export function SkillDetailSkeleton() {
         </div>
         <div className="flex flex-col gap-7">
           <div className="ss-box space-y-3">
-            {Array.from({ length: 7 }, (_, i) => <Skeleton key={i} className="w-full h-4" style={{ animationDelay: `${i * 50}ms` }} />)}
+            {Array.from({ length: 7 }, (_, i) => (
+              <Skeleton key={i} className="w-full h-4" style={{ animationDelay: `${i * 50}ms` }} />
+            ))}
           </div>
           <div className="ss-box space-y-3">
-            {Array.from({ length: 4 }, (_, i) => <Skeleton key={i} className="w-full h-8" style={{ animationDelay: `${i * 50}ms` }} />)}
+            {Array.from({ length: 4 }, (_, i) => (
+              <Skeleton key={i} className="w-full h-8" style={{ animationDelay: `${i * 50}ms` }} />
+            ))}
           </div>
         </div>
       </div>

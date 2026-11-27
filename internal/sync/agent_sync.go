@@ -81,7 +81,7 @@ func SyncAgents(agents []resource.DiscoveredResource, sourceDir, targetDir, mode
 // source path (absSource) reference the same file. The fast path is a direct
 // string compare; the slow path canonicalizes both sides through EvalSymlinks so
 // symlinked ancestors (e.g. macOS /var → /private/var) do not make a stable
-// relative link look like it points elsewhere. Mirrors isSymlinkToSource in sync.go.
+// relative link look like it points elsewhere. Mirrors IsSymlinkToSource in sync.go.
 func linkResolvesToSource(absLink, absSource string) bool {
 	if utils.PathsEqual(absLink, absSource) {
 		return true
@@ -89,10 +89,11 @@ func linkResolvesToSource(absLink, absSource string) bool {
 	return utils.PathsEqual(utils.ResolveSymlink(absLink), utils.ResolveSymlink(absSource))
 }
 
-// prunableLink reports whether an orphan link at path may be removed: it is
+// PrunableLink reports whether an orphan link at path may be removed: it is
 // broken, or it resolves inside sourceDir. Live links to other locations, which
-// skillshare never creates, survive.
-func prunableLink(path, sourceDir string) bool {
+// skillshare never creates, survive. Merge-mode prune and the agent diffs both
+// call this, so a diff lists only the links sync removes.
+func PrunableLink(path, sourceDir string) bool {
 	if _, err := os.Stat(path); errors.Is(err, fs.ErrNotExist) {
 		return true
 	} else if err != nil {
@@ -229,11 +230,19 @@ func syncAgentsMergeCopy(agents []resource.DiscoveredResource, targetDir string,
 			result.Skipped = append(result.Skipped, name)
 			continue
 		case contentEqual(agent.AbsPath, targetPath):
-			if !copies.owns(name) {
+			switch {
+			case copies.owns(name):
+				result.Linked = append(result.Linked, name)
+			case force:
+				// Already the source's content: taking it over needs no rewrite,
+				// only the record that lets later syncs update it.
+				if !dryRun {
+					copies.record(name)
+				}
+				result.Updated = append(result.Updated, name)
+			default:
 				result.Skipped = append(result.Skipped, name)
-				continue
 			}
-			result.Linked = append(result.Linked, name)
 			continue
 		case !force && !copies.owns(name):
 			result.Skipped = append(result.Skipped, name)
@@ -628,7 +637,7 @@ func PruneOrphanAgentLinks(targetDir, sourceDir string, agents []resource.Discov
 			continue
 		}
 
-		if expected[name] || !prunableLink(filepath.Join(targetDir, name), sourceDir) {
+		if expected[name] || !PrunableLink(filepath.Join(targetDir, name), sourceDir) {
 			continue
 		}
 

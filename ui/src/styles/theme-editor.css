@@ -1,0 +1,252 @@
+@layer components {
+  /* Custom theme editor: preset cards, each a small page in that preset's colours. */
+  .ss-presets {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(124px, 1fr));
+    gap: 10px;
+  }
+  .ss-preset {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 5px;
+    text-align: left;
+    background: var(--surface);
+    border: var(--bw) solid var(--line);
+    border-radius: var(--r-box);
+  }
+  .ss-preset:hover {
+    border-color: var(--line-2);
+  }
+  /* Selected reads like a selected nav item: a quiet fill, not a coloured frame. */
+  .ss-preset.on {
+    border-color: var(--line-2);
+    background: var(--sel);
+  }
+  :root[data-theme='playful'] .ss-preset.on {
+    border-color: var(--line);
+    background: var(--sel);
+    box-shadow: 2px 2px 0 var(--line);
+  }
+  .ss-preset .th {
+    display: flex;
+    height: 46px;
+    overflow: hidden;
+    border-radius: max(2px, calc(var(--r-box) - 5px));
+    box-shadow: inset 0 0 0 1px var(--line-soft);
+  }
+  .ss-preset .sd {
+    width: 26%;
+    border-right: 1px solid;
+  }
+  .ss-preset .pg {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+    padding: 0 8px;
+  }
+  .ss-preset .ln {
+    height: 4px;
+    border-radius: 2px;
+  }
+  .ss-preset .bt {
+    width: 24px;
+    height: 9px;
+    border-radius: 999px;
+  }
+  .ss-preset .nm {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 3px 2px;
+    font: 600 13px/1.3 var(--f);
+    color: var(--ink);
+  }
+  .ss-preset .nm > :last-child {
+    margin-left: auto;
+  }
+  .ss-preset .nm small {
+    font: 500 11px/1 var(--f);
+    color: var(--ink-3);
+  }
+  /* A live miniature of the dashboard: the sidebar, and the page on Clean's inset panel or flush. */
+  .ss-mini {
+    display: flex;
+    overflow: hidden;
+    /* Set here, not inherited, so the other mode's colours apply to the text as well. */
+    color: var(--ink);
+    background: var(--bg);
+    border: var(--frame);
+    border-radius: var(--r-box);
+    box-shadow: var(--sh-box);
+  }
+  .ss-mini > .sd {
+    flex: 0 0 152px;
+    padding: 12px 8px;
+    background: var(--side);
+    border-right: 1px solid var(--line);
+  }
+  .ss-mini > .pn {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    /* Grows with round corners, so the controls in the corners stay clear of the curve. */
+    padding: max(16px, var(--r-box)) max(20px, calc(var(--r-box) + 4px));
+    background: var(--bg);
+    /* Set while there is no border, so switching to the inset panel does not fade in from black. */
+    border-color: var(--line);
+  }
+  /* The light/dark toggle in the top corner, moved in as the corners grow. */
+  .ss-mini > .mode {
+    position: absolute;
+    z-index: 10;
+    top: max(12px, calc(var(--r-box) - 2px));
+    right: max(12px, calc(var(--r-box) - 2px));
+  }
+  :root:not([data-theme='playful']):not([data-layout='full']) .ss-mini {
+    background: var(--shell);
+  }
+  :root:not([data-theme='playful']):not([data-layout='full']) .ss-mini > .sd {
+    background: transparent;
+    /* Width only: the shorthand would reset the colour to black, which the transition then shows. */
+    border-right-width: 0;
+  }
+  :root:not([data-theme='playful']):not([data-layout='full']) .ss-mini > .pn {
+    margin: 6px 6px 6px 0;
+    border: 1px solid var(--line);
+    border-radius: calc(var(--r-box) + 2px);
+  }
+  @media (max-width: 639px) {
+    .ss-mini > .sd {
+      display: none;
+    }
+  }
+  /* Room and corners for the accent wash that marks a changed line of text, without moving it. */
+  .ss-mini .ss-h1,
+  .ss-mini p,
+  .ss-mini .ss-more {
+    margin-inline: -4px;
+    padding-inline: 4px;
+    border-radius: 4px;
+  }
+  /* An option shows its change by moving there: colours fade, corners and shadows morph. The
+     mode toggle is a real control and keeps its own motion. */
+  .ss-mini,
+  .ss-mini .sd,
+  .ss-mini .pn,
+  .ss-mini .ss-nv,
+  .ss-mini .ss-h1,
+  .ss-mini p,
+  .ss-mini .ss-st,
+  .ss-mini .ss-tag,
+  .ss-mini .ss-more,
+  .ss-mini .pn .ss-btn {
+    transition:
+      color 0.2s ease,
+      background-color 0.2s ease,
+      border-color 0.2s ease,
+      border-radius 0.24s cubic-bezier(0.77, 0, 0.175, 1),
+      box-shadow 0.24s cubic-bezier(0.77, 0, 0.175, 1);
+  }
+  /* The editor's sticky preview. Once pinned it grows a little from its top edge, so its corners sit
+     past the side edges of the list scrolling under it instead of meeting them. A scale, not a
+     wider margin, so the preview is not laid out again on every frame while the page scrolls. */
+  @media (min-width: 768px) {
+    .ss-ministick {
+      margin-inline: -8px;
+      padding-inline: 8px;
+      transform-origin: top;
+      transition: transform 0.22s cubic-bezier(0.23, 1, 0.32, 1);
+    }
+    .ss-ministick.stuck {
+      transform: scale(1.02);
+    }
+  }
+  @media (min-width: 768px) and (prefers-reduced-motion: reduce) {
+    .ss-ministick {
+      transition: none;
+    }
+  }
+  /* A choice shown as a small colour sample and its name (custom theme backgrounds). */
+  .ss-tint {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    height: 30px;
+    padding: 0 11px 0 7px;
+    font: 500 13px/1 var(--f);
+    color: var(--ink-2);
+    background: var(--surface);
+    border: var(--bw) solid var(--line);
+    border-radius: var(--r-btn);
+  }
+  .ss-tint:hover {
+    border-color: var(--line-2);
+  }
+  .ss-tint.on {
+    color: var(--ink);
+    font-weight: 600;
+    border-color: var(--line-2);
+    background: var(--sel);
+  }
+  :root[data-theme='playful'] .ss-tint.on {
+    border-color: var(--line);
+    background: var(--sel);
+    box-shadow: 2px 2px 0 var(--line);
+  }
+  .ss-tint-sw {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    box-shadow: 0 0 0 1px var(--line-2);
+  }
+  /* The colour swatch in a hex field opens the system colour picker. */
+  /* A 14px colour inside a 24px target; the negative margin keeps the field's layout. */
+  .ss-swatch,
+  .ss-inp > .ss-swatch {
+    flex: none;
+    width: 24px;
+    height: 24px;
+    margin: -5px;
+    padding: 5px;
+    border: 0;
+    border-radius: 3px;
+    background: none;
+    cursor: pointer;
+  }
+  .ss-swatch::-webkit-color-swatch-wrapper {
+    padding: 0;
+  }
+  .ss-swatch::-webkit-color-swatch {
+    border: 0;
+    border-radius: 3px;
+  }
+  .ss-swatch::-moz-color-swatch {
+    border: 0;
+    border-radius: 3px;
+  }
+  .ss-code {
+    font: 400 12.5px/1.65 var(--fm);
+    padding: 14px 16px;
+    border-radius: 10px;
+    background: var(--sunken);
+    border: 1px solid var(--line);
+    color: var(--ink-2);
+    white-space: pre;
+    overflow: hidden;
+  }
+  :root[data-theme='playful'] .ss-code {
+    border: 2px solid var(--line);
+    border-radius: 12px;
+  }
+  .ss-code .ln {
+    color: var(--ink-3);
+    opacity: 0.7;
+    margin-right: 14px;
+    user-select: none;
+  }
+}

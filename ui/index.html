@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-theme="playful">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="./app-icon.png" />
@@ -11,28 +11,70 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Skillshare" />
     <title>Skillshare Web Dashboard</title>
-    <!-- Body text uses the system font. Kalam is only for Playful headings. -->
+    <!-- Body text uses the system font. Kalam (Playful headings) and a custom theme's font are
+         added by the script below only when the saved style uses them, so they never block paint. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&display=swap" rel="stylesheet" />
     <script>
-      // FOUC prevention: handle Clean theme + dark mode before first paint
-      // Default is Playful (already set on <html>); only remove for explicit Clean
-      // URL ?theme= param overrides localStorage (values: dark, light, playful, clean)
-      (function() {
-        var p = new URLSearchParams(location.search).get('theme');
-        if (p) {
-          p = p.toLowerCase();
+      // FOUC prevention: apply the Playful style and dark mode before first paint.
+      // Clean is the default (no data-theme on <html>); only an explicit Playful sets it.
+      // URL ?theme= param overrides localStorage (values: dark, light, playful, clean).
+      // ?mode= (dark, light) and ?style= (playful, clean, custom) name one axis each and win over it.
+      // Custom applies the stylesheet ThemeContext cached from the saved custom theme.
+      (function () {
+        var q = new URLSearchParams(location.search);
+        var get = function (key) {
+          return (q.get(key) || '').toLowerCase();
+        };
+        [get('theme'), get('mode')].forEach(function (p) {
           if (p === 'dark' || p === 'light') localStorage.setItem('skillshare-theme-preference', p);
+        });
+        [get('theme'), get('style')].forEach(function (p) {
           if (p === 'playful' || p === 'clean') localStorage.setItem('skillshare-style', p);
-        }
+        });
+        if (get('style') === 'custom') localStorage.setItem('skillshare-style', 'custom');
+        var root = document.documentElement;
         var style = localStorage.getItem('skillshare-style');
         var pref = localStorage.getItem('skillshare-theme-preference');
-        if (style === 'clean') {
-          document.documentElement.removeAttribute('data-theme');
+        if (style === 'playful') {
+          root.setAttribute('data-theme', 'playful');
         }
-        var dark = pref === 'dark' || (pref === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
-        if (dark) document.documentElement.classList.add('dark');
+        if (style === 'custom') {
+          try {
+            var custom = JSON.parse(localStorage.getItem('skillshare-custom-theme') || '{}');
+            var css = localStorage.getItem('skillshare-custom-css');
+            if (custom.base === 'playful') root.setAttribute('data-theme', 'playful');
+            if (custom.base !== 'playful' && custom.layout === 'full') {
+              root.setAttribute('data-layout', 'full');
+            }
+            var font = localStorage.getItem('skillshare-custom-font');
+            if (font && font.indexOf('https://fonts.googleapis.com/') === 0) {
+              var link = document.createElement('link');
+              link.id = 'ss-custom-font';
+              link.rel = 'stylesheet';
+              link.href = font;
+              document.head.appendChild(link);
+            }
+            if (css) {
+              var sheet = document.createElement('style');
+              sheet.id = 'ss-custom-theme';
+              sheet.textContent = css;
+              document.head.appendChild(sheet);
+              root.setAttribute('data-custom', '');
+            }
+          } catch (e) {}
+        }
+        if (root.getAttribute('data-theme') === 'playful') {
+          var kalam = document.createElement('link');
+          kalam.id = 'ss-kalam';
+          kalam.rel = 'stylesheet';
+          kalam.href = 'https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&display=swap';
+          document.head.appendChild(kalam);
+        }
+        var dark =
+          pref === 'dark' ||
+          (pref === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+        if (dark) root.classList.add('dark');
       })();
     </script>
   </head>

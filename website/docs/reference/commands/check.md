@@ -48,7 +48,7 @@ Pass `--exit-code` to also exit with code `1` when every item could be checked b
 `check` inspects your source directory and reports update status for:
 
 1. **Tracked repositories** — Fetches from origin, shows how many commits you're behind
-2. **Installed skills (with metadata)** — Compares installed version against the remote HEAD
+2. **Installed skills (with metadata)** — Compares installed version against the remote HEAD. When they differ, a skill installed from a repository subfolder is still up to date if that subfolder did not change
 3. **Stale skills** — Detects skills whose subdirectory was deleted from the upstream repository
 4. **Locally modified skills** — Compares the files of a skill installed from a repository with the files recorded at install time, and reports `"status": "modified"` when you edited, added, or deleted any of them
 5. **Local-path installs** — Compares the files at the path you installed from with the files recorded at install time (see [Local-Path Installs](#local-path-installs))
@@ -185,7 +185,7 @@ When a skill's subdirectory was renamed or deleted upstream, `check` reports it 
 :::
 
 :::info Locally modified skills
-A skill you edited after installing it is reported as **modified**, even when upstream has a newer version; its `message` then ends with `update available upstream`. `update` leaves it alone until you run `skillshare update <name> --force`, which discards your changes and reinstalls it. OS metadata files (`.DS_Store`, `Thumbs.db`, `desktop.ini`) do not count as local changes.
+A skill you edited after installing it is reported as **modified**, even when upstream has a newer version; its `message` then ends with `update available upstream` and `--json` sets `"upstream_changed": true`. `update` leaves it alone until you run `skillshare update <name> --merge`, which keeps your changes and merges upstream's into them, or `skillshare update <name> --force`, which discards your changes and reinstalls it. OS metadata files (`.DS_Store`, `Thumbs.db`, `desktop.ini`) do not count as local changes.
 
 To see the changes first, run `skillshare check <name> --diff`. It fetches the commit the skill was installed at, so the diff shows only your edits even when upstream has moved on:
 
@@ -201,7 +201,7 @@ To see the changes first, run `skillshare check <name> --diff`. It fetches the c
 :::
 
 :::tip Monorepo awareness
-For skills installed from a subdirectory, `check` only reports "update available" when that specific directory changed — not when unrelated parts of the repo have new commits.
+For skills installed from a subdirectory, `check` only reports "update available" when that specific directory changed — not when unrelated parts of the repo have new commits. For a skill installed through a link to a folder, such as `.agents/skills/<name>`, that is the folder the link leads to.
 :::
 
 ## Project Mode
@@ -224,7 +224,7 @@ skillshare check agents -p           # Check project agents
 skillshare check --all               # Check skills and agents together
 ```
 
-Each agent is compared with the branch it was installed from. An agent whose recorded source was lost by an earlier `update agents` reports `error` and asks you to reinstall it; see [Troubleshooting](/docs/troubleshooting/common-errors#agent-source-lost).
+Each agent is compared with the branch it was installed from. When that branch has moved on but the agent's file did not change, the agent is still up to date. An agent you edited since install is reported as drifted; when upstream also has a newer version, its `message` ends with `update available upstream`, `--json` sets `"upstreamChanged": true`, and `skillshare update agents <name> --merge` merges it. An agent whose recorded source was lost by an earlier `update agents` reports `error` and asks you to reinstall it; see [Troubleshooting](/docs/troubleshooting/common-errors#agent-source-lost).
 
 Without the `agents` argument or `--all`, `check` operates on skills only (default behavior). See [Agents](/docs/understand/agents) for background.
 

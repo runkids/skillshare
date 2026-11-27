@@ -59,7 +59,7 @@ export extern "skillshare updates" [
 # Project command
 def "nu-complete skillshare project" [] { [list show add edit sync remove localize share] }
 def "nu-complete skillshare project-naming" [] { [flat standard prefixed] }
-def "nu-complete skillshare project-target" [] { [adal aiderdesk amp antigravity antigravity-cli astrbot augment autohand-code bob claude cline codearts codebuddy codestudio codex comate commandcode continue copilot cortex crush cursor deepagents deepseek-harness devin dexto droid firebender forgecode fx gemini gitlab-duo goose grok hermes iflow jazz junie kilocode kimchi kimi kimi-code kiro kode letta lingma mcpjam mux neovate omp ona openclaw opencode openhands pi pochi posit-assistant purecode qoder qoder-cn qwen reasonix replit roo rovodev tabnine trae trae-cn universal verdent vibe warp windsurf witsy xcode-claude xcode-codex zcode zed zencoder] }
+def "nu-complete skillshare project-target" [] { [adal aiderdesk amp antigravity antigravity-cli astrbot augment autohand-code bob claude cline codearts codebuddy codestudio codex comate commandcode continue copilot cortex crush cursor deepagents deepseek-harness devin dexto droid firebender forgecode fx gemini gitlab-duo goose grok hermes iflow jazz junie kilocode kimchi kimi kimi-code kiro kode letta lingma mcpjam minimax-code mux neovate omp ona openclaw opencode openhands pi pochi posit-assistant purecode qoder qoder-cn qwen reasonix replit roo rovodev tabnine trae trae-cn universal verdent vibe warp windsurf witsy xcode-claude xcode-codex zcode zed zencoder] }
 
 export extern "skillshare project" [
     subcommand?: string@"nu-complete skillshare project"
@@ -77,6 +77,7 @@ export extern "skillshare project" [
     --skills-exclude: string
     --agents-include: string
     --agents-exclude: string
+    --scan: path
     --machine-local
     --shared
     --sync
@@ -109,6 +110,10 @@ def "nu-complete skillshare hooks" [] {
 }
 
 def "nu-complete skillshare plugin-target" [] {
+    [claude codex cursor antigravity agy antigravity-cli copilot grok kimi hermes devin pi opencode omp herdr-app]
+}
+
+def "nu-complete skillshare plugin-from" [] {
     [claude codex cursor antigravity agy antigravity-cli copilot grok kimi hermes devin pi opencode omp]
 }
 
@@ -153,6 +158,8 @@ export extern "skillshare hooks" [
     --sync
     --replace
     --keep-files # remove: leave Agent entries as they are
+    --trust # sync: record Codex trust
+    --yes(-y) # sync --trust: record trust without asking
     --dry-run(-n)
     --json
     --project(-p)
@@ -164,7 +171,7 @@ export extern "skillshare plugin" [
     command?: string@"nu-complete skillshare plugin"
     value?: string
     --target: string@"nu-complete skillshare plugin-target"
-    --from: string@"nu-complete skillshare plugin-target"
+    --from: string@"nu-complete skillshare plugin-from"
     --plugin: string
     --name: string
     --source-ref: string
@@ -605,6 +612,7 @@ export extern "skillshare update" [
     --all(-a)                # Update all
     --dry-run(-n)            # Preview changes
     --force(-f)              # Force update
+    --merge                  # Merge upstream changes into local edits
     --skip-audit             # Skip security audit
     --audit-threshold: string@"nu-complete skillshare audit-threshold"
     --threshold(-T): string@"nu-complete skillshare audit-threshold"

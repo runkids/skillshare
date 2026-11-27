@@ -28,6 +28,16 @@ func (s *Service) Apply(ctx context.Context, r Request, revision string) (*Resul
 	if p.Revision != revision {
 		return nil, fmt.Errorf("plugin state changed since preview; preview again")
 	}
+	if len(r.Plugins) > 1 {
+		batch := *s
+		batch.batchSources = make(map[[2]string]pluginCheckout)
+		defer func() {
+			for _, checkout := range batch.batchSources {
+				checkout.cleanup()
+			}
+		}()
+		return batch.applyPlan(ctx, r, p)
+	}
 	return s.applyPlan(ctx, r, p)
 }
 
@@ -49,7 +59,7 @@ func (s *Service) Lock() (unlock func(), err error) {
 }
 
 // applyPlan persists declarations once, then records all native work privately.
-func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (*Result, error) {
+func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (_ *Result, resultErr error) {
 	if p.Blocked {
 		return nil, fmt.Errorf("resolve blocked plugin targets before applying")
 	}
@@ -136,6 +146,23 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (*Result, e
 	s.applyConfig = &d.raw
 	defer func() { s.applyConfig = nil }()
 	result := &Result{Results: []Outcome{}}
+	var layout herdrLayoutReceipt
+	if p.HerdrPanel != nil && p.HerdrPanel.Mod != "" {
+		// On first install Herdr can dock into an active personal layout as
+		// soon as the folder appears. Switch to the reviewed copy first.
+		defer func() {
+			if layout.valid() {
+				resultErr = errors.Join(resultErr, s.removeHerdrLayout(ctx, layout))
+			}
+		}()
+		if err := s.checkApplyIntent(); err != nil {
+			return nil, err
+		}
+		layout, err = s.applyHerdrPanel(ctx, p.HerdrPanel)
+		if err != nil {
+			return nil, err
+		}
+	}
 	failures := []error{}
 	failed := map[string]bool{}
 	// OMP targets an earlier change in this apply already wrote natively.
@@ -175,6 +202,20 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (*Result, e
 		}
 		local := d.state.Bindings[c.Name][c.Target]
 		decl, declared := d.intent[c.Name].Bindings[c.Target]
+		view := c.herdrLayoutView
+		herdrEnabledSync := r.Action == "sync" && c.Target == "herdr-app" && c.Binding.Selected()
+		if view != nil && (!view.Resume || c.Action == "noop") {
+			if err := d.checkIntent(s.ConfigPath); err != nil {
+				return result, errors.Join(append(failures, err)...)
+			}
+			if err := s.applyHerdrLayoutView(ctx, d, view, &local); err != nil {
+				return result, errors.Join(append(failures, err)...)
+			}
+			d.putLocal(c.Name, c.Target, local)
+			if err := s.saveState(d); err != nil {
+				return result, errors.Join(append(failures, err)...)
+			}
+		}
 
 		if c.Action == "noop" {
 			if r.Action == "add" && !c.Binding.Imported && local.Applied != nil && c.Binding.ID == local.Applied.Binding.ID {
@@ -234,6 +275,21 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (*Result, e
 			c.ompRemoval = &removal
 		}
 		applyErr := s.applyChange(ctx, c, &b)
+		if applyErr == nil && view != nil && view.Resume {
+			applyErr = s.applyHerdrLayoutView(ctx, d, view, &local)
+		}
+		if applyErr == nil && len(c.herdrLayoutCleanup) != 0 {
+			for _, layout := range c.herdrLayoutCleanup {
+				if !layout.Keep {
+					if applyErr = s.removeHerdrLayout(ctx, layout.herdrLayoutReceipt); applyErr != nil {
+						break
+					}
+				}
+			}
+			if applyErr == nil {
+				local.HerdrLayouts = nil
+			}
+		}
 		if s.agentOf(c.Target) == "omp" {
 			ompWritten[c.Target] = true
 		}
@@ -243,6 +299,9 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (*Result, e
 			failures = append(failures, applyErr)
 			failed[key] = true
 		} else {
+			if herdrEnabledSync {
+				clearHerdrLayoutSuspension(&local, view)
+			}
 			local.Pending = nil
 			local.Legacy = nil
 			b.Pending = ""
@@ -267,6 +326,27 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (*Result, e
 					outcome.Message = "Existing installation adopted without changing its enabled state."
 				}
 			}
+			if s.agentOf(c.Target) == "herdr-app" {
+				mod, launcher := s.herdrLayouts()
+				switch {
+				case c.Action == "remove" || c.Action == "uninstall" || c.Action == "forget":
+					outcome.Message, outcome.MessageKey, outcome.MessageArgs = "Removed.", "plugins.outcome.herdrRemoved", nil
+					if kept := c.MessageArgs["keep"]; kept != "" && len(c.herdrLayoutCleanup) != 0 {
+						outcome.Message = "Kept edited or unverified Herdr layouts: " + kept + "."
+						outcome.MessageKey, outcome.MessageArgs = "plugins.note.herdrLayoutKeep", map[string]string{"keep": kept}
+					}
+				case b.Entry != "" && c.Action == "update":
+					outcome.Message = "Updated " + b.ID + "; close and reopen it to use the updated version."
+					outcome.MessageKey, outcome.MessageArgs = "plugins.outcome.herdrLauncherUpdated", map[string]string{"id": b.ID}
+				case b.Entry != "":
+					path := filepath.Join(launcher.root, b.ID, filepath.FromSlash(b.Entry))
+					outcome.Message, outcome.MessageKey, outcome.MessageArgs = "Installed at "+path+".", "plugins.outcome.herdrLauncherInstalled", map[string]string{"path": path}
+				default:
+					path := filepath.Join(mod.root, b.ID)
+					outcome.Message = "Installed in " + path + "; Herdr reloads the mod when files change. A mod with `place: none` needs a layout entry."
+					outcome.MessageKey, outcome.MessageArgs = "plugins.outcome.herdrModInstalled", map[string]string{"path": path}
+				}
+			}
 			if s.agentOf(c.Target) == "omp" && (c.Action == "remove" || c.Action == "forget" || c.Action == "uninstall") {
 				outcome.Message, outcome.MessageKey = "Removed from this scope; shared cache, marketplaces and plugin settings were retained.", "plugins.outcome.ompRemoved"
 			}
@@ -274,6 +354,7 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (*Result, e
 			if err := s.saveState(d); err != nil {
 				outcome.Status = "failed"
 				outcome.Message = "Native operation completed, but recording its result failed; inspect status before retrying."
+				outcome.MessageKey, outcome.MessageArgs = "plugins.outcome.recordFailedHelp", nil
 				result.Results = append(result.Results, outcome)
 				return result, errors.Join(append(failures, err)...)
 			}
@@ -285,6 +366,32 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (*Result, e
 		if err := s.saveState(d); err != nil {
 			return result, errors.Join(append(failures, err)...)
 		}
+	}
+	if p.HerdrPanel != nil && len(failures) == 0 {
+		outcome := Outcome{Name: p.HerdrPanel.Name, Target: "herdr-app", Status: "installed"}
+		outcome.Message, outcome.MessageKey = "Opened the Skillshare panel in the new Herdr layout.", "plugins.outcome.herdrPanelShown"
+		var err error
+		if p.HerdrPanel.Mod == "" {
+			layout, err = s.applyHerdrPanel(ctx, p.HerdrPanel)
+		} else {
+			outcome.Message, outcome.MessageKey = "Added the mod panel to the new Herdr layout.", "plugins.outcome.herdrDockShown"
+		}
+		if err == nil {
+			name := p.Changes[0].Name // Placement previews select exactly one mod and one target.
+			local := d.state.Bindings[name]["herdr-app"]
+			local.HerdrLayouts = append(local.HerdrLayouts, layout)
+			d.putLocal(name, "herdr-app", local)
+			err = s.saveState(d)
+			if err == nil {
+				layout = herdrLayoutReceipt{} // The recorded copy now belongs to the installation.
+			}
+		}
+		if err != nil {
+			outcome.Status, outcome.Message = "failed", err.Error()
+			outcome.MessageKey, outcome.MessageArgs = ErrorKey(err)
+			failures = append(failures, err)
+		}
+		result.Results = append(result.Results, outcome)
 	}
 	return result, errors.Join(failures...)
 }

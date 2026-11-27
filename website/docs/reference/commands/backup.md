@@ -204,6 +204,7 @@ This means:
 - In merge mode: Only local (non-symlinked) skills are backed up. Synced skills live in the source
 - In copy mode: All managed skill directories are backed up (they are real files)
 - In symlink mode: Nothing is backed up (entire directory is a single symlink)
+- A target folder that is another tool's link (a dotfiles manager) is backed up from the directory it leads to; `restore` replaces that directory's contents and keeps the link
 
 If a target contains nothing but symlinks, no backup is created and `backup` reports nothing to do — an empty restore point is not useful.
 

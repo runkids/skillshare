@@ -18,7 +18,7 @@ import (
 type CopyResult struct {
 	Copied     []string // newly copied skills
 	Skipped    []string // checksum unchanged, or a user's folder kept
-	KeptLocal  []string // the Skipped that are a user's folder on a skill's name; --force replaces them
+	KeptLocal  []string // the Skipped that are a user's folder, or a link skillshare did not create, on a skill's name; --force replaces them
 	Updated    []string // checksum changed, overwritten
 	DirCreated string   // Non-empty if target directory was auto-created (or would be in dry-run)
 	// UnmatchedIncludes are the include patterns that select no skill.
@@ -150,8 +150,14 @@ func SyncTargetCopyWithSkillsOptions(name string, target config.TargetConfig, al
 		exists := lstatErr == nil
 
 		if exists {
-			// If it's a symlink (leftover from merge mode), remove it
+			// A link left from merge mode is replaced with a copy. A same-name link
+			// from another tool is kept, like a local copy, unless --force.
 			if utils.IsSymlinkOrJunction(targetSkillPath) {
+				if !force && !manifest.OwnsLink(activeName, targetSkillPath, sourcePath) {
+					result.Skipped = append(result.Skipped, activeName)
+					result.KeptLocal = append(result.KeptLocal, activeName)
+					continue
+				}
 				if dryRun {
 					if !quietDryRun {
 						fmt.Fprintf(DiagOutput, "[dry-run] Would replace symlink with copy: %s\n", activeName)
@@ -360,7 +366,7 @@ func pruneOrphanCopiesWithConfig(targetName string, sc config.ResourceTargetConf
 
 // CheckStatusCopy checks the status of a target in copy mode.
 // Returns: status, managed count, local count.
-func CheckStatusCopy(targetPath string) (TargetStatus, int, int) {
+func CheckStatusCopy(targetPath, sourcePath string) (TargetStatus, int, int) {
 	info, err := os.Lstat(targetPath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -369,13 +375,8 @@ func CheckStatusCopy(targetPath string) (TargetStatus, int, int) {
 		return StatusUnknown, 0, 0
 	}
 
-	// If it's a symlink, it's using symlink mode, not copy
-	if utils.IsSymlinkOrJunction(targetPath) {
-		return StatusLinked, 0, 0
-	}
-
-	if !info.IsDir() {
-		return StatusUnknown, 0, 0
+	if status, done := rootLinkStatus(targetPath, sourcePath, info); done {
+		return status, 0, 0
 	}
 
 	manifest, err := ReadManifest(targetPath)
@@ -437,7 +438,7 @@ func DirMaxMtimeWithIgnore(dir string, ignorePatterns []string) (int64, error) {
 			if info.Name() == ".git" {
 				return filepath.SkipDir
 			}
-			if relPath != "." && isFileIgnored(ignore, relPath, true) {
+			if relPath != "." && ignore.CanSkipDir(relPath) {
 				return filepath.SkipDir
 			}
 			return nil
@@ -503,6 +504,34 @@ type checksumEntry struct {
 // collectChecksumEntries recursively collects file entries for checksumming.
 // Directory symlinks are dereferenced to hash effective copied content.
 func collectChecksumEntries(root, relPrefix string, entries *[]checksumEntry, active map[string]bool, ignore *skillignore.Matcher) error {
+	return walkCopiedFiles(root, relPrefix, active, ignore, func(relPath, path string) error {
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		*entries = append(*entries, checksumEntry{relPath: relPath, content: content})
+		return nil
+	})
+}
+
+// CopiedFiles lists, by skill-relative path, the files copy mode copies from
+// dir under ignorePatterns. Directory symlinks are followed as the copy does.
+func CopiedFiles(dir string, ignorePatterns []string) (map[string]os.FileInfo, error) {
+	files := map[string]os.FileInfo{}
+	err := walkCopiedFiles(dir, "", map[string]bool{}, compileFileIgnore(ignorePatterns), func(relPath, path string) error {
+		info, err := os.Stat(path)
+		if err != nil {
+			return err
+		}
+		files[relPath] = info
+		return nil
+	})
+	return files, err
+}
+
+// walkCopiedFiles calls visit for each file the copy walk copies from root,
+// with its skill-relative path. Directory symlinks are dereferenced.
+func walkCopiedFiles(root, relPrefix string, active map[string]bool, ignore *skillignore.Matcher, visit func(relPath, path string) error) error {
 	resolvedRoot, err := resolveLinkRoot(root)
 	if err != nil {
 		return fmt.Errorf("failed to resolve checksum root %s: %w", root, err)
@@ -541,7 +570,7 @@ func collectChecksumEntries(root, relPrefix string, entries *[]checksumEntry, ac
 			if info.Name() == ".git" {
 				return filepath.SkipDir
 			}
-			if fullRelPath != "" && isFileIgnored(ignore, fullRelPath, true) {
+			if fullRelPath != "" && ignore.CanSkipDir(fullRelPath) {
 				return filepath.SkipDir
 			}
 			return nil
@@ -562,16 +591,10 @@ func collectChecksumEntries(root, relPrefix string, entries *[]checksumEntry, ac
 				if resolveErr != nil {
 					return fmt.Errorf("failed to resolve symlink directory %s: %w", path, resolveErr)
 				}
-				return collectChecksumEntries(resolvedDir, fullRelPath, entries, active, ignore)
+				return walkCopiedFiles(resolvedDir, fullRelPath, active, ignore, visit)
 			}
 		}
 
-		content, err := os.ReadFile(path)
-		if err != nil {
-			return err
-		}
-
-		*entries = append(*entries, checksumEntry{relPath: fullRelPath, content: content})
-		return nil
+		return visit(fullRelPath, path)
 	})
 }

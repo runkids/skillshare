@@ -219,7 +219,7 @@ $ skillshare sync
   Context  ~1.2K tokens always loaded · ~18.5K on demand
 ```
 
-若你自己建立的資料夾已佔用某個 skill 要同步的名稱，sync 會保留你的資料夾，不安裝該 skill。每個有這類資料夾的 target 會多一行，列出前幾個名稱（`kept local: a, b (sync --force replaces them)`），並計為 `local` 而不是 `up to date`。`skillshare diff` 會把它們列為 `Local override`。
+若你自己建立的資料夾已佔用某個 skill 要同步的名稱，sync 會保留你的資料夾，不安裝該 skill。其他工具放在那裡的連結（指向 source 之外，且 manifest 沒有記錄）也一樣。每個有這類資料夾的 target 會多一行，列出前幾個名稱（`kept local: a, b (sync --force replaces them)`），並計為 `local` 而不是 `up to date`。`skillshare diff` 會把它們列為 `Local override`。
 
 ---
 
@@ -307,7 +307,8 @@ git add → commit → push`"]
 
 - **Symlinked source** — 所有指令（`sync`、`update`、`uninstall`、`list`、`diff`、`install`）在走訪前都會先解析 symlink，因此 skills 能被正確發現。連鎖 symlinks（link → link → 實際目錄）也能運作。
 - **Symlinked target** — `sync` 會偵測到該 target symlink**不是**由 skillshare 建立的，並予以保留。Skills 會同步進解析後的目錄。
-- **Status/collect** — `status` 與 `collect` 會跟隨外部 target symlinks，而不是回報衝突。
+- **Status/diff/collect** — `status`、`diff` 與 `collect` 會跟隨外部 target symlinks，而不是回報衝突。
+- **Backup/restore** — `backup` 與 `restore` 會使用外部 target symlink 指向的目錄，並保留該連結。`target remove` 會保留該連結，並清理它指向的目錄。
 
 :::info sync 如何判斷
 當 target 目錄是 symlink 時，sync 會檢查它是否指向 skillshare 的 source 目錄。只有由 skillshare 自身 symlink mode 建立的 symlinks，才會在 mode 轉換時被移除 — 外部的 symlinks（來自 dotfiles managers）一律會被保留。
@@ -697,6 +698,7 @@ Token 數量相同的 targets 會合併顯示在同一行。
 context_budget:
   warn_always_loaded_tokens: 10000   # 預設值；0 = 停用
   warn_on_demand_tokens: 100000      # 預設值；0 = 停用
+  warn_mcp_tool_tokens: 30000        # 預設值；0 = 停用
 ```
 
 超過門檻時，會顯示警告並列出前 3 名占用最多的項目：
@@ -708,6 +710,16 @@ context_budget:
      • another-verbose-skill           ~6,400 tokens
      • chatgpt-system-prompt           ~5,100 tokens
    Run `skillshare analyze` for details.
+```
+
+### MCP 工具定義
+
+`skillshare sync mcp` 與 `skillshare sync --all` 在 MCP 步驟之後（即使沒有檔案改變），也會印出每個 MCP target 的工具定義成本，並在某個 target（或某個 `mcp.projects` 根目錄）超過 `warn_mcp_tool_tokens` 時發出警告。數字來自 [`mcp check --live`](/docs/reference/commands/mcp#count-tool-tokens)，所以在即時檢查計算過某個 server 之前不會印出任何內容；尚未計算的 server 會被點名，絕不當成 0：
+
+```
+MCP tool definitions (upper bound)  claude ~6.8K · codex ~5.7K
+! claude: MCP tool definitions are ~6,750 tokens (budget: 5,000)
+   Largest: github ~3,276, playwright ~1,932, sentry ~1,092
 ```
 
 ### 安靜模式

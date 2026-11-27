@@ -5,6 +5,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
+
+	"skillshare/internal/sync"
 )
 
 func TestDiffSkillFiles_IdenticalDirs(t *testing.T) {
@@ -14,7 +17,7 @@ func TestDiffSkillFiles_IdenticalDirs(t *testing.T) {
 	writeTestFile(t, src, "SKILL.md", "# Hello")
 	writeTestFile(t, dst, "SKILL.md", "# Hello")
 
-	diffs := diffSkillFiles(src, dst)
+	diffs := diffSkillFiles(src, dst, nil)
 	if len(diffs) != 0 {
 		t.Fatalf("expected 0 diffs for identical dirs, got %d: %+v", len(diffs), diffs)
 	}
@@ -28,7 +31,7 @@ func TestDiffSkillFiles_NewFile(t *testing.T) {
 	writeTestFile(t, src, "extra.md", "extra content")
 	writeTestFile(t, dst, "SKILL.md", "# Hello")
 
-	diffs := diffSkillFiles(src, dst)
+	diffs := diffSkillFiles(src, dst, nil)
 	if len(diffs) != 1 {
 		t.Fatalf("expected 1 diff, got %d: %+v", len(diffs), diffs)
 	}
@@ -48,7 +51,7 @@ func TestDiffSkillFiles_DeletedFile(t *testing.T) {
 	writeTestFile(t, dst, "SKILL.md", "# Hello")
 	writeTestFile(t, dst, "old.md", "old content")
 
-	diffs := diffSkillFiles(src, dst)
+	diffs := diffSkillFiles(src, dst, nil)
 	if len(diffs) != 1 {
 		t.Fatalf("expected 1 diff, got %d: %+v", len(diffs), diffs)
 	}
@@ -67,7 +70,7 @@ func TestDiffSkillFiles_ModifiedFile(t *testing.T) {
 	writeTestFile(t, src, "SKILL.md", "# Hello v2")
 	writeTestFile(t, dst, "SKILL.md", "# Hello v1")
 
-	diffs := diffSkillFiles(src, dst)
+	diffs := diffSkillFiles(src, dst, nil)
 	if len(diffs) != 1 {
 		t.Fatalf("expected 1 diff, got %d: %+v", len(diffs), diffs)
 	}
@@ -81,7 +84,7 @@ func TestDiffSkillFiles_SrcOnly(t *testing.T) {
 	writeTestFile(t, src, "a.md", "aaa")
 	writeTestFile(t, src, "b.md", "bbb")
 
-	diffs := diffSkillFiles(src, "/nonexistent_dir_that_does_not_exist")
+	diffs := diffSkillFiles(src, "/nonexistent_dir_that_does_not_exist", nil)
 	if len(diffs) != 2 {
 		t.Fatalf("expected 2 diffs, got %d: %+v", len(diffs), diffs)
 	}
@@ -106,7 +109,7 @@ func TestDiffSkillFiles_NestedDir(t *testing.T) {
 	}
 	writeTestFile(t, src, filepath.Join("sub", "extra.md"), "nested content")
 
-	diffs := diffSkillFiles(src, dst)
+	diffs := diffSkillFiles(src, dst, nil)
 	if len(diffs) != 1 {
 		t.Fatalf("expected 1 diff, got %d: %+v", len(diffs), diffs)
 	}
@@ -148,5 +151,99 @@ func writeTestFile(t *testing.T, dir, relPath, content string) {
 	}
 	if err := os.WriteFile(full, []byte(content), 0644); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// Sync keeps another tool's link on a skill's name, so diff lists it as a
+// local override instead of reporting the target in sync or a skill to add.
+func TestDiffListsLinkFromAnotherToolAsOverride(t *testing.T) {
+	source, target := t.TempDir(), t.TempDir()
+	skill := filepath.Join(source, "alpha")
+	if err := os.MkdirAll(skill, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// Broken, so a check that follows the link would see nothing there.
+	if err := os.Symlink(filepath.Join(t.TempDir(), "gone"), filepath.Join(target, "alpha")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	resolved := []sync.ResolvedTargetSkill{{Skill: sync.DiscoveredSkill{SourcePath: skill, FlatName: "alpha"}, TargetName: "alpha"}}
+	names := map[string]bool{"alpha": true}
+	manifest, _ := sync.ReadManifest(target)
+
+	var merge, copyMode targetDiffResult
+	collectMergeDiff(&merge, target, source, names, map[string]string{"alpha": skill}, nil, nil)
+	collectCopyDiff(&copyMode, "claude", target, source, resolved, "flat", names, nil, manifest, nil, nil)
+
+	for mode, r := range map[string]targetDiffResult{"merge": merge, "copy": copyMode} {
+		cats := categorizeItems(r.items)
+		if len(cats) != 1 || cats[0].kind != "override" {
+			t.Errorf("%s: want one local override, got items %+v", mode, r.items)
+		}
+	}
+}
+
+// A copy made under ignore: ["!.DS_Store"] holds .DS_Store; merge sync still
+// recognizes it as copy mode's copy and replaces it, so diff says so.
+func TestDiffMergeModeCopyWithReincludedDefaultIsReplacedWithLink(t *testing.T) {
+	source, target := t.TempDir(), t.TempDir()
+	skill, copyDir := filepath.Join(source, "alpha"), filepath.Join(target, "alpha")
+	for _, dir := range []string{skill, copyDir} {
+		writeTestFile(t, dir, "SKILL.md", "# alpha")
+		writeTestFile(t, dir, ".DS_Store", "finder")
+	}
+	patterns := sync.EffectiveFileIgnorePatterns([]string{"!.DS_Store"})
+	checksum, err := sync.DirChecksumWithIgnore(skill, patterns)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := sync.WriteManifest(target, &sync.Manifest{Managed: map[string]string{"alpha": checksum}}); err != nil {
+		t.Fatal(err)
+	}
+
+	var r targetDiffResult
+	collectMergeDiff(&r, target, source, map[string]bool{"alpha": true}, map[string]string{"alpha": skill}, nil, patterns)
+
+	if len(r.items) != 1 || r.items[0].reason != sync.CopyToLinkReason {
+		t.Fatalf("items = %+v, want the copy replaced with a link", r.items)
+	}
+}
+
+// A file ignore: keeps out of the copy does not move "source changed".
+func TestCopiedMtimeLeavesOutIgnoredFiles(t *testing.T) {
+	dir := t.TempDir()
+	writeTestFile(t, dir, "SKILL.md", "# a")
+	writeTestFile(t, dir, "notes.md", "later")
+	skillTime := time.Now().Add(-time.Hour).Truncate(time.Second)
+	if err := os.Chtimes(filepath.Join(dir, "SKILL.md"), skillTime, skillTime); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := copiedMtime(dir, sync.EffectiveFileIgnorePatterns([]string{"notes.md"})); !got.Equal(skillTime) {
+		t.Errorf("copiedMtime = %v, want SKILL.md's %v", got, skillTime)
+	}
+}
+
+// In merge mode sync prunes a link whose skill left the source, so diff lists
+// it. A live link to another location is kept, so diff says nothing about it.
+func TestDiffListsOrphanLinkThatSyncPrunes(t *testing.T) {
+	source, target, other := t.TempDir(), t.TempDir(), t.TempDir()
+	if err := os.Symlink(filepath.Join(source, "removed"), filepath.Join(target, "removed")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if err := os.Symlink(other, filepath.Join(target, "theirs")); err != nil {
+		t.Fatal(err)
+	}
+	if err := sync.WriteManifest(target, &sync.Manifest{Managed: map[string]string{"removed": "symlink"}}); err != nil {
+		t.Fatal(err)
+	}
+
+	var r targetDiffResult
+	collectMergeDiff(&r, target, source, map[string]bool{}, map[string]string{}, nil, nil)
+
+	if len(r.items) != 1 || r.items[0].name != "removed" || r.items[0].action != "remove" || !r.items[0].isSync || r.syncCount != 1 {
+		t.Fatalf("items = %+v syncCount = %d, want only the orphan link listed as a sync change", r.items, r.syncCount)
+	}
+	if cats := categorizeItems(r.items); len(cats) != 1 || cats[0].kind != "orphan" {
+		t.Errorf("want one orphan category, got %+v", cats)
 	}
 }

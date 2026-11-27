@@ -86,7 +86,9 @@ skillshare doctor
 
 Use `skillshare analyze --json` to inspect description/body size and estimated context
 cost per target. Estimates describe loaded skill text, not measured billing or cache savings.
-Use `--no-tui` for plain terminal output.
+Use `--no-tui` for plain terminal output. A whole-source run also lists MCP tool-definition
+tokens per MCP target (and `--json` adds `mcp`) once `skillshare mcp check --live` has counted
+servers. The lint warns when a SKILL.md body passes 500 lines (`body-too-long`).
 
 ## updates
 
@@ -121,8 +123,17 @@ skillshare upgrade --dry-run    # Preview
 `upgrade --skill --force` installs without that prompt. Use this only when installation
 is requested. `init --skill` also opts in explicitly.
 
+**Disabled built-in skill:** when `.skillignore` disables it, sync leaves it out of
+every target and `doctor` and `status` warn. Run `skillshare enable skillshare -g && skillshare sync -g`.
+
 **Nix installs:** the CLI binary is never replaced, even with `--force`; `upgrade` prints
 `nix profile upgrade skillshare` or says to rebuild the Nix configuration. The skill still updates.
+
+**PyPI installs** (`skillshare-cli` from uv, pipx, pip or pixi): the CLI binary is never replaced, even with
+`--force`; `upgrade` prints the installer's command, such as `uv tool upgrade skillshare-cli`. The skill still updates.
+
+**pixi installs** (the `skillshare` conda package): the CLI binary is never replaced, even with `--force`;
+`upgrade` prints `pixi global update skillshare`, or `pixi upgrade skillshare` in a pixi project. The skill still updates.
 
 **After upgrading skill:** `skillshare sync`
 

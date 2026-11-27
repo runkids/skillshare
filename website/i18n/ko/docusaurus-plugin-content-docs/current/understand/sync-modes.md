@@ -55,6 +55,7 @@ skills/                         ~/.claude/skills/
 - 세밀한 제어
 - target별 include/exclude 필터링
 - manifest 기반 orphan 정리 (uninstall 후 symlink가 아닌 잔여물도 안전하게 제거)
+- 다른 도구가 target에 둔 링크는 건드리지 않습니다. 이름이 같은 링크가 source 밖을 가리키고 manifest에 기록되어 있지 않으면 그대로 두고 로컬로 보고합니다 (`sync --force`로 교체). copy mode에서도 마찬가지입니다
 
 :::info Project mode에서의 상대 symlink
 project mode(`-p`)에서는 symlink가 절대 경로가 아닌 **상대 경로**로 생성됩니다(예: `../../.skillshare/skills/my-skill`). 이로 인해 프로젝트가 이식 가능해집니다 — 디렉터리를 옮기거나 이름을 바꿔도 symlink는 계속 작동합니다. global mode에서는 source와 target이 서로 다른 위치에 있으므로 절대 경로가 사용됩니다.
@@ -306,7 +307,8 @@ merge와 copy mode 모두, `sync`는 자동으로 orphan을 정리합니다:
 
 - 삭제된 source skill을 가리키는 **symlink**는 항상 제거됨
 - `.skillshare-manifest.json`에 등록된 (이전에 skillshare가 관리하던) **실제 디렉터리**는 제거됨
-- manifest에 없는 **알 수 없는 디렉터리**는 경고와 함께 보존됨 (사용자가 만든 것으로 간주)
+- manifest에 없는 **알 수 없는 디렉터리**는 경고와 함께 보존됨 (사용자가 만든 것으로 간주). 이름만 skillshare의 것처럼 보이는 폴더(`_repo`, `group__skill`)도 여기에 포함되며, `sync --force`로 제거됨
+- **source 밖을 가리키는 깨진 링크**는 manifest에 기록된 경우(예: source를 옮긴 뒤)에만 제거됨. 다른 도구나 사용자가 만든 깨진 링크는 경고와 함께 보존됨
 
 이는 `uninstall` + `sync` 이후, symlink가 아닌 잔여물(예: 이전 `copy` mode에서 남은 디렉터리)도 안전하게 정리된다는 뜻입니다.
 

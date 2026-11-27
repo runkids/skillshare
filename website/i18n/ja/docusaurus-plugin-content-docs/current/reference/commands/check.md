@@ -48,7 +48,7 @@ result=$(skillshare check --json)
 `check` は Source ディレクトリを調べ、以下について更新状況を報告します。
 
 1. **トラッキング対象のリポジトリ** — origin から fetch し、何コミット遅れているかを表示
-2. **メタデータ付きのインストール済み Skill** — インストール済みのバージョンをリモートの HEAD と比較
+2. **メタデータ付きのインストール済み Skill** — インストール済みのバージョンをリモートの HEAD と比較。異なる場合でも、リポジトリのサブフォルダからインストールした Skill は、そのサブフォルダが変わっていなければ up to date です
 3. **Stale な Skill** — アップストリームリポジトリからサブディレクトリが削除された Skill を検出
 4. **ローカルで変更された Skill** — リポジトリからインストールした Skill のファイルを、インストール時に記録したファイルと比較し、ファイルを編集・追加・削除していた場合は `"status": "modified"` を報告
 5. **ローカルパスからのインストール** — インストール元のパスにあるファイルを、インストール時に記録したファイルと比較（[ローカルパスからのインストール](#local-path-installs)を参照）
@@ -185,7 +185,7 @@ Skill のサブディレクトリがアップストリームでリネームま�
 :::
 
 :::info ローカルで変更された Skill
-インストール後に編集した Skill は、upstream に新しいバージョンがあっても **modified** と報告され、その `message` は `update available upstream` で終わります。`update` は `skillshare update <name> --force` を実行するまで手を付けません。このコマンドは変更を破棄して再インストールします。OS のメタデータファイル（`.DS_Store`、`Thumbs.db`、`desktop.ini`）はローカルの変更として数えません。
+インストール後に編集した Skill は、upstream に新しいバージョンがあっても **modified** と報告され、その `message` は `update available upstream` で終わり、`--json` では `"upstream_changed": true` になります。`update` は `skillshare update <name> --merge`（変更を残したまま upstream の変更をマージします）または `skillshare update <name> --force`（変更を破棄して再インストールします）を実行するまで手を付けません。OS のメタデータファイル（`.DS_Store`、`Thumbs.db`、`desktop.ini`）はローカルの変更として数えません。
 
 先に変更内容を確認するには、`skillshare check <name> --diff` を実行します。Skill がインストールされた commit を取得するため、upstream が先に進んでいても diff にはあなたの編集だけが表示されます:
 
@@ -201,7 +201,7 @@ Skill のサブディレクトリがアップストリームでリネームま�
 :::
 
 :::tip モノレポでの挙動
-サブディレクトリからインストールされた Skill については、`check` はそのディレクトリ自体が変更された場合にのみ「update available」を報告します。リポジトリの無関係な部分に新しいコミットがあっても報告されません。
+サブディレクトリからインストールされた Skill については、`check` はそのディレクトリ自体が変更された場合にのみ「update available」を報告します。リポジトリの無関係な部分に新しいコミットがあっても報告されません。`.agents/skills/<name>` のようにフォルダへのリンク経由でインストールした Skill では、リンク先のフォルダが対象です。
 :::
 
 ## Project mode
@@ -224,7 +224,7 @@ skillshare check agents -p           # Project の Agent を確認
 skillshare check --all               # Skill と Agent をまとめて確認
 ```
 
-各 Agent はインストール元のブランチと比較されます。以前の `update agents` によって記録された source が失われた Agent は `error` を報告し、再インストールを求めます。[トラブルシューティング](/docs/troubleshooting/common-errors#agent-source-lost)を参照してください。
+各 Agent はインストール元のブランチと比較されます。そのブランチが進んでいても Agent のファイルが変わっていなければ、up to date のままです。インストール後に編集した Agent は drifted として報告されます。upstream にも新しいバージョンがある場合、その `message` は `update available upstream` で終わり、`--json` では `"upstreamChanged": true` が設定され、`skillshare update agents <name> --merge` でマージできます。以前の `update agents` によって記録された source が失われた Agent は `error` を報告し、再インストールを求めます。[トラブルシューティング](/docs/troubleshooting/common-errors#agent-source-lost)を参照してください。
 
 `agents` 引数も `--all` も指定しない場合、`check` は Skill のみを対象にします（デフォルトの挙動）。背景については [Agents](/docs/understand/agents) を参照してください。
 

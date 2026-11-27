@@ -65,6 +65,7 @@ skillshare의 디렉터리 레이아웃과 파일 위치입니다.
 ├── mcp/                     # MCP Sync 상태 (자동 관리)
 │   ├── state.json           # Skillshare가 소유한 네이티브 항목
 │   ├── tool-pins.json       # mcp check --live가 기록한 도구 정의 해시
+│   ├── tool-costs.json      # mcp check --live의 도구 토큰 수 (캐시)
 │   └── backups/             # 매 작성 전 Agent 파일 백업 (파일당 최신 20개)
 └── plugins/                 # 검토된 플러그인 Source 로컬 사본
 
@@ -311,7 +312,7 @@ Sync에서 Agent를 제외합니다. Agent Source 루트에 위치합니다:
 draft-*
 
 # 특정 Agent 비활성화
-experimental-reviewer
+experimental-reviewer.md
 ```
 
 [gitignore 문법](https://git-scm.com/docs/gitignore)을 사용합니다. `.skillignore`와 동일한 패턴 규칙(`*`, `**`, `!negation`, `#` 주석 등)이 적용됩니다. 비활성화된 Agent는 Source 디렉터리에 남아 있지만 Sync에서 제외됩니다.

@@ -1,4 +1,12 @@
-import { createContext, useContext, useState, useCallback, useRef, useEffect, type ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useRef,
+  useEffect,
+  type ReactNode,
+} from 'react';
 import { X, CheckCircle, AlertTriangle, XCircle, Info } from 'lucide-react';
 
 interface Toast {
@@ -48,13 +56,7 @@ const iconColors = {
 const TOAST_DURATION = 4000;
 const EXIT_DURATION = 200;
 
-function ToastItem({
-  toast: t,
-  onRemove,
-}: {
-  toast: Toast;
-  onRemove: (id: number) => void;
-}) {
+function ToastItem({ toast: t, onRemove }: { toast: Toast; onRemove: (id: number) => void }) {
   const Icon = icons[t.type];
   // Errors/warnings often carry longer text — give them more time to read.
   const duration = t.type === 'error' || t.type === 'warning' ? 8000 : TOAST_DURATION;
@@ -83,14 +85,22 @@ function ToastItem({
 
   useEffect(() => {
     startTimer();
-    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
   }, [startTimer]);
 
   return (
     <div
       className={`ss-toast relative !flex !h-auto min-h-[42px] !items-start py-2.5 overflow-hidden ${t.message.includes('\n') ? 'w-full' : ''} ${exiting ? 'animate-toast-out' : 'animate-toast-in'}`}
-      onMouseEnter={() => { setPaused(true); pauseTimer(); }}
-      onMouseLeave={() => { setPaused(false); startTimer(); }}
+      onMouseEnter={() => {
+        setPaused(true);
+        pauseTimer();
+      }}
+      onMouseLeave={() => {
+        setPaused(false);
+        startTimer();
+      }}
     >
       <Icon size={16} className={`shrink-0 mt-px ${iconColors[t.type]}`} />
       <div className="flex-1 min-w-0">
@@ -122,11 +132,17 @@ function ToastItem({
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
-  const addToast = useCallback((message: string, type: Toast['type'] = 'info', opts?: ToastOptions) => {
-    const id = nextId++;
-    const key = opts?.key;
-    setToasts((prev) => [...prev.filter((t) => !key || t.key !== key), { id, message, type, title: opts?.title, key }]);
-  }, []);
+  const addToast = useCallback(
+    (message: string, type: Toast['type'] = 'info', opts?: ToastOptions) => {
+      const id = nextId++;
+      const key = opts?.key;
+      setToasts((prev) => [
+        ...prev.filter((t) => !key || t.key !== key),
+        { id, message, type, title: opts?.title, key },
+      ]);
+    },
+    [],
+  );
 
   const removeToast = useCallback((id: number) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -136,7 +152,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={{ toast: addToast }}>
       {children}
       {/* Toast container */}
-      <div data-toast-container className="fixed bottom-7 left-1/2 -translate-x-1/2 z-[70] flex flex-col items-center gap-2 w-[min(36rem,calc(100vw-3rem))]">
+      <div
+        data-toast-container
+        className="fixed bottom-7 left-1/2 -translate-x-1/2 z-[70] flex flex-col items-center gap-2 w-[min(36rem,calc(100vw-3rem))]"
+      >
         {toasts.map((t) => (
           <ToastItem key={t.id} toast={t} onRemove={removeToast} />
         ))}

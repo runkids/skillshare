@@ -1,0 +1,36 @@
+/* Base */
+body {
+  font: 400 14px/1.45 var(--f);
+  color: var(--ink);
+  background-color: var(--bg);
+  background-image: radial-gradient(var(--dots) 1px, transparent 1px);
+  background-size: 24px 24px;
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: 'tnum' 1;
+}
+/* Clean inset panel: the page sits on a raised panel inset from a shell the sidebar shares.
+   Desktop width only; the mobile header and drawer keep the plain layout. A custom theme can opt out with data-layout="full". */
+@media (min-width: 768px) {
+  :root:not([data-theme='playful']):not([data-layout='full']) body {
+    background-color: var(--shell);
+  }
+  :root:not([data-theme='playful']):not([data-layout='full']) .ss-main {
+    margin: 8px 8px 8px 232px;
+    min-height: calc(100vh - 16px);
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: calc(var(--r-box) + 2px);
+    box-shadow: 0 1px 3px rgba(20, 19, 18, 0.05);
+  }
+  :root:not([data-theme='playful']).dark:not([data-layout='full']) .ss-main {
+    box-shadow: none;
+  }
+}
+svg.lucide {
+  flex: none;
+  stroke-width: var(--isw);
+}
+:root:not([data-theme='playful']) .ss-only-playful,
+:root[data-theme='playful'] .ss-only-clean {
+  display: none !important;
+}

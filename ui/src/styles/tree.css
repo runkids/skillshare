@@ -1,0 +1,398 @@
+@layer components {
+  /* Skills tree view: framed box with the tree left, a detail pane right and a draggable divider. */
+  .ss-split {
+    display: flex;
+    height: clamp(420px, calc(100vh - 260px), 760px);
+  }
+  .ss-split .lp.settle {
+    transition: width 0.36s var(--spring-bounce);
+  }
+  /* Reduced motion: no spring, just a brief fade as the pane takes its limit. */
+  @media (prefers-reduced-motion: reduce) {
+    .ss-split .lp.settle {
+      transition: none;
+      animation: ss-settle-fade 0.2s ease-out;
+    }
+  }
+  @keyframes ss-settle-fade {
+    from {
+      opacity: 0.5;
+    }
+  }
+  .ss-split > .lp {
+    flex: none;
+    min-width: 0;
+    overflow: auto;
+    padding: 6px;
+  }
+  .ss-split > .rp {
+    flex: 1 1 0;
+    min-width: 0;
+    overflow: auto;
+  }
+  .ss-split > .dv {
+    position: relative;
+    flex: none;
+    width: 9px;
+    margin: 0 -4px;
+    z-index: 1;
+    cursor: col-resize;
+    touch-action: none;
+  }
+  .ss-split > .dv::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 4px;
+    border-left: var(--sep);
+  }
+  .ss-split > .dv:is(:hover, :focus-visible)::before {
+    border-left: 2px solid var(--accent);
+    left: 3.5px;
+  }
+  .ss-split > .dv:focus-visible {
+    outline: 0;
+  }
+  .ss-tn {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 32px;
+    padding: 0 8px 0 calc(4px + var(--d, 0) * 18px);
+    border-radius: 6px;
+    font-size: 13px;
+    color: var(--ink);
+    cursor: pointer;
+    user-select: none;
+  }
+  .ss-tn:hover {
+    background: var(--sunken);
+  }
+  .ss-tn.sel {
+    background: var(--sel);
+    color: var(--sel-ink);
+  }
+  .ss-tn.in {
+    background: color-mix(in srgb, var(--sel) 45%, transparent);
+  }
+  /* A selected folder and the rows inside it read as one block, so only its outer corners are round. */
+  .ss-tn.sel:has(+ .ss-tn.in),
+  .ss-tn.in {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+  .ss-tn.in {
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+  }
+  .ss-tn.in:not(:has(+ .ss-tn.in)) {
+    border-bottom-left-radius: 6px;
+    border-bottom-right-radius: 6px;
+  }
+  :root[data-theme='playful'] .ss-tn.sel {
+    outline: 1.5px solid var(--line);
+    outline-offset: -1.5px;
+  }
+  :root[data-theme='playful'] .ss-tn.in {
+    background: var(--pe);
+  }
+  .ss-tn:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+  }
+  .ss-tree {
+    --tl: color-mix(in srgb, var(--ink) 10%, var(--surface));
+  }
+  /* A folder's line runs down from its chevron; each child curves in from it, and the last child's curve ends it. */
+  .ss-tn .gd {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: calc(16px + var(--g) * 18px);
+    border-left: 1px solid var(--tl);
+  }
+  .ss-tn .gd.el {
+    bottom: auto;
+    height: 16px;
+    width: var(--w);
+    border-bottom: 1px solid var(--tl);
+    border-bottom-left-radius: 6px;
+  }
+  .ss-tn .gd.el.on::after {
+    content: '';
+    position: absolute;
+    left: -1px;
+    top: 10px;
+    height: 22px;
+    border-left: 1px solid var(--tl);
+  }
+  /* Rows a folder opens grow in; the rows of a folder being closed shrink away first. */
+  @keyframes ss-tn-grow {
+    from {
+      height: 0;
+      opacity: 0;
+    }
+  }
+  .ss-tree .ss-tn {
+    transition:
+      height 0.18s ease-in,
+      opacity 0.15s;
+  }
+  .ss-tree .ss-tn.grow {
+    overflow: hidden;
+    animation: ss-tn-grow 0.2s ease-out;
+  }
+  .ss-tree .ss-tn.shut {
+    height: 0;
+    opacity: 0;
+    overflow: hidden;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ss-tree .ss-tn {
+      transition: none;
+    }
+    .ss-tree .ss-tn.grow {
+      animation: none;
+    }
+  }
+  .ss-tn .cv {
+    flex: none;
+    width: 24px;
+    height: 24px;
+    display: grid;
+    place-items: center;
+    border-radius: 5px;
+    color: var(--ink-3);
+  }
+  .ss-tn button.cv:hover {
+    color: var(--ink);
+  }
+  .ss-tn .ic {
+    color: var(--ink-2);
+  }
+  .ss-tn .nm {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font: 500 13px/1 var(--fm);
+    letter-spacing: -0.015em;
+  }
+  .ss-tn .nm.f {
+    font-weight: 600;
+  }
+  .ss-tn .nm .sl {
+    padding: 0 4px;
+    font-weight: 400;
+    color: var(--ink-3);
+  }
+  .ss-tn.off .nm {
+    color: var(--ink-3);
+  }
+  .ss-tn.sel :is(.ic, .cv, .sl, .hv) {
+    color: inherit;
+  }
+  .ss-tn.sel.off .nm {
+    color: inherit;
+    opacity: 0.6;
+  }
+  .ss-tn .hv {
+    display: none;
+    flex: none;
+    align-items: center;
+    gap: 8px;
+    margin-left: 2px;
+    font-size: 12px;
+    color: var(--ink-3);
+  }
+  .ss-tn:is(:hover, :focus-visible) .hv {
+    display: inline-flex;
+  }
+  .ss-tree-props {
+    display: flex;
+    flex-direction: column;
+    border-top: var(--sep);
+  }
+  .ss-tree-props > div {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-height: 52px;
+    padding: 8px 0;
+    border-bottom: var(--sep);
+  }
+  .ss-tree-props .lb {
+    flex: none;
+    width: 96px;
+    font-size: 13px;
+    color: var(--ink-3);
+  }
+  .ss-tree-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 36px;
+    padding: 0 10px;
+    margin: 0 -10px;
+    border-radius: 6px;
+  }
+  .ss-tree-item:hover {
+    background: var(--sunken);
+  }
+  :root[data-theme='playful'] .ss-tiles {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 38px 24px;
+    padding-top: 14px;
+  }
+  :root[data-theme='playful'] .ss-tile {
+    position: relative;
+    min-height: 196px;
+    padding: 26px 16px 14px 18px;
+    gap: 8px;
+    --paper: #fff3a6;
+    background:
+      linear-gradient(rgba(38, 32, 26, 0.055), rgba(38, 32, 26, 0) 30px),
+      linear-gradient(168deg, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0) 45%), var(--paper);
+    border: 2px solid var(--line);
+    border-radius: 225px 12px 245px 18px / 18px 240px 12px 230px;
+    box-shadow: 5px 6px 0 rgba(38, 32, 26, 0.2);
+  }
+  :root[data-theme='playful'] .ss-tile:nth-child(6n + 2) {
+    --paper: #ffd3df;
+    border-radius: 240px 20px 210px 10px / 12px 215px 22px 250px;
+  }
+  :root[data-theme='playful'] .ss-tile:nth-child(6n + 3) {
+    --paper: #cfe8ff;
+    border-radius: 215px 8px 255px 14px / 20px 250px 10px 220px;
+  }
+  :root[data-theme='playful'] .ss-tile:nth-child(6n + 4) {
+    --paper: #d6f0c4;
+    border-radius: 250px 18px 220px 12px / 10px 230px 16px 245px;
+  }
+  :root[data-theme='playful'] .ss-tile:nth-child(6n + 5) {
+    --paper: #ffe1bd;
+    border-radius: 230px 10px 240px 22px / 16px 245px 8px 215px;
+  }
+  :root[data-theme='playful'] .ss-tile:nth-child(6n + 6) {
+    --paper: #e9daf7;
+    border-radius: 245px 14px 225px 16px / 14px 225px 18px 240px;
+  }
+  :root[data-theme='playful'].dark .ss-tile {
+    background:
+      linear-gradient(rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0) 30px),
+      color-mix(in srgb, var(--paper) 22%, var(--surface));
+    border-color: rgba(255, 255, 255, 0.22);
+    box-shadow: 5px 6px 0 rgba(0, 0, 0, 0.55);
+  }
+  :root[data-theme='playful'] .ss-tile::before {
+    content: '';
+    position: absolute;
+    top: -13px;
+    left: 50%;
+    width: 84px;
+    height: 25px;
+    transform: translateX(-50%) rotate(-2deg);
+    background:
+      linear-gradient(
+        rgba(255, 255, 255, 0.35),
+        rgba(255, 255, 255, 0) 40%,
+        rgba(120, 110, 80, 0.1)
+      ),
+      rgba(222, 214, 186, 0.62);
+    clip-path: polygon(
+      0 0,
+      3% 14%,
+      0 28%,
+      3% 42%,
+      0 57%,
+      3% 71%,
+      0 86%,
+      2% 100%,
+      98% 100%,
+      100% 86%,
+      97% 71%,
+      100% 57%,
+      97% 42%,
+      100% 28%,
+      97% 14%,
+      100% 0
+    );
+  }
+  :root[data-theme='playful'].dark .ss-tile::before {
+    background: rgba(232, 224, 198, 0.3);
+  }
+  :root[data-theme='playful'] .ss-tile:nth-child(4n + 1)::before {
+    left: 33%;
+    transform: translateX(-50%) rotate(-4deg);
+    width: 78px;
+  }
+  :root[data-theme='playful'] .ss-tile:nth-child(4n + 2)::before {
+    left: 60%;
+    transform: translateX(-50%) rotate(3deg);
+    width: 90px;
+  }
+  :root[data-theme='playful'] .ss-tile:nth-child(4n + 3)::before {
+    left: 44%;
+    transform: translateX(-50%) rotate(-1.5deg);
+  }
+  :root[data-theme='playful'] .ss-tile:nth-child(4n + 4)::before {
+    left: 66%;
+    transform: translateX(-50%) rotate(4.5deg);
+    width: 74px;
+  }
+  /* 22px, not the 25px of other headings: the name shares its row with a checkbox and a menu, which leaves
+   about 150px, and at 25px a single word such as "brainstorming" was one pixel too wide and broke mid-word. */
+  :root[data-theme='playful'] .ss-tile .nm {
+    font: 700 22px/1.15 var(--fh);
+    white-space: normal;
+  }
+  :root[data-theme='playful'] .ss-tile .ds {
+    font-size: 13.5px;
+    color: var(--ink-2);
+    -webkit-line-clamp: 3;
+  }
+  :root[data-theme='playful'] .ss-tile .ft {
+    padding-top: 10px;
+    border-top: 1.5px dashed rgba(38, 32, 26, 0.22);
+  }
+  :root[data-theme='playful'].dark .ss-tile .ft {
+    border-top-color: rgba(255, 255, 255, 0.16);
+  }
+  :root[data-theme='playful'] .ss-tile.sel {
+    box-shadow: 7px 8px 0 var(--line);
+    translate: -2px -2px;
+    background: linear-gradient(rgba(38, 32, 26, 0.055), rgba(38, 32, 26, 0) 30px), var(--paper);
+  }
+  :root[data-theme='playful'].dark .ss-tile.sel {
+    box-shadow: 7px 8px 0 var(--pa);
+    border-color: var(--pa);
+    background: color-mix(in srgb, var(--paper) 32%, var(--surface));
+  }
+  :root[data-theme='playful'] .ss-tile > .hd {
+    align-items: flex-start;
+  }
+  :root[data-theme='playful'] .ss-tile > .hd > :is(.ss-chk, label) {
+    margin-top: 5px;
+  }
+  .ss-code .cur {
+    margin: 0 -16px;
+    padding: 0 16px;
+    background: var(--accent-bg);
+    color: var(--ink);
+  }
+  .ss-code .mark {
+    margin: 0 -16px;
+    padding: 0 16px;
+    background: var(--warn-bg);
+    color: var(--ink);
+  }
+  .ss-code .mark .ln {
+    color: var(--warn);
+    opacity: 1;
+  }
+  :root[data-theme='playful'] .ss-code .cur {
+    background: var(--pe);
+  }
+}

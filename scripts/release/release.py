@@ -2,15 +2,18 @@
 """Synchronize release metadata and verify the exact artifacts before publication."""
 
 import argparse
+import base64
 import hashlib
 import json
 from pathlib import Path
 import platform
 import re
 import shutil
+import stat
 import subprocess
 import tarfile
 import tempfile
+import zipfile
 
 
 VERSION = r"(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)"
@@ -20,6 +23,34 @@ HEADING = re.compile(
     re.MULTILINE,
 )
 SKILL_VERSION = re.compile(rf"^(  version: )v({VERSION})$", re.MULTILINE)
+
+PYPI_NAME = "skillshare-cli"
+WHEEL_DIST = PYPI_NAME.replace("-", "_")
+# One wheel per GoReleaser archive. The binaries are static (CGO_ENABLED=0), so one
+# Linux wheel serves glibc and musl alike; Go 1.26 binaries need macOS 12 or later.
+WHEEL_TAGS = {
+    ("darwin", "amd64"): "macosx_12_0_x86_64",
+    ("darwin", "arm64"): "macosx_12_0_arm64",
+    ("linux", "amd64"): "manylinux_2_17_x86_64.manylinux2014_x86_64.musllinux_1_1_x86_64",
+    ("linux", "arm64"): "manylinux_2_17_aarch64.manylinux2014_aarch64.musllinux_1_1_aarch64",
+    ("windows", "amd64"): "win_amd64",
+    ("windows", "arm64"): "win_arm64",
+}
+WHEEL_METADATA = """\
+Metadata-Version: 2.4
+Name: skillshare-cli
+Version: {version}
+Summary: Share skills across AI CLI tools
+License-Expression: MIT
+Project-URL: Homepage, https://skillshare.runkids.cc
+Project-URL: Source, https://github.com/runkids/skillshare
+Project-URL: Issues, https://github.com/runkids/skillshare/issues
+Description-Content-Type: text/markdown
+
+# skillshare
+
+The skillshare CLI, packaged for `uv tool install skillshare-cli`, `pipx install skillshare-cli` and `pip install skillshare-cli`. The command is `skillshare`. Documentation: https://skillshare.runkids.cc
+"""
 
 
 def manifest_version(root):
@@ -80,22 +111,114 @@ def check(root, tag=None, sha=None):
     return version
 
 
+def archive_name(version, os_name, arch):
+    return f"skillshare_{version}_{os_name}_{arch}.{('zip' if os_name == 'windows' else 'tar.gz')}"
+
+
+def wheel_name(version, os_name, arch):
+    return f"{WHEEL_DIST}-{version}-py3-none-{WHEEL_TAGS[(os_name, arch)]}.whl"
+
+
 def required_assets(version):
-    return {
-        f"skillshare_{version}_{os_name}_{arch}.{('zip' if os_name == 'windows' else 'tar.gz')}"
-        for os_name in ("darwin", "linux", "windows")
-        for arch in ("amd64", "arm64")
-    } | {"skillshare-ui-dist.tar.gz", "skillshare.rb"}
+    return (
+        {archive_name(version, os_name, arch) for os_name, arch in WHEEL_TAGS}
+        | {wheel_name(version, os_name, arch) for os_name, arch in WHEEL_TAGS}
+        | {"skillshare-ui-dist.tar.gz", "skillshare.rb"}
+    )
 
 
-def prepare_assets(directory):
+def archive_binary(path):
+    """Return the skillshare binary from a release archive without reading any other member."""
+    error = ValueError(f"Expected a regular skillshare binary in {path.name}")
+    if path.suffix == ".zip":
+        with zipfile.ZipFile(path) as archive:
+            try:
+                info = archive.getinfo("skillshare.exe")
+            except KeyError:
+                raise error from None
+            if info.is_dir() or stat.S_ISLNK(info.external_attr >> 16):
+                raise error
+            return archive.read(info)
+    with tarfile.open(path) as archive:
+        try:
+            member = archive.getmember("skillshare")
+        except KeyError:
+            raise error from None
+        if not member.isfile():
+            raise error
+        return archive.extractfile(member).read()
+
+
+def wheel_entry(name, mode):
+    # A fixed timestamp makes rebuilds byte-identical. create_system 3 (Unix) makes
+    # installers honor the mode bits even when the wheel is built on Windows.
+    info = zipfile.ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
+    info.create_system = 3
+    info.external_attr = (stat.S_IFREG | mode) << 16
+    info.compress_type = zipfile.ZIP_DEFLATED
+    return info
+
+
+def record_line(name, data):
+    digest = base64.urlsafe_b64encode(hashlib.sha256(data).digest()).rstrip(b"=").decode()
+    return f"{name},sha256={digest},{len(data)}\n"
+
+
+def build_wheels(directory, version):
+    """Wrap each archive's binary in a wheel that installs it as the skillshare script."""
+    prefix = f"{WHEEL_DIST}-{version}"
+    for (os_name, arch), tag in WHEEL_TAGS.items():
+        binary = archive_binary(directory / archive_name(version, os_name, arch))
+        script = "skillshare.exe" if os_name == "windows" else "skillshare"
+        wheel_file = "Wheel-Version: 1.0\nGenerator: skillshare release.py\nRoot-Is-Purelib: false\n"
+        wheel_file += "".join(f"Tag: py3-none-{platform_tag}\n" for platform_tag in tag.split("."))
+        entries = [
+            (f"{prefix}.data/scripts/{script}", binary, 0o755),
+            (f"{prefix}.dist-info/METADATA", WHEEL_METADATA.format(version=version).encode(), 0o644),
+            (f"{prefix}.dist-info/WHEEL", wheel_file.encode(), 0o644),
+        ]
+        record = "".join(record_line(name, data) for name, data, _ in entries) + f"{prefix}.dist-info/RECORD,,\n"
+        entries.append((f"{prefix}.dist-info/RECORD", record.encode(), 0o644))
+        with zipfile.ZipFile(directory / wheel_name(version, os_name, arch), "w") as wheel:
+            for name, data, mode in entries:
+                wheel.writestr(wheel_entry(name, mode), data)
+
+
+def prepare_assets(directory, version):
     shutil.copyfile(directory.parent / "skillshare-ui-dist.tar.gz", directory / "skillshare-ui-dist.tar.gz")
     formula = directory / "homebrew/Formula/skillshare.rb"
     shutil.copyfile(formula, directory / "skillshare.rb")
+    build_wheels(directory, version)
     checksum_file = directory / "checksums.txt"
-    lines = [line for line in checksum_file.read_text().splitlines() if not line.endswith("  skillshare.rb")]
-    digest = hashlib.sha256(formula.read_bytes()).hexdigest()
-    checksum_file.write_text("\n".join(lines) + f"\n{digest}  skillshare.rb\n")
+    lines = [line for line in checksum_file.read_text().splitlines() if not line.endswith(("  skillshare.rb", ".whl"))]
+    lines.append(f"{hashlib.sha256(formula.read_bytes()).hexdigest()}  skillshare.rb")
+    for os_name, arch in WHEEL_TAGS:
+        name = wheel_name(version, os_name, arch)
+        lines.append(f"{hashlib.sha256((directory / name).read_bytes()).hexdigest()}  {name}")
+    checksum_file.write_text("\n".join(lines) + "\n")
+
+
+def verify_wheels(directory, version):
+    """Prove each wheel carries exactly its archive's binary, this version and a true RECORD."""
+    prefix = f"{WHEEL_DIST}-{version}"
+    for os_name, arch in WHEEL_TAGS:
+        name = wheel_name(version, os_name, arch)
+        script = f"{prefix}.data/scripts/{'skillshare.exe' if os_name == 'windows' else 'skillshare'}"
+        metadata, record = f"{prefix}.dist-info/METADATA", f"{prefix}.dist-info/RECORD"
+        with zipfile.ZipFile(directory / name) as wheel:
+            infos = wheel.infolist()
+            entries = {info.filename: wheel.read(info) for info in infos}
+        # A repeated name would let an installer pick a copy this check never compared.
+        if len(infos) != len(entries) or set(entries) != {script, metadata, f"{prefix}.dist-info/WHEEL", record}:
+            raise ValueError(f"Wheel metadata differs from the release: {name}")
+        if entries[script] != archive_binary(directory / archive_name(version, os_name, arch)):
+            raise ValueError(f"Wheel binary differs from its archive: {name}")
+        fields = entries[metadata].decode().split("\n\n", 1)[0].splitlines()
+        if f"Name: {PYPI_NAME}" not in fields or f"Version: {version}" not in fields:
+            raise ValueError(f"Wheel metadata differs from the release: {name}")
+        expected = "".join(record_line(path, data) for path, data in entries.items() if path != record) + f"{record},,\n"
+        if sorted(entries[record].decode().splitlines()) != sorted(expected.splitlines()):
+            raise ValueError(f"Wheel RECORD does not match its contents: {name}")
 
 
 def verify_assets(root, directory, tag):
@@ -107,10 +230,11 @@ def verify_assets(root, directory, tag):
             raise ValueError("Malformed or duplicate checksum entry")
         checksums[match[2]] = match[1]
     if set(checksums) != required_assets(version):
-        raise ValueError("Checksums must contain all six archives, UI assets and the Homebrew formula")
+        raise ValueError("Checksums must contain all six archives, UI assets, the Homebrew formula and the PyPI wheels")
     for name, digest in checksums.items():
         if hashlib.sha256((directory / name).read_bytes()).hexdigest() != digest:
             raise ValueError(f"Checksum mismatch: {name}")
+    verify_wheels(directory, version)
     formula = (directory / "skillshare.rb").read_text()
     if f'version "{version}"' not in formula:
         raise ValueError("Homebrew formula version differs from the release manifest")
@@ -154,7 +278,7 @@ def main():
             if args.assets is None or (args.command == "verify-assets" and args.tag is None):
                 parser.error("--assets is required; verify-assets also requires --tag")
             if args.command == "prepare-assets":
-                prepare_assets(args.assets)
+                prepare_assets(args.assets, manifest_version(args.root))
             else:
                 verify_assets(args.root, args.assets, args.tag)
     except (ValueError, KeyError) as error:

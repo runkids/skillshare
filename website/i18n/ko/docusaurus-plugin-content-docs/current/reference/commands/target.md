@@ -91,6 +91,8 @@ skillshare target remove cursor --dry-run # Preview
 
 같은 skills 폴더에 쓰는 다른 target이 있으면(예: `codex`와 `universal`은 둘 다 `~/.agents/skills`를 사용) 2단계를 건너뜁니다. skills는 그 target을 위해 링크된 채 남고, 제거한 target만 config에서 빠집니다.
 
+skills 폴더가 다른 도구의 링크(dotfiles manager)인 경우 링크는 그대로 남고, 2단계는 그 링크가 가리키는 디렉터리에서 실행됩니다. 폴더가 가리키는 디렉터리가 다른 target과 같으면 그 target과 공유하는 것으로 봅니다.
+
 [skills를 끈](#skills-off) target은 동기화된 것이 없으므로 이 경우에도 2단계를 건너뛰고 폴더를 그대로 둡니다.
 
 ### target list
@@ -286,7 +288,7 @@ skills를 끄면 config에 `skills.enabled: false`가 저장되고, 이어서 �
 
 `--skills`는 한 명령에서 include/exclude 플래그와 함께 사용할 수 없으므로 따로 실행하세요. project mode(`-p`)에서도 동일하게 동작합니다.
 
-웹 대시보드에서는 target의 Skills 탭에서 **Skills 동기화 중지**를 사용하세요. 제거하기 전에 무엇이 제거되고 무엇이 남는지 보여 주며, 다른 도구가 같은 폴더를 읽고 있으면 경고합니다.
+웹 대시보드에서는 target의 Skills 탭 상단에 있는 **Skills 동기화** 스위치를 끄세요. 제거하기 전에 무엇이 제거되고 무엇이 남는지 보여 주며, 다른 도구가 같은 폴더를 읽고 있으면 경고합니다.
 
 ## 옵션
 

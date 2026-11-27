@@ -38,26 +38,47 @@ func (f *fakeRemote) record(call string) {
 	f.calls = append(f.calls, call)
 }
 
-func (f *fakeRemote) Hash(repoURL, branch string) (string, error) {
+// Hash names "main" as the default branch of every remote it can reach.
+func (f *fakeRemote) Hash(repoURL, branch string) (string, string, error) {
 	ref := fakeRef(repoURL, branch)
 	f.record("hash " + ref)
 	hash, ok := f.hashes[ref]
 	if !ok {
-		return "", errors.New("unreachable")
+		return "", "", errors.New("unreachable")
 	}
-	return hash, nil
+	if branch != "" {
+		return hash, "", nil
+	}
+	return hash, "main", nil
 }
 
-func (f *fakeRemote) TreeHashes(repoURL, branch string) map[string]string {
+func (f *fakeRemote) TreeHashes(repoURL, branch string) *RemoteTrees {
 	ref := fakeRef(repoURL, branch)
 	f.record("trees " + ref)
-	return f.trees[ref]
+	if f.trees[ref] == nil {
+		return nil
+	}
+	return &RemoteTrees{Hashes: f.trees[ref]}
 }
 
 func remoteSkill(name, version, treeHash, subdir string) Skill {
 	return Skill{Name: name, Entry: &install.MetadataEntry{
 		Source: "src/" + name, RepoURL: "u", Version: version, TreeHash: treeHash, Subdir: subdir,
 	}}
+}
+
+func TestResolution_DefaultBranchOnlyForSkillsFollowingHEAD(t *testing.T) {
+	pinned := remoteSkill("pinned", "c1", "", "")
+	pinned.Entry.Branch = "dev"
+	remote := &fakeRemote{hashes: map[string]string{"u": "c1", "u@dev": "c1"}}
+	results, err := Plan([]Skill{remoteSkill("head", "c1", "", ""), pinned}, "").Run(context.Background(), Options{Remote: remote})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := []string{results[0].DefaultBranch, results[1].DefaultBranch}
+	if want := []string{"main", ""}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("default branches = %q, want %q", got, want)
+	}
 }
 
 func TestResolution_Statuses(t *testing.T) {
@@ -141,6 +162,16 @@ func TestResolution_Statuses(t *testing.T) {
 				t.Errorf("remote calls = %v, want %v", remote.calls, tt.calls)
 			}
 		})
+	}
+}
+
+func TestResolution_UnreachableRemoteSaysWhy(t *testing.T) {
+	results, err := Plan([]Skill{remoteSkill("a", "c1", "", "")}, "").Run(context.Background(), Options{Remote: &fakeRemote{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if results[0].Message != "unreachable" {
+		t.Errorf("message = %q, want the remote error", results[0].Message)
 	}
 }
 
@@ -242,7 +273,7 @@ func TestResolution_LocalSkillsComeFirstWithTheirMetadata(t *testing.T) {
 	want := []SkillResult{
 		{Name: "bare", Status: "local", Local: true},
 		{Name: "local", Source: "src/local", Version: "v1", InstalledAt: "2024-05-06", Status: "local", Local: true},
-		{Name: "remote", Source: "src/remote", Version: "c1", InstalledAt: "2024-05-06", Status: "up_to_date"},
+		{Name: "remote", Source: "src/remote", Version: "c1", InstalledAt: "2024-05-06", Status: "up_to_date", DefaultBranch: "main"},
 	}
 	if !reflect.DeepEqual(results, want) {
 		t.Errorf("results:\n got %+v\nwant %+v", results, want)
@@ -334,7 +365,7 @@ func TestGitRemoteHash_DefaultBranchUsesAuth(t *testing.T) {
 	t.Setenv("GIT_CONFIG_COUNT", "")
 	t.Setenv("GITHUB_TOKEN", token)
 
-	hash, err := GitRemote{}.Hash("https://github.com/org/private-skills.git", "")
+	hash, _, err := GitRemote{}.Hash("https://github.com/org/private-skills.git", "")
 	if err != nil {
 		t.Fatalf("Hash without branch failed: %v", err)
 	}

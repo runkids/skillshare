@@ -1,5 +1,14 @@
 import { targetWarning } from '../targets/targetView';
-import { api, type DiffTarget, type ExtraDiffResult, type ExtrasSyncResult, type Skill, type SyncMatrixEntry, type SyncResponse, type Target } from '../../api/client';
+import {
+  api,
+  type DiffTarget,
+  type ExtraDiffResult,
+  type ExtrasSyncResult,
+  type Skill,
+  type SyncMatrixEntry,
+  type SyncResponse,
+  type Target,
+} from '../../api/client';
 import { hooksApi, type HookPlan } from '../../api/hooks';
 import { mcpApi, type MCPPlan } from '../../api/mcp';
 import { formatAgentDisplayName } from '../../lib/resourceNames';
@@ -39,7 +48,13 @@ export interface ChangeGroup {
 /** The server's reason (CopyToLinkReason) for a copy left by copy mode that a merge sync turns into a link. */
 const COPY_TO_LINK = 'copy mode copy (sync replaces with link)';
 
-const editedRow = (force: boolean) => ({ icon: force ? 'update' : 'kept', text: force ? 'sync.row.forceReplace' : 'sync.row.kept', counts: force, edited: true }) as const;
+const editedRow = (force: boolean) =>
+  ({
+    icon: force ? 'update' : 'kept',
+    text: force ? 'sync.row.forceReplace' : 'sync.row.kept',
+    counts: force,
+    edited: true,
+  }) as const;
 
 const flatKey = (name: string) => name.replace(/\//g, '__').replace(/\.md$/i, '');
 
@@ -47,10 +62,19 @@ const flatKey = (name: string) => name.replace(/\//g, '__').replace(/\.md$/i, ''
  * One group per target with pending skill or agent changes, in name order (the API order changes between requests).
  * Local-only items are listed elsewhere. `ignored` names the .skillignore/.agentignore matches, which prune like deleted items.
  */
-export function resourceGroups(diffs: DiffTarget[], targets: Target[], parts: Set<Part>, force: boolean, ignored: { skill?: string[]; agent?: string[] } = {}): { groups: ChangeGroup[]; inSync: string[] } {
+export function resourceGroups(
+  diffs: DiffTarget[],
+  targets: Target[],
+  parts: Set<Part>,
+  force: boolean,
+  ignored: { skill?: string[]; agent?: string[] } = {},
+): { groups: ChangeGroup[]; inSync: string[] } {
   const groups: ChangeGroup[] = [];
   const inSync: string[] = [];
-  const ignoredKeys = { skill: new Set((ignored.skill ?? []).map(flatKey)), agent: new Set((ignored.agent ?? []).map(flatKey)) };
+  const ignoredKeys = {
+    skill: new Set((ignored.skill ?? []).map(flatKey)),
+    agent: new Set((ignored.agent ?? []).map(flatKey)),
+  };
   for (const d of [...diffs].sort((a, b) => a.target.localeCompare(b.target))) {
     const target = targets.find((t) => t.name === d.target);
     const rows: ChangeRow[] = [];
@@ -60,17 +84,73 @@ export function resourceGroups(diffs: DiffTarget[], targets: Target[], parts: Se
       // Agents always sync as symlinks, whatever the target mode.
       const copy = part === 'skill' && target?.mode === 'copy';
       const warning = item.skill === '(target naming)' || item.skill === '(skill selection)';
-      const row = { key: `${d.target}/${part}/${item.skill}${warning ? `/${item.reason}` : ''}`, part, name: part === 'agent' ? formatAgentDisplayName(item.skill) : item.skill } as const;
+      const row = {
+        key: `${d.target}/${part}/${item.skill}${warning ? `/${item.reason}` : ''}`,
+        part,
+        name: part === 'agent' ? formatAgentDisplayName(item.skill) : item.skill,
+      } as const;
       // A kept item: a local folder holds the new name, so sync keeps the old entry, with or without force.
-      if (item.skill === '(skill selection)') rows.push({ ...row, name: targetWarning(item.reason ?? '')?.path ?? d.target, icon: 'kept', text: 'sync.skipped.ambiguousVariant', counts: false });
-      else if (warning || item.action === 'kept') rows.push({ ...row, icon: 'kept', text: null, detail: item.reason, counts: false });
-      else if (item.skill === '(entire directory)') rows.push({ ...row, name: target?.path ?? item.skill, icon: 'add', text: 'sync.row.folder', counts: true });
-      else if (item.action === 'link') rows.push({ ...row, icon: 'add', text: item.reason?.startsWith('missing') ? 'sync.row.recopy' : copy ? 'sync.row.newCopy' : 'sync.row.newLink', counts: true });
-      else if (item.action === 'update') rows.push({ ...row, icon: 'update', text: item.reason === COPY_TO_LINK ? 'sync.row.copyToLink' : copy ? 'sync.row.updateCopy' : 'sync.row.updateLink', counts: true });
-      else if (item.action === 'prune') rows.push({ ...row, icon: 'remove', text: ignoredKeys[part].has(flatKey(item.skill)) ? 'sync.row.pruneIgnored' : 'sync.row.prune', counts: true });
+      if (item.skill === '(skill selection)')
+        rows.push({
+          ...row,
+          name: targetWarning(item.reason ?? '')?.path ?? d.target,
+          icon: 'kept',
+          text: 'sync.skipped.ambiguousVariant',
+          counts: false,
+        });
+      else if (warning || item.action === 'kept')
+        rows.push({ ...row, icon: 'kept', text: null, detail: item.reason, counts: false });
+      else if (item.skill === '(entire directory)')
+        rows.push({
+          ...row,
+          name: target?.path ?? item.skill,
+          icon: 'add',
+          text: 'sync.row.folder',
+          counts: true,
+        });
+      else if (item.action === 'link')
+        rows.push({
+          ...row,
+          icon: 'add',
+          text: item.reason?.startsWith('missing')
+            ? 'sync.row.recopy'
+            : copy
+              ? 'sync.row.newCopy'
+              : 'sync.row.newLink',
+          counts: true,
+        });
+      else if (item.action === 'update')
+        rows.push({
+          ...row,
+          icon: 'update',
+          text:
+            item.reason === COPY_TO_LINK
+              ? 'sync.row.copyToLink'
+              : copy
+                ? 'sync.row.updateCopy'
+                : 'sync.row.updateLink',
+          counts: true,
+        });
+      else if (item.action === 'prune')
+        rows.push({
+          ...row,
+          icon: 'remove',
+          text: ignoredKeys[part].has(flatKey(item.skill))
+            ? 'sync.row.pruneIgnored'
+            : 'sync.row.prune',
+          counts: true,
+        });
       else if (item.action === 'skip') rows.push({ ...row, ...editedRow(force) });
     }
-    if (rows.length) groups.push({ key: `target/${d.target}`, part: 'target', name: d.target, mode: target?.mode, path: target?.path, rows });
+    if (rows.length)
+      groups.push({
+        key: `target/${d.target}`,
+        part: 'target',
+        name: d.target,
+        mode: target?.mode,
+        path: target?.path,
+        rows,
+      });
     else inSync.push(d.target);
   }
   return { groups, inSync };
@@ -80,29 +160,48 @@ export function resourceGroups(diffs: DiffTarget[], targets: Target[], parts: Se
 const EXTRA_EDITED = new Set(['not a symlink', 'content differs']);
 
 export function extraGroups(diffs: ExtraDiffResult[], force: boolean): ChangeGroup[] {
-  return diffs.filter((d) => d.items?.length).map((d) => ({
-    key: `extra/${d.name}/${d.target}`,
-    part: 'extra',
-    name: d.name,
-    mode: d.mode,
-    path: d.target,
-    // Without a source folder the sync only creates it, so nothing lands in the target.
-    rows: d.items.map((i) => (i.reason === 'no source directory'
-      ? { key: `${d.name}/${d.target}/*`, part: 'extra', name: d.name, icon: 'kept', text: 'sync.row.extraNoSource', counts: false }
-      : {
-        key: `${d.name}/${d.target}/${i.file}`,
-        part: 'extra',
-        name: i.file,
-        ...(EXTRA_EDITED.has(i.reason) ? editedRow(force) : {
-          icon: i.action === 'update' ? 'update' : 'add',
-          text: i.action === 'update' ? 'sync.row.extraUpdate' : 'sync.row.extraCreate',
-          counts: true,
-        }),
-      })),
-  }));
+  return diffs
+    .filter((d) => d.items?.length)
+    .map((d) => ({
+      key: `extra/${d.name}/${d.target}`,
+      part: 'extra',
+      name: d.name,
+      mode: d.mode,
+      path: d.target,
+      // Without a source folder the sync only creates it, so nothing lands in the target.
+      rows: d.items.map((i) =>
+        i.reason === 'no source directory'
+          ? {
+              key: `${d.name}/${d.target}/*`,
+              part: 'extra',
+              name: d.name,
+              icon: 'kept',
+              text: 'sync.row.extraNoSource',
+              counts: false,
+            }
+          : {
+              key: `${d.name}/${d.target}/${i.file}`,
+              part: 'extra',
+              name: i.file,
+              ...(EXTRA_EDITED.has(i.reason)
+                ? editedRow(force)
+                : {
+                    icon: i.action === 'update' ? 'update' : 'add',
+                    text: i.action === 'update' ? 'sync.row.extraUpdate' : 'sync.row.extraCreate',
+                    counts: true,
+                  }),
+            },
+      ),
+    }));
 }
 
-const MCP_ICON: Record<string, RowIcon> = { add: 'add', adopt: 'adopt', update: 'update', remove: 'remove', conflict: 'conflict' };
+const MCP_ICON: Record<string, RowIcon> = {
+  add: 'add',
+  adopt: 'adopt',
+  update: 'update',
+  remove: 'remove',
+  conflict: 'conflict',
+};
 
 export function mcpGroups(plan: MCPPlan | null | undefined): ChangeGroup[] {
   return groupByFile((plan?.changes ?? []).filter((c) => MCP_ICON[c.action])).map((file) => ({
@@ -117,15 +216,35 @@ export function mcpGroups(plan: MCPPlan | null | undefined): ChangeGroup[] {
       name: c.name,
       icon: MCP_ICON[c.action],
       // A switch-only entry adds or removes no server: it turns one off for a project, or back on.
-      text: c.action === 'conflict' ? null : c.switch && c.action !== 'update' ? `sync.row.mcp.switch.${c.action}` : `sync.row.mcp.${c.action}`,
-      detail: [c.message, ...(c.fields?.added ?? []).map((key) => `+ ${key}`), ...(c.fields?.updated ?? []).map((key) => `~ ${key}`), ...(c.fields?.removed ?? []).map((key) => `− ${key}`)].filter(Boolean).join(' · ') || undefined,
+      text:
+        c.action === 'conflict'
+          ? null
+          : c.switch && c.action !== 'update'
+            ? `sync.row.mcp.switch.${c.action}`
+            : `sync.row.mcp.${c.action}`,
+      detail:
+        [
+          c.message,
+          ...(c.fields?.added ?? []).map((key) => `+ ${key}`),
+          ...(c.fields?.updated ?? []).map((key) => `~ ${key}`),
+          ...(c.fields?.removed ?? []).map((key) => `− ${key}`),
+        ]
+          .filter(Boolean)
+          .join(' · ') || undefined,
       counts: c.action !== 'conflict',
       switch: c.switch,
     })),
   }));
 }
 
-const HOOK_ICON: Record<string, RowIcon> = { add: 'add', adopt: 'adopt', update: 'update', restore: 'update', remove: 'remove', conflict: 'conflict' };
+const HOOK_ICON: Record<string, RowIcon> = {
+  add: 'add',
+  adopt: 'adopt',
+  update: 'update',
+  restore: 'update',
+  remove: 'remove',
+  conflict: 'conflict',
+};
 
 /** One group per native file; a project's file names its folder. */
 export function hooksGroups(plan: HookPlan | null | undefined): ChangeGroup[] {
@@ -140,7 +259,10 @@ export function hooksGroups(plan: HookPlan | null | undefined): ChangeGroup[] {
       part: 'hooks',
       name: c.name,
       icon: HOOK_ICON[c.action],
-      text: c.action === 'conflict' ? null : `sync.row.hooks.${c.action === 'restore' ? 'update' : c.action}`,
+      text:
+        c.action === 'conflict'
+          ? null
+          : `sync.row.hooks.${c.action === 'restore' ? 'update' : c.action}`,
       detail: c.message,
       counts: c.action !== 'conflict',
     })),
@@ -154,7 +276,11 @@ export function groupInSync(names: string[]) {
   for (const name of names) {
     const at = name.lastIndexOf('@');
     if (at < 0) global.push(name);
-    else projects.set(name.slice(0, at), [...(projects.get(name.slice(0, at)) ?? []), name.slice(at + 1)]);
+    else
+      projects.set(name.slice(0, at), [
+        ...(projects.get(name.slice(0, at)) ?? []),
+        name.slice(at + 1),
+      ]);
   }
   return { global, projects: [...projects].map(([project, tools]) => ({ project, tools })) };
 }
@@ -171,10 +297,15 @@ export function groupByFolder(names: string[]) {
 }
 
 /** Targets getting exactly the same changes, as one set: twelve targets adding the same 38 skills read as one list. */
-export function changeSets(groups: ChangeGroup[]): { key: string; targets: ChangeGroup[]; rows: ChangeRow[] }[] {
+export function changeSets(
+  groups: ChangeGroup[],
+): { key: string; targets: ChangeGroup[]; rows: ChangeRow[] }[] {
   const sets = new Map<string, { key: string; targets: ChangeGroup[]; rows: ChangeRow[] }>();
   for (const g of groups) {
-    const sig = g.rows.map((r) => `${r.part}\t${r.name}\t${r.icon}\t${r.text}\t${r.detail ?? ''}`).sort().join('\n');
+    const sig = g.rows
+      .map((r) => `${r.part}\t${r.name}\t${r.icon}\t${r.text}\t${r.detail ?? ''}`)
+      .sort()
+      .join('\n');
     const set = sets.get(sig);
     if (set) set.targets.push(g);
     else sets.set(sig, { key: g.key, targets: [g], rows: g.rows });
@@ -196,7 +327,8 @@ export function tally(rows: ChangeRow[]): Partial<Record<RowIcon, number>> {
  * Whether a target gets a skill: by its filters, or always when it links the whole source folder.
  * The matrix marks symlink-mode targets `na` since filters don't apply, yet every source skill is live there.
  */
-export const receivesSkill = (e: SyncMatrixEntry) => e.status === 'synced' || e.reasonCode === 'sync_matrix.symlink_filters_not_applicable';
+export const receivesSkill = (e: SyncMatrixEntry) =>
+  e.status === 'synced' || e.reasonCode === 'sync_matrix.symlink_filters_not_applicable';
 
 /**
  * The skills Discard all moves to trash: never synced anywhere yet, so new in every target that should get them.
@@ -204,7 +336,11 @@ export const receivesSkill = (e: SyncMatrixEntry) => e.status === 'synced' || e.
  * and stays, even when a new target is about to get it. Install times can't tell this: tracked repo skills have none.
  * A tracked repo counts only as a whole, since uninstalling one skill of it removes the repo.
  */
-export function discardable(groups: ChangeGroup[], skills: Skill[], expected: (flatName: string) => string[]): Skill[] {
+export function discardable(
+  groups: ChangeGroup[],
+  skills: Skill[],
+  expected: (flatName: string) => string[],
+): Skill[] {
   const added = new Map<string, Set<string>>();
   for (const g of groups) {
     for (const r of g.rows) {
@@ -212,19 +348,37 @@ export function discardable(groups: ChangeGroup[], skills: Skill[], expected: (f
       added.set(r.name, (added.get(r.name) ?? new Set()).add(g.name));
     }
   }
-  const fresh = (s: Skill) => s.kind === 'skill' && added.has(s.flatName) && expected(s.flatName).every((t) => added.get(s.flatName)!.has(t));
+  const fresh = (s: Skill) =>
+    s.kind === 'skill' &&
+    added.has(s.flatName) &&
+    expected(s.flatName).every((t) => added.get(s.flatName)!.has(t));
   // A tracked repo uninstalls whole, so it qualifies only when every skill in it is new.
-  const keptRepos = new Set(skills.filter((s) => s.kind === 'skill' && s.repoPath && !fresh(s)).map((s) => s.repoPath));
+  const keptRepos = new Set(
+    skills.filter((s) => s.kind === 'skill' && s.repoPath && !fresh(s)).map((s) => s.repoPath),
+  );
   return skills.filter((s) => fresh(s) && !(s.repoPath && keptRepos.has(s.repoPath)));
 }
 
-export const countChanges = (groups: ChangeGroup[]) => groups.reduce((n, g) => n + g.rows.filter((r) => r.counts).length, 0);
+export const countChanges = (groups: ChangeGroup[]) =>
+  groups.reduce((n, g) => n + g.rows.filter((r) => r.counts).length, 0);
 /** Changes a plain sync of every part would apply (the sidebar badge). A blocked MCP or hooks plan applies nothing. */
-export function pendingCount(diffs: DiffTarget[], targets: Target[], extras: ExtraDiffResult[], plan: MCPPlan | null | undefined, hooks?: HookPlan | null): number {
+export function pendingCount(
+  diffs: DiffTarget[],
+  targets: Target[],
+  extras: ExtraDiffResult[],
+  plan: MCPPlan | null | undefined,
+  hooks?: HookPlan | null,
+): number {
   const parts = new Set<Part>(['skill', 'agent', 'extra', 'mcp', 'hooks']);
-  return countChanges([...resourceGroups(diffs, targets, parts, false).groups, ...extraGroups(extras, false), ...(plan?.blocked ? [] : mcpGroups(plan)), ...(hooks?.blocked ? [] : hooksGroups(hooks))]);
+  const config = reviewSyncConfig(plan, hooks);
+  return (
+    countChanges(resourceGroups(diffs, targets, parts, false).groups) +
+    countChanges(extraGroups(extras, false)) +
+    config.count
+  );
 }
-export const countEdited = (groups: ChangeGroup[]) => groups.reduce((n, g) => n + g.rows.filter((r) => r.edited).length, 0);
+export const countEdited = (groups: ChangeGroup[]) =>
+  groups.reduce((n, g) => n + g.rows.filter((r) => r.edited).length, 0);
 
 /** Thrown when the MCP plan no longer matches the one on screen. */
 export const MCP_CHANGED = 'mcp-changed';
@@ -232,12 +386,59 @@ export const MCP_CHANGED = 'mcp-changed';
 export const HOOKS_CHANGED = 'hooks-changed';
 
 /** The plan's changes for one mcp.projects root. */
-export const projectChanges = (plan: MCPPlan | null | undefined, root: string) => (plan?.changes ?? []).filter((c) => projectOf([root], c) === root);
+export const projectChanges = (plan: MCPPlan | null | undefined, root: string) =>
+  (plan?.changes ?? []).filter((c) => projectOf([root], c) === root);
+
+/** Use the same scoped eligibility for the preview, its count, and the submitted plans. */
+export function reviewSyncConfig(
+  mcp: MCPPlan | null | undefined,
+  hooks: HookPlan | null | undefined,
+  root?: string,
+) {
+  const changes = root ? projectChanges(mcp, root) : (mcp?.changes ?? []);
+  const hookChanges = (hooks?.changes ?? []).filter((c) => !root || c.root === root);
+  const conflicts = changes.filter((c) => c.action === 'conflict');
+  const mcpBlocked = root ? conflicts.length > 0 : !!mcp?.blocked;
+  const hooksBlocked = root ? hookChanges.some((c) => c.action === 'conflict') : !!hooks?.blocked;
+  const mcpRows = mcpGroups(mcp && { ...mcp, changes });
+  const hookRows = hooksGroups(hooks && { ...hooks, changes: hookChanges });
+  const reviewedMcp =
+    mcp && !mcpBlocked && (mcp.migrates || changes.some((c) => c.action !== 'unchanged'))
+      ? mcp
+      : null;
+  const reviewedHooks =
+    hooks && !hooksBlocked && hookChanges.some((c) => c.action !== 'unchanged') ? hooks : null;
+  const migrationOnly = !!reviewedMcp?.migrates && !root && !countChanges(mcpRows);
+  return {
+    migrationOnly,
+    mcpRows,
+    hookRows,
+    conflicts,
+    hookChanges,
+    mcpBlocked,
+    hooksBlocked,
+    count:
+      (reviewedMcp ? countChanges(mcpRows) : 0) +
+      (reviewedHooks ? countChanges(hookRows) : 0) +
+      Number(migrationOnly),
+    run: { mcp: reviewedMcp, hooks: reviewedHooks },
+  };
+}
 
 // Revisions move on any config write, including the resource sync; only the reviewed changes must hold.
-const changeKey = (plan: MCPPlan, root?: string) => (root ? projectChanges(plan, root) : plan.changes).filter((c) => c.action !== 'unchanged').map((c) => JSON.stringify([c.target, c.name, c.action])).sort().join();
+const changeKey = (plan: MCPPlan, root?: string) =>
+  (root ? projectChanges(plan, root) : plan.changes)
+    .filter((c) => c.action !== 'unchanged')
+    .map((c) => JSON.stringify([c.target, c.name, c.action]))
+    .sort()
+    .join();
 
-const hookKey = (plan: HookPlan, root?: string) => plan.changes.filter((c) => (root ? c.root === root : true) && c.action !== 'unchanged').map((c) => JSON.stringify([c.target, c.path, c.name, c.action])).sort().join();
+const hookKey = (plan: HookPlan, root?: string) =>
+  plan.changes
+    .filter((c) => (root ? c.root === root : true) && c.action !== 'unchanged')
+    .map((c) => JSON.stringify([c.target, c.path, c.name, c.action]))
+    .sort()
+    .join();
 
 export interface SyncRun {
   resources: 'skill' | 'agent' | 'both' | null;
@@ -309,25 +510,41 @@ export async function runSync(run: SyncRun) {
   const recheck = async () => {
     const fresh = await mcpApi.preview();
     const root = run.project?.path;
-    const blocked = root ? projectChanges(fresh, root).some((c) => c.action === 'conflict') : fresh.blocked;
-    if (blocked || changeKey(fresh, root) !== changeKey(reviewed!, root)) throw new Error(MCP_CHANGED);
+    const blocked = root
+      ? projectChanges(fresh, root).some((c) => c.action === 'conflict')
+      : fresh.blocked;
+    if (blocked || changeKey(fresh, root) !== changeKey(reviewed!, root))
+      throw new Error(MCP_CHANGED);
     return fresh.revision;
   };
   const reviewedHooks = run.hooks;
   const recheckHooks = async () => {
     const fresh = await hooksApi.preview();
     const root = run.project?.path;
-    const blocked = root ? fresh.changes.some((c) => c.root === root && c.action === 'conflict') : fresh.blocked;
-    if (blocked || fresh.fingerprint !== reviewedHooks!.fingerprint || hookKey(fresh, root) !== hookKey(reviewedHooks!, root)) throw new Error(HOOKS_CHANGED);
+    const blocked = root
+      ? fresh.changes.some((c) => c.root === root && c.action === 'conflict')
+      : fresh.blocked;
+    if (
+      blocked ||
+      fresh.fingerprint !== reviewedHooks!.fingerprint ||
+      hookKey(fresh, root) !== hookKey(reviewedHooks!, root)
+    )
+      throw new Error(HOOKS_CHANGED);
     return fresh.revision;
   };
   if (reviewed) await recheck();
   if (reviewedHooks) await recheckHooks();
   let resources: SyncResponse | undefined;
   if (run.resources) {
-    resources = await api.sync({ force: run.force, ...(run.resources !== 'both' && { kind: run.resources }), ...(run.project && { project: run.project.root }) });
+    resources = await api.sync({
+      force: run.force,
+      ...(run.resources !== 'both' && { kind: run.resources }),
+      ...(run.project && { project: run.project.root }),
+    });
   }
-  const failures: SyncFailure[] = (resources?.failed ?? []).map(({ target, part, error, conflict }) => ({ target, part, error, conflict }));
+  const failures: SyncFailure[] = (resources?.failed ?? []).map(
+    ({ target, part, error, conflict }) => ({ target, part, error, conflict }),
+  );
   const extras = run.extras ? (await api.syncExtras({ force: run.force })).extras : [];
   failures.push(...extraSyncFailures(extras));
   if (reviewed) {
@@ -344,8 +561,15 @@ export async function runSync(run: SyncRun) {
 /** Each independent remedy needed for the skipped skills. */
 export function skippedHintKeys(d: DiffTarget) {
   const keys = [];
-  if (d.namingSkippedCount) keys.push(d.collisionCount ? 'sync.skipped.hintMixed' as const : 'sync.skipped.hintNaming' as const);
+  if (d.namingSkippedCount)
+    keys.push(
+      d.collisionCount ? ('sync.skipped.hintMixed' as const) : ('sync.skipped.hintNaming' as const),
+    );
   else if (d.collisionCount) keys.push('sync.skipped.hint' as const);
-  if (d.items.some((item) => item.skill === '(skill selection)') || (!d.namingSkippedCount && !d.collisionCount && d.skippedCount)) keys.push('sync.skipped.hintSelection' as const);
+  if (
+    d.items.some((item) => item.skill === '(skill selection)') ||
+    (!d.namingSkippedCount && !d.collisionCount && d.skippedCount)
+  )
+    keys.push('sync.skipped.hintSelection' as const);
   return keys;
 }

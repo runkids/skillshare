@@ -22,6 +22,9 @@ skillshare hooks enable check --sync
 skillshare hooks sync --dry-run --json
 skillshare hooks sync
 skillshare hooks sync check --replace --dry-run
+skillshare hooks sync --trust -g
+skillshare hooks sync --trust --yes -g
+skillshare hooks sync --trust --yes --json -g
 skillshare sync hooks --dry-run --json
 skillshare sync hooks
 skillshare hooks remove check --sync
@@ -30,7 +33,7 @@ skillshare hooks restore BACKUP_ID --dry-run
 skillshare hooks restore BACKUP_ID
 ```
 
-サブコマンドなしでは entries を一覧表示します。`add`／`edit` は `--file` の Entry JSON/YAML を読み込みます。インポートで名前を省略すると候補（Agent の event またはファイルごとに 1 件）を表示し、名前を指定すると保存します。インポートを保存すると、読み取った登録をその場で引き継ぎます。次回の同期は `--replace` なしで adopt し、インポートしなかった event は管理外のままです。設定とコードを読むだけで実行しません。追加、編集、インポート、有効化、無効化、削除はソースのみを保存し、`--sync` で同期します。同期と復元は適用前に再プレビューします。
+サブコマンドなしでは entries を一覧表示します。`add`／`edit` は `--file` の Entry JSON/YAML を読み込みます。インポートで名前を省略すると候補（Agent の event またはファイルごとに 1 件）を表示し、名前を指定すると保存します。インポートを保存すると、読み取った登録をその場で引き継ぎます。次回の同期は `--replace` なしで adopt し、インポートしなかった event は管理外のままです。設定とコードを読むだけで実行しません。追加、編集、インポート、有効化、無効化、削除はソースのみを保存し、`--sync` で同期します。同期と復元は適用前に再プレビューします。Dashboard の「ターゲット内の hook」ダイアログは何も選択していない状態で開き、インポートする hook にチェックを入れます。インポートしていない hook を Agent の設定ファイル内で直接編集・削除することもできます（hook が設定である Agent すべて：1 つの設定ファイルの event（Claude、Codex、Gemini、Cursor、Qwen、および Droid の `hooks.json`）、Antigravity の名前付きブロック、Copilot の hook ファイル。Copilot の hook を削除するとそのファイルを削除します。コードの hook（Pi、Oh My Pi、Amp、OpenCode）は先にインポートが必要です）。書き込み前にファイルの差分を表示してバックアップを取り、hook は管理外のままです。
 
 | Option | Meaning |
 |---|---|
@@ -39,6 +42,8 @@ skillshare hooks restore BACKUP_ID
 | `--sync` | 保存して同期 |
 | `--keep-files` | `remove` と併用: hook の管理をやめ、ネイティブのエントリはそのまま残す。`--sync` とは併用できない。[下記](#stop-managing-a-hook)を参照 |
 | `--replace` | 既存ソース entry またはその entry の競合出力を明示的に置換 |
+| `--trust` | `hooks sync` のみ：Skillshare が管理する hooks の Codex 信頼も記録。[Codex の信頼](#codex-trust)を参照 |
+| `--yes`, `-y` | `--trust` と併用：確認を省略し、一覧の hooks を信頼。[Codex の信頼](#codex-trust)を参照 |
 | `--dry-run, -n` | 書き込まずプレビュー |
 | `--json` | 構造化出力 |
 | `--revision ID` | 指定プレビュー revision との一致を要求 |
@@ -91,7 +96,7 @@ Skillshare は `hooks` セクションをインデントした block 形式で�
 | `bindings.AGENT.codeFile` | `code` の代わりに、config のフォルダからの相対パス。ファイルの内容を `code` として使い、config を読むたびに読み込みます。パスはそのフォルダ内に限られます |
 | `bindings.AGENT.files` | 相対ファイル名を key とした任意の UTF-8 スクリプト。値は内容、または `codeFile` と同じ規則で読み込む `{from: path}` |
 
-Agent ID は `claude`、`codex`、`gemini`、`copilot`、`cursor`、`droid`、`qwen`、`antigravity`、`pi`、`omp`、`amp`、`opencode`、`git`。`factory` は `droid` の、`antigravity-cli` と `agy` は `antigravity` の別名です。event、matcher、handler type、command、timeout 単位、payload はネイティブ形式のまま保持し、自動変換しません。event 名は各 command Agent のドキュメントにある event と照合します。未知の名前（例：綴り違いの `Stopp`）はプレビューと plan の `warnings` に警告として表示されますが、Agent は event を追加していくため同期は止めません。Pi、OMP、Amp、OpenCode のコードは確認しません。Pi、OMP、Amp、OpenCode のコードと imports はインストール済みバージョンに合わせ、専用の `skillshare-NAME.ts` に出力します。共通実行エンジンは生成しません。
+Agent ID は `claude`、`codex`、`gemini`、`copilot`、`cursor`、`droid`、`qwen`、`antigravity`、`pi`、`omp`、`amp`、`opencode`、`git`。`factory` は `droid` の、`antigravity-cli` と `agy` は `antigravity` の別名です。event、matcher、handler type、command、timeout 単位、payload はネイティブ形式のまま保持し、自動変換しません。event 名は各 command Agent のドキュメントにある event と照合します。未知の名前（例：綴り違いの `Stopp`）はプレビューと plan の `warnings` に警告として表示されますが、Agent は event を追加していくため同期は止めません。Pi、OMP、Amp、OpenCode のコードは確認しません。Pi、OMP、Amp、OpenCode のコードと imports はインストール済みバージョンに合わせ、専用の `skillshare-NAME.ts` ファイル（OpenCode v1）または OpenCode v2 のディレクトリパッケージに出力します。共通実行エンジンは生成しません。
 
 長いコードやスクリプトは、`codeFile` または `files` の `{from: path}` で別ファイルから読み込めます。パスの基準は entry を持つ config のフォルダです（project では `.skillshare/`、global の `hooks.projects` では global config のフォルダ）。`hooks add|edit --file` でも entry ファイルの場所ではなく、選択した config が基準です。パスはそのフォルダ内に限られ、symlink を通過できません。ファイルがなければ config の読み込みは失敗します。config を読むたびに再読み込みし、プレビュー後に変更された場合は適用を拒否します。
 
@@ -140,9 +145,9 @@ command binding のスクリプトは Agent 設定ディレクトリの `hooks/s
 | [Pi](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/extensions.md) | `~/.pi/agent/extensions/skillshare-NAME.ts` | `.pi/extensions/skillshare-NAME.ts` | Native extension code |
 | [Oh My Pi](https://github.com/can1357/oh-my-pi/blob/v18.6.1/docs/extensions.md) | `~/.omp/agent/extensions/skillshare-NAME.ts` | `.omp/extensions/skillshare-NAME.ts` | Native OMP extension code |
 | [Amp](https://ampcode.com/docs/plugin-api) | `~/.config/amp/plugins/skillshare-NAME.ts` | `.amp/plugins/skillshare-NAME.ts` | Native plugin code |
-| [OpenCode](https://opencode.ai/docs/plugins/) | `~/.config/opencode/plugins/skillshare-NAME.ts` | `.opencode/plugins/skillshare-NAME.ts` | Supplied v1/v2 plugin code |
+| [OpenCode](https://opencode.ai/docs/plugins/) | `~/.config/opencode/plugins/skillshare-NAME[.ts]` | `.opencode/plugins/skillshare-NAME[.ts]` | v1 file; v2 directory package (see below) |
 
-アカウント target の `config_dir` を指す場合を除き、global scope はネイティブ設定ディレクトリの環境変数 override を使います。project scope はプロジェクト内にのみ書き込み、global にフォールバックしません。Codex inline TOML など他のソースは別のままです。Antigravity とその CLI（`agy`）は同じ `hooks.json` を読みます。各 hook は名前付きの 1 ブロックで、インポートしても名前は変わりません。CLI の `~/.gemini/antigravity-cli/settings.json` にある hooks は別のままです。Droid の独立 hooks ファイルは読み込むソースを変えるため、既存 inline hooks を先に確認してください。 Copilot は `.github/hooks` のプロジェクト hooks を信頼済みフォルダーでのみ読み込みます。
+アカウント target の `config_dir` を指す場合を除き、global scope はネイティブ設定ディレクトリの環境変数 override を使います。プロジェクトのネイティブ hook ファイルはプロジェクト内に書き込みます。`--trust` を確認すると、信頼は検証済みの各 Codex home に記録されます。Codex inline TOML など他のソースは別のままです。Antigravity とその CLI（`agy`）は同じ `hooks.json` を読みます。各 hook は名前付きの 1 ブロックで、インポートしても名前は変わりません。CLI の `~/.gemini/antigravity-cli/settings.json` にある hooks は別のままです。Droid の独立 hooks ファイルは読み込むソースを変えるため、既存 inline hooks を先に確認してください。 Copilot は `.github/hooks` のプロジェクト hooks を信頼済みフォルダーでのみ読み込みます。
 
 
 Droid の inline hooks が有効な場合、同期は独立ファイルの作成を拒否します。インポートして確認し、元の inline hooks を削除してから同期してください。
@@ -182,7 +187,42 @@ command のスクリプトは `<config_dir>/hooks/skillshare/NAME/` に入りま
 
 target が削除された、ホームが移動した、またはアカウントのホームが存在しない場合、所有出力とその記録をそのまま残し、警告します。target やディレクトリを戻せば管理を再開できます。ファイルを変えずに特定エントリの保留中の所有記録を解放するには、`skillshare hooks sync NAME --replace -g` をプレビューして実行します。target の削除時に binding がまだその名前を使っていれば警告します。次の hooks 同期前に binding も外してください。
 
-`skillshare hooks import --from codex-2 -g --json` でアカウントからインポートできます。ダッシュボードには **codex-2 (Codex)** と表示され、Codex の event とエディターを使います。Codex の各ホームで変更された hooks を `/hooks` から確認し、信頼する必要があります。同期は信頼を変更せず、hooks を実行しません。
+`skillshare hooks import --from codex-2 -g --json` でアカウントからインポートできます。ダッシュボードには **codex-2 (Codex)** と表示され、Codex の event とエディターを使います。Codex の各ホームで変更された hooks を `/hooks` から確認し、信頼する必要があります。`--trust` を指定しない限り、同期は信頼を変更せず、hooks を実行しません。
+
+### Codex の信頼 {#codex-trust}
+
+Codex は信頼済みのユーザーレベル hook だけを実行し、その信頼を同じホームの `config.toml` に `hooks.state."<hooks.json>:<event>:<group>:<handler>".trusted_hash` として保存します。キーは hook の位置なので、Skillshare が追加または移動した hook は未信頼から始まり、`codex exec` はそれをスキップします。
+
+```bash
+skillshare hooks sync --trust -g
+skillshare hooks sync --trust --yes -g
+skillshare hooks sync --trust --yes --json -g
+```
+
+`--trust` はまず通常の同期と同じように hook ファイルを書き込みます。次に、Skillshare が管理するすべての Codex ホーム（アカウントのホームを含む）で、Skillshare が所有する hooks のうち信頼が必要なものを Codex に問い合わせます。各 hook の hash は `/hooks` の確認画面と同じ呼び出しで `codex app-server` から取得するため、`codex` が `PATH` 上に必要です。Skillshare 自身は hash を計算しません。
+
+すでに信頼済みの hook は `unchanged` と報告され、回答は不要です。hook が新しい場合、または信頼した後に command が変わった場合は、該当する hooks を command とともに一覧表示し、1 回だけ確認します。信頼が必要な hook がなければ確認しません。
+
+```
+Codex trust
+  stop  needs trust  codex  /home/me/.codex/hooks.json:stop:1:0
+  /usr/local/bin/notify-done
+
+? Trust 1 hook in Codex?  Yes  No
+```
+
+確認後：
+
+```
+Codex trust
+✓ stop  trusted  codex  /home/me/.codex/hooks.json:stop:1:0
+```
+
+`--yes`（`-y`）は確認を省略します。Codex の確認は、実行前に人が command を目にするためにあります。端末がない場合に `--yes` がなければ、何も信頼せず、hooks を一覧表示して `--yes` を示すエラーで終了します。`--json` も確認を行いません。`--yes` がなければ hooks を `needed` として出力し、非ゼロ終了します。プロジェクトの JSON には理由を示す `codexTrustError` と各 hook の保存先 `home` が含まれます。`--yes` は `--trust` と併用する場合のみ有効です。`--json` の出力には `codexTrust` のリストがあります。各項目は `target`、`entry`、`key`、`command`、`action`（`needed`、`trusted`、`unchanged`）を持ち、無効の場合は `disabled` も持ちます。
+
+書き込むのは `trusted_hash` だけで、追加のみです。Codex で無効にした hook は無効のまま報告されます。`enabled`、`config.toml` のその他の部分、Skillshare が所有しない hooks には触れません。hook が移動または削除されると、古いエントリは `config.toml` に残ります。このエントリは、その位置で event、matcher、handler が同じ hook にしか一致しないため、別の hook を信頼することはありません。
+
+`codex` が `PATH` にない場合や Codex が失敗した場合も hook ファイルは書き込まれ、コマンドは "hook files were written, but Codex trust was not recorded" で失敗します。Codex home が複数ある場合、Codex が一覧できない home や書き込みに失敗した home があっても他の home の記録は続行され、エラーには記録できた home とできなかった home が示されます。`--trust` なしの `hooks sync` は Codex を起動せず、信頼も変更しません。`hooks sync -p --trust` は現在のプロジェクトのコマンドを確認し、各ユーザーの Codex home に信頼を記録します。フォルダーの信頼設定は変更しません。検証できないアカウントをスキップし、一部のみ完了した場合はエラーを返します。`sync hooks` と `hooks list` は `--trust` に対応しません。`hooks.projects` がプロジェクトに書き込む hook は対象外なので、Codex の `/hooks` で信頼してください。Dashboard の Hooks ページ（グローバル・プロジェクト両モード）にも同じ操作があり、信頼が必要な hooks を command とともに一覧表示し、ダイアログで確認した後にのみ信頼を記録します。
 
 ## Git hooks {#git-hooks}
 
@@ -230,10 +270,23 @@ plan は実際の `add`、`update`、`remove`、`unchanged` を維持し、実�
 
 ## プロジェクト、競合と復元
 
-global 設定の `hooks.projects` は絶対プロジェクトパスを同じ Entry 形式の `entries` に対応づけます。**Projects → Hooks** で管理できます。独自の `.skillshare/config.yaml` があるプロジェクトは project scope で管理します。プロジェクト同期はそのルートだけを適用します。
+global 設定の `hooks.projects` は絶対プロジェクトパスを同じ Entry 形式の `entries` に対応づけます。**Projects → Hooks** で管理できます。そこで **ここでの hook の管理をやめる** を選ぶとルートが `hooks.projects` から外れ、次の同期で Skillshare がその下に書いた hook が削除されます。独自の `.skillshare/config.yaml` があるプロジェクトは project scope で管理します。プロジェクト同期はそのルートだけを適用します。
 
 無関係な設定と所有していない hooks は保持します。内容の一致だけでは所有を判断しません。所有出力が外部編集されると、無効化、削除、復元も競合になります。明示的な置換は選択 entry のみが対象です。共有ファイルでは、plan の各行に entry が追加（`+`）、更新（`~`）、削除（`−`）する event を表示し、JSON plan の `events` にも含まれます。`update` は entry がそのファイルに登録を残すこと、`remove` はファイルから完全に外れることを意味します。編集はファイルの書式（コンパクトまたはインデント）を保ち、Skillshare が追加した `hooks` キーは最後の hook が外れると削除します。Skillshare が作成したファイルは、ほかに何も残っていなければ、作成して空になったフォルダーとともに削除し、プレビューではファイルの削除として表示します。以前からあったファイルやフォルダー、あなたが追加した内容は残ります。
 
 バックアップは後から加わった無関係な変更を保持してネイティブ出力を復元し、ソース定義は変更しません。**Settings → Backups → Hooks** または `hooks restore` でプレビューして復元します。
 
-**Synced** は Skillshare が設定を書いた状態です。Agent の手順に従って再起動／再読み込みしてください。信頼、hooks の有効化、コード互換性は Agent が制御します。管理時に hook command を実行したり、ネイティブ信頼を自動変更したりしません。
+**Synced** は Skillshare が設定を書いた状態です。Agent の手順に従って再起動／再読み込みしてください。信頼、hooks の有効化、コード互換性は Agent が制御します。管理時に hook command を実行したり、ネイティブ信頼を自動変更したりしません。Codex の信頼を記録するのは、指定したときの [`--trust`](#codex-trust) だけです。
+
+
+### OpenCode v2 ディレクトリパッケージ
+
+Windows のフック用バージョン検出は、`opencode-ai`（後期 v1）と `@opencode/cli`（v2）の標準 npm `.cmd` ラッパーから、インストール済みの `bin/opencode.exe` をシェルなしで直接実行します。初期 v1 の Node ランチャーや独自のバッチラッパーは推測・実行しません。その場合は OpenCode アカウントの `cli` にインストール済みネイティブ `opencode.exe` の絶対パス（例：対応する `opencode-windows-x64-baseline` パッケージの `bin/opencode.exe`）を設定するか、そのディレクトリを `PATH` の先頭に置いてください。postinstall スクリプトの実行や欠落したバイナリの修復は行いません。
+
+Skillshare が実行するのは `opencode --version`（またはアカウントの `cli`）のみです。バイナリが見つからない、失敗する、またはメジャーバージョンが 1 でも 2 でもないなどでバージョンを検出できない場合、スキップされるのは OpenCode の binding だけです。プレビューに警告が表示され、既存の OpenCode の出力はそのまま残り、他の Agent は通常どおり同期されます。v1 は単一の `.ts` ファイルのままです。v2 は `plugins/skillshare-NAME/index.ts` と `package.json`（`@opencode/plugin: ^2.0.0` を宣言）を書き出し、そのディレクトリの `file://` URL を `opencode.json(c)` の `plugins` に追加します。プロジェクトの hook は `.opencode/opencode.json(c)` を使います。コメントと無関係な登録は変更しません。競合する JSON/JSONC ファイルや `OPENCODE_CONFIG`/`OPENCODE_CONFIG_CONTENT` の override は、hooks では拒否されます。`code` binding はどちらのバージョンでも指定どおりに書き出され、v1 と v2 のどちらのプラグイン API に合うかは確認しません。
+
+完全な v2 パッケージには、`code`/`codeFile` の代わりに `bindings.opencode.package` を使います。`package.json` を含め、相対ファイル名を UTF-8 の内容に対応させたマップです。manifest と依存関係の要件はそのまま保持されます。ネストしたファイルは使えますが、パスの逸脱、シンボリックリンク、ファイルとディレクトリの衝突、`.git`、`node_modules` はパッケージの内容になりません。ネイティブエディタはこのファイルマップを JSON として表示します。server entry は、パッケージ名を持つ文字列の root または `./server` export、もしくはルートの `server`/`index` ファイル（`.ts`、`.tsx`、`.js`）である必要があります。条件付き・フォールバックの server export は推測せず拒否します。`package` binding には OpenCode v2 が必要で、v1 では警告を出してスキップされます。
+
+`hooks import --from opencode` は、ネイティブの `plugins` フォルダ直下のパッケージディレクトリも読み込みます。単一ファイルのコードの import と同様に Skillshare の名前付き出力へコピーし、同期後に元のファイルと登録を削除して二重読み込みを避けるよう警告します。インストール済みの `node_modules` と `.git` は import しません。読み込めないファイル（シンボリックリンクなど）を含むパッケージは、その問題とともに一覧に表示され、他のパッケージや単一ファイルは引き続き import できます。OpenCode v1 では、`plugins` 配下のディレクトリは hook として一覧表示されません。同期、編集、削除は他の hook と同じ所有権チェックとバックアップを使い、外部で編集されたパッケージファイルは上書きされず競合になります。
+
+宣言された依存関係は、読み込む前にご自身で用意してください。パッケージファイルを書き出すときは、プレビューにもその旨が表示されます。Skillshare はプラグインコードを実行せず、依存関係もインストールせず、v1 コードを v2 に変換することもありません。登録されていても、プラグインが読み込まれた証拠にはなりません。2 つの API が異なるため、ダッシュボードは OpenCode のスターターコードを意図的に提供しません。

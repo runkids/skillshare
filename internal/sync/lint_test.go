@@ -25,7 +25,7 @@ func withLintRulesData(t *testing.T, data []byte) {
 
 func lintSkillOrFail(t *testing.T, name, description string, bodyChars int) []LintIssue {
 	t.Helper()
-	issues, err := LintSkill(name, description, bodyChars)
+	issues, err := LintSkill(name, description, bodyChars, 0)
 	if err != nil {
 		t.Fatalf("LintSkill failed: %v", err)
 	}
@@ -45,6 +45,22 @@ func TestLintSkill_MissingDescription(t *testing.T) {
 func TestLintSkill_EmptyBody(t *testing.T) {
 	issues := lintSkillOrFail(t, "my-skill", "Use this skill when testing", 0)
 	assertHasIssue(t, issues, "empty-body", LintError)
+}
+
+func TestLintSkill_BodyTooLong(t *testing.T) {
+	issues, err := LintSkill("my-skill", "Use this skill when testing", 100, 501)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertHasIssue(t, issues, "body-too-long", LintWarning)
+}
+
+func TestLintSkill_BodyAtLineLimit(t *testing.T) {
+	issues, err := LintSkill("my-skill", "Use this skill when testing", 100, 500)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertNoIssue(t, issues, "body-too-long")
 }
 
 func TestLintSkill_DescriptionTooShort(t *testing.T) {
@@ -137,7 +153,7 @@ rules:
 `))
 
 	for i := 0; i < 2; i++ {
-		_, err := LintSkill("my-skill", "Use this skill when testing", 100)
+		_, err := LintSkill("my-skill", "Use this skill when testing", 100, 0)
 		if err == nil {
 			t.Fatal("expected lint rule load error")
 		}

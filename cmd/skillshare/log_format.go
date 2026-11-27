@@ -433,6 +433,12 @@ func formatProjectLogPairs(args map[string]any) []logDetailPair {
 	if targets, ok := logArgStringSlice(args, "targets"); ok && len(targets) > 0 {
 		pairs = append(pairs, logDetailPair{key: "targets", isList: true, listValues: targets})
 	}
+	if scan, ok := logArgStringSlice(args, "scan"); ok && len(scan) > 0 {
+		pairs = append(pairs, logDetailPair{key: "scan", isList: true, listValues: scan})
+	}
+	if added, ok := logArgInt(args, "added"); ok {
+		pairs = append(pairs, logDetailPair{key: "added", value: strconv.Itoa(added)})
+	}
 	if scope, ok := logArgString(args, "scope"); ok && scope != "" {
 		pairs = append(pairs, logDetailPair{key: "scope", value: scope})
 	}
@@ -450,6 +456,12 @@ func formatProjectLogDetail(args map[string]any) string {
 	}
 	if targets, ok := logArgStringSlice(args, "targets"); ok && len(targets) > 0 {
 		parts = append(parts, "targets="+strings.Join(targets, ", "))
+	}
+	if scan, ok := logArgStringSlice(args, "scan"); ok && len(scan) > 0 {
+		parts = append(parts, "scan="+strings.Join(scan, ", "))
+	}
+	if added, ok := logArgInt(args, "added"); ok {
+		parts = append(parts, "added="+strconv.Itoa(added))
 	}
 	if scope, ok := logArgString(args, "scope"); ok && scope != "" {
 		parts = append(parts, "scope="+scope)

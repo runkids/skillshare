@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"skillshare/internal/config"
-	"skillshare/internal/sync"
 	"skillshare/internal/targetsummary"
 	"skillshare/internal/theme"
 	"skillshare/internal/ui"
@@ -32,7 +31,7 @@ func newTargetListJSONItem(item targetTUIItem) targetListJSONItem {
 	jsonItem := targetListJSONItem{
 		Name:         item.name,
 		Path:         sc.Path,
-		Mode:         sync.EffectiveMode(sc.Mode),
+		Mode:         item.skillsMode(),
 		TargetNaming: config.EffectiveTargetNaming(sc.TargetNaming),
 		Sync:         item.skillSync,
 		Include:      append([]string(nil), sc.Include...),
@@ -146,7 +145,7 @@ func printTargetListPlain(items []targetTUIItem) {
 		fmt.Println(theme.Primary().Bold(true).Render(item.name))
 		detail := item.skillSyncText
 		if sc.IsEnabled() {
-			detail = sync.EffectiveMode(sc.Mode) + " · " + config.EffectiveTargetNaming(sc.TargetNaming) + " · " + item.skillSyncText
+			detail = item.skillsMode() + " · " + config.EffectiveTargetNaming(sc.TargetNaming) + " · " + item.skillSyncText
 		}
 		ui.Row(ui.MarkNone, "Skills", shortenPath(displayPath)+"  "+ui.DimText(detail), width)
 		if item.namingErr != nil {

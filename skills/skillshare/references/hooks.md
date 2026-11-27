@@ -81,7 +81,24 @@ Outputs outside the target's current home, missing homes and removed targets
 keep their ownership and files with a warning; explicitly preview and run
 `hooks sync NAME --replace -g` to release parked ownership without editing files.
 Import uses the account key: `hooks import --from codex-2 -g --json`.
-Each Codex home must trust its own changed hooks through `/hooks`.
+Each Codex home must trust its own changed hooks through `/hooks`, or run
+`hooks sync --trust -g` (needs `codex` on PATH). It writes the hook files, then
+asks Codex which owned hooks need trust (`unchanged` = already trusted, no answer
+needed). New or command-changed hooks are listed with their commands and confirmed
+once; nothing to trust means no question. `--yes`/`-y` (only with `--trust`) skips
+the question. Without a terminal and without `--yes`, nothing is trusted: it lists
+the hooks and exits with an error naming `--yes`, because Codex's review exists so a
+person sees the command before it runs. `--json` never asks: without `--yes` it
+reports the hooks as `needed` and exits non-zero. Project JSON includes the reason in `codexTrustError`; each verified project hook includes its destination `home`. A home Codex cannot list, or whose
+write fails, is named in the error and does not stop the other homes. Only `trusted_hash` is
+added (disabled hooks are reported, not enabled). A moved or removed hook leaves its
+old entry in `config.toml`; it matches only the same event, matcher and handler at
+that position, so it cannot trust another hook. Use `hooks sync -p --trust` for this checkout. Trust is recorded in each verified user's Codex home, not in the repository; folder trust is never granted. A home that cannot verify every owned command is skipped. Partial completion exits non-zero. `sync hooks` and `hooks list` reject `--trust`; hooks written for `hooks.projects`
+are skipped, so trust those in Codex `/hooks`. `--json` has a `codexTrust` list
+(`target`, `entry`, `key`, `command`, `action`, `disabled`). If Codex fails, files
+are still written and it errors "hook files were written, but Codex trust was not
+recorded". Plain `hooks sync` never touches trust. The dashboard Hooks page
+(global or project mode) does the same after a confirm dialog.
 
 ## Git config hooks
 
@@ -119,3 +136,22 @@ Git bindings refuse `--keep-files`. Git import, scripts bindings, hookdir
 scanning/recognizers and doctor checks are not implemented in this phase.
 Inspect old hookdir copies manually before migration; Git can execute both.
 Management never executes hooks. Native Windows execution is unverified.
+
+OpenCode probes the installed major with `--version`: v1 keeps flat `.ts` output;
+v2 writes a package directory, manifest and directory URL in `opencode.json(c)`.
+Use `package` instead of `code`/`codeFile` to retain a relative-filename → UTF-8
+contents map, including package.json and dependencies. Native directory imports
+copy to Skillshare-owned output and warn to remove the original after sync.
+No code runs or dependencies install. Provision dependencies before loading.
+Only string server exports or conventional root server/index entries are verified;
+conditional/fallback server exports fail closed. When the version cannot be
+detected (missing or failing binary, unknown major), only OpenCode bindings are
+skipped with a warning; existing OpenCode output stays and other Agents sync.
+A `package` binding on v1 is skipped with a warning. `code` is written as given,
+not checked against the v1 or v2 API.
+
+Windows hook probes resolve standard native npm shims for `opencode-ai` (later
+v1) and `@opencode/cli` (v2), without a shell. Older v1 Node launchers and custom
+batch wrappers fail closed: set the account `cli` to the installed native
+`opencode.exe` absolute path, or put its directory first on `PATH`. No postinstall
+scripts run and missing binaries are not repaired.

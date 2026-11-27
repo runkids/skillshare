@@ -19,17 +19,48 @@ const chrome = EditorView.theme({
   '&.cm-focused': { outline: 'none' },
   '.cm-scroller': { backgroundColor: 'inherit', fontFamily: 'var(--fm)', lineHeight: '1.65' },
   '.cm-content': { padding: '10px 0', caretColor: 'var(--ink)' },
-  '.cm-gutters': { backgroundColor: 'inherit', border: 'none', color: 'var(--ink-3)', paddingLeft: '4px' },
+  '.cm-gutters': {
+    backgroundColor: 'inherit',
+    border: 'none',
+    color: 'var(--ink-3)',
+    paddingLeft: '4px',
+  },
   '.cm-activeLine, .cm-activeLineGutter': { backgroundColor: 'transparent' },
-  '.cm-selectionBackground, &.cm-focused .cm-selectionBackground, ::selection': { backgroundColor: 'var(--accent-bg) !important' },
+  '.cm-selectionBackground, &.cm-focused .cm-selectionBackground, ::selection': {
+    backgroundColor: 'var(--accent-bg) !important',
+  },
   '.cm-matchingBracket': { backgroundColor: 'var(--accent-bg)', outline: 'none' },
   '.cm-placeholder': { color: 'var(--ink-3)' },
-  '.cm-lintRange-error': { backgroundImage: 'none', textDecoration: 'underline wavy var(--bad)', textUnderlineOffset: '3px' },
-  '.cm-lintRange-warning': { backgroundImage: 'none', textDecoration: 'underline wavy var(--ink-3)', textUnderlineOffset: '3px' },
-  '.cm-tooltip': { backgroundColor: 'var(--surface)', color: 'var(--ink)', border: '1px solid var(--line)', borderRadius: '8px', fontFamily: 'var(--f)', fontSize: '12.5px', overflow: 'hidden' },
+  '.cm-lintRange-error': {
+    backgroundImage: 'none',
+    textDecoration: 'underline wavy var(--bad)',
+    textUnderlineOffset: '3px',
+  },
+  '.cm-lintRange-warning': {
+    backgroundImage: 'none',
+    textDecoration: 'underline wavy var(--ink-3)',
+    textUnderlineOffset: '3px',
+  },
+  '.cm-tooltip': {
+    backgroundColor: 'var(--surface)',
+    color: 'var(--ink)',
+    border: '1px solid var(--line)',
+    borderRadius: '8px',
+    fontFamily: 'var(--f)',
+    fontSize: '12.5px',
+    overflow: 'hidden',
+  },
   '.cm-tooltip-autocomplete > ul > li': { padding: '3px 10px !important', fontFamily: 'var(--fm)' },
-  '.cm-tooltip-autocomplete > ul > li[aria-selected]': { backgroundColor: 'var(--sel)', color: 'var(--sel-ink)' },
-  '.cm-completionDetail': { marginLeft: '12px', fontFamily: 'var(--f)', fontStyle: 'normal', color: 'var(--ink-3)' },
+  '.cm-tooltip-autocomplete > ul > li[aria-selected]': {
+    backgroundColor: 'var(--sel)',
+    color: 'var(--sel-ink)',
+  },
+  '.cm-completionDetail': {
+    marginLeft: '12px',
+    fontFamily: 'var(--f)',
+    fontStyle: 'normal',
+    color: 'var(--ink-3)',
+  },
   '.cm-diagnostic': { padding: '6px 10px', borderLeft: 'none' },
   '.cm-diagnostic-error': { color: 'var(--bad)' },
   '.cm-diagnostic-warning': { color: 'var(--ink-2)' },
@@ -37,9 +68,24 @@ const chrome = EditorView.theme({
   '.cm-marked .cm-gutterElement, .cm-gutterElement.cm-marked': { color: 'var(--warn)' },
   // A noted line holds its floating note, so a note that does not fit drops under this line, not beside the next.
   '.cm-noted': { display: 'flow-root' },
-  '.cm-block': { backgroundColor: 'var(--sunken)', boxShadow: 'inset 3px 0 0 color-mix(in srgb, var(--ink-3) 40%, transparent)' },
+  '.cm-block': {
+    backgroundColor: 'var(--sunken)',
+    boxShadow: 'inset 3px 0 0 color-mix(in srgb, var(--ink-3) 40%, transparent)',
+  },
   // Floats right of the line's last row: with wrapping it drops below rather than overlap, and a long note is cut short.
-  '.cm-note': { float: 'right', maxWidth: '50%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingLeft: '16px', paddingRight: '16px', fontFamily: 'var(--f)', fontSize: '12px', color: 'var(--ink-3)', userSelect: 'none' },
+  '.cm-note': {
+    float: 'right',
+    maxWidth: '50%',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    paddingLeft: '16px',
+    paddingRight: '16px',
+    fontFamily: 'var(--f)',
+    fontSize: '12px',
+    color: 'var(--ink-3)',
+    userSelect: 'none',
+  },
 });
 
 /** How lineDecor styles one line: block tints it, note adds muted text at its right end. */
@@ -51,7 +97,9 @@ class NoteWidget extends WidgetType {
     super();
     this.text = text;
   }
-  eq(other: NoteWidget) { return other.text === this.text; }
+  eq(other: NoteWidget) {
+    return other.text === this.text;
+  }
   toDOM() {
     const el = document.createElement('span');
     el.className = 'cm-note';
@@ -72,8 +120,10 @@ function decorateLines(lineDecor: (lines: string[]) => LineDecor[]) {
     for (const [i, d] of lineDecor(lines).entries()) {
       if (!d) continue;
       const line = state.doc.line(i + 1);
-      if (d.block || d.note) ranges.push((d.block ? (d.note ? blockNoted : block) : noted).range(line.from));
-      if (d.note) ranges.push(Decoration.widget({ widget: new NoteWidget(d.note), side: 1 }).range(line.to));
+      if (d.block || d.note)
+        ranges.push((d.block ? (d.note ? blockNoted : block) : noted).range(line.from));
+      if (d.note)
+        ranges.push(Decoration.widget({ widget: new NoteWidget(d.note), side: 1 }).range(line.to));
     }
     return Decoration.set(ranges, true);
   };
@@ -120,7 +170,23 @@ interface Props {
   completions?: CompletionSource;
 }
 
-export default function CodeEditor({ value, onChange, lang = '', placeholder, ariaLabel, disabled = false, className = '', minHeight = '140px', maxHeight = '320px', markLine, lineDecor, wrap = false, fill = false, lint, completions }: Props) {
+export default function CodeEditor({
+  value,
+  onChange,
+  lang = '',
+  placeholder,
+  ariaLabel,
+  disabled = false,
+  className = '',
+  minHeight = '140px',
+  maxHeight = '320px',
+  markLine,
+  lineDecor,
+  wrap = false,
+  fill = false,
+  lint,
+  completions,
+}: Props) {
   const extensions = useMemo(
     () => [
       chrome,
@@ -128,8 +194,12 @@ export default function CodeEditor({ value, onChange, lang = '', placeholder, ar
       EditorView.contentAttributes.of({ 'aria-label': ariaLabel }),
       ...(lang === 'json' ? [json()] : []),
       ...(lang === 'yaml' ? [yaml()] : []),
-      ...(lang === 'typescript' || lang === 'javascript' ? [javascript({ typescript: lang === 'typescript' })] : []),
-      ...(lint ? [linter((view) => lint(view.state.doc.toString()), { delay: 250 }), lintGutter()] : []),
+      ...(lang === 'typescript' || lang === 'javascript'
+        ? [javascript({ typescript: lang === 'typescript' })]
+        : []),
+      ...(lint
+        ? [linter((view) => lint(view.state.doc.toString()), { delay: 250 }), lintGutter()]
+        : []),
       ...(completions ? [autocompletion({ override: [completions], icons: false })] : []),
       ...(markLine ? [markLines(markLine)] : []),
       ...(lineDecor ? [decorateLines(lineDecor)] : []),
@@ -138,7 +208,9 @@ export default function CodeEditor({ value, onChange, lang = '', placeholder, ar
     [lang, ariaLabel, markLine, lineDecor, wrap, lint, completions],
   );
   return (
-    <div className={`ss-code !overflow-hidden !p-0 !whitespace-normal focus-within:!border-[var(--accent)] ${className}`}>
+    <div
+      className={`ss-code !overflow-hidden !p-0 !whitespace-normal focus-within:!border-[var(--accent)] ${className}`}
+    >
       <CodeMirror
         className={`bg-inherit ${fill ? 'h-full' : ''}`}
         value={value}

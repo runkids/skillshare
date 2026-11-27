@@ -13,7 +13,7 @@ import { systemApi } from './system';
 import { targetsApi } from './targets';
 import { updateApi } from './update';
 
-export { ApiError, parseApiErrorPayload, apiFetch } from './http';
+export { ApiError, isConnectionLost, parseApiErrorPayload, apiFetch } from './http';
 export * from './types/audit';
 export * from './types/backups';
 export * from './types/config';
@@ -46,12 +46,8 @@ export const api = {
   ...gitApi,
 
   // Aliases go through `api` so tests that replace it still intercept them.
-  getSkill: (name: string, kind?: 'skill' | 'agent') =>
-    api.getResource(name, kind),
-  deleteSkill: (name: string, kind?: 'skill' | 'agent') =>
-    api.deleteResource(name, kind),
-  disableSkill: (name: string, kind?: 'skill' | 'agent') =>
-    api.disableResource(name, kind),
-  enableSkill: (name: string, kind?: 'skill' | 'agent') =>
-    api.enableResource(name, kind),
+  getSkill: (name: string, kind?: 'skill' | 'agent') => api.getResource(name, kind),
+  deleteSkill: (name: string, kind?: 'skill' | 'agent') => api.deleteResource(name, kind),
+  disableSkill: (name: string, kind?: 'skill' | 'agent') => api.disableResource(name, kind),
+  enableSkill: (name: string, kind?: 'skill' | 'agent') => api.enableResource(name, kind),
 };

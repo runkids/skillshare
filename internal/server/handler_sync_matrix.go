@@ -64,6 +64,7 @@ func (s *Server) handleSyncMatrix(w http.ResponseWriter, r *http.Request) {
 	source := s.cfg.EffectiveSkillsSource()
 	agentsSource := s.agentsSource()
 	targets := s.cloneTargets()
+	defaultMode := s.cfg.Mode
 	s.mu.RUnlock()
 
 	skills, err := ssync.DiscoverSourceSkills(source, s.skillsWalk())
@@ -97,7 +98,7 @@ func (s *Server) handleSyncMatrix(w http.ResponseWriter, r *http.Request) {
 			for _, skill := range skills {
 				entries = append(entries, newSyncMatrixEntry(skill.FlatName, name, "na", "skills off for this target", ""))
 			}
-		} else if sc.Mode == "symlink" {
+		} else if sc.Mode == "symlink" || (sc.Mode == "" && defaultMode == "symlink") {
 			for _, skill := range skills {
 				entries = append(entries, newSyncMatrixEntry(skill.FlatName, name, "na", "symlink mode — filters not applicable", ""))
 			}

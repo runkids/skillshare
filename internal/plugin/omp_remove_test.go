@@ -117,6 +117,31 @@ func TestOMPRemoveRetainsCacheUsedByInvisibleProject(t *testing.T) {
 	}
 }
 
+// The removal revision feeds the plan revision that apply compares with its
+// preview, so it must not depend on map iteration order.
+func TestOMPRemovalRevisionIsDeterministic(t *testing.T) {
+	s, b, root, cache := ompRemovalFixture(t, false)
+	entries := []string{`"demo@team":[{"scope":"user","installPath":` + strconv.Quote(cache) + `,"version":"1.0.0"}]`}
+	for _, name := range []string{"a", "b", "c", "d"} {
+		other := ompCachePath(filepath.Dir(cache), name+"@team", "1.0.0")
+		writeFile(t, other, "package.json", `{"name":"`+name+`-runtime"}`)
+		entries = append(entries, `"`+name+`@team":[{"scope":"user","installPath":`+strconv.Quote(other)+`,"version":"1.0.0"}]`)
+	}
+	writeFile(t, root, "installed_plugins.json", `{"version":2,"plugins":{`+strings.Join(entries, ",")+`}}`)
+	want := ""
+	for range 20 {
+		p, err := s.ompRemovalPlan(b, filepath.Dir(cache))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if want == "" {
+			want = p.revision
+		} else if p.revision != want {
+			t.Fatalf("revision changed between identical plans: %s != %s", p.revision, want)
+		}
+	}
+}
+
 func TestOMPRemovalRefusesForeignLinkAndStaleNativeFile(t *testing.T) {
 	s, _, root, _ := ompRemovalFixture(t, false)
 	r := Request{Action: "remove", Name: "demo"}

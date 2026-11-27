@@ -215,7 +215,7 @@ Targets 是 skillshare 會同步過去的 AI CLI skill 目錄。
 - `~/.gemini/config/skills/` — Antigravity（app）
 - `~/.gemini/antigravity-cli/skills/` — Antigravity CLI
 - `~/.gemini/skills/` — Gemini CLI
-- 以及[共 79 個 targets](/docs/reference/targets/supported-targets)
+- 以及[共 80 個 targets](/docs/reference/targets/supported-targets)
 
 **自動偵測：** 執行 `skillshare init` 時，會自動偵測已安裝的 AI CLI 並將它們加入 targets。
 

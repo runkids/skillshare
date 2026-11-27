@@ -72,7 +72,7 @@ func syncProject(cfg *config.Config, root string, dryRun bool) (*ssync.ExecuteRe
 		}
 	}
 	if !dryRun {
-		warnings = append(warnings, ssync.BackupTargets(targets, skills, agents, ssync.BackupTargetsOptions{Dir: backup.BackupDir(), Retention: backup.RetentionConfig(cfg), BuiltinAgentTargets: config.DefaultAgentTargets()})...)
+		warnings = append(warnings, ssync.BackupTargets(targets, skills, agents, ssync.BackupTargetsOptions{Dir: backup.BackupDir(), Retention: backup.RetentionConfig(cfg), BuiltinAgentTargets: config.DefaultAgentTargets(), SkillsSource: cfg.EffectiveSkillsSource(), AgentsSource: cfg.EffectiveAgentsSource()})...)
 	}
 
 	discovery := ssync.TargetDiscovery{}

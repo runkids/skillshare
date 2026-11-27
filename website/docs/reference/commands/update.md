@@ -12,6 +12,7 @@ skillshare update a b c              # Update multiple at once
 skillshare update --group frontend   # Update all skills in a group
 skillshare update team-skills        # Update tracked repo
 skillshare update --all              # Update everything
+skillshare update my-skill --merge   # Keep your edits and merge upstream changes into them
 skillshare update agents --all       # Update all tracked/updatable agents
 ```
 
@@ -68,6 +69,7 @@ flowchart TD
 | `--all, -a` | Update all tracked repos/skills, or all agents when used as `update agents --all`. A tracked repo behind a [followed source link](../targets/configuration.md#follow_source_links) is skipped with a warning, since it is your own checkout; update it by name |
 | `--group, -G <name>` | Update all updatable skills in a group, or all agents in an agent subdirectory |
 | `--force, -f` | Discard local changes, proceed despite audit findings, and reinstall remote skills that are already at the upstream commit |
+| `--merge` | Keep the local changes to a skill or agent installed from a repository and merge the upstream changes into them; see [Merging upstream changes](#merging-upstream-changes). Cannot be combined with `--force` |
 | `--dry-run, -n` | Preview without making changes |
 | `--skip-audit` | Skip the security audit gate |
 | `--audit-threshold <t>`, `--threshold <t>`, `-T <t>` | Override update audit block threshold (`critical|high|medium|low|info`; shorthand: `c|h|m|l|i`, plus `crit`, `med`) |
@@ -79,7 +81,7 @@ flowchart TD
 | `--json` | Output as JSON |
 | `--help, -h` | Show help |
 
-`update agents` supports: `--all`, `--group`, `--force`, `--dry-run`, `--skip-audit`, `--audit-threshold` / `--threshold` / `-T`, `--json`, plus `--project` / `--global`. It does **not** support `--diff`, `--audit-verbose`, or `--prune`.
+`update agents` supports: `--all`, `--group`, `--force`, `--merge`, `--dry-run`, `--skip-audit`, `--audit-threshold` / `--threshold` / `-T`, `--json`, plus `--project` / `--global`. It does **not** support `--diff`, `--audit-verbose`, or `--prune`.
 
 ## JSON Output
 
@@ -104,7 +106,7 @@ skillshare update --all --json
 }
 ```
 
-Possible `status` values: `updated`, `skipped`, `failed`, `security_blocked`. When an item fails, the `error` field is included. A remote skill skipped for its local changes is a `skipped` item with `"error": "local changes since install"`.
+Possible `status` values: `updated`, `merged`, `conflict`, `skipped`, `failed`, `security_blocked`. When an item fails, the `error` field is included. A remote skill skipped for its local changes is a `skipped` item with `"error": "local changes since install"`. With `--merge`, a skill whose upstream changes were merged into its edits is a `merged` item and counts as updated; one that could not be merged is a `conflict` item whose `error` names the conflicting files, and counts as skipped.
 
 When a batch update finds remote skills already at the upstream commit, it leaves them alone and counts them in an `up_to_date` field. The field is omitted when the count is zero.
 
@@ -119,7 +121,7 @@ When tracked repos are declared in metadata but missing on disk, each is reporte
   ],
   "missing_tracked_repos": {
     "names": ["_team-skills"],
-    "hint": "Run 'skillshare install' to rehydrate tracked repositories"
+    "hint": "Run 'skillshare install -g' to rehydrate tracked repositories, or 'skillshare uninstall <name> -g' to remove an unwanted declaration"
   }
 }
 ```
@@ -143,7 +145,7 @@ skillshare update agents --all --json
 }
 ```
 
-Possible agent `status` values include `updated`, `failed`, `skipped`, `up_to_date`, `update_available`, `dirty`, `drifted`, `local`, and `error`. An `error` agent could not be checked, for example because its remote is unreachable or its metadata is unreadable. The command then exits with a non-zero code instead of reporting the agents as up to date.
+Possible agent `status` values include `updated`, `merged`, `conflict`, `failed`, `skipped`, `up_to_date`, `update_available`, `dirty`, `drifted`, `local`, and `error`. An `error` agent could not be checked, for example because its remote is unreachable or its metadata is unreadable. The command then exits with a non-zero code instead of reporting the agents as up to date.
 
 ## Updating Agents
 
@@ -224,7 +226,7 @@ This updates:
 1. All tracked repositories (git pull)
 2. All skills with source metadata (reinstall when upstream changed)
 
-`update --all` and `update --group` group remote skills by repository and clone each repository once. They leave alone any skill whose folder did not change upstream and count it as up to date. A skill whose folder contains a symlink is the exception: its files can change without the folder changing, so it is reinstalled whenever the upstream commit moves. Several skills named in project mode (`-p`) work the same way. Use `--force` to reinstall every skill anyway. A single skill, and skills named in global mode, are always reinstalled. A skill whose files you changed since install is skipped in every case until you add `--force` (see [Handling Conflicts](#handling-conflicts)). When a repository cannot be fetched, its skills count as skipped and `update` prints a warning naming the repository and the error, with any credentials in the URL removed.
+`update --all` and `update --group` group remote skills by repository and clone each repository once. They leave alone any skill whose folder did not change upstream and count it as up to date. A skill whose folder contains a symlink is the exception: its files can change without the folder changing, so it is reinstalled whenever the upstream commit moves. A skill installed through a link to a folder, such as `.agents/skills/<name>`, is compared by the folder the link leads to. Several skills named in project mode (`-p`) work the same way. Use `--force` to reinstall every skill anyway. A single skill, and skills named in global mode, are always reinstalled. A reinstall from a repository subfolder that brings the same files leaves `.metadata.json` as it was, so a skills source under Git stays clean. A skill whose files you changed since install is skipped in every case until you add `--merge` or `--force` (see [Handling Conflicts](#handling-conflicts)). When a repository cannot be fetched, its skills count as skipped and `update` prints a warning naming the repository and the error, with any credentials in the URL removed.
 
 Only one skillshare process updates a git checkout at a time. When another `update` or dashboard is already updating the same tracked repo or git-installed skill, the update waits for it to finish. After a minute it gives up with `another skillshare process is still updating <path>`.
 
@@ -248,10 +250,12 @@ If `.metadata.json` declares a tracked repo (`tracked: true`) but its clone dire
 ```
 ! 1 tracked repo declared in metadata but missing on disk
 ! _team-skills  clone directory absent
-  Run 'skillshare install' to rehydrate tracked repositories
+  Run 'skillshare install -g' to rehydrate tracked repositories, or 'skillshare uninstall <name> -g' to remove an unwanted declaration
 ```
 
 This applies to both global and project (`-p`) mode. To recreate the clones from metadata, run no-argument [install](/docs/reference/commands/install) (see [Rehydrating After a Fresh Clone](/docs/understand/tracked-repositories#rehydrating-after-a-fresh-clone)).
+
+In global mode, you can instead run `skillshare uninstall <name> -g` to remove an unwanted declaration without a checkout; nothing moves to trash and there is no trash undo. Project mode suggests `skillshare install -p` and does not support declaration-only removal.
 
 ## Stale Skill Cleanup (`--prune`)
 
@@ -316,7 +320,7 @@ skillshare update --all --skip-audit
 ```
 
 :::caution
-`--skip-audit` disables the security scan entirely. Use it only when you trust the source or have an external audit process.
+`--skip-audit` disables the security scan entirely. Use it only when you trust the source or have an external audit process. It does not let a tracked repository or a whole-repository skill take a new commit with a symlink that leads outside the repository or into its `.git` folder: that update stops with an error, and `--force` does not override it.
 :::
 
 ### Accepted Findings {#accepted-findings}
@@ -387,7 +391,29 @@ A skill installed from a repository is protected the same way. When its files no
 skillshare update my-skill --force
 ```
 
-On the dashboard's **Updates** tab, the skill shows **Modified locally** and a **View changes** button that opens its changes on the skill's page; tick **Force overwrite local edits** before updating it, or use **Force Retry** on the skipped row. Updating it from the skill's own page shows the changes and asks before discarding them. `update <name> --dry-run` reports the skill as one it would skip. A modified skill that was also deleted upstream is kept until you add `--force`, even with `--prune`.
+To keep your edits and take the upstream changes as well, use `--merge` instead; see [Merging upstream changes](#merging-upstream-changes).
+
+On the dashboard's **Updates** tab, the skill shows **Modified locally** and a **View changes** button that shows its changes and offers **Merge** or **Force overwrite local edits**; you can also tick **Force overwrite local edits** before updating it, or use **Merge** or **Force Retry** on the skipped row. Updating it from the skill's own page shows the changes and offers **Merge** beside discarding them. `update <name> --dry-run` reports the skill as one it would skip. A modified skill that was also deleted upstream is kept until you add `--force`, even with `--prune`.
+
+An agent edited since install is protected as well. When a newer version would overwrite the edits, the update is skipped: `skillshare check agents` reports the agent with `update available upstream`, and `update agents` lists it under **Modified locally**. Merge with `skillshare update agents <name> --merge`, or on the dashboard use **Merge** or **Force Retry** on the skipped row, or update from the agent's own page.
+
+### Merging upstream changes {#merging-upstream-changes}
+
+`--merge` combines your edits with upstream's instead of choosing one. It fetches the commit the skill or agent was installed at and uses it as the base of a 3-way merge, file by file, like `git merge`:
+
+```text
+$ skillshare update my-skill --merge
+✓ Update    my-skill · merged local changes · from github.com/team/skills/my-skill
+```
+
+- A file only you changed keeps your version, a file only upstream changed takes upstream's, and a file both changed is merged line by line.
+- When both sides changed the same lines, deleted a file the other side changed, or changed the same binary file, nothing is written. The skill stays as it was, `update` lists the conflicting files and exits with an error, and you can resolve it by hand or discard your edits with `--force`.
+- After a clean merge the skill still differs from what upstream published, so it stays **modified**: a plain `update` keeps skipping it, and the next `update --merge` merges from the new version.
+- When upstream changed nothing in the skill, the files are left alone and the skill is reported as up to date.
+- Only files take part. A symlink to a directory or an empty directory you added to the skill is not kept, as with any update.
+- A skill with no local changes is updated normally. `--merge` does not apply to tracked repositories (`_repo`): commit your changes there and let `git pull` merge them.
+
+`update --all --merge` and `update --group <name> --merge` merge every modified skill and update the rest; the ones that conflict are listed under **Not merged**. `--merge` needs the installed commit to rebuild the base: a skill whose recorded files cannot be reproduced from it fails with `cannot rebuild the installed version to merge against`. A skill behind a [followed source link](../targets/configuration.md#follow_source_links) is your own checkout; merge there with git.
 
 ## After Updating
 

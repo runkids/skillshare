@@ -64,10 +64,7 @@ function extractExcludeNearby(lines: string[], lineIndex: number): string | null
  * Component
  * ────────────────────────────────────────────────────────────────────── */
 
-export default function AuditRulesYaml({
-  isProjectMode,
-  onSaveStateChange,
-}: AuditRulesYamlProps) {
+export default function AuditRulesYaml({ isProjectMode, onSaveStateChange }: AuditRulesYamlProps) {
   const t = useT();
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -137,17 +134,20 @@ export default function AuditRulesYaml({
 
   const linterExtension = useMemo(
     () =>
-      linter((view) => {
-        return errorsRef.current.map(err => {
-          const lineObj = view.state.doc.line(Math.min(err.line, view.state.doc.lines));
-          return {
-            from: lineObj.from,
-            to: lineObj.to,
-            severity: err.severity === 'error' ? 'error' as const : 'warning' as const,
-            message: err.message,
-          };
-        });
-      }, { delay: 350 }),
+      linter(
+        (view) => {
+          return errorsRef.current.map((err) => {
+            const lineObj = view.state.doc.line(Math.min(err.line, view.state.doc.lines));
+            return {
+              from: lineObj.from,
+              to: lineObj.to,
+              severity: err.severity === 'error' ? ('error' as const) : ('warning' as const),
+              message: err.message,
+            };
+          });
+        },
+        { delay: 350 },
+      ),
     [],
   );
 
@@ -177,10 +177,15 @@ export default function AuditRulesYaml({
 
   const saveKeymap = useMemo(
     () =>
-      keymap.of([{
-        key: 'Mod-s',
-        run: () => { saveRef.current(); return true; },
-      }]),
+      keymap.of([
+        {
+          key: 'Mod-s',
+          run: () => {
+            saveRef.current();
+            return true;
+          },
+        },
+      ]),
     [],
   );
 
@@ -259,7 +264,11 @@ export default function AuditRulesYaml({
       <EmptyState
         icon={FilePlus}
         title={t('auditRulesYaml.empty.title')}
-        description={t(isProjectMode ? 'auditRulesYaml.empty.descriptionProject' : 'auditRulesYaml.empty.descriptionGlobal')}
+        description={t(
+          isProjectMode
+            ? 'auditRulesYaml.empty.descriptionProject'
+            : 'auditRulesYaml.empty.descriptionGlobal',
+        )}
         action={
           <Button variant="primary" onClick={handleCreate} disabled={creating}>
             <FilePlus size={15} />
@@ -279,7 +288,9 @@ export default function AuditRulesYaml({
           extensions={extensions}
           theme="none"
           height="500px"
-          onCreateEditor={(view) => { editorRef.current = view; }}
+          onCreateEditor={(view) => {
+            editorRef.current = view;
+          }}
           basicSetup={{
             lineNumbers: true,
             foldGutter: true,

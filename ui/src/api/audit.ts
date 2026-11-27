@@ -1,11 +1,18 @@
-import { apiFetch, BASE, createSSEStream, kindQuery } from './http';
-import type { AuditAllResponse, AuditPolicy, AuditRulesResponse, AuditSkillResponse, CompiledRulesResponse } from './types/audit';
+import { http, BASE, createSSEStream, kindQuery } from './http';
+import type {
+  AuditAllResponse,
+  AuditPolicy,
+  AuditRulesResponse,
+  AuditSkillResponse,
+  CompiledRulesResponse,
+} from './types/audit';
 
 export const auditApi = {
-  auditAll: (kind?: 'skills' | 'agents') =>
-    apiFetch<AuditAllResponse>(`/audit${kindQuery(kind)}`),
+  auditAll: (kind?: 'skills' | 'agents') => http.get<AuditAllResponse>(`/audit${kindQuery(kind)}`),
   auditSkill: (name: string, kind?: 'skill' | 'agent') =>
-    apiFetch<AuditSkillResponse>(`/audit/${encodeURIComponent(name)}${kindQuery(kind === 'agent' ? kind : undefined)}`),
+    http.get<AuditSkillResponse>(
+      `/audit/${encodeURIComponent(name)}${kindQuery(kind === 'agent' ? kind : undefined)}`,
+    ),
   auditAllStream: (
     onStart: (total: number) => void,
     onProgress: (scanned: number) => void,
@@ -13,41 +20,26 @@ export const auditApi = {
     onError: (err: Error) => void,
     kind?: 'skills' | 'agents',
   ): EventSource =>
-    createSSEStream(BASE + `/audit/stream${kindQuery(kind)}`, {
-      start: (d) => onStart(d.total),
-      progress: (d) => onProgress(d.scanned),
-      done: onDone,
-    }, onError, 'Audit stream failed'),
-  getAuditRules: () => apiFetch<AuditRulesResponse>('/audit/rules'),
-  putAuditRules: (raw: string) =>
-    apiFetch<{ success: boolean }>('/audit/rules', {
-      method: 'PUT',
-      body: JSON.stringify({ raw }),
-    }),
-  initAuditRules: () =>
-    apiFetch<{ success: boolean; path: string }>('/audit/rules', {
-      method: 'POST',
-    }),
-  getCompiledRules: () => apiFetch<CompiledRulesResponse>('/audit/rules/compiled'),
+    createSSEStream(
+      BASE + `/audit/stream${kindQuery(kind)}`,
+      {
+        start: (d) => onStart(d.total),
+        progress: (d) => onProgress(d.scanned),
+        done: onDone,
+      },
+      onError,
+      'Audit stream failed',
+    ),
+  getAuditRules: () => http.get<AuditRulesResponse>('/audit/rules'),
+  putAuditRules: (raw: string) => http.put<{ success: boolean }>('/audit/rules', { raw }),
+  initAuditRules: () => http.post<{ success: boolean; path: string }>('/audit/rules'),
+  getCompiledRules: () => http.get<CompiledRulesResponse>('/audit/rules/compiled'),
   /** Severity at which install and sync refuse a resource. */
   setAuditThreshold: (blockThreshold: string) =>
-    apiFetch<AuditPolicy>('/audit/policy', {
-      method: 'PATCH',
-      body: JSON.stringify({ blockThreshold }),
-    }),
+    http.patch<AuditPolicy>('/audit/policy', { blockThreshold }),
   /** Preset for how strict a scan is: default, strict, or permissive. */
-  setAuditProfile: (profile: string) =>
-    apiFetch<AuditPolicy>('/audit/policy', {
-      method: 'PATCH',
-      body: JSON.stringify({ profile }),
-    }),
+  setAuditProfile: (profile: string) => http.patch<AuditPolicy>('/audit/policy', { profile }),
   toggleRule: (req: { id?: string; pattern?: string; enabled: boolean; severity?: string }) =>
-    apiFetch<{ success: boolean }>('/audit/rules/toggle', {
-      method: 'POST',
-      body: JSON.stringify(req),
-    }),
-  resetRules: () =>
-    apiFetch<{ success: boolean }>('/audit/rules/reset', {
-      method: 'POST',
-    }),
+    http.post<{ success: boolean }>('/audit/rules/toggle', req),
+  resetRules: () => http.post<{ success: boolean }>('/audit/rules/reset'),
 };

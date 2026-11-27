@@ -46,6 +46,14 @@ rules:
     max: 1024
     message: "Description is near the 1024-char limit ({chars} chars)"
 
+  # --- Body Size (warning) ---
+  - id: body-too-long
+    severity: warning
+    category: quality
+    check: body-lines-max
+    threshold: 500
+    message: "Skill body is {lines} lines; keep SKILL.md under 500 and move detail into reference files"
+
   # --- Description Format (warning) ---
   - id: no-trigger-phrase
     severity: warning

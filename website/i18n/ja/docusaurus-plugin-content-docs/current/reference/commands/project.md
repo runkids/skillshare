@@ -15,6 +15,7 @@ skillshare project                          # Same as project list
 skillshare project list --json
 skillshare project show <project> --json
 skillshare project add <root> --target T [options]
+skillshare project add <root> --scan DIR --target T [options]
 skillshare project edit <project> [options]
 skillshare project sync <project> [--dry-run] [--json]
 skillshare project localize <project> [--dry-run] [--json]
@@ -36,6 +37,7 @@ skillshare project remove <project> [--shared] [--yes] [--dry-run] [--json]
 | `--skills-naming NAMING` | add, edit | `flat`、`standard`、`prefixed` のいずれか。空の値で継承に戻します |
 | `--skills-include P`, `--skills-exclude P` | add, edit | 繰り返して複数の glob パターンを指定します。対応するリストを置き換え、空の値で解除します |
 | `--agents-include P`, `--agents-exclude P` | add, edit | Agent 用で、置き換えの扱いは同じです。フィルタには merge または copy モードが必要です |
+| `--scan DIR` | add | ルート内のこのフォルダー以下にある各 Git checkout も同じ設定で追加します。複数のフォルダーは繰り返し指定します。[ワークスペース内の checkout](#scan) を参照してください |
 | `--machine-local` | add | `config.yaml` ではなく、このマシンだけに保存します |
 | `--shared` | add, remove | add: [`projects_storage`](#local-registrations) が `machine-local` でも `config.yaml` に保存します。remove: このマシンが上書きしている project の `config.yaml` 側のコピーも削除します |
 | `--sync` | add, edit | 保存してから、この project の Skill と Agent を sync します。force はオフです |
@@ -63,6 +65,28 @@ project は `config.yaml` の [`projects`](/docs/reference/targets/configuration
 
 Skill を無効化した project では、global の symlink モードを含め、Skill の sync 処理は一切実行されません。要求された、または有効なリソースの選択が空の場合は、検出、バックアップ、Target への書き込みを行わずに成功します。
 
+### ワークスペース内のすべての checkout を登録する {#scan}
+
+Codex などの一部のツールは、開いたフォルダーの Git ルートまでしか project skills を探しません。1 つのワークスペースフォルダーに複数の checkout があると、ワークスペースに sync した skills はそれらの checkout の中から見えません。`--scan` は各 checkout を同じ設定で個別の project として登録します:
+
+```bash
+skillshare project add ~/work/suite --scan . --scan .worktrees \
+  --target codex --skills-include 'team-*' --dry-run
+skillshare project add ~/work/suite --scan . --scan .worktrees \
+  --target codex --skills-include 'team-*' --sync
+```
+
+`--scan` にはルート内のフォルダーを指定します（`.` はルート自身）。そのフォルダーから checkout、つまり `.git` フォルダー、またはリンクされた worktree の `.git` ファイルを持つフォルダーを探します。checkout の中はそれ以上探しません。スキャンフォルダー以下の隠しフォルダー、`node_modules`、リンクはスキップするため、`.worktrees` のような隠しフォルダーは明示的に指定してください。まだ存在しないスキャンフォルダーや読み取れないフォルダーは、警告を出してスキップします。
+
+各 checkout は通常の project エントリーになります。スキャンの設定は保存されず、`project edit`、`project remove`、`--machine-local` はいつもどおり使えます。スキャンはコマンドを実行したときだけ行われるため、新しい clone や worktree を作ったら再実行してください。追加だけを行います:
+
+- 同じ設定で登録済みのフォルダーはそのまま残ります。
+- 異なる設定で登録済みのフォルダー（ルートを含む）はスキップされ、変更されません。変更するには `project edit` を使います。
+- 独自の `.skillshare/` project 設定を持つ checkout はスキップされます。
+- 新しい checkout は同じ実行の中で 1 回の書き込みで登録されるため、スクリプトから安全に再実行できます。
+
+checkout にはフォルダー名が付きます。ほかの project、または同じ実行で見つかった別の checkout がその名前を使っている場合は、ルートからのパスで名前を付けます: `.worktrees/app-a` は `worktrees-app-a` になり、`name` として保存されるので、以降のスキャンでも変わりません。ルート直下の checkout はフォルダー名を使います。導き出した名前も使われている場合、その checkout は理由とともにスキップされます。`--name` を付けて個別に追加してください。`--sync` はルートと、追加または維持されたすべての checkout を sync します。
+
 ### フィルタの置き換えと上書き設定のリセット {#edit-settings}
 
 ```bash
@@ -72,7 +96,7 @@ skillshare project sync shop-web --dry-run --json
 skillshare project sync shop-web --json
 ```
 
-add と edit は、書き込む前に有効な設定全体を検証します。編集は project が保存されている場所（`config.yaml`、またはこのマシンだけの project ならこのマシン）に保存されます。`config.yaml` では、YAML アンカーで宣言された project を編集すると、そのアンカーのエイリアスも変更されます。変更の結果には影響を受けたルートが列挙されます。何も変わらない add や edit は `applied: false` と `unchanged: true` を返し、それでも `--sync` は実行されます。異なる設定で add を繰り返すと失敗し、`project edit` を案内します。カスタム名はルートに見える形（例: `~name`、`./name`、`C:name`）にはできません。
+add と edit は、書き込む前に有効な設定全体を検証します。編集は project が保存されている場所（`config.yaml`、またはこのマシンだけの project ならこのマシン）に保存されます。`config.yaml` では、YAML アンカーで宣言された project を編集すると、そのアンカーのエイリアスも変更されます。変更の結果には影響を受けたルートが列挙されます。何も変わらない add や edit は `applied: false` と `unchanged: true` を返し、それでも `--sync` は実行されます。異なる設定で add を繰り返すと失敗し、`project edit` を案内します。`--scan` を付けた場合は、そのフォルダーをスキップします。カスタム名はルートに見える形（例: `~name`、`./name`、`C:name`）にはできません。
 
 ### project の削除 {#remove}
 
@@ -85,6 +109,8 @@ skillshare project remove shop-web --yes --json
 
 削除では、project を外す前に Skill を切り離します。フォルダー全体のリンクは削除され、merge モードのリンクは Source の内容が存在する限りローカルコピーになり、copy モードのファイルは残してマニフェストだけを削除します。存続している有効な Target がまだ所有するパスは残されます。
 
+削除しても、そのフォルダーの `mcp.projects` と `hooks.projects` のエントリーは残り、それぞれについて警告が表示されます。ダッシュボードの **Projects** ページにはフォルダーが表示されたままです。そこでもう一度削除するとこれらのエントリーも消えます。`config.yaml` を直接編集してもかまいません。
+
 CLI の edit は、外された Skill のパスも同じルールで切り離します。project の Skill が無効のままなら、名前変更や Agent 設定だけの編集を含む、どの CLI edit でも残っている Skill のパスを切り離します。ダッシュボードで以前に無効化した場合も同じで、コピーバックと存続している有効な Target によるパス所有のルールは引き続き適用されます。ダッシュボードでの保存は Skill を切り離しません。Agent のファイルはそのまま残ります。プレビューと結果には、削除・コピーバック・保持されたパスが列挙されます。
 
 ## JSON と失敗時の動作 {#json-and-failures}
@@ -95,6 +121,8 @@ CLI の edit は、外された Skill のパスも同じルールで切り離し
 | show | `project` オブジェクト |
 | add, edit, remove, localize, share | `action`、`project`、`applied`、`affected`、`warnings`。必要に応じて `sync`、`detach`、または `remaining`（remove） |
 | sync | `action`、`project`、`sync`。プレビューでは `applied: false` も含みます |
+
+`--scan` を付けると、`project` はルートになり、add はフォルダーごとに 1 件の `scan` 配列も返します: `root`、`path`（ルートからの相対パス。ルート自体は `.`）、`name`、`result`（`added`、`kept`、`skipped`）、スキップしたフォルダーでは `skip`（`different`、`storage`、`removed`、`own-config`、`name-taken`、`bad-name`）と `reason`。`--sync` を付けると、各要素にその project の `sync` と、あれば `error` も含まれます。
 
 project オブジェクトには `root`（保存された表記）、`path`（展開済みのパス）、`name`、`targets`、`skills`、`agents`、`groups`、`missing`、`hasOwnConfig`、`origin`（`shared` または `local`）、`originPath`（所有ファイル）、`sharedCopy`（`config.yaml` にも宣言されているローカルの project）が含まれます。省略または無効化されたリソースは `null` です。有効なリソースはその設定を公開します。テキスト形式の `project list` と `project show` はオン/オフの状態を表示します。sync の結果には `results`、`failed`、`warnings`、および検出・フィルタの診断情報が含まれます。
 

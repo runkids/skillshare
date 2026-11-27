@@ -169,32 +169,54 @@ func WriteIndex(path string, idx *Index) error {
 	return os.WriteFile(path, data, 0644)
 }
 
-// readSkillTags extracts the tags from SKILL.md frontmatter.
-// Supports comma-separated inline values: tags: git, workflow
+// readSkillTags extracts the root tags from SKILL.md frontmatter, for the index
+// and for drafts. It accepts comma-separated values (tags: git, workflow) and a
+// YAML list. Tags under metadata are custom data and are not read.
 func readSkillTags(skillPath string) []string {
 	data, err := os.ReadFile(filepath.Join(skillPath, "SKILL.md"))
 	if err != nil {
 		return nil
 	}
+	// A list needs the decoded block. Every other form, and frontmatter YAML
+	// rejects, goes through the line scan below.
+	if fm, err := utils.ParseFrontmatterMap(data); err == nil {
+		if list, ok := fm["tags"].([]any); ok {
+			var tags []string
+			for _, item := range list {
+				if s, ok := item.(string); ok && strings.TrimSpace(s) != "" {
+					tags = append(tags, strings.TrimSpace(s))
+				}
+			}
+			return tags
+		}
+	}
 	lines := strings.Split(utils.TrimBOM(string(data)), "\n")
 	if len(lines) < 3 || strings.TrimSpace(lines[0]) != "---" {
 		return nil
 	}
+	indent := -1
 	for i := 1; i < len(lines); i++ {
 		line := strings.TrimSpace(lines[i])
 		if line == "---" {
 			break
 		}
+		if !utils.IsRootFrontmatterLine(lines[i], &indent) {
+			continue
+		}
 		if strings.HasPrefix(strings.ToLower(line), "tags:") {
 			raw := strings.TrimSpace(line[len("tags:"):])
 			raw = strings.Trim(raw, `"'`)
+			// A one-line list reaches the scan when YAML rejects another line.
+			if strings.HasPrefix(raw, "[") && strings.HasSuffix(raw, "]") {
+				raw = raw[1 : len(raw)-1]
+			}
 			if raw == "" {
 				return nil
 			}
 			parts := strings.Split(raw, ",")
 			tags := make([]string, 0, len(parts))
 			for _, p := range parts {
-				t := strings.TrimSpace(p)
+				t := strings.Trim(strings.TrimSpace(p), `"'`)
 				if t != "" {
 					tags = append(tags, t)
 				}
@@ -215,10 +237,14 @@ func readSkillDescription(skillPath string) (string, error) {
 	if len(lines) < 3 || strings.TrimSpace(lines[0]) != "---" {
 		return "", nil
 	}
+	indent := -1
 	for i := 1; i < len(lines); i++ {
 		line := strings.TrimSpace(lines[i])
 		if line == "---" {
 			break
+		}
+		if !utils.IsRootFrontmatterLine(lines[i], &indent) {
+			continue
 		}
 		if strings.HasPrefix(strings.ToLower(line), "description:") {
 			desc := strings.TrimSpace(strings.TrimPrefix(line, "description:"))

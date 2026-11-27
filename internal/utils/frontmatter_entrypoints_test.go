@@ -65,6 +65,8 @@ func snapshotFrontmatter(t *testing.T, content string) fmSnapshot {
 // same file can give different answers. These cases pin each entry point's current answer
 // on the inputs where the rules differ; they are not a statement of what is right.
 func TestFrontmatterEntryPoints_DelimiterRules(t *testing.T) {
+	// The target writer refuses a header it cannot locate but the readers accept.
+	refused := "error: " + ErrTargetFrontmatter.Error() + ": frontmatter --- lines are indented, unclosed or below other text"
 	tests := []struct {
 		name    string
 		content string
@@ -83,42 +85,42 @@ func TestFrontmatterEntryPoints_DelimiterRules(t *testing.T) {
 		{
 			name:    "indented opening delimiter",
 			content: "  ---\nname: a\ntargets: [t]\n---\nbody\n",
-			want:    fmSnapshot{SkillName: "a", Field: "a", Fields: "a", List: "t", ListBytes: "t", Map: "error: no frontmatter at the start", Body: "body", Rewrite: "---\ntargets:\n  - x\n---\n  ---\nname: a\ntargets: [t]\n---\nbody\n"},
+			want:    fmSnapshot{SkillName: "a", Field: "a", Fields: "a", List: "t", ListBytes: "t", Map: "error: no frontmatter at the start", Body: "body", Rewrite: refused},
 		},
 		{
 			name:    "indented closing delimiter",
 			content: "---\nname: a\ntargets: [t]\n  ---\nbody\n",
-			want:    fmSnapshot{SkillName: "a", Field: "a", Fields: "a", List: "t", ListBytes: "t", Map: "error: unclosed frontmatter: no closing ---", Body: "body", Rewrite: "---\ntargets:\n  - x\n---\n---\nname: a\ntargets: [t]\n  ---\nbody\n"},
+			want:    fmSnapshot{SkillName: "a", Field: "a", Fields: "a", List: "t", ListBytes: "t", Map: "error: unclosed frontmatter: no closing ---", Body: "body", Rewrite: refused},
 		},
 		{
 			name:    "blank line before the opening delimiter",
 			content: "\n---\nname: a\ntargets: [t]\n---\nbody\n",
-			want:    fmSnapshot{SkillName: "a", Field: "a", Fields: "a", List: "t", ListBytes: "t", Map: "error: no frontmatter at the start", Body: "body", Rewrite: "---\nname: a\ntargets:\n  - x\n---\nbody\n"},
+			want:    fmSnapshot{SkillName: "a", Field: "a", Fields: "a", List: "t", ListBytes: "t", Map: "error: no frontmatter at the start", Body: "body", Rewrite: "\n---\nname: a\ntargets:\n  - x\n---\nbody\n"},
 		},
 		{
 			name:    "text before the opening delimiter",
 			content: "# Title\n---\nname: a\ntargets: [t]\n---\nbody\n",
-			want:    fmSnapshot{SkillName: "a", Field: "a", Fields: "a", List: "t", ListBytes: "t", Map: "error: no frontmatter at the start", Body: "# Title\n---\nname: a\ntargets: [t]\n---\nbody", Rewrite: "---\ntargets:\n  - x\n---\n# Title\n---\nname: a\ntargets: [t]\n---\nbody\n"},
+			want:    fmSnapshot{SkillName: "a", Field: "a", Fields: "a", List: "t", ListBytes: "t", Map: "error: no frontmatter at the start", Body: "# Title\n---\nname: a\ntargets: [t]\n---\nbody", Rewrite: refused},
 		},
 		{
 			name:    "first line only starts with dashes",
 			content: "--- title\n---\nname: a\ntargets: [t]\n---\nbody\n",
-			want:    fmSnapshot{SkillName: "a", Field: "a", Fields: "a", List: "t", ListBytes: "t", Map: "error: no frontmatter at the start", Body: "body", Rewrite: "---\nname: a\ntargets:\n  - x\n---\nbody\n"},
+			want:    fmSnapshot{SkillName: "a", Field: "a", Fields: "a", List: "t", ListBytes: "t", Map: "error: no frontmatter at the start", Body: "body", Rewrite: "--- title\n---\nname: a\ntargets:\n  - x\n---\nbody\n"},
 		},
 		{
 			name:    "unclosed block",
 			content: "---\nname: a\ntargets: [t]\nbody: text\n",
-			want:    fmSnapshot{SkillName: "a", Field: "a", Fields: "a", List: "t", ListBytes: "t", Map: "error: unclosed frontmatter: no closing ---", Body: "", Rewrite: "---\ntargets:\n  - x\n---\n---\nname: a\ntargets: [t]\nbody: text\n"},
+			want:    fmSnapshot{SkillName: "a", Field: "a", Fields: "a", List: "t", ListBytes: "t", Map: "error: unclosed frontmatter: no closing ---", Body: "", Rewrite: refused},
 		},
 		{
 			name:    "trailing spaces after the delimiters",
 			content: "--- \nname: a\ntargets: [t]\n---\t \nbody\n",
-			want:    fmSnapshot{SkillName: "a", Field: "a", Fields: "a", List: "t", ListBytes: "t", Map: "error: no frontmatter at the start", Body: "body", Rewrite: "---\nname: a\ntargets:\n  - x\n---\nbody\n"},
+			want:    fmSnapshot{SkillName: "a", Field: "a", Fields: "a", List: "t", ListBytes: "t", Map: "error: no frontmatter at the start", Body: "body", Rewrite: "--- \nname: a\ntargets:\n  - x\n---\t \nbody\n"},
 		},
 		{
 			name:    "CRLF line endings",
 			content: "---\r\nname: a\r\ntargets: [t]\r\n---\r\nbody\r\nmore\r\n",
-			want:    fmSnapshot{SkillName: "a", Field: "a", Fields: "a", List: "t", ListBytes: "t", Map: "a", Body: "body\nmore", Rewrite: "---\ntargets:\n  - x\n---\n---\r\nname: a\r\ntargets: [t]\r\n---\r\nbody\r\nmore\r\n"},
+			want:    fmSnapshot{SkillName: "a", Field: "a", Fields: "a", List: "t", ListBytes: "t", Map: "a", Body: "body\nmore", Rewrite: "---\r\nname: a\r\ntargets:\r\n  - x\r\n---\r\nbody\r\nmore\r\n"},
 		},
 		{
 			name:    "BOM",
@@ -138,7 +140,7 @@ func TestFrontmatterEntryPoints_DelimiterRules(t *testing.T) {
 		{
 			name:    "blank block",
 			content: "---\n\n---\nbody\n",
-			want:    fmSnapshot{SkillName: "", Field: "", Fields: "", List: "", ListBytes: "", Map: "error: no frontmatter", Body: "body", Rewrite: "---\ntargets:\n  - x\n---\nbody\n"},
+			want:    fmSnapshot{SkillName: "", Field: "", Fields: "", List: "", ListBytes: "", Map: "error: no frontmatter", Body: "body", Rewrite: "---\n\ntargets:\n  - x\n---\nbody\n"},
 		},
 		{
 			name:    "delimiters inside the body",
@@ -148,7 +150,7 @@ func TestFrontmatterEntryPoints_DelimiterRules(t *testing.T) {
 		{
 			name:    "indented delimiter inside a block scalar",
 			content: "---\nname: a\ndescription: |\n  ---\ntargets: [t]\n---\nbody\n",
-			want:    fmSnapshot{SkillName: "a", Field: "a", Fields: "a", List: "", ListBytes: "", Map: "a", Body: "targets: [t]\n---\nbody", Rewrite: "---\ndescription: |\n  ---\nname: a\ntargets:\n  - x\n---\nbody\n"},
+			want:    fmSnapshot{SkillName: "a", Field: "a", Fields: "a", List: "", ListBytes: "", Map: "a", Body: "targets: [t]\n---\nbody", Rewrite: "---\nname: a\ndescription: |\n  ---\ntargets:\n  - x\n---\nbody\n"},
 		},
 	}
 

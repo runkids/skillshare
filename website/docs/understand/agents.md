@@ -193,7 +193,7 @@ Rules:
 
 ## `.agentignore`
 
-Works identically to `.skillignore` — gitignore-style patterns to exclude agents from sync.
+Works identically to `.skillignore` — gitignore-style patterns to exclude agents from sync. `list` and the dashboard still show ignored agents as disabled, including every agent inside an ignored folder such as `archive/`.
 
 | Scope | Path |
 |-------|------|
@@ -206,7 +206,7 @@ Example:
 # Disable draft agents
 draft-*
 # Disable a specific agent
-experimental-reviewer
+experimental-reviewer.md
 ```
 
 Use `enable`/`disable` with `--kind agent` to manage entries:

@@ -312,6 +312,14 @@ skillshare sync -p
 `status`、`check`、`update --all`、`doctor` はこの状態を報告し、`skillshare install` を
 提案します。
 
+Global の checkout を手動で削除しても、宣言と監査の承認記録は残ります。再び使いたい場合だけ、ソースにアクセスでき、復元先が空いている状態で復元してください。ソースにアクセスできなくても、宣言を削除できます。
+
+```bash
+skillshare uninstall _team-skills -g
+```
+
+通常のフォルダや Git checkout ではないリンクがパスを占めている場合は、`devops/_team-skills` など `_` を含む記録された完全な正式名を指定してください。tracked 宣言のままであればメタデータのみが削除され、その場所のフォルダやリンクと `.gitignore` は変更されず、復元できる trash エントリも作られません。`install` などの reconcile がそのフォルダや追跡対象の非 checkout リンクを走査した後は通常の記録となり、通常の uninstall はその内容を trash に移動します。[uninstall](../reference/commands/uninstall.md) を参照してください。
+
 ### `nested git repositories must be disabled first`
 
 **原因:** `git_root: root` の場合、Git が無視していないサブディレクトリ（例: 手動で clone した
@@ -698,9 +706,9 @@ skillshare install <repo> --kind agent --all --force
    [gitignore 構文](https://git-scm.com/docs/gitignore) を使用します。
 
 **解決策:** `skillshare doctor` でファイルパスを確認し、パターンを再チェックしてください。
-Agent はベース名（`.md` を除く）でマッチするため、`draft-*` は `draft-experiment.md` に
-マッチします。CLI にエントリを書き込ませるには `skillshare disable <agent> --kind agent` を
-使用してください。
+パターンは `.md` を含む Agent のファイルパスにマッチします。`draft-*` は `draft-experiment.md` に
+マッチしますが、手書きの `draft-experiment` 行は何にもマッチしません。CLI にエントリを書き込ませるには
+`skillshare disable <agent> --kind agent` を使用してください。`.md` は CLI が付けます。
 
 ---
 

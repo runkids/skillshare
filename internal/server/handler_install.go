@@ -115,7 +115,8 @@ func discoverInstallSource(source *install.Source) (*install.DiscoveryResult, er
 	return install.DiscoverLocal(source)
 }
 
-// handleDiscover clones a git repo to a temp dir, discovers skills, then cleans up.
+// handleDiscover clones a git repo to a temp dir and discovers skills. The
+// clone is kept for the install that follows; see discoveryCache.
 // Returns whether the caller needs to present a selection UI.
 func (s *Server) handleDiscover(w http.ResponseWriter, r *http.Request) {
 	// Snapshot config under RLock, then release before I/O.
@@ -147,12 +148,13 @@ func (s *Server) handleDiscover(w http.ResponseWriter, r *http.Request) {
 		source.Branch = body.Branch
 	}
 
+	key := discoveryKey(source)
 	discovery, err := discoverInstallSource(source)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	defer install.CleanupDiscovery(discovery)
+	defer s.discoveries.keep(key, discovery)
 
 	skills := make([]map[string]string, len(discovery.Skills))
 	for i, sk := range discovery.Skills {
@@ -172,14 +174,10 @@ func (s *Server) handleDiscover(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// handleInstallBatch re-clones a repo and installs each selected skill.
+// handleInstallBatch installs each selected skill from the clone the listing
+// kept, or from a new clone when there is none.
 func (s *Server) handleInstallBatch(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	defer s.trackProjectLock()()
-	before := s.skillsStoreOnDisk()
-
 	var body struct {
 		Source string `json:"source"`
 		Branch string `json:"branch"`
@@ -203,11 +201,17 @@ func (s *Server) handleInstallBatch(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "source and skills are required")
 		return
 	}
-	if !s.checkInstallInto(w, body.Into, body.Kind) {
+	// The clone can take minutes, so the lock is held only to read the config
+	// before it and to install after it.
+	s.mu.RLock()
+	intoOK := s.checkInstallInto(w, body.Into, body.Kind)
+	parseOpts := s.parseOpts()
+	s.mu.RUnlock()
+	if !intoOK {
 		return
 	}
 
-	source, err := install.ParseSourceWithOptions(body.Source, s.parseOpts())
+	source, err := install.ParseSourceWithOptions(body.Source, parseOpts)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid source: "+err.Error())
 		return
@@ -226,12 +230,26 @@ func (s *Server) handleInstallBatch(w http.ResponseWriter, r *http.Request) {
 		source.Raw = source.Path
 	}
 
-	discovery, err := discoverInstallSource(source)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "discovery failed: "+err.Error())
+	discovery, giveBack := s.discoveries.take(discoveryKey(source))
+	if discovery != nil {
+		defer giveBack()
+	} else {
+		discovery, err = discoverInstallSource(source)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "discovery failed: "+err.Error())
+			return
+		}
+		defer install.CleanupDiscovery(discovery)
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	defer s.trackProjectLock()()
+	before := s.skillsStoreOnDisk()
+	// Another request may have changed the destination during the clone.
+	if !s.checkInstallInto(w, body.Into, body.Kind) {
 		return
 	}
-	defer install.CleanupDiscovery(discovery)
 
 	type batchResultItem struct {
 		Name     string   `json:"name"`

@@ -230,7 +230,7 @@ $ skillshare sync
   Context  ~1.2K tokens always loaded · ~18.5K on demand
 ```
 
-When a folder you made already sits on the name a skill syncs to, sync keeps your folder and does not install the skill. Each target with such folders gets one line naming the first few (`kept local: a, b (sync --force replaces them)`), and they count as `local` instead of `up to date`. `skillshare diff` lists them as `Local override`.
+When a folder you made already sits on the name a skill syncs to, sync keeps your folder and does not install the skill. The same goes for a link another tool put there: one that points outside the source and that the manifest does not record. Each target with such folders gets one line naming the first few (`kept local: a, b (sync --force replaces them)`), and they count as `local` instead of `up to date`. `skillshare diff` lists them as `Local override`.
 
 ---
 
@@ -318,7 +318,8 @@ If you use a dotfiles manager (GNU Stow, chezmoi, yadm, bare-git) that symlinks 
 
 - **Symlinked source** — all commands (`sync`, `update`, `uninstall`, `list`, `diff`, `install`) resolve the symlink before walking, so skills are discovered correctly. Chained symlinks (link → link → real dir) also work.
 - **Symlinked target** — `sync` detects that the target symlink was **not** created by skillshare and preserves it. Skills are synced into the resolved directory.
-- **Status/collect** — `status` and `collect` follow external target symlinks instead of reporting conflicts.
+- **Status/diff/collect** — `status`, `diff`, and `collect` follow external target symlinks instead of reporting conflicts.
+- **Backup/restore** — `backup` and `restore` use the directory an external target symlink leads to and keep the link. `target remove` keeps the link and cleans up the directory it leads to.
 
 :::info How sync decides
 When a target directory is a symlink, sync checks whether it points to the skillshare source directory. Only symlinks created by skillshare's own symlink mode are removed during mode conversion — external symlinks (from dotfiles managers) are always preserved.
@@ -713,6 +714,7 @@ Configure warning thresholds in your config:
 context_budget:
   warn_always_loaded_tokens: 10000   # default; 0 = disabled
   warn_on_demand_tokens: 100000      # default; 0 = disabled
+  warn_mcp_tool_tokens: 30000        # default; 0 = disabled
 ```
 
 When a threshold is exceeded, a warning appears with the top 3 offenders:
@@ -724,6 +726,16 @@ When a threshold is exceeded, a warning appears with the top 3 offenders:
      • another-verbose-skill           ~6,400 tokens
      • chatgpt-system-prompt           ~5,100 tokens
    Run `skillshare analyze` for details.
+```
+
+### MCP Tool Definitions
+
+`skillshare sync mcp` and `skillshare sync --all` also print, after the MCP step (even when no file changed), what each MCP target's tool definitions cost, and warn when a target (or an `mcp.projects` root) passes `warn_mcp_tool_tokens`. The counts come from [`mcp check --live`](/docs/reference/commands/mcp#count-tool-tokens), so nothing is printed until a live check has counted a server; servers not counted yet are named, never counted as 0:
+
+```
+MCP tool definitions (upper bound)  claude ~6.8K · codex ~5.7K
+! claude: MCP tool definitions are ~6,750 tokens (budget: 5,000)
+   Largest: github ~3,276, playwright ~1,932, sentry ~1,092
 ```
 
 ### Quiet Mode

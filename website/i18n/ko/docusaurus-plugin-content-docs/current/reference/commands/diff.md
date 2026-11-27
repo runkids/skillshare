@@ -137,6 +137,8 @@ claude
 
 `--stat`과 `--patch` 모두 `--no-tui`(plain text 출력)를 암시합니다.
 
+copy 모드 target에서는 파일 단위 세부 정보에 sync가 복사하지 않는 파일([`ignore`](/docs/reference/targets/configuration#ignore) 또는 그 기본 패턴에 일치하는 파일)이 포함되지 않습니다.
+
 ## Diff가 보여주는 내용
 
 ### Merge Mode Target
@@ -145,6 +147,7 @@ merge mode(기본값)를 사용하는 target의 경우:
 - source에는 있지만 아직 target에 symlink되지 않은 skill을 나열
 - symlink 대신 local 사본으로 존재하는 skill을 표시
 - target에서 local-only인 skill을 식별(source에는 없음 — sync에 의해 보존됨)
+- source에 더 이상 없는 skill을 가리키는 링크를 표시(sync 시 제거됨)
 
 ### Copy Mode Target
 
@@ -159,6 +162,8 @@ copy mode를 사용하는 target의 경우:
 symlink mode를 사용하는 target의 경우:
 - symlink가 올바른 source를 가리키는지 단순히 확인
 - "in sync"를 표시하거나 잘못된 symlink에 대해 경고
+
+merge 또는 copy mode target의 폴더가 여전히 source로 향하는 링크라면 같은 방식으로 확인합니다. 폴더가 다른 도구의 링크(dotfiles manager)인 경우에는 그 링크가 가리키는 디렉터리로 비교합니다. 링크가 아무 곳도 가리키지 않으면 `diff`는 모든 skill을 나열하는 대신 그 상태를 보고합니다.
 
 ## 사용 사례
 
@@ -212,7 +217,7 @@ skillshare diff agents claude      # 특정 target
 skillshare diff agents --json      # JSON 출력
 ```
 
-Agent diff는 누락된 agent(sync 필요), orphan symlink(prune 필요), local-only agent file을 표시합니다. `agents` path가 구성된 target만 포함됩니다. 전체 목록은 [Agents — Supported Targets](/docs/understand/agents#supported-targets)를 참고하세요.
+Agent diff는 누락된 agent(sync 필요), sync가 제거할 orphan symlink, local-only agent file을 표시합니다. `agents` path가 구성된 target만 포함됩니다. 전체 목록은 [Agents — Supported Targets](/docs/understand/agents#supported-targets)를 참고하세요.
 
 ---
 

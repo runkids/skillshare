@@ -9,7 +9,7 @@ description: |
   noninteractive automation, and guidance for the terminal UI.
 argument-hint: "[command] [target] [--json] [--dry-run] [-p|-g]"
 metadata:
-  version: v0.30.7
+  version: v0.33.0
 ---
 
 # Skillshare CLI
@@ -46,7 +46,7 @@ Check `skillshare <command> --help` if the installed version differs from these 
   what is specific to Claude Code, Codex, OpenCode and Pi: scopes and files, names and
   credentials they refuse, Pi's built-in MCP and `piOptions`, OMP's native MCP and preserved enable/disable lists, the portable `tools` policy,
   upgrading Pi settings from 0.22, turning a global server off in one project, `mcp.projects` for many folders from
-  one config, and `mcp serve` for Agents that cannot reach the synced skill folders.
+  one config (including `global: false` servers chosen per project with `use`), and `mcp serve` for Agents that cannot reach the synced skill folders.
 - Plugins keep their native components together. Read [plugins.md](references/plugins.md)
   for installation, import, sync selection, updates, and native compatibility limits
   across Claude, Codex, Cursor, Antigravity, Pi, OMP, and OpenCode, including Pi packages from pi.dev
@@ -118,7 +118,9 @@ remote dependencies with `install` without a source. For full flag details and a
 read [install.md](references/install.md) and [sync.md](references/sync.md).
 
 To use a local skills checkout in place, run `skillshare link <path> --enable`, then
-`sync`; `skillshare unlink <name>` removes only the link. Read
+`sync`; `skillshare unlink <name>` moves only the link to trash and, in global mode,
+forgets its tracked-repository record and audit acceptances. A metadata warning means the link
+is gone but its record may remain; resolve the metadata error before installing again. Its target stays untouched. Read
 [TROUBLESHOOTING.md](references/TROUBLESHOOTING.md) for how such links are followed.
 
 ### Disable or remove
@@ -134,7 +136,12 @@ skillshare sync
 ```
 
 Run the requested operation, not this entire example sequence. Quote glob patterns so
-Skillshare receives them unchanged. Disabling uses ignore rules; uninstall uses trash.
+Skillshare receives them unchanged. Disabling uses ignore rules; when a `✗` line says "still enabled" or
+"still disabled", another rule decides that state, so edit the file it names.
+Uninstall of installed
+content uses trash. A global tracked declaration without a checkout is removed as
+metadata only, with no trash undo; see [install.md](references/install.md#uninstall)
+for canonical names, occupied paths, and the limit after reconcile.
 
 ### Move skills into folders
 
@@ -155,6 +162,7 @@ skillshare project list --json
 skillshare project localize ~/work/existing --dry-run
 skillshare project add ~/work/app --target claude,codex --skills-mode copy --dry-run
 skillshare project add ~/work/app --target claude,codex --skills-mode copy --sync
+skillshare project add ~/work/suite --scan . --scan .worktrees --target codex --dry-run
 skillshare project edit app --skills-include 'frontend-*'
 skillshare project sync app --json
 skillshare project remove app --dry-run --json
@@ -165,7 +173,9 @@ skillshare project remove app --dry-run --json
 `--machine-local` or `projects_storage: machine-local` (`--shared` overrides the setting);
 `localize` and `share` move one between the two. Removing a local copy of a `config.yaml`
 project keeps `config.yaml`'s version unless `--shared` is given. Edit filters replace lists. Removal detaches skills and keeps agent files;
-JSON removal requires `--yes` unless previewing. Read [targets.md](references/targets.md)
+JSON removal requires `--yes` unless previewing. `--scan DIR` also adds each Git checkout
+below DIR with the same settings and only adds; rerun it after a new clone or worktree.
+Read [targets.md](references/targets.md)
 for saved-then-sync failures, retries, and partial removal results.
 
 ### MCP settings

@@ -10,7 +10,10 @@ export const queryKeys = {
     detailOfKind: (name: string, kind?: string) => ['skills', name, kind] as const,
     file: (name: string, path: string) => ['skill-file', name, path] as const,
     localChanges: (relPath: string) => ['skill-local-changes', relPath] as const,
+    upstreamChanges: (relPath: string) => ['skill-upstream-changes', relPath] as const,
   },
+
+  repoUpstreamChanges: (name: string) => ['repo-upstream-changes', name] as const,
 
   /** A dry-run of the move dialog: what a move to `dest` would do. */
   movePreview: (names: string[], dest: string) => ['move-preview', names, dest] as const,
@@ -29,10 +32,12 @@ export const queryKeys = {
   // Prefix: every target's diff, where `diff()` is only the all-targets one.
   diffAll: ['diff'] as const,
   collectScan: (target?: string) => ['collect-scan', target ?? '__all'] as const,
-  collectScanScope: (target: string | undefined, scope: string) => ['collect-scan', target ?? '__all', scope] as const,
+  collectScanScope: (target: string | undefined, scope: string) =>
+    ['collect-scan', target ?? '__all', scope] as const,
 
   backups: ['backups'] as const,
-  restoreValidate: (timestamp: string, target: string) => ['restore-validate', timestamp, target] as const,
+  restoreValidate: (timestamp: string, target: string) =>
+    ['restore-validate', timestamp, target] as const,
   fileBackups: {
     all: ['file-backups'] as const,
     versions: (path: string) => ['file-backups', 'versions', path] as const,
@@ -63,6 +68,8 @@ export const queryKeys = {
   missingConfigEntries: ['missing-config-entries'] as const,
   // Last update check, kept client-side (see UpdatePage) and shared by the Updates tab and its count.
   updateCheck: ['update-check'] as const,
+  // The default branch of each remote a check reached, kept client-side (see UpdatePage).
+  defaultBranches: ['default-branches'] as const,
   syncMatrix: (target?: string) => ['sync-matrix', target ?? '__all'] as const,
   // Prefix: every target's matrix, where `syncMatrix()` is only the all-targets one.
   syncMatrixAll: ['sync-matrix'] as const,
@@ -75,6 +82,8 @@ export const queryKeys = {
   // Under `extras`, so invalidating that key refreshes both.
   extrasExtensions: ['extras', 'extensions'] as const,
   extensions: ['extensions'] as const,
+  extensionFiles: ['extension-files'] as const,
+  extensionFile: (path: string) => ['extension-file', path] as const,
   memory: {
     all: ['memory'] as const,
     overview: ['memory', 'overview'] as const,
@@ -87,8 +96,10 @@ export const queryKeys = {
     target: (name: string) => ['instructions', 'target', name] as const,
     shared: ['instructions', 'shared'] as const,
     sharedContent: (name: string) => ['instructions', 'shared', name] as const,
-    restorePreview: (name: string, target: string) => ['instructions', 'restore-preview', name, target] as const,
-    locationRestorePreview: (name: string, path: string) => ['instructions', 'location-restore-preview', name, path] as const,
+    restorePreview: (name: string, target: string) =>
+      ['instructions', 'restore-preview', name, target] as const,
+    locationRestorePreview: (name: string, path: string) =>
+      ['instructions', 'location-restore-preview', name, path] as const,
     project: ['instructions', 'project'] as const,
     convert: (target: string, body: unknown) => ['instructions', 'convert', target, body] as const,
   },
@@ -98,30 +109,41 @@ export const queryKeys = {
     content: (name: string, path: string) => ['target-files', name, 'content', path] as const,
   },
   mcp: ['mcp'] as const,
+  mcpFile: (target: string, project = '') => ['mcp-file', target, project] as const,
+  // Under `mcp`, so every MCP change refreshes it too.
+  mcpCosts: ['mcp', 'costs'] as const,
   mcpRender: (mutation: string) => ['mcp', 'render', mutation] as const,
-  mcpRemovePreview: (project: string | undefined, name: string) => ['mcp-remove-preview', project, name] as const,
+  mcpRemovePreview: (project: string | undefined, name: string) =>
+    ['mcp-remove-preview', project, name] as const,
   mcpRestorePreview: (id: string) => ['mcp-restore-preview', id] as const,
   mcpImport: (source: string, project?: string) => ['mcp-import', source, project] as const,
-  mcpImportPaste: (pasted: string, tomlFrom: unknown) => ['mcp-import-paste', pasted, tomlFrom] as const,
+  mcpImportPaste: (pasted: string, tomlFrom: unknown) =>
+    ['mcp-import-paste', pasted, tomlFrom] as const,
   piExtensions: (name: string) => ['pi-extensions', name] as const,
   // Every Pi target's Extensions tab, which lists the packages Plugins syncs to Pi.
   piExtensionsAll: ['pi-extensions'] as const,
-  piExtensionsPreview: (name: string, changes: unknown) => ['pi-extensions-preview', name, changes] as const,
+  piExtensionsPreview: (name: string, changes: unknown) =>
+    ['pi-extensions-preview', name, changes] as const,
   ompExtensions: (name: string) => ['omp-extensions', name] as const,
   ompExtensionsAll: ['omp-extensions'] as const,
-  ompExtensionsPreview: (name: string, revision: string, changes: unknown) => ['omp-extensions-preview', name, revision, changes] as const,
+  ompExtensionsPreview: (name: string, revision: string, changes: unknown) =>
+    ['omp-extensions-preview', name, revision, changes] as const,
   hooks: ['hooks'] as const,
   hooksCatalog: ['hooks', 'catalog'] as const,
   hooksImport: (project: string, from: string) => ['hooks', 'import', project, from] as const,
   hooksRender: (mutation: string) => ['hooks', 'render', mutation] as const,
-  hooksSyncPreview: (project: string, takeover: string) => ['hooks-sync-preview', project, takeover] as const,
-  hooksRemovePreview: (project: string | undefined, name: string) => ['hooks-remove-preview', project, name] as const,
+  hooksCodexTrustPreview: () => ['hooks-codex-trust-preview'] as const,
+  hooksSyncPreview: (project: string, takeover: string) =>
+    ['hooks-sync-preview', project, takeover] as const,
+  hooksRemovePreview: (project: string | undefined, name: string) =>
+    ['hooks-remove-preview', project, name] as const,
   hooksRestorePreview: (id: string) => ['hooks-restore-preview', id] as const,
   plugins: ['plugins'] as const,
   pluginFiles: (name: string) => ['plugin-files', name] as const,
   pluginFile: (name: string, path: string) => ['plugin-file', name, path] as const,
   pluginDiscover: (...parts: unknown[]) => ['plugin-discover', ...parts] as const,
-  // Under `plugins`, so invalidating that key refreshes both.
+  // Under `plugins`, so writes refresh inventory and update checks together.
+  pluginCheck: ['plugins', 'check'] as const,
   pluginPackages: ['plugins', 'packages'] as const,
   hubConfig: ['hub-config'] as const,
   // Everything under `hub`, so invalidating `hub.drafts` also refreshes each draft.
@@ -143,26 +165,26 @@ export const queryKeys = {
 
 // Stale times per data type
 export const staleTimes = {
-  overview: 30 * 1000,       // 30s — dashboard, refreshed often
-  skills: 2 * 60 * 1000,     // 2min — large payload
-  diff: 30 * 1000,            // 30s — fast-changing
-  gitStatus: 30 * 1000,       // 30s
-  log: 30 * 1000,             // 30s
-  targets: 60 * 1000,         // 1min — changes after sync
-  version: 5 * 60 * 1000,     // 5min — rarely changes
-  config: 5 * 60 * 1000,      // 5min
-  auditRules: 5 * 60 * 1000,  // 5min
-  backups: 2 * 60 * 1000,     // 2min
-  trash: 2 * 60 * 1000,       // 2min
-  audit: 5 * 60 * 1000,         // 5min — full audit scan, expensive
-  auditSkill: 5 * 60 * 1000,   // 5min — per-skill audit, rarely changes
-  check: 60 * 1000,            // 1min
+  overview: 30 * 1000, // 30s — dashboard, refreshed often
+  skills: 2 * 60 * 1000, // 2min — large payload
+  diff: 30 * 1000, // 30s — fast-changing
+  gitStatus: 30 * 1000, // 30s
+  log: 30 * 1000, // 30s
+  targets: 60 * 1000, // 1min — changes after sync
+  version: 5 * 60 * 1000, // 5min — rarely changes
+  config: 5 * 60 * 1000, // 5min
+  auditRules: 5 * 60 * 1000, // 5min
+  backups: 2 * 60 * 1000, // 2min
+  trash: 2 * 60 * 1000, // 2min
+  audit: 5 * 60 * 1000, // 5min — full audit scan, expensive
+  auditSkill: 5 * 60 * 1000, // 5min — per-skill audit, rarely changes
+  check: 60 * 1000, // 1min
   missingConfigEntries: 60 * 1000, // 1min
-  syncMatrix: 30 * 1000,       // 30s — changes after filter edits
-  extras: 30 * 1000,        // 30s — fast-changing like diff
-  analyze: 2 * 60 * 1000,   // 2min — walks every skill file
-  doctor: 60 * 1000,        // 1min — health checks
+  syncMatrix: 30 * 1000, // 30s — changes after filter edits
+  extras: 30 * 1000, // 30s — fast-changing like diff
+  analyze: 2 * 60 * 1000, // 2min — walks every skill file
+  doctor: 60 * 1000, // 1min — health checks
   skillignore: 5 * 60 * 1000, // 5min — rarely changes
   agentignore: 5 * 60 * 1000, // 5min — rarely changes
-  refs: 5 * 60 * 1000,      // 5min — a source's branches and tags (ls-remote)
+  refs: 5 * 60 * 1000, // 5min — a source's branches and tags (ls-remote)
 };

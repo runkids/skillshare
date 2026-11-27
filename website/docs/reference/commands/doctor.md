@@ -196,7 +196,7 @@ If OpenCode starts with a different environment, for example from a desktop laun
 ### Version
 
 - CLI version
-- skillshare skill version, with a warning when a newer skill is published (`skillshare upgrade --skill`)
+- skillshare skill version, with a warning when a newer skill is published (`skillshare upgrade --skill`) or when `.skillignore` disables it (`skillshare enable skillshare`)
 - Checks for available updates
 
 ### Skill Integrity
@@ -309,6 +309,8 @@ skillshare sync  # Will prune orphaned symlinks
 
 If the line says `behind an unavailable source link, kept until it is back` instead, the skill lives behind a [followed source link](../targets/configuration.md#follow_source_links) whose target is away. Nothing to prune: mount the drive or restore the checkout and run `skillshare sync`.
 
+If the line says `broken link skillshare did not create, kept` instead, the link points outside the source and the manifest does not record it, so another tool or you made it. `sync` keeps it, and the `broken_symlinks` check is `warning` instead of `error` in `doctor --json`. Delete the link yourself if it is stale. A broken link under a name the manifest does record is reported as a broken symlink once no skill in the source uses that name, because `sync` prunes it.
+
 ### "Skills without SKILL.md"
 
 Skill folders missing required file:
@@ -365,6 +367,8 @@ Next
 ```
 
 A `nix profile` install gets `nix profile upgrade skillshare` as its Next line. When NixOS or Home Manager provides skillshare, the Update row says to update your Nix configuration and rebuild, and there is no Next line for it.
+
+A uv, pipx or pip install gets its installer's command as its Next line, such as `uv tool upgrade skillshare-cli`.
 
 ## JSON Output
 

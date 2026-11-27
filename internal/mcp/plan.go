@@ -236,14 +236,19 @@ func (s *Service) render(source *Source) (map[fileKey]map[string]map[string]any,
 func (s *Service) renderWithRoots(source *Source) (map[fileKey]map[string]map[string]any, map[string]string, error) {
 	desired := map[fileKey]map[string]map[string]any{}
 	roots := map[string]string{}
-	if err := source.checkTargets(); err != nil {
+	if err := source.check(); err != nil {
 		return nil, nil, err
 	}
 	s = s.withAccounts(source.Accounts)
 	if s.ProjectRoot != "" && len(source.Projects) > 0 {
 		return nil, nil, fmt.Errorf("mcp.projects belongs in the global config; this project already syncs its own mcp.servers")
 	}
-	servers := source.Servers
+	if s.ProjectRoot != "" {
+		if err := RefuseShared(source.Servers); err != nil {
+			return nil, nil, err
+		}
+	}
+	servers := source.globalServers()
 	if s.ProjectRoot != "" {
 		// A project's own config cannot see the global one, so only the Agents' limits apply.
 		servers = followingSwitches(servers, source.Targets, nil)
@@ -251,19 +256,25 @@ func (s *Service) renderWithRoots(source *Source) (map[fileKey]map[string]map[st
 	if err := s.renderScope(desired, roots, servers, source.Targets); err != nil {
 		return nil, nil, err
 	}
-	for _, root := range sortedKeys(source.Projects) {
-		project := source.Projects[root]
+	for _, project := range source.projectScopes() {
 		scoped := *s
-		scoped.ProjectRoot = root
-		defaults := project.Targets
-		if defaults == nil {
-			defaults = source.Targets
-		}
-		if err := scoped.renderScope(desired, roots, followingSwitches(project.Servers, defaults, source), defaults); err != nil {
-			return nil, nil, fmt.Errorf("%s: %w", root, err)
+		scoped.ProjectRoot = project.root
+		if err := scoped.renderScope(desired, roots, followingSwitches(project.servers, project.defaults, source), project.defaults); err != nil {
+			return nil, nil, fmt.Errorf("%s: %w", project.root, err)
 		}
 	}
 	return desired, roots, nil
+}
+
+// RefuseShared refuses global: false in a project's own config, which has no projects to
+// choose from.
+func RefuseShared(servers map[string]Server) error {
+	for _, name := range sortedKeys(servers) {
+		if servers[name].Shared() {
+			return fmt.Errorf("MCP %s: global: false belongs in the global config, where mcp.projects chooses the projects that use it", name)
+		}
+	}
+	return nil
 }
 
 // SwitchTargets is where a switch-only entry that names no targets goes: the Agents among
@@ -292,7 +303,7 @@ func followingSwitches(servers map[string]Server, defaults []string, global *Sou
 		}
 		var reached []string
 		if global != nil {
-			if shared, ok := global.Servers[name]; ok {
+			if shared, ok := global.globalServer(name); ok {
 				server.global = &shared
 				if reached = shared.Targets; reached == nil {
 					reached = global.Targets

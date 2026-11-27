@@ -338,7 +338,7 @@ func discoverAndBuildAgentEntries(agentsSource string) []skillEntry {
 	if agentsSource == "" {
 		return nil
 	}
-	discovered, err := resource.AgentKind{}.Discover(agentsSource)
+	discovered, err := resource.AgentKind{}.DiscoverAll(agentsSource)
 	if err != nil {
 		return nil
 	}
@@ -626,7 +626,7 @@ func cmdList(args []string) error {
 			sortSkillEntries(allEntries, opts.SortBy)
 			return listLoadResult{skills: toSkillItems(allEntries), totalCount: total, discovered: discovered}
 		}
-		action, skillName, skillKind, err := runListTUI(loadFn, "global", cfg.EffectiveSkillsSource(), cfg.EffectiveAgentsSource(), cfg.Targets, cfg.Mode, kind, opts.Status)
+		action, skillName, skillKind, err := runListTUI(loadFn, "global", config.ConfigPath(), cfg.EffectiveSkillsSource(), cfg.EffectiveAgentsSource(), cfg.Targets, walk, cfg.Mode, kind, opts.Status)
 		printSkippedSourceLinkWarnings(walk, false)
 		if err != nil {
 			return err

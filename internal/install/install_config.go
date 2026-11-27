@@ -250,6 +250,7 @@ func InstallFromConfig(ctx InstallContext, opts InstallOptions) (ConfigInstallRe
 		source.Name = bareName
 		source.ApplyRecordedBranch(skill.Branch)
 		source.Commit = locked
+		source.Locked = locked != ""
 
 		if skill.Tracked {
 			tracked = append(tracked, skill)

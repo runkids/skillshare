@@ -108,6 +108,8 @@ type rule struct {
 	severityOverridden bool
 	excludePhrase      bool
 	pythonInertContext bool // built-in credential rule; see inertSeverity
+	upperLabelInSource bool // built-in prompt-injection-1; see rulesForFile
+	upperLabelOnly     bool // set per file by rulesForFile
 	// prefilter is a conservative literal that must appear in a candidate line
 	// before running the full regex. Empty means no fast prefilter is available.
 	prefilter     string
@@ -132,6 +134,7 @@ type yamlRule struct {
 	severityOverridden   bool      `yaml:"-"`
 	confidenceOverridden bool      `yaml:"-"`
 	excludePhrase        bool      `yaml:"-"`
+	upperLabelInSource   bool      `yaml:"-"`
 	pythonInertContext   bool      `yaml:"-"`
 }
 
@@ -142,6 +145,11 @@ type rulesFile struct {
 func (r rule) matchesLine(line string) bool {
 	if r.ID == ruleWhitespacePadding || !r.matchesSensitiveLine(line) {
 		return false
+	}
+	if r.upperLabelOnly {
+		if label := r.Regex.FindString(line); label != strings.ToUpper(label) {
+			return false
+		}
 	}
 	if r.Exclude == nil || !r.Exclude.MatchString(line) {
 		return true
@@ -291,6 +299,7 @@ func parseBuiltinRulesYAML() ([]yamlRule, error) {
 	}
 	for i := range rules {
 		rules[i].excludePhrase = rules[i].ID == "prompt-injection-5"
+		rules[i].upperLabelInSource = rules[i].ID == "prompt-injection-1"
 		rules[i].pythonInertContext = rules[i].Pattern == "credential-access"
 		switch rules[i].ID {
 		case "ssrf-metadata-0":
@@ -361,6 +370,7 @@ func compileRules(yr []yamlRule) ([]rule, error) {
 			Regex:              re,
 			severityOverridden: y.severityOverridden,
 			excludePhrase:      y.excludePhrase,
+			upperLabelInSource: y.upperLabelInSource,
 			pythonInertContext: y.pythonInertContext,
 		}
 		r.prefilter, r.prefilterFold = deriveRulePrefilter(y.Regex, re)

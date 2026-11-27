@@ -14,6 +14,8 @@ interface ConfirmDialogProps {
   variant?: 'default' | 'danger';
   loading?: boolean;
   wide?: boolean;
+  /** A second choice shown before the confirm button. */
+  extraAction?: { label: string; onClick: () => void };
 }
 
 export default function ConfirmDialog({
@@ -27,12 +29,20 @@ export default function ConfirmDialog({
   variant = 'default',
   loading = false,
   wide = false,
+  extraAction,
 }: ConfirmDialogProps) {
   const t = useT();
   const resolvedCancelText = cancelText ?? t('common.cancel');
   const resolvedConfirmText = confirmText ?? t('common.confirm');
   return (
-    <DialogShell open={open} onClose={onCancel} maxWidth={wide ? '2xl' : 'md'} padding="none" preventClose={loading} ariaLabel={title}>
+    <DialogShell
+      open={open}
+      onClose={onCancel}
+      maxWidth={wide ? '2xl' : 'md'}
+      padding="none"
+      preventClose={loading}
+      ariaLabel={title}
+    >
       <div className="dh">
         <h2 className="ss-h2">{title}</h2>
       </div>
@@ -43,7 +53,16 @@ export default function ConfirmDialog({
             {resolvedCancelText}
           </Button>
         )}
-        <Button variant={variant === 'danger' ? 'danger' : 'primary'} onClick={onConfirm} loading={loading}>
+        {extraAction && (
+          <Button variant="secondary" onClick={extraAction.onClick} disabled={loading}>
+            {extraAction.label}
+          </Button>
+        )}
+        <Button
+          variant={variant === 'danger' ? 'danger' : 'primary'}
+          onClick={onConfirm}
+          loading={loading}
+        >
           {resolvedConfirmText}
         </Button>
       </div>

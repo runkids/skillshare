@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"skillshare/internal/config"
+	"skillshare/internal/projects"
 	ssync "skillshare/internal/sync"
 )
 
@@ -371,5 +372,89 @@ func TestSaveProject_StorageFollowsSettingByDefault(t *testing.T) {
 	}
 	if rr := projectRequest(t, s, http.MethodGet, "/api/projects", ""); !strings.Contains(rr.Body.String(), `"origin":"local"`) {
 		t.Fatalf("project is not machine-local: %s", rr.Body)
+	}
+}
+
+func TestScanProjects_PreviewThenAdd(t *testing.T) {
+	s, src := newTestServer(t)
+	suite := filepath.Join(filepath.Dir(src), "suite")
+	for _, dir := range []string{"app-a/.git", ".worktrees/app-a", "docs"} {
+		if err := os.MkdirAll(filepath.Join(suite, dir), 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(suite, ".worktrees", "app-a", ".git"), []byte("gitdir: /elsewhere\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	body := func(dryRun bool) string {
+		return `{"root":"` + suite + `","scan":[".",".worktrees","later"],"targets":["claude"],"skills":{"mode":"","include":[],"exclude":[]},"dryRun":` + map[bool]string{true: "true", false: "false"}[dryRun] + `}`
+	}
+	type scanReply struct {
+		Applied  bool                   `json:"applied"`
+		Rows     []map[string]string    `json:"rows"`
+		Warnings []projects.ScanWarning `json:"warnings"`
+	}
+	listed := func() int {
+		var list struct {
+			Projects []projectItem `json:"projects"`
+		}
+		json.Unmarshal(projectRequest(t, s, http.MethodGet, "/api/projects", "").Body.Bytes(), &list)
+		return len(list.Projects)
+	}
+
+	rr := projectRequest(t, s, http.MethodPost, "/api/projects/scan", body(true))
+	var preview scanReply
+	if err := json.Unmarshal(rr.Body.Bytes(), &preview); err != nil || rr.Code != http.StatusOK {
+		t.Fatalf("preview: %d %s", rr.Code, rr.Body)
+	}
+	if preview.Applied || len(preview.Rows) != 3 || listed() != 0 {
+		t.Fatalf("preview wrote or missed rows: %+v, %d listed", preview, listed())
+	}
+	if len(preview.Warnings) != 1 || preview.Warnings[0].Kind != projects.ScanMissing || preview.Warnings[0].Folder != "later" {
+		t.Fatalf("warnings %+v", preview.Warnings)
+	}
+
+	rr = projectRequest(t, s, http.MethodPost, "/api/projects/scan", body(false))
+	var added scanReply
+	json.Unmarshal(rr.Body.Bytes(), &added)
+	if !added.Applied || listed() != 3 {
+		t.Fatalf("apply: %s, %d listed", rr.Body, listed())
+	}
+	paths := map[string]string{}
+	for _, row := range added.Rows {
+		paths[row["path"]] = row["name"]
+	}
+	if paths["."] != "suite" || paths["app-a"] != "app-a" || paths[".worktrees/app-a"] != "worktrees-app-a" {
+		t.Fatalf("rows %+v", added.Rows)
+	}
+
+	// A rescan, with the root given with a trailing separator, only keeps.
+	rr = projectRequest(t, s, http.MethodPost, "/api/projects/scan", strings.Replace(body(false), `"root":"`+suite, `"root":"`+suite+`/`, 1))
+	var again scanReply
+	json.Unmarshal(rr.Body.Bytes(), &again)
+	for _, row := range again.Rows {
+		if row["result"] != projects.ScanKept {
+			t.Fatalf("rescan: %s", rr.Body)
+		}
+	}
+	if again.Applied || listed() != 3 {
+		t.Fatalf("rescan: %s, %d listed", rr.Body, listed())
+	}
+}
+
+func TestScanProjects_RejectsBadRequests(t *testing.T) {
+	s, src := newTestServer(t)
+	suite := filepath.Join(filepath.Dir(src), "suite")
+	if err := os.MkdirAll(suite, 0755); err != nil {
+		t.Fatal(err)
+	}
+	for name, body := range map[string]string{
+		"no scan folder":      `{"root":"` + suite + `","scan":[],"targets":["claude"]}`,
+		"folder outside root": `{"root":"` + suite + `","scan":["../other"],"targets":["claude"]}`,
+		"bad filter":          `{"root":"` + suite + `","scan":["."],"targets":["claude"],"skills":{"mode":"","include":["["],"exclude":[]}}`,
+	} {
+		if rr := projectRequest(t, s, http.MethodPost, "/api/projects/scan", body); rr.Code != http.StatusBadRequest {
+			t.Errorf("%s: got %d %s", name, rr.Code, rr.Body)
+		}
 	}
 }

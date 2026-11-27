@@ -91,7 +91,11 @@ export function parseSkillsAddCommand(value: string): SkillsAddCommand | null {
  * upstream does; when none is found the result is empty, so a one-skill command never turns into
  * a batch of everything.
  */
-export function requestedSkills<T extends { name: string }>(command: SkillsAddCommand | null, source: string, items: T[]): T[] | null {
+export function requestedSkills<T extends { name: string }>(
+  command: SkillsAddCommand | null,
+  source: string,
+  items: T[],
+): T[] | null {
   if (command?.source !== source || command.skills.length === 0) return null;
   const wanted = new Set(command.skills.map((s) => s.toLowerCase()));
   return items.filter((i) => wanted.has(i.name.toLowerCase()));

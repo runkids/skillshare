@@ -1,7 +1,9 @@
 package install
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -172,6 +174,10 @@ func prepareCandidateAudit(sourceDir, logicalPath, candidatePath string, readOnl
 	if err != nil {
 		return err
 	}
+	inside := func(path string) bool {
+		rel, err := filepath.Rel(candidatePath, path)
+		return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+	}
 	if err := sourcewalk.Walk(candidatePath, sourcewalk.Options{}, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -183,11 +189,26 @@ func prepareCandidateAudit(sourceDir, logicalPath, candidatePath string, readOnl
 			return nil
 		}
 		resolved, err := filepath.EvalSymlinks(path)
+		var missing *fs.PathError
+		if errors.As(err, &missing) && errors.Is(err, fs.ErrNotExist) {
+			// Sparse checkouts leave links into excluded directories dangling,
+			// and the published checkout shares that sparse state. Only a link
+			// that leaves the candidate can reach content the scan did not see.
+			// Check the lexical target too, since Windows cleans ".." first.
+			target, err := os.Readlink(path)
+			if err != nil {
+				return err
+			}
+			if filepath.IsAbs(target) || filepath.VolumeName(target) != "" || os.IsPathSeparator(target[0]) ||
+				!inside(missing.Path) || !inside(filepath.Join(filepath.Dir(path), target)) {
+				return fmt.Errorf("candidate symlink %s escapes the isolated checkout", path)
+			}
+			return nil
+		}
 		if err != nil {
 			return fmt.Errorf("cannot resolve candidate symlink %s: %w", path, err)
 		}
-		rel, err := filepath.Rel(candidatePath, resolved)
-		if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		if !inside(resolved) {
 			return fmt.Errorf("candidate symlink %s escapes the isolated checkout", path)
 		}
 		return nil
@@ -248,9 +269,23 @@ func gitCandidateState(repoPath string) (state [3]string, err error) {
 	return state, nil
 }
 
+// LinksWithin fails with ErrLinkOutside when a link committed in the candidate
+// leads outside it or into its .git folder.
+func (c *GitUpdateCandidate) LinksWithin() error {
+	return checkoutLinksWithin(c.Path)
+}
+
 // Publish imports precisely revision from the local candidate, not upstream.
 // The active checkout must still match the state used to prepare the candidate.
 func (c *GitUpdateCandidate) Publish(revision string) error {
+	// Checked here, not in the audit, so an update with the audit skipped
+	// cannot publish a link that leaves the repository either. An update with
+	// nothing new publishes nothing, so it is not checked.
+	if revision != c.BeforeHash {
+		if err := c.LinksWithin(); err != nil {
+			return err
+		}
+	}
 	head, err := getGitFullHash(c.repoPath)
 	if err != nil {
 		return err

@@ -48,7 +48,7 @@ result=$(skillshare check --json)
 `check`는 source 디렉터리를 검사하여 다음 항목의 업데이트 상태를 보고합니다.
 
 1. **추적 중인 저장소** — origin에서 fetch하고, 몇 커밋 뒤처져 있는지 표시
-2. **메타데이터가 있는 설치된 skill** — 설치된 버전을 remote HEAD와 비교
+2. **메타데이터가 있는 설치된 skill** — 설치된 버전을 remote HEAD와 비교. 서로 달라도 저장소 하위 폴더에서 설치한 skill은 그 폴더가 바뀌지 않았다면 up to date입니다
 3. **오래된(stale) skill** — 업스트림 저장소에서 하위 디렉터리가 삭제된 skill 감지
 4. **로컬에서 수정된 skill** — 저장소에서 설치한 skill의 파일을 설치 시 기록된 파일과 비교하고, 파일을 편집·추가·삭제했다면 `"status": "modified"`로 보고
 5. **로컬 경로 설치** — 설치한 경로의 파일을 설치 시 기록된 파일과 비교([로컬 경로 설치](#local-path-installs) 참고)
@@ -185,7 +185,7 @@ skill의 하위 디렉터리가 업스트림에서 이름이 바뀌거나 삭제
 :::
 
 :::info 로컬에서 수정된 skills
-설치한 뒤 편집한 skill은 upstream에 더 새로운 버전이 있어도 **modified**로 보고되며, 이때 `message`는 `update available upstream`으로 끝납니다. `update`는 `skillshare update <name> --force`를 실행하기 전까지 이 skill을 건드리지 않습니다. 이 명령은 변경 사항을 버리고 다시 설치합니다. OS 메타데이터 파일(`.DS_Store`, `Thumbs.db`, `desktop.ini`)은 로컬 변경으로 보지 않습니다.
+설치한 뒤 편집한 skill은 upstream에 더 새로운 버전이 있어도 **modified**로 보고되며, 이때 `message`는 `update available upstream`으로 끝나고 `--json`에서는 `"upstream_changed": true`가 설정됩니다. `update`는 `skillshare update <name> --merge`(변경 사항을 유지한 채 upstream 변경 사항을 병합) 또는 `skillshare update <name> --force`(변경 사항을 버리고 다시 설치)를 실행하기 전까지 이 skill을 건드리지 않습니다. OS 메타데이터 파일(`.DS_Store`, `Thumbs.db`, `desktop.ini`)은 로컬 변경으로 보지 않습니다.
 
 먼저 변경 사항을 보려면 `skillshare check <name> --diff`를 실행하세요. skill이 설치된 commit을 가져오므로 upstream이 앞서 나가 있어도 diff에는 직접 수정한 내용만 표시됩니다:
 
@@ -201,7 +201,7 @@ skill의 하위 디렉터리가 업스트림에서 이름이 바뀌거나 삭제
 :::
 
 :::tip Monorepo awareness
-하위 디렉터리에서 설치된 skill의 경우, `check`는 해당 특정 디렉터리가 변경되었을 때만 "update available"로 보고합니다 — 저장소의 관련 없는 부분에 새 커밋이 있는 경우는 해당하지 않습니다.
+하위 디렉터리에서 설치된 skill의 경우, `check`는 해당 특정 디렉터리가 변경되었을 때만 "update available"로 보고합니다 — 저장소의 관련 없는 부분에 새 커밋이 있는 경우는 해당하지 않습니다. `.agents/skills/<name>`처럼 폴더를 가리키는 링크로 설치한 skill은 링크가 가리키는 폴더가 기준입니다.
 :::
 
 ## Project Mode
@@ -224,7 +224,7 @@ skillshare check agents -p           # Check project agents
 skillshare check --all               # Check skills and agents together
 ```
 
-각 agent는 설치한 branch와 비교됩니다. 이전 `update agents`로 기록된 source를 잃은 agent는 `error`를 보고하고 다시 설치하라고 안내합니다. [문제 해결](/docs/troubleshooting/common-errors#agent-source-lost)을 참고하세요.
+각 agent는 설치한 branch와 비교됩니다. 그 branch가 앞으로 나아갔어도 agent 파일이 바뀌지 않았다면 up to date로 유지됩니다. 설치 후 편집한 agent는 drifted로 보고됩니다. upstream에도 더 새로운 버전이 있으면 `message`가 `update available upstream`으로 끝나고, `--json`에는 `"upstreamChanged": true`가 설정되며, `skillshare update agents <name> --merge`로 병합할 수 있습니다. 이전 `update agents`로 기록된 source를 잃은 agent는 `error`를 보고하고 다시 설치하라고 안내합니다. [문제 해결](/docs/troubleshooting/common-errors#agent-source-lost)을 참고하세요.
 
 `agents` 인자나 `--all` 없이 실행하면 `check`는 skill에 대해서만 동작합니다(기본 동작). 배경 지식은 [Agents](/docs/understand/agents)를 참고하세요.
 

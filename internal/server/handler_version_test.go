@@ -39,6 +39,13 @@ func TestHandleVersionCheckDevModeExposesSimulatedUpdate(t *testing.T) {
 // built-in skill at local, with remote already in the skill version cache.
 func versionCheckWithSkill(t *testing.T, local, remote string) map[string]any {
 	t.Helper()
+	return versionCheckWithSkillIgnore(t, local, remote, "")
+}
+
+// versionCheckWithSkillIgnore is versionCheckWithSkill with ignore written to
+// the source's .skillignore when it is not empty.
+func versionCheckWithSkillIgnore(t *testing.T, local, remote, ignore string) map[string]any {
+	t.Helper()
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
 	versioncheck.SaveRemoteSkillVersion(remote)
 
@@ -50,6 +57,11 @@ func versionCheckWithSkill(t *testing.T, local, remote string) map[string]any {
 	skill := "---\nname: skillshare\nmetadata:\n  version: " + local + "\n---\n"
 	if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(skill), 0o644); err != nil {
 		t.Fatal(err)
+	}
+	if ignore != "" {
+		if err := os.WriteFile(filepath.Join(source, ".skillignore"), []byte(ignore), 0o644); err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	s := &Server{cfg: &config.Config{Source: source}}
@@ -79,6 +91,14 @@ func TestHandleVersionCheckNewerLocalSkillIsNotAnUpdate(t *testing.T) {
 	}
 }
 
+func TestHandleVersionCheckReportsDisabledSkill(t *testing.T) {
+	body := versionCheckWithSkillIgnore(t, "1.0.0", "1.0.0", "skillshare\n")
+
+	if body["skillVersion"] != "1.0.0" || body["skillDisabled"] != true {
+		t.Fatalf("skill fields = version %v, disabled %v; want 1.0.0 reported as disabled", body["skillVersion"], body["skillDisabled"])
+	}
+}
+
 func TestHandleVersionCheckReportsNixUpgradeCommand(t *testing.T) {
 	tests := []struct {
 		method versioncheck.InstallMethod
@@ -88,6 +108,7 @@ func TestHandleVersionCheckReportsNixUpgradeCommand(t *testing.T) {
 		{method: versioncheck.InstallBrew, want: nil},
 		{method: versioncheck.InstallNixProfile, want: "nix profile upgrade skillshare"},
 		{method: versioncheck.InstallNix, want: ""},
+		{method: versioncheck.InstallPip, want: nil},
 	}
 	oldVersion, oldDetect := versioncheck.Version, detectUIInstallMethod
 	defer func() { versioncheck.Version, detectUIInstallMethod = oldVersion, oldDetect }()
@@ -103,6 +124,64 @@ func TestHandleVersionCheckReportsNixUpgradeCommand(t *testing.T) {
 		}
 		if body["nixUpgradeCommand"] != tt.want {
 			t.Errorf("method %v: nixUpgradeCommand = %#v, want %#v", tt.method, body["nixUpgradeCommand"], tt.want)
+		}
+	}
+}
+
+func TestHandleVersionCheckReportsPyPIUpgradeCommand(t *testing.T) {
+	tests := []struct {
+		method versioncheck.InstallMethod
+		want   any // nil: not a PyPI install
+	}{
+		{method: versioncheck.InstallDirect, want: nil},
+		{method: versioncheck.InstallNixProfile, want: nil},
+		{method: versioncheck.InstallUV, want: "uv tool upgrade skillshare-cli"},
+		{method: versioncheck.InstallPip, want: "pip install --upgrade skillshare-cli"},
+		{method: versioncheck.InstallPixiPyPI, want: "pixi upgrade skillshare-cli"},
+		{method: versioncheck.InstallPixiGlobal, want: nil},
+	}
+	oldVersion, oldDetect := versioncheck.Version, detectUIInstallMethod
+	defer func() { versioncheck.Version, detectUIInstallMethod = oldVersion, oldDetect }()
+	versioncheck.Version = "dev" // skips the network lookup
+	for _, tt := range tests {
+		detectUIInstallMethod = func() versioncheck.InstallMethod { return tt.method }
+		rec := httptest.NewRecorder()
+		(&Server{cfg: &config.Config{Source: t.TempDir()}}).handleVersionCheck(rec, httptest.NewRequest(http.MethodGet, "/api/version", nil))
+
+		var body map[string]any
+		if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+			t.Fatalf("decode response: %v", err)
+		}
+		if body["pypiUpgradeCommand"] != tt.want {
+			t.Errorf("method %v: pypiUpgradeCommand = %#v, want %#v", tt.method, body["pypiUpgradeCommand"], tt.want)
+		}
+	}
+}
+
+func TestHandleVersionCheckReportsPixiUpgradeCommand(t *testing.T) {
+	tests := []struct {
+		method versioncheck.InstallMethod
+		want   any // nil: not a conda package from pixi
+	}{
+		{method: versioncheck.InstallDirect, want: nil},
+		{method: versioncheck.InstallPixiPyPI, want: nil},
+		{method: versioncheck.InstallPixiGlobal, want: "pixi global update skillshare"},
+		{method: versioncheck.InstallPixi, want: "pixi upgrade skillshare"},
+	}
+	oldVersion, oldDetect := versioncheck.Version, detectUIInstallMethod
+	defer func() { versioncheck.Version, detectUIInstallMethod = oldVersion, oldDetect }()
+	versioncheck.Version = "dev" // skips the network lookup
+	for _, tt := range tests {
+		detectUIInstallMethod = func() versioncheck.InstallMethod { return tt.method }
+		rec := httptest.NewRecorder()
+		(&Server{cfg: &config.Config{Source: t.TempDir()}}).handleVersionCheck(rec, httptest.NewRequest(http.MethodGet, "/api/version", nil))
+
+		var body map[string]any
+		if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+			t.Fatalf("decode response: %v", err)
+		}
+		if body["pixiUpgradeCommand"] != tt.want {
+			t.Errorf("method %v: pixiUpgradeCommand = %#v, want %#v", tt.method, body["pixiUpgradeCommand"], tt.want)
 		}
 	}
 }

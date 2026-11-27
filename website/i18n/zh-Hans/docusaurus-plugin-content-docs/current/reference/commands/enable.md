@@ -23,6 +23,8 @@ skillshare disable my-skill -p      # Project mode
 
 `disable` 会向 `.skillignore` 添加一个模式；`enable` 则将其移除。被禁用的 skills 仍保留在 source 目录中，但会被排除在 `sync` 和 `collect` 之外。
 
+skill 名称指向所有位于同名文件夹中的 skill，因此 `enable inner` 会同时作用于 `group/inner` 和 `other/inner`。像 `group/inner` 这样的确切路径，或像 `group__inner` 这样的 flat name，只指向该 skill。对于名称指向的每个 skill，`enable` 也会移除其路径那一行（list TUI 和 dashboard 写入的行），因此 `enable inner` 也会移除 `group/inner`；每个 `✓` 行显示实际写入或移除的那一行。如果输入的名称作为一行能匹配该 skill，`disable` 会按输入写入；flat name 无法被任何一行匹配，因此会改为写入该 skill 的路径。
+
 ```mermaid
 flowchart LR
     DIS["skillshare disable my-skill"]
@@ -85,10 +87,31 @@ $ skillshare disable my-skill --dry-run
 
 Dry run — nothing was written
 
+# 预览会列出每一行，包括 enable 会移除的路径行
+$ skillshare enable inner --dry-run
+  inner        would be removed from ~/.config/skillshare/skills/.skillignore
+  group/inner  would be removed from ~/.config/skillshare/skills/.skillignore
+
+Dry run — nothing was written
+
 # 已经被禁用
 $ skillshare disable my-draft
 ! my-draft  already disabled
 ```
+
+## 由其他规则决定时
+
+`disable` 和 `enable` 只写入或删除一行，但其他规则仍可能决定 skill 的状态：像 `draft-*` 这样的 glob、像 `frontend/` 这样的文件夹规则、`.skillignore.local` 中的 `!` 规则，或 tracked repo 自己的 `.skillignore`。写入后，skillshare 会按 `skillshare list` 显示的状态检查你指定的每个 skill 或 agent。如果仍处于原来的状态，会输出一行 `✗` 并指出要编辑的文件，然后以状态码 1 退出：
+
+```bash
+$ skillshare enable draft-one
+
+✗ could not enable draft-one: still disabled: another rule in .skillignore or .skillignore.local matches it — remove that rule to enable it
+```
+
+若有多个被阻挡，每个都会有自己的 `✗` 行。已生效的更改会保留并以 `✓` 显示，操作日志会将这次运行记为 `partial`。如果 `disable` 写入的行对它指定的每个 skill 都被 `!` 规则覆盖，这一行会被移除，ignore 文件保持原样。
+
+像 `"draft-*"` 这样的 glob 参数不对应单一 skill，因此会直接写入或删除，不做这项检查。
 
 ## 禁用整个文件夹
 
@@ -118,7 +141,7 @@ Next
 
 ## TUI 切换
 
-你也可以在 `skillshare list` TUI 中启用或禁用 skills。更改会立即写入 `.skillignore`。
+你也可以在 `skillshare list` TUI 中启用或禁用 skills。更改会立即写入 `.skillignore`。如果其他规则让 skill 保持原状态，该行不会改变，按键行会显示与 CLI 相同的 `✗` 信息。在 TUI 或 dashboard 启用 skill 时，也会移除 `skillshare disable <name>` 写入的文件夹名称行，除非这一行也匹配这次没有要启用的 skill。
 
 ## .skillignore 在哪里？
 
@@ -138,6 +161,8 @@ skillshare disable --kind agent draft-reviewer     # 禁用一个 agent
 skillshare enable --kind agent draft-reviewer      # 重新启用
 skillshare disable --kind agent "experimental-*"   # 按模式禁用
 ```
+
+`.agentignore` 的每一行匹配的是文件名（包含 `.md`）。不带 `.md` 的名称如果对应到同名文件的 agent，写入时会自动补上 `.md`，因此 `draft-reviewer` 会写入 `draft-reviewer.md`。使用 agent 的 frontmatter `name` 时则写入其路径，因此对 `rev.md` 执行 `disable --kind agent critic` 会写入 `rev.md`。
 
 | 模式 | `.agentignore` 路径 |
 |------|---------------------|

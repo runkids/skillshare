@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -17,7 +18,9 @@ type mcpUIView struct {
 	Source struct {
 		Servers  map[string]json.RawMessage `json:"servers"`
 		Projects map[string]struct {
-			Servers map[string]json.RawMessage `json:"servers"`
+			Servers   map[string]json.RawMessage `json:"servers"`
+			Use       []string                   `json:"use"`
+			Overrides map[string]json.RawMessage `json:"overrides"`
 		} `json:"projects"`
 	} `json:"source"`
 	Plan *struct {
@@ -306,6 +309,95 @@ func TestMCPUIContract_Toggles(t *testing.T) {
 	mcpUISave(t, sc.s, `{"project":"`+root+`","remove":true}`) // MCPProjectView and ProjectDetailPage dropping the project
 	if _, ok := mcpUIList(t, sc.s).Source.Projects[root]; ok {
 		t.Fatal("project still configured")
+	}
+}
+
+// mcpUISaveBatch is mcpApi.saveBatch: preview the mutations together, save them with that revision.
+func mcpUISaveBatch(t *testing.T, s *Server, mutations string) {
+	t.Helper()
+	w := mcpPost(s.handleMCPPreview, "/api/mcp/preview", `{"mutations":`+mutations+`}`)
+	var p struct {
+		Revision string `json:"revision"`
+	}
+	if w.Code != http.StatusOK || json.Unmarshal(w.Body.Bytes(), &p) != nil || p.Revision == "" {
+		t.Fatalf("preview %s: %d %s", mutations, w.Code, w.Body)
+	}
+	body := `{"mutations":` + mutations + `,"revision":"` + p.Revision + `","sync":false}`
+	if w := mcpPost(s.handleMCPConfigure, "/api/mcp", body); w.Code != http.StatusOK {
+		t.Fatalf("save %s: %d %s", mutations, w.Code, w.Body)
+	}
+}
+
+// The MCP page picks the projects of a shared server: the dialog saves a new server with its
+// projects in one batch, the row's project list saves ticks and a new folder together.
+func TestMCPUIContract_PickProjects(t *testing.T) {
+	sc := mcpUIScopes[0](t)
+	// A folder added from the MCP page has no targets of its own, so it takes mcp.targets.
+	mcpUISave(t, sc.s, `{"settings":{"targets":["claude"]},"replace":true}`)
+	api, web, blog := t.TempDir(), t.TempDir(), t.TempDir()
+	for _, root := range []string{api, web} {
+		mcpUISave(t, sc.s, `{"project":"`+root+`","settings":{"targets":["claude"]}}`)
+	}
+	shared := `{"url":"https://example.com/shared","global":false}`
+	mcpUISaveBatch(t, sc.s, `[{"name":"docs","server":`+shared+`},{"project":"`+api+`","name":"docs","using":true}]`)
+	mcpUISaveBatch(t, sc.s, `[{"project":"`+api+`","name":"docs","using":false},{"project":"`+web+`","name":"docs","using":true},{"project":"`+blog+`","name":"docs","using":true}]`)
+	projects := mcpUIList(t, sc.s).Source.Projects
+	for root, want := range map[string]bool{api: false, web: true, blog: true} {
+		if got := slices.Contains(projects[root].Use, "docs"); got != want {
+			t.Fatalf("%s uses docs: %v, want %v", root, got, want)
+		}
+	}
+	mcpUISync(t, sc.s, "")
+	for root, want := range map[string]bool{api: false, web: true, blog: true} {
+		if got := strings.Contains(readOrEmpty(filepath.Join(root, ".mcp.json")), "example.com/shared"); got != want {
+			t.Fatalf("%s has docs after sync: %v, want %v", root, got, want)
+		}
+	}
+	if strings.Contains(readOrEmpty(sc.file), "example.com/shared") {
+		t.Fatal("shared server reached the global file")
+	}
+}
+
+// A project that turns a shared server on can change its settings in the same save; sync
+// then writes the server as that project overrides it.
+func TestMCPUIContract_ProjectOverride(t *testing.T) {
+	sc := mcpUIScopes[0](t)
+	root := t.TempDir()
+	mcpUISave(t, sc.s, `{"project":"`+root+`","settings":{"targets":["claude"]}}`)
+	mcpUISave(t, sc.s, `{"name":"docs","server":{"url":"https://example.com/shared","global":false}}`)
+	mcpUISaveBatch(t, sc.s, `[{"project":"`+root+`","name":"docs","using":true,"override":{"targets":["cursor"]}}]`)
+	if got := string(mcpUIList(t, sc.s).Source.Projects[root].Overrides["docs"]); got != `{"targets":["cursor"]}` {
+		t.Fatalf("override = %s", got)
+	}
+	mcpUISync(t, sc.s, "")
+	if !strings.Contains(readOrEmpty(filepath.Join(root, ".cursor", "mcp.json")), "example.com/shared") {
+		t.Fatal("the override's target did not get the server")
+	}
+	if strings.Contains(readOrEmpty(filepath.Join(root, ".mcp.json")), "example.com/shared") {
+		t.Fatal("the project's own target got a server its override moved")
+	}
+}
+
+// A request names one mutation or a batch, and a project sync takes neither.
+func TestMCPUIContract_BatchRequestShape(t *testing.T) {
+	sc := mcpUIScopes[0](t)
+	both := `{"mutation":{"name":"a","server":` + mcpUIServer + `},"mutations":[{"name":"b","server":` + mcpUIServer + `}]`
+	if w := mcpPost(sc.s.handleMCPPreview, "/api/mcp/preview", both+`}`); w.Code != http.StatusBadRequest {
+		t.Fatalf("preview with both: %d %s", w.Code, w.Body)
+	}
+	revision := mcpUIPreviewRevision(t, sc.s, `{}`)
+	if w := mcpPost(sc.s.handleMCPConfigure, "/api/mcp", both+`,"revision":"`+revision+`"}`); w.Code != http.StatusBadRequest {
+		t.Fatalf("save with both: %d %s", w.Code, w.Body)
+	}
+	root := t.TempDir()
+	mcpUISave(t, sc.s, `{"project":"`+root+`","settings":{"targets":["claude"]}}`)
+	revision = mcpUIPreviewRevision(t, sc.s, `{}`)
+	projectSync := `{"mutations":[{"name":"b","server":` + mcpUIServer + `}],"revision":"` + revision + `","sync":true,"root":"` + root + `"}`
+	if w := mcpPost(sc.s.handleMCPConfigure, "/api/mcp", projectSync); w.Code != http.StatusBadRequest {
+		t.Fatalf("project sync with a batch: %d %s", w.Code, w.Body)
+	}
+	if _, ok := mcpUIList(t, sc.s).Source.Servers["b"]; ok {
+		t.Fatal("a refused request saved a server")
 	}
 }
 

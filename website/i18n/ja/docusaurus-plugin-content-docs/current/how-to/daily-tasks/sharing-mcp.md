@@ -52,11 +52,12 @@ MCP プロバイダーから提供された URL または JSON を貼り付け�
 
 ダッシュボードでは、**Add server** はどちらの形式にも対応しています。フィールドに入力するか、設定を
 貼り付けるかです。貼り付け側はファイルの読み込みにも対応しており、これはブラウザ版の
-`mcp import --file` に相当します。貼り付けられた JSON は自動的に認識されます。TOML の場合は、
+`mcp import --file` に相当します。貼り付けられた JSON は自動的に認識されます。その Agent だけが読むフィールド（Claude Code の `alwaysLoad` など）を残すには、
+**From** でその Agent を選択します。TOML の場合は、
 Codex 由来か Grok 由来かを選択します。貼り付けた内容がサーバー 1 つだけで Pi にチェックが入っている場合は、
 ダイアログにフォームの Pi 設定（ツールの公開方法、その他の Pi 設定）も表示されます。フォームの **その他の Agent 設定** では、Codex の承認モードなど、ほかの Agent のネイティブフィールドを JSON で入力できます（[`options`](../../reference/commands/mcp.md#agent-options) を参照）。**Skillshare** タブは `skillshare mcp serve` を追加します。これは sync で Skill を受け取らない Agent に
 [MCP で Skill を提供します](/docs/reference/commands/mcp#serve-skills-over-mcp)。Skill を選び、Agent にチェックを入れます。すでに Skill を sync していて
-Skill が二重に表示される Agent には印が付きます。プロジェクトの **MCP** タブでは、**From another project** で別のプロジェクトにあるサーバーをフォームに読み込めます。コピーは元のプロジェクトではなく、このプロジェクトの Agent を使います。**Import from a target** は別の機能で、すでにインストールされて
+Skill が二重に表示される Agent には印が付きます。プロジェクトの **MCP** タブでは、**From another project** で別のプロジェクトにあるサーバーをフォームに読み込めます。コピーは元のプロジェクトではなく、このプロジェクトの Agent を使います。一覧はサーバー名やプロジェクトのフォルダーで検索でき、複数のプロジェクトが同じ名前・同じ設定で持つサーバーは、それを持つフォルダーとともに 1 件にまとめて表示されます。**Import from a target** は別の機能で、すでにインストールされて
 いる Agent が持つサーバーを読み込みます。いずれの方法でも、ダッシュボードは CLI と同じ source、検証、
 プレビュー、競合ルールを使用します。MCP ページの Sync ボックスにある **Sync MCP** は、MCP の設定ファイルだけを
 書き込みます。Sync ページには、skills、agents、extras、MCP をまとめて Sync するための
@@ -216,9 +217,9 @@ Codex はローカル変数を名前で転送するため、Codex を選択す�
 一致している必要があります。設定を表現できない Target は、それを黙って落とすのではなくプレビューを
 ブロックします。クライアント固有のプレースホルダーと入力プロンプトは、Import の前に明示的に解決して
 おく必要があります。Codex の `startup_timeout_sec` や `cwd` のような Agent 固有のフィールドは
-Import されません。Import はそれらを警告として一覧表示し、Sync はその Agent の既存エントリ内にそれらを
-維持します。source から管理するには、サーバーの
-[`options`](../../reference/commands/mcp.md#agent-options) に設定します。
+サーバーの
+[`options`](../../reference/commands/mcp.md#agent-options) の下にその Agent 用として Import されるため、Sync はそれをその Agent にだけ書き戻します。
+平文の認証情報のように `options` に保持できないフィールドは、警告として一覧表示され除外されます。
 
 ## 既存の接続をインポートする
 
@@ -239,7 +240,10 @@ Source にすでにその名前が存在する場合は、ダッシュボード�
 次の Sync でそれが書き換えられ、その間に行われた編集も引き続き検出されます。これは他の競合する
 ネイティブエントリを上書きすることは決してありません。MCP ダッシュボードでは、対処できる競合に
 **Import from cursor** のように Agent 名を冠したインポートアクションがあり、そのバージョンを採用するか、
-**Replace with source** でそのエントリを上書きできます。まだ存在する別の Skillshare 設定が所有している
+**Replace with source** でそのエントリを上書きできます。Replace は、そのサーバーのエントリが競合している
+すべての Agent をまとめて上書きします。sync はそのすべてが解決するまで待つためです。Agent ごとに
+同じサーバーの異なるバージョンを持っている場合は、使いたいバージョンをインポートしてから残りを置き換えます。
+インポートは他の Agent がまだ競合していてもその Agent のエントリを採用し、ダッシュボードは残った Agent を示します。まだ存在する別の Skillshare 設定が所有している
 競合には、そのどちらも表示されません。そのエントリを解放できるのはその設定だけだからです。
 
 Agent がすでに同じ名前で持っているサーバーを引き継ぐ方法も同じです。それを source に追加します。Agent のエントリが
@@ -266,7 +270,7 @@ skillshare sync mcp
 ```
 
 ダッシュボードでは、`skillshare ui` でプロジェクトフォルダから開き、**サーバーを追加** の
-横にある **グローバルサーバーをオフにする** ボタンを選びます。
+横にある **名前でオフにする** ボタンを選びます。
 
 これは Claude Code、OpenCode、Kilo Code、Pi 1.0.1 以降で動作します。他の Agent は拒否されます。各 Agent に対して
 何が書き込まれるか、また他の Agent が対応していない理由については

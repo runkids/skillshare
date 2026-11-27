@@ -1,0 +1,97 @@
+@layer components {
+  .ss-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 40px 24px;
+    text-align: center;
+    border: 1.5px dashed var(--line-2);
+    border-radius: 12px;
+    color: var(--ink-2);
+  }
+  :root[data-theme='playful'] .ss-empty {
+    border: 2px dashed var(--ink-3);
+    border-radius: var(--r-box);
+  }
+  .ss-skel {
+    height: 10px;
+    border-radius: 5px;
+    background: var(--line);
+  }
+  .ss-sev {
+    display: inline-flex;
+    align-items: center;
+    height: 19px;
+    padding: 0 6px;
+    font: 600 10.5px/1 var(--fm);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    border-radius: var(--r-tag);
+    border: 1px solid transparent;
+  }
+  .ss-sev.c {
+    background: var(--bad);
+    color: #fff;
+  }
+  :root.dark .ss-sev.c {
+    color: #1b1916;
+  }
+  .ss-sev.h {
+    background: var(--bad-bg);
+    color: var(--bad);
+  }
+  .ss-sev.md {
+    background: var(--warn-bg);
+    color: var(--warn);
+  }
+  .ss-sev.l {
+    background: var(--sunken);
+    color: var(--ink-2);
+    border-color: var(--line);
+  }
+  .ss-sev.n {
+    color: var(--ink-3);
+    border-color: var(--line);
+  }
+  :root[data-theme='playful'] .ss-sev {
+    border: 1.5px solid currentColor;
+  }
+  :root[data-theme='playful'] .ss-sev.c {
+    border-color: var(--line);
+  }
+  .ss-kv {
+    display: grid;
+    grid-template-columns: 96px minmax(0, 1fr);
+    gap: 9px 14px;
+    font-size: 13px;
+  }
+  .ss-kv dt {
+    color: var(--ink-3);
+  }
+  .ss-kv dd {
+    font-weight: 500;
+    min-width: 0;
+  }
+  .ss-setrow {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    min-height: 60px;
+    padding: 12px 18px;
+  }
+  .ss-setrow + .ss-setrow {
+    border-top: var(--sep);
+  }
+  .ss-setrow .l {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .ss-setrow .l span {
+    font-size: 13px;
+    color: var(--ink-2);
+  }
+}

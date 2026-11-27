@@ -68,11 +68,18 @@ describe('extras sync toast helpers', () => {
     expect(toast).toContain('agent.md: extension "codex-agents" failed');
 
     const fallbackT = (key: string, _params?: unknown, fallback?: string) => fallback ?? key;
-    const warning = 'extra "rules" has an interrupted publication; run: skillshare install example-org/hub --kind extra --name rules -g';
+    const warning =
+      'extra "rules" has an interrupted publication; run: skillshare install example-org/hub --kind extra --name rules -g';
     for (const scope of ['single', 'all'] as const) {
       const entry = { name: 'rules', targets: [], warnings: [warning] };
       const totals = scope === 'single' ? sumEntry(entry) : sumAll([entry]);
-      const message = buildSyncToast('Extras synced', 'Extras sync failed', totals, false, fallbackT);
+      const message = buildSyncToast(
+        'Extras synced',
+        'Extras sync failed',
+        totals,
+        false,
+        fallbackT,
+      );
       expect(message).toContain(warning);
       expect(message).not.toContain('no files in source');
       expect(syncToastType(totals)).not.toBe('success');
@@ -80,8 +87,15 @@ describe('extras sync toast helpers', () => {
       expect(totals.targets).toBe(0);
     }
     for (const local of [false, true]) {
-      const totals = sumEntry({ name: local ? 'local' : 'ordinary', targets: local ? [{ target: '/fixture/target', mode: 'copy', synced: 2, skipped: 0, pruned: 0 }] : [] });
-      expect(buildSyncToast('Extras synced', 'Extras sync failed', totals, false, fallbackT)).toBe(local ? 'Extras synced — 2 files to 1 target' : 'Extras synced — no files in source');
+      const totals = sumEntry({
+        name: local ? 'local' : 'ordinary',
+        targets: local
+          ? [{ target: '/fixture/target', mode: 'copy', synced: 2, skipped: 0, pruned: 0 }]
+          : [],
+      });
+      expect(buildSyncToast('Extras synced', 'Extras sync failed', totals, false, fallbackT)).toBe(
+        local ? 'Extras synced — 2 files to 1 target' : 'Extras synced — no files in source',
+      );
       expect(syncToastType(totals)).toBe('success');
       expect(totals.synced).toBe(local ? 2 : 0);
       expect(totals.targets).toBe(local ? 1 : 0);

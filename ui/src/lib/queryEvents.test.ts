@@ -44,6 +44,7 @@ const cached = {
   targetFilesCodex: k.targetFiles.list('codex'),
   mcp: k.mcp,
   mcpRender: k.mcpRender('{}'),
+  mcpCosts: k.mcpCosts,
   pi: k.piExtensions('pi'),
   pi2: k.piExtensions('pi2'),
   omp: k.ompExtensions('omp'),
@@ -51,6 +52,7 @@ const cached = {
   hooksCatalog: k.hooksCatalog,
   plugins: k.plugins,
   pluginPackages: k.pluginPackages,
+  pluginCheck: k.pluginCheck,
   hubDrafts: k.hub.drafts,
   hubDraft1: k.hub.draft('1'),
   hubDraft2: k.hub.draft('2'),
@@ -63,42 +65,71 @@ type Label = keyof typeof cached;
 const S: Label[] = ['skills', 'skill'];
 const T: Label[] = ['targets', 'targetsAvailable'];
 const X: Label[] = ['extras', 'extrasExtensions'];
-const M: Label[] = ['mcp', 'mcpRender'];
+const M: Label[] = ['mcp', 'mcpRender', 'mcpCosts'];
 const H: Label[] = ['hooks', 'hooksCatalog'];
-const P: Label[] = ['plugins', 'pluginPackages'];
+const P: Label[] = ['plugins', 'pluginPackages', 'pluginCheck'];
 const SM: Label[] = ['syncMatrix', 'syncMatrixClaude'];
 const TARGETS: Label[] = [...T, 'projects', 'config', 'overview', 'diff', 'syncMatrix'];
 
 const stale: Record<QueryEvent, Label[] | { args: string[]; stale: Label[] }> = {
-  skillsChanged: [...S, 'overview', 'diff'],
+  skillsChanged: [...S, 'overview', 'diff', 'version'],
   skillBranchSwitched: [...S, 'overview', 'diff', 'config'],
   skillEdited: { args: ['a'], stale: S },
-  installDialogClosed: S,
-  reposChanged: [...S, 'overview', 'trash'],
-  skillsMoved: [...S, 'overview', ...SM, 'diff'],
-  skillsUninstalled: [...S, 'overview', 'trash', ...SM, 'diff'],
-  trashChanged: ['trash', ...S, ...SM],
-  skillSyncChanged: [...S, ...SM],
-  skillsToggled: [...S, ...SM, 'overview'],
+  installDialogClosed: [...S, 'version'],
+  reposChanged: [...S, 'overview', 'trash', 'missingConfigEntries'],
+  skillsMoved: [...S, 'overview', ...SM, 'diff', 'version'],
+  skillsUninstalled: [...S, 'overview', 'trash', ...SM, 'diff', 'version'],
+  trashChanged: ['trash', ...S, ...SM, 'version'],
+  skillSyncChanged: [...S, ...SM, 'version'],
+  skillsToggled: [...S, ...SM, 'overview', 'version'],
   skillTargetFilterChanged: [...T, ...SM, 'diff', 'diffClaude'],
-  sourceLinked: [...S, 'overview', 'config', 'diff', 'syncMatrix'],
-  sourceUnlinked: [...S, 'overview', 'config', 'diff', 'syncMatrix', 'trash'],
-  collected: { args: ['claude'], stale: [...S, 'overview', ...T, 'diff', 'syncMatrix', 'collectScanClaude'] },
-  configInstalled: ['missingConfigEntries', ...S, 'overview', ...SM, 'diff'],
+  sourceLinked: [...S, 'overview', 'config', 'diff', 'syncMatrix', 'version'],
+  sourceUnlinked: [
+    ...S,
+    'overview',
+    'config',
+    'diff',
+    'syncMatrix',
+    'trash',
+    'missingConfigEntries',
+    'version',
+  ],
+  collected: {
+    args: ['claude'],
+    stale: [...S, 'overview', ...T, 'diff', 'syncMatrix', 'collectScanClaude', 'version'],
+  },
+  configInstalled: ['missingConfigEntries', ...S, 'overview', ...SM, 'diff', 'version'],
 
   targetsChanged: [...TARGETS, 'instructions'],
   synced: [...T, 'overview', 'diff'],
   syncRan: [...TARGETS, 'extrasDiff', ...X, ...M, ...H, 'log'],
   projectSynced: [...TARGETS, ...M, ...H, 'log'],
   projectChanged: [...TARGETS, ...M, ...H],
-  projectAdded: [...TARGETS, ...M],
+  projectAdded: [...TARGETS, ...M, ...H],
   targetFilesChanged: { args: ['claude'], stale: ['targetFiles', 'targetFile'] },
   targetFileRemoved: { args: ['claude'], stale: ['targetFiles'] },
 
-  configSaved: ['policy', 'version', 'config', ...M, 'overview', ...T, ...S, ...X, 'extrasDiff', 'diff', 'syncMatrix', 'doctor', 'instructions', 'memory', 'memoryOverview'],
+  configSaved: [
+    ...P,
+    'policy',
+    'version',
+    'config',
+    ...M,
+    'overview',
+    ...T,
+    ...S,
+    ...X,
+    'extrasDiff',
+    'diff',
+    'syncMatrix',
+    'doctor',
+    'instructions',
+    'memory',
+    'memoryOverview',
+  ],
   updatePolicyChanged: ['version', 'doctor'],
   settingsSaved: ['policy', 'config', 'version', 'doctor'],
-  skillignoreSaved: ['skillignore', 'diff', 'overview', ...S, 'doctor'],
+  skillignoreSaved: ['skillignore', 'diff', 'overview', ...S, 'doctor', 'version'],
   agentignoreSaved: ['agentignore', 'diff', 'overview', ...S, 'doctor'],
   extensionsChanged: ['extensions', 'extrasExtensions'],
   auditRulesChanged: ['auditRules', 'auditCompiled'],
@@ -111,11 +142,13 @@ const stale: Record<QueryEvent, Label[] | { args: string[]; stale: Label[] }> = 
 
   mcpChanged: [...M, 'config'],
   mcpSynced: [...M, 'log'],
+  mcpToolsCounted: ['mcpCosts'],
   mcpRestored: M,
   hooksChanged: [...H, 'config'],
   hooksSynced: [...H, 'log'],
   hooksRestored: H,
   pluginsChanged: [...P, 'config', 'pi', 'pi2', 'omp'],
+  pluginTargetsToggled: ['plugins', 'pluginPackages', 'config', 'pi', 'pi2', 'omp'],
   piExtensionsStale: { args: ['pi'], stale: ['pi'] },
   piExtensionsChanged: { args: ['pi'], stale: ['pi', ...P] },
   ompExtensionsStale: { args: ['omp'], stale: ['omp'] },
@@ -126,7 +159,7 @@ const stale: Record<QueryEvent, Label[] | { args: string[]; stale: Label[] }> = 
   backupRestored: ['backups', ...T],
   logsCleared: ['log', 'logStats'],
   gitFetched: ['gitStatus'],
-  gitChanged: ['gitStatus', 'gitBranches', ...S, 'overview', 'config', ...T, 'diff'],
+  gitChanged: ['gitStatus', 'gitBranches', ...S, 'overview', 'config', ...T, 'diff', 'version'],
   sourceDiscarded: Object.keys(cached) as Label[],
   appUpgraded: ['version'],
 
@@ -139,8 +172,14 @@ it.each(Object.entries(stale))('%s makes exactly its queries stale', async (even
   for (const key of Object.values(cached)) client.setQueryData(key, 1);
   const { args, stale: labels } = Array.isArray(want) ? { args: [], stale: want } : want;
 
-  await (invalidate as (c: QueryClient, e: string, ...a: string[]) => Promise<unknown>)(client, event, ...args);
+  await (invalidate as (c: QueryClient, e: string, ...a: string[]) => Promise<unknown>)(
+    client,
+    event,
+    ...args,
+  );
 
-  const got = (Object.keys(cached) as Label[]).filter((label) => client.getQueryState(cached[label])?.isInvalidated);
+  const got = (Object.keys(cached) as Label[]).filter(
+    (label) => client.getQueryState(cached[label])?.isInvalidated,
+  );
   expect(got.sort()).toEqual([...labels].sort());
 });

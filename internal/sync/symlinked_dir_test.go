@@ -525,7 +525,7 @@ func TestPullSkill_SourceIsSymlink(t *testing.T) {
 	}
 }
 
-// --- isSymlinkToSource: symlink alias equivalence ---
+// --- IsSymlinkToSource: symlink alias equivalence ---
 
 func TestIsSymlinkToSource_AliasEquivalence(t *testing.T) {
 	tmp := t.TempDir()
@@ -545,8 +545,8 @@ func TestIsSymlinkToSource_AliasEquivalence(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if !isSymlinkToSource(targetLink1, symlinkAlias) {
-		t.Error("isSymlinkToSource should return true when target points to the real path of a symlinked source alias")
+	if !IsSymlinkToSource(targetLink1, symlinkAlias) {
+		t.Error("IsSymlinkToSource should return true when target points to the real path of a symlinked source alias")
 	}
 
 	// Case 2: Target points to alias, source is the real path
@@ -555,7 +555,79 @@ func TestIsSymlinkToSource_AliasEquivalence(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if !isSymlinkToSource(targetLink2, realSource) {
-		t.Error("isSymlinkToSource should return true when target points to symlink alias of source")
+	if !IsSymlinkToSource(targetLink2, realSource) {
+		t.Error("IsSymlinkToSource should return true when target points to symlink alias of source")
+	}
+}
+
+// A directory symlink inside a skill is copied as a real directory. Ignore
+// rules must match the same skill-root-relative paths in the copy and the
+// checksum walks, or a copied file never re-syncs (or the reverse).
+func TestCopySkillToTarget_IgnoreRulesAgreeWithChecksumThroughSymlinkedDir(t *testing.T) {
+	tests := []struct {
+		name   string
+		link   string
+		ignore []string
+	}{
+		{"negation under linked dir", "ref", []string{"docs/", "!docs/keep.md"}},
+		{"dir-only rule on the link name", "docs", []string{"docs/"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmp := t.TempDir()
+			shared := filepath.Join(tmp, "shared")
+			writeIgnoreTestFiles(t, shared, map[string]string{
+				"docs/keep.md": "keep",
+				"docs/drop.md": "drop",
+				"top.md":       "top",
+			})
+			if tt.link == "docs" {
+				shared = filepath.Join(shared, "docs")
+			}
+			skill := filepath.Join(tmp, "skill")
+			writeIgnoreTestFiles(t, skill, map[string]string{"SKILL.md": "# A"})
+			if err := os.Symlink(shared, filepath.Join(skill, tt.link)); err != nil {
+				t.Skipf("symlinks not supported: %v", err)
+			}
+			patterns := EffectiveFileIgnorePatterns(tt.ignore)
+
+			dst := filepath.Join(tmp, "out", "skill")
+			if err := copySkillToTarget(skill, dst, "", patterns); err != nil {
+				t.Fatal(err)
+			}
+
+			err := filepath.Walk(shared, func(path string, info os.FileInfo, err error) error {
+				if err != nil || info.IsDir() {
+					return err
+				}
+				rel, _ := filepath.Rel(shared, path)
+				_, statErr := os.Stat(filepath.Join(dst, tt.link, rel))
+				copied := statErr == nil
+
+				before, err := DirChecksumWithIgnore(skill, patterns)
+				if err != nil {
+					return err
+				}
+				orig, err := os.ReadFile(path)
+				if err != nil {
+					return err
+				}
+				if err := os.WriteFile(path, append(orig, "-changed"...), 0644); err != nil {
+					return err
+				}
+				defer os.WriteFile(path, orig, 0644)
+				after, err := DirChecksumWithIgnore(skill, patterns)
+				if err != nil {
+					return err
+				}
+				if changed := before != after; changed != copied {
+					t.Errorf("%s/%s: copied = %v but checksum change = %v", tt.link, filepath.ToSlash(rel), copied, changed)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+		})
 	}
 }

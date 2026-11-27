@@ -24,7 +24,7 @@ A string that looks like a key but is not one (a file name, an API code, a confi
 A counted sentence has two keys, `<key>.one` and `<key>.other`, in every locale. Pick between them with `plural`, never by hand:
 
 ```ts
-t(plural('sync.changes', n), { count: n })
+t(plural('sync.changes', n), { count: n });
 ```
 
 `plural` returns `.one` for exactly 1 and `.other` for everything else, the same in every locale. Languages without a singular form repeat the sentence under both keys.

@@ -57,7 +57,7 @@ func (s *Server) handleGetAgentignore(w http.ResponseWriter, _ *http.Request) {
 			patterns = []string{}
 		}
 
-		all, _ := resource.AgentKind{}.Discover(source)
+		all, _ := resource.AgentKind{}.DiscoverAll(source)
 		var ignored []string
 		for _, a := range all {
 			if a.Disabled {

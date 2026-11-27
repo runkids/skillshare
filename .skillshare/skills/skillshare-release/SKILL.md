@@ -49,7 +49,7 @@ cd website && npm run build
 
 For a minor or major release (any `feat` or breaking change in the range), also update the README:
 
-- Rewrite the `Latest` callout near the top of `README.md` for the new version, and the same callout in every translated README (`README-de.md`, `README-es.md`, `README-fr.md`, `README-ja.md`, `README-ko.md`, `README-pt-BR.md`, `README-zh-CN.md`, `README-zh-TW.md`), each in its own language.
+- Rewrite the `Latest` callout near the top of `README.md` for the new version, and the same callout in every translated README, each in its own language. List the tracked translations with `git ls-files -- ':(top,glob)README-*.md'`.
 - Add the release's contributors to the `Contributors` section of `README.md` (the translations link to it). A contributor is the author of an issue or PR the range references, or a commit author or `Co-authored-by` in the range, other than the maintainer. Skip anyone already listed, and verify each account exists before adding its avatar link:
 
   ```bash

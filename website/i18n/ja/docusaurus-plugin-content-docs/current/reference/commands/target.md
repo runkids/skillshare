@@ -91,6 +91,8 @@ skillshare target remove cursor --dry-run # プレビュー
 
 同じ skills フォルダーに書き込む別の Target がある場合（たとえば `codex` と `universal` はどちらも `~/.agents/skills` を使う）、手順 2 はスキップされます。skills はその Target 用にリンクされたまま残り、削除した Target だけが config から外れます。
 
+skills フォルダーが別のツールのリンク（dotfiles manager）である場合、リンクはそのまま残り、手順 2 はリンク先のディレクトリで実行されます。フォルダーのリンク先が別の Target と同じディレクトリである場合は、その Target と共有しているものとして扱われます。
+
 [Skill がオフ](#skills-off) の Target には何も同期されていないため、手順 2 は同様にスキップされ、そのフォルダーはそのまま残ります。
 
 ### target list
@@ -286,7 +288,7 @@ Skill をオフにすると、config に `skills.enabled: false` が保存され
 
 `--skills` は 1 つのコマンド内で include/exclude フラグと組み合わせられません。別々に実行してください。project モード（`-p`）でも同じように動作します。
 
-Web ダッシュボードでは、Target の Skills タブにある **Skills の同期を停止** を使います。何かを削除する前に、削除されるものと残るものを一覧表示し、他のツールが同じフォルダーを読んでいる場合は警告します。
+Web ダッシュボードでは、Target の Skills タブ上部にある **Skills を同期** のスイッチをオフにします。何かを削除する前に、削除されるものと残るものを一覧表示し、他のツールが同じフォルダーを読んでいる場合は警告します。
 
 ## オプション
 

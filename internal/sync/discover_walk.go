@@ -191,8 +191,8 @@ func discoverSourceSkillsInternal(sourcePath string, opts discoverOptions) ([]Di
 
 		// Skip directories matching root-level .skillignore.
 		// When collectIgnored is true, disable CanSkipDir so the walk
-		// descends into ignored directories and the file-level Match
-		// check can record each ignored SKILL.md path.
+		// descends into ignored directories and the per-skill Match
+		// check can record each ignored skill.
 		if info.IsDir() && !opts.collectIgnored && !opts.includeIgnored {
 			relPath, relErr := filepath.Rel(walkRoot, path)
 			if relErr == nil && relPath != "." {
@@ -267,11 +267,12 @@ func discoverSourceSkillsInternal(sourcePath string, opts discoverOptions) ([]Di
 			isInRepo := repoRelPath != ""
 			logicalID, variantAgent := skillVariant(relPath, repoRelPath)
 
-			// Root-level .skillignore fallback (for files in non-skipped dirs),
-			// then the repo-level .skillignore inside tracked repos. With
+			// Root-level .skillignore fallback (for skills in non-skipped dirs),
+			// then the repo-level .skillignore inside tracked repos. A skill is a
+			// directory, so both match it with isDir=true, as CanSkipDir does. With
 			// includeIgnored the skill is kept, flagged Disabled, and measured
 			// like any other so analyze can price it for symlink-mode targets.
-			disabled := rootMatcher.Match(relPath, false) || (isInRepo && isSkillIgnored(relPath, repoRelPath, ignoreMatchers))
+			disabled := rootMatcher.Match(relPath, true) || (isInRepo && isSkillIgnored(relPath, repoRelPath, ignoreMatchers))
 			if disabled {
 				if opts.collectIgnored {
 					stats.IgnoredSkills = append(stats.IgnoredSkills, relPath)
@@ -302,7 +303,7 @@ func discoverSourceSkillsInternal(sourcePath string, opts discoverOptions) ([]Di
 							Message:  fmt.Sprintf("frontmatter YAML is malformed: %v", yamlErr),
 						})
 					}
-					lintResults, err := LintSkill(ctx.Name, ctx.Description, ctx.BodyChars)
+					lintResults, err := LintSkill(ctx.Name, ctx.Description, ctx.BodyChars, ctx.BodyLines)
 					if err != nil {
 						return fmt.Errorf("lint skill %s: %w", relPath, err)
 					}

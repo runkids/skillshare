@@ -387,6 +387,12 @@
           "description": "Warn when on-demand tokens exceed this value. 0 disables the warning.",
           "default": 100000,
           "minimum": 0
+        },
+        "warn_mcp_tool_tokens": {
+          "type": "integer",
+          "description": "Warn when the MCP tool definitions one MCP Agent loads exceed this many tokens, as the last `mcp check --live` counted them. 0 disables the warning.",
+          "default": 30000,
+          "minimum": 0
         }
       }
     },

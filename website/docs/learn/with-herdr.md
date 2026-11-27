@@ -20,7 +20,7 @@ sidebar_position: 8
 Use the standalone [Mod package](https://github.com/runkids/skillshare/tree/main/herdr/skillshare-mod) to add the panel without replacing your window. Paste this prompt into an agent in Herdr:
 
 ```text
-Read ~/.config/herdr-app/AGENTS.md, then add this mod from https://github.com/runkids/skillshare/tree/main/herdr/skillshare-mod. Follow its RECIPE.md: add only the skillshare toggle and panel to my current layout, preserving my status bar, usage meters and all other customizations. Reuse existing skillshare nodes instead of duplicating them.
+Read ~/.config/herdr-app/AGENTS.md and the recipe at https://github.com/runkids/skillshare/tree/main/herdr/skillshare-mod. If my Skillshare Dashboard supports the herdr-app target, use it to preview installing this mod and showing its panel in Herdr. Let me review and apply. Otherwise follow the manual recipe, preserving my current layout and reusing existing Skillshare nodes.
 ```
 
 The package has no `layouts/` folder. Its recipe adds or reuses only the skillshare toggle and panel, preserving your status bar, CLI usage meters, theme and other customizations. A Herdr-shipped layout is cloned before editing.
@@ -57,15 +57,32 @@ A panel installed before this button existed has no update check. Copy `mods/ski
 
 The panel follows the space Herdr shows. It runs skillshare on that space's machine, in the focused terminal's folder.
 
-- **Overview** answers first: *Everything is in sync*, or how many targets need one, with a single Sync button. Under it, a count of each kind in the source and a line to every target show which ones are waiting. The rest of the tab lists only what needs you: what waits for a sync, what has an update, and hook notices. In a project with `.skillshare/config.yaml`, an All · Project · Global switch beside the tabs picks the scope.
-- **Library** lists skills, agents, MCP servers, plugins and hooks, grouped into *Needs sync*, *Update available*, *In sync* and *Off* for disabled entries. For skills and agents, *In sync* groups entries from the same repository into collapsible rows; switch to List for a flat list.
-- **Rows** open a preview. A skill shows its `SKILL.md` and files, an MCP server its settings with secret values hidden, and the preview's Targets tab shows the state per target. Skills and agents offer Update, Diff, Disable (or Enable for a disabled one; the next sync applies it), Uninstall, and *Ask &lt;agent&gt; to audit…*, which sends the item to the focused Herdr agent after you confirm. Top-level declared hooks offer Enable, Disable and Remove, each after confirmation; Sync applies the saved changes.
+- **Overview** answers first: *Everything is in sync*, or how many targets need one, with a single Sync button. Under it, a count of each kind in the source and a line to every target show which ones are waiting. The rest of the tab lists only what needs you: what waits for a sync, what has an update, hook notices, and extras whose source is missing. In a project with `.skillshare/config.yaml`, an All · Project · Global switch beside the tabs picks the scope.
+- **Library** lists skills, agents, MCP servers, plugins, hooks and extras (file and folder extras), grouped into *Needs sync*, *Update available*, *In sync* and *Off* for disabled entries. Memory notes are listed on their own under the extras, without a sync state. For skills and agents, *In sync* groups entries from the same repository into collapsible rows; switch to List for a flat list.
+- **Rows** open a preview. A skill shows its `SKILL.md` and files, an MCP server its settings with secret values hidden, an extra its file or a folder's files, and the preview's Targets tab shows the state per target. Skills and agents offer Update, Diff, Disable (or Enable for a disabled one; the next sync applies it), Uninstall, and *Ask &lt;agent&gt; to audit…*, which sends the item to the focused Herdr agent after you confirm. Top-level declared hooks offer Enable, Disable and Remove, each after confirmation; Sync applies the saved changes.
 - Hook counts include named entries and pending cleanup; diagnostic notices get rows of their own. Hook conflicts block syncing all resource kinds until resolved in the CLI or dashboard. If the plan cannot be read, entries show unknown sync status outside the groups.
 - **Install** takes a repository URL. A repository with several skills shows a pick list. The panel clones it, runs [`skillshare audit`](/docs/reference/commands/audit) on the clone, and installs only when the audit passes. A blocked audit shows the findings, with *Install anyway* (`--force`) and *Ask &lt;agent&gt; to review…*.
 - **Source** shows your source repository's state. Its dialog offers Pull, Commit and push, and Sync both ways. When a pull stops on files both machines changed, you pick a version per file from a side-by-side preview. `.metadata.json` merges per entry, the way [`skillshare pull`](/docs/reference/commands/pull) does.
 - **Machines** shows each Herdr machine's skillshare version, its remote, source and targets, and doctor warnings, with Pull and sync and, when a newer release exists, Update. A machine with uncommitted or unpushed changes offers Sync both ways instead, because a plain pull would refuse.
 
 The panel refreshes every 20 seconds while it is shown, runs `skillshare check` every 10 minutes, and does nothing while hidden.
+
+## Other Herdr mods and launchers
+
+[`skillshare plugin`](/docs/reference/commands/plugin#herdr-app) can install other Herdr mods, and launcher apps such as Lantern, with the `herdr-app` target. It keeps them up to date with `check` and `update`, like any other plugin:
+
+```bash
+skillshare plugin add owner/herdr-mods --target herdr-app -g
+```
+
+For a mod inside a larger repository, paste the GitHub link to its package folder
+or its `mods/<id>/main.js` file into **Plugins → Add plugin**. This also works with
+[this panel's Mod package](https://github.com/runkids/skillshare/tree/main/herdr/skillshare-mod).
+With Herdr open on the same computer, keep **Show the Skillshare panel in Herdr**
+selected. The preview names the copy of your layout that will receive the toggle and
+panel. Applying switches to that copy and leaves your original unchanged. If
+Skillshare manages the panel, update it with `skillshare plugin update skillshare -g`
+rather than **Update panel**.
 
 ## Related
 

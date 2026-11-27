@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"skillshare/internal/oplog"
 )
 
 func postBatchToggle(t *testing.T, s *Server, body string) (*httptest.ResponseRecorder, batchToggleResponse) {
@@ -90,6 +92,20 @@ func TestHandleBatchToggle_EnableSubset(t *testing.T) {
 	lines := readIgnoreLines(t, filepath.Join(src, ".skillignore"))
 	if len(lines) != 1 || lines[0] != "skill-b" {
 		t.Errorf("expected only skill-b remaining disabled, got %v", lines)
+	}
+}
+
+// `disable inner` writes the folder name; a batch enable of every skill it
+// disables removes it too.
+func TestHandleBatchToggle_EnableSkillsDisabledByFolderName(t *testing.T) {
+	s, src := newTestServer(t)
+	addSkill(t, src, "a/inner")
+	addSkill(t, src, "b/inner")
+	os.WriteFile(filepath.Join(src, ".skillignore"), []byte("inner\n"), 0644)
+
+	_, resp := postBatchToggle(t, s, `{"names":["a__inner","b__inner"],"kind":"skill","enable":true}`)
+	if resp.Summary.Updated != 2 || resp.Summary.Failed != 0 {
+		t.Fatalf("want updated=2, got %+v %+v", resp.Summary, resp.Results)
 	}
 }
 
@@ -185,5 +201,21 @@ func TestHandleBatchToggle_DisableOverriddenByLocalNegation_Fails(t *testing.T) 
 	r := resp.Results[0]
 	if r.Success || r.Disabled || !strings.Contains(r.Error, ".skillignore.local") {
 		t.Errorf("expected overridden skill to fail naming .skillignore.local, got %+v", r)
+	}
+}
+
+func TestHandleBatchToggle_OverriddenByLocalNegation_LogsPartial(t *testing.T) {
+	s, src := newTestServer(t)
+	addSkill(t, src, "keep")
+	addSkill(t, src, "mine")
+	os.WriteFile(filepath.Join(src, ".skillignore.local"), []byte("!mine\n"), 0644)
+
+	_, resp := postBatchToggle(t, s, `{"names":["keep","mine"],"kind":"skill","enable":false}`)
+	if resp.Summary.Updated != 1 || resp.Summary.Failed != 1 {
+		t.Fatalf("unexpected summary: %+v", resp.Summary)
+	}
+	entries, _ := oplog.Read(s.configPath(), oplog.OpsFile, 10)
+	if len(entries) != 1 || entries[0].Command != "batch-disable" || entries[0].Status != "partial" {
+		t.Fatalf("expected one batch-disable partial entry, got %+v", entries)
 	}
 }

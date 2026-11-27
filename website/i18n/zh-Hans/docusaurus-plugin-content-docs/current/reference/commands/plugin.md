@@ -37,7 +37,7 @@ target 会保存该选择。下一次 `sync plugins` 会移除其受管理的安
 | Command | Behavior |
 |---|---|
 | `list` | Configured bindings and native installation state; interactive manager in a terminal |
-| `discover SOURCE` | Inspect a local directory, `owner/repo`, or HTTPS Git repository |
+| `discover SOURCE` | 检查本地文件夹、`owner/repo`、HTTPS Git 仓库、GitHub 软件包文件夹或 Herdr mod 链接 |
 | `add [SOURCE]` | Choose and install a whole plugin with its target adapter, or an `npm:` package through Pi |
 | `import [NATIVE-ID]` | Adopt an existing installation without reinstalling or enabling it |
 | `unimport NAME` | 卸载明确指定目标的本机导入安装，保留共享来源声明 |
@@ -56,14 +56,14 @@ target 会保存该选择。下一次 `sync plugins` 会移除其受管理的安
 
 | Option | Meaning |
 |---|---|
-| `--target TARGET` | Repeatable selection: `claude`, `codex`, `cursor`, `antigravity` (`agy` alias), `antigravity-cli`, `copilot`, `grok`, `pi`, `omp`, `opencode`, or the name of [another account of an Agent](#accounts); see the capability table below |
+| `--target TARGET` | Repeatable selection: `claude`, `codex`, `cursor`, `antigravity` (`agy` alias), `antigravity-cli`, `copilot`, `grok`, `pi`, `omp`, `opencode`, `herdr-app`, or the name of [another account of an Agent](#accounts); see the capability table below |
 | `--plugin NAME` | Select one plugin from a source marketplace |
 | `--name NAME` | Logical package name when adding or importing |
 | `--from TARGET` | Import from Claude, Codex, Antigravity CLI, Copilot, Grok, Pi, OMP marketplaces, OpenCode, or [another account of an Agent](#accounts) |
 | `--all`, `-a` | Update all managed plugins (`update` only; cannot be combined with a package name or `--source-ref`) |
 | `--dry-run`, `-n` | Preview without changing Skillshare or Agent configuration |
 | `--source-ref REF` | Git branch, tag, or commit for `discover`, `add`, and `update`; remote sources only |
-| `--entry PATH` | Explicit built OpenCode JS/TS entry, relative to the package root (`discover` and `add`) |
+| `--entry PATH` | Explicit built OpenCode JS/TS entry, or a [Herdr launcher](#herdr-app) executable, relative to the package root (`discover` and `add`) |
 | `--revision ID` | Refuse application if source, configuration, or native inventory changed since preview |
 | `--json` | Machine-readable output; disables TUI |
 | `--no-tui` | Disable interactive menus; also respects `tui: false` |
@@ -81,12 +81,13 @@ JSON 输出包含来源路径和原生标识符。不要在来源 URL 中放置�
 | Claude Code | `.claude-plugin/plugin.json` | Yes | Yes | Native update |
 | Codex | `.codex-plugin/plugin.json`, Agent Plugins root manifest, or Claude manifest | Yes | No | 刷新经审核的来源后再次 add，仅限在 Codex 中为启用状态 |
 | Cursor | `.cursor-plugin/plugin.json` or Agent Plugins root manifest | Yes | No | Replace reviewed local copy |
-| Antigravity Desktop | Root `plugin.json` with an explicit name | Yes | Yes | Replace reviewed local copy |
+| Antigravity Desktop | `.antigravity-plugin/plugin.json`、`.gemini-plugin/plugin.json` 或根目录下的 `plugin.json`（须明确指定名称） | Yes | Yes | Replace reviewed local copy |
 | Pi | `package.json` with `pi` resources, or `pi-package` keyword and conventional resource folders | Yes | Yes, with native project trust | Refresh managed source snapshot |
 | Oh My Pi | Marketplace-backed local/Git plugins with native-compatible metadata | Fresh-cache install/reinstall, import and scoped removal | At OMP's project anchor | Updates reinstall into fresh cache; removal retains shared cache |
 | OpenCode | `package.json` with an SDK dependency, `.opencode/plugins/` entry, or explicit `--entry` | Yes | Yes | Refresh managed source snapshot |
+| Herdr app | 无 plugin manifest 的 source 根目录下的 `mods/<id>/main.js`，或用 `--entry` 指定的启动器 | Yes | No | 替换 Skillshare 安装的文件 |
 
-| Antigravity CLI | Native root manifest or Claude manifest accepted by `agy` | Yes | No | Refresh reviewed source, only if native enabled state is known and enabled |
+| Antigravity CLI | `.antigravity-plugin/plugin.json`、`.gemini-plugin/plugin.json`、根目录下的 `plugin.json`，或 `agy` 接受的 Claude manifest | Yes | No | Refresh reviewed source, only if native enabled state is known and enabled |
 | GitHub Copilot CLI | `.plugin/plugin.json`, `.github/plugin/plugin.json`, Claude manifest, or Agent Plugins root manifest | Yes | No | Refresh reviewed source, only if native enabled state is known and enabled |
 | Grok Build | `.grok-plugin/plugin.json` or Claude manifest | Import/remove only; native trust required for install | No | Update natively |
 | Kimi Code | `kimi.plugin.json` or `.kimi-plugin/plugin.json` | Discovery only | No | Not automated |
@@ -129,6 +130,7 @@ skillshare plugin import demo@market --from claude-work
   Cursor 并检查 Customize。已安装的同名 marketplace plugin 优先于本地副本。
 - Antigravity desktop：全局为 `~/.gemini/config/plugins/<name>`；在工作区中为 `.agents/plugins/<name>`
   （或已存在的 `_agents/plugins/` 目录）。如果两个工作区目录都存在，请先合并它们。
+  原生 manifest 的查找顺序为 `.antigravity-plugin/plugin.json`、`.gemini-plugin/plugin.json`、根目录下的 `plugin.json`。如果包含多个插件的仓库中存在 `.antigravity-plugin/marketplace.json`，`antigravity` 和 `antigravity-cli` 就只使用这份 catalog，不会回退到 `.claude-plugin/marketplace.json`。
 - 独立的 **agy CLI** 有单独的 plugin store。`antigravity` target 管理的是
   desktop/workspace 的发现路径，而不是该 CLI store。`agy` 只是 Skillshare target 的一个别名；
   使用 `--target antigravity-cli` 表示独立 CLI，`--target agy` 保留其原有的 desktop 含义。
@@ -136,6 +138,43 @@ skillshare plugin import demo@market --from claude-work
 对这些本地 packages 使用 `plugin add`。不支持导入预先存在的本地文件夹或
 marketplace 安装。Skillshare 拒绝覆盖非自身拥有的文件夹、symlinks 或本地已编辑的受管理内容。
 显式的 Antigravity manifest 名称可以在 Git 检出和快照之间保持身份稳定。
+
+### Herdr app {#herdr-app}
+
+`herdr-app` target 通过复制文件来安装 Herdr mod 和启动器应用。它只支持 global，Skillshare 不会直接运行包里的代码。Herdr 的主目录是 `$HERDR_APP_HOME`，未设置时为 `~/.config/herdr-app`。
+
+在没有插件清单或 marketplace 目录的来源中，Skillshare 会查找根目录下的 `mods/<id>/main.js`，并将 mod 安装到 `<herdr home>/mods/<id>`。如果软件包在大型仓库的子目录中，请粘贴包含 `mods/` 的 GitHub 文件夹链接；如果只想选一个 mod，请粘贴它的 `mods/<id>/main.js` 链接。更新会沿用链接中的 ref，也可以用 `--source-ref` 指定其他 ref。
+
+在 Dashboard 的**仓库或文件夹**中粘贴链接并搜索。安装启动器时，另外在 **Herdr 启动器可执行文件**填写路径；安装 mod 时留空。启动器也可使用普通的 `package.json`。
+
+发现多个 Herdr mod 时，可以多选或全选后一起预览。每个 mod 独立管理，不会导入布局或主题。Herdr 根据 `place` 自动写入的布局项目不会随 mod 一起删除。
+
+单独添加一个在 `mod.json` 中声明 `left`、`right`、`top` 或 `bottom` 的 mod 时，默认勾选**在 Herdr 中显示 mod 面板**。让 Herdr 保持打开，确认后会在当前布局的副本中显示面板，重装时也一样。
+
+安装官方 Skillshare mod 时，选择 **在 Herdr 显示 Skillshare 面板**可以预览添加到当前布局副本的内容。打开 Herdr 后应用，会切换到包含按钮和面板的副本，不修改原布局。
+
+取消选择 Herdr 后同步会卸载 mod，但保留软件包记录和布局副本，以便重新安装。**移除**也会删除 Skillshare 记录的未修改副本，必要时先把窗口切到没有这个 mod 面板的布局。修改过或没有记录的布局会保留。 之后从这个副本再复制出的副本也会显示它的面板。停用时如果正在使用其中一个，打开的 Herdr 会切到最新一个没有这个 mod 面板的布局。重新勾选并同步时，如果窗口还停在 Skillshare 切过去的布局，等那个副本显示的 mod 都安装好，就会切回原本离开的副本。**移除**时如果留下的其他 mod 的副本是从它的副本复制出来的，那个副本会保留，里面仍有已移除 mod 的面板。
+
+指向 mod 文件夹外部的链接不会被复制。
+
+```bash
+skillshare plugin add owner/herdr-mods --plugin my-mod --target herdr-app --no-tui -g
+skillshare plugin add owner/lantern --entry bin/lantern-app --target herdr-app --no-tui -g
+```
+
+Lantern 这类启动器应用需要 `--entry`，即 source 中可执行文件的路径。命令名取自 entry 文件名：`bin/lantern-app` 对应 `lantern-app`。Skillshare 把 source 复制到自己的 state 目录并显示受管理的入口路径。将命令指向该路径；更新后路径保持不变。启动器只支持 macOS 和 Linux。
+
+Skillshare 管理整个安装文件夹，并在更新时替换它。本地修改会阻止更新和删除，直到你保存这些修改。安装文件夹中的隐藏文件、`node_modules`、`__pycache__`不计入修改检查；mod 根目录的 `jsconfig.json` 和 `.d.ts` 文件也不计入；更新不会保留它们。source 包含这些文件时仍会复制。删除会移除整个文件夹，包括生成的文件。替换中断时，请在重试前检查提示的备份。
+
+Skillshare 不会接管不是它安装的 mod 或启动器，也不提供 `import`。如果同名 mod 或启动器已存在，`add` 会拒绝。先把它移开，再重新 add：
+
+```bash
+mv ~/.config/herdr-app/mods/my-mod ~/my-mod.bak
+```
+
+`update` 显示安装路径，不代表 mod 已在运行。Herdr 在文件变化时会重新加载 mod；用 `herdr-app status` 确认。`place: none` 的 mod 不会被自动放置，需要手动加到 layout 中。更新启动器前，先关闭该应用的聊天和 readout，更新后再重新打开。
+
+在没有 Herdr app 的机器上（主目录不存在），`sync`、`check` 和 `update` 会跳过 `herdr-app` 绑定（包括启动器），不获取任何内容，plugin 的其他 target 照常运行。绑定声明会保留。在这样的机器上 `add` 到 `herdr-app` 会被拒绝。`remove` 会删除绑定而不创建主目录，其他操作会跳过该绑定。主目录存在但不是文件夹时，这个 target 会被阻止。
 
 ### Oh My Pi (OMP) {#omp}
 
@@ -248,20 +287,22 @@ Skillshare 读取包时不会运行它们，因此这个标签页显示的是设
 
 同步到 Pi 的项目在项目页面上也有这个标签页。它显示项目设置叠加在全局设置之上后，每个包选中的内容，并标明是继承自 `pi (global)` 还是项目覆盖。开关只会把规则保存到项目的 `.pi/settings.json`，做法与 `pi config` 相同：全局包会得到一个项目条目 `{"source": ..., "autoload": false, "extensions": [...]}`，只改变它指明的文件，全局条目保持不变。本地来源会写成相对于 `.pi` 的路径，npm 或 git 来源则按全局设置的写法。移除这类条目的最后一条项目规则时，只有不会让更早注册的 filters 生效才移除该条目；否则保留空的 winning override。只有明确的 JSON `false` 才表示 delta，`autoload: null` 不是 `false`。没有对应全局条目、且 `autoload: false` 的项目条目只会加载它用 `+` 指明的文件。文件及其 `.pi` 文件夹只会在应用时创建。全局设置和 Pi 的 `trust.json` 永远不会被写入，Skillshare 也不会替你信任项目：Pi 只有在信任项目时才会使用项目设置。含有凭据或查询字符串的全局来源不会被复制到项目中，所以该包在项目中是只读的；项目设置中有 Skillshare 无法读取的条目时，所有包都是只读的。应用时会持有 Pi 对项目文件的锁，并在写入前再次检查两个设置文件和包。Pi 自己的 `extensions` 文件夹中的 extension（包括 [extras](./extras.md) 链接到那里的文件）以只读方式列出，并说明在哪里修改；项目会列出自己的文件夹（Pi 只有在信任项目时才会读取）和全局文件夹。
 
-OpenCode 会在 `opencode.json` 或已存在的 `opencode.jsonc` 中将受管理的 entry 注册为文件 URL，
+OpenCode v1 将受管理的 entry 文件、v2 将 package 目录作为文件 URL 注册到 `opencode.json` 或已存在的 `opencode.jsonc` 中，
 并保留注释和无关的条目。Version 1 使用 `plugin`；version 2 使用 `plugins`。`XDG_CONFIG_HOME`
 和绝对路径的全局 `OPENCODE_CONFIG` 会被遵循；含糊或不受支持的覆盖会被拒绝。
 OpenCode 必须在 PATH 上，以便 Skillshare 能够选择对应版本的 schema。
+[`hooks`](./hooks.md) 在同一 `plugins` 数组中注册的 v2 目录包（`plugins/skillshare-NAME`）归 hooks 所有；`plugin list` 和 `plugin import` 不会显示它。
 
-本地 OpenCode source 必须已经包含其构建好的 entry（`main`、字符串形式的 root export，
-或 `index.js`）以及所需的运行时依赖。Skillshare 不会运行构建脚本，也不会将依赖安装到 source 中。
+本地 OpenCode v1 source 需要构建好的 entry（`main`、字符串形式的 root export，或 `index.js`）。v2 使用目录加载器：需要 `name` 加字符串形式的 root 或 `./server` export，或根目录的 `server`/`index` 文件（`.ts`、`.tsx`、`.js`）。`--entry` 不会覆盖 v2 的目录加载；条件或回退形式的 server export 会被拒绝。`@opencode-ai/plugin` 和 `@opencode/plugin` 都能标识 OpenCode package。manifest 与依赖要求保持不变。Skillshare 不会运行构建脚本，也不会将依赖安装到 source 中。
 注册成功并不代表模块已成功加载；请在重新加载后检查 OpenCode。
 
 全局 npm 注册没有 managed cache 时显示 Unknown／只读，不代表尚未安装；Pi 可能使用 Skillshare 不探查的 legacy global npm/pnpm 路径。
 
 Import 接受普通 Pi source，以及Pi 0.99.2 及以上来源与选项格式受支持的 filtered object。预览只显示保留的字段名称，不显示 opaque 值。导入不修改原生设置或已安装文件；原始条目保存在 Skillshare 私有状态，本机安装记录仅存 digest。sync/update 保留当前条目；卸载前保存最新选项，重新安装时先恢复 object，避免暂时按默认规则启用其他资源。同一次 Apply 批量恢复时，只接受此次操作自己写出的精确内容；其他设置变动仍会阻止后续恢复。这些 bindings 必须保留私有状态：记录丢失、被修改或属于其他 target 时拒绝恢复。Windows 的新注册目录以受保护的 owner/SYSTEM ACL 创建。现有目录与记录若允许当前用户及特权 SYSTEM/Administrators 之外的主体访问，或无法验证 ACL，便拒绝导入或恢复。不会修改现有 ACL；请保留记录，由所有者修复访问保护后再重试。不确定的来源或优先级、不支持的编码，以及 Pi 会规范化的本地引用仍为只读。普通 OpenCode 条目可导入，filtered OpenCode 条目仍拒绝。超过 Pi 10 秒过期阈值的空锁目录，只有 inode 与 mtime 未变动时才能回收；新锁、更新或被替换的锁、非空目录、文件与 symlink 一律保留。过期不代表持有者已终止，最后检查与移除不是原子 CAS。已导入的 Pi package 在全局模式下用 `pi update SOURCE` 更新，并保留其设置条目；project 中的则要在 Pi 里更新，因为 `pi update` 也会影响全局 package。已导入的 OpenCode v1 packages 会在其原生工具中更新。
-OpenCode v2 的全局导入可以使用其原生的更新命令；project 导入则必须原生更新，
+OpenCode v2 的全局 package 导入可以使用其原生的更新命令；导入的本地目录由你在源位置更新，不运行依赖安装器；project 导入则必须原生更新，
 因为 v2 的更新命令是全局的。
+OpenCode 在还没加载 plugin 的文件夹中执行更新时，会回复 `Plugin is not configured`（[anomalyco/opencode#54654](https://github.com/anomalyco/opencode/issues/54654)），
+因此 Skillshare 会每隔三秒重新执行更新，最多三次，之后才报告这个错误。OpenCode 配置里已经没有的 package 会被跳过。
 
 ```bash
 skillshare plugin add ./cursor-plugin --target cursor --no-tui
@@ -273,13 +314,14 @@ skillshare plugin import npm:my-pi-package --from pi --name my-package --no-tui
 
 ## Refs 与显式 entries
 
-**Add plugin** 中的高级选项接受可选的 Git ref 和 OpenCode entry。留空即可使用正常的引导流程。
+**Add plugin** 在来源旁接受可选的 Git ref；检测不到 OpenCode entry 时，可在 OpenCode 那一行填写。留空即可使用正常的引导流程。
 终端向导接受相同的 flags；自动化场景可以使用：
 
 ```bash
 skillshare plugin discover obra/superpowers --source-ref v6.3.0 --json
 skillshare plugin add owner/repo --source-ref v1.0.0 --target copilot --no-tui
 skillshare plugin add ./package --entry dist/plugin.js --target opencode --no-tui
+skillshare plugin add ./lantern --entry bin/lantern-app --target herdr-app --no-tui -g
 skillshare plugin update review --source-ref v1.1.0 --target claude --dry-run --json
 ```
 
@@ -344,7 +386,7 @@ Skillshare 从不提供原生信任的批准 flags。
 原生生命周期已在 Claude Code `2.1.276`、Codex CLI
 `0.154.0`、Pi `0.85.1` 和 Copilot CLI `1.0.86` 上验证。Antigravity CLI
 `1.2.6` 通过隔离的原生 install/list/remove 操作进行了检查。OpenCode `1.18.31` 用于验证
-版本感知的注册；v2 schema 由 fixture 测试覆盖。Cursor 和 Antigravity 的
+版本感知的注册；v2 schema 由 fixture 测试覆盖。Cursor、Antigravity 和 Herdr app 的
 文件系统生命周期在隔离目录中进行了测试，但不代表已验证 GUI 运行时激活。已安装的命令
 capabilities 和清单 schemas 会在运行时检查；不受支持的操作会被阻止并给出说明。
 
@@ -401,3 +443,5 @@ skillshare plugin sync NAME --no-tui
 `unimport` 要求明确指定一个或多个 `--target`，且各目标必须已有本机导入记录和共享来源配置。它通过目标的卸载适配器移除本机导入的安装，然后清除本机记录。共享声明和其他机器的安装保持不变。下一次 sync 会从共享来源安装。
 
 卸载也会移除原生客户端中与该安装相关的配置或登录信息。
+
+旧版 Skillshare OpenCode v2 适配器留下的扁平文件注册，在 add/import/sync/update 时会被拒绝。请移除旧的受管理 binding，再重新添加其目录包。移除操作仍然可用，且不会改动无关的原生注册。预览之后运行时版本发生变化，需要重新预览。

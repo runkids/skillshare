@@ -70,13 +70,14 @@ token 估算採用 `chars / 4` 作為近似值。
 | `description-too-short` | warning | Description 少於 50 個字元 |
 | `description-too-long` | warning | Description 超過 1024 個字元的目標上限 |
 | `description-near-limit` | warning | Description 介於 900–1024 個字元之間 |
+| `body-too-long` | warning | Skill 內文（front matter 之後）超過 500 行；請把細節移到 reference 檔案 |
 | `no-trigger-phrase` | warning | Description 缺少觸發詞句（例如「Use when…」） |
 
 在 TUI 中，有 lint 問題的 skill 名稱旁會顯示 ✗（error）或 ⚠（warning）圖示。詳細資訊面板包含一個 **Quality** 區塊，列出所有發現的問題。
 
 ## Interactive TUI
 
-在 TTY 中，`analyze` 會開啟互動式畫面，一次看一個 target：左側是依 token 用量排序的 skills，右側是選取 skill 的 token 明細、lint 問題與描述。打開 skill 會顯示檔案原文（含 front matter），可以直接對照 lint 問題。按鍵列在畫面底部。使用 `--no-tui` 改印純文字。
+在 TTY 中，`analyze` 會開啟互動式畫面，一次看一個 target：左側是依 token 用量排序的 skills，右側是選取 skill 的 token 明細、lint 問題與描述。打開 skill 會顯示檔案原文（含 front matter），可以直接對照 lint 問題。按鍵列在畫面底部。使用 `--no-tui` 改印純文字。TUI 不會顯示 MCP 工具定義；要看請用 `--no-tui` 或 `--json`。
 
 ### Color Coding
 
@@ -114,6 +115,20 @@ claude · 7 skills
     another-skill  ~120 tokens
     …
 ```
+
+### MCP 工具定義 {#mcp-tool-definitions}
+
+整個 source 的執行（沒有 target 參數，也沒有 `--filter`）還會加入 MCP servers 的工具定義，並依 MCP target 分別計算（即 `mcp.targets` 中的 Agent，例如 `claude`、`codex` 或 `cursor`，與 skill targets 是各自獨立的清單）：
+
+```
+MCP tool definitions (upper bound)  claude ~6.8K · codex ~5.7K
+
+! claude: MCP tool definitions are ~6,750 tokens (budget: 5,000)
+   Largest: github ~3,276, playwright ~1,932, sentry ~1,092
+  1 MCP server not counted yet; run skillshare mcp check --live
+```
+
+數字來自 [`mcp check --live`](/docs/reference/commands/mcp#probe-servers-live)，它會估算每個 server 的工具名稱、描述與輸入 schema；`analyze` 不會啟動任何 server。尚未被即時檢查計算過的 server 會列為未計算，絕不當成 0。完全沒有計算過時，`analyze` 會印出 `MCP tool definitions have not been counted yet; run skillshare mcp check --live`。每個地方各自成組：全域清單，以及每個 `mcp.projects` 根目錄，該根目錄的群組還包含該 project 沒有關閉的全域 server，因為 Agent 在那裡也會載入它們。工具政策不會套用，所以總數是上限。警告使用 [`context_budget.warn_mcp_tool_tokens`](/docs/reference/targets/configuration#context_budget)。
 
 ### Single Target
 
@@ -194,6 +209,24 @@ skillshare analyze --json
 
 沒有 lint 問題的 skill 會省略 `lint_issues` 欄位。
 
+整個 source 的執行還會加入一個 `mcp` 物件；沒有任何 MCP target 收到 server 時會省略：
+
+```json
+"mcp": {
+  "budget": 30000,
+  "groups": [
+    {
+      "target": "claude", "agent": "claude", "tokens": 6750, "measured": 4,
+      "servers": [
+        { "name": "github", "tools": 26, "tokens": 3276, "checked": "2026-11-25T08:30:00Z" }
+      ]
+    }
+  ]
+}
+```
+
+`root`（`mcp.projects` 資料夾）會設在 project 群組上。來自 project 的 server 有 `project`；只有被即時檢查計算過的 server 才有 `checked`，沒有它時 `tokens` 不是實際計數。群組的 `tokens` 是已計算 server 的加總，`measured` 則是這類 server 的數量。
+
 ## Project Mode
 
 ```bash
@@ -233,7 +266,7 @@ skillshare analyze -p --json           # JSON 輸出
 
 ## Budget Warnings
 
-當設定了 `context_budget` 門檻時，只要任何 target 超過該預算，`analyze` 就會顯示警告。設定細節請參閱 [sync — Context Cost](/docs/reference/commands/sync#context-cost)。
+當設定了 `context_budget` 門檻時，只要任何 target 超過該預算，`analyze` 就會顯示警告（MCP 工具定義則看 `warn_mcp_tool_tokens`）。設定細節請參閱 [sync — Context Cost](/docs/reference/commands/sync#context-cost)。
 
 ## See Also
 

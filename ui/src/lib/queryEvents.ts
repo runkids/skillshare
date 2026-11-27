@@ -2,11 +2,12 @@ import type { InvalidateQueryFilters, QueryClient, QueryKey } from '@tanstack/re
 
 import { queryKeys as k } from './queryKeys';
 
-const keys = (...list: QueryKey[]): InvalidateQueryFilters[] => list.map((queryKey) => ({ queryKey }));
+const keys = (...list: QueryKey[]): InvalidateQueryFilters[] =>
+  list.map((queryKey) => ({ queryKey }));
 
 /** Everything that shows a target's config or its effect. */
 const targets = [k.targets.all, k.projects, k.config, k.overview, k.diff(), k.syncMatrix()];
-const sourceLinks = [k.skills.all, k.overview, k.config, k.diff(), k.syncMatrix()];
+const sourceLinks = [k.skills.all, k.overview, k.config, k.diff(), k.syncMatrix(), k.versionCheck];
 const ignoreFile = [k.diff(), k.overview, k.skills.all, k.doctor];
 
 /**
@@ -16,23 +17,42 @@ const ignoreFile = [k.diff(), k.overview, k.skills.all, k.doctor];
  */
 const events = {
   // Skills and agents
-  skillsChanged: () => keys(k.skills.all, k.overview, k.diff()),
+  skillsChanged: () => keys(k.skills.all, k.overview, k.diff(), k.versionCheck),
   // A project's config.yaml declares the branch, so the config editor reloads too.
   skillBranchSwitched: () => keys(k.skills.all, k.overview, k.diff(), k.config),
   // The list shows frontmatter (description, manual only), so an edit refreshes it too.
   skillEdited: (name: string) => keys(k.skills.all, k.skills.detail(name)),
-  installDialogClosed: () => keys(k.skills.all),
-  reposChanged: () => keys(k.overview, k.skills.all, k.trash),
-  skillsMoved: () => keys(k.skills.all, k.overview, k.syncMatrixAll, k.diff()),
-  skillsUninstalled: () => keys(k.skills.all, k.overview, k.trash, k.syncMatrixAll, k.diff()),
-  trashChanged: () => keys(k.trash, k.skills.all, k.syncMatrixAll),
-  skillSyncChanged: () => keys(k.skills.all, k.syncMatrixAll),
-  skillsToggled: () => keys(k.skills.all, k.syncMatrixAll, k.overview),
+  // The version card reads the built-in skill and .skillignore from the source, so events that add, remove or disable a skill refresh it.
+  installDialogClosed: () => keys(k.skills.all, k.versionCheck),
+  reposChanged: () => keys(k.overview, k.skills.all, k.trash, k.missingConfigEntries),
+  skillsMoved: () => keys(k.skills.all, k.overview, k.syncMatrixAll, k.diff(), k.versionCheck),
+  skillsUninstalled: () =>
+    keys(k.skills.all, k.overview, k.trash, k.syncMatrixAll, k.diff(), k.versionCheck),
+  trashChanged: () => keys(k.trash, k.skills.all, k.syncMatrixAll, k.versionCheck),
+  skillSyncChanged: () => keys(k.skills.all, k.syncMatrixAll, k.versionCheck),
+  skillsToggled: () => keys(k.skills.all, k.syncMatrixAll, k.overview, k.versionCheck),
   skillTargetFilterChanged: () => keys(k.targets.all, k.syncMatrixAll, k.diffAll),
   sourceLinked: () => keys(...sourceLinks),
-  sourceUnlinked: () => keys(...sourceLinks, k.trash),
-  collected: (target?: string) => keys(k.skills.all, k.overview, k.targets.all, k.diff(), k.syncMatrix(), k.collectScan(target)),
-  configInstalled: () => keys(k.missingConfigEntries, k.skills.all, k.overview, k.syncMatrixAll, k.diff()),
+  sourceUnlinked: () => keys(...sourceLinks, k.trash, k.missingConfigEntries),
+  collected: (target?: string) =>
+    keys(
+      k.skills.all,
+      k.overview,
+      k.targets.all,
+      k.diff(),
+      k.syncMatrix(),
+      k.collectScan(target),
+      k.versionCheck,
+    ),
+  configInstalled: () =>
+    keys(
+      k.missingConfigEntries,
+      k.skills.all,
+      k.overview,
+      k.syncMatrixAll,
+      k.diff(),
+      k.versionCheck,
+    ),
 
   // Targets, projects and sync
   targetsChanged: () => keys(...targets, k.instructions.all),
@@ -40,23 +60,43 @@ const events = {
   syncRan: () => keys(...targets, k.extrasDiff(), k.extras, k.mcp, k.hooks, k.logAll),
   projectSynced: () => keys(...targets, k.mcp, k.hooks, k.logAll),
   projectChanged: () => keys(...targets, k.mcp, k.hooks),
-  projectAdded: () => keys(...targets, k.mcp),
+  projectAdded: () => keys(...targets, k.mcp, k.hooks),
   targetFilesChanged: (target: string) => keys(k.targetFiles.list(target)),
   // Only the list: the removed file's content query is still mounted and would fetch again.
-  targetFileRemoved: (target: string): InvalidateQueryFilters[] => [{ queryKey: k.targetFiles.list(target), exact: true }],
+  targetFileRemoved: (target: string): InvalidateQueryFilters[] => [
+    { queryKey: k.targetFiles.list(target), exact: true },
+  ],
 
   // Config
-  configSaved: () => keys(k.updatePolicy, k.versionCheck, k.config, k.mcp, k.overview, k.targets.all, k.skills.all, k.extras, k.extrasDiff(), k.diff(), k.syncMatrix(), k.doctor, k.instructions.all, k.memory.all),
+  configSaved: () =>
+    keys(
+      k.plugins,
+      k.updatePolicy,
+      k.versionCheck,
+      k.config,
+      k.mcp,
+      k.overview,
+      k.targets.all,
+      k.skills.all,
+      k.extras,
+      k.extrasDiff(),
+      k.diff(),
+      k.syncMatrix(),
+      k.doctor,
+      k.instructions.all,
+      k.memory.all,
+    ),
   updatePolicyChanged: () => keys(k.versionCheck, k.doctor),
   settingsSaved: () => keys(k.updatePolicy, k.config, k.versionCheck, k.doctor),
-  skillignoreSaved: () => keys(k.skillignore, ...ignoreFile),
+  skillignoreSaved: () => keys(k.skillignore, ...ignoreFile, k.versionCheck),
   agentignoreSaved: () => keys(k.agentignore, ...ignoreFile),
   extensionsChanged: () => keys(k.extensions, k.extrasExtensions),
   auditRulesChanged: () => keys(k.audit.rules, k.audit.compiled),
 
   // Extras, instructions and memory
   extrasChanged: () => keys(k.extras, k.extrasDiff(), k.config, k.overview, k.memory.all),
-  instructionsChanged: () => keys(k.instructions.all, k.extras, k.extrasDiff(), k.config, k.memory.all),
+  instructionsChanged: () =>
+    keys(k.instructions.all, k.extras, k.extrasDiff(), k.config, k.memory.all),
   managedFilesChanged: () => keys(k.fileBackups.all, k.instructions.all, k.memory.all),
   memoryNotesChanged: () => keys(k.memory.all, k.extras, k.fileBackups.all),
   memoryRefreshed: () => keys(k.memory.all),
@@ -65,10 +105,17 @@ const events = {
   mcpChanged: () => keys(k.mcp, k.config),
   mcpSynced: () => keys(k.mcp, k.logAll),
   mcpRestored: () => keys(k.mcp),
+  // A live check records each server's tool token count.
+  mcpToolsCounted: () => keys(k.mcpCosts),
   hooksChanged: () => keys(k.hooks, k.config),
   hooksSynced: () => keys(k.hooks, k.logAll),
   hooksRestored: () => keys(k.hooks),
   pluginsChanged: () => keys(k.plugins, k.config, k.piExtensionsAll, k.ompExtensionsAll),
+  // Turning an Agent on or off moves no source or version, so the update check (also under `plugins`) stands.
+  pluginTargetsToggled: (): InvalidateQueryFilters[] => [
+    { queryKey: k.plugins, exact: true },
+    ...keys(k.pluginPackages, k.config, k.piExtensionsAll, k.ompExtensionsAll),
+  ],
   piExtensionsStale: (target: string) => keys(k.piExtensions(target)),
   piExtensionsChanged: (target: string) => keys(k.piExtensions(target), k.plugins),
   ompExtensionsStale: (target: string) => keys(k.ompExtensions(target)),
@@ -80,7 +127,17 @@ const events = {
   backupRestored: () => keys(k.backups, k.targets.all),
   logsCleared: () => keys(k.logAll, k.logStatsAll),
   gitFetched: () => keys(k.gitStatus),
-  gitChanged: () => keys(k.gitStatus, k.gitBranches, k.skills.all, k.overview, k.config, k.targets.all, k.diff()),
+  gitChanged: () =>
+    keys(
+      k.gitStatus,
+      k.gitBranches,
+      k.skills.all,
+      k.overview,
+      k.config,
+      k.targets.all,
+      k.diff(),
+      k.versionCheck,
+    ),
   // Root scope can change any of the source resources shown elsewhere.
   sourceDiscarded: (): InvalidateQueryFilters[] => [{}],
   appUpgraded: () => keys(k.versionCheck),
@@ -93,7 +150,11 @@ const events = {
 export type QueryEvent = keyof typeof events;
 
 /** Mark what `event` made stale and refetch the queries on screen. Resolves when those refetches finish. */
-export function invalidate<E extends QueryEvent>(queryClient: QueryClient, event: E, ...args: Parameters<(typeof events)[E]>) {
+export function invalidate<E extends QueryEvent>(
+  queryClient: QueryClient,
+  event: E,
+  ...args: Parameters<(typeof events)[E]>
+) {
   const filters = (events[event] as (...a: unknown[]) => InvalidateQueryFilters[])(...args);
   return Promise.all(filters.map((f) => queryClient.invalidateQueries(f)));
 }

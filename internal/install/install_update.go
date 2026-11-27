@@ -17,7 +17,16 @@ func handleUpdate(source *Source, destPath string, result *InstallResult, opts I
 	// installs. Legacy installs of repo-root orchestrators (root SKILL.md plus
 	// child skills) used to be full repository clones; migrate those through the
 	// discovery installer so the root skill becomes SKILL.md-only.
-	if source.IsGit() && !source.HasSubdir() && IsGitRepo(destPath) && checkoutOnBranch(destPath, source.Branch) {
+	pullInPlace := source.IsGit() && !source.HasSubdir() && IsGitRepo(destPath) && checkoutOnBranch(destPath, source.Branch)
+	if pullInPlace && opts.MergeBase != nil {
+		// A merge stages the new version and swaps it in like a reinstall, which
+		// would replace a followed checkout: the user's own clone.
+		if _, followed := opts.SourceFollow.Resolve(destPath); followed {
+			return nil, fmt.Errorf("%s is a linked git checkout; merge upstream changes there with git", destPath)
+		}
+		pullInPlace = false
+	}
+	if pullInPlace {
 		if hasDescendantSkillFile(destPath) {
 			migrated, err := updateRepoRootOrchestrator(source, destPath, result, opts)
 			if migrated || err != nil {
@@ -64,10 +73,18 @@ func handleUpdate(source *Source, destPath string, result *InstallResult, opts I
 		if err := pull(destPath, source.authEnv(), opts.OnProgress); err != nil {
 			return nil, fmt.Errorf("failed to update: %w", err)
 		}
+		afterHash, _ := getGitFullHash(destPath)
+		if afterHash != beforeHash {
+			if err := checkoutLinksWithin(destPath); err != nil {
+				if resetErr := gitResetHard(destPath, beforeHash); resetErr != nil {
+					return nil, fmt.Errorf("%w; rolling back to %s failed: %v", err, beforeHash, resetErr)
+				}
+				return nil, fmt.Errorf("%w; rolled back to %s", err, beforeHash)
+			}
+		}
 
 		// Post-pull audit gate: rollback on findings at/above threshold unless skipped.
 		if !opts.SkipAudit {
-			afterHash, _ := getGitFullHash(destPath)
 			if afterHash != beforeHash {
 				scanResult, err := auditGateFailClosed(opts.SourceDir, destPath, beforeHash, threshold, opts.AuditProjectRoot, opts.AuditOverride, opts.SourceFollow)
 				if err != nil {
@@ -145,10 +162,49 @@ func handleUpdate(source *Source, destPath string, result *InstallResult, opts I
 		// Installation failed - original skill is preserved
 		return nil, err
 	}
+	// Preserve metadata generated during the temp install, then write it against
+	// the real destination after the swap. Writing the temp install directly to
+	// opts.SourceDir would create ../../ temp-path keys for nested skills.
+	updatedMeta := readTempUpdateMeta(tempDir)
+	if updatedMeta != nil {
+		updatedMeta.Locked = source.Locked
+	}
+	entry := opts.MergeBase
+	if entry == nil && source.IsGit() {
+		entry = recordedEntry(destPath, opts.SourceDir)
+	}
+	trimmed, err := keepInstalledShape(entry, source, tempDest)
+	if err != nil {
+		return nil, fmt.Errorf("failed to keep the installed layout: %w", err)
+	}
+	if trimmed && updatedMeta != nil {
+		hashes, err := ComputeFileHashes(tempDest)
+		if err != nil {
+			return nil, fmt.Errorf("failed to hash the new version: %w", err)
+		}
+		updatedMeta.FileHashes = hashes
+	}
 	// A branch or upstream commit that dropped SKILL.md would replace a skill
 	// with a plain folder.
 	if skillFileExists(destPath) && !skillFileExists(tempDest) {
 		return nil, fmt.Errorf("the new version has no SKILL.md; kept the installed skill")
+	}
+	if opts.MergeBase != nil {
+		changed, err := mergeLocalEdits(opts.MergeBase, destPath, tempDest, opts)
+		if err != nil {
+			return nil, err
+		}
+		if !changed {
+			// Upstream left this skill alone: keep the local files, record the
+			// new version.
+			if updatedMeta != nil {
+				if err := WriteMetaToStore(opts.SourceDir, destPath, updatedMeta); err != nil {
+					result.Warnings = append(result.Warnings, fmt.Sprintf("failed to write metadata: %v", err))
+				}
+			}
+			result.Action = "up-to-date"
+			return result, nil
+		}
 	}
 
 	// Propagate audit results and warnings from inner install
@@ -159,11 +215,6 @@ func handleUpdate(source *Source, destPath string, result *InstallResult, opts I
 		result.AuditThreshold = innerResult.AuditThreshold
 		result.Warnings = append(result.Warnings, innerResult.Warnings...)
 	}
-
-	// Preserve metadata generated during the temp install, then write it against
-	// the real destination after the swap. Writing the temp install directly to
-	// opts.SourceDir would create ../../ temp-path keys for nested skills.
-	updatedMeta := readTempUpdateMeta(tempDir)
 
 	// Installation succeeded - now safe to remove original and move new
 	if err := swapStagedIntoSource(opts.SourceDir, tempDest, destPath, opts.SourceFollow); err != nil {
@@ -177,6 +228,9 @@ func handleUpdate(source *Source, destPath string, result *InstallResult, opts I
 	}
 
 	result.Action = "reinstalled"
+	if opts.MergeBase != nil {
+		result.Action = "merged"
+	}
 	return result, nil
 }
 

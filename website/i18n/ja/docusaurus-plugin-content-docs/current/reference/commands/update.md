@@ -12,6 +12,7 @@ skillshare update a b c              # 複数を一度に更新
 skillshare update --group frontend   # グループ内のすべての skill を更新
 skillshare update team-skills        # tracked repo を更新
 skillshare update --all              # すべてを更新
+skillshare update my-skill --merge   # 自分の編集を残したまま upstream の変更をマージ
 skillshare update agents --all       # すべての tracked/updatable agent を更新
 ```
 
@@ -68,6 +69,7 @@ flowchart TD
 | `--all, -a` | すべての tracked repos/skills を更新、または `update agents --all` として使う場合はすべての agents を更新。[たどられた source リンク](../targets/configuration.md#follow_source_links)の背後にある tracked repo は、あなた自身のチェックアウトであるため警告付きでスキップされます。名前を指定して更新してください |
 | `--group, -G <name>` | グループ内の更新可能なすべての skill、または agent サブディレクトリ内のすべての agent を更新 |
 | `--force, -f` | ローカルの変更を破棄し、audit の検出結果があっても続行し、すでに upstream の commit にあるリモート skill も再インストール |
+| `--merge` | リポジトリからインストールした skill または agent のローカルの変更を残したまま、upstream の変更をそこにマージします。[upstream の変更のマージ](#merging-upstream-changes)を参照してください。`--force` とは併用できません |
 | `--dry-run, -n` | 変更を加えずにプレビュー |
 | `--skip-audit` | security audit gate をスキップ |
 | `--audit-threshold <t>`, `--threshold <t>`, `-T <t>` | update の audit ブロックしきい値を上書き（`critical|high|medium|low|info`；省略形: `c|h|m|l|i`、加えて `crit`、`med`） |
@@ -79,7 +81,7 @@ flowchart TD
 | `--json` | JSON として出力 |
 | `--help, -h` | ヘルプを表示 |
 
-`update agents` は以下をサポートします: `--all`、`--group`、`--force`、`--dry-run`、`--skip-audit`、`--audit-threshold` / `--threshold` / `-T`、`--json`、加えて `--project` / `--global`。`--diff`、`--audit-verbose`、`--prune` は**サポートされません**。
+`update agents` は以下をサポートします: `--all`、`--group`、`--force`、`--merge`、`--dry-run`、`--skip-audit`、`--audit-threshold` / `--threshold` / `-T`、`--json`、加えて `--project` / `--global`。`--diff`、`--audit-verbose`、`--prune` は**サポートされません**。
 
 ## JSON 出力
 
@@ -104,7 +106,7 @@ skillshare update --all --json
 }
 ```
 
-取りうる `status` の値: `updated`、`skipped`、`failed`、`security_blocked`。項目が失敗した場合、`error` フィールドが含まれます。リモート skill がローカルの変更のためスキップされた場合は、`"error": "local changes since install"` を持つ `skipped` 項目になります。
+取りうる `status` の値: `updated`、`merged`、`conflict`、`skipped`、`failed`、`security_blocked`。項目が失敗した場合、`error` フィールドが含まれます。リモート skill がローカルの変更のためスキップされた場合は、`"error": "local changes since install"` を持つ `skipped` 項目になります。`--merge` を使うと、upstream の変更が編集内容にマージされた skill は `merged` 項目となり、更新済みとして数えられます。マージできなかった skill は `conflict` 項目となり、その `error` に競合したファイルが示され、スキップとして数えられます。
 
 バッチ更新でリモート skill がすでに upstream の commit にある場合、その skill はそのままにして `up_to_date` フィールドに数えます。件数が 0 のときはこのフィールドを省略します。
 
@@ -119,7 +121,7 @@ tracked repos が metadata に宣言されているがディスク上に存在�
   ],
   "missing_tracked_repos": {
     "names": ["_team-skills"],
-    "hint": "Run 'skillshare install' to rehydrate tracked repositories"
+    "hint": "Run 'skillshare install -g' to rehydrate tracked repositories, or 'skillshare uninstall <name> -g' to remove an unwanted declaration"
   }
 }
 ```
@@ -143,7 +145,7 @@ skillshare update agents --all --json
 }
 ```
 
-取りうる agent の `status` の値には `updated`、`failed`、`skipped`、`up_to_date`、`update_available`、`dirty`、`drifted`、`local`、`error` が含まれます。`error` の Agent は、リモートに到達できない、metadata を読めないなどの理由で確認できなかったものです。この場合、コマンドは Agent を最新と報告せず、0 以外の終了コードで終了します。
+取りうる agent の `status` の値には `updated`、`merged`、`conflict`、`failed`、`skipped`、`up_to_date`、`update_available`、`dirty`、`drifted`、`local`、`error` が含まれます。`error` の Agent は、リモートに到達できない、metadata を読めないなどの理由で確認できなかったものです。この場合、コマンドは Agent を最新と報告せず、0 以外の終了コードで終了します。
 
 ## Agents の更新
 
@@ -224,7 +226,7 @@ skillshare update --all
 1. すべての tracked repositories（git pull）
 2. source metadata を持つすべての skill（upstream が変わったときに再インストール）
 
-`update --all` と `update --group` はリモート skill をリポジトリごとにまとめ、各リポジトリを 1 回だけ clone します。フォルダが upstream で変わっていない skill には手を付けず、up to date として数えます。ただし、フォルダに symlink を含む skill は例外です。フォルダが変わらなくてもファイルが変わることがあるため、upstream の commit が進むたびに再インストールします。プロジェクトモード（`-p`）で複数の skill を名前で指定した場合も同じです。すべてを再インストールするには `--force` を使います。skill が 1 つだけのときと、グローバルモードで名前を指定したときは常に再インストールします。インストール後にファイルを変更した skill は、いずれの場合も `--force` を付けるまでスキップされます（[コンフリクトの処理](#コンフリクトの処理)を参照）。リポジトリを取得できなかった場合、その skill は skipped として数え、リポジトリ名とエラーを示す警告を表示します。URL に含まれる認証情報は取り除かれます。
+`update --all` と `update --group` はリモート skill をリポジトリごとにまとめ、各リポジトリを 1 回だけ clone します。フォルダが upstream で変わっていない skill には手を付けず、up to date として数えます。ただし、フォルダに symlink を含む skill は例外です。フォルダが変わらなくてもファイルが変わることがあるため、upstream の commit が進むたびに再インストールします。`.agents/skills/<name>` のようにフォルダへのリンク経由でインストールした skill は、リンク先のフォルダで比較します。プロジェクトモード（`-p`）で複数の skill を名前で指定した場合も同じです。すべてを再インストールするには `--force` を使います。skill が 1 つだけのときと、グローバルモードで名前を指定したときは常に再インストールします。リポジトリのサブフォルダから同じファイルを再インストールした場合は `.metadata.json` を変更しないため、Git で管理している skills source はクリーンなままです。インストール後にファイルを変更した skill は、いずれの場合も `--merge` か `--force` を付けるまでスキップされます（[コンフリクトの処理](#コンフリクトの処理)を参照）。リポジトリを取得できなかった場合、その skill は skipped として数え、リポジトリ名とエラーを示す警告を表示します。URL に含まれる認証情報は取り除かれます。
 
 skillshare は 1 つの git checkout を同時に 1 つのプロセスだけで更新します。同じ tracked repo や git でインストールした skill を別の `update` やダッシュボードが更新中の場合、その完了を待ちます。1 分経っても終わらなければ `another skillshare process is still updating <path>` で中止します。
 
@@ -248,10 +250,12 @@ Next
 ```
 ! 1 tracked repo declared in metadata but missing on disk
 ! _team-skills  clone directory absent
-  Run 'skillshare install' to rehydrate tracked repositories
+  Run 'skillshare install -g' to rehydrate tracked repositories, or 'skillshare uninstall <name> -g' to remove an unwanted declaration
 ```
 
 これは global mode と project mode（`-p`）の両方に適用されます。metadata からクローンを再作成するには、引数なしの [install](/docs/reference/commands/install) を実行してください（[Rehydrating After a Fresh Clone](/docs/understand/tracked-repositories#rehydrating-after-a-fresh-clone) を参照）。
+
+global mode では、checkout のない不要な宣言を `skillshare uninstall <name> -g` で削除することもできます。trash への移動はなく、trash からの復元もできません。project mode の案内は `skillshare install -p` のみで、宣言だけの削除には対応しません。
 
 ## 古い Skill のクリーンアップ（`--prune`）
 
@@ -316,7 +320,7 @@ skillshare update --all --skip-audit
 ```
 
 :::caution
-`--skip-audit` は security scan を完全に無効化します。source を信頼している場合、または外部の audit プロセスがある場合にのみ使用してください。
+`--skip-audit` は security scan を完全に無効化します。source を信頼している場合、または外部の audit プロセスがある場合にのみ使用してください。ただし、tracked repository やリポジトリ全体の Skill が、リポジトリの外や `.git` フォルダを指す symlink を含む新しい commit を取り込むことは許可しません。その update はエラーで止まり、`--force` でも上書きできません。
 :::
 
 ### 承認済みの検出結果 {#accepted-findings}
@@ -387,7 +391,29 @@ skillshare がリポジトリの git status を読み取れない場合、その
 skillshare update my-skill --force
 ```
 
-ダッシュボードの **Updates** タブでは、その skill に **Modified locally** と、変更を skill のページで開く **View changes** ボタンが表示されます。更新する前に **Force overwrite local edits** にチェックを入れるか、スキップされた行の **Force Retry** を使います。skill 自身のページから更新する場合は、変更を表示したうえで、破棄する前に確認します。`update <name> --dry-run` は、その skill をスキップ対象として報告します。upstream で削除された modified の skill も、`--prune` を付けても `--force` を付けるまで保持されます。
+編集を残したまま upstream の変更も取り込みたい場合は、代わりに `--merge` を使います。[upstream の変更のマージ](#merging-upstream-changes)を参照してください。
+
+ダッシュボードの **Updates** タブでは、その skill に **Modified locally** と、変更を表示して **Merge** または **Force overwrite local edits** を選べる **View changes** ボタンが表示されます。更新する前に **Force overwrite local edits** にチェックを入れることも、スキップされた行の **Merge** または **Force Retry** を使います。skill 自身のページから更新する場合は、変更を表示したうえで、破棄する選択肢の隣に **Merge** も表示します。`update <name> --dry-run` は、その skill をスキップ対象として報告します。upstream で削除された modified の skill も、`--prune` を付けても `--force` を付けるまで保持されます。
+
+インストール後に編集した agent も同じように保護されます。新しいバージョンが編集内容を上書きする場合、更新はスキップされます。`skillshare check agents` はその agent を `update available upstream` として報告し、`update agents` は **Modified locally** の下に一覧表示します。`skillshare update agents <name> --merge` でマージするか、ダッシュボードではスキップされた行の **Merge** または **Force Retry** を使うか、agent 自身のページから更新してください。
+
+### upstream の変更のマージ {#merging-upstream-changes}
+
+`--merge` は、どちらか一方を選ぶのではなく、あなたの編集と upstream の変更を組み合わせます。skill または agent のインストール時の commit を取得し、それを 3-way マージの base として、`git merge` と同様にファイル単位でマージします:
+
+```text
+$ skillshare update my-skill --merge
+✓ Update    my-skill · merged local changes · from github.com/team/skills/my-skill
+```
+
+- あなただけが変更したファイルはあなたの版が残り、upstream だけが変更したファイルは upstream の版になり、双方が変更したファイルは行単位でマージされます。
+- 双方が同じ行を変更した場合、一方が他方の変更したファイルを削除した場合、または同じバイナリファイルを変更した場合は、何も書き込まれません。skill は元のままで、`update` は競合したファイルを一覧表示してエラーで終了します。手動で解決するか、`--force` で編集内容を破棄できます。
+- クリーンにマージできた後も、その skill は upstream が公開したものとは異なるため **modified** のままです。通常の `update` は引き続きスキップし、次の `update --merge` は新しいバージョンからマージします。
+- upstream がその skill に何も変更していない場合、ファイルはそのままにされ、skill は最新として報告されます。
+- マージの対象はファイルだけです。skill に追加したディレクトリへの symlink や空のディレクトリは、通常の更新と同じく保持されません。
+- ローカルの変更がない skill は通常どおり更新されます。`--merge` は tracked リポジトリ（`_repo`）には適用されません。そちらでは変更を commit し、`git pull` にマージさせてください。
+
+`update --all --merge` と `update --group <name> --merge` は、modified の skill をすべてマージし、残りは通常どおり更新します。競合したものは **Not merged** の下に一覧表示されます。`--merge` は base を再構築するためにインストール時の commit を必要とします。記録されたファイルをそこから再現できない skill は `cannot rebuild the installed version to merge against` で失敗します。[たどられた source リンク](../targets/configuration.md#follow_source_links)の背後にある skill はあなた自身のチェックアウトなので、そちらでは git でマージしてください。
 
 ## 更新後
 

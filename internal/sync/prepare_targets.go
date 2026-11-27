@@ -10,10 +10,11 @@ import (
 )
 
 // DiscoverTargetAgents preserves agent discovery's empty-source/prune behavior.
-// all also holds .agentignore'd agents, so NewIgnoreReport needs no second scan.
+// all also holds .agentignore'd agents, including those in ignored folders as
+// the skills ignore stats do, so NewIgnoreReport needs no second scan.
 func DiscoverTargetAgents(source string) (active, all []resource.DiscoveredResource, available bool) {
 	if info, err := os.Stat(source); err == nil && info.IsDir() {
-		all, _ = (resource.AgentKind{}).Discover(source)
+		all, _ = (resource.AgentKind{}).DiscoverAll(source)
 		if all == nil {
 			// NewIgnoreReport treats nil as a rescan request; preserve an empty snapshot.
 			all = []resource.DiscoveredResource{}
@@ -30,6 +31,9 @@ type BackupTargetsOptions struct {
 	ProjectMode         bool
 	ProjectRoot         string
 	BuiltinAgentTargets map[string]config.TargetConfig
+	// Sources tell a symlink-mode link from another tool's link (see ResolveTargetRoot).
+	SkillsSource string
+	AgentsSource string
 }
 
 // BackupTargets snapshots folders before execution and returns nonfatal warnings.
@@ -47,10 +51,10 @@ func BackupTargets(targets map[string]config.TargetConfig, skills, agents bool, 
 	builtinAgents := opts.BuiltinAgentTargets
 	for name, target := range targets {
 		if skills && target.SkillsConfig().IsEnabled() {
-			snapshot(name, target.SkillsConfig().Path)
+			snapshot(name, ResolveTargetRoot(target.SkillsConfig().Path, opts.SkillsSource))
 		}
 		if p := ResolveAgentTargetPath(target, builtinAgents, name, opts.ProjectMode); agents && p != "" {
-			snapshot(name+"-agents", resolveTargetPath(opts.ProjectRoot, p))
+			snapshot(name+"-agents", ResolveTargetRoot(resolveTargetPath(opts.ProjectRoot, p), opts.AgentsSource))
 		}
 	}
 	if _, err := backup.CleanupInDir(dir, opts.Retention); err != nil {

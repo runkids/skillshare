@@ -15,6 +15,7 @@ skillshare project                          # Same as project list
 skillshare project list --json
 skillshare project show <project> --json
 skillshare project add <root> --target T [options]
+skillshare project add <root> --scan DIR --target T [options]
 skillshare project edit <project> [options]
 skillshare project sync <project> [--dry-run] [--json]
 skillshare project localize <project> [--dry-run] [--json]
@@ -36,6 +37,7 @@ skillshare project remove <project> [--shared] [--yes] [--dry-run] [--json]
 | `--skills-naming NAMING` | add, edit | `flat`, `standard`, or `prefixed`; empty value inherits |
 | `--skills-include P`, `--skills-exclude P` | add, edit | Repeat for multiple glob patterns; replaces the corresponding list; empty value clears it |
 | `--agents-include P`, `--agents-exclude P` | add, edit | Same replacement semantics for agents; filters require merge or copy mode |
+| `--scan DIR` | add | Also add each Git checkout below this folder of the root, with the same settings; repeat for more folders. See [checkouts in a workspace](#scan) |
 | `--machine-local` | add | Save on this machine only, not in `config.yaml` |
 | `--shared` | add, remove | add: save in `config.yaml` even when [`projects_storage`](#local-registrations) is `machine-local`. remove: also remove `config.yaml`'s copy of a project this machine overrides |
 | `--sync` | add, edit | Save, then sync this project's skills and agents; force is off |
@@ -63,6 +65,28 @@ The project is saved under [`projects`](/docs/reference/targets/configuration#pr
 
 Projects with skills disabled never run the skills pass, including in global symlink mode. An empty requested/enabled resource selection succeeds without discovery, backups or target writes.
 
+### Register every checkout in a workspace {#scan}
+
+Some tools, such as Codex, look for project skills only up to the Git root of the folder you open. When one workspace folder holds several checkouts, skills synced to the workspace are not seen inside them. `--scan` registers each checkout as its own project, with the same settings:
+
+```bash
+skillshare project add ~/work/suite --scan . --scan .worktrees \
+  --target codex --skills-include 'team-*' --dry-run
+skillshare project add ~/work/suite --scan . --scan .worktrees \
+  --target codex --skills-include 'team-*' --sync
+```
+
+`--scan` takes a folder inside the root (`.` is the root itself) and searches it for checkouts: folders with a `.git` folder, or with the `.git` file of a linked worktree. A checkout is not searched further. Hidden folders below a scan folder, `node_modules`, and links are skipped, so name hidden folders such as `.worktrees` explicitly. A scan folder that does not exist yet, or a folder that cannot be read, is skipped with a warning.
+
+Each checkout becomes an ordinary project entry. No scan setting is saved, and `project edit`, `project remove`, and `--machine-local` work as usual. The scan runs only when you run the command, so run it again after a new clone or worktree. It only adds projects:
+
+- A folder already registered with the same settings is kept.
+- A folder registered with different settings, the root included, is skipped and left as it is; change it with `project edit`.
+- A checkout with its own `.skillshare/` project config is skipped.
+- New checkouts are registered in the same run, in one write, so the command is safe to rerun from a script.
+
+A checkout is named after its folder. When another project, or another checkout found in the same run, has that name, the checkout is named from its path under the root instead: `.worktrees/app-a` becomes `worktrees-app-a`, saved as `name` so later scans keep it. A checkout directly under the root keeps its folder name. If the derived name is taken too, that checkout is skipped with the reason; add it on its own with `--name`. `--sync` syncs the root and every added or kept checkout.
+
 ### Replace filters or reset overrides {#edit-settings}
 
 ```bash
@@ -72,7 +96,7 @@ skillshare project sync shop-web --dry-run --json
 skillshare project sync shop-web --json
 ```
 
-Add and edit validate the full effective configuration before writing. An edit is saved where the project is: in `config.yaml`, or on this machine for a machine-local project. In `config.yaml`, editing a project declared through a YAML anchor also changes the aliases of that anchor. Mutation results list every affected root. A no-op add or edit returns `applied: false` and `unchanged: true`, and still honors `--sync`. Repeating add with different settings fails and points at `project edit`. Custom names must not look like roots (for example `~name`, `./name`, or `C:name`).
+Add and edit validate the full effective configuration before writing. An edit is saved where the project is: in `config.yaml`, or on this machine for a machine-local project. In `config.yaml`, editing a project declared through a YAML anchor also changes the aliases of that anchor. Mutation results list every affected root. A no-op add or edit returns `applied: false` and `unchanged: true`, and still honors `--sync`. Repeating add with different settings fails and points at `project edit`; with `--scan` that folder is skipped instead. Custom names must not look like roots (for example `~name`, `./name`, or `C:name`).
 
 ### Remove a project {#remove}
 
@@ -85,6 +109,8 @@ Removal deletes the project where it is saved. Removing a project from `config.y
 
 Removal detaches skills before removing the project. A whole-folder link is removed; merge-mode links become local copies while their source content exists; copy-mode files remain and their manifest is removed. A path still owned by a surviving enabled target is retained.
 
+Removal leaves the folder's entries under `mcp.projects` and `hooks.projects` in place and warns about each one. The dashboard's **Projects** page keeps listing the folder; remove it there again to delete those entries, or edit `config.yaml`.
+
 CLI edits detach dropped skill paths by the same rules. While a project's skills remain off, any CLI edit, including a rename or an agents-only edit, also detaches its remaining skill paths, even if skills were turned off earlier in the dashboard. Copy-back and surviving enabled-target ownership rules still apply. Dashboard saves never detach skills. Agent files remain in place. The preview and result list removed, copied-back, and retained paths.
 
 ## JSON and failures {#json-and-failures}
@@ -95,6 +121,8 @@ CLI edits detach dropped skill paths by the same rules. While a project's skills
 | show | `project` object |
 | add, edit, remove, localize, share | `action`, `project`, `applied`, `affected`, `warnings`; optional `sync`, `detach`, or `remaining` (remove) |
 | sync | `action`, `project`, `sync`; previews also have `applied: false` |
+
+With `--scan`, `project` is the root and add also returns a `scan` array with one entry per folder: `root`, `path` (relative to the root; `.` for the root itself), `name`, `result` (`added`, `kept`, or `skipped`), and for a skipped folder `skip` (`different`, `storage`, `removed`, `own-config`, `name-taken`, or `bad-name`) and `reason`. With `--sync`, each entry also has that project's `sync` and any `error`.
 
 Project objects include `root` (stored spelling), `path` (expanded path), `name`, `targets`, `skills`, `agents`, `groups`, `missing`, and `hasOwnConfig`, `origin` (`shared` or `local`), `originPath` (the owning file), and `sharedCopy` (a local project that `config.yaml` also declares). An omitted or disabled resource is `null`. Enabled resources expose their settings. Text `project list` and `project show` report the on/off state and origin. The sync result includes `results`, `failed`, `warnings`, and discovery/filter diagnostics.
 

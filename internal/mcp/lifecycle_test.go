@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -458,15 +459,44 @@ func TestImportSecretsAndUnsupportedFields(t *testing.T) {
 	}
 }
 
-func TestImportWarnsAboutAgentSpecificFields(t *testing.T) {
-	for target, data := range map[string]string{
-		"codex":  "[mcp_servers.docs]\ncommand = 'tool'\nstartup_timeout_sec = 20\n",
-		"claude": `{"mcpServers":{"docs":{"type":"streamable-http","url":"https://example.com/mcp","timeout":5}}}`,
+func TestImportKeepsAgentSpecificFieldsAsOptions(t *testing.T) {
+	for target, tc := range map[string]struct {
+		data string
+		want map[string]any
+	}{
+		"codex":  {"[mcp_servers.docs]\ncommand = 'tool'\nstartup_timeout_sec = 20\n", map[string]any{"startup_timeout_sec": int64(20)}},
+		"claude": {`{"mcpServers":{"docs":{"type":"stdio","command":"codegraph","args":["serve","--mcp"],"alwaysLoad":true,"timeout":5}}}`, map[string]any{"alwaysLoad": true, "timeout": float64(5)}},
 	} {
-		items, err := Import(target, []byte(data), "")
-		if err != nil || len(items) != 1 || len(items[0].Problems) != 0 || len(items[0].Warnings) != 1 {
+		items, err := Import(target, []byte(tc.data), "")
+		if err != nil || len(items) != 1 || len(items[0].Problems) != 0 || len(items[0].Warnings) != 0 {
 			t.Fatalf("%s: %+v %v", target, items, err)
 		}
+		if got := items[0].Server.Options[target]; !reflect.DeepEqual(got, tc.want) {
+			t.Errorf("%s options = %#v, want %#v", target, got, tc.want)
+		}
+		if err := items[0].Server.Validate("docs"); err != nil {
+			t.Errorf("%s: imported server does not validate: %v", target, err)
+		}
+	}
+}
+
+func TestImportOfGuessedFormatKeepsNoOptions(t *testing.T) {
+	// A pasted mcpServers file may come from any client; its fields must not reach Claude's file.
+	items, err := Import("", []byte(`{"mcpServers":{"docs":{"command":"tool","alwaysAllow":["read"]}}}`), "")
+	if err != nil || len(items) != 1 || items[0].Server.Options != nil || !reflect.DeepEqual(items[0].Warnings, []string{"Agent-specific field not imported: alwaysAllow; import the config with --from <agent> to keep it"}) {
+		t.Fatalf("%+v %v", items, err)
+	}
+}
+
+func TestImportWarnsAboutFieldsOptionsCannotHold(t *testing.T) {
+	items, err := Import("claude", []byte(`{"mcpServers":{"docs":{"command":"tool","apiKey":"do-not-copy","auth":{"type":"apikey","key":"do-not-copy"},"extra":null}}}`), "")
+	if err != nil || len(items) != 1 || len(items[0].Problems) != 0 {
+		t.Fatalf("%+v %v", items, err)
+	}
+	data, _ := json.Marshal(items)
+	want := []string{"Agent-specific field not imported: apiKey", "Agent-specific field not imported: auth", "Agent-specific field not imported: extra"}
+	if strings.Contains(string(data), "do-not-copy") || items[0].Server.Options != nil || !reflect.DeepEqual(items[0].Warnings, want) {
+		t.Fatalf("fields options cannot hold were imported: %s", data)
 	}
 }
 

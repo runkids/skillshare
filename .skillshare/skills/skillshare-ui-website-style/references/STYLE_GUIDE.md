@@ -1,6 +1,6 @@
 # Skillshare Web Dashboard — Style Guide
 
-The rules behind the dashboard, and why they exist. Token names, the `ss-*` class list and component APIs are in `../SKILL.md`; values are in `ui/src/components.css`.
+The rules behind the dashboard, and why they exist. Token names, the `ss-*` class list and component APIs are in `../SKILL.md`; values are in `ui/src/styles/tokens.css`.
 
 Reference pages: `ui/src/pages/TargetsPage.tsx`, `ui/src/pages/ResourcesPage.tsx`.
 
@@ -19,20 +19,22 @@ Reference pages: `ui/src/pages/TargetsPage.tsx`, `ui/src/pages/ResourcesPage.tsx
 
 ## 2. Clean and Playful
 
-| | Clean | Playful (default) |
+| | Clean (default) | Playful |
 |-|-------|-------------------|
-| Feel | Quiet, professional | Notebook, stationery |
+| Feel | Quiet, professional; at desktop width the page sits on an inset panel | Notebook, stationery |
 | Headings | System font | Kalam |
-| Borders | 1px hairline | 2px ink line |
+| Borders | 1px hairline | 1.5px ink line |
 | Shadows | Soft, barely there | Hard offset, no blur |
 | Separators | Solid hairline | Dashed |
-| Primary | Ink | Yellow with an ink border |
+| Primary | Ink | Terracotta with an ink border |
 | Accents | None | Pastels, highlighter under the page title, dot-grid background |
 | Tiles | Plain boxes | Sticky notes with tape |
 
 Playful gets its character from line weight, hard shadows and the heading font. Nothing in the dashboard is rotated or tilted; rotation belongs to the website homepage.
 
-Both styles ship in light and dark. Dark is not an inversion: Playful dark replaces yellow with amber and keeps pastel notes light enough for dark text, so check it rather than assuming.
+Both styles ship in light and dark. Dark is not an inversion: Playful dark turns the primary amber and keeps pastel fills light enough for dark text (`--on-pa`), so check it rather than assuming.
+
+A third style, Custom, recolours either one from a few user options (accent, background tint, corners, font). It changes token values only, so it needs no markup of its own.
 
 ---
 
@@ -131,7 +133,7 @@ One primary per view. A destructive action always goes through `ConfirmDialog`.
 |---------|-------|
 | Page entry | `animate-page-in`: a 120ms fade with no movement, since navigation is frequent |
 | In-page reveal (status swap, expanded group) | `animate-fade-in` |
-| Dialog, dropdown | `animate-dialog-in`, `animate-dropdown-in` (it scales, so give the menu an `origin-*` class or `transformOrigin` at the corner touching its trigger); render the menu through `useMenuPresence(open)` (`hooks/usePresence`) so closing fades out with `animate-dropdown-out` |
+| Dialog, dropdown | `animate-dialog-in`, `animate-dropdown-in` (it scales, so give the menu an `origin-*` class or `transformOrigin` at the corner touching its trigger); render the menu through `useMenuPresence(open)` (`hooks/usePresence`) so closing fades out with `animate-dropdown-out`; close a menu or popover on outside mousedown and Escape with `useDismiss(ref, open, close)` (`hooks/useDismiss`), where `ref` contains the trigger |
 | Layer its caller unmounts (dialog, floating bar) | `DialogShell` already exits through `dialogGhost`; a `.ss-bulk` takes `ref={bulkGhost}` (`lib/exitGhost`), which plays the exit on a frozen copy; a hand-made overlay takes `ref={dialogGhost}`. No copy plays when the layer's page goes with it |
 | Toast | `useToast()` already renders `.ss-toast` with `animate-toast-in` (rises 12px over 320ms) |
 | Springy control (switch knob, segment pill, settling divider) | `var(--spring)` (critically damped, duration 1.23 x response) or `var(--spring-bounce)` |

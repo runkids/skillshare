@@ -59,9 +59,11 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 	var blockedEntries []batchBlockedEntry
 	var staleNames []string
 	var modifiedNames []string
+	var notMergedEntries []batchBlockedEntry
 	var prunedNames []string
 	var missingRepoNames []string
 	var statusFailedEntries []batchBlockedEntry
+	var linkRefusedEntries []batchBlockedEntry
 	var fetchFailedEntries []batchBlockedEntry
 
 	// Group skills by RepoURL to optimize updates
@@ -126,12 +128,15 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 				result.securityFailed++
 				blockedEntries = append(blockedEntries, batchBlockedEntry{name: t.name, errMsg: err.Error()})
 				result.items = append(result.items, updateJSONItem{Name: t.name, Type: "repo", Status: "security_blocked", Error: err.Error()})
+			} else if errors.Is(err, install.ErrLinkOutside) {
+				linkRefusedEntries = append(linkRefusedEntries, batchBlockedEntry{name: t.name, errMsg: err.Error()})
+				result.items = append(result.items, updateJSONItem{Name: t.name, Type: "repo", Status: "failed", Error: err.Error()})
 			} else if errors.As(err, &statusErr) {
 				statusFailedEntries = append(statusFailedEntries, batchBlockedEntry{name: t.name, errMsg: err.Error()})
 				result.items = append(result.items, updateJSONItem{Name: t.name, Type: "repo", Status: "failed", Error: err.Error()})
 			} else {
 				result.skipped++
-				result.items = append(result.items, updateJSONItem{Name: t.name, Type: "repo", Status: "skipped", Error: updateTrackedRepoErrorMessage(t, err)})
+				result.items = append(result.items, updateJSONItem{Name: t.name, Type: "repo", Status: "skipped", Error: updateTrackedRepoErrorMessage(t, err, uc.isProject())})
 			}
 		} else if updated {
 			result.updated++
@@ -178,6 +183,36 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 				continue
 			}
 			if !uc.opts.force && t.meta.LocallyModified(t.path, uc.follow) {
+				if uc.opts.merge {
+					// A merge needs this skill's own base, not the shared fetch.
+					progressBar.UpdateTitle(fmt.Sprintf("Merging %s", t.name))
+					ok, res, err := updateSkillFromMeta(uc, t.path, t.meta, true)
+					var conflict *install.MergeConflictError
+					switch {
+					case err == nil && !ok:
+						result.skipped++
+					case err == nil && res.Action == "up-to-date":
+						result.upToDate++
+					case err == nil:
+						result.updated++
+						result.items = append(result.items, updateJSONItem{Name: t.name, Type: "skill", Status: "merged"})
+						auditEntries = append(auditEntries, batchAuditEntryFromInstallResult(t.name, res))
+					case isSecurityError(err):
+						result.securityFailed++
+						blockedEntries = append(blockedEntries, batchBlockedEntry{name: t.name, errMsg: err.Error()})
+						result.items = append(result.items, updateJSONItem{Name: t.name, Type: "skill", Status: "security_blocked", Error: err.Error()})
+					case errors.As(err, &conflict):
+						result.skipped++
+						notMergedEntries = append(notMergedEntries, batchBlockedEntry{name: t.name, errMsg: err.Error()})
+						result.items = append(result.items, mergeConflictItem(t.name, err))
+					default:
+						result.skipped++
+						notMergedEntries = append(notMergedEntries, batchBlockedEntry{name: t.name, errMsg: err.Error()})
+						result.items = append(result.items, updateJSONItem{Name: t.name, Type: "skill", Status: "failed", Error: err.Error()})
+					}
+					progressBar.Increment()
+					continue
+				}
 				modifiedNames = append(modifiedNames, t.name)
 				result.skipped++
 				result.items = append(result.items, updateJSONItem{Name: t.name, Type: "skill", Status: "skipped", Error: modifiedSkillReason})
@@ -267,7 +302,7 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 	}
 	for _, t := range standaloneSkills {
 		progressBar.UpdateTitle(fmt.Sprintf("Updating %s", t.name))
-		updated, installRes, err := updateSkillFromMeta(uc, t.path, t.meta)
+		updated, installRes, err := updateSkillFromMeta(uc, t.path, t.meta, false)
 		if err != nil {
 			if isStaleError(err) {
 				if uc.opts.prune {
@@ -311,13 +346,14 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 		for _, e := range fetchFailedEntries {
 			ui.Warning("Could not fetch %s: %s", e.name, e.errMsg)
 		}
-		for _, e := range statusFailedEntries {
+		for _, e := range append(statusFailedEntries, linkRefusedEntries...) {
 			ui.Error("%s: %s", e.name, e.errMsg)
 		}
 		displayPrunedSection(prunedNames)
 		displayStaleWarning(staleNames)
 		displayModifiedWarning(modifiedNames)
-		displayMissingTrackedReposWarning(missingRepoNames)
+		displayNotMergedSection(notMergedEntries)
+		displayMissingTrackedReposWarning(missingRepoNames, uc.isProject())
 		displayUpdateAuditResults(auditEntries, uc.opts.auditVerbose)
 		ui.UpdateSummary(ui.UpdateStats{
 			Updated:        result.updated,
@@ -359,6 +395,12 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 	}
 	if len(statusFailedEntries) > 0 {
 		errs = append(errs, fmt.Errorf("%d repo(s) failed to check git status", len(statusFailedEntries)))
+	}
+	if len(linkRefusedEntries) > 0 {
+		errs = append(errs, fmt.Errorf("%d repo(s) refused: links outside the repository", len(linkRefusedEntries)))
+	}
+	if len(notMergedEntries) > 0 {
+		errs = append(errs, fmt.Errorf("%s could not be merged", plural(len(notMergedEntries), "skill")))
 	}
 	return result, errors.Join(errs...)
 }

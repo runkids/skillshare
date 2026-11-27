@@ -35,6 +35,8 @@ type checkSkillResult struct {
 	Status      string `json:"status"` // "up_to_date", "update_available", "stale", "modified", "local", "error"
 	InstalledAt string `json:"installed_at,omitempty"`
 	Message     string `json:"message,omitempty"`
+	// UpstreamChanged marks a modified skill that update --merge can merge.
+	UpstreamChanged bool `json:"upstream_changed,omitempty"`
 }
 
 // checkOutput is the JSON output structure
@@ -105,12 +107,13 @@ func resolveCheckSkills(plan *check.Resolution, progressBar *ui.ProgressBar, par
 	var results []checkSkillResult
 	for _, r := range resolved {
 		results = append(results, checkSkillResult{
-			Name:        r.Name,
-			Source:      r.Source,
-			Version:     r.Version,
-			Status:      r.Status,
-			InstalledAt: r.InstalledAt,
-			Message:     r.Message,
+			Name:            r.Name,
+			Source:          r.Source,
+			Version:         r.Version,
+			Status:          r.Status,
+			InstalledAt:     r.InstalledAt,
+			Message:         r.Message,
+			UpstreamChanged: r.UpstreamChanged,
 		})
 	}
 	return results
@@ -379,7 +382,7 @@ func runCheck(sourceDir, agentsDir, projectRoot string, opts *checkOptions, extr
 		repoResults = append(repoResults, checkRepoResult{
 			Name:    repo.Name,
 			Status:  "missing",
-			Message: missingTrackedRepoMessage(repo.Name),
+			Message: missingTrackedRepoMessage(repo.Name, projectRoot != ""),
 		})
 	}
 
@@ -440,6 +443,7 @@ func renderCheckResults(repoResults []checkRepoResult, skillResults []checkSkill
 	type checkRow struct{ mark, name, value string }
 	var rows []checkRow
 	upToDateRepos, upToDateSkills, updatableRepos, updatableSkills, local, stale, modified, failed := 0, 0, 0, 0, 0, 0, 0, 0
+	mergeable := 0 // modified skills whose upstream also changed
 
 	for _, r := range repoResults {
 		switch r.Status {
@@ -474,6 +478,9 @@ func renderCheckResults(repoResults []checkRepoResult, skillResults []checkSkill
 			rows = append(rows, checkRow{ui.MarkWarn, s.Name, "stale — no longer in the upstream repository"})
 		case "modified":
 			modified++
+			if s.UpstreamChanged {
+				mergeable++
+			}
 			rows = append(rows, checkRow{ui.MarkWarn, s.Name, s.Message})
 		case "error":
 			failed++
@@ -535,9 +542,14 @@ func renderCheckResults(repoResults []checkRepoResult, skillResults []checkSkill
 	if stale > 0 {
 		next = append(next, "skillshare update --all --prune", "remove stale skills")
 	}
+	if mergeable > 0 {
+		next = append(next, "skillshare update <name> --merge", "keep local changes and merge upstream changes")
+	}
 	if modified > 0 {
-		next = append(next, "skillshare check <name> --diff", "see the local changes",
-			"skillshare update <name> --force", "discard local changes and reinstall")
+		next = append(next, "skillshare check <name> --diff", "see the local changes")
+		if mergeable == 0 {
+			next = append(next, "skillshare update <name> --force", "discard local changes and reinstall")
+		}
 	}
 	if len(next) > 0 {
 		ui.Next(next...)
@@ -813,7 +825,7 @@ func (c checkTally) err(exitCode bool) error {
 }
 
 // skillErrorMessage returns the reason for an "error" skill result, falling
-// back to the remote-probe failure that most errors come from.
+// back to the remote probe for a result that carries none.
 func skillErrorMessage(s checkSkillResult) string {
 	if s.Message != "" {
 		return s.Message
@@ -855,6 +867,9 @@ func singleCheckStatus(repos []checkRepoResult, skills []checkSkillResult) singl
 		case "stale":
 			return singleCheckResult{ui.MarkWarn, "stale — no longer in the upstream repository", "skillshare update --all --prune", "remove stale skills"}
 		case "modified":
+			if s.UpstreamChanged {
+				return singleCheckResult{ui.MarkWarn, s.Message, "skillshare update " + s.Name + " --merge", "keep your changes and merge upstream's"}
+			}
 			return singleCheckResult{ui.MarkWarn, s.Message, "skillshare check " + s.Name + " --diff", "see the changes; update --force discards them"}
 		case "local":
 			return singleCheckResult{mark: ui.MarkNone, text: "local source, nothing to compare"}
@@ -959,8 +974,11 @@ func renderAgentResults(agentResults []check.AgentCheckResult) {
 		names[i] = r.Name
 	}
 	width := ui.RowWidth(names...)
-	upToDate, updates, attention := 0, 0, 0
+	upToDate, updates, attention, mergeable := 0, 0, 0, 0
 	for _, r := range agentResults {
+		if r.UpstreamChanged {
+			mergeable++
+		}
 		switch r.Status {
 		case "up_to_date":
 			upToDate++
@@ -982,7 +1000,6 @@ func renderAgentResults(agentResults []check.AgentCheckResult) {
 	switch {
 	case updates > 0:
 		ui.Done(ui.MarkWarn, "Updates available for "+plural(updates, "agent"), 0)
-		ui.Next("skillshare update agents --all", "pull the updates")
 	case attention > 0:
 		ui.Done(ui.MarkWarn, plural(attention, "agent")+" need attention", 0)
 	case upToDate > 0:
@@ -990,6 +1007,14 @@ func renderAgentResults(agentResults []check.AgentCheckResult) {
 	default:
 		ui.Done(ui.MarkNone, "No tracked agents to compare", 0)
 	}
+	var next []string
+	if updates > 0 {
+		next = append(next, "skillshare update agents --all", "pull the updates")
+	}
+	if mergeable > 0 {
+		next = append(next, "skillshare update agents <name> --merge", "keep local changes and merge upstream changes")
+	}
+	ui.Next(next...)
 }
 
 func printCheckHelp() {

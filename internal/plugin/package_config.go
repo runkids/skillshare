@@ -4,10 +4,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
+
+	"skillshare/internal/opencode"
 
 	"github.com/gofrs/flock"
 	"github.com/tailscale/hujson"
@@ -203,17 +207,7 @@ func openCode2(version string) bool {
 
 // openCodeKey reads `opencode --version`: OpenCode 1 prints 1.x, OpenCode 2 "opencode v2.x".
 func openCodeKey(version string) (string, error) {
-	v := ""
-	if fields := strings.Fields(version); len(fields) > 0 {
-		v = strings.TrimPrefix(fields[len(fields)-1], "v")
-	}
-	if strings.HasPrefix(v, "1.") {
-		return "plugin", nil
-	}
-	if strings.HasPrefix(v, "2.") {
-		return "plugins", nil
-	}
-	return "", fmt.Errorf("unrecognized OpenCode version; plugin config adapter supports versions 1.x and 2.x")
+	return opencode.ConfigKey(version)
 }
 
 func readPackageConfig(root, path, key string) ([]byte, *hujson.Value, []json.RawMessage, error) {
@@ -289,6 +283,13 @@ func (s *Service) openCodeInventory(target, version string) ([]Installed, string
 		if key == "plugins" && (strings.HasPrefix(id, "-") || id == "*" || strings.HasSuffix(id, ".*")) {
 			continue
 		}
+		// A hook synced to OpenCode v2 registers plugins/skillshare-NAME in this same
+		// array. Hooks owns it, so it is neither listed nor offered for import here.
+		if key == "plugins" && strings.HasPrefix(id, "file:") {
+			if hook := openCodeImportPath(id); filepath.Dir(hook) == filepath.Join(filepath.Dir(path), "plugins") && strings.HasPrefix(filepath.Base(hook), "skillshare-") {
+				continue
+			}
+		}
 		if !validTargetID("opencode", id) {
 			return nil, "", fmt.Errorf("unsupported OpenCode plugin control entry; manage it in OpenCode")
 		}
@@ -296,6 +297,13 @@ func (s *Service) openCodeInventory(target, version string) ([]Installed, string
 	}
 	return result, hash(raw), nil
 }
+
+// OpenCode lists a folder's plugins seconds after it is first asked for them; tests shorten
+// the wait.
+var (
+	openCodeLoadRetries = 3
+	openCodeLoadWait    = 3 * time.Second
+)
 
 func (s *Service) applyOpenCode(ctx context.Context, c Change, b Binding) error {
 
@@ -311,8 +319,32 @@ func (s *Service) applyOpenCode(ctx context.Context, c Change, b Binding) error 
 		if key != "plugins" || s.ProjectRoot != "" {
 			return fmt.Errorf("imported package updates require OpenCode v2 global scope")
 		}
+		// The update itself makes OpenCode load the folder's plugins, which takes seconds.
 		_, err := s.run(ctx, c.Target, "plugin", "update", b.ID)
+		for retry := 0; retry < openCodeLoadRetries && errors.Is(err, errOpenCodeNotLoaded); retry++ {
+			select {
+			case <-ctx.Done():
+				return err
+			case <-time.After(openCodeLoadWait):
+			}
+			_, err = s.run(ctx, c.Target, "plugin", "update", b.ID)
+		}
 		return err
+	}
+	if b.Source != "" && (c.Action == "install" || c.Action == "update") {
+		root := openCodeImportPath(b.ID)
+		info, err := os.Stat(root)
+		if err != nil {
+			return err
+		}
+		if (key == "plugins") != info.IsDir() {
+			return fmt.Errorf("OpenCode API changed or registration has the wrong layout; preview again")
+		}
+		if key == "plugins" {
+			if err := openCodeDirectory(root); err != nil {
+				return err
+			}
+		}
 	}
 	path, err := s.openCodeConfigPath(c.Target)
 	if err != nil {

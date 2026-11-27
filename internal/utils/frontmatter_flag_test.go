@@ -3,6 +3,8 @@ package utils
 import (
 	"os"
 	"path/filepath"
+	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -89,5 +91,100 @@ func TestToggleFrontmatterFlag_TwiceIsIdentity(t *testing.T) {
 	got, _ := os.ReadFile(path)
 	if string(got) != orig {
 		t.Errorf("two toggles should restore the file\n got: %q\nwant: %q", got, orig)
+	}
+}
+
+func TestToggleFrontmatterFlag_FlowRoot(t *testing.T) {
+	const key = "disable-model-invocation"
+	flag := key + ": true"
+	meta := "metadata: {generated: {by: tool}, sources: [{actor: 'team:finance'}], x-acme: {nested: [1, 2]}, " + key + ": true}"
+	cases := []struct {
+		name, in, on, off string
+		firstOn, bomCRLF  bool
+	}{
+		{"nested punctuation", "{name: demo, description: 'a }, " + flag + "', " + meta + "}", "{" + flag + ", name: demo, description: 'a }, " + flag + "', " + meta + "}", "{name: demo, description: 'a }, " + flag + "', " + meta + "}", true, false},
+		{"BOM CRLF comments", "{\n  name: demo, # keep\n  description: \"comma, brace } and \\\"quote\\\"\",\n  " + meta + "\n} # tail", "{\n  " + flag + ", name: demo, # keep\n  description: \"comma, brace } and \\\"quote\\\"\",\n  " + meta + "\n} # tail", "{\n  name: demo, # keep\n  description: \"comma, brace } and \\\"quote\\\"\",\n  " + meta + "\n} # tail", true, true},
+		{"empty anchored", "&root {  } # empty", "&root {" + flag + "  } # empty", "&root {  } # empty", true, false},
+		{"unicode and json keys", "{\"name\": \"日本語😀\", \"description\": \"é\"}", "{" + flag + ", \"name\": \"日本語😀\", \"description\": \"é\"}", "{\"name\": \"日本語😀\", \"description\": \"é\"}", true, false},
+		{"first true", "{" + flag + ", name: demo}", "{name: demo}", "{" + flag + ", name: demo}", false, false},
+		{"only trailing", "{" + flag + ",}", "{" + key + ": false,}", "{" + flag + ",}", false, false},
+		{"comment after separator", "{\n  " + flag + ",\n  # keep metadata note\n  name: demo\n}", "{\n  " + key + ": false,\n  # keep metadata note\n  name: demo\n}", "{\n  " + flag + ",\n  # keep metadata note\n  name: demo\n}", false, false},
+		{"comment before comma", "{name: demo, " + flag + " # keep\n, x: 1}", "{name: demo, " + key + ": false # keep\n, x: 1}", "{name: demo, " + flag + " # keep\n, x: 1}", false, false},
+		{"quoted false comment", "{name: demo, \"" + key + "\": 'false' # keep\n}", "{name: demo, \"" + key + "\": true # keep\n}", "{name: demo, \"" + key + "\": false # keep\n}", true, false},
+		{"plain false first", "{" + key + ": false, name: demo}", "{" + flag + ", name: demo}", "{name: demo}", true, false},
+		{"apostrophe and quoted punctuation", "{name: demo, description: its user's \"quoted\" value, " + flag + ", x: '}, foo'}", "{name: demo, description: its user's \"quoted\" value, " + key + ": false, x: '}, foo'}", "{name: demo, description: its user's \"quoted\" value, " + flag + ", x: '}, foo'}", false, false},
+		{"last CRLF comment", "{\n name: demo, # keep\n " + flag + "\n}", "{\n name: demo, # keep\n " + key + ": false\n}", "{\n name: demo, # keep\n " + flag + "\n}", false, true},
+		{"json false last", "{\n \"name\": \"demo\",\n \"" + key + "\": false\n}", "{\n \"name\": \"demo\",\n \"" + key + "\": true\n}", "{\n \"name\": \"demo\",\n \"" + key + "\": false\n}", true, false},
+		{"alias", "{name: &f false, " + key + ": *f}", "", "", false, false},
+		{"escaped false", "{name: demo, " + key + ": \"f\\u0061lse\"}", "", "", false, false},
+		{"mixed YAML line breaks before flag", "{description: \"a\r\nb\rc\u0085d\u2028e\u2029f\", name: demo, " + flag + "}", "{description: \"a\r\nb\rc\u0085d\u2028e\u2029f\", name: demo, " + key + ": false}", "{description: \"a\r\nb\rc\u0085d\u2028e\u2029f\", name: demo, " + flag + "}", false, false},
+	}
+	wrap := func(s string) string { return "---\n" + s + "\n---\nBody\n" }
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			wrapCase := func(s string) string {
+				result := wrap(s)
+				if tc.bomCRLF {
+					result = "\ufeff" + strings.ReplaceAll(result, "\n", "\r\n")
+				}
+				return result
+			}
+			orig := wrapCase(tc.in)
+			path := filepath.Join(t.TempDir(), "SKILL.md")
+			if err := os.WriteFile(path, []byte(orig), 0644); err != nil {
+				t.Fatal(err)
+			}
+			before, err := ParseFrontmatterMap([]byte(orig))
+			if err != nil {
+				t.Fatal(err)
+			}
+			for n, want := range []string{tc.on, tc.off} {
+				on, err := ToggleFrontmatterFlag(path, key)
+				data, rerr := os.ReadFile(path)
+				if rerr != nil {
+					t.Fatal(rerr)
+				}
+				if want == "" {
+					if err == nil || string(data) != orig {
+						t.Fatalf("expected refusal, on=%v err=%v got=%q", on, err, data)
+					}
+					return
+				}
+				if err != nil || on != (tc.firstOn != (n == 1)) {
+					t.Fatalf("toggle %d: on=%v err=%v", n+1, on, err)
+				}
+				if string(data) != wrapCase(want) {
+					t.Fatalf("toggle %d: got %q want %q", n+1, data, wrapCase(want))
+				}
+				after, err := ParseFrontmatterMap(data)
+				if err != nil {
+					t.Fatal(err)
+				}
+				delete(after, key)
+				delete(before, key)
+				if !reflect.DeepEqual(after, before) {
+					t.Fatalf("other fields changed: %v -> %v", before, after)
+				}
+			}
+		})
+	}
+}
+
+// A new header on top would hide the one readers already use.
+func TestToggleFrontmatterFlag_RefusesHeaderItCannotLocate(t *testing.T) {
+	for _, in := range []string{
+		"---\nname: s\ndescription: d\n\n# Body\n", // never closed
+		"# Title\n---\nname: s\n---\nBody\n",       // below other text
+	} {
+		path := filepath.Join(t.TempDir(), "SKILL.md")
+		if err := os.WriteFile(path, []byte(in), 0644); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := ToggleFrontmatterFlag(path, "disable-model-invocation"); err == nil {
+			t.Fatalf("%q: expected a refusal", in)
+		}
+		if got, _ := os.ReadFile(path); string(got) != in {
+			t.Fatalf("%q changed to %q", in, got)
+		}
 	}
 }

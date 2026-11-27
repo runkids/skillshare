@@ -3,25 +3,40 @@ import type { LogEntry } from '../api/client';
 import { formatLogDetail } from './logFormat';
 
 const entry = (cmd: string, args: Record<string, unknown>, msg?: string): LogEntry =>
-  ({ ts: '2026-01-01T00:00:00Z', cmd, args, status: 'ok', msg } as LogEntry);
+  ({ ts: '2026-01-01T00:00:00Z', cmd, args, status: 'ok', msg }) as LogEntry;
 
 describe('formatLogDetail', () => {
   it('shows which project changed and how', () => {
-    expect(formatLogDetail(entry('project', { action: 'edit', root: '~/work/app', scope: 'cli' }))).toBe('edit ~/work/app, scope=cli');
+    expect(
+      formatLogDetail(entry('project', { action: 'edit', root: '~/work/app', scope: 'cli' })),
+    ).toBe('edit ~/work/app, scope=cli');
   });
 
   it('lists the targets a project conversion found', () => {
-    expect(formatLogDetail(entry('project', { action: 'convert', root: '~/work/app', targets: ['claude', 'cursor'], scope: 'ui' }, 'partial')))
-      .toBe('convert ~/work/app, targets=claude, cursor, scope=ui — partial');
+    expect(
+      formatLogDetail(
+        entry(
+          'project',
+          { action: 'convert', root: '~/work/app', targets: ['claude', 'cursor'], scope: 'ui' },
+          'partial',
+        ),
+      ),
+    ).toBe('convert ~/work/app, targets=claude, cursor, scope=ui — partial');
   });
 
   it('names the project a sync touched', () => {
-    expect(formatLogDetail(entry('sync', { action: 'sync', root: '~/work/app', targets_total: 2, scope: 'cli' })))
-      .toBe('root=~/work/app, targets=2, scope=cli');
+    expect(
+      formatLogDetail(
+        entry('sync', { action: 'sync', root: '~/work/app', targets_total: 2, scope: 'cli' }),
+      ),
+    ).toBe('root=~/work/app, targets=2, scope=cli');
   });
 
   it('counts findings accepted earlier with --force apart from the severities', () => {
-    expect(formatLogDetail(entry('audit', { scope: 'all', scanned: 2, passed: 2, critical: 0, accepted: 3 })))
-      .toBe('all-skills, scanned=2, passed=2, 3 accepted');
+    expect(
+      formatLogDetail(
+        entry('audit', { scope: 'all', scanned: 2, passed: 2, critical: 0, accepted: 3 }),
+      ),
+    ).toBe('all-skills, scanned=2, passed=2, 3 accepted');
   });
 });

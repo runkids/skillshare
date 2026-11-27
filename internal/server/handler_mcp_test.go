@@ -2,14 +2,17 @@ package server
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
 
+	"skillshare/internal/mcp"
 	syncpkg "skillshare/internal/sync"
 )
 
@@ -310,6 +313,58 @@ func TestMCPOpenOnlyListedConfigFiles(t *testing.T) {
 	}
 }
 
+// TestMCPFileShowsOnlyListedConfigFiles shows an Agent's file in the page under the same rule
+// as opening it: only to a browser on this machine, and only a file the MCP page lists.
+func TestMCPFileShowsOnlyListedConfigFiles(t *testing.T) {
+	s, _ := newTestServerWithExtras(t, nil, "")
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	t.Setenv("CLAUDE_CONFIG_DIR", "")
+	local := func(r *http.Request) { r.RemoteAddr, r.Host = "127.0.0.1:1", "localhost:19420" }
+	remote := map[string]func(*http.Request){
+		"lan":        func(r *http.Request) { r.RemoteAddr, r.Host = "192.168.1.9:1", "192.168.1.5:19420" },
+		"proxy host": func(r *http.Request) { r.RemoteAddr, r.Host = "127.0.0.1:1", "192.168.1.5" },
+		"proxy header": func(r *http.Request) {
+			local(r)
+			r.Header.Set("X-Forwarded-For", "192.168.1.9")
+		},
+	}
+	view := func(from func(*http.Request), query string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodGet, "/api/mcp/file?"+query, nil)
+		from(req)
+		rec := httptest.NewRecorder()
+		s.handleMCPFile(rec, req)
+		return rec
+	}
+	if rec := view(local, "target=..%2Fetc%2Fpasswd"); rec.Code != 400 {
+		t.Fatalf("unknown target: %d", rec.Code)
+	}
+	if rec := view(local, "target=claude"); rec.Code != 404 {
+		t.Fatalf("missing file: %d", rec.Code)
+	}
+	path := filepath.Join(home, ".claude.json")
+	if err := os.WriteFile(path, []byte(`{"mcpServers":{}}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	for name, from := range remote {
+		if rec := view(from, "target=claude"); rec.Code != 403 || strings.Contains(rec.Body.String(), "mcpServers") {
+			t.Fatalf("%s: %d %s", name, rec.Code, rec.Body)
+		}
+	}
+	rec := view(local, "target=claude")
+	var resp struct{ Path, Content string }
+	if rec.Code != 200 || json.Unmarshal(rec.Body.Bytes(), &resp) != nil || resp.Path != path || resp.Content != `{"mcpServers":{}}` {
+		t.Fatalf("view: %d %s", rec.Code, rec.Body)
+	}
+	if err := os.WriteFile(path, make([]byte, 1<<20+1), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if rec := view(local, "target=claude"); rec.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("too large: %d", rec.Code)
+	}
+}
+
 func TestMCPOpenProjectConfigFile(t *testing.T) {
 	s, _ := newTestServerWithExtras(t, nil, "")
 	root := t.TempDir()
@@ -373,11 +428,62 @@ func TestMCPOpenProjectConfigFile(t *testing.T) {
 	if rec := open(string(folder)); rec.Code != 409 || !strings.Contains(rec.Body.String(), "file manager") {
 		t.Fatalf("folder: %d %s", rec.Code, rec.Body)
 	}
+	// The project tab's View file reads the same file, and only for a configured project.
+	viewFile := func(project string) *httptest.ResponseRecorder {
+		query := url.Values{"target": {"gemini"}, "project": {project}}.Encode()
+		rec := httptest.NewRecorder()
+		s.handleMCPFile(rec, local(httptest.NewRequest(http.MethodGet, "/api/mcp/file?"+query, nil)))
+		return rec
+	}
+	if rec := viewFile("/not/configured"); rec.Code != 400 {
+		t.Fatalf("view unknown project: %d", rec.Code)
+	}
+	var file struct{ Path, Content string }
+	if rec := viewFile(root); rec.Code != 200 || json.Unmarshal(rec.Body.Bytes(), &file) != nil || file.Path != path || file.Content != "{}" {
+		t.Fatalf("view project file: %d %s", rec.Code, rec.Body)
+	}
 }
 
 func TestNearestDir(t *testing.T) {
 	root := t.TempDir()
 	if got := nearestDir(filepath.Join(root, ".cursor", "rules")); got != root {
 		t.Fatalf("nearestDir = %s, want %s", got, root)
+	}
+}
+
+func TestMCPAPITurnsASharedServerOnForAProject(t *testing.T) {
+	s, _ := newTestServerWithExtras(t, nil, "")
+	t.Setenv("HOME", t.TempDir())
+	root := t.TempDir()
+	cfgPath := os.Getenv("SKILLSHARE_CONFIG")
+	raw, err := os.ReadFile(cfgPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw = append(raw, fmt.Sprintf("mcp:\n  targets: [cursor]\n  servers:\n    docs: {url: https://example.com/mcp, global: false}\n  projects:\n    %q: {}\n", root)...)
+	if err := os.WriteFile(cfgPath, raw, 0644); err != nil {
+		t.Fatal(err)
+	}
+	body := fmt.Sprintf(`{"mutation":{"project":%q,"name":"docs","using":true}}`, root)
+	preview := httptest.NewRecorder()
+	s.handleMCPPreview(preview, httptest.NewRequest(http.MethodPost, "/api/mcp/preview", strings.NewReader(body)))
+	var p struct {
+		Revision string `json:"revision"`
+	}
+	if preview.Code != 200 || json.Unmarshal(preview.Body.Bytes(), &p) != nil {
+		t.Fatalf("preview: %d %s", preview.Code, preview.Body)
+	}
+	apply := httptest.NewRecorder()
+	request := strings.TrimSuffix(body, "}") + `,"revision":"` + p.Revision + `"}`
+	s.handleMCPConfigure(apply, httptest.NewRequest(http.MethodPost, "/api/mcp", strings.NewReader(request)))
+	if apply.Code != 200 {
+		t.Fatalf("apply: %d %s", apply.Code, apply.Body)
+	}
+	source, err := mcp.LoadSource(cfgPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := source.Projects[root].Use; len(got) != 1 || got[0] != "docs" {
+		t.Fatalf("use = %v", got)
 	}
 }

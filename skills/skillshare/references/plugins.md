@@ -2,7 +2,7 @@
 
 Plugins are complete native packages, not standalone skills. Keep their components
 together. Install targets: `claude`, `codex`, `cursor`, `antigravity` (`agy` alias),
-`antigravity-cli`, `copilot`, `pi`, `opencode`, and `omp`. Grok supports native import/removal,
+`antigravity-cli`, `copilot`, `pi`, `opencode`, `omp`, and `herdr-app`. Grok supports native import/removal,
 with trust/install handled in Grok. Kimi, Hermes, and Devin are discovery-only.
 Read `targetDefinitions` from JSON output instead of assuming every format supports
 all operations. `targetInfo` reports per-target components, version, and problems.
@@ -31,20 +31,21 @@ preview and apply. Repeat `--target` to select several supported clients. Use
 separate from `--revision`, the token that binds an apply to a reviewed preview.
 `add` installs the selected targets immediately; `sync plugins` reconciles
 managed target selection, while `plugin update` refreshes upstream content.
-When adding a new package, omit `--source-ref` to follow the remote's default branch.
-Updates reuse its stored ref; omitting the flag on update does not unpin an existing package.
+When adding a new package, omit `--source-ref` to follow the remote's default branch
+or the ref named in a GitHub folder or Herdr mod link. Updates reuse the selected ref;
+omitting the flag on update does not unpin an existing package.
 Adding a plugin does not schedule automatic updates; run `check` and `update` later.
 `sync --all` does not update or sync plugins; use `plugin update --all` (`-a`) to update all managed plugins.
 To follow a branch again after a pin, run `plugin update NAME --source-ref BRANCH`: the stored
 ref becomes that branch, and later updates fetch its latest commit. Pin a tag or commit only
 when the user asks for that version.
 
-A remote source is read at its repository root, where discovery looks for plugin manifests and
-marketplaces. For a plugin in a subdirectory that no root marketplace lists, clone the
-repository's default branch to a dedicated directory and add the plugin's folder from that
-clone. A local source takes no `--source-ref`, so `check` and `update` see only what the clone
-holds: run `git -C CLONE pull --ff-only` first. Do not check out a release tag in the clone
-unless the user asked for that version.
+Discovery reads the source root for plugin manifests and marketplaces. To use a package
+inside a GitHub repository, pass the package folder's `https://github.com/OWNER/REPO/tree/REF/PATH`
+link. For a Herdr mod, pass its package folder (containing `mods/`) or the GitHub link to its
+`mods/<id>/main.js` file. For other hosts, clone the repository and use the local package folder.
+A local source takes no `--source-ref`; run `git -C CLONE pull --ff-only` before checking for
+updates. Do not check out a release tag unless the user asked for that version.
 
 ## Inspect before changing
 
@@ -130,7 +131,7 @@ no Agent holds it, drops the package from Skillshare entirely.
 
 Claude supports native updates; Codex re-adds the reviewed snapshot unless the plugin is disabled in Codex. Cursor/Antigravity replace managed
 local copies; Pi/OpenCode refresh reviewed source snapshots; OMP removes its scoped registration and reinstalls the reviewed commit. Imported Codex plugins update by upgrading their marketplace; imported Pi packages through `pi update`, global only. Imported OpenCode v1 packages must be updated natively. OpenCode v2 global
-imports may use native update; project imports may not. Copilot and Antigravity CLI source updates
+package imports may use native update, retried while OpenCode is still loading its plugins (it then reports `Plugin is not configured`; packages its settings no longer list are skipped); imported local directories and project imports may not. Copilot and Antigravity CLI source updates
 require known native enabled state; Grok updates natively. Project mode supports Claude, Antigravity, Pi,
 OMP and OpenCode, never falling back to global scope. An update reports failed targets and continues healthy targets; intentional skips remain pending. Dry runs print the complete plan and exit nonzero on failure; isolated failures include `failed: true` in JSON.
 
@@ -139,11 +140,19 @@ OMP and OpenCode, never falling back to global scope. An update reports failed t
 - Cursor: `.cursor-plugin/plugin.json` or Agent Plugins root manifest; copy to
   `~/.cursor/plugins/local/`. Local imports must be allowed; marketplace copies can
   take precedence. No CLI required. Reload and verify in Cursor.
-- Antigravity: root `plugin.json` with explicit `name`; copy to
-  `~/.gemini/config/plugins/`, or project `.agents/plugins/` (existing `_agents/plugins/`
-  is supported). This targets desktop/workspace discovery, not the separate
-  standalone agy CLI plugin store. Use `antigravity-cli` for that store; `agy`
-  remains the desktop alias. No Gemini CLI adapter is provided.
+- Antigravity: `.antigravity-plugin/plugin.json`, `.gemini-plugin/plugin.json`, or root
+  `plugin.json` with explicit `name` (in that precedence order); native
+  `.antigravity-plugin/marketplace.json` catalogs take precedence over
+  `.claude-plugin/marketplace.json` (which is a fallback for `antigravity-cli` only when no
+  Antigravity catalog exists); copy to `~/.gemini/config/plugins/`, or project
+  `.agents/plugins/` (existing `_agents/plugins/` is supported). This targets desktop/workspace
+  discovery, not the separate standalone agy CLI plugin store. Use `antigravity-cli` for that
+  store; `agy` remains the desktop alias. No Gemini CLI adapter is provided.
+- Herdr app (`herdr-app`, global only): a source with no plugin manifest and root
+  `mods/<id>/main.js`, copied to `<home>/mods/<id>` (home `$HERDR_APP_HOME`, default `~/.config/herdr-app`);
+  `--entry bin/<command>` installs a launcher and prints its stable managed entry path (macOS and Linux).
+  The whole folder is managed; local edits block replacement and removal. Foreign mods or launchers are refused; move them aside. Skipped
+  by sync/check/update where the Herdr home is absent.
 - Pi: `package.json` with a `pi` resource manifest or `pi-package` conventions. Native install/remove; read-only
   settings inventory honors `PI_CODING_AGENT_DIR`. Project trust must be completed
   in Pi; do not bypass it with automatic approval flags.
@@ -210,7 +219,7 @@ OMP and OpenCode, never falling back to global scope. An update reports failed t
   during selection management, and selected never means loaded or running.
 - OpenCode: SDK dependency, `.opencode/plugins/` convention, or explicit `--entry`,
   with an existing JS/TS entry.
-  Preserve the whole tree and register its file URL in the native JSON/JSONC config.
+  Preserve the whole tree and manifest: v1 registers the entry file URL, v2 the directory URL in native JSON/JSONC. v2 requires name plus a string root/server export or a conventional root server/index file; --entry cannot override it. Conditional/fallback server exports fail closed. Hook packages registered as `plugins/skillshare-NAME` belong to hooks and are not listed.
   Version 1 uses `plugin`, version 2 uses `plugins`. Runtime dependencies must already
   be available. The CLI version selects the schema; do not guess from docs alone.
 - Another account of an Agent (a target with `agent:` and `config_dir:` in the global

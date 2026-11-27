@@ -255,3 +255,64 @@ func TestCheckStatusMerge_CountsHiddenManagedEntry(t *testing.T) {
 		t.Errorf("expected 0 local, got %d", local)
 	}
 }
+
+// A copy target reached through another tool's directory link is counted
+// in the directory it leads to, as sync copies through the link.
+func TestCheckStatusCopy_ExternalLinkCountsResolvedDir(t *testing.T) {
+	tmp := t.TempDir()
+	src := filepath.Join(tmp, "source")
+	real := filepath.Join(tmp, "real")
+	alias := filepath.Join(tmp, "alias")
+	if err := os.MkdirAll(filepath.Join(real, "demo"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteManifest(real, &Manifest{Managed: map[string]string{"demo": "sum"}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(real, alias); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+
+	status, managed, _ := CheckStatusCopy(alias, src)
+	if status != StatusCopied || managed != 1 {
+		t.Errorf("got %s with %d managed, want copied with 1", status, managed)
+	}
+}
+
+func TestCheckStatusCopy_LinkToSourceIsSymlinkMode(t *testing.T) {
+	tmp := t.TempDir()
+	src := filepath.Join(tmp, "source")
+	tgt := filepath.Join(tmp, "target")
+	if err := os.MkdirAll(src, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(src, tgt); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+
+	if status, _, _ := CheckStatusCopy(tgt, src); status != StatusLinked {
+		t.Errorf("got %s, want linked", status)
+	}
+}
+
+// A link to the source's real path, while the source is configured through
+// an alias, is still symlink mode: sync converts it rather than merging into it.
+func TestCheckStatusMerge_LinkToSourceAliasIsSymlinkMode(t *testing.T) {
+	tmp := t.TempDir()
+	real := filepath.Join(tmp, "real-source")
+	alias := filepath.Join(tmp, "alias-source")
+	tgt := filepath.Join(tmp, "target")
+	if err := os.MkdirAll(filepath.Join(real, "alpha"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(real, alias); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if err := os.Symlink(real, tgt); err != nil {
+		t.Fatal(err)
+	}
+
+	if status, _, _ := CheckStatusMerge(tgt, alias); status != StatusLinked {
+		t.Errorf("got %s, want linked", status)
+	}
+}

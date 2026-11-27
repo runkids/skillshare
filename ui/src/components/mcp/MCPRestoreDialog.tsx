@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { RotateCcw, X } from 'lucide-react';
 import { mcpApi } from '../../api/mcp';
-import AgentIcon from '../AgentIcon';
+import AgentTile from '../AgentTile';
 import Button from '../Button';
 import DialogShell from '../DialogShell';
 import Spinner from '../Spinner';
@@ -24,7 +24,13 @@ export default function MCPRestoreDialog({ backups, initialId, onClose, onRestor
   const [selected, setSelected] = useState(initialId ?? backups[0]?.id ?? '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const preview = useQuery({ queryKey: queryKeys.mcpRestorePreview(selected), queryFn: () => mcpApi.previewRestore(selected), enabled: Boolean(selected), gcTime: 0, retry: false });
+  const preview = useQuery({
+    queryKey: queryKeys.mcpRestorePreview(selected),
+    queryFn: () => mcpApi.previewRestore(selected),
+    enabled: Boolean(selected),
+    gcTime: 0,
+    retry: false,
+  });
   const conflict = preview.data?.changes.find((c) => c.action === 'conflict');
   const title = t('mcp.backups');
 
@@ -42,16 +48,35 @@ export default function MCPRestoreDialog({ backups, initialId, onClose, onRestor
   };
 
   return (
-    <DialogShell open onClose={onClose} padding="none" preventClose={busy} ariaLabel={title} className="!max-w-[680px]">
+    <DialogShell
+      open
+      onClose={onClose}
+      padding="none"
+      preventClose={busy}
+      ariaLabel={title}
+      className="!max-w-[680px]"
+    >
       <div className="dh">
         <div className="flex flex-col gap-1">
           <h2 className="ss-h2">{title}</h2>
           <p className="text-[13px] text-ink-2">{t('mcp.backupsHint')}</p>
         </div>
-        <button type="button" className="ss-ib" aria-label={t('common.close')} onClick={onClose} disabled={busy}><X size={16} /></button>
+        <button
+          type="button"
+          className="ss-ib"
+          aria-label={t('common.close')}
+          onClick={onClose}
+          disabled={busy}
+        >
+          <X size={16} />
+        </button>
       </div>
       <div className="db">
-        <div role="radiogroup" aria-label={title} className="ss-list max-h-[40vh] overflow-auto !shadow-none">
+        <div
+          role="radiogroup"
+          aria-label={title}
+          className="ss-list max-h-[40vh] overflow-auto !shadow-none"
+        >
           {backups.map((b) => {
             const on = b.id === selected;
             return (
@@ -65,11 +90,19 @@ export default function MCPRestoreDialog({ backups, initialId, onClose, onRestor
                 disabled={busy}
               >
                 <span className={`ss-chk rad ${on ? 'on' : ''}`} />
-                <span className="ss-at"><AgentIcon target={b.target} size={17} /></span>
+                <AgentTile target={b.target} />
                 <span className="flex min-w-0 flex-1 flex-col gap-px">
-                  <span className="truncate font-mono text-[13px]" title={b.path}>{shortenHome(b.path)}</span>
+                  <span className="truncate font-mono text-[13px]" title={b.path}>
+                    {shortenHome(b.path)}
+                  </span>
                   <span className={`text-xs ${on && conflict ? 'text-warn' : 'text-ink-3'}`}>
-                    {formatDateTime(backupTime(b.id), locale, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    {formatDateTime(backupTime(b.id), locale, {
+                      weekday: 'short',
+                      day: 'numeric',
+                      month: 'short',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
                     {on && conflict && ` · ${describeMessage(t, conflict.message)}`}
                   </span>
                 </span>
@@ -80,15 +113,27 @@ export default function MCPRestoreDialog({ backups, initialId, onClose, onRestor
         <div className="ss-fld">
           <span className="text-[13px] font-semibold">{t('mcp.restorePreview')}</span>
           {/* Keep the centered dialog still while the selected backup's preview changes. */}
-          <div role="region" aria-label={t('mcp.restorePreview')} aria-busy={preview.isPending} className="h-28 overflow-auto">
+          <div
+            role="region"
+            aria-label={t('mcp.restorePreview')}
+            aria-busy={preview.isPending}
+            className="h-28 overflow-auto"
+          >
             {preview.isPending ? (
-              <div className="ss-code flex h-full items-center justify-center"><Spinner size="sm" /></div>
+              <div className="ss-code flex h-full items-center justify-center">
+                <Spinner size="sm" />
+              </div>
             ) : preview.error || error ? (
-              <div className="ss-note bad min-h-full" role="alert"><span className="flex-1">{error || preview.error?.message}</span></div>
+              <div className="ss-note bad min-h-full" role="alert">
+                <span className="flex-1">{error || preview.error?.message}</span>
+              </div>
             ) : (
               <div className="ss-code min-h-full">
                 {preview.data?.changes.map((c) => (
-                  <span key={c.name} className={`block ${c.action === 'conflict' ? 'del' : ''}`}>{`${c.action.padEnd(9)} ${c.name}`}</span>
+                  <span
+                    key={c.name}
+                    className={`block ${c.action === 'conflict' ? 'del' : ''}`}
+                  >{`${c.action.padEnd(9)} ${c.name}`}</span>
                 ))}
               </div>
             )}
@@ -98,8 +143,15 @@ export default function MCPRestoreDialog({ backups, initialId, onClose, onRestor
       </div>
       <div className="df">
         <span className="flex-1" />
-        <Button variant="ghost" onClick={onClose} disabled={busy}>{t('common.close')}</Button>
-        <Button variant="primary" loading={busy} disabled={!preview.data || preview.data.blocked} onClick={restore}>
+        <Button variant="ghost" onClick={onClose} disabled={busy}>
+          {t('common.close')}
+        </Button>
+        <Button
+          variant="primary"
+          loading={busy}
+          disabled={!preview.data || preview.data.blocked}
+          onClick={restore}
+        >
           <RotateCcw size={15} />
           {t('mcp.restoreFile')}
         </Button>

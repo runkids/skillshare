@@ -4,25 +4,68 @@ import (
 	"bufio"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"skillshare/internal/config"
+	"skillshare/internal/skillignore"
+	"skillshare/internal/sourcewalk"
+	ssync "skillshare/internal/sync"
 )
 
 // SkillSourceURL is the raw URL to the official skillshare skill's SKILL.md.
 const SkillSourceURL = "https://raw.githubusercontent.com/runkids/skillshare/main/skills/skillshare/SKILL.md"
 
-// ReadLocalSkillVersion reads metadata.version from source/skillshare/SKILL.md.
-// The returned value never has a "v" prefix.
-func ReadLocalSkillVersion(sourceDir string) string {
-	skillFile := filepath.Join(sourceDir, "skillshare", "SKILL.md")
-	return strings.TrimPrefix(parseMetadataVersion(skillFile), "v")
+// builtinSkillName is the built-in skill's folder name.
+const builtinSkillName = "skillshare"
+
+// LocalSkill is the built-in skill as found in a skills source.
+type LocalSkill struct {
+	Dir      string // its folder
+	RelPath  string // slash path from the source, such as "skillshare" or "tools/skillshare"
+	Version  string // metadata.version without a "v" prefix; "" when SKILL.md has none
+	Disabled bool   // .skillignore disables it, so sync leaves it out of every target
 }
 
-// parseMetadataVersion reads the version from a metadata block in YAML frontmatter.
-func parseMetadataVersion(filePath string) string {
+// FindLocalSkill finds the built-in skill in sourceDir. init and upgrade put it at
+// <source>/skillshare, which wins. The dashboard can move it into a folder, so otherwise
+// the first skill named skillshare outside tracked repos is used, discovered with
+// walk as the dashboard lists skills. ok is false when there is none.
+func FindLocalSkill(sourceDir string, walk ...sourcewalk.Options) (skill LocalSkill, ok bool) {
+	dir := filepath.Join(sourceDir, builtinSkillName)
+	if _, err := os.Stat(filepath.Join(dir, "SKILL.md")); err == nil {
+		disabled := skillignore.ReadMatcher(sourceDir).Match(builtinSkillName, true)
+		return newLocalSkill(dir, builtinSkillName, disabled), true
+	}
+	skills, err := ssync.DiscoverSourceSkillsAll(sourceDir, walk...)
+	if err != nil {
+		return LocalSkill{}, false
+	}
+	for _, s := range skills {
+		if !s.IsInRepo && path.Base(s.RelPath) == builtinSkillName {
+			return newLocalSkill(s.SourcePath, s.RelPath, s.Disabled), true
+		}
+	}
+	return LocalSkill{}, false
+}
+
+func newLocalSkill(dir, relPath string, disabled bool) LocalSkill {
+	version := strings.TrimPrefix(ParseMetadataVersion(filepath.Join(dir, "SKILL.md")), "v")
+	return LocalSkill{Dir: dir, RelPath: relPath, Version: version, Disabled: disabled}
+}
+
+// ReadLocalSkillVersion reads metadata.version from the built-in skill in sourceDir,
+// wherever FindLocalSkill finds it. The returned value never has a "v" prefix.
+func ReadLocalSkillVersion(sourceDir string) string {
+	skill, _ := FindLocalSkill(sourceDir)
+	return skill.Version
+}
+
+// ParseMetadataVersion reads the version from a metadata block in YAML frontmatter,
+// line by line, so it also works when the rest of the frontmatter is not valid YAML.
+func ParseMetadataVersion(filePath string) string {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return ""

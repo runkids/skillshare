@@ -69,6 +69,8 @@ targets: [claude, cursor]
 
 **Tracked repos:** targets set in the dashboard for a skill inside a tracked repo are stored in the source's `.metadata.json` instead of its SKILL.md, so the clone stays clean and `update` keeps working. That setting takes precedence over the skill's `metadata.targets`.
 
+**Dashboard edits:** setting or clearing targets in the dashboard rewrites only the `targets` lines of the file's frontmatter; the other fields, the line endings, and the body stay as written. A file whose frontmatter cannot be edited that way is refused and left unchanged, for example when other text comes before the frontmatter, when one of its `---` lines is indented or the closing one is missing, when `metadata` is a YAML alias or has non-string keys, when the whole top-level mapping is indented, or when a flow-style `metadata: {...}` writes its target list in a form other than `[a, b]`. Edit `targets` in the file directly in that case.
+
 ### Agent-specific variants in tracked repositories
 
 A tracked repository can ship separate instructions for each agent:

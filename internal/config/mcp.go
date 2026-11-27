@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"maps"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -82,10 +83,23 @@ func (c *MCPConfig) decode(node *yaml.Node) error {
 	return nil
 }
 
+// MCPValidation is what ValidateMCP needs beyond the section itself.
+type MCPValidation struct {
+	// ConfigPath is the config.yaml being checked; a relative External is beside it.
+	ConfigPath string
+	// External is sources.mcp, the YAML file that holds the servers instead.
+	External string
+	// Project is a project's own config, which has no mcp.projects to share servers with.
+	Project bool
+	// Accounts are the targets that are another config directory of an Agent, which MCP
+	// targets may name.
+	Accounts []string
+}
+
 // ValidateMCP checks the MCP section. Only the config editor and MCP commands
-// call it; other commands ignore MCP settings. accounts are the targets that are
-// another config directory of an Agent, which MCP targets may name.
-func ValidateMCP(cfg *MCPConfig, external string, accounts ...string) error {
+// call it; other commands ignore MCP settings.
+func ValidateMCP(cfg *MCPConfig, opts MCPValidation) error {
+	external, accounts := opts.External, opts.Accounts
 	if cfg == nil {
 		return nil
 	}
@@ -113,6 +127,17 @@ func ValidateMCP(cfg *MCPConfig, external string, accounts ...string) error {
 				return err
 			}
 		}
+		for name, override := range project.Overrides {
+			if err := known(override.Targets); err != nil {
+				return err
+			}
+			// Every account of an Agent reads the same project files.
+			for _, target := range override.Targets {
+				if slices.Contains(accounts, target) {
+					return fmt.Errorf("mcp.projects: an override of %s names the account %s; name the Agent", name, target)
+				}
+			}
+		}
 	}
 	if _, _, err := cfg.ServeEdit(); err != nil {
 		return err
@@ -133,25 +158,46 @@ func ValidateMCP(cfg *MCPConfig, external string, accounts ...string) error {
 		}
 		seen[target] = true
 	}
-	if cfg.Servers == nil {
-		return nil
-	}
-	if cfg.Servers.Kind != yaml.MappingNode {
-		return fmt.Errorf("mcp.servers must be a mapping")
-	}
-	servers, err := mcp.ParseServers(cfg.Servers)
-	if err != nil {
-		return fmt.Errorf("invalid MCP server fields")
-	}
-	for name, server := range servers {
-		if err := server.Validate(name); err != nil {
-			return err
+	var servers map[string]mcp.Server
+	switch {
+	case cfg.Servers != nil:
+		if cfg.Servers.Kind != yaml.MappingNode {
+			return fmt.Errorf("mcp.servers must be a mapping")
 		}
-		if err := known(server.Targets); err != nil {
-			return err
+		if servers, err = mcp.ParseServers(cfg.Servers); err != nil {
+			return fmt.Errorf("invalid MCP server fields")
+		}
+		for name, server := range servers {
+			if err := server.Validate(name); err != nil {
+				return err
+			}
+			if err := known(server.Targets); err != nil {
+				return err
+			}
+		}
+	case external != "":
+		// The servers are in another file. One that does not read yet is for sync to report;
+		// the rules below still hold for one that does.
+		if servers, err = mcp.ExternalServers(opts.ConfigPath, external); err != nil {
+			return nil
 		}
 	}
-	return nil
+	// Sync refuses these too, so the editor never saves a config the MCP page cannot load.
+	for _, name := range slices.Sorted(maps.Keys(servers)) {
+		if !servers[name].Shared() {
+			continue
+		}
+		if opts.Project {
+			return mcp.RefuseShared(servers)
+		}
+		// Every account of an Agent reads the same project files.
+		for _, target := range servers[name].Targets {
+			if slices.Contains(accounts, target) {
+				return fmt.Errorf("MCP %s loads only in projects; name the Agent, not the account %s", name, target)
+			}
+		}
+	}
+	return mcp.CheckUse(servers, projects)
 }
 
 // MCPServeConfig is the mcp.serve section.

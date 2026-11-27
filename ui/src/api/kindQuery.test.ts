@@ -1,32 +1,35 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { apiFetch } from './http';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { auditApi } from './audit';
 import { resourcesApi } from './resources';
 
-vi.mock('./http', async (load) => ({ ...await load<typeof import('./http')>(), apiFetch: vi.fn() }));
+const fetch = vi.fn<typeof globalThis.fetch>();
 
 // The kind unions are closed today; a cast stands in for a value that needs escaping.
 const odd = 'a&b' as 'skill';
 
 describe('?kind= query', () => {
-  beforeEach(() => vi.mocked(apiFetch).mockReset());
+  beforeEach(() => {
+    fetch.mockReset().mockImplementation(async () => Response.json({}));
+    vi.stubGlobal('fetch', fetch);
+  });
+  afterEach(() => vi.unstubAllGlobals());
 
   it('is encoded on resource requests', async () => {
     await resourcesApi.getResource('demo', odd);
 
-    expect(vi.mocked(apiFetch).mock.calls[0][0]).toBe('/resources/demo?kind=a%26b');
+    expect(fetch.mock.calls[0][0]).toBe('/api/resources/demo?kind=a%26b');
   });
 
   it('is encoded on audit requests', async () => {
     await auditApi.auditAll(odd as unknown as 'skills');
 
-    expect(vi.mocked(apiFetch).mock.calls[0][0]).toBe('/audit?kind=a%26b');
+    expect(fetch.mock.calls[0][0]).toBe('/api/audit?kind=a%26b');
   });
 
   it('is left off without a kind', async () => {
     await resourcesApi.listSkills();
     await auditApi.auditAll();
 
-    expect(vi.mocked(apiFetch).mock.calls.map(([path]) => path)).toEqual(['/resources', '/audit']);
+    expect(fetch.mock.calls.map(([path]) => path)).toEqual(['/api/resources', '/api/audit']);
   });
 });

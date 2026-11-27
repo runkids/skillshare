@@ -42,6 +42,9 @@ type Server struct {
 	// pluginStop asks the running plugin batch update to start no further plugins.
 	pluginStop atomic.Bool
 
+	// discoveries keeps the clone a skill listing made for the install that follows.
+	discoveries discoveryCache
+
 	// Project mode fields (empty/nil for global mode)
 	projectRoot string
 	projectCfg  *config.ProjectConfig
@@ -344,6 +347,7 @@ func (s *Server) reloadConfig() error {
 		agentsDir := pcfg.EffectiveAgentsSource(s.projectRoot)
 		s.cfg.Source = skillsDir
 		s.cfg.AgentsSource = agentsDir
+		s.cfg.Ignore = pcfg.Ignore
 		if st, err := install.LoadMetadata(skillsDir); err == nil {
 			s.skillsStore = st
 		}
@@ -434,6 +438,7 @@ func (s *Server) StartWithContext(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	defer s.discoveries.close()
 
 	if s.basePath != "" {
 		fmt.Printf("Skillshare UI running at http://%s%s/\n", s.addr, s.basePath)
@@ -492,6 +497,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("GET /api/resources/{name}", s.handleGetSkill)
 	s.mux.HandleFunc("GET /api/resources/{name}/files/{filepath...}", s.handleGetSkillFile)
 	s.mux.HandleFunc("GET /api/resources/{name}/local-changes", s.handleSkillLocalChanges)
+	s.mux.HandleFunc("GET /api/resources/{name}/upstream-changes", withLongWriteDeadline(s.handleSkillUpstreamChanges))
 	s.mux.HandleFunc("PUT /api/resources/{name}/content", s.handlePutSkillContent)
 	s.mux.HandleFunc("PATCH /api/resources/{name}/source", s.handlePatchSkillSource)
 	s.mux.HandleFunc("POST /api/resources/{name}/open-in-editor", s.handleOpenSkillInEditor)
@@ -549,6 +555,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("PUT /api/projects", s.requireGlobalProjects(s.handleSaveProject))
 	s.mux.HandleFunc("DELETE /api/projects", s.requireGlobalProjects(s.handleRemoveProject))
 	s.mux.HandleFunc("POST /api/projects/convert", s.requireGlobalProjects(s.handleConvertProject))
+	s.mux.HandleFunc("POST /api/projects/scan", s.requireGlobalProjects(s.handleScanProjects))
 
 	// Sync matrix
 	s.mux.HandleFunc("GET /api/sync-matrix", s.handleSyncMatrix)
@@ -573,36 +580,37 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("DELETE /api/hub/drafts/{id}", s.handleHubDraft)
 	s.mux.HandleFunc("POST /api/hub/drafts/{id}/export", s.handleHubDraftExport)
 	s.mux.HandleFunc("GET /api/hub/index", s.handleHubIndex)
-	s.mux.HandleFunc("POST /api/hub/refs", s.handleHubRefs)
+	s.mux.HandleFunc("POST /api/hub/refs", withLongWriteDeadline(s.handleHubRefs))
 	s.mux.HandleFunc("GET /api/hub/saved", s.handleGetHubSaved)
 	s.mux.HandleFunc("PUT /api/hub/saved", s.handlePutHubSaved)
 	s.mux.HandleFunc("POST /api/hub/saved", s.handlePostHubSaved)
 	s.mux.HandleFunc("DELETE /api/hub/saved/{label}", s.handleDeleteHubSaved)
 
 	// Search & Install
-	s.mux.HandleFunc("GET /api/search", requireSameOrigin(s.handleSearch))
-	s.mux.HandleFunc("GET /api/preview", requireSameOrigin(s.handlePreview))
-	s.mux.HandleFunc("POST /api/discover", s.handleDiscover)
-	s.mux.HandleFunc("POST /api/install", s.handleInstall)
-	s.mux.HandleFunc("POST /api/install/batch", s.handleInstallBatch)
+	s.mux.HandleFunc("GET /api/search", withLongWriteDeadline(requireSameOrigin(s.handleSearch)))
+	s.mux.HandleFunc("GET /api/preview", withLongWriteDeadline(requireSameOrigin(s.handlePreview)))
+	s.mux.HandleFunc("POST /api/discover", withLongWriteDeadline(s.handleDiscover))
+	s.mux.HandleFunc("POST /api/install", withLongWriteDeadline(s.handleInstall))
+	s.mux.HandleFunc("POST /api/install/batch", withLongWriteDeadline(s.handleInstallBatch))
 	s.mux.HandleFunc("GET /api/install/missing", s.handleMissingConfigEntries)
-	s.mux.HandleFunc("POST /api/install/from-config", s.handleInstallFromConfig)
+	s.mux.HandleFunc("POST /api/install/from-config", withLongWriteDeadline(s.handleInstallFromConfig))
 	s.mux.HandleFunc("POST /api/uninstall/batch", s.handleBatchUninstall)
 	s.mux.HandleFunc("POST /api/source-links", s.handleCreateSourceLink)
 	s.mux.HandleFunc("DELETE /api/source-links/{name}", s.handleRemoveSourceLink)
 
 	// Update & Check
-	s.mux.HandleFunc("POST /api/update", s.handleUpdate)
+	s.mux.HandleFunc("POST /api/update", withLongWriteDeadline(s.handleUpdate))
 	s.mux.HandleFunc("GET /api/update/stream", requireSameOrigin(s.handleUpdateStream))
 	s.mux.HandleFunc("GET /api/check/stream", s.handleCheckStream)
-	s.mux.HandleFunc("GET /api/check", s.handleCheck)
+	s.mux.HandleFunc("GET /api/check", withLongWriteDeadline(s.handleCheck))
 
-	// Repo uninstall
+	// Tracked repos: update preview and uninstall
+	s.mux.HandleFunc("GET /api/repos/{name}/upstream-changes", s.handleRepoUpstreamChanges)
 	s.mux.HandleFunc("DELETE /api/repos/{name}", s.handleUninstallRepo)
 
 	// Version check / app lifecycle
-	s.mux.HandleFunc("GET /api/version", s.handleVersionCheck)
-	s.mux.HandleFunc("POST /api/upgrade", s.handleUpgrade)
+	s.mux.HandleFunc("GET /api/version", withLongWriteDeadline(s.handleVersionCheck))
+	s.mux.HandleFunc("POST /api/upgrade", withLongWriteDeadline(s.handleUpgrade))
 	s.mux.HandleFunc("POST /api/restart", s.handleRestart)
 
 	// Doctor (health check)
@@ -642,19 +650,25 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("POST /api/plugins/update/stop", s.requireLocalPlugin(s.handlePluginUpdateStop))
 	s.mux.HandleFunc("GET /api/mcp", s.requireLocalMCP(s.handleMCPList))
 	s.mux.HandleFunc("POST /api/mcp", s.requireLocalMCP(s.handleMCPConfigure))
-	s.mux.HandleFunc("GET /api/mcp/check", s.requireLocalMCP(s.handleMCPCheck))
+	s.mux.HandleFunc("GET /api/mcp/check", withLongWriteDeadline(s.requireLocalMCP(s.handleMCPCheck)))
+	s.mux.HandleFunc("GET /api/mcp/costs", s.requireLocalMCP(s.handleMCPCosts))
 	s.mux.HandleFunc("POST /api/mcp/probe", s.requireLocalMCP(s.handleMCPProbe))
 	s.mux.HandleFunc("POST /api/mcp/preview", s.requireLocalMCP(s.handleMCPPreview))
 	s.mux.HandleFunc("POST /api/mcp/render", s.requireLocalMCP(s.handleMCPRender))
 	s.mux.HandleFunc("POST /api/mcp/import", s.requireLocalMCP(s.handleMCPImport))
 	s.mux.HandleFunc("POST /api/mcp/restore", s.requireLocalMCP(s.handleMCPRestore))
 	s.mux.HandleFunc("POST /api/mcp/open", s.requireLocalMCP(s.handleMCPOpen))
+	s.mux.HandleFunc("GET /api/mcp/file", s.requireLocalMCP(s.handleMCPFile))
 	s.mux.HandleFunc("GET /api/hooks", s.requireLocalHooks(s.handleHooksList))
 	s.mux.HandleFunc("POST /api/hooks", s.requireLocalHooks(s.handleHooksConfigure))
 	s.mux.HandleFunc("POST /api/hooks/preview", s.requireLocalHooks(s.handleHooksPreview))
 	s.mux.HandleFunc("POST /api/hooks/render", s.requireLocalHooks(s.handleHooksRender))
 	s.mux.HandleFunc("POST /api/hooks/import", s.requireLocalHooks(s.handleHooksImport))
+	s.mux.HandleFunc("POST /api/hooks/native", s.requireLocalHooks(s.handleHooksNativeApply))
+	s.mux.HandleFunc("POST /api/hooks/native/preview", s.requireLocalHooks(s.handleHooksNativePreview))
 	s.mux.HandleFunc("POST /api/hooks/restore", s.requireLocalHooks(s.handleHooksRestore))
+	s.mux.HandleFunc("POST /api/hooks/codex-trust/preview", withLongWriteDeadline(s.requireLocalHooks(s.handleHooksCodexTrustPreview)))
+	s.mux.HandleFunc("POST /api/hooks/codex-trust", withLongWriteDeadline(s.requireLocalHooks(s.handleHooksCodexTrust)))
 	s.mux.HandleFunc("GET /api/hooks/catalog", s.requireLocalHooks(s.handleHooksCatalog))
 	s.mux.HandleFunc("GET /api/extras", s.handleExtras)
 	s.mux.HandleFunc("GET /api/extras/memory/notes", s.handleMemoryNotes)
@@ -682,20 +696,22 @@ func (s *Server) registerRoutes() {
 
 	// Extensions (transform extensions management)
 	s.mux.HandleFunc("GET /api/extensions", s.handleExtensionsList)
-	s.mux.HandleFunc("POST /api/extensions/install", s.handleExtensionsInstall)
+	s.mux.HandleFunc("POST /api/extensions/install", withLongWriteDeadline(s.handleExtensionsInstall))
+	s.mux.HandleFunc("GET /api/extensions/files", s.handleExtensionsFiles)
+	s.mux.HandleFunc("GET /api/extensions/files/{filepath...}", s.handleExtensionsFile)
 	s.mux.HandleFunc("POST /api/extensions/open", s.handleExtensionsOpen)
 	s.mux.HandleFunc("DELETE /api/extensions/{name}", s.handleExtensionsRemove)
 
 	// Git
 	s.mux.HandleFunc("GET /api/git/status", s.handleGitStatus)
 	s.mux.HandleFunc("POST /api/git/root", s.handleSetGitRoot)
-	s.mux.HandleFunc("GET /api/git/branches", s.handleGitBranches)
-	s.mux.HandleFunc("POST /api/git/checkout", s.handleGitCheckout)
+	s.mux.HandleFunc("GET /api/git/branches", withLongWriteDeadline(s.handleGitBranches))
+	s.mux.HandleFunc("POST /api/git/checkout", withLongWriteDeadline(s.handleGitCheckout))
 	s.mux.HandleFunc("POST /api/git/commit", s.handleGitCommit)
 	s.mux.HandleFunc("POST /api/git/discard", s.handleGitDiscard)
 	s.mux.HandleFunc("POST /api/git/absorb-nested", s.handleAbsorbNested)
-	s.mux.HandleFunc("POST /api/push", s.handlePush)
-	s.mux.HandleFunc("POST /api/pull", s.handlePull)
+	s.mux.HandleFunc("POST /api/push", withLongWriteDeadline(s.handlePush))
+	s.mux.HandleFunc("POST /api/pull", withLongWriteDeadline(s.handlePull))
 
 	// Audit
 	s.mux.HandleFunc("GET /api/audit/stream", s.handleAuditStream)

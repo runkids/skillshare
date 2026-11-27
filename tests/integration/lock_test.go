@@ -133,6 +133,47 @@ func TestLock_InstallFollowsALockThatMovedOn(t *testing.T) {
 	}
 }
 
+// A lock pinned to a commit that left the skill's folder alone still moves
+// the copy's record to that commit; otherwise every later install -p
+// reinstalls it to follow the pin again (#1041).
+func TestLock_InstallFollowsAPinThatOnlyMovedHead(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	source, _ := lockRemote(t, sb)
+	project := sb.SetupProjectDir("claude")
+	sb.RunCLIInDir(project, "install", source, "-p").AssertSuccess(t)
+	other := teammate(t, sb, project)
+	sb.RunCLIInDir(other, "install", "-p").AssertSuccess(t)
+
+	// Upstream changes another skill; a fresh install locks that commit.
+	seed := filepath.Join(sb.Root, "seed-main")
+	if err := os.WriteFile(filepath.Join(seed, "skills/other/SKILL.md"), []byte("---\nname: other\n---\n# other v2\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	testutil.RunGit(t, seed, "commit", "-am", "other v2")
+	testutil.RunGit(t, seed, "push", "origin", "HEAD:main")
+	head := strings.TrimSpace(testutil.RunGit(t, seed, "rev-parse", "HEAD"))
+	sb.RunCLIInDir(project, "uninstall", "demo", "-p", "--force").AssertSuccess(t)
+	sb.RunCLIInDir(project, "install", source, "-p").AssertSuccess(t)
+	lock, err := os.ReadFile(filepath.Join(project, ".skillshare", install.LockFileName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(other, ".skillshare", install.LockFileName), lock, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	sb.RunCLIInDir(other, "install", "-p").AssertSuccess(t)
+
+	store, err := install.LoadMetadata(filepath.Join(other, ".skillshare", "skills"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := store.Get("demo").Commit; got != head {
+		t.Fatalf("recorded commit = %q, want the locked %q", got, head)
+	}
+}
+
 func TestLock_JSONInstallRequiresOverwriteConsent(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

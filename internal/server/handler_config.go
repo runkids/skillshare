@@ -193,7 +193,7 @@ func (s *Server) handlePutConfig(w http.ResponseWriter, r *http.Request) {
 		}
 		w2, validErr := config.ValidateProjectConfig(&testCfg, s.projectRoot)
 		if validErr == nil {
-			validErr = config.ValidateMCP(testCfg.MCP, testCfg.Sources.MCP)
+			validErr = config.ValidateMCP(testCfg.MCP, config.MCPValidation{ConfigPath: s.configPath(), External: testCfg.Sources.MCP, Project: true})
 		}
 		if validErr == nil {
 			validErr = hooks.ValidateSection(&testCfg.Hooks, s.configPath(), true, nil)
@@ -219,7 +219,7 @@ func (s *Server) handlePutConfig(w http.ResponseWriter, r *http.Request) {
 			validErr = testCfg.ValidateProjects(testCfg.Projects)
 		}
 		if validErr == nil {
-			validErr = config.ValidateMCP(testCfg.MCP, testCfg.Sources.MCP, testCfg.AgentConfigDirTargets()...)
+			validErr = config.ValidateMCP(testCfg.MCP, config.MCPValidation{ConfigPath: s.configPath(), External: testCfg.Sources.MCP, Accounts: testCfg.AgentConfigDirTargets()})
 		}
 		if validErr == nil {
 			validErr = hooks.ValidateSection(&testCfg.Hooks, s.configPath(), false, testCfg.AgentConfigDirTargetAgents())

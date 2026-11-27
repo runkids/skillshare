@@ -15,9 +15,12 @@ preserve existing install names. Tracked repository naming is unchanged.
 
 Discovery skips target directories such as `.claude/` and `.agents/`, which usually
 hold copies of a repository's skills. A repository with no other skills has its
-root `.agents/skills/` discovered instead.
+root `.agents/skills/` discovered instead. Discovery follows links to folders inside
+the repository (not into `.git`, and not from inside a skill folder); a skill reached
+both directly and through a link is listed once, under its direct path. `--track`
+installs do not follow these links.
 
-The `.agents/skills/` fallback requires both `.agents` and `skills` to be real directories, not symlinks or junctions, even with `follow_source_links: true`. An intentionally followed repository root remains supported. Discovered agent installs and updates reject intermediate or final destination links; audits run before publication, and a blocked audit leaves existing agent contents unchanged.
+The `.agents/skills/` fallback requires both `.agents` and `skills` to be real directories, not symlinks or junctions, even with `follow_source_links: true`. An intentionally followed repository root remains supported. Discovered agent installs and updates reject intermediate or final destination links; audits run before publication, and a blocked audit leaves existing agent contents unchanged. When a symlink in a skill, agent or tracked repository from a Git source leads outside the repository or into its `.git` folder, install and update stop with an error and leave nothing from that repository or commit installed, so a repository cannot copy a file from elsewhere on your machine into a skill or a copy-mode target. A link to another file or folder in the same repository is copied as that file or folder, also when you install a single folder of the repository. A folder reached through a second link, or a link back into a folder being copied, stops the install with an error.
 
 For an explicit, untracked skill source, `install <source> --dry-run --json`
 returns `planned: [{name, path}]`: canonical install names and repository-relative
@@ -46,6 +49,7 @@ git.company.com/team/skills   # Self-hosted
 # Full URLs
 github.com/user/repo          # Discovers skills in repo
 github.com/user/repo/path     # Direct subdirectory
+github.com/user/repo/agents/tutor.md  # One agent file (same record as `agents -a tutor`; not with --track)
 github.com/user/repo/tree/v1.2.0/path  # Pinned to a tag, commit or branch (GitLab -/tree/<ref>/, Bitbucket src/<ref>/)
 https://github.com/...        # HTTPS URL
 git@github.com:...            # SSH URL
@@ -134,7 +138,7 @@ or `--kind agent` to choose which resource to manage.
 | `--kind <skill\|agent\|extra>` | Restrict resource discovery |
 | `--agent, -a <names>` | Select agents by name (comma-separated) |
 | `--branch, -b <name>` | Select a Git branch, tag or commit SHA (overrides a ref in a web URL) |
-| `--force, -f` | Overwrite existing and explicitly override audit blocking from findings (not a failed scan) |
+| `--force, -f` | Overwrite existing and explicitly override audit blocking from findings (not a failed scan); if the new version fails to install or is blocked, the installed skill is kept |
 | `--update, -u` | Update if exists |
 | `--track, -t` | Track for updates (preserves .git); a local path works if it is a git repository. Rejects `--all`, `--yes`, `--skill`, and `--agent` |
 | `--skill, -s <names>` | Select specific skills from multi-skill repo (comma-separated). Rejects `--track`, `--all`, and `--yes` |
@@ -144,7 +148,7 @@ or `--kind agent` to choose which resource to manage.
 | `--exclude <name>` | Skip specific skills during multi-skill install (repeatable) |
 | `--skip-audit` | Skip security audit for this install |
 | `--audit-threshold <t>` / `--threshold <t>` / `-T <t>` | Override block threshold for this run (`critical\|high\|medium\|low\|info`; shorthand: `c\|h\|m\|l\|i`, plus `crit`, `med`) |
-| `--json` | Noninteractive JSON; selects all when no skill/agent filter is given; requires `--force` to overwrite existing items; reports skipped names in `skipped`; retains audit blocking; when every skill fails or is blocked it exits non-zero with an `error` field naming each one, while a partial failure lists names in `failed` and exits 0 |
+| `--json` | Noninteractive JSON; selects all when no skill/agent filter is given; requires `--force` to overwrite existing items; reports skipped names in `skipped`; retains audit blocking; when every skill fails or is blocked it exits non-zero with an `error` field naming each one, while a partial skill failure lists names in `failed` and exits 0; any failed agent exits non-zero |
 | `--dry-run, -n` | Preview |
 
 **Fuzzy subdirectory resolution:** When a monorepo has nested skill directories, you can specify just the skill name — e.g., `user/repo/vue-best-practices` finds `skills/vue-best-practices/` automatically. Fails with an error if multiple matches exist.
@@ -189,7 +193,7 @@ result lists the skipped ones in `warnings`.
 
 - **Tracked repos:** Fetches from origin, shows commits behind
 - **Remote skills:** Compares installed version with remote HEAD
-- **Modified skills:** Remote skills edited since install are `modified`; `update` skips them until `--force`. `check <name> --diff` shows the edits
+- **Modified skills:** Remote skills edited since install are `modified`; `update` skips them unless given `--merge` (keep edits, merge upstream) or `--force` (discard edits). `check <name> --diff` shows the edits
 - **Local skills:** Shown as "local source"
 - **Targets validation:** Warns about unknown target names in skill-level `targets` field
 
@@ -212,6 +216,7 @@ skillshare update --group front  # Update all in a group
 skillshare update --all          # All tracked repos + skills
 skillshare update --all -n       # Preview updates
 skillshare update --all --diff   # Show file-level change summary
+skillshare update my-skill --merge  # Keep local edits, merge upstream changes
 
 # Project
 skillshare update my-skill -p       # Update project skill
@@ -227,6 +232,7 @@ skillshare update _repo --force -p  # Discard local changes
 | `--all, -a` | Update all tracked repos and skills with metadata |
 | `--group, -G <name>` | Update all updatable skills in a group (repeatable) |
 | `--force, -f` | Discard local changes and force update |
+| `--merge` | 3-way merge upstream changes into a locally modified skill or agent; a conflict changes nothing and exits non-zero |
 | `--dry-run, -n` | Preview without making changes |
 | `--skip-audit` | Skip security audit gate |
 | `--json` | JSON output |
@@ -235,7 +241,7 @@ skillshare update _repo --force -p  # Discard local changes
 With `follow_source_links: true`, `update --all` skips followed Git checkouts,
 even with `--force`; update them by name instead.
 
-**Safety:** Tracked repos with uncommitted changes are skipped, and repos whose git status cannot be read fail. A remote skill whose files changed since install is skipped too; `check` reports it as `modified`. Use `--force` to override all three.
+**Safety:** Tracked repos with uncommitted changes are skipped, and repos whose git status cannot be read fail. A remote skill whose files changed since install is skipped too; `check` reports it as `modified`. Use `--force` to override all three, or `--merge` to keep a modified skill's edits and merge upstream's changes into them. After a clean merge the skill stays `modified`, so later updates need `--merge` again.
 
 Only one skillshare process updates a Git checkout at a time; another waits up to a minute, then fails with `another skillshare process is still updating <path>`.
 
@@ -251,7 +257,7 @@ Explicit `--force` can discard local changes and override findings, but not scan
 
 ## uninstall
 
-Remove one or more skills from source. Moves to trash (7-day retention) instead of permanent deletion.
+Remove one or more skills from source. Installed content moves to trash (7-day retention) instead of permanent deletion. A global tracked declaration without a checkout is removed as metadata only.
 
 ```bash
 # Single skill
@@ -276,15 +282,24 @@ skillshare uninstall --group frontend --dry-run
 # JSON output, global or -p (skips confirmation; dirty tracked repos still require --force;
 # when every skill fails, or any agent fails, it exits non-zero and "error" gives the reasons)
 skillshare uninstall my-skill --json
+# Unresolved inputs and reasons also appear in "failed", including dry runs.
 ```
 
 **Tracked repo names:** `uninstall org/team` accepts the shorthand for `org/_team` installed with `--into org`. An existing skill or folder at the typed path wins; use `org/_team` to explicitly remove the repo. Ambiguous short names require the full path.
+
+`uninstall --json` includes an optional `record_only` subset of `removed` for declarations removed without a checkout; these names have no trash undo. The field is omitted for an empty subset. In dry runs both arrays describe planned actions. CLI uninstall log entries also include the `record_only` subset; JSON previews carry `dry_run: true` in the log.
+
+**Declarations without checkouts (global only):** Deleting a checkout by hand leaves its tracked declaration and audit acceptances. An explicit `skillshare uninstall org/_team -g` removes that declaration and its acceptances without contacting the source, even when it is unreachable. While it remains a tracked declaration without a checkout, a plain folder or link to a non-checkout at that path is untouched; `.gitignore` is unchanged, no Git check runs, and nothing goes to trash. Use the canonical recorded name including `_` and any group: shorthand can select an existing skill or folder. Globs, `--all`, and `--group` do not select these declarations. To restore missing checkouts instead, use `skillshare install -g` with reachable sources and free destinations.
+
+**After reconcile:** If `install` or another reconcile walks a plain folder or followed link to a non-checkout at the declared path, the entry becomes an ordinary record (`Tracked=false`). Ordinary uninstall then moves the occupant to trash. An absent path or an unfollowed or unavailable link is not normalized this way.
+
+**Unlink:** In global mode, `skillshare unlink <name>` also forgets the matching tracked-repository record and audit acceptances, while leaving the link target untouched. If metadata cleanup fails, the link is already in trash and a warning says its record may remain; resolve the metadata error before installing again.
 
 **Safety:** Tracked repos with uncommitted changes are skipped, and repos whose git status cannot be read fail. Use `--force` to override both.
 
 **Group auto-detection:** When uninstalling a directory that contains sub-skills, the confirmation prompt shows `Uninstalling group (N skills)` with a list of contained skills.
 
-**Undo:** `skillshare trash restore <name>` to recover. See [trash.md](trash.md).
+**Undo:** `skillshare trash restore <name>` recovers content moved to trash; it cannot undo metadata-only declaration removal. See [trash.md](trash.md).
 
 **After uninstall:** `skillshare sync`
 

@@ -88,7 +88,8 @@ func ScanContentWithRules(content []byte, filename string, activeRules []rule) [
 }
 
 // ScanMarkdownContentWithRules scans markdown content, suppresses selected
-// tutorial patterns, and downgrades SDK-style system parameters in code fences.
+// tutorial patterns, and downgrades SDK-style system parameters and
+// object-literal root properties in code fences.
 func ScanMarkdownContentWithRules(content []byte, filename string, activeRules []rule) []Finding {
 	if activeRules == nil {
 		var err error
@@ -106,6 +107,25 @@ func ScanMarkdownContentWithRules(content []byte, filename string, activeRules [
 // still scan the entire line and retain their configured severity.
 var mdSystemValueRe = regexp.MustCompile("^(?:[\"'`\\[]|[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)*\\(|[|>][+-]?$|[A-Za-z_][A-Za-z0-9_]*,[ \\t]*(?://.*)?$)")
 
+// Match JS/TS object-property values for lowercase `root:` inside code fences:
+// comma-terminated identifiers/members, or single-line calls whose arguments
+// are limited to quoted strings, identifiers/members, or numbers. Bare words,
+// commands, prose, regex/template literals, comments inside parens, and
+// unclosed calls are rejected by construction.
+const (
+	mdRootIdentExpr = `[A-Za-z_$][A-Za-z0-9_$]*(?:\??\.[A-Za-z_$][A-Za-z0-9_$]*)*`
+	mdRootArgExpr   = `(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|-?[0-9]+(?:\.[0-9]+)?|` + mdRootIdentExpr + `)`
+	mdRootArgsExpr  = `\([ \t]*(?:` + mdRootArgExpr + `(?:[ \t]*,[ \t]*` + mdRootArgExpr + `)*(?:[ \t]*,)?)?[ \t]*\)`
+)
+
+var mdRootPropertyRe = regexp.MustCompile(
+	`^(?:` +
+		mdRootIdentExpr + `,` +
+		`|` +
+		mdRootIdentExpr + mdRootArgsExpr + `(?:` + mdRootArgsExpr + `|\??\.[A-Za-z_$][A-Za-z0-9_$]*)*,?` +
+		`)$`,
+)
+
 func markdownFindingSeverity(r rule, line string, inCodeFence bool, nextLine string) string {
 	if r.Pattern != "prompt-injection" || r.Severity != SeverityCritical || r.severityOverridden {
 		return r.Severity
@@ -113,7 +133,7 @@ func markdownFindingSeverity(r rule, line string, inCodeFence bool, nextLine str
 	if !inCodeFence || r.ID != "prompt-injection-1" {
 		return r.Severity
 	}
-	if isMarkdownSystemParameter(line, nextLine) {
+	if isMarkdownSystemParameter(line, nextLine) || isMarkdownRootProperty(line) {
 		return SeverityHigh
 	}
 	return r.Severity
@@ -131,6 +151,14 @@ func isMarkdownSystemParameter(line, nextLine string) bool {
 		return strings.HasPrefix(value, "\"") || strings.HasPrefix(value, "'") || strings.HasPrefix(value, "[")
 	}
 	return mdSystemValueRe.MatchString(value)
+}
+
+func isMarkdownRootProperty(line string) bool {
+	key, value, ok := strings.Cut(strings.TrimSpace(line), ":")
+	if !ok || key != "root" {
+		return false
+	}
+	return mdRootPropertyRe.MatchString(strings.TrimSpace(value))
 }
 
 var tutorialSuppressedPatterns = map[string]bool{

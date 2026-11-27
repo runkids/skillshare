@@ -27,10 +27,19 @@ func validateRuleFiles(files []string) error {
 	return nil
 }
 
+// rulesForFile returns the rules that apply to filename. In a source file a
+// lowercase role-label word is a parameter, field or docstring entry
+// (root: Path = Path("."), root: Repository root ...), which no value pattern
+// can tell from prose, so the built-in prompt-injection-1 matches only
+// uppercase labels there; a custom regex under that ID is used as written.
+// The extension decides, never a shebang: a text file must not be able to
+// switch the check off.
 func rulesForFile(rules []rule, filename string) []rule {
 	name := strings.ToLower(filepath.ToSlash(filename))
+	sourceFile := metadataCodeFile(filename)
 	filtered := make([]rule, 0, len(rules))
 	for _, r := range rules {
+		r.upperLabelOnly = sourceFile && r.upperLabelInSource
 		if len(r.Files) == 0 {
 			filtered = append(filtered, r)
 			continue

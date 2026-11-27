@@ -70,13 +70,14 @@ skillshare analyze --json | jq '.targets[].skills[] | select(.lint_issues | leng
 | `description-too-short` | warning | description이 50자 미만 |
 | `description-too-long` | warning | description이 1024자 목표 제한을 초과 |
 | `description-near-limit` | warning | description이 900–1024자 사이 |
+| `body-too-long` | warning | skill 본문(front matter 이후)이 500줄을 초과함; 세부 내용은 reference 파일로 옮기세요 |
 | `no-trigger-phrase` | warning | description에 trigger phrase가 없음 (예: "Use when…") |
 
 TUI에서는 lint 문제가 있는 skill의 이름 옆에 ✗ (error) 또는 ⚠ (warning) 아이콘이 표시됩니다. detail 패널에는 모든 결과를 나열하는 **Quality** 섹션이 있습니다.
 
 ## Interactive TUI
 
-TTY에서 `analyze`는 한 번에 하나의 target을 보는 대화형 화면을 엽니다. 왼쪽에는 토큰 사용량 순으로 정렬된 skill, 오른쪽에는 선택한 skill의 토큰 내역, lint 문제, 설명이 표시됩니다. skill을 열면 front matter를 포함한 파일 원문이 표시되어 lint 문제와 바로 대조할 수 있습니다. 키는 화면 아래쪽에 표시됩니다. 일반 텍스트로 보려면 `--no-tui`를 사용하세요.
+TTY에서 `analyze`는 한 번에 하나의 target을 보는 대화형 화면을 엽니다. 왼쪽에는 토큰 사용량 순으로 정렬된 skill, 오른쪽에는 선택한 skill의 토큰 내역, lint 문제, 설명이 표시됩니다. skill을 열면 front matter를 포함한 파일 원문이 표시되어 lint 문제와 바로 대조할 수 있습니다. 키는 화면 아래쪽에 표시됩니다. 일반 텍스트로 보려면 `--no-tui`를 사용하세요. TUI는 MCP 도구 정의를 표시하지 않으므로, 이를 보려면 `--no-tui` 또는 `--json`을 사용하세요.
 
 ### Color Coding
 
@@ -99,6 +100,20 @@ claude · 7 skills
 
   Add -v for the 10 largest descriptions
 ```
+
+### MCP tool definitions {#mcp-tool-definitions}
+
+전체 source를 대상으로 한 실행(target 인수와 `--filter`가 없는 경우)은 MCP 서버의 도구 정의도 함께 추가하며, MCP target별로 집계합니다(`claude`, `codex`, `cursor` 같은 `mcp.targets` Agent이며, skill target과는 별개의 목록입니다):
+
+```
+MCP tool definitions (upper bound)  claude ~6.8K · codex ~5.7K
+
+! claude: MCP tool definitions are ~6,750 tokens (budget: 5,000)
+   Largest: github ~3,276, playwright ~1,932, sentry ~1,092
+  1 MCP server not counted yet; run skillshare mcp check --live
+```
+
+집계 값은 [`mcp check --live`](/docs/reference/commands/mcp#probe-servers-live)에서 가져오며, 이 명령이 각 서버의 도구 이름, description, 입력 스키마를 추정합니다. `analyze`는 서버를 시작하지 않습니다. 어떤 live 검사로도 집계되지 않은 서버는 0이 아니라 집계되지 않음으로 표시됩니다. 집계된 서버가 하나도 없으면 `analyze`는 `MCP tool definitions have not been counted yet; run skillshare mcp check --live`를 출력합니다. 각 위치는 별도의 그룹입니다: global 목록과 각 `mcp.projects` 루트입니다. 루트의 그룹에는 그 project가 끄지 않은 global 서버도 포함됩니다. Agent가 거기서 그 서버들도 불러오기 때문입니다. 도구 정책은 적용되지 않으므로 합계는 상한값입니다. 경고에는 [`context_budget.warn_mcp_tool_tokens`](/docs/reference/targets/configuration#context_budget)를 사용합니다.
 
 ### Verbose
 
@@ -194,6 +209,24 @@ skillshare analyze --json
 
 lint 문제가 없는 skill은 `lint_issues` 필드를 생략합니다.
 
+전체 source 실행은 `mcp` 객체도 추가하며, MCP target이 서버를 받지 않으면 생략됩니다:
+
+```json
+"mcp": {
+  "budget": 30000,
+  "groups": [
+    {
+      "target": "claude", "agent": "claude", "tokens": 6750, "measured": 4,
+      "servers": [
+        { "name": "github", "tools": 26, "tokens": 3276, "checked": "2026-11-25T08:30:00Z" }
+      ]
+    }
+  ]
+}
+```
+
+`root`(`mcp.projects` 폴더)는 project 그룹에 설정됩니다. 서버가 project에서 온 경우 `project`가 있고, live 검사로 집계된 경우에만 `checked`가 있습니다. `checked`가 없으면 `tokens`는 집계 값이 아닙니다. 그룹의 `tokens`는 집계된 서버를 합산한 값이며, `measured`는 그 서버 수입니다.
+
 ## Project Mode
 
 ```bash
@@ -233,7 +266,7 @@ Web UI도 검색이나 필터가 활성화되면 동적 토큰 요약 바를 표
 
 ## Budget Warnings
 
-`context_budget` 임계값이 설정되어 있으면, `analyze`는 target이 예산을 초과할 경우 경고를 표시합니다. 설정 세부 정보는 [sync — Context Cost](/docs/reference/commands/sync#context-cost)를 참고하세요.
+`context_budget` 임계값이 설정되어 있으면, `analyze`는 target이 예산을 초과할 경우(MCP 도구 정의는 `warn_mcp_tool_tokens`) 경고를 표시합니다. 설정 세부 정보는 [sync — Context Cost](/docs/reference/commands/sync#context-cost)를 참고하세요.
 
 ## See Also
 

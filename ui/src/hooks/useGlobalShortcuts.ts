@@ -14,7 +14,9 @@ export interface ShortcutEntry {
 export function isMacOS(): boolean {
   // navigator.userAgentData is modern but not universal
   if ('userAgentData' in navigator) {
-    return (navigator as { userAgentData?: { platform?: string } }).userAgentData?.platform === 'macOS';
+    return (
+      (navigator as { userAgentData?: { platform?: string } }).userAgentData?.platform === 'macOS'
+    );
   }
   return /Mac|iPhone|iPad|iPod/.test(navigator.platform ?? '');
 }
@@ -64,7 +66,11 @@ interface UseGlobalShortcutsOptions {
   onNavigate?: (path: string) => void;
 }
 
-export function useGlobalShortcuts({ onToggleHelp, onRefresh, onNavigate }: UseGlobalShortcutsOptions) {
+export function useGlobalShortcuts({
+  onToggleHelp,
+  onRefresh,
+  onNavigate,
+}: UseGlobalShortcutsOptions) {
   const defaultNavigate = useNavigate();
   const navigate = onNavigate ?? defaultNavigate;
   const pendingChordRef = useRef<string | null>(null);
@@ -94,7 +100,7 @@ export function useGlobalShortcuts({ onToggleHelp, onRefresh, onNavigate }: UseG
           // Reset modifier state immediately — macOS often swallows the
           // Meta keyup after a Cmd+key shortcut, leaving the HUD stuck.
           setModifierHeld(false);
-          navigate('/sync');
+          void navigate('/sync');
           return;
         }
         // All other modifier combos: let browser handle natively
@@ -117,7 +123,7 @@ export function useGlobalShortcuts({ onToggleHelp, onRefresh, onNavigate }: UseG
         const path = NAV_MAP[key];
         if (path) {
           e.preventDefault();
-          navigate(path);
+          void navigate(path);
         }
         return;
       }

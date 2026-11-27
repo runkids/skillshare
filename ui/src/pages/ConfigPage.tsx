@@ -1,6 +1,19 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Save, FileCode, Info, RefreshCw, FileCog, FolderOpen, Download, WandSparkles, Maximize2, Minimize2, X } from 'lucide-react';
+import {
+  Save,
+  FileCode,
+  Info,
+  RefreshCw,
+  FileCog,
+  FolderOpen,
+  Eye,
+  Download,
+  WandSparkles,
+  Maximize2,
+  Minimize2,
+  X,
+} from 'lucide-react';
 import { useT } from '../i18n';
 import CodeMirror from '@uiw/react-codemirror';
 import { yaml } from '@codemirror/lang-yaml';
@@ -19,8 +32,9 @@ import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import AssistantPanel from '../components/config/AssistantPanel';
 import ConfirmDialog from '../components/ConfirmDialog';
+import FilesDialog from '../components/FilesDialog';
 import DialogShell from '../components/DialogShell';
-import { api } from '../api/client';
+import { api, isConnectionLost } from '../api/client';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { useAppContext } from '../context/AppContext';
 import { handTheme } from '../lib/codemirror-theme';
@@ -31,6 +45,7 @@ import { yamlKeyOffset } from '../lib/yamlSection';
 import { shortenHome } from '../lib/paths';
 import { useOverviewQuery } from '../hooks/useSharedQueries';
 import { invalidate } from '../lib/queryEvents';
+import EmptyState from '../components/EmptyState';
 
 type ConfigTab = 'config' | 'skillignore' | 'agentignore' | 'extensions';
 
@@ -60,7 +75,11 @@ export default function ConfigPage() {
   const [expanded, setExpanded] = useState(false);
   const urlTab = searchParams.get('tab');
   useEffect(() => {
-    setTab(urlTab === 'extensions' || urlTab === 'skillignore' || urlTab === 'agentignore' ? urlTab : 'config');
+    setTab(
+      urlTab === 'extensions' || urlTab === 'skillignore' || urlTab === 'agentignore'
+        ? urlTab
+        : 'config',
+    );
     // The expanded editor belongs to one file tab, so a tab arriving from the URL,
     // such as the browser's back button, closes it rather than retitling it.
     setExpanded(false);
@@ -73,7 +92,11 @@ export default function ConfigPage() {
   const [showRevertDialog, setShowRevertDialog] = useState(false);
 
   // --- config.yaml state ---
-  const { data: configData, isPending: configPending, error: configError } = useQuery({
+  const {
+    data: configData,
+    isPending: configPending,
+    error: configError,
+  } = useQuery({
     queryKey: queryKeys.config,
     queryFn: () => api.getConfig(),
     staleTime: staleTimes.config,
@@ -84,7 +107,10 @@ export default function ConfigPage() {
       const formatted = formatYaml(value, { organizeConfig: true });
       const res = await api.putConfig(formatted);
       if (res.warnings?.length) {
-        toast(t('config.toast.savedWithWarnings', { warnings: res.warnings.join('; ') }), 'warning');
+        toast(
+          t('config.toast.savedWithWarnings', { warnings: res.warnings.join('; ') }),
+          'warning',
+        );
       } else {
         toast(t('config.toast.savedSuccess'), 'success');
       }
@@ -102,10 +128,21 @@ export default function ConfigPage() {
   const jumped = useRef('');
   useEffect(() => {
     const view = editorRef.current;
-    if (tab !== 'config' || !section || !view || view.state.doc.length === 0 || jumped.current === section) return;
+    if (
+      tab !== 'config' ||
+      !section ||
+      !view ||
+      view.state.doc.length === 0 ||
+      jumped.current === section
+    )
+      return;
     jumped.current = section;
     const at = yamlKeyOffset(view.state.doc.toString(), section);
-    if (at !== undefined) view.dispatch({ selection: { anchor: at }, effects: EditorView.scrollIntoView(at, { y: 'start', yMargin: 24 }) });
+    if (at !== undefined)
+      view.dispatch({
+        selection: { anchor: at },
+        effects: EditorView.scrollIntoView(at, { y: 'start', yMargin: 24 }),
+      });
     view.focus();
   }, [tab, section, raw]);
 
@@ -142,17 +179,20 @@ export default function ConfigPage() {
 
   const linterExtension = useMemo(
     () =>
-      linter((view) => {
-        return errorsRef.current.map(err => {
-          const lineObj = view.state.doc.line(Math.min(err.line, view.state.doc.lines));
-          return {
-            from: lineObj.from,
-            to: lineObj.to,
-            severity: err.severity === 'error' ? 'error' as const : 'warning' as const,
-            message: err.message,
-          };
-        });
-      }, { delay: 350 }),
+      linter(
+        (view) => {
+          return errorsRef.current.map((err) => {
+            const lineObj = view.state.doc.line(Math.min(err.line, view.state.doc.lines));
+            return {
+              from: lineObj.from,
+              to: lineObj.to,
+              severity: err.severity === 'error' ? ('error' as const) : ('warning' as const),
+              message: err.message,
+            };
+          });
+        },
+        { delay: 350 },
+      ),
     [],
   );
 
@@ -161,20 +201,37 @@ export default function ConfigPage() {
 
   const saveKeymap = useMemo(
     () =>
-      keymap.of([{
-        key: 'Mod-s',
-        run: () => { saveRef.current(); return true; },
-      }]),
+      keymap.of([
+        {
+          key: 'Mod-s',
+          run: () => {
+            saveRef.current();
+            return true;
+          },
+        },
+      ]),
     [],
   );
 
   const yamlExtensions = useMemo(
-    () => [yaml(), EditorView.lineWrapping, ...handTheme, lintGutter(), linterExtension, cursorExtension, saveKeymap],
+    () => [
+      yaml(),
+      EditorView.lineWrapping,
+      ...handTheme,
+      lintGutter(),
+      linterExtension,
+      cursorExtension,
+      saveKeymap,
+    ],
     [linterExtension, cursorExtension, saveKeymap],
   );
 
   // --- .skillignore state ---
-  const { data: ignoreData, isPending: ignorePending, error: ignoreError } = useQuery({
+  const {
+    data: ignoreData,
+    isPending: ignorePending,
+    error: ignoreError,
+  } = useQuery({
     queryKey: queryKeys.skillignore,
     queryFn: () => api.getSkillignore(),
     staleTime: staleTimes.skillignore,
@@ -188,7 +245,10 @@ export default function ConfigPage() {
     },
   });
 
-  const ignoreExtensions = useMemo(() => [EditorView.lineWrapping, ...handTheme, saveKeymap], [saveKeymap]);
+  const ignoreExtensions = useMemo(
+    () => [EditorView.lineWrapping, ...handTheme, saveKeymap],
+    [saveKeymap],
+  );
 
   const ignoreChangeCount = useMemo(
     () => computeSimpleChangeCount(ignoreData?.raw ?? '', ignoreFile.value),
@@ -200,7 +260,11 @@ export default function ConfigPage() {
   };
 
   // --- .agentignore state ---
-  const { data: agentIgnoreData, isPending: agentIgnorePending, error: agentIgnoreError } = useQuery({
+  const {
+    data: agentIgnoreData,
+    isPending: agentIgnorePending,
+    error: agentIgnoreError,
+  } = useQuery({
     queryKey: queryKeys.agentignore,
     queryFn: () => api.getAgentignore(),
     staleTime: staleTimes.agentignore,
@@ -224,23 +288,53 @@ export default function ConfigPage() {
   };
 
   // --- active tab dirty/saving state ---
-  const fileOf = (file: ConfigTab) => (file === 'config' ? configFile : file === 'skillignore' ? ignoreFile : file === 'agentignore' ? agentIgnoreFile : null);
+  const fileOf = (file: ConfigTab) =>
+    file === 'config'
+      ? configFile
+      : file === 'skillignore'
+        ? ignoreFile
+        : file === 'agentignore'
+          ? agentIgnoreFile
+          : null;
   const activeFile = fileOf(tab);
   const activeDirty = activeFile?.dirty ?? false;
   const activeSaving = activeFile?.saving ?? false;
   const handleSave = activeFile?.save ?? (() => {});
   saveRef.current = handleSave;
-  const activeChangeCount = tab === 'config' ? changeCount : tab === 'skillignore' ? ignoreChangeCount : agentIgnoreChangeCount;
+  const activeChangeCount =
+    tab === 'config'
+      ? changeCount
+      : tab === 'skillignore'
+        ? ignoreChangeCount
+        : agentIgnoreChangeCount;
   const dirtyOf = (file: ConfigTab) => fileOf(file)?.dirty ?? false;
 
   // What the editor edits, and the line under it that says what the side panel is for.
   const ignoreHint = (data?: { exists: boolean }, fileName?: string, itemLabel?: string) =>
-    data && !data.exists ? t('config.ignore.createHint', { fileName, itemLabel }) : t('config.panel.ignoreHint');
-  const editor = tab === 'skillignore'
-    ? { value: ignoreFile.value, onChange: handleIgnoreChange, extensions: ignoreExtensions, hint: ignoreHint(ignoreData, '.skillignore', 'skill') }
-    : tab === 'agentignore'
-      ? { value: agentIgnoreFile.value, onChange: handleAgentIgnoreChange, extensions: ignoreExtensions, hint: ignoreHint(agentIgnoreData, '.agentignore', 'agent') }
-      : { value: raw, onChange: handleConfigChange, extensions: yamlExtensions, hint: t('config.saveShortcutHint') };
+    data && !data.exists
+      ? t('config.ignore.createHint', { fileName, itemLabel })
+      : t('config.panel.ignoreHint');
+  const editor =
+    tab === 'skillignore'
+      ? {
+          value: ignoreFile.value,
+          onChange: handleIgnoreChange,
+          extensions: ignoreExtensions,
+          hint: ignoreHint(ignoreData, '.skillignore', 'skill'),
+        }
+      : tab === 'agentignore'
+        ? {
+            value: agentIgnoreFile.value,
+            onChange: handleAgentIgnoreChange,
+            extensions: ignoreExtensions,
+            hint: ignoreHint(agentIgnoreData, '.agentignore', 'agent'),
+          }
+        : {
+            value: raw,
+            onChange: handleConfigChange,
+            extensions: yamlExtensions,
+            hint: t('config.saveShortcutHint'),
+          };
 
   // --- dirty state guard for tab switch ---
   const handleTabChange = (newTab: ConfigTab) => {
@@ -269,22 +363,45 @@ export default function ConfigPage() {
   };
 
   // --- loading / error for active tab ---
-  const isPending = tab === 'config' ? configPending : tab === 'skillignore' ? ignorePending : tab === 'agentignore' ? agentIgnorePending : false;
-  const error = tab === 'config' ? configError : tab === 'skillignore' ? ignoreError : tab === 'agentignore' ? agentIgnoreError : null;
+  const isPending =
+    tab === 'config'
+      ? configPending
+      : tab === 'skillignore'
+        ? ignorePending
+        : tab === 'agentignore'
+          ? agentIgnorePending
+          : false;
+  const error =
+    tab === 'config'
+      ? configError
+      : tab === 'skillignore'
+        ? ignoreError
+        : tab === 'agentignore'
+          ? agentIgnoreError
+          : null;
 
   if (isPending) return <PageSkeleton />;
   if (error) {
     return (
       <div className="ss-note bad">
         <span className="flex-1">
-          {t('config.errorLoading', { file: tab === 'config' ? 'config' : tab === 'skillignore' ? '.skillignore' : '.agentignore' })} {error.message}
+          {t('config.errorLoading', {
+            file:
+              tab === 'config' ? 'config' : tab === 'skillignore' ? '.skillignore' : '.agentignore',
+          })}{' '}
+          {error.message}
         </span>
       </div>
     );
   }
 
   // The .local file is not editable here, but its rules can override this one.
-  const localIgnore = tab === 'skillignore' ? ignoreData?.local : tab === 'agentignore' ? agentIgnoreData?.local : undefined;
+  const localIgnore =
+    tab === 'skillignore'
+      ? ignoreData?.local
+      : tab === 'agentignore'
+        ? agentIgnoreData?.local
+        : undefined;
 
   // Rendered inline or inside the expanded dialog, never both: CodeMirror owns editorRef.
   const editorBlock = (
@@ -294,7 +411,9 @@ export default function ConfigPage() {
           <Info size={16} className="mt-0.5 shrink-0" />
           <div className="flex min-w-0 flex-1 flex-col gap-1.5">
             <span>{t('config.ignore.localNote', { path: shortenHome(localIgnore.path) })}</span>
-            <pre className="whitespace-pre-wrap break-all font-mono text-xs">{localIgnore.raw.trimEnd()}</pre>
+            <pre className="whitespace-pre-wrap break-all font-mono text-xs">
+              {localIgnore.raw.trimEnd()}
+            </pre>
           </div>
         </div>
       )}
@@ -306,7 +425,9 @@ export default function ConfigPage() {
           extensions={editor.extensions}
           theme="none"
           height={expanded ? 'calc(100vh - 13rem)' : '500px'}
-          onCreateEditor={(view) => { editorRef.current = view; }}
+          onCreateEditor={(view) => {
+            editorRef.current = view;
+          }}
           basicSetup={{
             lineNumbers: true,
             foldGutter: tab === 'config',
@@ -322,16 +443,42 @@ export default function ConfigPage() {
         <span className="text-[13px] text-ink-3">{editor.hint}</span>
         <span className="flex items-center gap-2.5">
           {tab === 'config' && (
-            <Button variant="ghost" size="sm" onClick={handleBeautify} disabled={activeSaving} title={t('config.beautify.hint')}>
-              <WandSparkles size={15} />{t('config.beautify')}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleBeautify}
+              disabled={activeSaving}
+              title={t('config.beautify.hint')}
+            >
+              <WandSparkles size={15} />
+              {t('config.beautify')}
             </Button>
           )}
-          <Button variant="ghost" size="sm" onClick={() => setExpanded((v) => !v)} title={t(expanded ? 'config.collapse' : 'config.expand')}>
-            {expanded ? <Minimize2 size={15} /> : <Maximize2 size={15} />}{t(expanded ? 'config.collapse' : 'config.expand')}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setExpanded((v) => !v)}
+            title={t(expanded ? 'config.collapse' : 'config.expand')}
+          >
+            {expanded ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+            {t(expanded ? 'config.collapse' : 'config.expand')}
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => setShowRevertDialog(true)} disabled={!activeDirty || activeSaving}>{t('config.revert')}</Button>
-          <Button variant="primary" size="sm" onClick={handleSave} disabled={activeSaving || !activeDirty}>
-            <Save size={15} />{activeSaving ? t('config.saving') : t('config.save')}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowRevertDialog(true)}
+            disabled={!activeDirty || activeSaving}
+          >
+            {t('config.revert')}
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={handleSave}
+            disabled={activeSaving || !activeDirty}
+          >
+            <Save size={15} />
+            {activeSaving ? t('config.saving') : t('config.save')}
           </Button>
         </span>
       </div>
@@ -368,14 +515,28 @@ export default function ConfigPage() {
         <ExtensionsSection isProjectMode={isProjectMode} />
       ) : (
         <>
-          <div className="ss-note inf"><Info size={16} /><span className="flex-1">{t('config.filesIntro')}</span></div>
+          <div className="ss-note inf">
+            <Info size={16} />
+            <span className="flex-1">{t('config.filesIntro')}</span>
+          </div>
 
           {showSyncBanner && (
             <div className="ss-note inf">
               <RefreshCw size={16} />
               <span className="flex-1">{t('config.banner.message')}</span>
-              <Button variant="ghost" size="sm" onClick={() => setShowSyncBanner(false)}>{t('config.banner.dismiss')}</Button>
-              <Button variant="secondary" size="sm" onClick={() => { setShowSyncPreview(true); setShowSyncBanner(false); }}>{t('config.banner.previewSync')}</Button>
+              <Button variant="ghost" size="sm" onClick={() => setShowSyncBanner(false)}>
+                {t('config.banner.dismiss')}
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  setShowSyncPreview(true);
+                  setShowSyncBanner(false);
+                }}
+              >
+                {t('config.banner.previewSync')}
+              </Button>
             </div>
           )}
 
@@ -391,7 +552,15 @@ export default function ConfigPage() {
                 >
                   <FileCode size={15} className="shrink-0" />
                   <span className="min-w-0 flex-1 truncate font-mono text-[13px]">{label}</span>
-                  {dirtyOf(value) && <span className="n" title={t('config.unsavedChanges')} aria-label={t('config.unsavedChanges')}>•</span>}
+                  {dirtyOf(value) && (
+                    <span
+                      className="n"
+                      title={t('config.unsavedChanges')}
+                      aria-label={t('config.unsavedChanges')}
+                    >
+                      •
+                    </span>
+                  )}
                 </button>
               ))}
             </nav>
@@ -399,17 +568,27 @@ export default function ConfigPage() {
             {expanded ? <div /> : editorBlock}
 
             {/* Sticky: the file can be long, the panel should stay where the eye is */}
-            <div className="sticky top-6">
-              {!expanded && panelBlock}
-            </div>
+            <div className="sticky top-6">{!expanded && panelBlock}</div>
           </div>
         </>
       )}
 
-      <DialogShell open={expanded} onClose={() => setExpanded(false)} maxWidth="full" padding="none" preventClose ariaLabel={t('config.expand')}>
+      <DialogShell
+        open={expanded}
+        onClose={() => setExpanded(false)}
+        maxWidth="full"
+        padding="none"
+        preventClose
+        ariaLabel={t('config.expand')}
+      >
         <div className="dh">
           <h2 className="ss-h2 font-mono">{FILES.find((f) => f.value === tab)?.label}</h2>
-          <button type="button" className="ss-ib" onClick={() => setExpanded(false)} aria-label={t('common.close')}>
+          <button
+            type="button"
+            className="ss-ib"
+            onClick={() => setExpanded(false)}
+            aria-label={t('common.close')}
+          >
             <X size={16} />
           </button>
         </div>
@@ -421,10 +600,7 @@ export default function ConfigPage() {
         </div>
       </DialogShell>
 
-      <SyncPreviewModal
-        open={showSyncPreview}
-        onClose={() => setShowSyncPreview(false)}
-      />
+      <SyncPreviewModal open={showSyncPreview} onClose={() => setShowSyncPreview(false)} />
 
       <ConfirmDialog
         open={showDiscardDialog}
@@ -461,6 +637,7 @@ function ExtensionsSection({ isProjectMode }: { isProjectMode: boolean }) {
   // earlier one's loading state).
   const [installing, setInstalling] = useState<Set<string>>(new Set());
   const [opening, setOpening] = useState(false);
+  const [viewing, setViewing] = useState(false);
   const [removing, setRemoving] = useState<string | null>(null);
   // The extension pending removal confirmation, with the extras referencing it.
   const [removeTarget, setRemoveTarget] = useState<{ name: string; usedBy: string[] } | null>(null);
@@ -482,7 +659,12 @@ function ExtensionsSection({ isProjectMode }: { isProjectMode: boolean }) {
       toast(t('config.extensions.toast.installed', { name }, `Installed ${name}`), 'success');
       void invalidate(queryClient, 'extensionsChanged');
     } catch (err: any) {
-      toast(err.message, 'error');
+      if (isConnectionLost(err)) {
+        toast(t('common.connectionLost'), 'error');
+        void invalidate(queryClient, 'extensionsChanged');
+      } else {
+        toast(err.message, 'error');
+      }
     } finally {
       setInstalling((prev) => {
         const next = new Set(prev);
@@ -532,18 +714,45 @@ function ExtensionsSection({ isProjectMode }: { isProjectMode: boolean }) {
     <>
       <div className="flex items-start justify-between gap-6">
         <p className="max-w-[720px] text-[13px] leading-relaxed text-ink-2">
-          {t('config.extensions.description', {}, 'Extensions pass each file through a script during sync, so it arrives in the format a tool expects. Install one here, then select it on a target in Extras.')}
+          {t(
+            'config.extensions.description',
+            {},
+            'Extensions pass each file through a script during sync, so it arrives in the format a tool expects. Install one here, then select it on a target in Extras.',
+          )}
         </p>
-        <Button variant="secondary" onClick={handleOpenDir} loading={opening}>
-          <FolderOpen size={15} />
-          {t('config.extensions.openDir', {}, 'Open directory')}
-        </Button>
+        <div className="flex shrink-0 gap-2">
+          <Button variant="secondary" onClick={() => setViewing(true)}>
+            <Eye size={15} />
+            {t('config.extensions.viewFiles')}
+          </Button>
+          <Button variant="secondary" onClick={handleOpenDir} loading={opening}>
+            <FolderOpen size={15} />
+            {t('config.extensions.openDir', {}, 'Open directory')}
+          </Button>
+        </div>
       </div>
+      {viewing && (
+        <FilesDialog
+          title={dirLabel}
+          ariaLabel={t('config.extensions.viewFiles')}
+          emptyText={t('config.extensions.emptyFolder')}
+          files={{
+            key: queryKeys.extensionFiles,
+            list: () => api.extensionFiles().then((r) => r.files),
+          }}
+          file={(path) => ({
+            key: queryKeys.extensionFile(path),
+            read: () => api.extensionFile(path).then((r) => r.content),
+          })}
+          fresh
+          onClose={() => setViewing(false)}
+        />
+      )}
 
       {isPending ? (
         <PageSkeleton />
       ) : (
-        <div className="flex max-w-[860px] flex-col gap-8">
+        <div className="flex flex-col gap-8">
           <section>
             <div className="ss-sec">
               <h2>{t('config.extensions.installedHeading', {}, 'Installed')}</h2>
@@ -553,11 +762,18 @@ function ExtensionsSection({ isProjectMode }: { isProjectMode: boolean }) {
             {installed.length > 0 ? (
               <div className="ss-list">
                 {installed.map((e) => (
-                  <ExtensionItem key={e.name} ext={e} onRemove={() => handleRemove(e)} removing={removing === e.name} />
+                  <ExtensionItem
+                    key={e.name}
+                    ext={e}
+                    onRemove={() => handleRemove(e)}
+                    removing={removing === e.name}
+                  />
                 ))}
               </div>
             ) : (
-              <p className="ss-empty">{t('config.extensions.none', {}, 'No extensions installed yet.')}</p>
+              <EmptyState
+                description={t('config.extensions.none', {}, 'No extensions installed yet.')}
+              />
             )}
           </section>
 
@@ -569,7 +785,12 @@ function ExtensionsSection({ isProjectMode }: { isProjectMode: boolean }) {
               </div>
               <div className="ss-list">
                 {available.map((e) => (
-                  <ExtensionItem key={e.name} ext={e} onInstall={() => handleInstall(e.name)} installing={installing.has(e.name)} />
+                  <ExtensionItem
+                    key={e.name}
+                    ext={e}
+                    onInstall={() => handleInstall(e.name)}
+                    installing={installing.has(e.name)}
+                  />
                 ))}
               </div>
             </section>
@@ -577,32 +798,32 @@ function ExtensionsSection({ isProjectMode }: { isProjectMode: boolean }) {
         </div>
       )}
 
-    <ConfirmDialog
-      open={removeTarget !== null}
-      variant={removeInUse ? 'danger' : 'default'}
-      title={
-        removeInUse
-          ? t('config.extensions.removeConfirm.inUseTitle', {}, 'Extension is in use')
-          : t('config.extensions.removeConfirm.title', {}, 'Remove extension?')
-      }
-      message={
-        removeInUse
-          ? t(
-              'config.extensions.removeConfirm.inUseMessage',
-              { name: removeTarget?.name ?? '', extras: removeTarget?.usedBy.join(', ') ?? '' },
-              `${removeTarget?.name} is used by: ${removeTarget?.usedBy.join(', ')}. Removing it will make those extras fail on next sync until you reinstall it or clear the extension from their targets. Remove anyway?`,
-            )
-          : t(
-              'config.extensions.removeConfirm.message',
-              { name: removeTarget?.name ?? '' },
-              `Remove ${removeTarget?.name}? You can download it again later.`,
-            )
-      }
-      confirmText={t('config.extensions.removeConfirm.confirm', {}, 'Remove')}
-      loading={removing !== null}
-      onConfirm={confirmRemove}
-      onCancel={() => setRemoveTarget(null)}
-    />
+      <ConfirmDialog
+        open={removeTarget !== null}
+        variant={removeInUse ? 'danger' : 'default'}
+        title={
+          removeInUse
+            ? t('config.extensions.removeConfirm.inUseTitle', {}, 'Extension is in use')
+            : t('config.extensions.removeConfirm.title', {}, 'Remove extension?')
+        }
+        message={
+          removeInUse
+            ? t(
+                'config.extensions.removeConfirm.inUseMessage',
+                { name: removeTarget?.name ?? '', extras: removeTarget?.usedBy.join(', ') ?? '' },
+                `${removeTarget?.name} is used by: ${removeTarget?.usedBy.join(', ')}. Removing it will make those extras fail on next sync until you reinstall it or clear the extension from their targets. Remove anyway?`,
+              )
+            : t(
+                'config.extensions.removeConfirm.message',
+                { name: removeTarget?.name ?? '' },
+                `Remove ${removeTarget?.name}? You can download it again later.`,
+              )
+        }
+        confirmText={t('config.extensions.removeConfirm.confirm', {}, 'Remove')}
+        loading={removing !== null}
+        onConfirm={confirmRemove}
+        onCancel={() => setRemoveTarget(null)}
+      />
     </>
   );
 }
@@ -627,11 +848,19 @@ function ExtensionItem({
       <FileCog size={16} className="shrink-0 text-ink-3" />
       <span className="flex min-w-0 flex-1 flex-col gap-px">
         <span className="nm m">{ext.name}</span>
-        {ext.description && <span className="truncate text-[13px] text-ink-2">{ext.description}</span>}
+        {ext.description && (
+          <span className="truncate text-[13px] text-ink-2">{ext.description}</span>
+        )}
       </span>
       {ext.builtin && <span className="ss-tag">built-in</span>}
       {ext.used_by && ext.used_by.length > 0 && (
-        <span className="ss-tag">{t('config.extensions.usedByBadge', { count: ext.used_by.length }, `in use \u00b7 ${ext.used_by.length}`)}</span>
+        <span className="ss-tag">
+          {t(
+            'config.extensions.usedByBadge',
+            { count: ext.used_by.length },
+            `in use \u00b7 ${ext.used_by.length}`,
+          )}
+        </span>
       )}
       {onInstall ? (
         <Button variant="secondary" size="sm" onClick={onInstall} loading={installing}>

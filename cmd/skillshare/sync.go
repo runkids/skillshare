@@ -218,6 +218,9 @@ func cmdSync(args []string) error {
 				ui.Note(fmt.Sprintf("MCP backup: %s", id))
 			}
 			printMCPMigrated(mcpResult)
+			if applyErr == nil {
+				printServiceMCPToolCosts(mcpService)
+			}
 		}
 		return applyErr
 	}
@@ -724,7 +727,7 @@ func backupTargetsBeforeSync(cfg *config.Config) {
 		if !target.SkillsConfig().IsEnabled() {
 			continue
 		}
-		backupPath, err := backup.Create(name, target.SkillsConfig().Path)
+		backupPath, err := backup.Create(name, sync.ResolveTargetRoot(target.SkillsConfig().Path, cfg.EffectiveSkillsSource()))
 		if err != nil {
 			ui.Warning("Failed to backup %s: %v", name, err)
 		} else if backupPath != "" {

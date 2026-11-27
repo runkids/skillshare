@@ -128,10 +128,13 @@ func reviewMCPMutations(service *mcp.Service, mutations []mcp.Mutation, o mcpOpt
 	}
 	choices := []checklistItemData{{label: "Save only", desc: "Update the source; leave Agent files unchanged"}}
 	if p.Blocked {
+		// Another Agent's conflict does not stop saving an import; only the imported entry's own does.
+		var resolutions []mcp.Resolution
 		for _, mutation := range mutations {
-			if len(mutation.Resolutions) > 0 {
-				return fmt.Errorf("resolve MCP conflicts before importing; no settings saved")
-			}
+			resolutions = append(resolutions, mutation.Resolutions...)
+		}
+		if p.ResolutionConflicts(resolutions) {
+			return fmt.Errorf("resolve MCP conflicts before importing; no settings saved")
 		}
 	} else {
 		choices = append([]checklistItemData{{label: "Save and sync", desc: "Apply the previewed changes to Agent files"}}, choices...)

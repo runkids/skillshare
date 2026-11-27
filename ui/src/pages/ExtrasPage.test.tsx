@@ -17,19 +17,64 @@ vi.mock('../api/client', async (load) => {
       ...actual.api,
       listExtras: vi.fn().mockResolvedValue({
         extras: [
-          { name: 'team-rules', file: 'AGENTS.md', source_dir: '/p/.skillshare/extras/team-rules', source_type: 'per-extra', file_count: 1, source_exists: true,
-            targets: [{ path: '.', mode: 'symlink', flatten: false, status: 'synced' }] },
-          { name: 'rules', source_dir: '/p/.skillshare/extras/rules', source_type: 'per-extra', file_count: 2, source_exists: true,
-            targets: [{ path: '.claude/rules', mode: 'merge', flatten: false, status: 'synced' }] },
-          { name: 'conventions', file: 'CONVENTIONS.md', source_dir: '/p/.skillshare/extras/conventions', source_type: 'per-extra', file_count: 1, source_exists: true,
-            targets: [{ path: '.cursor', mode: 'copy', flatten: false, as: 'rules.md', status: 'synced' }] },
-          { name: 'pi-prompt', file: 'system.md', source_dir: String.raw`C:\Users\me\prompts`, source_type: 'custom', file_count: 1, source_exists: true,
-            targets: [{ path: String.raw`C:\Users\me\.pi\agent`, mode: 'copy', flatten: false, as: 'APPEND_SYSTEM.md', status: 'synced' }] },
+          {
+            name: 'team-rules',
+            file: 'AGENTS.md',
+            source_dir: '/p/.skillshare/extras/team-rules',
+            source_type: 'per-extra',
+            file_count: 1,
+            source_exists: true,
+            targets: [{ path: '.', mode: 'symlink', flatten: false, status: 'synced' }],
+          },
+          {
+            name: 'rules',
+            source_dir: '/p/.skillshare/extras/rules',
+            source_type: 'per-extra',
+            file_count: 2,
+            source_exists: true,
+            targets: [{ path: '.claude/rules', mode: 'merge', flatten: false, status: 'synced' }],
+          },
+          {
+            name: 'conventions',
+            file: 'CONVENTIONS.md',
+            source_dir: '/p/.skillshare/extras/conventions',
+            source_type: 'per-extra',
+            file_count: 1,
+            source_exists: true,
+            targets: [
+              { path: '.cursor', mode: 'copy', flatten: false, as: 'rules.md', status: 'synced' },
+            ],
+          },
+          {
+            name: 'pi-prompt',
+            file: 'system.md',
+            source_dir: String.raw`C:\Users\me\prompts`,
+            source_type: 'custom',
+            file_count: 1,
+            source_exists: true,
+            targets: [
+              {
+                path: String.raw`C:\Users\me\.pi\agent`,
+                mode: 'copy',
+                flatten: false,
+                as: 'APPEND_SYSTEM.md',
+                status: 'synced',
+              },
+            ],
+          },
         ],
       }),
-      deleteExtra: vi.fn().mockResolvedValue({ success: true, remote: 'example-org/hub', deleted_dir: true }),
+      deleteExtra: vi
+        .fn()
+        .mockResolvedValue({ success: true, remote: 'example-org/hub', deleted_dir: true }),
       createExtra: vi.fn().mockResolvedValue({ success: true }),
-      previewExtraFilter: vi.fn().mockResolvedValue({ files: [{ file: 'index.md', status: 'synced' }, { file: 'draft.md', status: 'synced' }], unmatched: null }),
+      previewExtraFilter: vi.fn().mockResolvedValue({
+        files: [
+          { file: 'index.md', status: 'synced' },
+          { file: 'draft.md', status: 'synced' },
+        ],
+        unmatched: null,
+      }),
       editExtraTarget: vi.fn().mockResolvedValue({ success: true }),
       editExtra: vi.fn().mockResolvedValue({ success: true }),
       listExtraExtensions: vi.fn().mockResolvedValue({ extensions: [] }),
@@ -39,11 +84,18 @@ vi.mock('../api/client', async (load) => {
   };
 });
 
-const renderPage = (url = '/extras') => render(
-  <QueryClientProvider client={new QueryClient()}>
-    <I18nProvider><ToastProvider><MemoryRouter initialEntries={[url]}><ExtrasPage /></MemoryRouter></ToastProvider></I18nProvider>
-  </QueryClientProvider>,
-);
+const renderPage = (url = '/extras') =>
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <I18nProvider>
+        <ToastProvider>
+          <MemoryRouter initialEntries={[url]}>
+            <ExtrasPage />
+          </MemoryRouter>
+        </ToastProvider>
+      </I18nProvider>
+    </QueryClientProvider>,
+  );
 
 describe('Extras page in a project', () => {
   it('creates a single-file extra with its file and target file name', async () => {
@@ -99,7 +151,13 @@ describe('Extras page in a project', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Save' }));
 
     expect(api.editExtraTarget).toHaveBeenCalledWith('rules', '.claude/rules', {
-      path: '.claude/rules', mode: 'merge', flatten: false, extension: '', as: '', include: [], exclude: ['draft.md'],
+      path: '.claude/rules',
+      mode: 'merge',
+      flatten: false,
+      extension: '',
+      as: '',
+      include: [],
+      exclude: ['draft.md'],
     });
   });
 
@@ -120,7 +178,11 @@ describe('Extras page in a project', () => {
     await user.click(screen.getByRole('option', { name: /^merge/ }));
     await user.click(within(dialog).getByRole('button', { name: 'Save' }));
 
-    expect(api.editExtraTarget).toHaveBeenLastCalledWith('rules', '.claude/rules', expect.objectContaining({ mode: 'merge', flatten: false }));
+    expect(api.editExtraTarget).toHaveBeenLastCalledWith(
+      'rules',
+      '.claude/rules',
+      expect.objectContaining({ mode: 'merge', flatten: false }),
+    );
   });
 
   it('renames an extra in Edit extra', async () => {
@@ -135,33 +197,60 @@ describe('Extras page in a project', () => {
 
     expect(api.editExtra).toHaveBeenCalledWith('rules', { name: 'docs' });
   });
-
 });
 
-
 describe('remote extra removal', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('renders the explicit restore command as code within its localized guidance', async () => {
-    vi.mocked(api.listExtras).mockResolvedValueOnce({ extras: [{
-      name: 'missing-rules', remote: 'example-org/hub/rules', branch: 'main', state: 'missing',
-      source_dir: '/fixture/extras/missing-rules', source_type: 'default', source_exists: false, file_count: 0, targets: [],
-    }] });
+    vi.mocked(api.listExtras).mockResolvedValueOnce({
+      extras: [
+        {
+          name: 'missing-rules',
+          remote: 'example-org/hub/rules',
+          branch: 'main',
+          state: 'missing',
+          source_dir: '/fixture/extras/missing-rules',
+          source_type: 'default',
+          source_exists: false,
+          file_count: 0,
+          targets: [],
+        },
+      ],
+    });
     renderPage();
-    const command = await screen.findByText('skillshare install example-org/hub/rules --kind extra --name missing-rules --branch main -p');
+    const command = await screen.findByText(
+      'skillshare install example-org/hub/rules --kind extra --name missing-rules --branch main -p',
+    );
     expect(command.tagName).toBe('CODE');
     expect(command.parentElement).toHaveTextContent('Restore or repair with: skillshare install');
   });
 
   it('requires confirmation before removing a managed directory and allows cancel', async () => {
-    vi.mocked(api.listExtras).mockResolvedValueOnce({ extras: [{
-      name: 'remote-rules', remote: 'example-org/hub', branch: 'main', commit: 'a'.repeat(40), state: 'intact',
-      source_dir: '/fixture/extras/remote-rules', source_type: 'default', source_exists: true, file_count: 1, targets: [],
-    }] });
+    vi.mocked(api.listExtras).mockResolvedValueOnce({
+      extras: [
+        {
+          name: 'remote-rules',
+          remote: 'example-org/hub',
+          branch: 'main',
+          commit: 'a'.repeat(40),
+          state: 'intact',
+          source_dir: '/fixture/extras/remote-rules',
+          source_type: 'default',
+          source_exists: true,
+          file_count: 1,
+          targets: [],
+        },
+      ],
+    });
     const user = userEvent.setup();
     renderPage();
     const openRemoval = async () => {
-      await user.click(await screen.findByRole('button', { name: 'More actions for remote-rules' }));
+      await user.click(
+        await screen.findByRole('button', { name: 'More actions for remote-rules' }),
+      );
       await user.click(screen.getByRole('menuitem', { name: 'Remove extra' }));
     };
     await openRemoval();

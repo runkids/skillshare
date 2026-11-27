@@ -15,16 +15,19 @@ interface StreamProgressBarProps {
 }
 
 export default function StreamProgressBar({
-  count, total, startTime,
-  icon: Icon, iconClassName = 'animate-spin',
-  labelDiscovering, labelRunning, units,
+  count,
+  total,
+  startTime,
+  icon: Icon,
+  iconClassName = 'animate-spin',
+  labelDiscovering,
+  labelRunning,
+  units,
 }: StreamProgressBarProps) {
   const t = useT();
   const pct = total > 0 ? Math.min((count / total) * 100, 100) : 0;
   const elapsed = (Date.now() - startTime) / 1000;
-  const eta = count > 0 && pct < 100
-    ? Math.round((elapsed / count) * (total - count))
-    : null;
+  const eta = count > 0 && pct < 100 ? Math.round((elapsed / count) * (total - count)) : null;
 
   return (
     <Card variant="outlined">
@@ -37,9 +40,7 @@ export default function StreamProgressBar({
             </span>
           </div>
           {total > 0 && (
-            <span className="text-sm text-pencil-light font-mono">
-              {Math.round(pct)}%
-            </span>
+            <span className="text-sm text-pencil-light font-mono">{Math.round(pct)}%</span>
           )}
         </div>
         {total > 0 && (
@@ -58,7 +59,9 @@ export default function StreamProgressBar({
               />
             </div>
             <div className="flex items-center justify-between text-sm text-pencil-light">
-              <span>{count} / {total} {units}</span>
+              <span>
+                {count} / {total} {units}
+              </span>
               {eta !== null && <span>{t('streamProgress.remaining', { eta })}</span>}
             </div>
           </>

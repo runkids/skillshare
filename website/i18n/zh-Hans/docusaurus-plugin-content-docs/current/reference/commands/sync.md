@@ -231,7 +231,7 @@ $ skillshare sync
   Context  ~1.2K tokens always loaded · ~18.5K on demand
 ```
 
-如果你自己创建的文件夹已占用某个 skill 要同步的名称，sync 会保留你的文件夹，不安装该 skill。每个有这类文件夹的 target 会多一行，列出前几个名称（`kept local: a, b (sync --force replaces them)`），并计为 `local` 而不是 `up to date`。`skillshare diff` 会把它们列为 `Local override`。
+如果你自己创建的文件夹已占用某个 skill 要同步的名称，sync 会保留你的文件夹，不安装该 skill。其他工具放在那里的链接（指向 source 之外，且 manifest 没有记录）也一样。每个有这类文件夹的 target 会多一行，列出前几个名称（`kept local: a, b (sync --force replaces them)`），并计为 `local` 而不是 `up to date`。`skillshare diff` 会把它们列为 `Local override`。
 
 ---
 
@@ -324,8 +324,10 @@ git add → commit → push`"]
   （link → link → 真实目录）同样可行。
 - **Symlinked target** —— `sync` 会检测到该 target symlink **并非**由 skillshare 创建，
   并保留它。skills 会被同步到解析后的目录中。
-- **Status/collect** —— `status` 和 `collect` 会跟随外部的 target symlink，
+- **Status/diff/collect** —— `status`、`diff` 和 `collect` 会跟随外部的 target symlink，
   而不是报告冲突。
+- **Backup/restore** —— `backup` 和 `restore` 会使用外部 target symlink 指向的目录，并保留该链接。
+  `target remove` 会保留该链接，并清理其指向的目录。
 
 :::info sync 如何判断
 当一个 target 目录是 symlink 时，sync 会检查它是否指向 skillshare 的 source 目录。
@@ -736,6 +738,7 @@ token 数相同的 Target 会被合并显示在同一行。
 context_budget:
   warn_always_loaded_tokens: 10000   # 默认值；0 = 停用
   warn_on_demand_tokens: 100000      # 默认值；0 = 停用
+  warn_mcp_tool_tokens: 30000        # 默认值；0 = 停用
 ```
 
 当超过阈值时，会显示一条警告并列出前 3 名消耗者：
@@ -747,6 +750,16 @@ context_budget:
      • another-verbose-skill           ~6,400 tokens
      • chatgpt-system-prompt           ~5,100 tokens
    Run `skillshare analyze` for details.
+```
+
+### MCP 工具定义
+
+`skillshare sync mcp` 和 `skillshare sync --all` 在 MCP 步骤之后（即使没有文件改变），还会打印每个 MCP target 的工具定义成本，并在某个 target（或某个 `mcp.projects` 根目录）超过 `warn_mcp_tool_tokens` 时警告。数值来自 [`mcp check --live`](/docs/reference/commands/mcp#count-tool-tokens)，因此在 live 检查统计过某个 server 之前不会打印任何内容；尚未统计的 server 会被点名，绝不会算作 0：
+
+```
+MCP tool definitions (upper bound)  claude ~6.8K · codex ~5.7K
+! claude: MCP tool definitions are ~6,750 tokens (budget: 5,000)
+   Largest: github ~3,276, playwright ~1,932, sentry ~1,092
 ```
 
 ### Quiet Mode

@@ -6,15 +6,39 @@ import { mcpApi } from '../../api/mcp';
 import { I18nProvider } from '../../i18n';
 import MCPRemoveDialog from './MCPRemoveDialog';
 
-vi.mock('../../api/mcp', async (load) => ({ ...await load<typeof import('../../api/mcp')>(), mcpApi: { preview: vi.fn(), configure: vi.fn() } }));
+vi.mock('../../api/mcp', async (load) => ({
+  ...(await load<typeof import('../../api/mcp')>()),
+  mcpApi: { preview: vi.fn(), configure: vi.fn() },
+}));
 
 it('removes from source without syncing when an Agent entry conflicts', async () => {
   const user = userEvent.setup();
   const saved = vi.fn();
-  vi.mocked(mcpApi.preview).mockResolvedValue({ revision: 'reviewed', sourcePath: '/config.yaml', blocked: true, changes: [{ target: 'cursor', path: '/.cursor/mcp.json', name: 'docs', action: 'conflict', message: 'Agent configuration changed; import it or explicitly replace this entry' }] });
+  vi.mocked(mcpApi.preview).mockResolvedValue({
+    revision: 'reviewed',
+    sourcePath: '/config.yaml',
+    blocked: true,
+    changes: [
+      {
+        target: 'cursor',
+        path: '/.cursor/mcp.json',
+        name: 'docs',
+        action: 'conflict',
+        message: 'Agent configuration changed; import it or explicitly replace this entry',
+      },
+    ],
+  });
   vi.mocked(mcpApi.configure).mockResolvedValue({ applied: [], backupIds: [] });
-  render(<QueryClientProvider client={new QueryClient()}><I18nProvider><MCPRemoveDialog name="docs" onClose={vi.fn()} onSaved={saved} /></I18nProvider></QueryClientProvider>);
-  expect(await screen.findByText('Agent config was changed outside skillshare')).toBeInTheDocument();
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <I18nProvider>
+        <MCPRemoveDialog name="docs" onClose={vi.fn()} onSaved={saved} />
+      </I18nProvider>
+    </QueryClientProvider>,
+  );
+  expect(
+    await screen.findByText('Agent config was changed outside skillshare'),
+  ).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Remove and sync' })).toBeDisabled();
   await user.click(screen.getByRole('button', { name: 'Remove from source only' }));
   await waitFor(() => expect(saved).toHaveBeenCalled());
@@ -24,11 +48,28 @@ it('removes from source without syncing when an Agent entry conflicts', async ()
 it('stops managing a server without syncing, in the project it belongs to', async () => {
   const user = userEvent.setup();
   const saved = vi.fn();
-  vi.mocked(mcpApi.preview).mockImplementation(async (m) => ({ revision: m?.unmanage ? 'kept' : 'reviewed', sourcePath: '/config.yaml', blocked: false, changes: m?.unmanage ? [] : [{ target: 'cursor', path: '/work/app/.cursor/mcp.json', name: 'docs', action: 'remove' }] }));
+  vi.mocked(mcpApi.preview).mockImplementation(async (m) => ({
+    revision: m?.unmanage ? 'kept' : 'reviewed',
+    sourcePath: '/config.yaml',
+    blocked: false,
+    changes: m?.unmanage
+      ? []
+      : [{ target: 'cursor', path: '/work/app/.cursor/mcp.json', name: 'docs', action: 'remove' }],
+  }));
   vi.mocked(mcpApi.configure).mockResolvedValue({ applied: [], backupIds: [] });
-  render(<QueryClientProvider client={new QueryClient()}><I18nProvider><MCPRemoveDialog name="docs" project="/work/app" onClose={vi.fn()} onSaved={saved} /></I18nProvider></QueryClientProvider>);
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <I18nProvider>
+        <MCPRemoveDialog name="docs" project="/work/app" onClose={vi.fn()} onSaved={saved} />
+      </I18nProvider>
+    </QueryClientProvider>,
+  );
   await waitFor(() => expect(screen.getByRole('button', { name: 'Stop managing' })).toBeEnabled());
   await user.click(screen.getByRole('button', { name: 'Stop managing' }));
   await waitFor(() => expect(saved).toHaveBeenCalledWith(true));
-  expect(mcpApi.configure).toHaveBeenCalledWith({ project: '/work/app', name: 'docs', remove: true, unmanage: true }, 'kept', false);
+  expect(mcpApi.configure).toHaveBeenCalledWith(
+    { project: '/work/app', name: 'docs', remove: true, unmanage: true },
+    'kept',
+    false,
+  );
 });

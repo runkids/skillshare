@@ -30,8 +30,8 @@ For an explicit version such as `0.23.3`, put `Release-As: 0.23.3` after a blank
 2. Review the proposed version and user-facing notes on the Release PR branch. `python3 scripts/release/release.py sync` normalizes the heading and syncs the files; `check` verifies their agreement. Run these helpers inside the devcontainer. Bot PR creation and updates using `GITHUB_TOKEN` may leave PR CI awaiting the maintainer's native **Approve workflows to run** prompt.
 3. Merging the Release PR selects its exact merge SHA for the reusable Test workflow. Formatting, lint, Go unit/integration tests, release helper tests, Docker sandbox tests and applicable red-team jobs must pass before tagging. If another merged pending release appears during testing, the tag job stops. The ordinary push run of Test skips that merge commit, because this gate already tests it; the Release PR's own runs still execute as required checks.
 4. Release Please creates the stable tag and an unpublished draft with `force-tag-creation`. The workflow explicitly calls **Build Release Draft**; it does not depend on a `GITHUB_TOKEN` tag push triggering another workflow.
-5. GoReleaser builds all six CLI archives, UI assets and an unpublished Homebrew formula. The draft remains unpublished. The helper verifies filenames, all checksums, formula version/URLs and the actual native Linux CLI version. Contributors are added to the reviewed changelog-based release notes.
-6. After reviewing the draft, explicitly authorize **Publish Release** with the exact tag. It verifies the downloaded assets again before publication, then updates Homebrew and explicitly calls Docker Publish and Website Pages. Release Docker images and the website use the same tag commit. Draft tags never publish Docker images, update the tap or deploy the website; pushes to `main` do not deploy it either.
+5. GoReleaser builds all six CLI archives, UI assets and an unpublished Homebrew formula. The helper wraps each archive's binary in a PyPI wheel and attaches the wheels to the draft. The draft remains unpublished. The helper verifies filenames, all checksums, formula version/URLs, that each wheel holds exactly its archive's binary, and the actual native Linux CLI version. Contributors are added to the reviewed changelog-based release notes.
+6. After reviewing the draft, explicitly authorize **Publish Release** with the exact tag. It verifies the downloaded assets again before publication, then updates Homebrew, uploads the verified wheels to PyPI and explicitly calls Docker Publish and Website Pages. Release Docker images and the website use the same tag commit. Draft tags never publish Docker images, update the tap or deploy the website; pushes to `main` do not deploy it either.
 
 For automation setup, the repository must allow GitHub Actions to create pull requests under **Settings > Actions > General > Workflow permissions**. Workflow YAML grants scoped write permissions; it does not change repository settings or native approval rules. Keep Conventional Commit messages on `main`; ordinary merge and squash-merge of a Release PR are both supported.
 
@@ -67,6 +67,27 @@ Installs skip the unit tests; only the flake's `checks` run them. The **Nix** wo
 - `go.mod` requiring a Go minor version newer than the locked nixpkgs ships fails evaluation with a message saying so: run `nix flake update`. Newer patch versions need nothing, because `postPatch` lowers the `go` directive to the toolchain's version.
 
 The devcontainer has no Nix, so reproduce Nix failures in a throwaway `nixos/nix` container, never on the host: `docker run --rm --privileged -v "$PWD":/src -w /src nixos/nix nix --extra-experimental-features 'nix-command flakes' build --option sandbox true -L path:/src`.
+
+## PyPI
+
+The CLI ships on PyPI as `skillshare-cli`, because `skillshare` there is an unrelated project. Each release adds six binary-only wheels, one per archive: `scripts/release/release.py` writes them during `prepare-assets`, with fixed timestamps so a rebuild is byte-identical, and `verify-assets` checks each wheel's binary, version, entries and RECORD against its archive. The `pypi` job in **Publish Release** uploads exactly the wheels that job verified, using Trusted Publishing, so no token is stored, and the action attaches a signed provenance attestation to each file. `skip-existing` makes a rerun safe. Wheels carry no install-time code, and no sdist is published.
+
+One-time setup:
+
+1. On PyPI, under **Your account > Publishing > Add a new pending publisher > GitHub**, enter project `skillshare-cli`, owner `runkids`, repository `skillshare`, workflow `publish-release.yml`, environment `pypi`. The project is created on the first upload. v0.32.0 was the first release on PyPI, and `README.md` and the translated READMEs list it as an install option.
+2. In **Settings > Environments**, create `pypi`. Under **Deployment branches and tags**, allow only `main`, so a workflow edited on another branch cannot publish. Adding yourself as a required reviewer is optional.
+
+Until both exist, only the `pypi` job fails; the release, Homebrew, Docker and website jobs do not depend on it.
+
+PyPI limits a project's total size, 10 GB by default, and each release adds about 63 MB. Ask PyPI for a higher limit, or delete old releases there, before uploads start failing.
+
+To try a draft's wheels on TestPyPI before publishing, run this in the devcontainer with a TestPyPI API token:
+
+```bash
+gh release download vX.Y.Z --pattern '*.whl' --dir /tmp/wheels
+uv publish --publish-url https://test.pypi.org/legacy/ --token "$TESTPYPI_TOKEN" /tmp/wheels/*.whl
+uvx --default-index https://test.pypi.org/simple/ --from skillshare-cli skillshare version
+```
 
 ## Verification and Report
 

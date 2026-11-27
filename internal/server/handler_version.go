@@ -62,22 +62,27 @@ func (s *Server) handleVersionCheck(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// `skillshare upgrade` updates both everywhere but leaves a Nix-store CLI
-	// to Nix, so the dialog also says how Nix updates it.
-	var nixUpgradeCommand *string
-	if method.IsNix() {
-		command := method.UpgradeCommand()
+	// `skillshare upgrade` updates both everywhere but leaves a Nix-store,
+	// PyPI or pixi CLI to its package manager, so the dialog also says how
+	// that manager updates it.
+	var nixUpgradeCommand, pypiUpgradeCommand, pixiUpgradeCommand *string
+	if command := method.UpgradeCommand(); method.IsNix() {
 		nixUpgradeCommand = &command
+	} else if method.IsPyPI() {
+		pypiUpgradeCommand = &command
+	} else if method.IsPixi() {
+		pixiUpgradeCommand = &command
 	}
 
 	// Skill version (local) — always check global source for built-in skill
-	skillSourceDir := source
+	skillSourceDir, skillWalk := source, s.skillsWalk()
 	if isProjectMode {
 		if globalCfg, err := config.LoadReadOnly(); err == nil {
-			skillSourceDir = globalCfg.EffectiveSkillsSource()
+			skillSourceDir, skillWalk = globalCfg.EffectiveSkillsSource(), globalCfg.SkillsWalk()
 		}
 	}
-	skillVersion := versioncheck.ReadLocalSkillVersion(skillSourceDir)
+	skill, _ := versioncheck.FindLocalSkill(skillSourceDir, skillWalk)
+	skillVersion, skillDisabled := skill.Version, skill.Disabled
 
 	// Skill version (remote) — uses 24h cache, network call with 3s timeout
 	var skillLatest *string
@@ -115,7 +120,10 @@ func (s *Server) handleVersionCheck(w http.ResponseWriter, r *http.Request) {
 		"cliUpdateAvailable":   cliUpdateAvailable,
 		"cliDevMode":           cliDevMode,
 		"nixUpgradeCommand":    nixUpgradeCommand,
+		"pypiUpgradeCommand":   pypiUpgradeCommand,
+		"pixiUpgradeCommand":   pixiUpgradeCommand,
 		"skillVersion":         skillVersion,
+		"skillDisabled":        skillDisabled,
 		"skillLatest":          skillLatest,
 		"skillUpdateAvailable": skillUpdateAvailable,
 	})

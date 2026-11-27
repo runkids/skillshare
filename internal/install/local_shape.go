@@ -1,7 +1,6 @@
 package install
 
 import (
-	"path/filepath"
 	"strings"
 )
 
@@ -60,14 +59,7 @@ func isSkillFileOnlyLocalInstall(source *Source, destPath, sourceDir string) boo
 	if source.Type != SourceTypeLocalPath {
 		return false
 	}
-	if sourceDir == "" {
-		sourceDir = filepath.Dir(destPath)
-	}
-	rel, err := filepath.Rel(sourceDir, destPath)
-	if err != nil {
-		return false
-	}
-	entry := LoadMetadataOrNew(sourceDir).GetByPath(filepath.ToSlash(rel))
+	entry := recordedEntry(destPath, sourceDir)
 	if entry == nil {
 		return false
 	}

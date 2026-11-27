@@ -26,7 +26,7 @@ end
 # Project command
 complete -c skillshare -n __fish_skillshare_no_subcommand -a project -d 'Manage project folders'
 complete -c skillshare -n '__fish_skillshare_using_command project' -a 'list show add edit sync remove localize share'
-complete -c skillshare -n '__fish_skillshare_using_command project' -l target -r -a 'adal aiderdesk amp antigravity antigravity-cli astrbot augment autohand-code bob claude cline codearts codebuddy codestudio codex comate commandcode continue copilot cortex crush cursor deepagents deepseek-harness devin dexto droid firebender forgecode fx gemini gitlab-duo goose grok hermes iflow jazz junie kilocode kimchi kimi kimi-code kiro kode letta lingma mcpjam mux neovate omp ona openclaw opencode openhands pi pochi posit-assistant purecode qoder qoder-cn qwen reasonix replit roo rovodev tabnine trae trae-cn universal verdent vibe warp windsurf witsy xcode-claude xcode-codex zcode zed zencoder'
+complete -c skillshare -n '__fish_skillshare_using_command project' -l target -r -a 'adal aiderdesk amp antigravity antigravity-cli astrbot augment autohand-code bob claude cline codearts codebuddy codestudio codex comate commandcode continue copilot cortex crush cursor deepagents deepseek-harness devin dexto droid firebender forgecode fx gemini gitlab-duo goose grok hermes iflow jazz junie kilocode kimchi kimi kimi-code kiro kode letta lingma mcpjam minimax-code mux neovate omp ona openclaw opencode openhands pi pochi posit-assistant purecode qoder qoder-cn qwen reasonix replit roo rovodev tabnine trae trae-cn universal verdent vibe warp windsurf witsy xcode-claude xcode-codex zcode zed zencoder'
 complete -c skillshare -n '__fish_skillshare_using_command project' -l name -r
 complete -c skillshare -n '__fish_skillshare_using_command project' -l skills
 complete -c skillshare -n '__fish_skillshare_using_command project' -l no-skills
@@ -37,6 +37,7 @@ complete -c skillshare -n '__fish_skillshare_using_command project' -l agents-mo
 complete -c skillshare -n '__fish_skillshare_using_command project' -l skills-naming -r -a 'flat standard prefixed'
 complete -c skillshare -n '__fish_skillshare_using_command project' -l skills-include -r
 complete -c skillshare -n '__fish_skillshare_using_command project' -l skills-exclude -r
+complete -c skillshare -n '__fish_skillshare_using_command project' -l scan -x -a '(__fish_complete_directories)' -d 'Also add Git checkouts below this folder'
 complete -c skillshare -n '__fish_skillshare_using_command project' -l machine-local -d 'Save a new project on this machine only'
 complete -c skillshare -n '__fish_skillshare_using_command project' -l shared -d 'Save in config.yaml, or also remove its copy'
 complete -c skillshare -n '__fish_skillshare_using_command project' -l agents-include -r
@@ -65,7 +66,7 @@ complete -c skillshare -n __fish_skillshare_no_subcommand -a search -d 'Search o
 complete -c skillshare -n __fish_skillshare_no_subcommand -a sync -d 'Sync skills/agents/extras/MCP to targets'
 complete -c skillshare -n __fish_skillshare_no_subcommand -a plugin -d 'Manage complete native plugins'
 complete -c skillshare -n '__fish_skillshare_using_command plugin' -a 'add discover import unimport list inspect sync check update enable disable remove'
-complete -c skillshare -n '__fish_skillshare_using_command plugin' -l target -r -a 'claude codex cursor antigravity agy antigravity-cli copilot grok kimi hermes devin pi opencode omp' -d 'Plugin target'
+complete -c skillshare -n '__fish_skillshare_using_command plugin' -l target -r -a 'claude codex cursor antigravity agy antigravity-cli copilot grok kimi hermes devin pi opencode omp herdr-app' -d 'Plugin target'
 complete -c skillshare -n '__fish_skillshare_using_command plugin' -l from -r -a 'claude codex cursor antigravity agy antigravity-cli copilot grok kimi hermes devin pi opencode omp' -d 'Plugin target'
 complete -c skillshare -n '__fish_skillshare_using_command plugin' -l plugin -r
 complete -c skillshare -n '__fish_skillshare_using_command plugin' -l name -r
@@ -111,6 +112,8 @@ complete -c skillshare -n '__fish_skillshare_using_command hooks' -l from -r -d 
 complete -c skillshare -n '__fish_skillshare_using_command hooks' -l sync -d 'Sync after saving'
 complete -c skillshare -n '__fish_skillshare_using_command hooks' -l replace -d 'Replace an existing entry'
 complete -c skillshare -n '__fish_skillshare_using_command hooks' -l keep-files -d 'remove: leave Agent entries as they are'
+complete -c skillshare -n '__fish_skillshare_using_command hooks' -l trust -d 'sync: record Codex trust'
+complete -c skillshare -n '__fish_skillshare_using_command hooks' -s y -l yes -d 'sync --trust: record trust without asking'
 complete -c skillshare -n '__fish_skillshare_using_command hooks' -l revision -r -d 'Preview revision'
 complete -c skillshare -n '__fish_skillshare_using_command hooks' -s n -l dry-run -d 'Preview changes'
 complete -c skillshare -n '__fish_skillshare_using_command hooks' -l json -d 'JSON output'
@@ -336,6 +339,7 @@ complete -c skillshare -n '__fish_skillshare_using_command update' -a agents -d 
 complete -c skillshare -n '__fish_skillshare_using_command update' -l all -s a -d 'Update all'
 complete -c skillshare -n '__fish_skillshare_using_command update' -l dry-run -s n -d 'Preview changes'
 complete -c skillshare -n '__fish_skillshare_using_command update' -l force -s f -d 'Force update'
+complete -c skillshare -n '__fish_skillshare_using_command update' -l merge -d 'Merge upstream changes into local edits'
 complete -c skillshare -n '__fish_skillshare_using_command update' -l skip-audit -d 'Skip security audit'
 complete -c skillshare -n '__fish_skillshare_using_command update' -l audit-threshold -r -a 'low medium high critical' -d 'Set audit threshold'
 complete -c skillshare -n '__fish_skillshare_using_command update' -l threshold -s T -r -a 'low medium high critical' -d 'Set audit threshold'

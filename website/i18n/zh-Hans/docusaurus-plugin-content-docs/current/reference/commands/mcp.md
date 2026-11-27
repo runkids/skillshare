@@ -67,7 +67,7 @@ skillshare sync --all
 或在非交互模式下打印状态。不带名称的非交互式 import 会列出
 已解析的候选项以供选择，并不会保存。候选项包含可移植的
 定义，可识别的密钥会被转换为引用。Agent 专属的
-字段会作为警告列出并被省略；已禁用的 server 和不受支持的
+字段会放入该 Agent 的 [`options`](#agent-options)；`options` 无法容纳的字段会作为警告列出并被省略。已禁用的 server 和不受支持的
 传输方式会阻止该候选项。`restore` 在应用之前总会再次预览；
 使用 `--dry-run` 可以在不应用的情况下查看预览。
 
@@ -129,6 +129,7 @@ Skillshare 配置中。schema 是仓库中的 `schemas/mcp.schema.json`。
 | `options` | 其他 Agent 的原生单个 server 字段，以 client ID 为 key，例如 Codex 的审批模式或 Claude Code 的超时。参见[下文](#agent-options) |
 | `piOptions` | Pi 内置 MCP 的其他单个 server 字段。参见 [Pi](#pi-options) |
 | `disabled` | 仅限 `true`，不能有其他连接字段，且必须有 project 在作用范围内：project mode，或 `mcp.projects` 下的某个项目根目录。参见[下文](#turn-off-a-global-server-in-one-project) |
+| `global` | 仅限 global 配置的 `mcp.servers`。`false` 表示默认不在任何 project 中加载该 server；只有在 `use` 中列出它的根目录才会得到它。默认为 `true`。参见[与选定的项目共享 server](#share-a-server-with-chosen-projects) |
 
 Client ID 有 `claude`、`codex`、`cursor`、`vscode`、`opencode`、`kilocode`、
 `grok`、`antigravity`、`amp`、`claude-desktop`、`cline`、`copilot`、`factory`、`gemini`、
@@ -165,6 +166,7 @@ servers:
   `{env:VAR}`，且整个值必须就是引用。Agent 的文件可能会被提交，因此明文或引用前后带有文字的值会被拒绝。
   Codex、Antigravity、Claude Desktop、Goose、Junie、LM Studio 和 Warp 不会读取那里的引用，所以它们的 options 不能放凭据。
 - 该 server 触达不到的 client 的 options 会被保留，但不会写入。
+- import 会把 Agent 的原生字段中此处没有可移植形式的部分，放在该 Agent 的 ID 下，例如 Claude Code 的 `alwaysLoad` 会放在 `options.claude` 下。名称（或其内部名称）看起来是凭据的字段（`auth`、`key`、`token`、`secret`、`bearer`、`cookie` 等），以及上述规则拒绝的字段，会显示 warning 并被省略。未指定 `--from` 导入的文件或粘贴的文本，或在控制台粘贴 JSON 且 **From** 保持 **Any Agent** 时，其格式是推测的，因此原生字段会列为 warning 并被省略。
 - 当 sync 重新创建条目时，例如重命名之后，会再次写入这些字段。
   当 source 删掉某个 option 时，下一次 sync 会移除它写入的字段，除非 Agent 在此之后改过它；那属于需要 import 或 replace 的冲突。
 - 在仪表板中，server 对话框的 **其他 Agent 设置** 可以编辑它们：选择 Agent，再以 JSON 对象输入字段。
@@ -232,7 +234,7 @@ skillshare mcp edit docs --target claude   # 把它加回来
 | [Windsurf (Cascade)](https://docs.devin.ai/desktop/cascade/mcp) | `~/.codeium/windsurf/mcp_config.json` | 仅限 Global | `mcpServers` |
 | [Oh My Pi (OMP)](https://github.com/can1357/oh-my-pi/blob/v18.6.1/docs/mcp-config.md) | `~/.omp/agent/mcp.json` | `.omp/mcp.json` | `mcpServers` |
 
-Hermes 仅支持 Global MCP，使用 `mcp_servers`（YAML）；支持 stdio 和 Streamable HTTP，拒绝导入 SSE。绝对路径 `HERMES_HOME` 可选择其他 home/profile；未指定时使用 default profile，Windows 默认为 `%LOCALAPPDATA%/hermes`。不自动跟踪 active profile、`--profile` 或 `HERMES_DATA_DIR_SUFFIX`。`fromEnv` 写为 `${VAR}`，env/header 导入也接受 `${env:VAR}`。使用 `options.hermes: {auth: oauth}` 启用原生 OAuth；导入会保留 `auth`／`oauth`，其中的明文凭据会阻止导入，请先改为完整的 `${VAR}` 引用。其他未映射字段会产生警告。登录、`.env`、token 和 refresh state 由 Hermes 管理，在相同 profile 执行 `hermes mcp login NAME`。YAML 保留规则与限制同 Goose。
+Hermes 仅支持 Global MCP，使用 `mcp_servers`（YAML）；支持 stdio 和 Streamable HTTP，拒绝导入 SSE。绝对路径 `HERMES_HOME` 可选择其他 home/profile；未指定时使用 default profile，Windows 默认为 `%LOCALAPPDATA%/hermes`。不自动跟踪 active profile、`--profile` 或 `HERMES_DATA_DIR_SUFFIX`。`fromEnv` 写为 `${VAR}`，env/header 导入也接受 `${env:VAR}`。使用 `options.hermes: {auth: oauth}` 启用原生 OAuth；导入会保留 `auth`／`oauth`，其中的明文凭据会阻止导入，请先改为完整的 `${VAR}` 引用。其他原生字段与任何 Agent 一样，放在 `options.hermes` 下。登录、`.env`、token 和 refresh state 由 Hermes 管理，在相同 profile 执行 `hermes mcp login NAME`。YAML 保留规则与限制同 Goose。
 
 仪表盘的 server 表单编辑 HTTP header 的方式与编辑环境变量相同，
 包括 `fromEnv` 引用。**View what each Agent gets** 位于某个 server 的菜单中，
@@ -245,7 +247,7 @@ JSON 条目会按照文件自身的缩进方式，逐字段单独一行写入。
 按分行格式写入。它不拥有的条目，以及由人工手动格式化的条目，会保留原有的格式。
 
 仪表盘只提供当前作用域和主机平台下可用的目标位置。每个 server 是
-一行，名称下方以 chip 显示它会写入的 client；右侧的计数按钮会打开该 server 的完整 client 列表。仅限 Global 的 client
+一行，右侧的计数按钮显示它会写入的 client 的 logo，并会打开该 server 的完整 client 列表。仅限 Global 的 client
 在 project mode 中无法被选中。右侧的 **Sync** 框列出了尚未写入的
 更改：勾选某个 client 只会编辑 source。**Sync MCP** 会列出这些更改，并在你确认后
 只写入 MCP 配置文件，同时为每个文件保留一份备份。同一个框中分隔线下方，
@@ -255,11 +257,14 @@ client 的 MCP 文件存在，或该 client 用于保存设置的文件夹存在
 已检测到，因此即使是全新安装、还没有 MCP 文件，也仍会出现在列表中。在 project mode 下，
 当项目拥有自己的 MCP 文件，或该 client 在全局范围内被检测到时，就会列出该 client。
 每个检测到的 client 会显示其 MCP 文件名，**Copy path** 会复制完整路径。文件存在后，
-**Open in editor** 会用与 skill 的 **Open in editor** 相同的编辑器打开它。**Open folder**
-会用文件管理器（Finder、文件资源管理器，Linux 上为默认处理程序）打开文件所在的文件夹；
+**View file** 会在页面中以只读方式显示它；即使运行 dashboard 的机器上什么都打不开
+（例如 WSL 与 Windows 隔离），也能使用；超过 1 MB 的文件不会显示。**Open in editor** 会用与 skill 的 **Open in editor** 相同的编辑器打开它。dashboard 没有
+终端可以显示编辑器，所以会跳过 `$VISUAL` 或 `$EDITOR` 中 nano、vim 这类常见终端编辑器；在
+WSL 中找不到 GUI 编辑器时，由 Windows 用与该文件关联的程序打开。**Open folder** 会用文件
+管理器（Finder、Windows 和 WSL 上为文件资源管理器，Linux 上为默认处理程序）打开文件所在的文件夹；
 client 还没写入文件时，打开最近一个已存在的文件夹。这样不必设置 `$EDITOR` 也能用任意程序
-打开文件。两者都在运行 dashboard 的机器上启动，所以只有当浏览器也在那台机器上打开（通过
-`localhost` 或 SSH 端口转发）时才会显示这些按钮，通过局域网地址或反向代理访问时不会显示。
+打开文件。两者都在运行 dashboard 的机器上启动，而且文件可能含有 token，所以只有当浏览器也在那台机器上打开（通过
+`localhost` 或 SSH 端口转发）时才会显示这些按钮和 **View file**，通过局域网地址或反向代理访问时不会显示。
 
 其他 client 细节：
 
@@ -269,8 +274,8 @@ client 还没写入文件时，打开最近一个已存在的文件夹。这样�
   Codex 只有在信任某个项目时才会读取 `.codex/config.toml`；在不受信任的
   项目中，同步的 server 不会被加载，也不会报错。`cwd`、
   `http_headers_helper`、审批模式、超时以及 `oauth` 表
-  都没有可移植的形式：import 会将它们省略并给出警告，sync 则会将它们保留在
-  现有条目中。若要从 source 设置它们，请使用 [`options.codex`](#agent-options)。`enabled_tools` 和 `disabled_tools` 来自
+  都没有可移植的形式：import 会将它们放入 [`options.codex`](#agent-options)，sync 会写回；
+  但 `oauth` 表这类可能含有凭据的字段除外，会显示 warning 并被省略。`enabled_tools` 和 `disabled_tools` 来自
   [工具策略](#tool-policy)，导入时也会读回策略中。由 Codex 插件捆绑的 MCP server 配置在
   `plugins.<plugin>.mcp_servers` 下，不由此处管理。
 - Claude Desktop 的文件同步**仅支持 stdio**，仅限 macOS 和 Windows。
@@ -355,8 +360,9 @@ OpenCode 和 Kilo Code 使用 `local`/`remote` 类型以及 `{env:VARIABLE}` 引
 `${VARIABLE}` 引用。Skillshare 会自动转换这些格式。Claude 的
 `"type": "streamable-http"` 会作为 HTTP 导入。已禁用的连接会阻止导入。
 其他没有可移植等价形式的原生选项，例如 Codex 的
-`startup_timeout_sec` 或 `envFile`，会在导入时被省略并给出警告；
-sync 会将它们保留在 Agent 现有的条目中。Pi 使用它的内置 MCP；参见
+`startup_timeout_sec` 或 Claude Code 的 `alwaysLoad`，会导入到该 Agent 的 [`options`](#agent-options) 下，
+因此 sync 会把它们写回该 Agent，而不会写入其他 Agent。`options` 无法容纳的字段，例如明文凭据或 `null`，
+会在导入时被省略并给出警告；sync 会将它们保留在 Agent 现有的条目中。Pi 使用它的内置 MCP；参见
 [下文](#pi)。
 
 VS Code Stable 的默认用户文件是：
@@ -499,8 +505,8 @@ skillshare sync mcp
 - **Skillshare 自身定义的 server 不需要这个方法。** 只需在该 server 上取消选择
   该 Agent，下一次同步就会移除它的条目。
 
-在仪表盘中，这就是 **关闭全局服务器** 按钮。在 project mode 中它位于 **服务器** 标题旁边；
-在项目的 MCP 标签页中，则位于 **添加服务器** 旁边。
+在仪表盘中，这就是 **按名称关闭 MCP** 按钮。在 project mode 中它位于 **MCP** 标题旁边；
+在项目的 MCP 标签页中，则位于 **添加 MCP** 旁边。
 
 ## 通过 global 配置管理多个项目 {#manage-several-projects-from-the-global-config}
 
@@ -551,26 +557,98 @@ context7     add          opencode (~/work/project01/opencode.json)
 从列表中移除某个项目后，下一次同步会移除 Skillshare 在那里写入的条目，
 与移除一个 server 的行为相同。
 
-要让多个项目使用同一个 server，可以用 YAML anchor 定义一次，然后
-复用它：
+### 与选定的项目共享 server {#share-a-server-with-chosen-projects}
+
+要让多个项目使用同一个 server，又不必在每个项目里各放一份副本，可以在
+`mcp.servers` 中用 `global: false` 定义一次，并在每个应加载它的项目的 `use` 中列出它：
+
+```yaml
+# ~/.config/skillshare/config.yaml
+mcp:
+  targets: [claude]
+  servers:
+    context7:                    # global: loads in every folder
+      command: npx
+      args: ["-y", "@upstash/context7-mcp@4.4.1"]
+    internal-docs:
+      global: false              # loads in no project unless a root uses it
+      url: https://docs.example.com/mcp
+  projects:
+    ~/work/project01:
+      use: [internal-docs]
+      servers:
+        local-db:                # this project only
+          command: ./scripts/db-mcp
+    ~/work/project02:
+      use: [internal-docs]
+```
+
+`global: false` 的 server 永远不会写入 Agent 的 global 文件。Sync 会把它写入
+每个使用它的根目录，写到该根目录的 `targets`，除非该 server 自己指定了
+`targets`。修改它一次，下次 sync 时每个使用它的根目录都会更新。没有任何根目录
+使用的共享 server 不会写到任何地方。把原本是 global 的 server 改为 `global: false`
+后，下次 sync 会从 global 文件中移除 Skillshare 写入的条目。
+
+规则：
+
+- 每个 `use` 名称都必须是 `mcp.servers` 中的某个 `global: false` server，且只能出现一次。
+- 同一个名称不能同时出现在某个根目录的 `use` 和该根目录自己的 `servers` 中，
+  无论是作为 server 还是作为 `disabled` 条目。
+- `global` 在 `mcp.projects.<root>.servers` 下、项目自己的配置（`-p`）中，以及与 `disabled`
+  同时使用时都会被拒绝。省略它或写 `global: true` 是默认值，保存配置时会被去掉。
+- 共享 server 的 `targets` 不能指定[账号](#accounts)，例如 `claude-work`，因为所有账号读取的
+  是同一批项目文件。请指定 Agent，例如 `claude`。
+- 移除共享 server，或把它改回 global，会在同一次保存中从每个 `use` 列表里移除它的名称。
+- 编辑共享 server 时会保留它的 `global: false`，除非该次编辑设置了 `global`。
+
+#### 只在一个项目中修改共享 server {#override-a-shared-server}
+
+根目录可以在 `overrides` 下、以 server 名称为 key，修改它所使用的共享 server 的部分设置。
+连接设置（`command`、`args`、`url`、`headers`、`env`）沿用共享 server 的，只需定义一次：
 
 ```yaml
 mcp:
+  targets: [pi]
+  servers:
+    internal-docs:
+      global: false
+      url: https://docs.example.com/mcp
+      piOptions:
+        exposure: codemode
   projects:
     ~/work/project01:
-      servers:
-        internal-docs: &internal-docs
-          url: https://example.com/mcp
-          targets: [opencode]
+      use: [internal-docs]
     ~/work/project02:
-      servers:
-        internal-docs: *internal-docs
+      use: [internal-docs]
+      overrides:
+        internal-docs:
+          piOptions:
+            exposure: direct     # 仅 project02；project01 保持 codemode
 ```
 
-请把 anchor 保留在 `mcp.projects` 内部。指向 `mcp.servers` 上某个 anchor 的别名（alias）
-也能工作，但 `skillshare mcp add` 和仪表盘会重写 `mcp.servers`；它们在
-保存时会把这样的别名完整展开写出，以保证文件仍然有效，此后它就不再
-跟随对该 global server 的后续修改。
+| 字段 | 在该根目录中 |
+|---|---|
+| `targets` | 取代 server 的 targets；空列表表示该 root 不写入这个 server |
+| `tools` | 取代 server 的工具策略 |
+| `piOptions` | 按 key 合并进 server 的值 |
+| `options` | 按 Agent 和 key 合并进 server 的值 |
+
+根目录实际加载的 server 也必须符合上面的所有规则，因此 override 的 `targets` 不能指定账号，
+也不能设置 Pi 没有的 exposure。override 只能指定该根目录 `use` 中的 server。在该根目录关闭
+这个 server、移除它，或把它改回 global，都会在同一次保存中移除 override。
+
+`skillshare mcp list` 会为每个共享 server 增加一个 `shared` 行，列出使用它的项目，
+或显示 `not used by any project`。`mcp list --json` 有一个顶层的 `shared` 数组：
+
+```json
+{"shared": [{"name": "internal-docs", "projects": ["~/work/project01", "~/work/project02"]}]}
+```
+
+交互式列表会显示使用共享 server 的项目的 targets，详情中会列出这些项目。没有项目使用共享 server 时，`mcp check` 会注明。
+
+此版本不会把已有的各项目副本转换成共享 server，也没有命令可以编辑 `use` 或 `overrides`。请编辑
+`config.yaml`，或使用[仪表盘](#projects-in-the-dashboard)中的开关和 **Override** 对话框。通过 `mcp.projects`
+内部的 YAML anchor 共享的 server 仍然可用，但仪表盘和 `skillshare mcp add` 不会把这些副本视为互相关联。
 
 ### 仪表盘中的项目 {#projects-in-the-dashboard}
 
@@ -582,16 +660,21 @@ mcp:
 
 - **添加项目** 需要填写文件夹和它的 targets。勾选 **MCP** 可以让该文件夹同时列在
   `mcp.projects` 下。
-- **MCP** 标签页列出每个 global server，并各带一个开关。关闭其中一个，会保存一条
-  不带 `targets` 的 `disabled` 条目，因此它会如[上文](#turn-off-a-global-server-in-one-project)所述
-  跟随项目的 targets；重新打开则会移除该条目。其下方是只存在于该项目中的 server。
+- **MCP** 标签页分为三个区块。**On in every project** 列出 global server，并各带一个开关：
+  关闭其中一个，会保存一条不带 `targets` 的 `disabled` 条目，因此它会如[上文](#turn-off-a-global-server-in-one-project)所述
+  跟随项目的 targets；重新打开则会移除该条目。**Opt-in servers** 列出[共享 server](#share-a-server-with-chosen-projects)，
+  默认关闭；它的开关会在项目的 `use` 中添加或移除该名称。
+  **Only in this project** 列出只存在于该项目中的 server。
+- 在 MCP 页面上，server 的对话框有 **Loads in**：**Every project**，或 **Chosen
+  projects**。只要有共享 server，列表就会分成 **Global** 和 **Only in chosen projects** 两区，共享 server 的行会显示 **N projects**。展开该行，或在对话框中选择 **Chosen projects**，会为 `mcp.projects` 的每个根目录列出一个勾选框。**Save** 会一次性在所有勾选或取消勾选的根目录的 `use` 中加入或移除该名称。**Add folder…** 会加入尚未列出的根目录；它没有自己的 `targets`，所以使用 `mcp.targets`。若某个根目录自己定义了同名 server，会标上 **Has its own** 和该名称。每个列出的根目录上的箭头会打开该项目的 **MCP** 标签页；它会等到勾选（在对话框中还包括其他字段）已保存或放弃后才执行。
+- 使用共享 server 的项目可以 [override](#override-a-shared-server) 其中一部分设置。在 MCP 页面展开该行，每个使用该 server 的项目都会显示它的 override；若项目继承了 Pi 的 tool exposure，则显示该值，并带有 **Override** 或 **Edit override**；行标题会统计 override 的数量。server 对话框中的项目列表也显示相同内容，但没有按钮。在项目的 **MCP** 标签页上，被 override 的 server 会带 **Overridden** 标签，其下一行说明该项目改了什么，铅笔按钮会打开同一个对话框。对话框以只读方式显示连接，并提供 Agents、Pi 的 tool exposure 和 tool policy，三者在你选择值之前都跟随 MCP 页面；**Reset to default** 可清除其中一项。保存会替换该根目录的 override，并保留对话框不显示的设置，例如其他 `piOptions` 或 `options`。当共享 server 设置了 Pi 的 `toolExposure` 时，工具会被锁定，因为 Pi 不接受与它并用的 tool policy。
 - 已关闭的 server 会显示它在哪些 Agent 中被关闭的 logo。已开启的 server 会显示加载它的 Agent；
   被同名的项目 server 取代时则不显示。如果项目的某个 Agent 没有
   按项目的开关，该行会说明这个 server 在那里仍会加载。如果某个条目列出了自己的
   `targets`，且与项目的 targets 不同，就会出现 **改成与项目一致**：它会把该条目重新保存为
   不带 `targets` 的形式。
 - 标签页右侧的 **Agents** 列表显示该 project 的 Agent、project 专属服务器发往的 Agent，
-  以及文件已在 project 中的其他 Agent，附带文件名和 **Copy path**。**Open folder** 和 **Open in editor** 与 MCP 页面相同。
+  以及文件已在 project 中的其他 Agent，附带文件名和 **Copy path**。**View file**、**Open folder** 和 **Open in editor** 与 MCP 页面相同。
 - 该标签页 Sync 框中的 **Sync MCP** 会写入整个 MCP 计划，并说明其中有多少更改
   位于此项目之外。项目页面顶部的 **Sync project** 只写入此项目的 skills、agents 和 MCP。
 - **默认值** 位于 **MCP** 标签页底部，用于编辑 `mcp.targets`。
@@ -607,7 +690,7 @@ mcp:
 - `mcp.projects` 只会从 global 配置中读取。包含它的 project 配置会
   被拒绝。
 - 没有命令可以编辑它：`skillshare mcp add` 管理 `mcp.servers`，并让
-  `mcp.projects` 保持原样。请在 `config.yaml` 中编辑它，或者在
+  `mcp.projects`（包括 `use`）保持原样。请在 `config.yaml` 中编辑它，或者在
   [仪表盘](#projects-in-the-dashboard)中编辑。
 - 以 Claude Code 为 target 的 `disabled` 条目会写入 `~/.claude.json`，也就是写入
   global server 的同一个文件，因为 Claude Code 把自己按项目区分的关闭列表保存在那里。
@@ -639,6 +722,7 @@ skillshare mcp check --no-dns
 | 某个 Agent 的条目与 source 冲突，与 `sync mcp --dry-run` 相同 | error |
 | 某个 Agent 的条目尚未写入或尚未更新 | warning |
 | 该 server 设置了 `targets: []`，只保存在 Skillshare 中 | info |
+| 该 server 为共享（`global: false`），且没有项目在 `use` 中列出它 | info |
 | 某个所选 Agent 无法容纳该 server [工具策略](#tool-policy)的某部分 | warning |
 
 变量的值永远不会被打印。只要发现任何 error，命令就以 1 退出，否则以 0 退出；warning 永远不会
@@ -690,8 +774,8 @@ global server 则省略此字段。`summary` 统计报告中的每个 server，�
 
 在仪表盘中，MCP 页面 Sync 框中的 **检查** 按钮会运行同样的检查。它在有 server 可检查时才会出现，
 只在点击时运行，会在 server 列表上方显示摘要，并在每个 server 下方显示它的 error 或 warning；
-重新加载页面后不会保留任何内容。MCP 页面只列出 global server，因此它的摘要和各行都不包含
-项目 server，即使与某个 global server 同名也是如此。项目的 MCP 标签页在其 Sync 框中
+重新加载页面后不会保留任何内容。MCP 页面列出 global 和共享 server，因此它的摘要和各行都不包含
+仅限项目的 server，即使与某个 global server 同名也是如此。项目的 MCP 标签页在其 Sync 框中
 有自己的 **检查**，用于报告该项目自己的 server。变量从启动 `skillshare ui` 的终端中读取。
 
 ### 实时探测 server {#probe-servers-live}
@@ -722,7 +806,7 @@ skillshare mcp check docs --live --timeout 30s --json
 
 | 结果 | 级别 |
 |---|---|
-| server 已响应：它的名称和版本、协议版本以及工具数量 | info |
+| server 已响应：它的名称和版本、协议版本、工具数量及其估算 token 数 | info |
 | 远程 server 需要登录（HTTP 401） | warning |
 | 命令无法启动、提前退出，或未及时响应 | error |
 | 协议错误、不支持的协议版本，或其他任何 HTTP 状态 | error |
@@ -733,7 +817,7 @@ skillshare mcp check docs --live --timeout 30s --json
 本地 server 失败时，消息末尾会附上其 stderr 的最多五行。`env`、`headers` 和 `bearerToken`
 的值会从每条消息中移除；短于四个字符的值保持原样。值按写入的原样传递：Skillshare 永远不会
 运行 Pi 的 `!command` 值，也不读取 `piOptions`。退出码遵循同样的规则，发现任何 error 时为 1。
-`--live` 不写入任何配置文件，也不写入操作日志条目；它只在 state 目录中保存[工具固定值](#pin-tool-definitions)。
+`--live` 不写入任何配置文件，也不写入操作日志条目；它只在 state 目录中保存[工具固定值](#pin-tool-definitions)和[工具 token 数](#count-tool-tokens)。
 
 使用 `--json` 时，已响应的 server 还会有一个 `live` 对象：
 
@@ -742,9 +826,9 @@ skillshare mcp check docs --live --timeout 30s --json
   "name": "docs",
   "ok": true,
   "findings": [
-    { "level": "info", "check": "live", "target": "", "message": "responds: docs-server 1.4.0, protocol 2026-07-28, 12 tool(s)", "subject": "docs-server" }
+    { "level": "info", "check": "live", "target": "", "message": "responds: docs-server 1.4.0, protocol 2026-07-28, 12 tool(s), ~4810 tokens", "subject": "docs-server" }
   ],
-  "live": { "protocolVersion": "2026-07-28", "serverInfo": { "name": "docs-server", "version": "1.4.0" }, "tools": 12 }
+  "live": { "protocolVersion": "2026-07-28", "serverInfo": { "name": "docs-server", "version": "1.4.0" }, "tools": 12, "toolTokens": 4810 }
 }
 ```
 
@@ -753,7 +837,13 @@ skillshare mcp check docs --live --timeout 30s --json
 
 仪表盘的 **检查** 按钮只运行静态检查。仪表盘只在一个地方探测 server：server 对话框
 [工具区块](#tool-policy-dashboard)中的 **加载工具**，它会按对话框当前的字段启动 server
-一次，列出它的工具。使用 `--json` 时，`live` 还包含 `toolNames`，即 `tools/list` 返回的名称。
+一次，列出它的工具。使用 `--json` 时，`live` 还包含 `toolNames`，即 `tools/list` 返回的名称，以及 `toolTokens`，即每个工具的名称、描述和输入 schema 的估算 token 数（参见[统计工具 token](#count-tool-tokens)）。
+
+### 统计工具 token {#count-tool-tokens}
+
+Agent 在调用任何工具之前，就会把每个工具的名称、描述和输入 schema 载入模型的上下文。`--live` 用与 [`analyze`](/docs/reference/commands/analyze) 相同的估算方式，按 server 估算这项成本：约 4 个 ASCII 字符，或一个宽字符，算一个 token。info 行会显示它（`~4810 tokens`），`--json` 中则是 `live.toolTokens`。报告之后，文本输出还会加总每个 MCP target 载入的量，摘要和预算警告与 [`analyze`](/docs/reference/commands/analyze#mcp-tool-definitions) 相同。
+
+每次成功的探测，都会把工具数量、token 数和检查时间，按范围和 server 名称保存到 state 目录的 `mcp/tool-costs.json`，与 `tool-pins.json` 放在一起。它是缓存，下一次 live 检查会重写它；无法读取的文件按空文件处理。[`analyze`](/docs/reference/commands/analyze#mcp-tool-definitions)、`sync` 和仪表盘的 **Context** 页面会按 MCP target 把这些数值加总，并在超过 [`context_budget.warn_mcp_tool_tokens`](/docs/reference/targets/configuration#context_budget) 时警告；它们不会启动任何 server。没有被任何 live 检查统计过的 server 显示为未统计。不带 `--live` 时，`mcp check` 既不读取也不写入这些数值。编辑过的 server 会沿用同名的数值，直到下一次 live 检查。
 
 ### 固定工具定义 {#pin-tool-definitions}
 
@@ -779,7 +869,7 @@ server 第一次响应时固定（pin）每个工具，并把之后每次探测�
 不带 `--live` 时既不读取也不写入固定值。你编辑过的 server（换了命令或 URL），或删除后再添加的 server，
 会以同一名称保留它的固定值：如果它的工具确实有变化，接受一次新定义即可。
 `GET /api/mcp/check?live=1`（仪表盘 **检查** 按钮调用的端点，按钮不会发送 `live`）
-也会固定并比较，但不能接受。
+也会固定、比较并保存工具 token 数，但不能接受。仪表盘 **Context** 页面的 **Check live** 按钮会调用它。
 
 ## 停止管理某个 server {#stop-managing-a-server}
 
@@ -814,7 +904,10 @@ server，反之亦然。若要重新管理某个条目，请 import 它。
   **Import from** 按钮，例如 **Import from Cursor**。与 source 相符的条目会按原样被接管。若 conflict 位于
   `mcp.projects` 下的文件夹，按钮会读取该文件夹的文件，并导入到那个 project。
 - 用 source 定义替换它：仪表盘中的 **Replace with source**，或在 import 时使用
-  `--replace`。
+  `--replace`。仪表盘按钮会一次替换该 server 所有有冲突的 Agent 条目。
+
+若各 Agent 的 server 版本不同，先导入你要的那个。即使其他 Agent 仍有冲突，导入也会
+接管该 Agent 的条目；之后再替换其余的。
 
 ## 通过 MCP 提供 skill {#serve-skills-over-mcp}
 
@@ -828,18 +921,24 @@ SKILLSHARE_MCP_TOKEN=change-me skillshare mcp serve --http 0.0.0.0:8765 \
 `mcp serve` 是一个 MCP server，除非[开启编辑](#edit-skills-over-mcp)，否则为只读，供无法访问 skill 同步目标文件夹的 Agent 使用，例如运行在
 一次性 VM 上或位于 MCP gateway 之后的 Agent。它实现了
 [Skills extension](https://modelcontextprotocol.io/seps/2640-skills-extension)
-（`io.modelcontextprotocol/skills`，SEP-2640）：`skills/list`、`skills/get` 和
-`resources/read`。每个 skill 是一个条目，其 URI 跟随它在 source 中的路径，例如
+（`io.modelcontextprotocol/skills`，SEP-2640）：`skills/list`、`skills/get`、`resources/list`、`resources/read` 和 `resources/directory/read`。每个 skill 是一个条目，其 URI 跟随它在 source 中的路径，例如
 `skill://_team/tools/pdf/SKILL.md`，并带有完整的 frontmatter，以及每个文件的
 `sha256` 摘要和大小。你自己机器上的 Agent 已经通过 `sync` 获得 skill；
 再把它们连接到 `mcp serve`，每个 skill 就会出现两次。
+
+`resources/list` 列出所提供 `SKILL.md` 的 frontmatter 名称和描述。
+`directoryRead: true` 让 client 通过 `resources/directory/read`（`uri`、可选 `cursor`）
+浏览 skill 根目录（例如 `skill://_team/tools/pdf`）及其子目录；响应的 `resources` 只含直接子项，包括 MIME 类型为
+`inode/directory` 的空目录。目录 URI 不加结尾斜线；文件或未知目录返回 `-32602`。
+两种列表都按 URI 排序，每页最多 100 项，以 `nextCursor` 作为 `cursor` 继续，
+并使用与 skills 相同的选择和刷新规则。
 
 大多数 Agent 尚不支持 Skills extension（见下文），因此这个 server 还提供两个工具：
 `list_skills` 列出名称、描述和 URI（`query` 可缩小范围；一次最多列出 200 个），
 `read_skill` 读取某个 skill 的 `SKILL.md` 或其他文件，读取 `SKILL.md` 时还会列出该 skill 的
 其他文件。任何使用 MCP 工具的 Agent 都能以这种方式读取 skill，包括通过会转发工具的 gateway。
 声明了 Skills extension 的 client 会以原生方式加载 skill，不会得到这两个工具，因此不会看到
-两份 skill。两个工具都标记了 `readOnlyHint`，因此会在修改数据的工具前请求确认的 client 或
+两份 skill。Claude Code（v2.1.332）只在请求 skill 列表时才声明该 extension，因此它会以原生方式加载 skill，但仍会得到这两个工具。两个工具都标记了 `readOnlyHint`，因此会在修改数据的工具前请求确认的 client 或
 gateway 调用它们时不会请求确认。通过工具读取的内容对 Agent 而言只是普通文本：Agent 自身的 skill 批准机制不适用。
 
 - **选择。** 不带 `--target` 时，会提供每一个已启用的 skill。`--target NAME`
@@ -893,9 +992,15 @@ mcp:
       targets: [codex]
 ```
 
-以原生方式加载 skill 需要 Skills extension。截至 2026 年 10 月，常见的编程 Agent 尚未支持，
-因此它们使用工具：Codex、Cursor、VS Code、Goose 和 Pi 不支持，Claude Code 包含的支持默认未开启。
-只有少数 client，例如 mcpc、fast-agent 和 MCP Inspector 支持，其中部分只是部分支持。SEP 中列出的
+以原生方式加载 skill 需要 Skills extension。Claude Code 自 v2.1.331 起以公开测试版支持，仅限交互式会话，
+`claude -p` 不支持。通过 `/login` 登录的 Pro、Max 和 Ultra 套餐默认开启，Team 和 Enterprise 在组织开启之前
+默认关闭，API key 和 Console 登录仍在逐步推出；参见 Claude Code 的
+[要求](https://code.claude.com/docs/en/mcp#use-skills-from-mcp-servers)。2026 年 11 月使用
+Claude Code v2.1.332 测试：来自 stdio `mcp serve` 的 skill 会在 `/skills` 中显示为 `<server>:<skill>`，例如
+`skillshare:pdf`，可从该命令运行，其他文件则通过 `resources/read` 读取。
+
+截至 2026 年 10 月，其他常见的编程 Agent 尚未支持，因此它们使用工具：Codex、Cursor、VS Code、Goose 和 Pi 不支持。
+除 Claude Code 外，只有少数 client，例如 mcpc、fast-agent 和 MCP Inspector 支持，其中部分只是部分支持。SEP 中列出的
 原型 host（例如某个 Codex fork）并不代表已发布的 Agent 支持它。
 [extension 支持矩阵](https://modelcontextprotocol.io/extensions/client-matrix) 列出了当前的 client。
 
@@ -1037,7 +1142,8 @@ export default defineApp({ app: { accounts: { skillshare } } }, async (ctx) => (
   到达 server 时都是未解析的原始文本。
 - 本地操作记录保存在 Skillshare state 目录下的 `mcp/` 中：
   `state.json`、写入期间的 `pending.json`、`tool-pins.json`（`mcp check --live` 的
-  [工具固定值](#pin-tool-definitions)），以及 `backups/`（每个
+  [工具固定值](#pin-tool-definitions)）、`tool-costs.json`（其
+  [工具 token 数](#count-tool-tokens)），以及 `backups/`（每个
   Agent 文件保留最新的 20 份）。请勿将此
   目录作为可移植的清单来共享。
 
@@ -1150,7 +1256,7 @@ skillshare mcp import docs --from omp --target omp -g --replace --dry-run --json
 同步会保留 `$schema`、`disabledServers`、`enabledServers` 和不相关的 server。更新现有连接时，
 也会保留原生的单个 server 字段，例如 `enabled`、`timeout`、`instructions`、`requestIdFormat`、
 `cwd`、`auth` 和 `oauth`。这些字段不是 `piOptions`：Pi 专属设置永远不会发送给 OMP。导入时，
-对无法用可移植模型表示的原生字段会给出 warning；请把它们保留在 OMP 的文件中。可移植模型支持
+无法用可移植模型表示的原生字段会放入 `options.omp`；`options` 无法容纳的字段会给出 warning。可移植模型支持
 stdio 和 Streamable HTTP，不支持 OMP 旧版的 SSE 传输；不支持的导入会被拒绝，而不是被转换。
 
 `disabledServers` 优先于 `enabledServers` 以及条目的 `enabled` 值。同步不会为了启用某个 server
@@ -1264,7 +1370,7 @@ skillshare mcp edit docs --pi-options '{}' --no-tui
 **Pi 设置** 和 **工具暴露模式** 旁边的信息图标会解释它们，**Pi 设置** 旁边的链接
 会打开 Pi 的 MCP 文档。对话框会在你保存之前标出 **其他 Pi 设置** 中的
 `pi-mcp-adapter` 字段。工具区块有设置时，**工具暴露模式** 仍可编辑；此时只有
-**其他 Pi 设置** 中的 `toolExposure` 会被拒绝，因为它由 `tools` 写入。server 行上的 Pi 标签
+**其他 Pi 设置** 中的 `toolExposure` 会被拒绝，因为它由 `tools` 写入。在 server 的 client 列表中，Pi 的开关
 会用简短文字显示暴露模式，例如 `codemode` 显示为 `通过代码`。
 
 ### 从 0.22 升级 Pi {#pi-migration}

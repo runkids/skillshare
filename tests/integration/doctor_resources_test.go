@@ -142,7 +142,10 @@ func TestDoctor_JSON_StreamDefersPluginCheck(t *testing.T) {
 		if err := json.Unmarshal([]byte(line), &l); err != nil {
 			t.Fatalf("bad check line %q: %v", line, err)
 		}
-		streamed = append(streamed, l.Check.Name+":"+l.Check.Status)
+		// Git status also runs in the background and may land between any two rows.
+		if l.Check.Name != "git_status" {
+			streamed = append(streamed, l.Check.Name+":"+l.Check.Status)
+		}
 		rest = after
 	}
 	var final []string

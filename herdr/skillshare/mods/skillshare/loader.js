@@ -3,7 +3,7 @@
 // and the tests pass a fake machine.
 //   io.job(args, { on, cwd, script }): skillshare (or a script of ours) run detached;
 //   io.run(args, { on, cwd }): a short read; io.sh(script, args, on): one exec of a script.
-import { GIT_STATUS, PROJECT, READ_SKILL, READ_FILE, LATEST_RELEASE, releaseTag, parseJSON, failure, flag, parseGitStatus, driftFrom, targetDrift, splitFrontmatter, mcpServer } from "./model.js";
+import { GIT_STATUS, PROJECT, READ_SKILL, READ_EXTRA, READ_FILE, LATEST_RELEASE, releaseTag, parseJSON, failure, flag, parseGitStatus, driftFrom, targetDrift, splitFrontmatter, mcpServer } from "./model.js";
 
 const scopesOf = (project) => (project ? ["project", "global"] : ["global"]);
 const at = (on, project, scope) => ({ on, cwd: scope === "project" ? project : null });
@@ -17,9 +17,10 @@ export async function findProject({ sh }, on, folders) {
 // Each read publishes independently. Keep the previous values during refresh, but track
 // pending and failed sections separately so a stale value never claims a fresh sync verdict.
 export async function loadResources(io, on, project, network, progress = () => {}, previous = {}) {
-  const commands = { list: ["list", "--all"], diff: ["diff"], mcp: ["mcp", "list"], plugins: ["plugin", "list"], hooks: ["hooks", "list"], status: ["status"] };
+  const commands = { list: ["list", "--all"], diff: ["diff"], mcp: ["mcp", "list"], plugins: ["plugin", "list"], hooks: ["hooks", "list"], extras: ["extras", "list"], memory: ["extras", "memory", "list"], status: ["status"] };
   const raw = {};
-  for (const scope of scopesOf(project)) raw[scope] = { ...previous[scope], pending: Object.keys(commands), errors: {}, took: {}, error: null };
+  // root: the project folder, which a project's relative extras paths start from.
+  for (const scope of scopesOf(project)) raw[scope] = { ...previous[scope], pending: Object.keys(commands), errors: {}, took: {}, error: null, root: scope === "project" ? project : null };
   let git = null, version = null;
   const snapshot = () => ({ raw: Object.fromEntries(Object.entries(raw).map(([scope, one]) => [scope, { ...one, pending: [...one.pending], errors: { ...one.errors }, took: { ...one.took } }])), git, version,
     error: Object.entries(raw).flatMap(([scope, one]) => Object.entries(one.errors).map(([name, message]) => `${scope} ${name}: ${message}`)).join("\n") || null });
@@ -35,7 +36,7 @@ export async function loadResources(io, on, project, network, progress = () => {
       if (r.code !== 0 || value == null || (name === "list" && !Array.isArray(value))) throw new Error(failure(r, `skillshare ${args.join(" ")}`));
       if (name === "status") {
         status = value;
-        Object.assign(one, { targets: names(value.targets), skillTargets: names((value.targets ?? []).filter((x) => x.skills_enabled !== false)), agentTargets: names(value.agents?.targets) });
+        Object.assign(one, { targets: names(value.targets), targetPaths: (value.targets ?? []).map((x) => ({ name: x.name, path: x.path })), skillTargets: names((value.targets ?? []).filter((x) => x.skills_enabled !== false)), agentTargets: names(value.agents?.targets) });
         if (scope === "global") version = value.version ?? null;
       } else one[name] = value;
     } catch (e) {
@@ -96,10 +97,28 @@ export async function loadLatestRelease({ sh }) {
   return releaseTag((await sh(LATEST_RELEASE)).stdout);
 }
 
-// What a preview shows beyond the row: a skill's files and SKILL.md, an agent's file, or an MCP
-// server's settings (mcpPath is the MCP source file). { files, dir, meta, body } | { server } | { error }.
+// What a preview shows beyond the row: a skill's files and SKILL.md, an agent's file, an MCP
+// server's settings (mcpPath is the MCP source file), or an extra's files.
+// { files, dir, meta, body } | { server } | { gone } | { error }; an extra's also names the file shown.
 export async function loadPreview(io, on, project, item, mcpPath) {
   if (item.kind === "mcp") return { server: mcpPath ? mcpServer((await io.sh(READ_FILE, [mcpPath], on)).stdout, item.name) : null };
+  if (item.kind === "extras") {
+    // A missing source has nothing to read, and reading again won't change that.
+    if (item.sourceMissing) return { gone: `${item.file ? `${item.dir}/${item.file}` : item.dir} is missing. Create it, or remove the extra.` };
+    if (item.extra !== "folder") return { files: [item.file], file: item.file, dir: item.dir, ...(await loadFile(io, on, item.dir, item.file)) };
+    // A folder lists only the files extras sync sends, and shows its SKILL.md, which READ_EXTRA
+    // already read, else its first file. A folder holds no SKILL.md as a rule, so READ_EXTRA
+    // ending non-zero is not an error here.
+    const r = await io.sh(READ_EXTRA, [item.dir], on), cut = r.stdout.indexOf("@@\n");
+    if (cut < 0) return { error: `${item.dir} could not be read.` };
+    // READ_EXTRA lists one name past the 40 shown: more says the list goes on.
+    const listed = r.stdout.slice(0, cut).split("\n").filter(Boolean), text = r.stdout.slice(cut + 3);
+    const files = listed.slice(0, 40), more = listed.length > 40;
+    if (text && !files.includes("SKILL.md")) { files.unshift("SKILL.md"); files.length = Math.min(files.length, 40); }
+    if (!files.length) return { error: `${item.dir} has no files to show.` };
+    if (files.includes("SKILL.md")) return { files, more, file: "SKILL.md", dir: item.dir, ...splitFrontmatter(text) };
+    return { files, more, file: files[0], dir: item.dir, ...(await loadFile(io, on, item.dir, files[0])) };
+  }
   const st = parseJSON((await io.run(["status", "--json", flag(item.scope)], at(on, project, item.scope))).stdout);
   const base = item.kind === "agents" ? st?.agents?.source : st?.source?.path;
   if (!base) return { error: "skillshare did not say where this source is." };

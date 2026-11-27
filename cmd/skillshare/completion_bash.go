@@ -41,7 +41,7 @@ _skillshare() {
     local sync_flags="--all --dry-run -n --force -f --json --quiet -q --help -h"
     local mcp_flags="--tools-allow --tools-deny --pi-options --url --target --from --file --sync --replace --disabled --keep-files --revision --dry-run -n --json --no-tui --no-dns --live --accept-tools --timeout --http --tls-cert --tls-key --http-allow-insecure --check --help -h"
     local status_flags="--json --help -h"
-    local hooks_flags="--file --from --sync --replace --keep-files --revision --dry-run -n --json --help -h"
+    local hooks_flags="--file --from --sync --replace --keep-files --trust --yes -y --revision --dry-run -n --json --help -h"
     local diff_flags="--no-tui --patch --stat --json --help -h"
     local backup_flags="--list -l --cleanup -c --delete --all --dry-run -n --target -t --help -h"
     local backup_files_restore_flags="--unlink --dry-run -n --help -h"
@@ -54,7 +54,7 @@ _skillshare() {
     local target_flags="--json --no-tui --help -h --mode -m --agent-mode --target-naming --add-include --add-exclude --remove-include --remove-exclude --add-agent-include --add-agent-exclude --remove-agent-include --remove-agent-exclude --agent --config-dir --cli --skills --no-skills --dry-run"
     local target_remove_flags="--all -a --dry-run -n"
     local upgrade_flags="--dry-run -n --force -f --skill --cli --help -h"
-    local update_flags="--all -a --dry-run -n --force -f --skip-audit --audit-threshold --threshold -T --diff --audit-verbose --prune --json --group -G --help -h"
+    local update_flags="--all -a --dry-run -n --force -f --merge --skip-audit --audit-threshold --threshold -T --diff --audit-verbose --prune --json --group -G --help -h"
     local check_flags="--json --diff --exit-code --all --group -G --help -h"
     local new_flags="--pattern -P --dry-run -n --help -h"
     local search_flags="--json --list -l --hub --limit -n --help -h"
@@ -95,11 +95,12 @@ _skillshare() {
     # Project command
     if [[ "${cmd}" == project ]]; then
         local project_subcmds="list show add edit sync remove localize share"
-        local project_flags="--target --name --skills --no-skills --agents --no-agents --skills-mode --agents-mode --skills-naming --skills-include --skills-exclude --agents-include --agents-exclude --machine-local --shared --sync --dry-run -n --yes --json --help -h --global -g"
+        local project_flags="--target --name --skills --no-skills --agents --no-agents --skills-mode --agents-mode --skills-naming --skills-include --skills-exclude --agents-include --agents-exclude --scan --machine-local --shared --sync --dry-run -n --yes --json --help -h --global -g"
         case "${prev}" in
             --skills-mode|--agents-mode) COMPREPLY=($(compgen -W "merge symlink copy" -- "${cur}")); return ;;
             --skills-naming) COMPREPLY=($(compgen -W "flat standard prefixed" -- "${cur}")); return ;;
-            --target) COMPREPLY=($(compgen -W "adal aiderdesk amp antigravity antigravity-cli astrbot augment autohand-code bob claude cline codearts codebuddy codestudio codex comate commandcode continue copilot cortex crush cursor deepagents deepseek-harness devin dexto droid firebender forgecode fx gemini gitlab-duo goose grok hermes iflow jazz junie kilocode kimchi kimi kimi-code kiro kode letta lingma mcpjam mux neovate omp ona openclaw opencode openhands pi pochi posit-assistant purecode qoder qoder-cn qwen reasonix replit roo rovodev tabnine trae trae-cn universal verdent vibe warp windsurf witsy xcode-claude xcode-codex zcode zed zencoder" -- "${cur}")); return ;;
+            --target) COMPREPLY=($(compgen -W "adal aiderdesk amp antigravity antigravity-cli astrbot augment autohand-code bob claude cline codearts codebuddy codestudio codex comate commandcode continue copilot cortex crush cursor deepagents deepseek-harness devin dexto droid firebender forgecode fx gemini gitlab-duo goose grok hermes iflow jazz junie kilocode kimchi kimi kimi-code kiro kode letta lingma mcpjam minimax-code mux neovate omp ona openclaw opencode openhands pi pochi posit-assistant purecode qoder qoder-cn qwen reasonix replit roo rovodev tabnine trae trae-cn universal verdent vibe warp windsurf witsy xcode-claude xcode-codex zcode zed zencoder" -- "${cur}")); return ;;
+            --scan) COMPREPLY=($(compgen -d -- "${cur}")); return ;;
             --name|--skills-include|--skills-exclude|--agents-include|--agents-exclude) return ;;
         esac
         if [[ ${cword} -eq 2 ]]; then
@@ -120,8 +121,13 @@ _skillshare() {
         return
     fi
 
-    if [[ "${cmd}" == plugin && ( "${prev}" == --target || "${prev}" == --from ) ]]; then
+    if [[ "${cmd}" == plugin && "${prev}" == --from ]]; then
         COMPREPLY=($(compgen -W "claude codex cursor antigravity agy antigravity-cli copilot grok kimi hermes devin pi opencode omp" -- "${cur}"))
+        return
+    fi
+
+    if [[ "${cmd}" == plugin && "${prev}" == --target ]]; then
+        COMPREPLY=($(compgen -W "claude codex cursor antigravity agy antigravity-cli copilot grok kimi hermes devin pi opencode omp herdr-app" -- "${cur}"))
         return
     fi
 

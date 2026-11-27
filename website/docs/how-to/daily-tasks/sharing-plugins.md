@@ -18,8 +18,8 @@ In the dashboard, open **Plugins → Add plugin**:
 
 ![Add plugin dialog: discovered plugin with compatible and unsupported targets](/img/plugins-add-dialog.png)
 
-Most users only need a repository and target checkboxes. **Advanced options** adds
-a Git ref, to choose a release. Discovery shows each target's components and
+Most users only need a repository and target checkboxes. The optional **Git branch,
+tag, or commit** field chooses a release. Discovery shows each target's components and
 compatibility separately. When OpenCode is listed as unsupported because its entry
 could not be detected, **Set entry path** on that row takes the built file and
 searches the source again, keeping what you already chose. Safe relative repository
@@ -87,6 +87,12 @@ sync**, not “enable inside the Agent.”
 - The package definition remains, so you can select the target again later.
 - A plugin disabled inside Claude or Codex stays disabled; manage native settings
   in that tool.
+- Plugins added from the same source share one row, which counts how many of them
+  sync. Open it for each plugin's own row. Its menu updates, pauses or resumes sync
+  for, or removes all of them at once.
+- Tick the box at the start of rows, in any section, to act on them together. The bar
+  at the bottom turns sync on or pauses it, updates what the last check found, or
+  removes them. Each action skips the plugins it does not apply to.
 
 In the dashboard, the **Sync** box at the top right of the Plugins page lists what
 the next sync would install or remove for each Agent. Its button opens a preview;
@@ -112,17 +118,24 @@ HTTPS Git source. Tick several and copy one command that adds them all in order,
 with the same source, plugin, name, ref, and entry. Every add passes `-g`, so the
 plugins go to the global configuration even when the command runs inside a project.
 By default the command also passes `--no-tui`, so it adds every plugin to Skillshare
-without prompting; whoever runs it then ticks Agents on the Plugins page to install. Tick **Ask which Agents to install each
-plugin to** to leave out `--no-tui`, so each add opens its Agent picker instead. Plugins from a local directory are not listed, because the path
+without prompting; whoever runs it then ticks Agents on the Plugins page to install. Tick **Ask where to install each
+one** to leave out `--no-tui`, so each add opens its Agent picker instead. Plugins from a local directory are not listed, because the path
 only exists on your machine.
+
+The same dialog lists the Pi packages that Pi installed from npm, after the plugins. Pi
+downloads an npm package itself, so its add names a target: `skillshare plugin add
+npm:<package> --target pi -g --no-tui` installs it into Pi right away. With **Ask where
+to install each one** ticked, the command leaves out `--target pi` and asks which Pi
+targets to use. Pi packages from Git or a local path are not listed.
 
 Plugins are separate from ordinary skills and MCP synchronization. Their bundled
 components are not also copied into standalone Skillshare sources.
 
 ## Updates and recovery {#updates-and-recovery}
 
-The Plugins page checks for updates when it opens, and **Check updates** checks
-again on demand. Plugins are checked at the same time: each row shows its result
+On a return visit, Plugins reuses checks completed in the last two minutes.
+If cached results are older, they stay visible during the new check.
+Use the refresh button in **Tools** to refresh inventory and check updates immediately. Plugins are checked at the same time: each row shows its result
 as soon as its own check finishes, and the header counts the plugins checked so
 far. A plugin that cannot be checked shows **Check failed**, including one whose
 Agent's CLI does not answer within 60 seconds; hover it for the reason. A row whose source has a newer version shows `old → new`, and

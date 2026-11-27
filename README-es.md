@@ -5,7 +5,7 @@
 <h1 align="center" style="margin-top: 0.5rem; margin-bottom: 0.5rem;">skillshare</h1>
 
 <p align="center">
-  <a href="README.md">English</a> · <a href="README-de.md">Deutsch</a> · <a href="README-es.md">Español</a> · <a href="README-fr.md">Français</a> · <a href="README-ja.md">日本語</a> · <a href="README-ko.md">한국어</a> · <a href="README-pt-BR.md">Português</a> · <a href="README-zh-CN.md">简体中文</a> · <a href="README-zh-TW.md">繁體中文</a>
+  <a href="README.md">English</a> · <a href="README-de.md">Deutsch</a> · <a href="README-es.md">Español</a> · <a href="README-fr.md">Français</a> · <a href="README-ja.md">日本語</a> · <a href="README-ko.md">한국어</a> · <a href="README-pt-BR.md">Português</a> · <a href="README-tr.md">Türkçe</a> · <a href="README-zh-CN.md">简体中文</a> · <a href="README-zh-TW.md">繁體中文</a>
 </p>
 
 <p align="center">
@@ -14,7 +14,7 @@
   <a href="https://github.com/runkids/skillshare/releases"><img src="https://img.shields.io/github/v/release/runkids/skillshare" alt="Release"></a>
   <a href="https://github.com/runkids/skillshare/releases"><img src="https://img.shields.io/github/downloads/runkids/skillshare/total" alt="Downloads"></a>
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-blue" alt="Platform">
-  <a href="https://deepwiki.com/runkids/skillshare"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
+  <a href="https://deepwiki.com/runkids/skillshare"><img src="https://img.shields.io/badge/Ask-DeepWiki-blue" alt="Ask DeepWiki"></a>
 </p>
 
 <p align="center">
@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **Última versión**: v0.30.7 — Deja pasar en CI los hallazgos aceptados: `skillshare audit --respect-accepted` ya no falla por los hallazgos que aceptaste con `--force` durante `install` o `update`, igual que la verificación de `update`. Siguen en el informe, marcados como aceptados. [Referencia de audit →](https://skillshare.runkids.cc/docs/reference/commands/audit#accepted-findings) · [Todas las versiones →](https://github.com/runkids/skillshare/releases)
+> **Última versión**: v0.33.0 — Haz tuyo el dashboard: **Settings → Appearance** tiene un editor de temas personalizados con 14 presets, o eliges tú el color de acento, el tono de fondo, las esquinas y la fuente. El modo oscuro se deriva solo, cada color de texto se mantiene legible a 4.5:1 y un tema se puede compartir como enlace o archivo JSON. Clean y Playful también se renovaron. `skillshare hooks sync -p --trust` ahora registra la confianza de Codex para los hooks de un proyecto, y MiniMax Code es un target integrado. [Guía de temas →](https://skillshare.runkids.cc/docs/reference/commands/ui#theme-system) · [Todas las versiones →](https://github.com/runkids/skillshare/releases)
 
 ## Por qué skillshare
 
@@ -123,6 +123,14 @@ nix profile add github:runkids/skillshare
 ```
 
 Actualiza con `nix profile upgrade skillshare`. Requiere Nix 2.30+ con flakes habilitados; con Nix más antiguo o Lix, usa `nix profile install`. Las configuraciones de NixOS y Home Manager pueden usar el `overlays.default` del flake.
+
+### CLI: PyPI
+
+```bash
+uv tool install skillshare-cli
+```
+
+O `pipx install skillshare-cli`, o `pip install skillshare-cli`. Para probar skillshare sin instalarlo, ejecuta `uvx --from skillshare-cli skillshare`. Actualiza con tu instalador, por ejemplo `uv tool upgrade skillshare-cli` o `pipx upgrade skillshare-cli`.
 
 ### GitHub Actions
 
@@ -300,7 +308,11 @@ make check  # format + lint + test
 
 ## Colaboradores
 
-Gracias a todas las personas que han ayudado a dar forma a skillshare. La lista está en el [README en inglés](README.md#contributors).
+[Ver colaboradores en GitHub](https://github.com/runkids/skillshare/graphs/contributors)
+
+### Agradecimientos a la comunidad
+
+Gracias por informar de errores, sugerir mejoras y probar correcciones. [README en inglés](README.md#community-thanks).
 
 ---
 

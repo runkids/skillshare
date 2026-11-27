@@ -1,11 +1,25 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import { createElement } from 'react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import { api, type Skill } from '../api/client';
+import { I18nProvider } from '../i18n';
+import { ToastProvider } from '../components/Toast';
+import SkillEditor from '../components/skill-editor/SkillEditor';
 import { parse as parseYaml } from 'yaml';
-import { parseSkillMarkdown, serializeFrontmatter, composeSkillMarkdown } from './frontmatter';
+import {
+  parseSkillMarkdown,
+  serializeFrontmatter,
+  composeSkillMarkdown,
+  withBody,
+  type Frontmatter,
+  type FrontmatterNested,
+} from './frontmatter';
 
 describe('parseSkillMarkdown', () => {
   it('parses scalar fields', () => {
     const { frontmatter, body } = parseSkillMarkdown(
-      '---\nname: foo\ndescription: bar\n---\n# body'
+      '---\nname: foo\ndescription: bar\n---\n# body',
     );
     expect(frontmatter.name).toBe('foo');
     expect(frontmatter.description).toBe('bar');
@@ -14,26 +28,40 @@ describe('parseSkillMarkdown', () => {
 
   it('parses inline arrays', () => {
     const { frontmatter } = parseSkillMarkdown(
-      '---\nallowed-tools: [Read, Grep, Bash(git status *)]\n---\nbody'
+      '---\nallowed-tools: [Read, Grep, Bash(git status *)]\n---\nbody',
     );
     expect(frontmatter['allowed-tools']).toEqual(['Read', 'Grep', 'Bash(git status *)']);
   });
 
   it('handles multiline block scalars (|)', () => {
     const { frontmatter } = parseSkillMarkdown(
-      '---\ndescription: |\n  Line one\n  Line two\n---\nbody'
+      '---\ndescription: |\n  Line one\n  Line two\n---\nbody',
     );
     expect(frontmatter.description).toBe('Line one\nLine two\n');
   });
 
   it('keeps legacy headers with unquoted description colons editable', () => {
-    const { frontmatter } = parseSkillMarkdown('---\nname: foo\ndescription: Use when asked: convert PDF\n---\nbody');
-    expect(frontmatter).toEqual({ name: 'foo', description: 'Use when asked: convert PDF' });
+    const parsed = parseSkillMarkdown(
+      '---\nname: foo\ndescription: Use when asked: convert PDF\n---\nbody',
+    );
+    expect(parsed.frontmatter).toEqual({ name: 'foo', description: 'Use when asked: convert PDF' });
+    const saved = composeSkillMarkdown(
+      { ...parsed.frontmatter, name: 'bar' },
+      parsed.body,
+      undefined,
+      undefined,
+      parsed.bom,
+      parsed.rawFrontmatter,
+    );
+    expect(parseSkillMarkdown(saved).frontmatter).toEqual({
+      name: 'bar',
+      description: 'Use when asked: convert PDF',
+    });
   });
 
   it('skips a leading BOM before the opening fence', () => {
     const { frontmatter, body, hasFrontmatter } = parseSkillMarkdown(
-      '\uFEFF---\nname: foo\n---\n# body'
+      '\uFEFF---\nname: foo\n---\n# body',
     );
     expect(hasFrontmatter).toBe(true);
     expect(frontmatter.name).toBe('foo');
@@ -50,6 +78,12 @@ describe('parseSkillMarkdown', () => {
     const result = parseSkillMarkdown('# just a body');
     expect(result.hasFrontmatter).toBe(false);
     expect(result.body).toBe('# just a body');
+  });
+
+  it('saves a body edit without adding a header to a file that has none it can read', () => {
+    // The header is unclosed, so the editor shows it as body text; the user closes it there.
+    const parsed = parseSkillMarkdown('---\nname: foo\n# body');
+    expect(withBody(parsed, '---\nname: foo\n---\n# body')).toBe('---\nname: foo\n---\n# body');
   });
 
   it('round-trips via compose', () => {
@@ -77,16 +111,30 @@ describe('edited frontmatter', () => {
   });
 
   it('preserves folded descriptions and nested flow metadata through repeated edits', () => {
-    const metadata = { openclaw: { emoji: '📄', requires: { bins: ['mineru-open-api'] }, install: [{ kind: 'node', package: 'mineru-open-api' }] } };
+    const metadata = {
+      openclaw: {
+        emoji: '📄',
+        requires: { bins: ['mineru-open-api'] },
+        install: [{ kind: 'node', package: 'mineru-open-api' }],
+      },
+    };
     const original = `---\nname: MinerU Document Extractor\ndescription: >-\n  Convert PDFs.\n  Use when asked: "convert PDF to Markdown".\nmetadata: ${JSON.stringify(metadata)}\nallowed-tools: Bash(mineru-open-api:*)\n---\n# MinerU\n`;
-    const description = 'MinerU document extraction: convert PDFs. Use when asked: "convert PDF". 文件提取 C:\\tools';
+    const description =
+      'MinerU document extraction: convert PDFs. Use when asked: "convert PDF". 文件提取 C:\\tools';
     let content = original;
     for (let i = 0; i < 3; i++) {
       const parsed = parseSkillMarkdown(content);
       expect(parsed.frontmatter.metadata).toEqual(metadata);
-      content = composeSkillMarkdown({ ...parsed.frontmatter, name: 'mineru-document-extractor', description }, parsed.body);
+      content = composeSkillMarkdown(
+        { ...parsed.frontmatter, name: 'mineru-document-extractor', description },
+        parsed.body,
+      );
       const saved = parseSkillMarkdown(content);
-      expect(parseYaml(saved.rawFrontmatter)).toMatchObject({ name: 'mineru-document-extractor', description, metadata });
+      expect(parseYaml(saved.rawFrontmatter)).toMatchObject({
+        name: 'mineru-document-extractor',
+        description,
+        metadata,
+      });
       expect(saved.frontmatter.description).toBe(description);
       expect(saved.body).toBe('# MinerU\n');
     }
@@ -95,12 +143,106 @@ describe('edited frontmatter', () => {
   });
 
   it('preserves YAML chomp indicators, paragraphs and typed metadata', () => {
-    const content = '---\ndescription: >-\n  Line one\n  wraps here\n\n  Next paragraph\nmetadata:\n  version: "1.0"\n  enabled: false\n  aliases: ["a, b", "true"]\n---\nbody';
+    const content =
+      '---\ndescription: >-\n  Line one\n  wraps here\n\n  Next paragraph\nmetadata:\n  version: "1.0"\n  enabled: false\n  aliases: ["a, b", "true"]\n---\nbody';
     const parsed = parseSkillMarkdown(content);
     expect(parsed.frontmatter.description).toBe('Line one wraps here\nNext paragraph');
-    expect(parsed.frontmatter.metadata).toEqual({ version: '1.0', enabled: false, aliases: ['a, b', 'true'] });
+    expect(parsed.frontmatter.metadata).toEqual({
+      version: '1.0',
+      enabled: false,
+      aliases: ['a, b', 'true'],
+    });
     const saved = composeSkillMarkdown({ ...parsed.frontmatter, name: 'foo' }, parsed.body);
-    expect(parseYaml(parseSkillMarkdown(saved).rawFrontmatter)).toEqual({ ...parsed.frontmatter, name: 'foo' });
+    expect(parseYaml(parseSkillMarkdown(saved).rawFrontmatter)).toEqual({
+      ...parsed.frontmatter,
+      name: 'foo',
+    });
+  });
+});
+
+describe('exact numbers in edited headers', () => {
+  it('retains integers reached through YAML aliases', () => {
+    const parsed = parseSkillMarkdown(
+      '---\nname: demo\nmetadata:\n  original: &event\n    id: 9007199254740993\n  copy: *event\n  later: 9007199254740995\n  id: &id 9007199254740993\n  sibling: *id\n  sources:\n    - resource: a.md\n      event: *id\n  ids: [&item 9007199254740993, *item]\n  first: &reused 9007199254740993\n  firstCopy: *reused\n  second: &reused 9007199254740995\n  secondCopy: *reused\n---\nbody',
+    );
+    const saved = composeSkillMarkdown(
+      { ...parsed.frontmatter, description: 'edited' },
+      parsed.body,
+      undefined,
+      undefined,
+      parsed.bom,
+      parsed.rawFrontmatter,
+    );
+    const exact = parseYaml(parseSkillMarkdown(saved).rawFrontmatter, { intAsBigInt: true });
+    expect(exact.metadata.original.id).toBe(9007199254740993n);
+    expect(exact.metadata.copy).toBe(exact.metadata.original);
+    expect(exact.metadata.later).toBe(9007199254740995n);
+    expect(exact.metadata.sibling).toBe(9007199254740993n);
+    expect(exact.metadata.sources[0].event).toBe(9007199254740993n);
+    expect(exact.metadata.ids).toEqual([9007199254740993n, 9007199254740993n]);
+    expect(exact.metadata.firstCopy).toBe(9007199254740993n);
+    expect(exact.metadata.secondCopy).toBe(9007199254740995n);
+  });
+
+  it('retains untouched values through description, targets and deletion edits', () => {
+    const original =
+      '---\nname: demo\ndescription: old\ntargets: [claude]\nmetadata:\n  x-acme-event-id: 9007199254740993\n  drop: 9007199254740993\n  changed: 9007199254740993\n  nested:\n    count: 9007199254740993\n  sources:\n    - resource: a.md\n      x-acme: 9007199254740993\n---\nbody';
+    const first = parseSkillMarkdown(original);
+    expect(typeof (first.frontmatter.metadata as FrontmatterNested)['x-acme-event-id']).toBe(
+      'number',
+    );
+    expect(() => JSON.stringify(first.frontmatter)).not.toThrow();
+    let content = composeSkillMarkdown(
+      { ...first.frontmatter, description: 'new' },
+      first.body,
+      undefined,
+      undefined,
+      first.bom,
+      first.rawFrontmatter,
+    );
+    let reopened = parseSkillMarkdown(content);
+    const metadata = { ...(reopened.frontmatter.metadata as FrontmatterNested) };
+    delete metadata.drop;
+    metadata.targets = ['codex'];
+    metadata.changed = 42;
+    const updated: Frontmatter = { ...reopened.frontmatter, metadata };
+    delete updated.targets;
+    content = composeSkillMarkdown(
+      updated,
+      reopened.body,
+      undefined,
+      undefined,
+      reopened.bom,
+      reopened.rawFrontmatter,
+    );
+    reopened = parseSkillMarkdown(content);
+    const exact = parseYaml(reopened.rawFrontmatter, { intAsBigInt: true });
+    expect(exact.description).toBe('new');
+    expect(exact.targets).toBeUndefined();
+    expect(exact.metadata.targets).toEqual(['codex']);
+    expect(exact.metadata.drop).toBeUndefined();
+    expect(exact.metadata.changed).toBe(42n);
+    expect(exact.metadata['x-acme-event-id']).toBe(9007199254740993n);
+    expect(exact.metadata.nested.count).toBe(9007199254740993n);
+    expect(exact.metadata.sources[0]['x-acme']).toBe(9007199254740993n);
+  });
+
+  it('retains the trailing zeros of untouched decimals', () => {
+    const parsed = parseSkillMarkdown(
+      '---\nname: demo\nmetadata:\n  version: 1.10\n  ratio: 0.50\n  tiny: 0.00000010\n  changed: 2.0\n---\nbody',
+    );
+    const metadata = { ...(parsed.frontmatter.metadata as FrontmatterNested), changed: 3 };
+    const saved = composeSkillMarkdown(
+      { ...parsed.frontmatter, description: 'edited', metadata },
+      parsed.body,
+      undefined,
+      undefined,
+      parsed.bom,
+      parsed.rawFrontmatter,
+    );
+    expect(parseSkillMarkdown(saved).rawFrontmatter).toContain(
+      'metadata:\n  version: 1.10\n  ratio: 0.50\n  tiny: 1e-7\n  changed: 3\n',
+    );
   });
 });
 
@@ -127,10 +269,66 @@ describe('serializeFrontmatter', () => {
   });
 
   it('respects keyOrder', () => {
-    const out = serializeFrontmatter(
-      { description: 'b', name: 'a' },
-      ['name', 'description']
-    );
+    const out = serializeFrontmatter({ description: 'b', name: 'a' }, ['name', 'description']);
     expect(out.indexOf('name:')).toBeLessThan(out.indexOf('description:'));
   });
+});
+
+it('saves exact integers through the SkillEditor form and body-only paths', async () => {
+  const save = vi.spyOn(api, 'saveSkillContent').mockResolvedValue({} as never);
+  const resource: Skill = {
+    name: 'demo',
+    kind: 'skill',
+    flatName: 'demo',
+    relPath: 'demo',
+    sourcePath: '/skills/demo',
+    isInRepo: false,
+  };
+  const original =
+    '---\nname: demo\ndescription: old\ntargets: [claude]\nmetadata:\n  x-acme: 9007199254740993\n  sources:\n    - resource: a.md\n      x-acme: 9007199254740993\n---\nbody';
+  const mount = () =>
+    render(
+      createElement(
+        MemoryRouter,
+        null,
+        createElement(
+          I18nProvider,
+          null,
+          createElement(
+            ToastProvider,
+            null,
+            createElement(SkillEditor, {
+              resource,
+              docName: 'SKILL.md',
+              initialContent: original,
+              onBack: vi.fn(),
+              onSaved: vi.fn(),
+            }),
+          ),
+        ),
+      ),
+    );
+  const first = mount();
+  fireEvent.change(screen.getByLabelText('Body'), { target: { value: 'new body' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+  fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Save' }));
+  await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+  expect(parseSkillMarkdown(save.mock.calls[0][1]).rawFrontmatter).toBe(
+    parseSkillMarkdown(original).rawFrontmatter,
+  );
+  first.unmount();
+  mount();
+  fireEvent.change(screen.getByDisplayValue('old'), { target: { value: 'new description' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+  fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Save' }));
+  await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
+  const result = parseYaml(parseSkillMarkdown(save.mock.calls[1][1]).rawFrontmatter, {
+    intAsBigInt: true,
+  });
+  expect(result.description).toBe('new description');
+  expect(result.targets).toBeUndefined();
+  expect(result.metadata.targets).toEqual(['claude']);
+  expect(result.metadata['x-acme']).toBe(9007199254740993n);
+  expect(result.metadata.sources[0]['x-acme']).toBe(9007199254740993n);
+  save.mockRestore();
 });

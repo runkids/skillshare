@@ -5,7 +5,7 @@
 <h1 align="center" style="margin-top: 0.5rem; margin-bottom: 0.5rem;">skillshare</h1>
 
 <p align="center">
-  <a href="README.md">English</a> · <a href="README-de.md">Deutsch</a> · <a href="README-es.md">Español</a> · <a href="README-fr.md">Français</a> · <a href="README-ja.md">日本語</a> · <a href="README-ko.md">한국어</a> · <a href="README-pt-BR.md">Português</a> · <a href="README-zh-CN.md">简体中文</a> · <a href="README-zh-TW.md">繁體中文</a>
+  <a href="README.md">English</a> · <a href="README-de.md">Deutsch</a> · <a href="README-es.md">Español</a> · <a href="README-fr.md">Français</a> · <a href="README-ja.md">日本語</a> · <a href="README-ko.md">한국어</a> · <a href="README-pt-BR.md">Português</a> · <a href="README-tr.md">Türkçe</a> · <a href="README-zh-CN.md">简体中文</a> · <a href="README-zh-TW.md">繁體中文</a>
 </p>
 
 <p align="center">
@@ -14,7 +14,7 @@
   <a href="https://github.com/runkids/skillshare/releases"><img src="https://img.shields.io/github/v/release/runkids/skillshare" alt="Release"></a>
   <a href="https://github.com/runkids/skillshare/releases"><img src="https://img.shields.io/github/downloads/runkids/skillshare/total" alt="Downloads"></a>
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-blue" alt="Platform">
-  <a href="https://deepwiki.com/runkids/skillshare"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
+  <a href="https://deepwiki.com/runkids/skillshare"><img src="https://img.shields.io/badge/Ask-DeepWiki-blue" alt="Ask DeepWiki"></a>
 </p>
 
 <p align="center">
@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **最新版本**：v0.30.7 — 让已接受的 findings 在 CI 中通过：`skillshare audit --respect-accepted` 不再因你在 `install` 或 `update` 时用 `--force` 接受的 findings 而失败，处理方式与 update 的检查关卡相同。这些 findings 仍保留在报告中，并标记为已接受。[audit 参考 →](https://skillshare.runkids.cc/zh-Hans/docs/reference/commands/audit#accepted-findings) · [更新记录 →](https://skillshare.runkids.cc/changelog)
+> **最新版本**：v0.33.0 — 把 dashboard 改成你喜欢的样子：**Settings → Appearance** 新增自定义主题编辑器，可以从 14 个预设开始，也可以自己选强调色、背景色调、圆角和字体。深色模式会自动推导，所有文字颜色都保持 4.5:1 以上的可读性，主题还能用链接或 JSON 文件分享。Clean 和 Playful 的设计也重新调整了。`skillshare hooks sync -p --trust` 现在也能为 project 的 hook 记录 Codex trust，MiniMax Code 也成为内置 target。 [主题指南 →](https://skillshare.runkids.cc/zh-Hans/docs/reference/commands/ui#主题系统) · [更新记录 →](https://skillshare.runkids.cc/changelog)
 
 ## 为什么用 skillshare
 
@@ -123,6 +123,14 @@ nix profile add github:runkids/skillshare
 ```
 
 使用 `nix profile upgrade skillshare` 更新。需要启用 flakes 的 Nix 2.30 及以上版本；较旧的 Nix 或 Lix 请使用 `nix profile install`。NixOS 和 Home Manager 配置可以使用 flake 的 `overlays.default`。
+
+### CLI：PyPI
+
+```bash
+uv tool install skillshare-cli
+```
+
+也可以使用 `pipx install skillshare-cli` 或 `pip install skillshare-cli`。不安装直接试用，运行 `uvx --from skillshare-cli skillshare`。使用你的安装工具更新，例如 `uv tool upgrade skillshare-cli` 或 `pipx upgrade skillshare-cli`。
 
 ### GitHub Actions
 
@@ -299,7 +307,11 @@ make check  # format + lint + test
 
 ## 贡献者
 
-感谢每一位让 skillshare 变得更好的人。完整名单在[英文版 README](README.md#contributors)。
+[在 GitHub 上查看贡献者](https://github.com/runkids/skillshare/graphs/contributors)
+
+### 社区致谢
+
+感谢所有报告问题、提出建议和协助测试修复的朋友。 [英文版 README](README.md#community-thanks)。
 
 ---
 

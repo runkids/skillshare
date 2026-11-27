@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
+	"sort"
 	"strings"
 	"testing"
 
@@ -136,17 +138,49 @@ func TestBuild_ReportsAmbiguousTargetVariants(t *testing.T) {
 	}
 }
 
-func TestBuild_SkipsParentOfExcludedNestedSkill(t *testing.T) {
-	src := t.TempDir()
-	writeFile(t, filepath.Join(src, "suite/SKILL.md"), skillMD("suite"))
-	writeFile(t, filepath.Join(src, "suite/child/SKILL.md"), skillMD("child"))
-
-	c, err := (&Builder{Source: src, Target: "claude", Skills: &config.ResourceTargetConfig{Exclude: []string{"suite__child"}}}).Build()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(c.Skills) != 0 || !hasWarning(c, "suite/child") {
-		t.Errorf("skills=%v warnings=%v, want suite skipped because of excluded child", c.Skills, c.Skipped)
+// Keep skill acceptance, skip warnings and served directory roots in one owner.
+func TestCatalog_DirectoriesRespectSkillAcceptance(t *testing.T) {
+	for _, tc := range []struct {
+		name, child, parent, target, warning string
+		exclude                              []string
+		disabled                             bool
+		want                                 []string
+	}{
+		{name: "nested accepted", parent: "suite", child: "child", target: "claude", want: []string{"skill://suite", "skill://suite/child"}},
+		{name: "excluded child skips parent", parent: "suite", child: "child", target: "claude", exclude: []string{"suite__child"}, warning: "suite/child"},
+		{name: "disabled child skips parent", parent: "suite", child: "child", target: "claude", disabled: true},
+		{name: "invalid child skips parent", parent: "suite", child: "wrong-name", target: "claude", warning: "contains suite/child"},
+		{name: "invalid parent leaves only child root", parent: "wrong-name", child: "child", target: "claude", want: []string{"skill://suite/child"}},
+		{name: "targetless nested accepted", parent: "suite", child: "child", want: []string{"skill://suite", "skill://suite/child"}},
+		{name: "targetless invalid child skips parent", parent: "suite", child: "other", warning: "contains suite/child"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			src := t.TempDir()
+			writeFile(t, filepath.Join(src, "suite/SKILL.md"), skillMD(tc.parent))
+			writeFile(t, filepath.Join(src, "suite/child/SKILL.md"), skillMD(tc.child))
+			if tc.disabled {
+				writeFile(t, filepath.Join(src, ".skillignore"), "suite/child\n")
+			}
+			b := &Builder{Source: src}
+			if tc.target != "" {
+				b.Target, b.Skills = tc.target, &config.ResourceTargetConfig{Exclude: tc.exclude}
+			}
+			c, err := b.Build()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(c.Skills) != len(tc.want) || (tc.warning != "" && !hasWarning(c, tc.warning)) {
+				t.Errorf("skills=%v warnings=%v, want %d skills and warning %q", c.Skills, c.Skipped, len(tc.want), tc.warning)
+			}
+			var got []string
+			for uri := range c.byDir {
+				got = append(got, uri)
+			}
+			sort.Strings(got)
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Errorf("served directories = %v, want %v", got, tc.want)
+			}
+		})
 	}
 }
 
@@ -244,22 +278,6 @@ func TestBuild_ServesRealAgentsFallbackThroughFollowedRepoRoot(t *testing.T) {
 	}
 }
 
-// A parent and its nested skill list the same files under the same URIs; an
-// unchanged tree serves both.
-func TestBuild_ServesParentAndNestedSkillTogether(t *testing.T) {
-	src := t.TempDir()
-	writeFile(t, filepath.Join(src, "suite/SKILL.md"), skillMD("suite"))
-	writeFile(t, filepath.Join(src, "suite/child/SKILL.md"), skillMD("child"))
-
-	c, err := (&Builder{Source: src}).Build()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(c.Skills) != 2 {
-		t.Errorf("skills=%v warnings=%v, want suite and suite/child served", c.Skills, c.Skipped)
-	}
-}
-
 // A nested skill created after discovery would otherwise be published only as a
 // file of its parent.
 func TestBuild_ListsNestedSkillCreatedDuringTheBuild(t *testing.T) {
@@ -274,20 +292,6 @@ func TestBuild_ListsNestedSkillCreatedDuringTheBuild(t *testing.T) {
 	}
 	if len(c.Skills) != 2 {
 		t.Errorf("skills=%v warnings=%v, want suite and suite/child served", c.Skills, c.Skipped)
-	}
-}
-
-func TestBuild_SkipsParentOfInvalidNestedSkill(t *testing.T) {
-	src := t.TempDir()
-	writeFile(t, filepath.Join(src, "suite/SKILL.md"), skillMD("suite"))
-	writeFile(t, filepath.Join(src, "suite/child/SKILL.md"), skillMD("other"))
-
-	c, err := (&Builder{Source: src}).Build()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(c.Skills) != 0 || !hasWarning(c, "contains suite/child") {
-		t.Errorf("skills=%v warnings=%v, want suite skipped because its child is skipped", c.Skills, c.Skipped)
 	}
 }
 

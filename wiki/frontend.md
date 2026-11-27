@@ -8,26 +8,28 @@ Use when changing React components, pages, CSS, responsive layouts, interactions
 2. Search neighboring pages/components and existing tokens/classes before creating anything new.
 3. Preserve data, loading, error, empty, keyboard, and accessibility states.
 4. Build and test inside the devcontainer, then capture and inspect screenshots for visual changes.
-5. Check Clean/Playful × light/dark for the dashboard, and light/dark plus affected breakpoints for the website.
+5. Check Clean/Playful/Custom × light/dark for the dashboard, and light/dark plus affected breakpoints for the website.
 
 ## Dashboard Sources of Truth
 
 | Concern | Source |
 |---|---|
-| Tokens and `ss-*` classes | `ui/src/components.css` |
+| Tokens and `ss-*` classes | `ui/src/styles/*.css` |
 | Tailwind token mapping | `ui/src/index.css` |
 | Theme selection | `ui/src/context/ThemeContext.tsx` |
 | Shared components | `ui/src/components/` |
 | Query keys | `ui/src/lib/queryKeys.ts` |
 | Which queries a mutation makes stale | named events in `ui/src/lib/queryEvents.ts`, called as `invalidate(queryClient, '<event>')` |
 | Queries shared across pages (overview, MCP, skills, targets, diff) | `ui/src/hooks/useSharedQueries.ts` |
-| API client | `ui/src/api/client.ts` |
+| API client | Domain modules call `http.get/post/put/patch/delete` from `ui/src/api/http.ts`; pass JSON bodies as values, not serialized strings. Use `http.postRaw` only for already-serialized input. Streaming endpoints manage their own event lifecycle. `ui/src/api/client.ts` remains a compatibility facade. |
 | `?kind=` query strings | `kindQuery()` in `ui/src/api/http.ts` |
 | Translation strings | `ui/src/i18n/` |
 
-The dashboard supports Clean and Playful styles plus light, dark, and system modes. New UI must use CSS variables, token utilities, and existing `ss-*` classes. Never hardcode colors, radii, shadows, or fonts. Scope Playful-only pastels to the Playful theme.
+The dashboard supports Clean, Playful and Custom styles plus light, dark, and system modes. New UI must use CSS variables, token utilities, and existing `ss-*` classes. Never hardcode colors, radii, shadows, or fonts. Scope Playful-only pastels to the Playful theme.
 
-`python3 scripts/design/tokens.py` exports the Clean tokens from `components.css` in Design System `tokens.json` format, for mockup tools that read a design system instead of the CSS. A new Clean color variable needs a usage note in that script, or the export (and its test) fails.
+`python3 scripts/design/tokens.py` exports the Clean tokens from `styles/*.css` in Design System `tokens.json` format, for mockup tools that read a design system instead of the CSS. A new Clean color variable needs a usage note in that script, or the export (and its test) fails.
+
+Operation hooks such as `useResourceToggle` and `useResourceMove` own requests and cache reconciliation; pages and dialogs own selection, confirmation, and translated feedback. Pass React Query's signal to cancellable reads, not writes. Keep MCP preview/revision sequencing in `mcpApi.save`, not its callers.
 
 ## Dashboard Composition
 
@@ -40,11 +42,13 @@ The dashboard supports Clean and Playful styles plus light, dark, and system mod
 - Route user-visible strings through `useT()`. Preserve existing English technical labels for status, mode, and kind values. Choose between a counted sentence's `.one` and `.other` keys with `plural(key, count)` from `ui/src/i18n`. Tests fail on a key that is not in `en.json`, whether the dashboard or `internal/plugin` refers to it; `ui/src/i18n/README.md` describes them and their escape hatch.
 - Use existing TanStack Query keys, client helpers, and stale-time patterns. Write no key literal outside `queryKeys.ts`. After a mutation, call `invalidate` with the event that happened; do not list keys or call `invalidateQueries` in a page. A new kind of change gets a new event and a row in `queryEvents.test.ts`.
 
-Below 768 px, the dashboard shell replaces the fixed sidebar with a navigation button and a `DialogShell` menu, and reduces page padding. The menu shares the desktop navigation and closes before link or keyboard navigation attempts (including blocked unsaved edits), on Escape or backdrop click, or when switching to desktop width. Update rows put their actions and status below the resource name on mobile; row actions stay visible on touch devices. Skills and Agents tabs scroll horizontally when needed. The language picker stays within the viewport and scrolls in short windows; the mobile tour omits the hidden sidebar shortcut step.
+Below 768 px, the dashboard shell replaces the fixed sidebar with a navigation button and a `DialogShell` menu, and reduces page padding. The menu shares the desktop navigation and closes before link or keyboard navigation attempts (including blocked unsaved edits), on Escape or backdrop click, or when switching to desktop width. Update rows put their actions and status below the resource name on mobile; row actions never wait for hover. Skills and Agents tabs scroll horizontally when needed. The language picker stays within the viewport and scrolls in short windows; the mobile tour omits the hidden sidebar shortcut step.
 
 Do not run an unconfigured Prettier in `ui/` because it creates broad unrelated diffs. When Tailwind utilities conflict with the `ss-*` component layer, inspect the cascade before adding more complex selectors.
 
-The skill/agent editor uses `yaml` to read and write frontmatter, including escaped strings, block scalars and nested flow metadata. Description prose uses folded block style when needed; repeated edits preserve its value and nested metadata. Unedited frontmatter stays verbatim. The legacy parser remains a fallback for non-YAML headers. Nested object fields are shown as read-only JSON instead of editable `[object Object]` text.
+The skill/agent editor uses `yaml` to read and write frontmatter, including escaped strings, block scalars and nested flow metadata. Description prose uses folded block style when needed; repeated edits preserve its value and nested metadata. Unedited frontmatter stays verbatim, and a file with no header the editor can parse is saved as its text alone, with no header added, until the form is edited. The legacy parser remains a fallback for non-YAML headers. Custom root and metadata mappings and lists containing mappings or nested lists are shown as read-only JSON; scalar lists remain editable.
+
+Dirty skill/agent frontmatter saves retain unchanged integer values from the original YAML header, including integers beyond JavaScript's safe range, and the trailing zeros of unchanged decimals such as `version: 1.10`; the form, JSON view and YAML preview use ordinary JavaScript values and may display rounded integers or `1.1`. Editing such a field can save the rounded value; the save confirmation diff shows the pending file content.
 
 The config editor's Beautify and Save actions organize top-level YAML sections: sources and default settings, targets, skills, agents, extras, MCP, plugins, hooks, other settings, ignore, and audit. Sections have blank lines between them; nested mappings and lists retain their order, and unknown keys remain in their original relative order at the end. Comments and anchors are preserved; the `yaml-language-server` schema directive stays at the top of the document, including when repairing a previously misplaced directive. If reordering would change an alias reference, the original section order is retained.
 
@@ -76,7 +80,7 @@ This topic also loads `website/AGENTS.md` for website-specific commands, structu
 
 Run all package commands inside the devcontainer. Select checks according to scope:
 
-- Dashboard: targeted Vitest, `pnpm run lint`, `pnpm run build`, and visual screenshots.
+- Dashboard (`ui/`): `pnpm lint` runs the fast Oxlint checks. Before submitting, run `pnpm lint:typed` (Oxlint with the tsrs backend; CI fails on errors) and `pnpm format:check` (Oxfmt). Use `pnpm format` to apply formatting. Run targeted Vitest tests and `pnpm build` (tsrs typecheck followed by Vite); inspect screenshots for visual changes.
 - Website: `pnpm run typecheck` and `pnpm run build`; the build validates broken links.
 - API-connected UI: compare `internal/server/server.go` routes, handler tests, and client types.
 

@@ -363,9 +363,9 @@ func TestDoctor_BrokenSymlink_ShowsError(t *testing.T) {
 
 	targetPath := sb.CreateTarget("claude")
 
-	// Create a broken symlink
+	// A link into the source whose skill is gone: sync prunes it, so it is an error.
 	brokenLink := filepath.Join(targetPath, "broken-skill")
-	os.Symlink("/nonexistent/path", brokenLink)
+	os.Symlink(filepath.Join(sb.SourcePath, "removed-skill"), brokenLink)
 
 	sb.WriteConfig(`source: ` + sb.SourcePath + `
 targets:

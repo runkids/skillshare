@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"skillshare/internal/config"
+	"skillshare/internal/filepreview"
 	"skillshare/internal/mcp"
 	"skillshare/internal/projectdir"
 	syncpkg "skillshare/internal/sync"
@@ -28,12 +29,23 @@ func (s *Server) mcpService() *mcp.Service {
 
 type mcpRequest struct {
 	Mutation mcp.Mutation `json:"mutation"`
-	Revision string       `json:"revision"`
-	Sync     bool         `json:"sync"`
-	BackupID string       `json:"backupId"`
-	Preview  bool         `json:"preview"`
+	// Mutations is a batch, previewed and saved together; a request sends it or Mutation.
+	Mutations []mcp.Mutation `json:"mutations"`
+	Revision  string         `json:"revision"`
+	Sync      bool           `json:"sync"`
+	BackupID  string         `json:"backupId"`
+	Preview   bool           `json:"preview"`
 	// Root, with sync and no mutation, applies only that mcp.projects root's changes.
 	Root string `json:"root"`
+}
+
+// batch is the request's mutations: its batch, or its one mutation. It is false when the
+// request sends both.
+func (b mcpRequest) batch() ([]mcp.Mutation, bool) {
+	if len(b.Mutations) == 0 {
+		return []mcp.Mutation{b.Mutation}, true
+	}
+	return b.Mutations, reflect.DeepEqual(b.Mutation, mcp.Mutation{})
 }
 
 func decodeMCPRequest(w http.ResponseWriter, r *http.Request, value any) bool {
@@ -117,9 +129,14 @@ func (s *Server) handleMCPPreview(w http.ResponseWriter, r *http.Request) {
 	if !decodeMCPRequest(w, r, &body) {
 		return
 	}
+	mutations, ok := body.batch()
+	if !ok {
+		writeError(w, 400, "send mutation or mutations, not both")
+		return
+	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	p, err := s.mcpService().PreviewMutation(body.Mutation)
+	p, err := s.mcpService().PreviewMutations(mutations)
 	if err != nil {
 		writeError(w, 400, err.Error())
 		return
@@ -178,7 +195,12 @@ func (s *Server) handleMCPConfigure(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 400, "preview the MCP changes before saving")
 		return
 	}
-	if body.Root != "" && (!body.Sync || !reflect.DeepEqual(body.Mutation, mcp.Mutation{})) {
+	mutations, ok := body.batch()
+	if !ok {
+		writeError(w, 400, "send mutation or mutations, not both")
+		return
+	}
+	if body.Root != "" && (!body.Sync || len(body.Mutations) > 0 || !reflect.DeepEqual(body.Mutation, mcp.Mutation{})) {
 		writeError(w, 400, "a project sync takes no changes")
 		return
 	}
@@ -192,7 +214,7 @@ func (s *Server) handleMCPConfigure(w http.ResponseWriter, r *http.Request) {
 		logArgs["project"] = body.Root
 		result, err = s.mcpService().ApplyProject(body.Revision, body.Root)
 	} else {
-		result, err = s.mcpService().Mutate(body.Mutation, body.Revision, body.Sync)
+		result, err = s.mcpService().MutateBatch(mutations, body.Revision, body.Sync)
 	}
 	status := "ok"
 	if err != nil {
@@ -330,6 +352,27 @@ func (s *Server) mcpOpenPath(target, project string) (string, error) {
 		return "", fmt.Errorf("unknown MCP target: %s", target)
 	}
 	return paths[target], nil
+}
+
+// handleMCPFile shows one Agent's MCP config file in the page, for a dashboard whose machine
+// has no desktop to open it on. Like handleMCPOpen it answers only a browser on this machine,
+// because the file can hold tokens, and only for a file the MCP page lists.
+func (s *Server) handleMCPFile(w http.ResponseWriter, r *http.Request) {
+	if !browserOnServerMachine(r) {
+		writeError(w, http.StatusForbidden, "viewing an Agent's file is available only on the machine running the dashboard")
+		return
+	}
+	path, err := s.mcpOpenPath(r.URL.Query().Get("target"), r.URL.Query().Get("project"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	data, err := filepreview.ReadFile(path)
+	if err != nil {
+		writePreviewError(w, err, path)
+		return
+	}
+	writeJSON(w, map[string]string{"path": path, "content": string(data)})
 }
 
 // nearestDir returns dir, or its closest parent that exists.

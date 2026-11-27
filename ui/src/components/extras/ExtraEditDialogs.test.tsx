@@ -12,15 +12,31 @@ vi.mock('../../api/client', async (load) => {
 });
 
 const remote: Extra = {
-  name: 'remote-rules', remote: 'example-org/hub//rules', branch: 'main',
-  source_dir: '/fixture/extras/remote-rules', source_type: 'default',
-  source_exists: true, file_count: 1, targets: [],
+  name: 'remote-rules',
+  remote: 'example-org/hub//rules',
+  branch: 'main',
+  source_dir: '/fixture/extras/remote-rules',
+  source_type: 'default',
+  source_exists: true,
+  file_count: 1,
+  targets: [],
 };
 
 describe('remote extra identity protection', () => {
   it('cannot submit a remote rename or source edit', async () => {
     const user = userEvent.setup();
-    render(<I18nProvider><ToastProvider><EditExtraDialog extra={remote} sharedDir="/fixture/extras" onClose={vi.fn()} onSaved={vi.fn()} /></ToastProvider></I18nProvider>);
+    render(
+      <I18nProvider>
+        <ToastProvider>
+          <EditExtraDialog
+            extra={remote}
+            sharedDir="/fixture/extras"
+            onClose={vi.fn()}
+            onSaved={vi.fn()}
+          />
+        </ToastProvider>
+      </I18nProvider>,
+    );
     expect(screen.getByLabelText('Name')).toBeDisabled();
     expect(screen.getByRole('combobox')).toBeDisabled();
     const save = screen.getByRole('button', { name: 'Save' });

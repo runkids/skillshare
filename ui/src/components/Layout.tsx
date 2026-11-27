@@ -19,6 +19,7 @@ import {
   Compass,
   Menu,
   X,
+  Gauge,
 } from 'lucide-react';
 import { api, type AuditAllResponse } from '../api/client';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
@@ -38,7 +39,13 @@ import { useTour } from './tour';
 import UpdateDialog from './UpdateDialog';
 import { useT } from '../i18n';
 import { shortenHome } from '../lib/paths';
-import { useDiffQuery, useHooksQuery, useMcpQuery, useOverviewQuery, useSyncedTargetsQuery } from '../hooks/useSharedQueries';
+import {
+  useDiffQuery,
+  useHooksQuery,
+  useMcpQuery,
+  useOverviewQuery,
+  useSyncedTargetsQuery,
+} from '../hooks/useSharedQueries';
 
 interface NavItem {
   to: string;
@@ -78,15 +85,23 @@ const navGroups: { labelKey?: string; items: NavItem[] }[] = [
   {
     labelKey: 'layout.group.maintain',
     items: [
+      { to: '/context', icon: Gauge, labelKey: 'layout.nav.context' },
       { to: '/audit', icon: ShieldCheck, labelKey: 'layout.nav.audit' },
-      { to: '/settings', icon: Settings, labelKey: 'layout.nav.settings', also: ['/config', '/backup', '/log', '/doctor'] },
+      {
+        to: '/settings',
+        icon: Settings,
+        labelKey: 'layout.nav.settings',
+        also: ['/appearance', '/config', '/backup', '/log', '/doctor'],
+      },
     ],
   },
 ];
 
 function isActive(item: NavItem, pathname: string): boolean {
   if (item.to === '/') return pathname === '/';
-  return [item.to, ...(item.also ?? [])].some((p) => pathname === p || pathname.startsWith(`${p}/`));
+  return [item.to, ...(item.also ?? [])].some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`),
+  );
 }
 
 export default function Layout() {
@@ -107,7 +122,9 @@ export default function Layout() {
 
   useEffect(() => {
     const desktop = window.matchMedia('(min-width: 768px)');
-    const onResize = () => { if (desktop.matches) setNavigationOpen(false); };
+    const onResize = () => {
+      if (desktop.matches) setNavigationOpen(false);
+    };
     desktop.addEventListener('change', onResize);
     return () => desktop.removeEventListener('change', onResize);
   }, []);
@@ -118,70 +135,139 @@ export default function Layout() {
     if (navigationOpen) closeNavigation();
     setShortcutsOpen((v) => !v);
   }, [navigationOpen, closeNavigation]);
-  const handleNavigate = useCallback((path: string) => {
-    if (navigationOpen) closeNavigation();
-    nav(path);
-  }, [navigationOpen, closeNavigation, nav]);
-  const { modifierHeld } = useGlobalShortcuts({ onToggleHelp: toggleShortcuts, onNavigate: handleNavigate });
+  const handleNavigate = useCallback(
+    (path: string) => {
+      if (navigationOpen) closeNavigation();
+      void nav(path);
+    },
+    [navigationOpen, closeNavigation, nav],
+  );
+  const { modifierHeld } = useGlobalShortcuts({
+    onToggleHelp: toggleShortcuts,
+    onNavigate: handleNavigate,
+  });
 
   const { data: overview } = useOverviewQuery();
   const version = overview?.version;
   const home = isProjectMode ? projectRoot : overview?.configDir;
   const counts = useNavCounts(isProjectMode);
-  const { data: targets } = useQuery({ queryKey: queryKeys.targets.all, queryFn: () => api.listTargets(), staleTime: staleTimes.targets });
+  const { data: targets } = useQuery({
+    queryKey: queryKeys.targets.all,
+    queryFn: () => api.listTargets(),
+    staleTime: staleTimes.targets,
+  });
   // Shares the badge query, so this costs no request.
   const { data: synced } = useSyncedTargetsQuery();
-  const targetAgents = useMemo(() => Object.fromEntries([...(synced?.targets ?? []), ...(targets?.targets ?? [])].flatMap((x) => (x.agent ? [[x.name, x.agent]] : []))), [synced, targets]);
+  const targetAgents = useMemo(
+    () =>
+      Object.fromEntries(
+        [...(synced?.targets ?? []), ...(targets?.targets ?? [])].flatMap((x) =>
+          x.agent ? [[x.name, x.agent]] : [],
+        ),
+      ),
+    [synced, targets],
+  );
 
   const sidebar = (
     <>
-        <div className="ss-wm">
-          <b>{t('app.name')}</b>
-          <svg className="ss-squig ss-only-playful" width="112" height="7" viewBox="0 0 112 7" aria-hidden="true">
-            <path d="M1 4 Q 8 0 15 4 T 29 4 T 43 4 T 57 4 T 71 4 T 85 4 T 99 4 T 111 4" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
-          </svg>
-          <div className="group flex items-center gap-1 min-w-0">
-            <span className="truncate" title={home}>{t(isProjectMode ? 'app.project' : 'app.global')}{home && ` · ${shortenHome(home)}`}</span>
-            {/* The label is truncated, so the tooltip is the only place the full path shows — copying saves retyping it. */}
-            {home && <CopyButton value={home} title={t('common.copyPath')} copiedLabel="" className="md:pointer-fine:opacity-0 group-hover:opacity-100 focus-visible:opacity-100" />}
-          </div>
-        </div>
-
-        <nav className="flex-1 min-h-0 overflow-y-auto -mx-1 px-1">
-          {navGroups.map((group, i) => {
-            const items = group.items.filter((item) => !(isProjectMode && item.hideInProject));
-            return (
-              <div key={i}>
-                {group.labelKey && <div className="ss-nvg">{t(group.labelKey)}</div>}
-                {items.map((item) => {
-                  const Icon = item.icon;
-                  const active = isActive(item, location.pathname);
-                  return (
-                    <Link key={item.to} to={item.to} onClick={() => { if (navigationOpen) closeNavigation(); }} className={`ss-nv ${active ? 'on' : ''}`} aria-current={active ? 'page' : undefined}>
-                      <Icon size={16} />
-                      <span>{t(item.labelKey)}</span>
-                      {counts[item.to] > 0 && <span className="n">{counts[item.to]}</span>}
-                    </Link>
-                  );
-                })}
-              </div>
-            );
-          })}
-        </nav>
-
-        <div className="ss-sidefoot">
-          <span className="flex items-center gap-0.5">
-            <ThemePopover />
-            <LanguagePopover />
-            <button type="button" className="ss-ib" data-tour="shortcuts-btn" onClick={toggleShortcuts} aria-label={t('shortcuts.title')} title={t('shortcuts.title')} aria-keyshortcuts="?">
-              <Keyboard size={16} />
-            </button>
-            <button type="button" className="ss-ib" onClick={() => { if (navigationOpen) closeNavigation(); startTour(); }} aria-label={t('layout.tools.quickTour')} title={t('layout.tools.quickTour')}>
-              <Compass size={16} />
-            </button>
+      <div className="ss-wm">
+        <b>{t('app.name')}</b>
+        <svg
+          className="ss-squig ss-only-playful"
+          width="112"
+          height="7"
+          viewBox="0 0 112 7"
+          aria-hidden="true"
+        >
+          <path
+            d="M1 4 Q 8 0 15 4 T 29 4 T 43 4 T 57 4 T 71 4 T 85 4 T 99 4 T 111 4"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+          />
+        </svg>
+        <div className="group flex items-center gap-1 min-w-0">
+          <span className="truncate" title={home}>
+            {t(isProjectMode ? 'app.project' : 'app.global')}
+            {home && ` · ${shortenHome(home)}`}
           </span>
-          {version && <span className="font-mono text-[11px] text-ink-3">{/^\d/.test(version) ? `v${version}` : version}</span>}
+          {/* The label is truncated, so the tooltip is the only place the full path shows — copying saves retyping it. */}
+          {home && (
+            <CopyButton
+              value={home}
+              title={t('common.copyPath')}
+              copiedLabel=""
+              className="md:pointer-fine:opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+            />
+          )}
         </div>
+      </div>
+
+      <nav className="flex-1 min-h-0 overflow-y-auto -mx-1 px-1">
+        {navGroups.map((group, i) => {
+          const items = group.items.filter((item) => !(isProjectMode && item.hideInProject));
+          return (
+            <div key={i}>
+              {group.labelKey && <div className="ss-nvg">{t(group.labelKey)}</div>}
+              {items.map((item) => {
+                const Icon = item.icon;
+                const active = isActive(item, location.pathname);
+                return (
+                  <Link
+                    key={item.to}
+                    to={item.to}
+                    onClick={() => {
+                      if (navigationOpen) closeNavigation();
+                    }}
+                    className={`ss-nv ${active ? 'on' : ''}`}
+                    aria-current={active ? 'page' : undefined}
+                  >
+                    <Icon size={16} />
+                    <span>{t(item.labelKey)}</span>
+                    {counts[item.to] > 0 && <span className="n">{counts[item.to]}</span>}
+                  </Link>
+                );
+              })}
+            </div>
+          );
+        })}
+      </nav>
+
+      <div className="ss-sidefoot">
+        <span className="flex items-center gap-0.5">
+          <ThemePopover />
+          <LanguagePopover />
+          <button
+            type="button"
+            className="ss-ib"
+            data-tour="shortcuts-btn"
+            onClick={toggleShortcuts}
+            aria-label={t('shortcuts.title')}
+            title={t('shortcuts.title')}
+            aria-keyshortcuts="?"
+          >
+            <Keyboard size={16} />
+          </button>
+          <button
+            type="button"
+            className="ss-ib"
+            onClick={() => {
+              if (navigationOpen) closeNavigation();
+              startTour();
+            }}
+            aria-label={t('layout.tools.quickTour')}
+            title={t('layout.tools.quickTour')}
+          >
+            <Compass size={16} />
+          </button>
+        </span>
+        {version && (
+          <span className="font-mono text-[11px] text-ink-3">
+            {/^\d/.test(version) ? `v${version}` : version}
+          </span>
+        )}
+      </div>
     </>
   );
 
@@ -189,23 +275,44 @@ export default function Layout() {
     <div className="min-h-screen">
       <aside className="ss-side fixed top-0 left-0 z-30 h-screen hidden md:flex">{sidebar}</aside>
       <header className="flex items-center gap-3 px-4 py-3 border-b border-line bg-side md:hidden">
-        <button ref={menuButton} type="button" className="ss-ib" aria-label={t('layout.navigation')} aria-expanded={navigationOpen} aria-controls="mobile-navigation" onClick={() => setNavigationOpen(true)}>
+        <button
+          ref={menuButton}
+          type="button"
+          className="ss-ib"
+          aria-label={t('layout.navigation')}
+          aria-expanded={navigationOpen}
+          aria-controls="mobile-navigation"
+          onClick={() => setNavigationOpen(true)}
+        >
           <Menu size={20} />
         </button>
         <b>{t('app.name')}</b>
       </header>
-      <DialogShell open={navigationOpen} onClose={closeNavigation} ariaLabel={t('layout.navigation')} maxWidth="sm" padding="none" className="ss-side !w-full h-[calc(100dvh-2rem)]">
+      <DialogShell
+        open={navigationOpen}
+        onClose={closeNavigation}
+        ariaLabel={t('layout.navigation')}
+        maxWidth="sm"
+        padding="none"
+        className="ss-side !w-full h-[calc(100dvh-2rem)]"
+      >
         <div id="mobile-navigation" className="flex flex-col flex-1 min-h-0">
           <div className="flex justify-end">
-            <IconButton icon={<X size={18} />} label={t('common.close')} onClick={closeNavigation} />
+            <IconButton
+              icon={<X size={18} />}
+              label={t('common.close')}
+              onClick={closeNavigation}
+            />
           </div>
           {sidebar}
         </div>
       </DialogShell>
 
-      <main className="min-w-0 px-4 py-6 md:ml-[232px] md:px-12 md:py-10">
+      <main className="ss-main min-w-0 px-4 py-6 md:ml-[232px] md:px-12 md:py-10">
         <div className="max-w-[1080px] mx-auto">
-          <TargetAgents.Provider value={targetAgents}><Outlet /></TargetAgents.Provider>
+          <TargetAgents.Provider value={targetAgents}>
+            <Outlet />
+          </TargetAgents.Provider>
         </div>
       </main>
 
@@ -226,18 +333,51 @@ const live = { refetchInterval: 15_000, refetchOnWindowFocus: true } as const;
 function useNavCounts(isProjectMode: boolean): Record<string, number> {
   const targets = useSyncedTargetsQuery(live);
   const diff = useDiffQuery(live);
-  const extras = useQuery({ queryKey: queryKeys.extrasDiff(), queryFn: () => api.diffExtras(), staleTime: staleTimes.extras, ...live });
+  const extras = useQuery({
+    queryKey: queryKeys.extrasDiff(),
+    queryFn: () => api.diffExtras(),
+    staleTime: staleTimes.extras,
+    ...live,
+  });
   const mcp = useMcpQuery({ staleTime: staleTimes.extras, ...live });
   const hooks = useHooksQuery({ staleTime: staleTimes.extras, ...live });
-  const git = useQuery({ queryKey: queryKeys.gitStatus, queryFn: () => api.gitStatus(), staleTime: staleTimes.gitStatus, enabled: !isProjectMode, ...live });
+  const git = useQuery({
+    queryKey: queryKeys.gitStatus,
+    queryFn: () => api.gitStatus(),
+    staleTime: staleTimes.gitStatus,
+    enabled: !isProjectMode,
+    ...live,
+  });
   // Scans are expensive, so the badge only reads one the Audit page already ran.
-  const auditSkills = useQuery<AuditAllResponse>({ queryKey: queryKeys.audit.all('skills'), queryFn: () => api.auditAll('skills'), enabled: false });
-  const auditAgents = useQuery<AuditAllResponse>({ queryKey: queryKeys.audit.all('agents'), queryFn: () => api.auditAll('agents'), enabled: false });
+  const auditSkills = useQuery<AuditAllResponse>({
+    queryKey: queryKeys.audit.all('skills'),
+    queryFn: () => api.auditAll('skills'),
+    enabled: false,
+  });
+  const auditAgents = useQuery<AuditAllResponse>({
+    queryKey: queryKeys.audit.all('agents'),
+    queryFn: () => api.auditAll('agents'),
+    enabled: false,
+  });
 
   const status = git.data;
   return {
-    '/sync': diff.data ? pendingCount(diff.data.diffs, targets.data?.targets ?? [], extras.data?.extras ?? [], mcp.data?.plan, hooks.data?.plan) : 0,
-    '/git': !status?.isRepo ? 0 : status.isDirty ? status.files.length : status.hasRemote ? status.ahead : 0,
+    '/sync': diff.data
+      ? pendingCount(
+          diff.data.diffs,
+          targets.data?.targets ?? [],
+          extras.data?.extras ?? [],
+          mcp.data?.plan,
+          hooks.data?.plan,
+        )
+      : 0,
+    '/git': !status?.isRepo
+      ? 0
+      : status.isDirty
+        ? status.files.length
+        : status.hasRemote
+          ? status.ahead
+          : 0,
     '/audit': (auditSkills.data?.summary.failed ?? 0) + (auditAgents.data?.summary.failed ?? 0),
   };
 }

@@ -545,7 +545,7 @@ func pruneExtraOrphans(targetPath, sourcePath string, sourceFiles map[string]boo
 		// Source doesn't exist — candidate for pruning
 		if mode == "merge" {
 			// In merge mode, only prune symlinks (don't delete user's local files)
-			if !utils.IsLinkMode(path, info.Mode()) || !prunableLink(path, sourcePath) {
+			if !utils.IsLinkMode(path, info.Mode()) || !PrunableLink(path, sourcePath) {
 				return nil
 			}
 		}

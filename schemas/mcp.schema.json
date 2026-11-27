@@ -8,6 +8,7 @@
   "properties": {"servers": {"$ref": "#/$defs/servers"}},
   "$defs": {
     "optionScalar": {"type": ["string", "number", "boolean"]},
+    "optionAgents": {"enum": ["claude", "codex", "cursor", "vscode", "opencode", "kilocode", "grok", "antigravity", "amp", "claude-desktop", "cline", "copilot", "factory", "gemini", "goose", "hermes", "junie", "kiro", "lmstudio", "warp", "windsurf", "omp"], "description": "Agents whose native per-server fields options can set. Pi's are set in piOptions."},
     "optionValue": {"description": "What every native format writes back unchanged: no null, and a list holds only scalars.", "anyOf": [{"$ref": "#/$defs/optionScalar"}, {"type": "array", "items": {"$ref": "#/$defs/optionScalar"}}, {"type": "object", "additionalProperties": {"$ref": "#/$defs/optionValue"}}]},
     "targets": {"type": "array", "uniqueItems": true, "items": {"anyOf": [{"enum": ["claude", "codex", "cursor", "vscode", "opencode", "kilocode", "grok", "antigravity", "amp", "claude-desktop", "cline", "copilot", "factory", "gemini", "goose", "hermes", "junie", "kiro", "lmstudio", "warp", "windsurf", "pi", "omp"]}, {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$", "description": "A target that is another account of an Agent, declared under targets with agent and config_dir. Global config only."}]}},
     "directTools": {
@@ -35,12 +36,19 @@
       "propertyNames": {"pattern": "^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$"},
       "additionalProperties": {"$ref": "#/$defs/server"}
     },
-    "configuration": {
+    "projectServers": {
+      "type": "object",
+      "description": "Servers of one project. global applies only to the global config's mcp.servers.",
+      "additionalProperties": {"allOf": [{"$ref": "#/$defs/server"}, {"not": {"required": ["global"]}}]}
+    },
+    "projectRoot": {
       "type": "object", "additionalProperties": false,
       "properties": {
         "targets": {"$ref": "#/$defs/targets"},
         "directTools": {"$ref": "#/$defs/directTools"},
-        "servers": {"$ref": "#/$defs/servers"}
+        "use": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}, "description": "Servers of mcp.servers set to global: false that this folder loads. A name here cannot also be under this folder's servers."},
+        "overrides": {"type": "object", "description": "Settings this folder changes in a server it lists under use, keyed by the server's name. The connection (command, url, headers, env) stays the shared server's. targets and tools replace the server's; piOptions and options are merged into the server's key by key.", "additionalProperties": {"type": "object", "additionalProperties": false, "properties": {"targets": {"$ref": "#/$defs/targets"}, "tools": {"$ref": "#/$defs/tools"}, "piOptions": {"type": "object", "description": "Pi built-in per-server options, merged into the shared server's, such as exposure: direct."}, "options": {"type": "object", "propertyNames": {"$ref": "#/$defs/optionAgents"}, "additionalProperties": {"type": "object", "additionalProperties": {"$ref": "#/$defs/optionValue"}}, "description": "Other Agents' native per-server fields, keyed by Agent, merged into the shared server's."}}}},
+        "servers": {"$ref": "#/$defs/projectServers"}
       }
     },
     "serve": {
@@ -62,7 +70,7 @@
       "properties": {
         "targets": {"$ref": "#/$defs/targets"},
         "directTools": {"$ref": "#/$defs/directTools"},
-        "servers": {"$ref": "#/$defs/servers"},
+        "servers": {"$ref": "#/$defs/projectServers"},
         "serve": {"$ref": "#/$defs/serve"}
       }
     },
@@ -75,8 +83,8 @@
         "serve": {"$ref": "#/$defs/serve"},
         "projects": {
           "type": "object",
-          "description": "Project folders this global config syncs into, keyed by absolute path (or ~/...). Each takes what that project's own config.yaml would hold under mcp.",
-          "additionalProperties": {"$ref": "#/$defs/configuration"}
+          "description": "Project folders this global config syncs into, keyed by absolute path (or ~/...). Each takes what that project's own config.yaml would hold under mcp, plus use.",
+          "additionalProperties": {"$ref": "#/$defs/projectRoot"}
         }
       }
     },
@@ -95,12 +103,13 @@
         "directTools": {"$ref": "#/$defs/directTools"},
         "tools": {"$ref": "#/$defs/tools"},
         "piOptions": {"type": "object", "description": "Pi built-in per-server options. Known built-in fields are validated; unknown fields are preserved. pi-mcp-adapter-only fields are refused: set tool lists in tools; exposure and toolExposure cannot be combined with tools."},
-        "options": {"type": "object", "propertyNames": {"enum": ["claude", "codex", "cursor", "vscode", "opencode", "kilocode", "grok", "antigravity", "amp", "claude-desktop", "cline", "copilot", "factory", "gemini", "goose", "hermes", "junie", "kiro", "lmstudio", "warp", "windsurf", "omp"]}, "additionalProperties": {"type": "object", "additionalProperties": {"$ref": "#/$defs/optionValue"}}, "description": "Native per-server fields of other Agents, keyed by Agent, written into that Agent's entry as given, such as codex: {default_tools_approval_mode: approve} or claude: {timeout: 600000}. Fields Skillshare writes from the server's own settings are refused; values are strings, numbers, booleans, lists of those, or mappings of them. Credentials must be a whole-value environment reference in the Agent's own syntax, such as ${VAR} or {env:VAR}, never plain text; options of Codex, Antigravity, Claude Desktop, Goose, Junie, LM Studio and Warp, which read no references there, cannot hold one. Set Pi's fields in piOptions. Sync removes an option it wrote once the source drops it."},
+        "options": {"type": "object", "propertyNames": {"$ref": "#/$defs/optionAgents"}, "additionalProperties": {"type": "object", "additionalProperties": {"$ref": "#/$defs/optionValue"}}, "description": "Native per-server fields of other Agents, keyed by Agent, written into that Agent's entry as given, such as codex: {default_tools_approval_mode: approve} or claude: {timeout: 600000}. Fields Skillshare writes from the server's own settings are refused; values are strings, numbers, booleans, lists of those, or mappings of them. Credentials must be a whole-value environment reference in the Agent's own syntax, such as ${VAR} or {env:VAR}, never plain text; options of Codex, Antigravity, Claude Desktop, Goose, Junie, LM Studio and Warp, which read no references there, cannot hold one. Set Pi's fields in piOptions. Sync removes an option it wrote once the source drops it."},
         "piOptionsPrune": {"type": "boolean", "deprecated": true, "description": "Ignored since 0.23.0: sync always removes Pi options Skillshare wrote that are unchanged. Saving the config drops it."},
-        "disabled": {"const": true, "description": "Project mode only: turn off a server that the Agent's global config defines. Supported by claude, opencode and kilocode."}
+        "disabled": {"const": true, "description": "Project mode only: turn off a server that the Agent's global config defines. Supported by claude, opencode and kilocode."},
+        "global": {"type": "boolean", "description": "Global config, mcp.servers only. false keeps the server out of the Agents' global files; it is written only to the mcp.projects folders that list it under use. Default true."}
       },
       "oneOf": [
-        {"required": ["disabled"], "not": {"anyOf": [{"required": ["directTools"]}, {"required": ["tools"]}, {"required": ["options"]}, {"required": ["command"]}, {"required": ["url"]}, {"required": ["args"]}, {"required": ["env"]}, {"required": ["headers"]}, {"required": ["bearerToken"]}, {"required": ["transport"]}]}},
+        {"required": ["disabled"], "not": {"anyOf": [{"required": ["global"]}, {"required": ["directTools"]}, {"required": ["tools"]}, {"required": ["options"]}, {"required": ["command"]}, {"required": ["url"]}, {"required": ["args"]}, {"required": ["env"]}, {"required": ["headers"]}, {"required": ["bearerToken"]}, {"required": ["transport"]}]}},
         {"required": ["command"], "not": {"anyOf": [{"required": ["disabled"]}, {"required": ["url"]}, {"required": ["headers"]}, {"required": ["bearerToken"]}]}, "properties": {"transport": {"const": "stdio"}}},
         {"required": ["url"], "not": {"anyOf": [{"required": ["disabled"]}, {"required": ["command"]}, {"required": ["args"]}, {"required": ["env"]}]}, "properties": {"transport": {"const": "streamable-http"}}}
       ]

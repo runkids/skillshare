@@ -7,12 +7,16 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"testing"
 
 	"skillshare/internal/config"
+	"skillshare/internal/install"
+	"skillshare/internal/oplog"
 	"skillshare/internal/sync"
+	"skillshare/internal/testutil"
 	"skillshare/internal/trash"
 	"skillshare/internal/utils"
 )
@@ -148,11 +152,33 @@ func TestHandleCreateSourceLink_SyncTargetRefusal(t *testing.T) {
 }
 
 func TestHandleRemoveSourceLink(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	for key, value := range (&testutil.Sandbox{Home: home}).MachineEnv() {
+		t.Setenv(key, value)
+	}
 	s, src := newTestServer(t)
 	target := t.TempDir()
 	addSkill(t, target, "kept")
 	if rr := postSourceLink(t, s, sourceLinkRequest{Path: target, Name: "_team"}); rr.Code != http.StatusOK {
 		t.Fatal(rr.Body.String())
+	}
+	initGitRepo(t, target)
+	s.skillsStore.Set("_team", &install.MetadataEntry{Source: "https://example.invalid/team.git", Tracked: true})
+	s.skillsStore.Set("_other", &install.MetadataEntry{Source: "keep", Tracked: true})
+	s.skillsStore.AuditAccepted = map[string][]string{"_team/kept": {"accepted"}, "_other": {"keep"}}
+	if err := s.skillsStore.Save(src); err != nil {
+		t.Fatal(err)
+	}
+	// A CLI write while the dashboard is open must survive unlink and later saves.
+	latest, err := install.LoadMetadata(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	latest.Set("_cli", &install.MetadataEntry{Source: "https://example.invalid/cli.git", Tracked: true})
+	latest.AuditAccepted["_cli/member"] = []string{"cli-accepted"}
+	if err := latest.Save(src); err != nil {
+		t.Fatal(err)
 	}
 	rr := httptest.NewRecorder()
 	s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodDelete, "/api/source-links/_team", nil))
@@ -164,6 +190,18 @@ func TestHandleRemoveSourceLink(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(target, "kept", "SKILL.md")); err != nil {
 		t.Fatalf("target modified: %v", err)
+	}
+	var body struct{ Warning string }
+	if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil || body.Warning != "" {
+		t.Fatalf("healthy unlink warned: %s %v", rr.Body.String(), err)
+	}
+	// A later save must not resurrect the declaration from the server cache.
+	if err := s.skillsStore.Save(src); err != nil {
+		t.Fatal(err)
+	}
+	saved, err := install.LoadMetadata(src)
+	if err != nil || saved.Has("_team") || !saved.Has("_other") || !reflect.DeepEqual(saved.Get("_cli"), latest.Get("_cli")) || !reflect.DeepEqual(saved.AuditAccepted["_cli/member"], latest.AuditAccepted["_cli/member"]) || len(saved.AuditAccepted) != 2 {
+		t.Fatalf("unlink record resurrected: %+v, %v", saved, err)
 	}
 	items := trash.List(s.trashBase())
 	if len(items) != 1 {
@@ -181,5 +219,73 @@ func TestHandleRemoveSourceLink_NonLink(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(src, "plain", "SKILL.md")); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestHandleRemoveSourceLink_ProjectKeepsRecord(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	for key, value := range (&testutil.Sandbox{Home: home}).MachineEnv() {
+		t.Setenv(key, value)
+	}
+	s, root := newProjectTargetServer(t, nil)
+	target := t.TempDir()
+	if rr := postSourceLink(t, s, sourceLinkRequest{Path: target, Name: "_team"}); rr.Code != http.StatusOK {
+		t.Fatal(rr.Body.String())
+	}
+	s.skillsStore.Set("_team", &install.MetadataEntry{Source: "keep", Tracked: true})
+	source := s.projectCfg.EffectiveSkillsSource(root)
+	if err := s.skillsStore.Save(source); err != nil {
+		t.Fatal(err)
+	}
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodDelete, "/api/source-links/_team", nil))
+	loaded, err := install.LoadMetadata(source)
+	if rr.Code != http.StatusOK || err != nil || !s.skillsStore.Has("_team") || !loaded.Has("_team") {
+		t.Fatalf("project record removed: %d %s %v", rr.Code, rr.Body.String(), err)
+	}
+	if entry := trash.FindByName(s.trashBase(), "_team"); entry == nil {
+		t.Fatal("project link not trashed")
+	} else if _, err := os.Stat(trash.MetadataFile(entry.Path)); !os.IsNotExist(err) {
+		t.Fatalf("project unlink created metadata sidecar: %v", err)
+	}
+}
+
+func TestHandleRemoveSourceLink_MetadataReloadFailure(t *testing.T) {
+	s, src := newTestServer(t)
+	target := t.TempDir()
+	addSkill(t, target, "kept")
+	if rr := postSourceLink(t, s, sourceLinkRequest{Path: target, Name: "_team"}); rr.Code != http.StatusOK {
+		t.Fatal(rr.Body.String())
+	}
+	s.skillsStore.Set("_team", &install.MetadataEntry{Source: "https://example.invalid/team.git", Tracked: true})
+	invalid := []byte("invalid metadata from interrupted external write")
+	if err := os.WriteFile(install.MetadataPath(src), invalid, 0644); err != nil {
+		t.Fatal(err)
+	}
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodDelete, "/api/source-links/_team", nil))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("unlink already succeeded: %d %s", rr.Code, rr.Body.String())
+	}
+	var body struct {
+		Success bool
+		Warning string
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil || !body.Success || !strings.Contains(body.Warning, "Unlinked, but could not update metadata") {
+		t.Fatalf("partial unlink hidden: %s %v", rr.Body.String(), err)
+	}
+	entries, err := oplog.Read(s.configPath(), oplog.OpsFile, 10)
+	if err != nil || len(entries) == 0 || entries[0].Command != "unlink" || entries[0].Status != "partial" || entries[0].Message != body.Warning {
+		t.Fatalf("partial unlink log: %+v %v", entries, err)
+	}
+	if _, err := os.Lstat(filepath.Join(src, "_team")); !os.IsNotExist(err) {
+		t.Fatalf("link still exists: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(target, "kept", "SKILL.md")); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := os.ReadFile(install.MetadataPath(src)); err != nil || !bytes.Equal(got, invalid) || !s.skillsStore.Has("_team") {
+		t.Fatalf("reload failure saved stale metadata: %q, %v", got, err)
 	}
 }

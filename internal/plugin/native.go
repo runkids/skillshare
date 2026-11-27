@@ -22,6 +22,11 @@ import (
 // same sentence is not repeated once per Agent.
 var ErrCLIMissing = errors.New("native CLI not on PATH")
 
+// errOpenCodeNotLoaded marks an OpenCode plugin command answered before OpenCode loaded the
+// folder's plugins: it then reports a configured plugin as not configured
+// (anomalyco/opencode#54654). The command changed nothing, so it can run again.
+var errOpenCodeNotLoaded = errors.New("OpenCode plugins not loaded yet")
+
 // agentError names a fixed failure template so the dashboard can show it in the reader's
 // language. message stays the English the CLI prints and is the fallback; cause is
 // ErrCLIMissing when installing something, not opening the Agent, is the remedy. args fill
@@ -114,6 +119,10 @@ func runCommand(ctx context.Context, dir string, env []string, bin string, args 
 				return nil, failure
 			}
 		}
+		// An account's OpenCode CLI can have any name, so match the command and words, not bin.
+		if len(args) > 2 && args[0] == "plugin" && args[1] == "update" && strings.Contains(stderr.String()+stdout.String(), "Plugin is not configured: ") {
+			return nil, agentError{cause: errOpenCodeNotLoaded, key: "plugins.error.opencodeNotLoaded", message: "OpenCode had not loaded its plugins yet and reported this one as not configured (anomalyco/opencode#54654); run the update again"}
+		}
 		// Native output can contain credentials or command-source scripts.
 		return nil, agentError{key: "plugins.error.commandFailed", message: fmt.Sprintf("%s command failed; open the native client to resolve authentication, trust, or configuration", bin)}
 	}
@@ -142,6 +151,9 @@ func (s *Service) run(ctx context.Context, target string, args ...string) ([]byt
 	bin := s.agentOf(target)
 	if bin == "antigravity-cli" {
 		bin = "agy"
+	}
+	if bin == "herdr-app" {
+		env = []string{"HERDR_APP_HOME=" + herdrHome()}
 	}
 	explicit := false
 	if account, ok := s.account(target); ok {

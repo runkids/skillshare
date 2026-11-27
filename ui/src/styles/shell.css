@@ -1,0 +1,94 @@
+@layer components {
+  .ss-side {
+    width: 232px;
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    padding: 18px 12px 12px;
+    background: var(--side);
+    border-right: 1px solid var(--line);
+  }
+  @media (min-width: 768px) {
+    :root:not([data-theme='playful']):not([data-layout='full']) aside.ss-side {
+      background: transparent;
+      border-right: 0;
+    }
+  }
+  :root[data-theme='playful'] .ss-side {
+    border-right: 2px dashed var(--line-soft);
+  }
+  .ss-wm {
+    padding: 4px 10px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .ss-wm b {
+    font: 700 19px/1.1 var(--f);
+    letter-spacing: -0.02em;
+  }
+  :root[data-theme='playful'] .ss-wm b {
+    font: 700 30px/1 var(--fh);
+    letter-spacing: 0;
+    align-self: flex-start;
+  }
+  .ss-wm span {
+    font-size: 12px;
+    color: var(--ink-3);
+  }
+  .ss-nvg {
+    padding: 16px 10px 6px;
+    font: 600 11px/1 var(--f);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+  .ss-nv {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 34px;
+    padding: 0 10px;
+    margin-bottom: 1px;
+    border-radius: 8px;
+    color: var(--ink-2);
+    font-weight: 500;
+    border: var(--bw) solid transparent;
+  }
+  .ss-nv.on {
+    background: var(--sel);
+    color: var(--sel-ink);
+    font-weight: 600;
+  }
+  :root[data-theme='playful'] .ss-nv {
+    height: 36px;
+  }
+  :root[data-theme='playful'] .ss-nv.on {
+    border-color: var(--line);
+    border-radius: 10px;
+    box-shadow: 2px 2px 0 var(--line);
+  }
+  .ss-nv .n {
+    margin-left: auto;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    display: grid;
+    place-items: center;
+    border-radius: 9px;
+    font: 600 11px/1 var(--f);
+    background: var(--warn-bg);
+    color: var(--warn);
+  }
+  :root[data-theme='playful'] .ss-nv .n {
+    border: 1.5px solid currentColor;
+  }
+  .ss-sidefoot {
+    margin-top: auto;
+    padding: 10px 6px 0;
+    border-top: var(--sep);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+}

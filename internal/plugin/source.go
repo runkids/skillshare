@@ -16,6 +16,7 @@ import (
 	"slices"
 	"strings"
 
+	"skillshare/internal/install"
 	"skillshare/internal/utils"
 )
 
@@ -58,9 +59,27 @@ func acquireRef(ctx context.Context, source, ref string) (string, string, func()
 	if isNpmSource(source) {
 		return "", "", cleanup, fmt.Errorf("npm packages can't be previewed: Pi downloads them when it installs them. Add one to a Pi target with: skillshare plugin add %s --target pi", source)
 	}
+	var normalized, subdir, branch string
+	if link, kind := githubPluginLink(source); link != nil {
+		web, err := resolveGitHubPluginLink(link, kind)
+		if err != nil {
+			return "", "", cleanup, err
+		}
+		source, normalized, subdir = web.CloneURL, link.String(), web.Subdir
+		if ref == "" {
+			if web.Branch != "" && !install.IsCommitSHA(web.Branch) {
+				branch = web.Branch
+			} else {
+				ref = web.Branch
+			}
+		}
+	}
 	source, err := remoteURL(source)
 	if err != nil {
 		return "", "", cleanup, err
+	}
+	if normalized == "" {
+		normalized = source
 	}
 	root, err := os.MkdirTemp("", "skillshare-plugin-")
 	if err != nil {
@@ -72,33 +91,65 @@ func acquireRef(ctx context.Context, source, ref string) (string, string, func()
 		cleanup()
 		return "", "", func() {}, err
 	}
-	_, err = runCommand(ctx, "", nil, "git", "-c", "core.hooksPath=/dev/null", "clone", "--depth", "1", "--", source, root)
-	if err != nil {
+	args := []string{"-c", "core.hooksPath=/dev/null", "clone", "--depth", "1"}
+	if branch != "" {
+		args = append(args, "--branch", branch)
+	}
+	if subdir != "" {
+		args = append(args, "--filter=blob:none", "--no-checkout")
+	}
+	if _, err = runCommand(ctx, "", nil, "git", append(args, "--", source, root)...); err != nil {
 		cleanup()
 		return "", "", func() {}, fmt.Errorf("download plugin source: %w", err)
 	}
+	checkout := "HEAD"
 	if ref != "" {
-		if _, err = runCommand(ctx, root, nil, "git", "fetch", "--depth", "1", "origin", ref); err == nil {
-			_, err = runCommand(ctx, root, nil, "git", "-c", "core.hooksPath=/dev/null", "checkout", "--detach", "FETCH_HEAD")
-		}
-		if err != nil {
+		if _, err = runCommand(ctx, root, nil, "git", "fetch", "--depth", "1", "--", "origin", ref); err != nil {
 			cleanup()
 			return "", "", func() {}, fmt.Errorf("resolve source ref: %w", err)
 		}
+		checkout = "FETCH_HEAD"
 	}
-	return clone, source, cleanup, nil
+	if subdir != "" {
+		// Read the named tree, never Git metadata or a directory reached through a link.
+		object, err := runCommand(ctx, clone, nil, "git", "cat-file", "-t", checkout+":"+subdir)
+		if err != nil || strings.TrimSpace(string(object)) != "tree" {
+			cleanup()
+			return "", "", func() {}, pluginFolderError(subdir)
+		}
+		if _, err := runCommand(ctx, clone, nil, "git", "-c", "core.hooksPath=/dev/null", "sparse-checkout", "set", "--cone", "--", subdir); err != nil {
+			cleanup()
+			return "", "", func() {}, fmt.Errorf("select plugin folder: %w", err)
+		}
+	}
+	if ref != "" || subdir != "" {
+		if _, err := runCommand(ctx, root, nil, "git", "-c", "core.hooksPath=/dev/null", "checkout", "--detach", checkout); err != nil {
+			cleanup()
+			return "", "", func() {}, fmt.Errorf("check out plugin source: %w", err)
+		}
+	}
+	if subdir != "" {
+		folder := filepath.Join(clone, filepath.FromSlash(subdir))
+		if err := noSymlink(clone, folder); err != nil {
+			cleanup()
+			return "", "", func() {}, pluginFolderError(subdir)
+		}
+		clone = folder
+	}
+	return clone, normalized, cleanup, nil
 }
 
 // treeDigest includes safe relative links, leaves out unsafe ones and rejects special files.
 // The entire package tree is retained, including scripts and referenced assets.
 func treeDigest(root string) (string, error) {
-	digest, _, err := hashTree(root)
+	digest, _, err := hashTree(root, nil)
 	return digest, err
 }
 
-// hashTree is treeDigest plus the links it left out, relative to root.
-func hashTree(root string) (string, map[string]bool, error) {
-	skipped, err := validateSourceLinks(root)
+// hashTree is treeDigest plus the links it left out, relative to root. ignore, when set, names
+// slash-separated relative paths to leave out; an ignored directory is not descended.
+func hashTree(root string, ignore func(string) bool) (string, map[string]bool, error) {
+	skipped, err := validateSourceLinks(root, ignore)
 	if err != nil {
 		return "", nil, err
 	}
@@ -110,6 +161,12 @@ func hashTree(root string) (string, map[string]bool, error) {
 			return err
 		}
 		rel, _ := filepath.Rel(root, path)
+		if rel != "." && ignore != nil && ignore(filepath.ToSlash(rel)) {
+			if d.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
 		if d.IsDir() {
 			if d.Name() == ".git" {
 				return filepath.SkipDir
@@ -210,7 +267,7 @@ func DiscoverOptions(ctx context.Context, source, ref, entry string) (*Discovery
 }
 
 func discoverRoot(root, source string, explicit ...string) (*Discovery, error) {
-	digest, skipped, err := hashTree(root)
+	digest, skipped, err := hashTree(root, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -222,11 +279,25 @@ func discoverRoot(root, source string, explicit ...string) (*Discovery, error) {
 		}
 		result.Warnings = append(result.Warnings, fmt.Sprintf("Skipped %d broken or unsafe links; they are left out of the install: %s", len(skipped), strings.Join(links, ", ")))
 	}
+	if link, kind := githubPluginLink(source); kind == "blob" {
+		if len(explicit) > 0 && explicit[0] != "" {
+			return nil, errHerdrModLink
+		}
+		for _, c := range herdrCandidates(root, "") {
+			if c.Name == herdrModName(link) && noSymlink(root, filepath.Join(root, c.Path)) == nil {
+				c.HerdrPanel = supportsHerdrPanel(source, c.Name)
+				result.Candidates = append(result.Candidates, c)
+				return result, nil
+			}
+		}
+		return nil, errHerdrModLink
+	}
 	seenAt := map[string]int{}
 	codexListed := map[string]bool{}
 	var ompCatalog map[string]Candidate
+	var antigravityCatalog map[string]Candidate
 	// Read all native catalogs; the same package may be advertised more than once.
-	for _, path := range []string{".agents/plugins/marketplace.json", ".omp-plugin/marketplace.json", ".claude-plugin/marketplace.json", ".cursor-plugin/marketplace.json", ".github/plugin/marketplace.json", ".plugin/marketplace.json", "marketplace.json"} {
+	for _, path := range []string{".agents/plugins/marketplace.json", ".omp-plugin/marketplace.json", ".antigravity-plugin/marketplace.json", ".claude-plugin/marketplace.json", ".cursor-plugin/marketplace.json", ".github/plugin/marketplace.json", ".plugin/marketplace.json", "marketplace.json"} {
 		data, err := os.ReadFile(filepath.Join(root, path))
 		if os.IsNotExist(err) {
 			continue
@@ -236,6 +307,9 @@ func discoverRoot(root, source string, explicit ...string) (*Discovery, error) {
 		}
 		if path == ".omp-plugin/marketplace.json" {
 			ompCatalog = map[string]Candidate{}
+		}
+		if path == ".antigravity-plugin/marketplace.json" {
+			antigravityCatalog = map[string]Candidate{}
 		}
 		var catalog struct {
 			Name    string                       `json:"name"`
@@ -347,6 +421,11 @@ func discoverRoot(root, source string, explicit ...string) (*Discovery, error) {
 				native.TargetInfo = maps.Clone(c.TargetInfo)
 				ompCatalog[c.Name] = native
 			}
+			if path == ".antigravity-plugin/marketplace.json" {
+				native := c
+				native.TargetInfo = maps.Clone(c.TargetInfo)
+				antigravityCatalog[c.Name] = native
+			}
 			if i, ok := seenAt[c.Name]; ok {
 				// An external entry has no path; a catalog that points inside the source wins over it.
 				// The same folder may be readable by one catalog only (Claude allows no plugin.json).
@@ -374,13 +453,22 @@ func discoverRoot(root, source string, explicit ...string) (*Discovery, error) {
 	if len(result.Candidates) == 0 {
 		c, err := inspect(root, explicit...)
 		if err != nil {
-			return nil, err
+			entry := ""
+			if len(explicit) > 0 {
+				entry = explicit[0]
+			}
+			result.Candidates = herdrCandidates(root, entry)
+			if len(result.Candidates) == 0 {
+				return nil, err
+			}
+		} else {
+			c.Path = "."
+			result.Candidates = append(result.Candidates, c)
 		}
-		c.Path = "."
-		result.Candidates = append(result.Candidates, c)
 	}
 	for i := range result.Candidates {
 		c := &result.Candidates[i]
+		c.HerdrPanel = slices.Contains(c.Targets, "herdr-app") && c.TargetInfo["herdr-app"].Entry == "" && supportsHerdrPanel(source, c.Name)
 		// OMP reads its own marketplace exclusively when present, even if an entry is broken.
 		if ompCatalog != nil {
 			native, ok := ompCatalog[c.Name]
@@ -396,13 +484,30 @@ func discoverRoot(root, source string, explicit ...string) (*Discovery, error) {
 				c.TargetInfo["omp"] = info
 			}
 		}
+		// Antigravity reads its own marketplace exclusively when present, even if an entry is broken.
+		if antigravityCatalog != nil {
+			native, ok := antigravityCatalog[c.Name]
+			info, supported := native.TargetInfo["antigravity"]
+			delete(c.TargetInfo, "antigravity")
+			delete(c.TargetInfo, "antigravity-cli")
+			if ok {
+				if native.Problem != "" {
+					info.block(native.ProblemKey, native.Problem, native.ProblemArgs)
+				} else if !supported {
+					info.block("plugins.problem.noManifest", native.Name+": no Antigravity-compatible manifest found", nil)
+				}
+				info.Path = native.Path
+				c.TargetInfo["antigravity"] = info
+				c.TargetInfo["antigravity-cli"] = info
+			}
+		}
 		c.collectTargets()
 	}
 	return result, nil
 }
 
 // catalogOwner is the Agent each native catalog is written for.
-var catalogOwner = map[string]string{".agents/plugins/marketplace.json": "codex", ".omp-plugin/marketplace.json": "omp", ".claude-plugin/marketplace.json": "claude", ".cursor-plugin/marketplace.json": "cursor", ".github/plugin/marketplace.json": "copilot", ".plugin/marketplace.json": "copilot"}
+var catalogOwner = map[string]string{".agents/plugins/marketplace.json": "codex", ".omp-plugin/marketplace.json": "omp", ".antigravity-plugin/marketplace.json": "antigravity", ".claude-plugin/marketplace.json": "claude", ".cursor-plugin/marketplace.json": "cursor", ".github/plugin/marketplace.json": "copilot", ".plugin/marketplace.json": "copilot"}
 
 // mergeCatalogPath folds in the same plugin advertised by another catalog, possibly in another
 // folder. An Agent keeps the folder found first, unless its own catalog says otherwise or that
@@ -422,7 +527,7 @@ func mergeCatalogPath(kept *Candidate, c Candidate, owner string) {
 }
 
 func copyTree(root, dest string) error {
-	_, skipped, err := hashTree(root)
+	_, skipped, err := hashTree(root, nil)
 	if err != nil {
 		return err
 	}
