@@ -31,14 +31,14 @@ The same guided flow is available in a terminal:
 skillshare plugin add
 ```
 
-Claude Code, Codex, Copilot, Antigravity CLI, Grok, Pi, or OpenCode CLI must be installed **where the Skillshare backend runs**.
+Claude Code, Codex, Copilot, Antigravity CLI, Grok, Tern, Pi, or OpenCode CLI must be installed **where the Skillshare backend runs**.
 For Codex, the CLI inside the Codex desktop app counts; on a machine where Codex is elsewhere, set [`SKILLSHARE_CODEX_CLI`](/docs/reference/appendix/environment-variables#skillshare_codex_cli).
 Cursor and Antigravity desktop instead receive complete files in their local plugin directories.
 A dashboard running inside a container cannot manage plugins installed only on
 the host machine. Use the local CLI, or run Skillshare beside the native clients.
 
 Install targets are **Claude Code, Codex, Cursor, Antigravity Desktop, Antigravity CLI,
-GitHub Copilot CLI, Pi, and OpenCode**. Grok requires native installation and trust
+GitHub Copilot CLI, Tern, Pi, OpenCode, and Herdr App**. Grok requires native installation and trust
 before import. Kimi, Hermes, and Devin formats are discoverable; their automatic
 installation is unavailable and the interface explains why.
 Choose the format published for your target; Skillshare does not translate plugins
@@ -50,11 +50,13 @@ stores. Choose the one you run.
 
 Choose **Import installed** and select a native installation. Importing records
 it without reinstalling, copying its authentication, or changing whether it is
-enabled in its Agent. Import is available for Claude, Codex, Copilot, Antigravity CLI, Grok, Pi, and OpenCode;
+enabled in its Agent. Import is available for Claude, Codex, Copilot, Antigravity CLI, Grok, Tern, Pi, and OpenCode;
 use **Add plugin** for Cursor and Antigravity local packages.
 To import several at once, tick them (or an Agent's header) and choose
 **Import selected**; each is imported in turn and the dialog stays open.
 An installation with resource filters is imported on its own, after a review.
+
+An existing Tern installation must be removed in Tern or imported with `skillshare plugin import <id> --from tern`; imports record no source and are never updated.
 
 ```bash
 skillshare plugin import review@team --from claude --no-tui

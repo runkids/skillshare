@@ -55,10 +55,10 @@ target 會儲存這個選擇。下一次 `sync plugins` 會移除其受管理的
 
 | Option | Meaning |
 |---|---|
-| `--target TARGET` | 可重複指定：`claude`、`codex`、`cursor`、`antigravity`（別名 `agy`）、`antigravity-cli`、`copilot`、`grok`、`pi`、`omp`、`opencode`、`herdr-app`，或[某個 Agent 的另一個帳號](#accounts)的名稱；請參閱下方的 capability 表 |
+| `--target TARGET` | 可重複指定：`claude`、`codex`、`cursor`、`antigravity`（別名 `agy`）、`antigravity-cli`、`copilot`、`grok`、`tern`、`pi`、`omp`、`opencode`、`herdr-app`，或[某個 Agent 的另一個帳號](#accounts)的名稱；請參閱下方的 capability 表 |
 | `--plugin NAME` | 從 source marketplace 選擇一個 plugin |
 | `--name NAME` | 新增或匯入時使用的邏輯套件名稱 |
-| `--from TARGET` | 從 Claude、Codex、Antigravity CLI、Copilot、Grok、Pi、OMP marketplaces、OpenCode 或[某個 Agent 的另一個帳號](#accounts)匯入 |
+| `--from TARGET` | 從 Claude、Codex、Antigravity CLI、Copilot、Grok、Tern、Pi、OMP marketplaces、OpenCode 或[某個 Agent 的另一個帳號](#accounts)匯入 |
 | `--all`, `-a` | 更新所有受管理的 plugins（僅限 `update`；不可與套件名稱或 `--source-ref` 同時使用） |
 | `--dry-run`, `-n` | 預覽而不變更 Skillshare 或 Agent 設定 |
 | `--source-ref REF` | 用於 `discover`、`add`、`update` 的 Git branch、tag 或 commit；僅限遠端 source |
@@ -85,13 +85,17 @@ JSON 輸出包含 source 路徑與原生識別碼。請勿在 source URL 中放�
 | Oh My Pi | 以 marketplace 為基礎、具有原生相容 metadata 的本機/Git plugins | 全新 cache 的安裝/重新安裝、匯入與限定 scope 的移除 | 在 OMP 的 project anchor | 更新會重新安裝到全新 cache；移除時保留共用 cache |
 | OpenCode | 含 SDK 依賴的 `package.json`、`.opencode/plugins/` 項目，或明確的 `--entry` | Yes | Yes | 重新整理受管理的 source 快照 |
 | Herdr app | 無 plugin manifest 的 source 根目錄下的 `mods/<id>/main.js`，或以 `--entry` 指定的啟動器 | Yes | No | 取代 Skillshare 安裝的檔案 |
-
 | Antigravity CLI | `.antigravity-plugin/plugin.json`、`.gemini-plugin/plugin.json`、根目錄的 `plugin.json`，或 `agy` 接受的 Claude manifest | Yes | No | 重新整理已檢視的 source，僅在原生啟用狀態已知且為啟用時 |
 | GitHub Copilot CLI | `.plugin/plugin.json`、`.github/plugin/plugin.json`、Claude manifest，或 Agent Plugins 根目錄 manifest | Yes | No | 重新整理已檢視的 source，僅在原生啟用狀態已知且為啟用時 |
 | Grok Build | `.grok-plugin/plugin.json` 或 Claude manifest | 僅限匯入/移除；安裝需要原生信任 | No | 以原生方式更新 |
+| Tern | `plugin.toml` | 是 | 否 | 使用 `--force` 重新安裝已審核的快照 |
 | Kimi Code | `kimi.plugin.json` 或 `.kimi-plugin/plugin.json` | 僅限探索 | No | 未自動化 |
 | Hermes | `.hermes-plugin/plugin.yaml` | 僅限探索 | No | 未自動化 |
 | Devin | `.devin-plugin/plugin.json` | 僅限探索 | No | 未自動化 |
+
+只探索儲存庫根目錄的 `plugin.toml`；不會探索子目錄中的 Tern 套件（`REPO/PATH`）。
+
+沒有 `tern` 的機器會略過 Tern 作業。
 
 Kimi 的非互動式生命週期、Hermes 的 profile 清單/同意流程，以及 Devin 的本機清單/信任/雲端
 區分，這些 adapter 尚未驗證。它們的格式會在探索階段顯示，但安裝功能會附上原因被停用。

@@ -2,7 +2,7 @@
 
 Plugins are complete native packages, not standalone skills. Keep their components
 together. Install targets: `claude`, `codex`, `cursor`, `antigravity` (`agy` alias),
-`antigravity-cli`, `copilot`, `pi`, `opencode`, `omp`, and `herdr-app`. Grok supports native import/removal,
+`antigravity-cli`, `copilot`, `tern`, `pi`, `opencode`, `omp`, and `herdr-app`. Grok supports native import/removal,
 with trust/install handled in Grok. Kimi, Hermes, and Devin are discovery-only.
 Read `targetDefinitions` from JSON output instead of assuming every format supports
 all operations. `targetInfo` reports per-target components, version, and problems.
@@ -325,3 +325,5 @@ installation owns that exact link. Cleanup runs before the replacement installs;
 shared cache and plugin settings are retained. Foreign links, real directories,
 and competing owners still block replacement. If cleanup or installation fails,
 run sync again to retry the remaining local work.
+
+Only a root `plugin.toml` is discovered. Without `tern`, Tern work is skipped. An existing Tern installation must be removed in Tern or imported; imports record no source and are never updated.

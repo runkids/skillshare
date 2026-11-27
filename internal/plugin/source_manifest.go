@@ -157,6 +157,16 @@ func inspect(root string, explicit ...string) (Candidate, error) {
 			}
 		}
 	}
+	if id, desc, info, found := inspectTern(root); found {
+		if ternID.MatchString(id) {
+			if c.Name == "" {
+				c.Name, c.Description = id, desc
+			} else if c.Name != id {
+				info.block("plugins.problem.nameDiffers", "Native manifest name differs from "+c.Name, map[string]string{"name": c.Name})
+			}
+		}
+		c.TargetInfo["tern"] = info
+	}
 	// Codex reads a Claude manifest when none of its own comes first, but only the fields it
 	// understands, so Claude's other components (agents, for example) are not offered to it.
 	if claude, ok := c.TargetInfo["claude"]; ok && claude.Problem == "" && claudeFields != nil {

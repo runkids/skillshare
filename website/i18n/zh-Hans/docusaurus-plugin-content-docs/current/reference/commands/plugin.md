@@ -56,10 +56,10 @@ target 会保存该选择。下一次 `sync plugins` 会移除其受管理的安
 
 | Option | Meaning |
 |---|---|
-| `--target TARGET` | Repeatable selection: `claude`, `codex`, `cursor`, `antigravity` (`agy` alias), `antigravity-cli`, `copilot`, `grok`, `pi`, `omp`, `opencode`, `herdr-app`, or the name of [another account of an Agent](#accounts); see the capability table below |
+| `--target TARGET` | Repeatable selection: `claude`, `codex`, `cursor`, `antigravity` (`agy` alias), `antigravity-cli`, `copilot`, `grok`, `tern`, `pi`, `omp`, `opencode`, `herdr-app`, or the name of [another account of an Agent](#accounts); see the capability table below |
 | `--plugin NAME` | Select one plugin from a source marketplace |
 | `--name NAME` | Logical package name when adding or importing |
-| `--from TARGET` | Import from Claude, Codex, Antigravity CLI, Copilot, Grok, Pi, OMP marketplaces, OpenCode, or [another account of an Agent](#accounts) |
+| `--from TARGET` | Import from Claude, Codex, Antigravity CLI, Copilot, Grok, Tern, Pi, OMP marketplaces, OpenCode, or [another account of an Agent](#accounts) |
 | `--all`, `-a` | Update all managed plugins (`update` only; cannot be combined with a package name or `--source-ref`) |
 | `--dry-run`, `-n` | Preview without changing Skillshare or Agent configuration |
 | `--source-ref REF` | Git branch, tag, or commit for `discover`, `add`, and `update`; remote sources only |
@@ -86,13 +86,17 @@ JSON 输出包含来源路径和原生标识符。不要在来源 URL 中放置�
 | Oh My Pi | Marketplace-backed local/Git plugins with native-compatible metadata | Fresh-cache install/reinstall, import and scoped removal | At OMP's project anchor | Updates reinstall into fresh cache; removal retains shared cache |
 | OpenCode | `package.json` with an SDK dependency, `.opencode/plugins/` entry, or explicit `--entry` | Yes | Yes | Refresh managed source snapshot |
 | Herdr app | 无 plugin manifest 的 source 根目录下的 `mods/<id>/main.js`，或用 `--entry` 指定的启动器 | Yes | No | 替换 Skillshare 安装的文件 |
-
 | Antigravity CLI | `.antigravity-plugin/plugin.json`、`.gemini-plugin/plugin.json`、根目录下的 `plugin.json`，或 `agy` 接受的 Claude manifest | Yes | No | Refresh reviewed source, only if native enabled state is known and enabled |
 | GitHub Copilot CLI | `.plugin/plugin.json`, `.github/plugin/plugin.json`, Claude manifest, or Agent Plugins root manifest | Yes | No | Refresh reviewed source, only if native enabled state is known and enabled |
 | Grok Build | `.grok-plugin/plugin.json` or Claude manifest | Import/remove only; native trust required for install | No | Update natively |
+| Tern | `plugin.toml` | 是 | 否 | 使用 `--force` 重新安装已审核的快照 |
 | Kimi Code | `kimi.plugin.json` or `.kimi-plugin/plugin.json` | Discovery only | No | Not automated |
 | Hermes | `.hermes-plugin/plugin.yaml` | Discovery only | No | Not automated |
 | Devin | `.devin-plugin/plugin.json` | Discovery only | No | Not automated |
+
+只发现仓库根目录的 `plugin.toml`；不会发现子目录中的 Tern 包（`REPO/PATH`）。
+
+没有 `tern` 的机器会跳过 Tern 操作。
 
 Kimi 的非交互式生命周期、Hermes 的 profile 清单/同意流程，以及 Devin 的本地清单/信任/云端区分，
 这些适配器尚未验证。它们的格式会在 discovery 阶段展示，但安装会被禁用并给出原因。来源声明

@@ -31,7 +31,7 @@ Skillshare는 그 패키지를 온전히 유지하면서 어떤 도구가 그것
 skillshare plugin add
 ```
 
-Claude Code, Codex, Copilot, Antigravity CLI, Grok, Pi, 또는 OpenCode CLI는
+Claude Code, Codex, Copilot, Antigravity CLI, Grok, Tern, Pi, 또는 OpenCode CLI는
 **Skillshare 백엔드가 실행되는 곳**에 설치되어 있어야 합니다.
 Codex는 Codex 데스크톱 app에 포함된 CLI도 인정됩니다. Codex가 다른 위치에 있는 머신에서는 [`SKILLSHARE_CODEX_CLI`](/docs/reference/appendix/environment-variables#skillshare_codex_cli)를 설정하세요.
 Cursor와 Antigravity 데스크톱은 대신 로컬 플러그인 디렉터리에 완전한 파일을 받습니다.
@@ -39,7 +39,7 @@ Cursor와 Antigravity 데스크톱은 대신 로컬 플러그인 디렉터리에
 없습니다. 로컬 CLI를 사용하거나, 네이티브 클라이언트 옆에서 Skillshare를 실행하세요.
 
 설치 Target은 **Claude Code, Codex, Cursor, Antigravity Desktop, Antigravity CLI,
-GitHub Copilot CLI, Pi, OpenCode**입니다. Grok은 import 전에 네이티브 설치와 신뢰
+GitHub Copilot CLI, Tern, Pi, OpenCode, Herdr App**입니다. Grok은 import 전에 네이티브 설치와 신뢰
 설정이 필요합니다. Kimi, Hermes, Devin 형식은 검색은 가능하지만 자동 설치는 불가능하며
 인터페이스가 그 이유를 설명해줍니다.
 Target에 맞게 배포된 형식을 선택하세요. Skillshare는 도구 간에 플러그인을 변환하지
@@ -51,10 +51,12 @@ Antigravity Desktop(`antigravity` 또는 `agy`)과 CLI(`antigravity-cli`)는 별
 
 **Import installed**를 선택하고 네이티브 설치를 선택하세요. Import는 재설치하거나,
 인증 정보를 복사하거나, 해당 Agent 안에서의 활성화 여부를 변경하지 않고 그저
-기록만 합니다. Import는 Claude, Codex, Copilot, Antigravity CLI, Grok, Pi, OpenCode에서
+기록만 합니다. Import는 Claude, Codex, Copilot, Antigravity CLI, Grok, Tern, Pi, OpenCode에서
 사용할 수 있으며, Cursor와 Antigravity 로컬 패키지에는 **Add plugin**을 사용하세요.
 여러 개를 한 번에 가져오려면 체크하고(Agent 헤더도 가능) **Import selected**를 선택하세요.
 하나씩 차례로 가져오며 대화 상자는 열린 채로 유지됩니다. 리소스 필터가 있는 설치는 검토를 거쳐 따로 가져옵니다.
+
+Tern에 이미 설치된 플러그인은 Tern에서 제거하거나 `skillshare plugin import <id> --from tern`으로 가져오세요. 가져오기는 소스를 기록하지 않으며 업데이트되지 않습니다.
 
 ```bash
 skillshare plugin import review@team --from claude --no-tui

@@ -30,14 +30,14 @@ sidebar_position: 9
 skillshare plugin add
 ```
 
-Claude Code、Codex、Copilot、Antigravity CLI、Grok、Pi 或 OpenCode CLI 必须安装在**运行 Skillshare 后端的机器上**。
+Claude Code、Codex、Copilot、Antigravity CLI、Grok、Tern、Pi 或 OpenCode CLI 必须安装在**运行 Skillshare 后端的机器上**。
 Codex 的话，Codex 桌面 app 内置的 CLI 也算；Codex 装在其他位置的机器，请设置 [`SKILLSHARE_CODEX_CLI`](/docs/reference/appendix/environment-variables#skillshare_codex_cli)。
 Cursor 与 Antigravity 桌面版则会在其本地 plugin 目录中直接接收完整的文件。
 运行在容器内的控制台，无法管理只安装在主机上的 plugin。
 请改用本地 CLI，或让 Skillshare 与这些原生客户端运行在同一台机器上。
 
 安装目标为 **Claude Code、Codex、Cursor、Antigravity Desktop、Antigravity CLI、
-GitHub Copilot CLI、Pi 与 OpenCode**。Grok 在导入前需要先完成原生安装
+GitHub Copilot CLI、Tern、Pi、OpenCode 与 Herdr App**。Grok 在导入前需要先完成原生安装
 与信任设置。Kimi、Hermes 与 Devin 的格式是可被发现的；但其自动
 安装功能目前不可用，界面会说明原因。
 请选择针对你的 Target 所发布的格式；Skillshare 不会在工具之间转换 plugin。
@@ -49,10 +49,12 @@ Antigravity Desktop（`antigravity` 或 `agy`）与 CLI（`antigravity-cli`）�
 
 选择 **Import installed**，然后选取一个原生安装。Import 只会记录
 该安装，而不会重新安装、复制其身份验证信息，或更改它在该 Agent 中是否
-启用。Import 适用于 Claude、Codex、Copilot、Antigravity CLI、Grok、Pi 与 OpenCode；
+启用。Import 适用于 Claude、Codex、Copilot、Antigravity CLI、Grok、Tern、Pi 与 OpenCode；
 Cursor 与 Antigravity 本地套件请改用 **Add plugin**。
 要一次导入多个，勾选它们（或勾选 Agent 标题）后选择 **Import selected**；
 会逐一导入，对话框保持打开。有资源过滤器的安装会在预览后单独导入。
+
+已安装在 Tern 中的插件须先在 Tern 中移除或使用 `skillshare plugin import <id> --from tern` 导入。导入不记录来源，也不会更新。
 
 ```bash
 skillshare plugin import review@team --from claude --no-tui

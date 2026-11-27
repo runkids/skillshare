@@ -225,6 +225,23 @@ func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval) (
 		}
 		return Installed{}, false
 	}
+	deferMissing := func(c Change) bool {
+		if s.agentOf(c.Target) != "tern" || host(c.Target).Status != HostMissing || c.Action == "blocked" {
+			return false
+		}
+		switch r.Action {
+		case "add", "remove":
+			c.Action = "selection"
+		case "sync", "check", "update":
+			c.Action = "skip"
+		default:
+			return false
+		}
+		h := host(c.Target)
+		c.Message, c.MessageKey, c.MessageArgs = h.Error, h.ErrorKey, h.ErrorArgs
+		appendPrepared(c)
+		return true
+	}
 	if r.Action == "add" && isNpmSource(r.Source) {
 		name := r.Name
 		if name == "" {
@@ -326,7 +343,7 @@ func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval) (
 				market := "skillshare-" + marketUnsafe.ReplaceAllString(c.Name, "-") + "-" + digest
 				b := Binding{ID: c.Name + "@" + market, Source: discovered.Source, SourceRef: discovered.SourceRef, Commit: discovered.Commit, Plugin: c.Name, Digest: discovered.Digest, Version: c.TargetInfo[agent].Version, Components: c.TargetInfo[agent].Components}
 				switch agent {
-				case "cursor", "antigravity", "antigravity-cli", "copilot", "grok", "kimi", "hermes", "devin":
+				case "cursor", "antigravity", "antigravity-cli", "copilot", "grok", "kimi", "hermes", "devin", "tern":
 					b.ID = c.Name
 				case "herdr-app":
 					b.ID, b.Entry = c.Name, c.TargetInfo[agent].Entry
@@ -392,7 +409,9 @@ func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval) (
 						change.MessageKey, change.MessageArgs = "plugins.note.herdrIdentityInUse", map[string]string{"id": change.ID}
 					}
 				}
-				appendChange(change)
+				if !deferMissing(change) {
+					appendChange(change)
+				}
 			}
 			if r.HerdrPanel && !p.Blocked {
 				switch dock := c.TargetInfo["herdr-app"].HerdrDock; {
@@ -525,6 +544,9 @@ func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval) (
 				}
 				if r.Action == "unimport" && !d.canUnimport(name, target) {
 					return nil, agentError{key: "plugins.error.unimportReceiptRequired", message: fmt.Sprintf("%s/%s has no local import backed by a shared source recipe", name, target), args: map[string]string{"name": name, "target": target}}
+				}
+				if deferMissing(Change{Name: name, Target: target, ID: b.ID, Binding: b, Action: r.Action}) {
+					continue
 				}
 				if b.ContextChanged {
 					appendChange(Change{Name: name, Target: target, ID: b.ID, Binding: b, Action: "blocked", Message: "Native account or scope changed; restore the previous account settings to resolve its local receipt before rebinding.", MessageKey: "plugins.note.accountChanged"})

@@ -30,7 +30,7 @@ sidebar_position: 9
 skillshare plugin add
 ```
 
-Claude Code、Codex、Copilot、Antigravity CLI、Grok、Pi、または OpenCode CLI は、**skillshare の
+Claude Code、Codex、Copilot、Antigravity CLI、Grok、Tern、Pi、または OpenCode CLI は、**skillshare の
 バックエンドが動作している場所**にインストールされている必要があります。
 Codex の場合、Codex デスクトップ app に同梱の CLI も対象です。Codex が別の場所にあるマシンでは [`SKILLSHARE_CODEX_CLI`](/docs/reference/appendix/environment-variables#skillshare_codex_cli) を設定してください。
 Cursor と Antigravity
@@ -39,7 +39,7 @@ Cursor と Antigravity
 管理できません。ローカルの CLI を使うか、ネイティブクライアントと並べて skillshare を実行してください。
 
 インストール Target は **Claude Code、Codex、Cursor、Antigravity Desktop、Antigravity CLI、
-GitHub Copilot CLI、Pi、OpenCode** です。Grok は Import 前にネイティブなインストールと信頼設定が
+GitHub Copilot CLI、Tern、Pi、OpenCode、Herdr App** です。Grok は Import 前にネイティブなインストールと信頼設定が
 必要です。Kimi、Hermes、Devin のフォーマットは検出可能ですが、自動インストールは利用できず、
 インターフェースがその理由を説明します。Target 向けに公開されているフォーマットを選んでください。
 skillshare はツール間でプラグインを変換しません。Project mode は Claude、Antigravity Desktop、
@@ -50,10 +50,12 @@ Pi、OpenCode に対応しています。Antigravity Desktop（`antigravity` ま
 
 **Import installed** を選び、ネイティブなインストールを選択します。Import はそれを記録するだけで、
 再インストールしたり、その認証をコピーしたり、その Agent 内で有効かどうかを変更したりすることは
-ありません。Import は Claude、Codex、Copilot、Antigravity CLI、Grok、Pi、OpenCode で利用できます。
+ありません。Import は Claude、Codex、Copilot、Antigravity CLI、Grok、Tern、Pi、OpenCode で利用できます。
 Cursor と Antigravity のローカルパッケージには **Add plugin** を使ってください。
 複数まとめてインポートするには、チェックを入れて（Agent の見出しでも可）**Import selected** を選びます。
 1 つずつ順にインポートされ、ダイアログは開いたままです。リソースフィルターのあるインストールは、確認を経て個別にインポートされます。
+
+Tern に既にあるプラグインは Tern で削除するか、`skillshare plugin import <id> --from tern` でインポートします。インポートはソースを記録せず、更新されません。
 
 ```bash
 skillshare plugin import review@team --from claude --no-tui
