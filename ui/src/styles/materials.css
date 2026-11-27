@@ -181,6 +181,14 @@
   :root[data-glass='surfaces']:not([data-theme='playful']) aside.ss-side::before {
     background: var(--gs-grain), var(--gs-side);
   }
+  /* On the inset layout the sidebar sits on the shell around the panel, as in plain Clean: a pane
+     of its own would end in an edge across the shell. */
+  @media (min-width: 768px) {
+    :root[data-glass='surfaces']:not([data-theme='playful']):not([data-layout='full'])
+      aside.ss-side::before {
+      content: none;
+    }
+  }
   /* Column and group headers show the glass. Sticky ones only blur, with no fill of their own: at
      rest they blur the even glass and do not show, stuck they smear the rows scrolling under. */
   :root[data-glass='surfaces']:not([data-theme='playful']) :is(.ss-lh, .ss-gh) {
@@ -307,9 +315,11 @@
   :root[data-glass='surfaces']:not([data-theme='playful']) .ss-ministick.stuck::before {
     content: '';
     position: absolute;
-    inset: 0;
+    /* 8px past the preview on each side and below, so its bottom corners are concentric too. */
+    inset: 0 0 -8px;
     z-index: -1;
     pointer-events: none;
+    border-radius: 0 0 calc(var(--r-box) + 8px) calc(var(--r-box) + 8px);
     -webkit-backdrop-filter: var(--gs-frost);
     backdrop-filter: var(--gs-frost);
   }
