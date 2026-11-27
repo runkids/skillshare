@@ -71,25 +71,27 @@ func physical(path string) string {
 	return filepath.Join(physical(parent), filepath.Base(path))
 }
 
-// aroundSource returns the nearest folder with a config among source and up
-// to maxParents folders above it, never the home folder or a volume root.
-func aroundSource(source, home string) string {
+// aroundSource returns every folder with a config among source and up to
+// maxParents folders above it, nearest first, never the home folder or a
+// volume root. A router inside another is listed beside it, not instead of it.
+func aroundSource(source, home string) []string {
+	var found []string
 	dir := physical(source)
 	for depth := 0; dir != "" && depth <= maxParents; depth++ {
 		if dir == home || filepath.Dir(dir) == dir {
-			return ""
+			break
 		}
 		if hasConfig(dir) {
-			return dir
+			found = append(found, dir)
 		}
 		dir = filepath.Dir(dir)
 	}
-	return ""
+	return found
 }
 
 // Discover lists the folders with a router config: the project in project
-// mode; otherwise the folders around the two sources, then the registered
-// projects by name. A folder reached twice keeps its first origin.
+// mode; otherwise the folders around the two sources, nearest first, then the
+// registered projects by name. A folder reached twice keeps its first origin.
 func Discover(in DiscoverInput) []Root {
 	roots := []Root{}
 	seen := map[string]bool{}
@@ -110,8 +112,12 @@ func Discover(in DiscoverInput) []Root {
 		return roots
 	}
 	home := physical(in.Home)
-	add(aroundSource(in.SkillsSource, home), "", OriginSkillsSource)
-	add(aroundSource(in.AgentsSource, home), "", OriginAgentsSource)
+	for _, dir := range aroundSource(in.SkillsSource, home) {
+		add(dir, "", OriginSkillsSource)
+	}
+	for _, dir := range aroundSource(in.AgentsSource, home) {
+		add(dir, "", OriginAgentsSource)
+	}
 
 	projects := make([]Project, 0, len(in.Projects))
 	for _, p := range in.Projects {

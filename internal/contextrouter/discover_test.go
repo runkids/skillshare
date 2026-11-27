@@ -50,10 +50,12 @@ func TestDiscover(t *testing.T) {
 	check("no router", DiscoverInput{SkillsSource: plain, AgentsSource: plain})
 	check("missing source", DiscoverInput{SkillsSource: at("gone", "skills")})
 
-	// The source itself is depth 0, and the nearest router wins.
+	// The source itself is depth 0. A router inside another is listed with it, nearest first.
 	inner := route(mkdir(at("notes", "inner", "skills")))
-	check("router in the source itself", DiscoverInput{SkillsSource: inner},
-		Root{inner, "skills", OriginSkillsSource})
+	check("nested source routers", DiscoverInput{SkillsSource: inner},
+		Root{inner, "skills", OriginSkillsSource}, Root{notes, "notes", OriginSkillsSource})
+	check("nested routers reached from both sources", DiscoverInput{SkillsSource: inner, AgentsSource: agents},
+		Root{inner, "skills", OriginSkillsSource}, Root{notes, "notes", OriginSkillsSource})
 
 	deep := route(at("deep"))
 	check("four folders above", DiscoverInput{SkillsSource: mkdir(at("deep", "1", "2", "3", "4"))},
