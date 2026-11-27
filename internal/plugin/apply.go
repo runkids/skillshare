@@ -10,6 +10,30 @@ import (
 	"strings"
 )
 
+// A batch reuses one checkout of the reviewed commit, while each mod keeps its
+// own snapshot and receipt for independent updates and removals.
+type pluginCheckout struct {
+	root, normalized string
+	cleanup          func()
+}
+
+func (s *Service) acquireSnapshotSource(ctx context.Context, source, ref string) (string, string, func(), error) {
+	if s.batchSources == nil {
+		return acquireRef(ctx, source, ref)
+	}
+	key := [2]string{source, ref}
+	checkout, exists := s.batchSources[key]
+	if !exists {
+		root, normalized, cleanup, err := acquireRef(ctx, source, ref)
+		if err != nil {
+			return "", "", cleanup, err
+		}
+		checkout = pluginCheckout{root, normalized, cleanup}
+		s.batchSources[key] = checkout
+	}
+	return checkout.root, checkout.normalized, func() {}, nil
+}
+
 func (s *Service) materialize(ctx context.Context, b Binding, target string) (string, error) {
 	expected := s.snapshotPath(b, target)
 	market := filepath.Base(expected)
@@ -33,7 +57,7 @@ func (s *Service) materialize(ctx context.Context, b Binding, target string) (st
 	if ref == "" {
 		ref = b.SourceRef
 	}
-	root, normalized, cleanup, err := acquireRef(ctx, b.Source, ref)
+	root, normalized, cleanup, err := s.acquireSnapshotSource(ctx, b.Source, ref)
 	if err != nil {
 		return "", err
 	}

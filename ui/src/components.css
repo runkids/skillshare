@@ -1133,6 +1133,23 @@ svg.lucide {
   .ss-stack .ss-at:first-child {
     margin-left: 0;
   }
+  /* A row's one Agent on a pill that turns it on and off: off greys it like an unticked .ss-tgl,
+   on brings it back with a small pop. Transitions, so a quick second click reverses midway. */
+  .ss-btn .ss-one {
+    filter: grayscale(1);
+    opacity: 0.45;
+    transform: scale(0.85);
+    transition:
+      filter 0.12s,
+      opacity 0.12s,
+      transform 0.12s cubic-bezier(0.23, 1, 0.32, 1);
+  }
+  .ss-btn[aria-checked='true'] .ss-one {
+    filter: none;
+    opacity: 1;
+    transform: none;
+    transition-duration: 0.18s;
+  }
   /* A stack whose logos each sit in a Tooltip wrapper. */
   .ss-stack > :not(:first-child) > .ss-at:first-child {
     margin-left: -6px;
@@ -1689,6 +1706,9 @@ svg.lucide {
     .ss-tgl .ic > i {
       transform: none;
     }
+    .ss-btn .ss-one {
+      transform: none;
+    }
     /* .grow and .grow.shut set their own transitions, so they are named to outrank them. */
     .ss-bar > i,
     .ss-prog i,
@@ -1757,6 +1777,31 @@ svg.lucide {
   }
   :root:not([data-theme='playful']) .ss-box {
     border-radius: 12px;
+  }
+  /* Sync's tint fades in when work is pending and out once it is done. A tint this large needs the
+     time to read as a change of colour; at the height animation's 0.25s it reads as a blink. */
+  .ss-syncbox {
+    transition: background-color 0.4s ease;
+  }
+  /* An Agent ticked in an open fold joins the pill's stack with .ss-one's small pop. Rows load
+     folded, so the page's first paint stays still. */
+  .ss-btn[aria-expanded] .ss-stack .ss-at {
+    transition:
+      opacity 0.18s,
+      transform 0.18s cubic-bezier(0.23, 1, 0.32, 1);
+  }
+  @starting-style {
+    .ss-btn[aria-expanded='true'] .ss-stack .ss-at {
+      opacity: 0;
+    }
+  }
+  /* Only fades with reduced motion. */
+  @media (prefers-reduced-motion: no-preference) {
+    @starting-style {
+      .ss-btn[aria-expanded='true'] .ss-stack .ss-at {
+        transform: scale(0.85);
+      }
+    }
   }
   /* Rendered markdown (MarkdownView) */
   .ss-prose {
@@ -2860,6 +2905,69 @@ svg.lucide {
   :root[data-theme='playful'].dark .ss-pick.on {
     background: #332b17;
   }
+  /* Add plugin: one row per plugin in a single frame, and the Agents as a two-column checklist. */
+  .ss-choice {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    width: 100%;
+    padding: 12px 16px 12px 14px;
+    text-align: left;
+    cursor: pointer;
+  }
+  .ss-choice + .ss-choice {
+    border-top: var(--sep);
+  }
+  .ss-choice.on {
+    background: var(--sunken);
+  }
+  .ss-choice:disabled {
+    cursor: default;
+    opacity: 0.6;
+  }
+  .ss-checks {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 4px;
+    padding: 4px;
+    border: var(--frame);
+    border-radius: 12px;
+  }
+  :root[data-theme='playful'] .ss-checks {
+    border-radius: var(--r-box);
+  }
+  .ss-checks > button {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    min-height: 44px;
+    padding: 0 12px;
+    border-radius: 8px;
+    text-align: left;
+    color: var(--ink);
+    cursor: pointer;
+  }
+  .ss-checks > button:disabled {
+    cursor: default;
+  }
+  .ss-checks .nm {
+    font-size: 14px;
+    white-space: nowrap;
+  }
+  .ss-checks .pt {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+    color: var(--ink-3);
+  }
+  /* Already on the Agent: ticked, but grey, because unticking it belongs to the list. */
+  .ss-chk.on.has {
+    background: var(--line-2);
+    border-color: var(--line-2);
+  }
   .ss-bulk.static {
     position: static;
     transform: none;
@@ -3691,6 +3799,15 @@ svg.lucide {
       transform 0.1s ease-out,
       box-shadow 0.12s;
   }
+  /* A wait too short to notice, such as a tick saving in a few dozen ms, leaves buttons as they are;
+     only a longer one dims them. Enabled again, they come back at once: .ss-btn has no opacity transition. */
+  .ss-btn:disabled {
+    transition:
+      opacity 0.15s 0.15s,
+      filter 0.12s,
+      transform 0.1s ease-out,
+      box-shadow 0.12s;
+  }
   .ss-btn:active:not(:disabled) {
     transform: scale(0.97);
   }
@@ -3748,8 +3865,13 @@ svg.lucide {
     background: var(--sel);
     color: var(--ink);
   }
+  /* Dims late, as .ss-btn:disabled does. */
   .ss-ib:disabled {
     opacity: 0.42;
+    transition:
+      opacity 0.15s 0.15s,
+      background-color 0.12s,
+      color 0.12s;
   }
   .ss-nv:not(.on):hover {
     color: var(--ink);

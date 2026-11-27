@@ -43,7 +43,7 @@ removed. `remove NAME` without `--target` removes it from Skillshare.
 | Command | Behavior |
 |---|---|
 | `list` | Configured bindings and native installation state; interactive manager in a terminal |
-| `discover SOURCE` | Inspect a local directory, `owner/repo`, or HTTPS Git repository |
+| `discover SOURCE` | Inspect a local directory, `owner/repo`, an HTTPS Git repository, or a GitHub package folder or Herdr mod link |
 | `add [SOURCE]` | Choose and install a whole plugin with its target adapter, or an `npm:` package through Pi |
 | `import [NATIVE-ID]` | Adopt an existing installation without reinstalling or enabling it |
 | `unimport NAME` | Uninstall this machine’s imported bindings for explicit targets; keep shared source declarations |
@@ -163,13 +163,38 @@ manifest name keeps the identity stable across Git checkouts and snapshots.
 ### Herdr app {#herdr-app}
 
 The `herdr-app` target installs Herdr mods and launcher apps by copying files. It
-is global only and never runs `herdr-app` or package code. Herdr's home is
+is global only. Installing does not run package code. Herdr's home is
 `$HERDR_APP_HOME`, or `~/.config/herdr-app` when that is not set.
 
-Skillshare discovers mods in a source with no plugin manifest and no marketplace
-catalog. A launcher can also use a plain `package.json` with `--entry`. Each `mods/<id>/main.js` at the source's root is one plugin,
-installed to `<herdr home>/mods/<id>`. Mods in deeper folders are not found. A
-source with a manifest and a root `mods/` folder is discovered as before.
+For a repository or local folder without a plugin manifest or marketplace catalog,
+Skillshare looks for `mods/<id>/main.js` at the source root. For a package inside a
+larger repository, paste its GitHub folder link (the folder containing `mods/`),
+or paste a mod's `mods/<id>/main.js` link to select just that mod. Skillshare follows
+that link's ref on update unless you choose another with `--source-ref`.
+Mods are installed to `<herdr home>/mods/<id>`.
+
+In the Dashboard, paste the link into **Repository or folder** and choose **Find
+plugins**. For a launcher, also enter its path in **Herdr launcher executable**;
+leave it empty for mods. A launcher can also use a plain `package.json`.
+When the source lists several Herdr mods, select any combination or use **Select all**,
+then review them together before applying. Skillshare tracks each mod separately;
+it does not import layout or theme files.
+
+When adding one mod with an explicit `left`, `right`, `top`, or `bottom` dock in
+`mod.json`, **Show the mod panel in Herdr** is checked by default. With the window
+open on the same computer, the preview includes installing the files and showing
+its panel in a copy of the current layout, including on reinstall. The first-party
+Skillshare mod adds its button and panel in the same way. Existing placements are
+not duplicated. To only install files, uncheck the option before previewing.
+Deselecting Herdr and syncing uninstalls the mod, but keeps the declaration and
+its layout copy. A copy made later from that copy shows its panel too. When either
+is active, Skillshare switches the open Herdr window back to the newest layout
+without the mod's panel. Selecting Herdr and syncing reinstalls the mod and, if the
+window is still on the layout Skillshare switched it to, returns it to the copy it
+left once every mod that copy shows is installed. **Remove** also switches the window off the mod's panel and
+deletes unchanged copies recorded by Skillshare. Edited and unrecorded layouts are
+kept, as is a copy that a remaining mod's copy was made from, which still shows the
+removed mod's panel. Open Herdr for any required layout switch.
 
 Links that leave the mod's folder are not copied.
 
@@ -199,8 +224,10 @@ mv ~/.config/herdr-app/mods/my-mod ~/my-mod.bak
 
 `update` reports the installed path, without claiming the mod is running. Herdr reloads a mod
 when its files change; check it with `herdr-app status`. A mod with `place: none`
-is not placed for you; add it to a layout by hand. Before a launcher update, close
-the app's chat and readouts, then reopen it after the update.
+is not placed for you; add it to a layout by hand. Herdr can place other mods in
+the layout on first discovery based on their `place` setting. Uninstalling does not delete
+layout entries written by Herdr outside of a Skillshare-managed copy. Before a launcher update, close the app's chat
+and readouts, then reopen it after the update.
 
 On a machine without the Herdr app (its home is absent), `sync`, `check` and
 `update` skip `herdr-app` bindings, launchers included, without fetching anything,
@@ -498,8 +525,8 @@ skillshare plugin import npm:my-pi-package --from pi --name my-package --no-tui
 
 ## Refs and explicit entries
 
-Advanced options in **Add plugin** accept an optional Git ref and OpenCode entry.
-Leave them empty for the normal guided flow. The terminal wizard accepts the same
+**Add plugin** accepts an optional Git ref beside the source, and an OpenCode entry on
+the OpenCode row when it cannot detect one. Leave them empty for the normal guided flow. The terminal wizard accepts the same
 flags; automation can use:
 
 ```bash

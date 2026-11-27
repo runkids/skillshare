@@ -125,7 +125,7 @@ describe('PluginsPage', () => {
       return { result: { results: [] }, failure: '' };
     });
     mount();
-    await screen.findByText('demo');
+    await screen.findByRole('checkbox', { name: 'demo' });
     expect(screen.queryByText('plugins.pending')).not.toBeInTheDocument();
     resolveFull(inventory());
     expect(await screen.findByText('plugins.pending')).toBeInTheDocument();
@@ -431,6 +431,44 @@ describe('PluginsPage', () => {
       },
     ]);
   });
+  it("updates from a group's menu only what the check found, in the update dialog", async () => {
+    const repo = 'https://github.com/owner/pixel';
+    const mod = (id: string) => ({ bindings: { codex: { id, source: repo } } });
+    vi.mocked(pluginsApi.list).mockResolvedValue({
+      targetDefinitions: [
+        { target: 'codex', label: 'Codex', project: false, operations: ['add', 'check', 'update'] },
+      ],
+      packages: { a: mod('a@m'), b: mod('b@m') },
+      hosts: [],
+    });
+    vi.mocked(pluginsApi.check).mockImplementationOnce(async (on) => {
+      on({
+        name: 'a',
+        plan: {
+          revision: 'a',
+          blocked: false,
+          changes: [
+            {
+              name: 'a',
+              target: 'codex',
+              id: 'a@m',
+              action: 'update-available',
+              binding: { id: 'a@m', version: '1.1.0' },
+            },
+          ],
+        },
+      });
+    });
+    mount();
+    await screen.findByRole('button', { name: 'plugins.updateCount.one' });
+    fireEvent.click(screen.getByRole('button', { name: 'mcp.moreActions' }));
+    fireEvent.mouseDown(await screen.findByRole('menuitem', { name: 'plugins.groupUpdate' }));
+    await waitFor(() => expect(pluginsApi.update).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(pluginsApi.update).mock.calls[0][0]).toEqual([
+      { name: 'a', targets: ['codex'], seen: { codex: { id: 'a@m', version: '1.1.0' } } },
+    ]);
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+  });
   it('leaves out a plugin unticked and an Agent unticked under its plugin', async () => {
     twoBehind();
     mount();
@@ -459,6 +497,72 @@ describe('PluginsPage', () => {
         'reviewed',
       ),
     );
+  });
+  it('pauses packages ticked in different sections in one request', async () => {
+    vi.mocked(pluginsApi.list).mockResolvedValue({
+      targetDefinitions: [
+        { target: 'codex', label: 'Codex', project: false, operations: ['add'] },
+        { target: 'herdr-app', label: 'Herdr app', project: false, operations: ['add'] },
+      ],
+      packages: {
+        demo: { bindings: { codex: { id: 'demo@market' } } },
+        idle: { bindings: { codex: { id: 'idle@market', sync: false } } },
+        mod: { bindings: { 'herdr-app': { id: 'mod' } } },
+      },
+      hosts: [],
+    });
+    mount();
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'demo' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'idle' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'mod' }));
+    const bar = screen.getByRole('toolbar');
+    fireEvent.click(within(bar).getByRole('button', { name: 'plugins.bulkDisable' }));
+    await waitFor(() =>
+      expect(pluginsApi.apply).toHaveBeenCalledWith(
+        { action: 'disable', names: ['demo', 'mod'] },
+        'reviewed',
+      ),
+    );
+  });
+  it('asks before removing ticked packages, then previews them', async () => {
+    mount();
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'demo' }));
+    fireEvent.click(
+      within(screen.getByRole('toolbar')).getByRole('button', { name: 'plugins.remove' }),
+    );
+    const confirm = await screen.findByRole('dialog', { name: 'plugins.bulkRemoveTitle.one' });
+    expect(pluginsApi.preview).not.toHaveBeenCalled();
+    fireEvent.click(within(confirm).getByRole('button', { name: 'plugins.remove' }));
+    await waitFor(() =>
+      expect(pluginsApi.preview).toHaveBeenCalledWith({ action: 'remove', name: 'demo' }),
+    );
+  });
+  it('does not tick a package again when it comes back after leaving', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const inventory = (await pluginsApi.list()) as PluginInventory;
+    mount('/plugins', client);
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'demo' }));
+    vi.mocked(pluginsApi.list).mockResolvedValue({ ...inventory, packages: {} });
+    await client.invalidateQueries();
+    await waitFor(() =>
+      expect(screen.queryByRole('checkbox', { name: 'demo' })).not.toBeInTheDocument(),
+    );
+    vi.mocked(pluginsApi.list).mockResolvedValue(inventory);
+    await client.invalidateQueries();
+    expect(await screen.findByRole('checkbox', { name: 'demo' })).not.toBeChecked();
+  });
+  it('keeps the selection when pausing it fails, so it can be tried again', async () => {
+    vi.mocked(pluginsApi.apply).mockResolvedValue({
+      result: { results: [] },
+      failure: 'One target failed',
+    });
+    mount();
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'demo' }));
+    fireEvent.click(
+      within(screen.getByRole('toolbar')).getByRole('button', { name: 'plugins.bulkDisable' }),
+    );
+    await waitFor(() => expect(pluginsApi.apply).toHaveBeenCalled());
+    expect(await screen.findByRole('checkbox', { name: 'demo' })).toBeChecked();
   });
   it('requires a preview before sync and preserves partial failures', async () => {
     vi.mocked(pluginsApi.apply).mockResolvedValue({

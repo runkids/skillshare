@@ -1,12 +1,12 @@
 import { useId } from 'react';
-import type { InputHTMLAttributes, TextareaHTMLAttributes } from 'react';
+import type { InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from 'react';
 
 // Re-export split components for backward compatibility
 export { Checkbox } from './Checkbox';
 export { Select, type SelectOption } from './Select';
 
 interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'size'> {
-  label?: string;
+  label?: ReactNode;
   size?: 'sm' | 'md';
 }
 

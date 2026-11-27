@@ -1,6 +1,8 @@
 # skillshare
 
-A skillshare button and panel added to your existing Herdr window. See which skills, agents, MCP servers, plugins, hooks and extras need an update or a sync in the focused project's source and your global source. Preview, install with an audit first, update, sync, enable or disable, uninstall, hand an audit to an agent, sync the source repository and check every machine. Your status bar, usage meters, sidebar, theme and other panels stay as they are.
+Install this panel with Skillshare: paste this mod's GitHub URL into Plugins → Add plugin, preview the changes, and apply. The panel opens in a copy of your current Herdr layout; your original stays unchanged. Use Skillshare to update or remove the mod, and to manage other Herdr mods and launchers from GitHub.
+
+The panel shows what needs a sync or update across your current project and global library, including skills, agents, MCP servers, plugins, hooks and extras.
 
 ![skillshare](preview.png)
 
@@ -34,7 +36,13 @@ This is a standalone mod share folder: `mods/skillshare/`, this recipe and `prev
 
 ### Add to the existing window
 
-1. Read `~/.config/herdr-app/AGENTS.md` and every mod file first. Tell the person that the panel runs programs, reaches GitHub and resource repositories, and reads source files outside its own folder.
+Read Herdr's `AGENTS.md` and the mod files first. If Skillshare is installed and
+its Dashboard supports the `herdr-app` plugin target, prefer the
+[managed installation](../README.md#install-and-open-the-panel). Ask the person
+to review and apply both the mod installation and layout placement in the Dashboard.
+Use the steps below when that managed flow is unavailable.
+
+1. Tell the person that the panel runs programs, reaches GitHub and resource repositories, and reads source files outside its own folder.
 2. Copy `mods/skillshare/` into Herdr's home. If it already holds this panel, update that installation instead of installing a duplicate. For an unrelated name collision, follow Herdr's rename procedure; a renamed panel must be updated by hand.
 3. Inspect the shown layout. Clone it first if it is Herdr-shipped; otherwise keep the user's layout name and edit only the two skillshare nodes. Preserve every unrelated node and property, especially custom status bars and CLI usage meters.
 4. Add this block beside the existing tab bar (wrap the tab block in a row only if necessary; keep its existing properties):

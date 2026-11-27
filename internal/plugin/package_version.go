@@ -71,11 +71,12 @@ func recordPackageVersions(d *document, r Request, plan *Plan) map[string]packag
 func reviewedChanges(changes []Change) any {
 	type reviewedChange struct {
 		Change
-		SourceVersion *string
+		SourceVersion   *string
+		HerdrLayoutView *herdrLayoutView `json:",omitempty"`
 	}
 	out := make([]reviewedChange, 0, len(changes))
 	for _, c := range changes {
-		out = append(out, reviewedChange{c, c.sourceVersion})
+		out = append(out, reviewedChange{c, c.sourceVersion, c.herdrLayoutView})
 	}
 	return out
 }

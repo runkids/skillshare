@@ -37,7 +37,7 @@ target 会保存该选择。下一次 `sync plugins` 会移除其受管理的安
 | Command | Behavior |
 |---|---|
 | `list` | Configured bindings and native installation state; interactive manager in a terminal |
-| `discover SOURCE` | Inspect a local directory, `owner/repo`, or HTTPS Git repository |
+| `discover SOURCE` | 检查本地文件夹、`owner/repo`、HTTPS Git 仓库、GitHub 软件包文件夹或 Herdr mod 链接 |
 | `add [SOURCE]` | Choose and install a whole plugin with its target adapter, or an `npm:` package through Pi |
 | `import [NATIVE-ID]` | Adopt an existing installation without reinstalling or enabling it |
 | `unimport NAME` | 卸载明确指定目标的本机导入安装，保留共享来源声明 |
@@ -141,9 +141,19 @@ marketplace 安装。Skillshare 拒绝覆盖非自身拥有的文件夹、symlin
 
 ### Herdr app {#herdr-app}
 
-`herdr-app` target 通过复制文件来安装 Herdr mod 和启动器应用。它只支持 global，不会运行 `herdr-app` 或包里的代码。Herdr 的主目录是 `$HERDR_APP_HOME`，未设置时为 `~/.config/herdr-app`。
+`herdr-app` target 通过复制文件来安装 Herdr mod 和启动器应用。它只支持 global，Skillshare 不会直接运行包里的代码。Herdr 的主目录是 `$HERDR_APP_HOME`，未设置时为 `~/.config/herdr-app`。
 
-Skillshare 只在没有 plugin manifest、也没有 marketplace catalog 的 source 中查找 Herdr 内容。source 根目录下的每个 `mods/<id>/main.js` 是一个 plugin，安装到 `<herdr home>/mods/<id>`。更深层文件夹中的 mod 不会被发现。同时有 manifest 和根目录 `mods/` 文件夹的 source，仍按原来的方式发现。 只有普通 `package.json` 的 source 也可通过 `--entry` 添加启动器。
+在没有插件清单或 marketplace 目录的来源中，Skillshare 会查找根目录下的 `mods/<id>/main.js`，并将 mod 安装到 `<herdr home>/mods/<id>`。如果软件包在大型仓库的子目录中，请粘贴包含 `mods/` 的 GitHub 文件夹链接；如果只想选一个 mod，请粘贴它的 `mods/<id>/main.js` 链接。更新会沿用链接中的 ref，也可以用 `--source-ref` 指定其他 ref。
+
+在 Dashboard 的**仓库或文件夹**中粘贴链接并搜索。安装启动器时，另外在 **Herdr 启动器可执行文件**填写路径；安装 mod 时留空。启动器也可使用普通的 `package.json`。
+
+发现多个 Herdr mod 时，可以多选或全选后一起预览。每个 mod 独立管理，不会导入布局或主题。Herdr 根据 `place` 自动写入的布局项目不会随 mod 一起删除。
+
+单独添加一个在 `mod.json` 中声明 `left`、`right`、`top` 或 `bottom` 的 mod 时，默认勾选**在 Herdr 中显示 mod 面板**。让 Herdr 保持打开，确认后会在当前布局的副本中显示面板，重装时也一样。
+
+安装官方 Skillshare mod 时，选择 **在 Herdr 显示 Skillshare 面板**可以预览添加到当前布局副本的内容。打开 Herdr 后应用，会切换到包含按钮和面板的副本，不修改原布局。
+
+取消选择 Herdr 后同步会卸载 mod，但保留软件包记录和布局副本，以便重新安装。**移除**也会删除 Skillshare 记录的未修改副本，必要时先把窗口切到没有这个 mod 面板的布局。修改过或没有记录的布局会保留。 之后从这个副本再复制出的副本也会显示它的面板。停用时如果正在使用其中一个，打开的 Herdr 会切到最新一个没有这个 mod 面板的布局。重新勾选并同步时，如果窗口还停在 Skillshare 切过去的布局，等那个副本显示的 mod 都安装好，就会切回原本离开的副本。**移除**时如果留下的其他 mod 的副本是从它的副本复制出来的，那个副本会保留，里面仍有已移除 mod 的面板。
 
 指向 mod 文件夹外部的链接不会被复制。
 
@@ -304,7 +314,7 @@ skillshare plugin import npm:my-pi-package --from pi --name my-package --no-tui
 
 ## Refs 与显式 entries
 
-**Add plugin** 中的高级选项接受可选的 Git ref 和 OpenCode entry。留空即可使用正常的引导流程。
+**Add plugin** 在来源旁接受可选的 Git ref；检测不到 OpenCode entry 时，可在 OpenCode 那一行填写。留空即可使用正常的引导流程。
 终端向导接受相同的 flags；自动化场景可以使用：
 
 ```bash

@@ -19,7 +19,16 @@ const docs: Record<string, string> = {
   devin: 'https://docs.devin.ai/cli/extensibility/plugins/overview',
 };
 
-export default function PluginDocsLink({ target, label }: { target: string; label: string }) {
+export default function PluginDocsLink({
+  target,
+  label,
+  iconOnly = false,
+}: {
+  target: string;
+  label: string;
+  /** Just the arrow, for a row whose reason already fills the line. */
+  iconOnly?: boolean;
+}) {
   const t = useT();
   if (!docs[target]) return null;
   return (
@@ -27,11 +36,16 @@ export default function PluginDocsLink({ target, label }: { target: string; labe
       href={docs[target]}
       target="_blank"
       rel="noopener noreferrer"
-      className="inline-flex shrink-0 items-center gap-1 text-xs text-link underline"
+      className={
+        iconOnly
+          ? 'grid h-5 w-6 shrink-0 place-items-center text-ink-3 hover:text-ink'
+          : 'inline-flex shrink-0 items-center gap-1 text-xs text-link underline'
+      }
       aria-label={`${label} · ${t('plugins.officialDocs')}`}
+      title={iconOnly ? t('plugins.officialDocs') : undefined}
     >
-      {t('plugins.officialDocs')}
-      <ExternalLink size={12} aria-hidden="true" />
+      {!iconOnly && t('plugins.officialDocs')}
+      <ExternalLink size={iconOnly ? 14 : 12} aria-hidden="true" />
     </a>
   );
 }

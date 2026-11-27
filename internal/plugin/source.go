@@ -16,6 +16,7 @@ import (
 	"slices"
 	"strings"
 
+	"skillshare/internal/install"
 	"skillshare/internal/utils"
 )
 
@@ -58,9 +59,27 @@ func acquireRef(ctx context.Context, source, ref string) (string, string, func()
 	if isNpmSource(source) {
 		return "", "", cleanup, fmt.Errorf("npm packages can't be previewed: Pi downloads them when it installs them. Add one to a Pi target with: skillshare plugin add %s --target pi", source)
 	}
+	var normalized, subdir, branch string
+	if link, kind := githubPluginLink(source); link != nil {
+		web, err := resolveGitHubPluginLink(link, kind)
+		if err != nil {
+			return "", "", cleanup, err
+		}
+		source, normalized, subdir = web.CloneURL, link.String(), web.Subdir
+		if ref == "" {
+			if web.Branch != "" && !install.IsCommitSHA(web.Branch) {
+				branch = web.Branch
+			} else {
+				ref = web.Branch
+			}
+		}
+	}
 	source, err := remoteURL(source)
 	if err != nil {
 		return "", "", cleanup, err
+	}
+	if normalized == "" {
+		normalized = source
 	}
 	root, err := os.MkdirTemp("", "skillshare-plugin-")
 	if err != nil {
@@ -72,21 +91,52 @@ func acquireRef(ctx context.Context, source, ref string) (string, string, func()
 		cleanup()
 		return "", "", func() {}, err
 	}
-	_, err = runCommand(ctx, "", nil, "git", "-c", "core.hooksPath=/dev/null", "clone", "--depth", "1", "--", source, root)
-	if err != nil {
+	args := []string{"-c", "core.hooksPath=/dev/null", "clone", "--depth", "1"}
+	if branch != "" {
+		args = append(args, "--branch", branch)
+	}
+	if subdir != "" {
+		args = append(args, "--filter=blob:none", "--no-checkout")
+	}
+	if _, err = runCommand(ctx, "", nil, "git", append(args, "--", source, root)...); err != nil {
 		cleanup()
 		return "", "", func() {}, fmt.Errorf("download plugin source: %w", err)
 	}
+	checkout := "HEAD"
 	if ref != "" {
-		if _, err = runCommand(ctx, root, nil, "git", "fetch", "--depth", "1", "origin", ref); err == nil {
-			_, err = runCommand(ctx, root, nil, "git", "-c", "core.hooksPath=/dev/null", "checkout", "--detach", "FETCH_HEAD")
-		}
-		if err != nil {
+		if _, err = runCommand(ctx, root, nil, "git", "fetch", "--depth", "1", "--", "origin", ref); err != nil {
 			cleanup()
 			return "", "", func() {}, fmt.Errorf("resolve source ref: %w", err)
 		}
+		checkout = "FETCH_HEAD"
 	}
-	return clone, source, cleanup, nil
+	if subdir != "" {
+		// Read the named tree, never Git metadata or a directory reached through a link.
+		object, err := runCommand(ctx, clone, nil, "git", "cat-file", "-t", checkout+":"+subdir)
+		if err != nil || strings.TrimSpace(string(object)) != "tree" {
+			cleanup()
+			return "", "", func() {}, pluginFolderError(subdir)
+		}
+		if _, err := runCommand(ctx, clone, nil, "git", "-c", "core.hooksPath=/dev/null", "sparse-checkout", "set", "--cone", "--", subdir); err != nil {
+			cleanup()
+			return "", "", func() {}, fmt.Errorf("select plugin folder: %w", err)
+		}
+	}
+	if ref != "" || subdir != "" {
+		if _, err := runCommand(ctx, root, nil, "git", "-c", "core.hooksPath=/dev/null", "checkout", "--detach", checkout); err != nil {
+			cleanup()
+			return "", "", func() {}, fmt.Errorf("check out plugin source: %w", err)
+		}
+	}
+	if subdir != "" {
+		folder := filepath.Join(clone, filepath.FromSlash(subdir))
+		if err := noSymlink(clone, folder); err != nil {
+			cleanup()
+			return "", "", func() {}, pluginFolderError(subdir)
+		}
+		clone = folder
+	}
+	return clone, normalized, cleanup, nil
 }
 
 // treeDigest includes safe relative links, leaves out unsafe ones and rejects special files.
@@ -228,6 +278,19 @@ func discoverRoot(root, source string, explicit ...string) (*Discovery, error) {
 			links = append(links[:3], "...")
 		}
 		result.Warnings = append(result.Warnings, fmt.Sprintf("Skipped %d broken or unsafe links; they are left out of the install: %s", len(skipped), strings.Join(links, ", ")))
+	}
+	if link, kind := githubPluginLink(source); kind == "blob" {
+		if len(explicit) > 0 && explicit[0] != "" {
+			return nil, errHerdrModLink
+		}
+		for _, c := range herdrCandidates(root, "") {
+			if c.Name == herdrModName(link) && noSymlink(root, filepath.Join(root, c.Path)) == nil {
+				c.HerdrPanel = supportsHerdrPanel(source, c.Name)
+				result.Candidates = append(result.Candidates, c)
+				return result, nil
+			}
+		}
+		return nil, errHerdrModLink
 	}
 	seenAt := map[string]int{}
 	codexListed := map[string]bool{}
@@ -396,7 +459,7 @@ func discoverRoot(root, source string, explicit ...string) (*Discovery, error) {
 			}
 			result.Candidates = herdrCandidates(root, entry)
 			if len(result.Candidates) == 0 {
-				return nil, fmt.Errorf("%w; for a Herdr launcher add --entry <executable>; for a mod add mods/<id>/main.js at the repository root", err)
+				return nil, err
 			}
 		} else {
 			c.Path = "."
@@ -405,6 +468,7 @@ func discoverRoot(root, source string, explicit ...string) (*Discovery, error) {
 	}
 	for i := range result.Candidates {
 		c := &result.Candidates[i]
+		c.HerdrPanel = slices.Contains(c.Targets, "herdr-app") && c.TargetInfo["herdr-app"].Entry == "" && supportsHerdrPanel(source, c.Name)
 		// OMP reads its own marketplace exclusively when present, even if an entry is broken.
 		if ompCatalog != nil {
 			native, ok := ompCatalog[c.Name]

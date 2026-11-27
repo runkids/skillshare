@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { invalidate } from '../../lib/queryEvents';
 import { queryKeys } from '../../lib/queryKeys';
 import { bindingVersion, byPlugin, pluginsApi, syncAction, targetMap } from '../../api/plugins';
 import type {
@@ -20,6 +21,46 @@ import { pluginErrorMessage } from './pluginError';
 
 type T = ReturnType<typeof useT>;
 type Updates = Record<string, Record<PluginTarget, PluginUpdate>>;
+/** The `working` key of a group's action: its spinner shows on the group's menu button. */
+export const groupKey = (names: string[]) => `group:${names[0]}`;
+/**
+ * What an action on several packages at once (a group's menu, the selection bar) sends for each.
+ * A package whose own switch is locked (an Agent being cleaned up or on another account) is left
+ * as it is; one on another account would also block the others' removal in the same request.
+ * Updates are only what the last check found: the server skips an Agent with no version the user saw.
+ */
+export function bulkActions(inventory: PluginInventory, names: string[], pending: UpdatePick[]) {
+  const bindingsOf = (name: string) => Object.values(inventory.packages[name]?.bindings ?? {});
+  const free = names.filter(
+    (name) => !bindingsOf(name).some((b) => b?.cleanup || b?.contextChanged),
+  );
+  return {
+    off: free.filter((name) => bindingsOf(name).some((b) => b?.sync === false)),
+    on: free.filter((name) => bindingsOf(name).some((b) => b && b.sync !== false)),
+    removable: names.filter((name) => !bindingsOf(name).some((b) => b?.contextChanged)),
+    picks: pending.filter((p) => names.includes(p.name)),
+  };
+}
+/** Where a package was added from, read the way its row reads it. */
+export function packageSource(inventory: PluginInventory, name: string) {
+  const pack = inventory.packages[name];
+  const from = Object.values(pack.bindings).find((b) => b?.source);
+  const source = from?.source ?? pack.source;
+  return source ? { source, ref: from?.sourceRef ?? pack.sourceRef ?? '' } : undefined;
+}
+/**
+ * The packages grouped by the source and ref they were added from, in the order they first appear.
+ * One with no source, or alone in its source, is a group of one.
+ */
+export function groupBySource(inventory: PluginInventory, names: string[]) {
+  const groups = new Map<string, string[]>();
+  for (const name of names) {
+    const from = packageSource(inventory, name);
+    const key = from ? `${from.source}\0${from.ref}` : `\0${name}`;
+    groups.set(key, [...(groups.get(key) ?? []), name]);
+  }
+  return [...groups.values()];
+}
 /** One plugin and the Agents to update it on. */
 export interface UpdatePick {
   name: string;
@@ -227,6 +268,14 @@ export function piPackageTest(inventory: PluginInventory | undefined) {
       bound.length > 0 &&
       bound.every(([target, b]) => piTargets.has(target) && !b?.source)
     );
+  };
+}
+
+/** A package bound only to the Herdr app, a mod or a launcher, gets its own list too. */
+export function herdrPackageTest(inventory: PluginInventory | undefined) {
+  return (name: string) => {
+    const bound = Object.keys(inventory?.packages[name]?.bindings ?? {});
+    return bound.length > 0 && bound.every((target) => target === 'herdr-app');
   };
 }
 
@@ -558,29 +607,67 @@ export function usePluginsFlow({
       setBusy(false);
     }
   };
-  /** A tick on a row is its own preview and apply, with no review in between. */
-  const selectTarget = async (name: string, target: PluginTarget, selected: boolean) => {
+  /**
+   * A tick on a row is its own preview and apply, with no review in between. Several names, from a
+   * group, go as one request; without a target every Agent of each package turns on or off.
+   */
+  const setSync = async (
+    names: string[],
+    target: PluginTarget | undefined,
+    selected: boolean,
+    key: string,
+  ): Promise<boolean> => {
     setBusy(true);
-    setWorking(`${name}:${target}`);
+    setWorking(key);
     setFailure('');
     setResult(null);
     try {
       const request: PluginRequest = {
         action: selected ? 'enable' : 'disable',
-        name,
-        targets: [target],
+        ...(names.length === 1 ? { name: names[0] } : { names }),
+        ...(target && { targets: [target] }),
       };
       const plan = await pluginsApi.preview(request);
       const response = await pluginsApi.apply(request, plan.revision);
       if (response.failure) setFailure(failureText(t, response));
-      refresh();
+      else {
+        // Show the tick at once. The refetch below asks every Agent's CLI and takes seconds, and until
+        // it answers the row would show the old state again.
+        // Only what the plan saved: a skipped Agent, as when Herdr app's home is absent, keeps its state.
+        const saved = plan.changes.filter((c) => c.action === 'selection');
+        const tick = (inv?: PluginInventory) => {
+          if (!inv) return inv;
+          const packages = { ...inv.packages };
+          for (const { name, target: at } of saved) {
+            const pkg = packages[name];
+            const binding = pkg?.bindings[at];
+            if (!pkg || !binding) continue;
+            packages[name] = {
+              ...pkg,
+              bindings: { ...pkg.bindings, [at]: { ...binding, sync: selected } },
+            };
+          }
+          return { ...inv, packages };
+        };
+        cache.setQueryData<PluginInventory>(queryKeys.plugins, tick);
+        cache.setQueryData<PluginInventory>(queryKeys.pluginPackages, tick);
+      }
+      // Not refresh(): that reruns the update check, which asks every Agent again for nothing.
+      void invalidate(cache, 'pluginTargetsToggled');
+      return !response.failure;
     } catch (e) {
       setFailure((e as Error).message);
+      return false;
     } finally {
       setBusy(false);
       setWorking('');
     }
   };
+  const selectTarget = (name: string, target: PluginTarget, selected: boolean) =>
+    setSync([name], target, selected, `${name}:${target}`);
+  /** Turns every Agent of these packages on or off; `key` is the group's spinner. Resolves to whether it saved. */
+  const selectMany = (names: string[], selected: boolean, key: string) =>
+    setSync(names, undefined, selected, key);
 
   /**
    * Each import is its own preview and apply, as a tick is: every write moves the revision, so a batch has
@@ -632,6 +719,7 @@ export function usePluginsFlow({
     begin,
     apply,
     selectTarget,
+    selectMany,
     check,
     updateMany,
     importMany,

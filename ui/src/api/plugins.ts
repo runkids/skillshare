@@ -26,11 +26,15 @@ export type PluginAction =
   | 'disable';
 export interface PluginRequest {
   action: PluginAction;
+  herdrPanel?: boolean;
   name?: string;
   source?: string;
   sourceRef?: string;
   entry?: string;
   plugin?: string;
+  plugins?: string[];
+  /** Several packages at once, for remove, enable or disable. */
+  names?: string[];
   targets?: PluginTarget[];
   from?: PluginTarget;
 }
@@ -186,6 +190,7 @@ export const piShareCommand = (name: string, id: string, ask: boolean) => {
   );
 };
 export interface PluginCandidate {
+  herdrPanel?: boolean;
   name: string;
   description: string;
   version: string;
@@ -202,6 +207,7 @@ export interface PluginCandidate {
       version?: string;
       logo?: string;
       entry?: string;
+      herdrDock?: { place: string; size?: number };
       components: string[];
       problem?: string;
       problemKey?: string;
@@ -219,6 +225,7 @@ export interface PluginDiscovery {
   candidates: PluginCandidate[];
 }
 export interface PluginPlan {
+  herdrPanel?: { from: string; name: string; mod?: string };
   revision: string;
   blocked: boolean;
   changes: {
