@@ -533,12 +533,115 @@ const slugPart = (s: string) =>
 const INTERPRETER =
   /^(?:env|sh|bash|zsh|dash|ksh|fish|py|pythonw?|pypy|node(?:js)?|bun|deno|tsx|ts-node|uv|ruby|perl|php|pwsh|powershell|cmd)(?:[-@]?\d+(?:\.\d+)*[a-z]?)?$/i;
 
-const SHELL = /^(?:sh|bash|zsh|dash|ksh|fish)(?:[-@]?\d+(?:\.\d+)*[a-z]?)?$/i;
+interface InterpSpec {
+  inline: (arg: string) => boolean;
+  takesValue: (arg: string) => boolean;
+}
 
-// Options whose separate next token is an option operand (preload module, include
-// path, config/env file, target version, working directory) rather than the script.
-const VALUE_OPT =
-  /^(?:-[rIWCXuoP]|--(?:require|import|loader|experimental-loader|preload|env-file|env-file-if-exists|config|config-file|tsconfig|project|import-map|lock|cert|directory|chdir|unset|python|with|with-requirements|rcfile|init-file|executionpolicy|ep|configurationname|workingdirectory|wd|settingsfile))$/i;
+function interpreterSpec(base: string): InterpSpec {
+  const name = base.replace(/[-@]?\d+(?:\.\d+)*[a-z]?$/i, '').toLowerCase();
+  switch (name) {
+    case 'env':
+      return {
+        inline: () => false,
+        takesValue: (a) =>
+          a === '-u' ||
+          a === '-C' ||
+          a === '-P' ||
+          /^--(?:unset|chdir|default-signal|ignore-signal|block-signal)$/.test(a),
+      };
+    case 'sh':
+    case 'bash':
+    case 'zsh':
+    case 'dash':
+    case 'ksh':
+    case 'fish':
+      return {
+        inline: (a) => a === '-c' || a === '--command' || /^-[a-z]+c$/.test(a),
+        takesValue: (a) =>
+          a === '-o' ||
+          a === '+o' ||
+          a === '--rcfile' ||
+          a === '--init-file' ||
+          a === '-C' ||
+          a === '--init-command',
+      };
+    case 'py':
+    case 'python':
+    case 'pythonw':
+    case 'pypy':
+      return {
+        inline: (a) => a === '-c' || a === '-m',
+        takesValue: (a) => a === '-W' || a === '-X' || a === '--check-hash-based-pycs',
+      };
+    case 'uv':
+      return {
+        inline: (a) => a === '-m' || a === '--module',
+        takesValue: (a) =>
+          a === '-p' ||
+          /^--(?:python|directory|project|config-file|env-file|with|with-requirements|with-editable|index|default-index)$/.test(
+            a,
+          ),
+      };
+    case 'node':
+    case 'nodejs':
+    case 'tsx':
+    case 'ts-node':
+      return {
+        inline: (a) => a === '-e' || a === '--eval' || a === '-p' || a === '--print',
+        takesValue: (a) =>
+          a === '-r' ||
+          a === '-C' ||
+          (name === 'ts-node' && (a === '-P' || a === '-O')) ||
+          /^--(?:require|import|loader|experimental-loader|env-file|env-file-if-exists|tsconfig|project|conditions|compiler|compiler-options|watch-path)$/.test(
+            a,
+          ),
+      };
+    case 'bun':
+      return {
+        inline: (a) => a === '-e' || a === '--eval' || a === '-p' || a === '--print',
+        takesValue: (a) =>
+          a === '-r' ||
+          a === '-c' ||
+          /^--(?:preload|require|import|env-file|config|cwd|tsconfig-override|conditions)$/.test(a),
+      };
+    case 'deno':
+      return {
+        inline: (a) => a === 'eval',
+        takesValue: (a) =>
+          a === '-c' ||
+          /^--(?:config|import-map|lock|cert|env-file|location|seed|v8-flags)$/.test(a),
+      };
+    case 'ruby':
+      return {
+        inline: (a) => a === '-e' || /^-[a-z]*e$/.test(a),
+        takesValue: (a) =>
+          a === '-r' || a === '-I' || a === '-C' || a === '-E' || a === '--encoding',
+      };
+    case 'perl':
+      return {
+        inline: (a) => a === '-e' || a === '-E',
+        takesValue: (a) => a === '-I' || a === '-M' || a === '-m',
+      };
+    case 'php':
+      return {
+        inline: (a) => a === '-r' || a === '--run',
+        takesValue: (a) =>
+          a === '-c' || a === '-d' || a === '-z' || /^--(?:php-ini|define|zend-extension)$/.test(a),
+      };
+    case 'pwsh':
+    case 'powershell':
+      return {
+        inline: (a) => /^-(?:c|command|ec|encodedcommand)$/i.test(a),
+        takesValue: (a) =>
+          /^-(?:executionpolicy|ep|configurationname|workingdirectory|wd|settingsfile|inputformat|outputformat)$/i.test(
+            a,
+          ),
+      };
+    default:
+      return { inline: () => false, takesValue: () => false };
+  }
+}
 
 const basename = (token: string) => token.split(/[\\/]/).pop() ?? '';
 
@@ -561,28 +664,16 @@ export function commandScriptStem(command: string) {
   while (i < tokens.length && /^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[i])) i++;
   const first = tokens[i] ?? '';
   if (isInterpreter(first)) {
-    let interp = interpreterBase(first);
-    let shell = SHELL.test(interp);
+    let spec = interpreterSpec(interpreterBase(first));
     for (let j = i + 1; j < tokens.length; j++) {
       const arg = tokens[j];
       if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(arg) || /^\/[a-z?]$/i.test(arg)) continue;
       if (isInterpreter(arg)) {
-        interp = interpreterBase(arg);
-        shell = SHELL.test(interp);
+        spec = interpreterSpec(interpreterBase(arg));
         continue;
       }
-      const isPhp = /^php(?:[-@]?\d|$)/i.test(interp);
-      const isNode = /^node(?:js)?(?:[-@]?\d|$)/i.test(interp);
-      if (
-        /^-(?:c|-command|command|encodedcommand|ec|-eval)$/i.test(arg) ||
-        arg === '-m' ||
-        (shell && /^-[a-z]+c$/i.test(arg)) ||
-        (!shell && arg === '-e') ||
-        (isNode && (arg === '-p' || arg === '--print')) ||
-        (isPhp && arg === '-r')
-      )
-        return '';
-      if (VALUE_OPT.test(arg) || (/^uv(?:[-@]?\d|$)/i.test(interp) && arg === '-p')) {
+      if (spec.inline(arg)) return '';
+      if (spec.takesValue(arg)) {
         j++;
         continue;
       }
