@@ -3,7 +3,7 @@
 // the router's own check prints. It reads; it never runs the router script.
 //
 // The size rule mirrors skills/agents-context-router/scripts/ai-context.py at
-// ReferenceCommit. Functions that mirror one of its functions name it.
+// Reference. Functions that mirror one of its functions name it.
 package contextrouter
 
 import (

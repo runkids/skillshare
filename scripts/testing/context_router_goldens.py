@@ -2,10 +2,11 @@
 """Regenerate internal/contextrouter/testdata from the reference router script.
 
 usage: context_router_goldens.py --router-repo <checkout of runkids/agents-context-router>
-                                 [--commit 19c94f9] --out internal/contextrouter/testdata
+                                 [--commit v0.6.0] --out internal/contextrouter/testdata
 
-Writes cases.json (router folders and the byte sizes the reference's `check`
-prints for them) and compact.json (Markdown bodies with the link spans and the
+Writes cases.json (router folders, the byte sizes the reference's `check`
+prints for them, the descriptions its `list` prints, and the sizes the older
+scripts in LEGACY print for the same folders) and compact.json (Markdown bodies with the link spans and the
 compactPathLinks output the reference computes). Nothing in those files is
 edited by hand: change a case here and rerun.
 
@@ -18,6 +19,9 @@ import argparse, importlib.util, io, json, os, random, re, subprocess, sys, tarf
 SCRIPT = 'skills/agents-context-router/scripts/ai-context.py'
 ROUTED = 'skills/agents-context-router/evals/fixtures/routed/'
 SIZE = re.compile(r'^(.+?)\s+(\d+) B  \(cap \d+\)$')
+# Older routers a folder may still carry: before `frontmatter` sources (0.4.0), and before
+# stripFrontmatter and compactPathLinks (0.5.0).
+LEGACY = ['v0.2.1', 'v0.4.0']
 LINK = '[docs/run.md](../docs/run.md)'
 
 
@@ -33,33 +37,60 @@ def write_tree(root, files):
             out.write(text.encode('utf-8'))
 
 
-def check_sizes(script, files):
-    """Sizes the reference prints for one folder; mounted entries are dropped."""
+def run_router(script, files, command, in_folder=False):
+    """Run the router on one folder. Older scripts only find the folder they are copied into."""
     with tempfile.TemporaryDirectory() as tmp:
         root = os.path.realpath(tmp)
         write_tree(root, files)
-        env = dict(os.environ, AI_CONTEXT_ROOT=root)
+        env = dict(os.environ)
         env.pop('AI_CONTEXT_CONFIG', None)
-        result = subprocess.run([sys.executable, '-I', script, 'check'], cwd=root, env=env,
+        env.pop('AI_CONTEXT_ROOT', None)
+        if in_folder:
+            os.makedirs(os.path.join(root, 'scripts'), exist_ok=True)
+            target = os.path.join(root, 'scripts', 'ai-context.py')
+            with open(script, 'rb') as source, open(target, 'wb') as out:
+                out.write(source.read())
+            script = target
+        else:
+            env['AI_CONTEXT_ROOT'] = root
+        result = subprocess.run([sys.executable, '-I', script, command], cwd=root, env=env,
                                 capture_output=True, text=True, encoding='utf-8')
+    return result.stdout
+
+
+def check_sizes(script, files, in_folder=False):
+    """Sizes the router prints for one folder; mounted entries are dropped."""
     sizes = {}
-    for line in result.stdout.split('\n'):
+    for line in run_router(script, files, 'check', in_folder).split('\n'):
         match = SIZE.match(line)
         if match and '/' not in match[1]:
             sizes[match[1]] = int(match[2])
     return sizes
 
 
-def expectation(script, files):
+def sizes_of(script, files, in_folder=False):
     cfg = json.loads(files['wiki/ai-context.json'])
-    sizes = check_sizes(script, files)
+    sizes = check_sizes(script, files, in_folder)
     return {'kernel': sizes.get(cfg.get('rootInstructions', 'AGENTS.md')),
             'topics': {name: sizes.get(name) for name in cfg['topics']}}
 
 
+def expectation(script, files):
+    cfg = json.loads(files['wiki/ai-context.json'])
+    expect = sizes_of(script, files)
+    # `list` prints each local topic as its name padded to 18, a space, and its description.
+    listed = run_router(script, files, 'list').split('\n')
+    expect['descriptions'] = {}
+    expect['order'] = list(cfg['topics'])
+    for name in cfg['topics']:
+        prefix = f'{name:18} '
+        expect['descriptions'][name] = next((line[len(prefix):] for line in listed if line.startswith(prefix)), None)
+    return expect
+
+
 def folder(cfg, pages, kernel=None):
     """A router folder: the config, a kernel naming every topic, a wiki index, and pages."""
-    files = {'wiki/ai-context.json': json.dumps(cfg, indent=1, sort_keys=True) + '\n',
+    files = {'wiki/ai-context.json': json.dumps(cfg, indent=1) + '\n',
              'wiki/README.md': '# Topics\n'}
     if kernel is None:
         kernel = '# Kernel\n\n' + ''.join(f'- `{name}`\n' for name in cfg['topics'])
@@ -108,7 +139,7 @@ COMPACT_PAGE = (
     f'tail {LINK}\n')
 
 
-def size_cases(script, repo, commit):
+def size_cases(script, repo, commit, legacy):
     page = {'path': 'wiki/page.md'}
     cases = [('routed', routed(repo, commit))]
     cases.append(('newlines', folder(
@@ -156,11 +187,27 @@ def size_cases(script, repo, commit):
             'guide': topic({'path': 'wiki/guide.md'}),
             'part': topic({'path': 'wiki/guide.md', 'heading': 'Guide'}, {'path': 'docs/run.md'})}},
         {'wiki/guide.md': '---\ntype: page\n---\n' + COMPACT_PAGE, 'docs/run.md': 'Run.\n'})))
+    described = '---\ntype: page\ndescription: {}\n---\n# Page\nbody\n'
+    forms = {
+        'plain': 'From the page.', 'double': '"Quoted \\"here\\" too."  # note', 'single': "'It''s single.'",
+        'comment': 'Before the note  # after', 'mapping': 'key: value', 'flow': '[a, b]', 'null': 'null',
+        'folded': '>\n  folded text', 'unclosed': '"never closed', 'cjk': '\u8def\u7531\u5668\u8bf4\u660e',
+    }
+    pages = {f'wiki/{name}.md': described.format(value) for name, value in forms.items()}
+    pages['wiki/none.md'] = '# No envelope\n'
+    topics = {name: {'sources': [{'path': f'wiki/{name}.md'}]} for name in list(forms) + ['none']}
+    topics['own'] = topic({'path': 'wiki/plain.md'})
+    topics['heading-source'] = {'sources': [{'path': 'wiki/plain.md', 'heading': 'Page'}]}
+    topics['no-sources'] = {'sources': []}
+    cases.append(('descriptions', folder({'stripFrontmatter': True, 'topics': topics}, pages)))
+    cases.append(('order', folder(
+        {'topics': {name: topic(page) for name in ('zebra', 'alpha', 'mid')}}, {'wiki/page.md': '# Page\nbody\n'})))
     out = []
     for name, files in cases:
         cfg = json.loads(files['wiki/ai-context.json'])
         out.append({'name': name, 'compact': bool(cfg.get('compactPathLinks', False)),
-                    'files': files, 'expect': expectation(script, files)})
+                    'files': files, 'expect': expectation(script, files),
+                    'legacy': {tag[1:]: sizes_of(path, files, in_folder=True) for tag, path in legacy.items()}})
     return out
 
 
@@ -252,16 +299,21 @@ def dump(path, value):
 def main():
     parser = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     parser.add_argument('--router-repo', required=True)
-    parser.add_argument('--commit', default='19c94f9')
+    parser.add_argument('--commit', default='v0.6.0')
     parser.add_argument('--out', required=True)
     args = parser.parse_args()
     with tempfile.TemporaryDirectory() as tmp:
         script = os.path.join(tmp, 'ai-context.py')
         with open(script, 'wb') as out:
             out.write(git(args.router_repo, 'show', f'{args.commit}:{SCRIPT}'))
+        legacy = {}
+        for tag in LEGACY:
+            legacy[tag] = os.path.join(tmp, f'ai-context-{tag}.py')
+            with open(legacy[tag], 'wb') as out:
+                out.write(git(args.router_repo, 'show', f'{tag}:{SCRIPT}'))
         os.makedirs(args.out, exist_ok=True)
         dump(os.path.join(args.out, 'cases.json'),
-             {'reference': args.commit, 'cases': size_cases(script, args.router_repo, args.commit)})
+             {'reference': args.commit, 'cases': size_cases(script, args.router_repo, args.commit, legacy)})
         dump(os.path.join(args.out, 'compact.json'), {'reference': args.commit, 'cases': compact_cases(script)})
 
 

@@ -30,8 +30,8 @@ func loadCompactCases(t *testing.T) []compactCase {
 	if err := json.Unmarshal(raw, &file); err != nil {
 		t.Fatal(err)
 	}
-	if file.Reference != ReferenceCommit {
-		t.Fatalf("corpus comes from %s, the port follows %s", file.Reference, ReferenceCommit)
+	if file.Reference != Reference {
+		t.Fatalf("corpus comes from %s, the port follows %s", file.Reference, Reference)
 	}
 	return file.Cases
 }

@@ -1,4 +1,4 @@
-{"reference": "19c94f9", "cases": [
+{"reference": "v0.6.0", "cases": [
 {"input": "See [docs/run.md](../docs/run.md) now.\n", "name": "paragraph", "output": "See `docs/run.md` now.\n", "source": "wiki/guide.md", "spans": [[4, 33]]},
 {"input": "| Ship it | [docs/run.md](../docs/run.md) |\n", "name": "table-row", "output": "| Ship it | `docs/run.md` |\n", "source": "wiki/guide.md", "spans": [[12, 41]]},
 {"input": "para\n\n    [docs/run.md](../docs/run.md)\n", "name": "indented-code", "output": "para\n\n    [docs/run.md](../docs/run.md)\n", "source": "wiki/guide.md", "spans": []},

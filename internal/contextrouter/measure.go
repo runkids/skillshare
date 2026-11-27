@@ -7,9 +7,6 @@ import (
 	"time"
 )
 
-// ReferenceCommit is the agents-context-router revision the size rule follows.
-const ReferenceCommit = "19c94f9"
-
 // Limits bound the work one report may do. The config is untrusted: one topic
 // can name the same large file many times, and many names can lead to one file.
 type Limits struct {
@@ -93,12 +90,17 @@ type Topic struct {
 // Report is one folder's router: its kernel and its own topics. Mounts are
 // only listed.
 type Report struct {
-	Root      string   `json:"root"`
-	Config    string   `json:"config"`
-	Reference string   `json:"reference"`
-	Error     *Problem `json:"error,omitempty"`
-	Kernel    *Kernel  `json:"kernel,omitempty"`
-	Topics    []Topic  `json:"topics"`
+	Root   string `json:"root"`
+	Config string `json:"config"`
+	// ScriptVersion is the version of the folder's own scripts/ai-context.py,
+	// empty when there is none to read. SemanticsVersion is the router version
+	// whose size rule was applied, and VersionStatus says how the two relate.
+	ScriptVersion    string   `json:"scriptVersion"`
+	SemanticsVersion string   `json:"semanticsVersion"`
+	VersionStatus    string   `json:"versionStatus"`
+	Error            *Problem `json:"error,omitempty"`
+	Kernel           *Kernel  `json:"kernel,omitempty"`
+	Topics           []Topic  `json:"topics"`
 	// Truncated is set when Limits left some topics unmeasured.
 	Truncated bool    `json:"truncated"`
 	Mounts    []Mount `json:"mounts"`
@@ -199,10 +201,27 @@ func (m *measurer) body(src sourceCfg) (result bodyResult, ok bool) {
 	return result, true
 }
 
+// fallbackDescription mirrors topic_description: a topic without a description
+// of its own shows the one in its first source's frontmatter, or nothing.
+func (m *measurer) fallbackDescription(tc topicCfg) string {
+	if len(tc.Sources) == 0 {
+		return ""
+	}
+	rel, inside := cleanRel(tc.Sources[0].Path)
+	if !inside {
+		return ""
+	}
+	file, ok := m.file(rel)
+	if !ok || file.code != "" {
+		return ""
+	}
+	return pageDescription(strings.Split(file.text, "\n"))
+}
+
 // Measure reads the router in root. The error is non-nil only when ctx ended;
 // everything else is in the report, a folder that is gone included.
 func Measure(ctx context.Context, root string, lim Limits) (Report, error) {
-	report := Report{Root: root, Config: ConfigRel, Reference: ReferenceCommit, Topics: []Topic{}, Mounts: []Mount{}}
+	report := Report{Root: root, Config: ConfigRel, SemanticsVersion: SemanticsVersion, VersionStatus: VersionUnknown, Topics: []Topic{}, Mounts: []Mount{}}
 	if err := ctx.Err(); err != nil {
 		return report, err
 	}
@@ -212,6 +231,20 @@ func Measure(ctx context.Context, root string, lim Limits) (Report, error) {
 		return report, nil
 	}
 	defer dir.Close()
+
+	script, hasScript := scriptVersion(dir, lim.MaxFileBytes)
+	if hasScript {
+		report.ScriptVersion = script.String()
+		switch {
+		case script.less(stripAndCompactSince):
+			// The folder's own check prints what its script computes, so follow that script.
+			report.VersionStatus, report.SemanticsVersion = VersionLegacy, script.String()
+		case script.less(firstUnseen):
+			report.VersionStatus = VersionOK
+		default:
+			report.VersionStatus = VersionNewer
+		}
+	}
 
 	text, code := readRegular(dir, ConfigRel, lim.MaxConfigBytes)
 	if code != "" {
@@ -225,6 +258,18 @@ func Measure(ctx context.Context, root string, lim Limits) (Report, error) {
 	}
 	if cfg.Mounts != nil {
 		report.Mounts = cfg.Mounts
+	}
+	if report.VersionStatus == VersionLegacy {
+		// An older script does not know these options, so its sizes do not reflect them.
+		cfg.Strip, cfg.Compact = false, false
+		for t := range cfg.Topics {
+			for i := range cfg.Topics[t].Sources {
+				cfg.Topics[t].Sources[i].Strip = nil
+				if script.less(sourceFrontmatterSince) {
+					cfg.Topics[t].Sources[i].Frontmatter = false
+				}
+			}
+		}
 	}
 	m := &measurer{root: dir, lim: lim, cfg: cfg, files: map[string]fileResult{}, bodies: map[bodyKey]bodyResult{}}
 	if lim.MaxDuration > 0 {
@@ -246,6 +291,9 @@ func Measure(ctx context.Context, root string, lim Limits) (Report, error) {
 	sources := 0
 	for index, tc := range cfg.Topics {
 		topic := Topic{Name: tc.Name, Description: tc.Description, Cap: cfg.TopicCap, Sources: []Source{}}
+		if !tc.HasDescription {
+			topic.Description = m.fallbackDescription(tc)
+		}
 		if tc.MaxBytes != nil {
 			topic.Cap = *tc.MaxBytes
 		}

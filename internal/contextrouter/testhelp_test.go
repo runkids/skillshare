@@ -7,14 +7,31 @@ import (
 	"testing"
 )
 
+type goldenSizes struct {
+	Kernel *int            `json:"kernel"`
+	Topics map[string]*int `json:"topics"`
+}
+
 type goldenCase struct {
 	Name    string            `json:"name"`
 	Compact bool              `json:"compact"`
 	Files   map[string]string `json:"files"`
 	Expect  struct {
-		Kernel *int            `json:"kernel"`
-		Topics map[string]*int `json:"topics"`
+		goldenSizes
+		// Descriptions are what the reference's `list` prints; Order is the config's.
+		Descriptions map[string]*string `json:"descriptions"`
+		Order        []string           `json:"order"`
 	} `json:"expect"`
+	// Legacy holds what older router scripts print for the same folder, by version.
+	Legacy map[string]goldenSizes `json:"legacy"`
+}
+
+// withScript adds a router script that declares version to the case's folder.
+func (c goldenCase) withScript(t *testing.T, version string) string {
+	t.Helper()
+	dir := c.materialize(t)
+	writeFile(t, filepath.Join(dir, filepath.FromSlash(ScriptRel)), "#!/usr/bin/env python3\nVERSION = '"+version+"'  # x-release-please-version\n")
+	return dir
 }
 
 func loadCases(t *testing.T) []goldenCase {
@@ -30,8 +47,8 @@ func loadCases(t *testing.T) []goldenCase {
 	if err := json.Unmarshal(raw, &file); err != nil {
 		t.Fatal(err)
 	}
-	if file.Reference != ReferenceCommit {
-		t.Fatalf("goldens come from %s, the port follows %s", file.Reference, ReferenceCommit)
+	if file.Reference != Reference {
+		t.Fatalf("goldens come from %s, the port follows %s", file.Reference, Reference)
 	}
 	return file.Cases
 }

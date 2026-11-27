@@ -9,7 +9,7 @@ import (
 )
 
 // This file is a port of the Markdown scanners in the router's ai-context.py
-// at ReferenceCommit: the block scanner that masks code, HTML and reference
+// at Reference: the block scanner that masks code, HTML and reference
 // definitions (markdown_text) and the inline scanner that finds real links
 // (link_destinations in span mode). compactPathLinks rewrites only the links
 // these scanners recognize, so the port follows the reference function for

@@ -37,7 +37,7 @@ func TestMeasureGoldens(t *testing.T) {
 	for _, c := range loadCases(t) {
 		t.Run(c.Name, func(t *testing.T) {
 			report := measure(t, c.materialize(t), DefaultLimits)
-			if report.Error != nil || report.Reference != ReferenceCommit {
+			if report.Error != nil || report.SemanticsVersion != SemanticsVersion {
 				t.Fatalf("report: %+v", report)
 			}
 			if !sameSize(report.Kernel.Bytes, c.Expect.Kernel) {
@@ -46,13 +46,96 @@ func TestMeasureGoldens(t *testing.T) {
 			if len(report.Topics) != len(c.Expect.Topics) {
 				t.Fatalf("topics: got %d, want %d", len(report.Topics), len(c.Expect.Topics))
 			}
-			for _, topic := range report.Topics {
+			for i, topic := range report.Topics {
 				want, ok := c.Expect.Topics[topic.Name]
 				if !ok || !sameSize(topic.Bytes, want) {
 					t.Errorf("%s: got %v, want %v", topic.Name, show(topic.Bytes), show(want))
 				}
+				// Topics come in the config's order, as the reference prints them.
+				if topic.Name != c.Expect.Order[i] {
+					t.Errorf("topic %d: got %s, want %s", i, topic.Name, c.Expect.Order[i])
+				}
+				if description := c.Expect.Descriptions[topic.Name]; description == nil || topic.Description != *description {
+					t.Errorf("%s description: got %q, want %v", topic.Name, topic.Description, description)
+				}
 			}
 		})
+	}
+}
+
+// A folder whose own script predates an option gets the sizes that script
+// prints: it ignores the option, so the report does too.
+func TestMeasureLegacyScripts(t *testing.T) {
+	differs := 0
+	for _, c := range loadCases(t) {
+		for version, want := range c.Legacy {
+			if c.Name == "missing-kernel" && version == "0.2.1" {
+				continue // that script stops at a missing kernel and prints nothing
+			}
+			report := measure(t, c.withScript(t, version), DefaultLimits)
+			if report.VersionStatus != VersionLegacy || report.ScriptVersion != version || report.SemanticsVersion != version {
+				t.Fatalf("%s %s: status %q, script %q, semantics %q", c.Name, version, report.VersionStatus, report.ScriptVersion, report.SemanticsVersion)
+			}
+			if !sameSize(report.Kernel.Bytes, want.Kernel) {
+				t.Errorf("%s %s kernel: got %v, want %v", c.Name, version, show(report.Kernel.Bytes), show(want.Kernel))
+			}
+			for _, topic := range report.Topics {
+				if !sameSize(topic.Bytes, want.Topics[topic.Name]) {
+					t.Errorf("%s %s %s: got %v, want %v", c.Name, version, topic.Name, show(topic.Bytes), show(want.Topics[topic.Name]))
+				}
+				if !sameSize(want.Topics[topic.Name], c.Expect.Topics[topic.Name]) {
+					differs++
+				}
+			}
+		}
+	}
+	if differs < 4 {
+		t.Fatalf("only %d legacy sizes differ from the current rule; the fixtures no longer exercise it", differs)
+	}
+}
+
+// The script's version picks the rule and is reported; whatever it is, the folder is measured.
+func TestMeasureScriptVersions(t *testing.T) {
+	c := goldenNamed(t, "compact-basic") // sets stripFrontmatter and compactPathLinks
+	sizes := func(report Report) string {
+		out := fmt.Sprint(show(report.Kernel.Bytes))
+		for _, topic := range report.Topics {
+			out += fmt.Sprintf(" %s=%v", topic.Name, show(topic.Bytes))
+		}
+		return out
+	}
+	unknown := measure(t, c.materialize(t), DefaultLimits)
+	if unknown.VersionStatus != VersionUnknown || unknown.ScriptVersion != "" || unknown.SemanticsVersion != SemanticsVersion {
+		t.Fatalf("no script: %+v", unknown)
+	}
+	current := sizes(unknown)
+	for version, status := range map[string]string{
+		"0.5.0": VersionOK, "0.6.0": VersionOK, "0.6.9": VersionOK,
+		"0.7.0": VersionNewer, "1.0.0": VersionNewer, "99.0.0": VersionNewer,
+	} {
+		report := measure(t, c.withScript(t, version), DefaultLimits)
+		if report.VersionStatus != status || report.ScriptVersion != version || report.SemanticsVersion != SemanticsVersion {
+			t.Errorf("%s: status %q, script %q, semantics %q", version, report.VersionStatus, report.ScriptVersion, report.SemanticsVersion)
+		}
+		if got := sizes(report); got != current || report.Topics[0].Bytes == nil {
+			t.Errorf("%s: sizes %s, want %s", version, got, current)
+		}
+	}
+	legacy := measure(t, c.withScript(t, "0.2.1"), DefaultLimits)
+	if legacy.VersionStatus != VersionLegacy || sizes(legacy) == current {
+		t.Errorf("0.2.1 with both options set: status %q, sizes %s", legacy.VersionStatus, sizes(legacy))
+	}
+
+	// The script is text to read. One that would exit when run is still only read.
+	dir := c.materialize(t)
+	writeFile(t, filepath.Join(dir, filepath.FromSlash(ScriptRel)), "raise SystemExit('never run')\nVERSION = \"0.6.0\"\n")
+	if report := measure(t, dir, DefaultLimits); report.VersionStatus != VersionOK || sizes(report) != current {
+		t.Errorf("script with a raise: %+v", report)
+	}
+	// A version cannot be read from a script past the file limit.
+	writeFile(t, filepath.Join(dir, filepath.FromSlash(ScriptRel)), "VERSION = '0.2.1'\n"+strings.Repeat("#", 1<<20))
+	if report := measure(t, dir, DefaultLimits); report.VersionStatus != VersionUnknown || sizes(report) != current {
+		t.Errorf("oversized script: status %q", report.VersionStatus)
 	}
 }
 
