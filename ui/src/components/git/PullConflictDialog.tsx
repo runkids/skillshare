@@ -3,6 +3,7 @@ import type { GitConflictVersion, GitPullConflict, GitPullResolution } from '../
 import { useT } from '../../i18n';
 import Button from '../Button';
 import CodeView from '../CodeView';
+import DialogHeader from '../DialogHeader';
 import DialogShell from '../DialogShell';
 import { conflictMarks } from './gitView';
 
@@ -44,9 +45,7 @@ export default function PullConflictDialog({ conflict, onCancel, onConfirm }: Pr
 
   return (
     <DialogShell open onClose={onCancel} maxWidth="5xl" padding="none" ariaLabel={title}>
-      <div className="dh sep">
-        <h2 className="ss-h2">{title}</h2>
-      </div>
+      <DialogHeader className="sep" title={title} />
       <div className="db flex flex-col gap-5">
         <div className="ss-note warn">{t('gitSync.conflict.hint')}</div>
         <div className="flex flex-wrap justify-end gap-2">

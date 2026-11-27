@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Check, Copy, Plus, RefreshCw, X } from 'lucide-react';
+import { Check, Copy, Plus, RefreshCw } from 'lucide-react';
 import { hookAgents, hooksApi } from '../../api/hooks';
 import type { HookEntry, HookMutation, HookPreview, HookUnmanaged } from '../../api/hooks';
 import { useT } from '../../i18n';
@@ -8,6 +8,7 @@ import { queryKeys } from '../../lib/queryKeys';
 import AgentIcon from '../AgentIcon';
 import Button from '../Button';
 import { Checkbox } from '../Input';
+import DialogHeader from '../DialogHeader';
 import DialogShell from '../DialogShell';
 import SegmentedControl from '../SegmentedControl';
 import { useSaveShortcut } from '../instructions/useSaveShortcut';
@@ -308,25 +309,17 @@ export default function HookDialog({
       ariaLabel={title}
       className="min-w-0 !max-w-[min(880px,calc(100vw-2rem))]"
     >
-      <div className="dh" ref={scope}>
-        <div className="flex min-w-0 flex-col gap-1">
-          <h2 className="ss-h2">{showPreview ? t('hooks.previewTitle') : title}</h2>
-          {showPreview && shown && (
-            <p className="text-[13px] text-ink-2">
-              {t('hooks.previewSummary', { name: trimmed, count: String(writing) })}
-            </p>
-          )}
-        </div>
-        <button
-          type="button"
-          className="ss-ib"
-          aria-label={t('common.close')}
-          onClick={requestClose}
-          disabled={saving}
-        >
-          <X size={16} />
-        </button>
-      </div>
+      <DialogHeader
+        ref={scope}
+        title={showPreview ? t('hooks.previewTitle') : title}
+        subtitle={
+          showPreview && shown
+            ? t('hooks.previewSummary', { name: trimmed, count: String(writing) })
+            : null
+        }
+        onClose={requestClose}
+        closeDisabled={saving}
+      />
       {showPreview && preview ? (
         <div className="db">
           {!fresh && (

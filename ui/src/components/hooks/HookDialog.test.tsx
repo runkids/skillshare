@@ -226,6 +226,48 @@ describe('hooks import', () => {
     );
   });
 
+  it('keeps <target>-<event> names when multiple candidates share a dispatcher binary', async () => {
+    const user = userEvent.setup();
+    vi.mocked(hooksApi.import).mockResolvedValue([
+      candidate('claude-pretooluse', '~/.local/bin/hyp hook claude pre-tool-use'),
+      candidate('claude-stop', '~/.local/bin/hyp hook claude stop'),
+    ]);
+    vi.mocked(hooksApi.save).mockResolvedValue({ applied: [], backupIds: [] });
+    wrap(
+      <HooksImportDialog
+        data={{
+          ...data,
+          unmanaged: [
+            {
+              target: 'claude',
+              path: '/home/u/.claude/settings.json',
+              names: ['claude-pretooluse', 'claude-stop'],
+              importable: true,
+            },
+          ],
+        }}
+        onClose={vi.fn()}
+        onChanged={vi.fn()}
+        onImported={vi.fn()}
+      />,
+    );
+    const group = await screen.findByRole('region', { name: 'Claude' });
+    await user.click(
+      await within(group).findByRole('checkbox', { name: 'Import claude-pretooluse' }),
+    );
+    await user.click(within(group).getByRole('checkbox', { name: 'Import claude-stop' }));
+    await user.click(screen.getByRole('button', { name: 'Import 2' }));
+    await waitFor(() => expect(hooksApi.save).toHaveBeenCalledTimes(2));
+    expect(hooksApi.save).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ name: 'claude-pretooluse', adopt: true }),
+    );
+    expect(hooksApi.save).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ name: 'claude-stop', adopt: true }),
+    );
+  });
+
   it('passes adoptSource when importing a code-agent extension file', async () => {
     const user = userEvent.setup();
     const ext: HookCandidate = {

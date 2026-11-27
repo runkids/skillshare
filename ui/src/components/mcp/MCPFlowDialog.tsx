@@ -1,8 +1,8 @@
 import { useId, type ReactNode } from 'react';
-import { Folder, Globe, ToggleRight, X } from 'lucide-react';
+import { Folder, Globe, ToggleRight } from 'lucide-react';
 import AgentIcon from '../AgentIcon';
+import DialogHeader from '../DialogHeader';
 import DialogShell from '../DialogShell';
-import IconButton from '../IconButton';
 import { useT, plural } from '../../i18n';
 import { relativeTo, shortenHome } from '../../lib/paths';
 import { targetLabel } from './mcpView';
@@ -68,15 +68,7 @@ export default function MCPFlowDialog({ root, global, shared, own, files, paths,
   const title = t('mcp.flow.title');
   return (
     <DialogShell open onClose={onClose} maxWidth="5xl" padding="none" ariaLabel={title}>
-      <div className="dh">
-        <h2 className="ss-h2">{title}</h2>
-        <IconButton
-          icon={<X size={16} />}
-          label={t('common.close')}
-          className="ml-auto"
-          onClick={onClose}
-        />
-      </div>
+      <DialogHeader title={title} onClose={onClose} />
       <div className="db">
         <div className="overflow-x-auto rounded-lg border border-line p-2">
           <div className="relative mx-auto" style={{ width: W, height: H }}>

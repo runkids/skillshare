@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { copyDraft, diffLines, eventLabels, lintNative, lineOf, suggestName } from './hookCatalog';
+import {
+  commandScriptStem,
+  copyDraft,
+  defaultImportNames,
+  diffLines,
+  eventLabels,
+  lintNative,
+  lineOf,
+  suggestName,
+} from './hookCatalog';
 import type { HookCatalog } from './hookCatalog';
 import { emptyBinding, newRow } from './hooksView';
 
@@ -172,5 +181,93 @@ describe('suggestName', () => {
     expect(suggestName('claude-stop', 'echo done', (n) => n === 'claude-stop')).toBe(
       'claude-stop-2',
     );
+  });
+
+  it('skips versioned interpreters, switches, and runner subcommands to find the script stem', () => {
+    expect(
+      suggestName(
+        'cursor-stop',
+        '/opt/homebrew/opt/python@3.14/bin/python3.14 ~/.local/share/tool/check.py cursor stop',
+        none,
+      ),
+    ).toBe('check');
+    expect(suggestName('claude-stop', '/bin/bash -c "echo done"', none)).toBe('claude-stop');
+    expect(suggestName('claude-stop', '/bin/bash -lc "echo done"', none)).toBe('claude-stop');
+    expect(commandScriptStem('/bin/bash -e ~/.claude/guard.sh')).toBe('guard');
+    expect(commandScriptStem('/usr/bin/env python3 ~/.claude/audit.py')).toBe('audit');
+    expect(commandScriptStem('/usr/bin/env NODE_ENV=production node ~/.claude/check.js')).toBe(
+      'check',
+    );
+    expect(commandScriptStem('/usr/bin/perl5.34 ~/.claude/filter.pl')).toBe('filter');
+    expect(commandScriptStem('/usr/bin/php8.3 ~/.claude/hook.php')).toBe('hook');
+    expect(commandScriptStem('python -u ./hook.py')).toBe('hook');
+    expect(commandScriptStem('python3 -I -P ./isolated.py')).toBe('isolated');
+    expect(commandScriptStem('/usr/bin/env -S uv run -p 3.12 scripts/verify.py')).toBe('verify');
+    expect(commandScriptStem("/usr/bin/env -S 'python ./hook.py --mode check'")).toBe('hook');
+    expect(commandScriptStem('env FOO=1 ruff ./src')).toBe('');
+    expect(commandScriptStem('uv run ruff ./src')).toBe('');
+    expect(commandScriptStem('bun run lint ./src')).toBe('');
+    expect(commandScriptStem('uv run --python 3.12 scripts/verify.py')).toBe('verify');
+    expect(commandScriptStem('uv run -p 3.12 scripts/verify.py')).toBe('verify');
+    expect(commandScriptStem('node -r ./bootstrap.js ./hook.js')).toBe('hook');
+    expect(commandScriptStem('node --import ./instrument.mjs ./audit.mjs')).toBe('audit');
+    expect(commandScriptStem('ts-node -P ./tsconfig.json ./lint.ts')).toBe('lint');
+    expect(commandScriptStem('tsx --tsconfig ./tsconfig.hooks.json ./lint.ts')).toBe('lint');
+    expect(commandScriptStem('ruby -I ./lib -r ./setup.rb ./guard.rb')).toBe('guard');
+    expect(commandScriptStem('bash --rcfile ~/.bashrc ~/.claude/guard.sh')).toBe('guard');
+    expect(commandScriptStem('php -c /etc/php.ini -e ./hook.php')).toBe('hook');
+    expect(commandScriptStem('php -r "echo 1;"')).toBe('');
+    expect(commandScriptStem('node -p "1 + 1"')).toBe('');
+    expect(commandScriptStem('pwsh -ExecutionPolicy Bypass -File C:\\hooks\\guard.ps1')).toBe(
+      'guard',
+    );
+    expect(commandScriptStem('cmd.exe /d /s /c C:\\hooks\\guard.bat')).toBe('guard');
+  });
+
+  it('handles quoted paths with spaces and quoted env prefixes', () => {
+    expect(commandScriptStem('"/Users/me/My Scripts/guard.sh"')).toBe('guard');
+    expect(
+      commandScriptStem('"C:\\Program Files\\nodejs\\node.exe" "C:\\My Hooks\\check.js"'),
+    ).toBe('check');
+    expect(commandScriptStem('"$CLAUDE_PROJECT_DIR"/.claude/hooks/lint.sh')).toBe('lint');
+  });
+
+  it('falls back to candidate instead of numbering when the script stem is already taken', () => {
+    expect(
+      suggestName(
+        'gemini-aftertool',
+        '~/.local/bin/hyp hook gemini after-tool',
+        (n) => n === 'hyp',
+      ),
+    ).toBe('gemini-aftertool');
+  });
+
+  it('assigns <target>-<event> names across rows that share the same dispatcher binary', () => {
+    expect(
+      defaultImportNames(
+        [
+          {
+            id: 'claude:claude-pretooluse',
+            candidate: 'claude-pretooluse',
+            command: '~/.local/bin/hyp hook claude pre-tool-use',
+          },
+          {
+            id: 'claude:claude-stop',
+            candidate: 'claude-stop',
+            command: '~/.local/bin/hyp hook claude stop',
+          },
+          {
+            id: 'claude:claude-notify',
+            candidate: 'claude-notify',
+            command: '~/.claude/hooks/notify.sh',
+          },
+        ],
+        none,
+      ),
+    ).toEqual({
+      'claude:claude-pretooluse': 'claude-pretooluse',
+      'claude:claude-stop': 'claude-stop',
+      'claude:claude-notify': 'notify',
+    });
   });
 });

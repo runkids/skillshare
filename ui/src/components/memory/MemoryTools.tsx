@@ -1,9 +1,10 @@
 import { useId, useState } from 'react';
-import { ChevronDown, X } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { useT } from '../../i18n';
 import { useOverviewQuery } from '../../hooks/useSharedQueries';
 import Button from '../Button';
 import CopyButton from '../CopyButton';
+import DialogHeader from '../DialogHeader';
 import DialogShell from '../DialogShell';
 import SegmentedControl from '../SegmentedControl';
 
@@ -77,12 +78,7 @@ export default function MemoryTools({ root, disabled }: { root: string; disabled
         maxWidth="xl"
         ariaLabel={t('memory.tools')}
       >
-        <div className="dh">
-          <h2 className="ss-h2">{t('memory.tools')}</h2>
-          <button type="button" className="ss-ib" onClick={close} aria-label={t('common.close')}>
-            <X size={16} />
-          </button>
-        </div>
+        <DialogHeader title={t('memory.tools')} onClose={close} />
         <div className="db !gap-5">
           <SegmentedControl
             className="self-start"

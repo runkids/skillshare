@@ -10,6 +10,7 @@ import AgentStack from '../components/AgentStack';
 import AgentTile from '../components/AgentTile';
 import Button from '../components/Button';
 import ConfirmDialog from '../components/ConfirmDialog';
+import DialogHeader from '../components/DialogHeader';
 import DialogShell from '../components/DialogShell';
 import EmptyState from '../components/EmptyState';
 import PageHeader from '../components/PageHeader';
@@ -562,14 +563,11 @@ function RestoreDialog({
       preventClose={run.isPending}
       ariaLabel={t('backup.restore.title')}
     >
-      <div className="dh">
-        <div>
-          <h2 className="ss-h2">{t('backup.restore.title')}</h2>
-          <p className="mt-1 text-[13px] text-ink-3">
-            {t('backup.restore.taken', { date: taken })}
-          </p>
-        </div>
-      </div>
+      <DialogHeader
+        title={t('backup.restore.title')}
+        subtitle={t('backup.restore.taken', { date: taken })}
+        subtitleProps={{ className: 'text-[13px] text-ink-3' }}
+      />
 
       <div className="db">
         <div className="ss-r !min-h-0 !px-0">

@@ -127,6 +127,14 @@
     --c: var(--c-plugin);
     --cb: var(--c-plugin-bg);
   }
+  /* A plugin's own logo brings its own colours, so its tile is neutral rather than the category's.
+     Logos are drawn for a light page, often black on transparent, so in dark mode the tile stays light. */
+  :is(.ss-cat, .ss-at):has(> img) {
+    background: var(--sunken);
+  }
+  :root.dark :is(.ss-cat, .ss-at):has(> img) {
+    background: var(--ink);
+  }
   .ss-cat.warn {
     --c: var(--warn);
     --cb: var(--warn-bg);

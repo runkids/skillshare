@@ -1,12 +1,12 @@
 import { useState, type ReactNode } from 'react';
-import { Info, X } from 'lucide-react';
+import { Info } from 'lucide-react';
 import { mcpApi, mcpTargets, type MCPOverride, type MCPToolPolicy } from '../../api/mcp';
 import { useT } from '../../i18n';
 import { shortenHome } from '../../lib/paths';
 import { scalarText } from '../../lib/scalarText';
 import Button from '../Button';
+import DialogHeader from '../DialogHeader';
 import DialogShell from '../DialogShell';
-import IconButton from '../IconButton';
 import { Select } from '../Input';
 import { useToast } from '../Toast';
 import { TargetToggles } from './TargetPicker';
@@ -103,13 +103,16 @@ export default function MCPOverrideDialog({ name, root, source, paths, onClose, 
       maxWidth="2xl"
       ariaLabel={t('mcp.override.label', { name, project: shortenHome(root) })}
     >
-      <div className="dh">
-        <h2 className="ss-h2 min-w-0 truncate">
-          <span className="font-mono">{name}</span>
-          <span className="font-normal text-ink-3"> · {shortenHome(root)}</span>
-        </h2>
-        <IconButton icon={<X size={16} />} label={t('common.close')} onClick={onClose} />
-      </div>
+      <DialogHeader
+        title={
+          <>
+            <span className="font-mono">{name}</span>
+            <span className="font-normal text-ink-3"> · {shortenHome(root)}</span>
+          </>
+        }
+        titleClassName="min-w-0 truncate"
+        onClose={onClose}
+      />
       <div className="db flex flex-col gap-5">
         <div className="ss-note inf">
           <Info size={15} className="shrink-0" aria-hidden="true" />

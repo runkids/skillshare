@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { X } from 'lucide-react';
 import { api } from '../../api/client';
 import { useT } from '../../i18n';
 import { queryKeys } from '../../lib/queryKeys';
 import Button from '../Button';
 import { Checkbox } from '../Checkbox';
+import DialogHeader from '../DialogHeader';
 import DialogShell from '../DialogShell';
 import { Input } from '../Input';
 import { useToast } from '../Toast';
@@ -60,21 +60,12 @@ export default function LinkFolderDialog({ onClose }: { onClose: () => void }) {
           void submit();
         }}
       >
-        <div className="dh">
-          <div>
-            <h2 className="ss-h2">{title}</h2>
-            <p className="text-[13px] text-ink-2">{t('sourceLinks.description')}</p>
-          </div>
-          <button
-            type="button"
-            className="ss-ib"
-            aria-label={t('common.close')}
-            onClick={onClose}
-            disabled={saving}
-          >
-            <X size={16} />
-          </button>
-        </div>
+        <DialogHeader
+          title={title}
+          subtitle={t('sourceLinks.description')}
+          onClose={onClose}
+          closeDisabled={saving}
+        />
         <div className="db flex flex-col gap-4">
           <Input
             label={t('sourceLinks.path')}

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQueries } from '@tanstack/react-query';
-import { Download, Pencil, Plus, Trash2, TriangleAlert, X } from 'lucide-react';
+import { Download, Pencil, Plus, Trash2, TriangleAlert } from 'lucide-react';
 import { hookAgents, hooksApi } from '../../api/hooks';
 import { ApiError } from '../../api/http';
 import type { HookCandidate, HookInventory, HookPreview } from '../../api/hooks';
@@ -11,10 +11,11 @@ import AgentIcon from '../AgentIcon';
 import Button from '../Button';
 import { Checkbox } from '../Checkbox';
 import CodeEditor from '../CodeEditor';
+import DialogHeader from '../DialogHeader';
 import DialogShell from '../DialogShell';
 import { Select } from '../Input';
 import Spinner from '../Spinner';
-import { bindingLines, suggestName } from './hookCatalog';
+import { bindingLines, defaultImportNames } from './hookCatalog';
 import HooksImportEditor from './HooksImportEditor';
 import HooksImportRow from './HooksImportRow';
 import { nativeEdits, rowEvents, rowPath, rowTitle, sameEvents } from './hooksImport';
@@ -111,19 +112,20 @@ export default function HooksImportDialog({
       adopt: false,
     })),
   ];
-  // Prefilled names never repeat a saved hook or each other.
-  const defaults: Record<string, string> = {};
-  for (const row of rows) {
-    const line = bindingLines(row.candidate.entry.bindings[row.target])[0];
-    const taken = (n: string) => n in existing || Object.values(defaults).includes(n);
-    defaults[row.id] = suggestName(
-      row.candidate.name,
-      isCodeAgent(agentOf(row.target)) ? '' : (line?.command ?? ''),
-      taken,
-    );
-  }
   // An Antigravity hook is the block of that name, so taking one over keeps the block's name.
   const fixedName = (row: ImportRow) => row.adopt && row.target === 'antigravity';
+  // Prefilled names never repeat a saved hook or each other; shared dispatchers keep <target>-<event>.
+  const defaults = defaultImportNames(
+    rows.map((row) => ({
+      id: row.id,
+      candidate: row.candidate.name,
+      command:
+        fixedName(row) || isCodeAgent(agentOf(row.target))
+          ? ''
+          : (bindingLines(row.candidate.entry.bindings[row.target])[0]?.command ?? ''),
+    })),
+    (name) => name in existing,
+  );
   const nameOf = (row: ImportRow) =>
     fixedName(row) ? row.candidate.name : (names[row.id] ?? defaults[row.id]);
   const nameError = (row: ImportRow) => {
@@ -311,21 +313,13 @@ export default function HooksImportDialog({
         ariaLabel={title}
         className="!max-w-[720px] !bg-bg"
       >
-        <div className="dh sep">
-          <div className="flex flex-col gap-1">
-            <h2 className="ss-h2">{title}</h2>
-            <p className="text-[13px] text-ink-2">{t('hooks.importReviewHint')}</p>
-          </div>
-          <button
-            type="button"
-            className="ss-ib"
-            aria-label={t('common.close')}
-            onClick={onClose}
-            disabled={busy}
-          >
-            <X size={16} />
-          </button>
-        </div>
+        <DialogHeader
+          className="sep"
+          title={title}
+          subtitle={t('hooks.importReviewHint')}
+          onClose={onClose}
+          closeDisabled={busy}
+        />
         <div className="db !gap-5">
           <div className="ss-list">
             {chosen.length > 0 && (
@@ -446,21 +440,12 @@ export default function HooksImportDialog({
       ariaLabel={title}
       className="!max-w-[1120px] !bg-bg"
     >
-      <div className="dh">
-        <div className="flex flex-col gap-1">
-          <h2 className="ss-h2">{title}</h2>
-          <p className="text-[13px] text-ink-2">{t('hooks.importHint')}</p>
-        </div>
-        <button
-          type="button"
-          className="ss-ib"
-          aria-label={t('common.close')}
-          onClick={onClose}
-          disabled={busy}
-        >
-          <X size={16} />
-        </button>
-      </div>
+      <DialogHeader
+        title={title}
+        subtitle={t('hooks.importHint')}
+        onClose={onClose}
+        closeDisabled={busy}
+      />
       <div className="flex h-[620px] max-h-[calc(100vh-240px)] min-h-0 gap-5 px-[22px] pt-[18px]">
         <nav
           aria-label={t('hooks.importTargets')}

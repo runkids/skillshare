@@ -12,7 +12,6 @@ import {
   Link2,
   Lock,
   TriangleAlert,
-  X,
 } from 'lucide-react';
 import { api } from '../../api/client';
 import type { TargetInstructions as Data } from '../../api/client';
@@ -21,6 +20,7 @@ import AgentStack from '../AgentStack';
 import Button from '../Button';
 import CodeEditor from '../CodeEditor';
 import ConfirmDialog from '../ConfirmDialog';
+import DialogHeader from '../DialogHeader';
 import DialogShell from '../DialogShell';
 import EmptyState from '../EmptyState';
 import { Checkbox, Input } from '../Input';
@@ -314,21 +314,12 @@ function PathDialog({ data, onClose }: { data: Data; onClose: () => void }) {
       ariaLabel={f.title}
       className="!max-w-[540px]"
     >
-      <div className="dh">
-        <div className="flex min-w-0 flex-col gap-1">
-          <h2 className="ss-h2">{f.title}</h2>
-          <p className="text-[13px] text-ink-2">{f.description}</p>
-        </div>
-        <button
-          type="button"
-          className="ss-ib"
-          aria-label={t('common.close')}
-          onClick={onClose}
-          disabled={f.busy}
-        >
-          <X size={16} />
-        </button>
-      </div>
+      <DialogHeader
+        title={f.title}
+        subtitle={f.description}
+        onClose={onClose}
+        closeDisabled={f.busy}
+      />
       <div className="db flex flex-col gap-4">{f.fields}</div>
       <div className="df">
         {f.resetButton}

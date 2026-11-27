@@ -7,7 +7,8 @@ const MARGIN = 8;
 
 /**
  * Shows the full text of a cut-off `.truncate` element on hover, app-wide, so call sites don't opt in.
- * Elements with a native `title` are left to it.
+ * A `title` on one is shown here too, in place of the browser's own tooltip, which on a dark page is
+ * hard to tell from the page; it shows only when the line does not already show all of it.
  */
 export default function TruncateTip() {
   const [tip, setTip] = useState<{ text: string; rect: DOMRect } | null>(null);
@@ -15,22 +16,32 @@ export default function TruncateTip() {
 
   useEffect(() => {
     let current: Element | null = null;
+    // The title taken off `current` so the browser does not show its own tooltip as well.
+    let title: string | null = null;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const hide = () => {
       clearTimeout(timer);
+      // Not when React has set a new title meanwhile.
+      if (current && title != null && !current.hasAttribute('title')) {
+        current.setAttribute('title', title);
+      }
       current = null;
+      title = null;
       setTip(null);
     };
     const over = (e: MouseEvent) => {
       const el = e.target instanceof Element ? e.target.closest('.truncate') : null;
       if (el === current) return;
       hide();
-      if (!el || el.hasAttribute('title') || el.scrollWidth <= el.clientWidth) return;
+      if (!el) return;
       current = el;
-      timer = setTimeout(
-        () => setTip({ text: el.textContent ?? '', rect: el.getBoundingClientRect() }),
-        DELAY,
-      );
+      const text = el.textContent ?? '';
+      title = el.getAttribute('title');
+      if (title != null) el.removeAttribute('title');
+      const cut = el.scrollWidth > el.clientWidth;
+      const full = title || text;
+      if (!cut && (!title || text.includes(title))) return;
+      timer = setTimeout(() => setTip({ text: full, rect: el.getBoundingClientRect() }), DELAY);
     };
     const out = (e: MouseEvent) => {
       if (!e.relatedTarget) hide();

@@ -1,10 +1,11 @@
 import { useRef, useState } from 'react';
 import { useBeforeUnload } from 'react-router-dom';
-import { Trash2, TriangleAlert, X } from 'lucide-react';
+import { Trash2, TriangleAlert } from 'lucide-react';
 import AgentTile from '../AgentTile';
 import Button from '../Button';
 import CodeEditor from '../CodeEditor';
 import ConfirmDialog from '../ConfirmDialog';
+import DialogHeader from '../DialogHeader';
 import DialogShell from '../DialogShell';
 import { useToast } from '../Toast';
 import { useT } from '../../i18n';
@@ -101,21 +102,15 @@ export default function InstructionsEditorDialog({
       preventClose={saving || reverting || discarding || overwriting}
       ariaLabel={title}
     >
-      <div ref={scope} className="dh">
-        <div className="flex min-w-0 flex-col gap-1">
-          <h2 className="ss-h2 font-mono">{title}</h2>
-          <span className="truncate font-mono text-[12.5px] text-ink-3">{shortenHome(path)}</span>
-        </div>
-        <button
-          type="button"
-          className="ss-ib"
-          aria-label={t('common.close')}
-          onClick={close}
-          disabled={saving}
-        >
-          <X size={16} />
-        </button>
-      </div>
+      <DialogHeader
+        ref={scope}
+        title={title}
+        titleClassName="font-mono"
+        subtitle={shortenHome(path)}
+        subtitleProps={{ className: 'truncate font-mono text-[12.5px] text-ink-3' }}
+        onClose={close}
+        closeDisabled={saving}
+      />
       <div className="db">
         <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_300px] items-start gap-6">
           <div className="ss-code flex h-[calc(100vh-16rem)] min-w-0 flex-col !overflow-hidden !p-0 !whitespace-normal">

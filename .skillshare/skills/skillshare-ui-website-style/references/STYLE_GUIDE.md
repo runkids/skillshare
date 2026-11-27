@@ -119,7 +119,7 @@ One primary per view. A destructive action always goes through `ConfirmDialog`.
 | Component | When |
 |-----------|------|
 | `ConfirmDialog` | Yes or no, especially destructive |
-| `DialogShell` | Forms, multi-step flows, previews. Use `padding="none"` with `.dh` / `.db` / `.df` so header, scrolling body and footer match every other dialog |
+| `DialogShell` | Forms, multi-step flows, previews. Use `padding="none"` with `.dh` / `.db` / `.df` (render `.dh` with `DialogHeader`) so header, scrolling body and footer match every other dialog |
 
 ### Empty, loading, error
 

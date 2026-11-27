@@ -1,5 +1,5 @@
-import { X } from 'lucide-react';
 import { SHORTCUT_ENTRIES, isMacOS } from '../hooks/useGlobalShortcuts';
+import DialogHeader from './DialogHeader';
 import DialogShell from './DialogShell';
 import Button from './Button';
 import { useT } from '../i18n';
@@ -29,12 +29,7 @@ export default function KeyboardShortcutsModal({ open, onClose }: KeyboardShortc
       padding="none"
       ariaLabel={t('shortcuts.title')}
     >
-      <div className="dh">
-        <h2 className="ss-h2">{t('shortcuts.title')}</h2>
-        <button type="button" className="ss-ib" onClick={onClose} aria-label={t('common.close')}>
-          <X size={16} />
-        </button>
-      </div>
+      <DialogHeader title={t('shortcuts.title')} onClose={onClose} />
       <div className="db">
         <div className="grid grid-cols-2 gap-4 items-start">
           {groups.map((g) => (

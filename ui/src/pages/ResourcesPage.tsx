@@ -1544,7 +1544,9 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
         groupHidden,
       ).map((p) => [
         head(byKey.get(p.key)!),
-        ...(groupHidden(p) ? [] : nestRows(p.items, nests.get(p.key))),
+        <Reveal key={`rows:${p.key}`} open={!groupHidden(p)} className="ss-rv">
+          {groupHidden(p) ? null : nestRows(p.items, nests.get(p.key))}
+        </Reveal>,
       ]);
     };
     if (group === 'source') {

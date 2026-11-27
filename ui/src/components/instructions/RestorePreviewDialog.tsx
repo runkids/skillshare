@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { X } from 'lucide-react';
 import { api } from '../../api/client';
 import Button from '../Button';
+import DialogHeader from '../DialogHeader';
 import DialogShell from '../DialogShell';
 import Spinner from '../Spinner';
 import { useT, plural } from '../../i18n';
@@ -65,30 +65,21 @@ export default function RestorePreviewDialog({
       ariaLabel={title}
       className="!max-w-[720px]"
     >
-      <div className="dh">
-        <div className="flex min-w-0 flex-col gap-1">
-          <h2 className="ss-h2">{title}</h2>
-          {data && (
-            <p className="text-[13px] text-ink-2">
-              {t(
+      <DialogHeader
+        title={title}
+        subtitle={
+          data
+            ? t(
                 imported
                   ? 'instructions.restorePreview.import'
                   : 'instructions.restorePreview.whenUnknown',
                 { path: shortenHome(data.path), name },
-              )}
-            </p>
-          )}
-        </div>
-        <button
-          type="button"
-          className="ss-ib"
-          aria-label={t('common.close')}
-          onClick={onClose}
-          disabled={busy}
-        >
-          <X size={16} />
-        </button>
-      </div>
+              )
+            : null
+        }
+        onClose={onClose}
+        closeDisabled={busy}
+      />
       <div className="db flex flex-col gap-3">
         {error ? (
           <div className="ss-note bad">

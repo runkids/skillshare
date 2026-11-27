@@ -9,6 +9,7 @@ import { queryKeys } from '../../lib/queryKeys';
 import { shortenHome } from '../../lib/paths';
 import { useI18n, plural } from '../../i18n';
 import Button from '../Button';
+import DialogHeader from '../DialogHeader';
 import DialogShell from '../DialogShell';
 import AgentStack from '../AgentStack';
 import Spinner from '../Spinner';
@@ -113,9 +114,7 @@ export default function SkillsOffDialog({
       ariaLabel={title}
       className="!max-w-[480px]"
     >
-      <div className="dh">
-        <h2 className="ss-h2">{title}</h2>
-      </div>
+      <DialogHeader title={title} />
       <div className="db !gap-3 text-[13.5px] leading-relaxed">
         {affected && readers && (
           <div className="ss-note warn">

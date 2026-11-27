@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { X } from 'lucide-react';
 import { api } from '../../api/client';
 import type { SharedInstructionsTarget } from '../../api/client';
 import AgentIcon from '../AgentIcon';
 import Button from '../Button';
 import CodeEditor from '../CodeEditor';
+import DialogHeader from '../DialogHeader';
 import DialogShell from '../DialogShell';
 import { Select } from '../Select';
 import { useToast } from '../Toast';
@@ -75,27 +75,14 @@ export default function NewSharedDialog({
       ariaLabel={title}
       className="!max-w-[720px]"
     >
-      <div className="dh">
-        <div className="flex flex-col gap-1">
-          <h2 className="ss-h2">{title}</h2>
-          <p className="text-[13px] text-ink-2">
-            {t(
-              project
-                ? 'instructions.projectShared.newSubtitle'
-                : 'instructions.shared.newSubtitle',
-            )}
-          </p>
-        </div>
-        <button
-          type="button"
-          className="ss-ib"
-          aria-label={t('common.close')}
-          onClick={onClose}
-          disabled={saving}
-        >
-          <X size={16} />
-        </button>
-      </div>
+      <DialogHeader
+        title={title}
+        subtitle={t(
+          project ? 'instructions.projectShared.newSubtitle' : 'instructions.shared.newSubtitle',
+        )}
+        onClose={onClose}
+        closeDisabled={saving}
+      />
       <div className="db">
         <div className="grid grid-cols-2 gap-3.5">
           <div className="ss-fld">

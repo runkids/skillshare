@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { X } from 'lucide-react';
 import { api } from '../../api/client';
 import type { DiscoveredSkill } from '../../api/client';
 import { hubDrafts, hubRefs } from '../../api/hubDrafts';
 import type { HubEntry, HubRefs } from '../../api/hubDrafts';
 import Button from '../Button';
+import DialogHeader from '../DialogHeader';
 import DialogShell from '../DialogShell';
 import Spinner from '../Spinner';
 import { Checkbox, Select } from '../Input';
@@ -129,12 +129,7 @@ export default function AddSkillDialog({ hubName, entries, onAdd, onManual, onCl
       padding="none"
       ariaLabel={t('hubs.addSkill.title', { name: hubName })}
     >
-      <div className="dh">
-        <h2 className="ss-h2">{t('hubs.addSkill.title', { name: hubName })}</h2>
-        <button type="button" className="ss-ib" onClick={onClose} aria-label={t('common.close')}>
-          <X size={16} />
-        </button>
-      </div>
+      <DialogHeader title={t('hubs.addSkill.title', { name: hubName })} onClose={onClose} />
       <div className="db">
         <Tabs role="tablist" aria-label={t('hubs.addSkill.how')}>
           {(['url', 'installed'] as const).map((k) => (

@@ -22,6 +22,7 @@ import { api, ApiError, type GitStatus, type PullResponse } from '../api/client'
 import Button from '../components/Button';
 import ConfirmDialog from '../components/ConfirmDialog';
 import CopyButton from '../components/CopyButton';
+import DialogHeader from '../components/DialogHeader';
 import DialogShell from '../components/DialogShell';
 import EmptyState from '../components/EmptyState';
 import { Input } from '../components/Input';
@@ -836,12 +837,7 @@ function SetupDialog({
   const required = setup.kind === 'remote';
   return (
     <DialogShell open onClose={onClose} padding="none" ariaLabel={title} className="!max-w-[500px]">
-      <div className="dh">
-        <h2 className="ss-h2">{title}</h2>
-        <button type="button" className="ss-ib" aria-label={t('common.close')} onClick={onClose}>
-          <X size={16} />
-        </button>
-      </div>
+      <DialogHeader title={title} onClose={onClose} />
       <form
         className="contents"
         onSubmit={(e) => {
