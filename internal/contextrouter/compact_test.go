@@ -6,7 +6,7 @@ import "testing"
 func TestCompactCorpus(t *testing.T) {
 	changed := 0
 	for _, c := range loadCompactCases(t) {
-		if got := compactPathLinks(c.Input, c.Source); got != c.Output {
+		if got, _ := compactPathLinks(c.Input, c.Source, nil); got != c.Output {
 			t.Errorf("%s:\n got  %q\n want %q\n input %q", c.Name, got, c.Output, c.Input)
 		}
 		if c.Output != c.Input {
@@ -23,7 +23,7 @@ func TestPyJoin(t *testing.T) {
 	if got := pyJoin("wiki", "/x"); got != "/x" {
 		t.Fatalf("got %q", got)
 	}
-	if got := compactPathLinks("[wiki/x](/x)", "wiki/guide.md"); got != "[wiki/x](/x)" {
+	if got, _ := compactPathLinks("[wiki/x](/x)", "wiki/guide.md", nil); got != "[wiki/x](/x)" {
 		t.Fatalf("absolute destination compacted: %q", got)
 	}
 }

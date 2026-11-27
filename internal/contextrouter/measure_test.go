@@ -308,8 +308,8 @@ func TestMeasureCancelled(t *testing.T) {
 	}
 }
 
-// A hostile folder cannot make one report read without bound, scan a body
-// built to stress the link scanner, or run past its time.
+// A hostile folder cannot make one report read without bound or run past its
+// time, and a body built to stress the link scanner costs no more than its size.
 func TestMeasureHostile(t *testing.T) {
 	if runtime.GOOS != "windows" {
 		// Twenty names for one page: each is read and kept, so the read budget must stop it.
@@ -341,18 +341,33 @@ func TestMeasureHostile(t *testing.T) {
 		}
 	}
 
-	// The scanner takes minutes on a megabyte of unclosed links; such a body is not scanned.
+	// A megabyte of unclosed links is the largest file a report reads; it is measured, and quickly.
 	hostile := writeTree(t, map[string]string{
-		"AGENTS.md": "`a`", "wiki/a.md": strings.Repeat("[a](", 200_000),
-		ConfigRel: `{"compactPathLinks":true,"topics":{"a":{"description":"","sources":[{"path":"wiki/a.md"}]}}}`,
+		"AGENTS.md": "`a`", "wiki/a.md": strings.Repeat("[a](", 1<<18),
+		ConfigRel: `{"compactPathLinks":true,"topics":{"a":{"description":"","maxBytes":2000000,"sources":[{"path":"wiki/a.md"}]}}}`,
 	})
 	start := time.Now()
 	report := measure(t, hostile, DefaultLimits)
-	if topic := report.Topics[0]; topic.Bytes != nil || topic.Reason != ReasonLimit || !report.Truncated {
-		t.Errorf("oversized compacted body: %+v", topic)
+	if topic := report.Topics[0]; topic.Bytes == nil || *topic.Bytes != len("<!-- wiki/a.md -->\n")+1<<20 || report.Truncated {
+		t.Errorf("megabyte of unclosed links: %+v", topic)
 	}
 	if elapsed := time.Since(start); elapsed > 5*time.Second {
-		t.Errorf("oversized compacted body took %v", elapsed)
+		t.Errorf("megabyte of unclosed links took %v", elapsed)
+	}
+
+	// A large, ordinary page in a router that compacts is measured like any other.
+	link, code := "[docs/run.md](../docs/run.md)\n", "`docs/run.md`\n"
+	lines := 65537/len(link) + 1
+	large := writeTree(t, map[string]string{
+		"AGENTS.md": "`a`", "docs/run.md": "Run.\n", "wiki/a.md": strings.Repeat(link, lines),
+		ConfigRel: `{"compactPathLinks":true,"topics":{"a":{"description":"","maxBytes":100000,"sources":[{"path":"wiki/a.md"}]}}}`,
+	})
+	if len(link)*lines < 65537 {
+		t.Fatal("fixture is not over 64 KiB")
+	}
+	want := len("<!-- wiki/a.md -->\n") + len(code)*lines - 1 // the body is trimmed
+	if topic := measure(t, large, DefaultLimits).Topics[0]; topic.Bytes == nil || *topic.Bytes != want || topic.Reason != "" {
+		t.Errorf("65,537-byte compacted source: got %v (%q), want %d", show(topic.Bytes), topic.Reason, want)
 	}
 
 	// Past the time budget nothing more is measured.

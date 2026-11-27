@@ -21,7 +21,8 @@ func pyJoin(base, rel string) string {
 // compactPathLinks mirrors compact_path_links: a link the scanners recognize
 // whose text is its own target's path from the router folder is printed as
 // that path in backticks. source is the page's cleaned path in the folder.
-func compactPathLinks(body, source string) string {
+// ok is false when halt stopped the scan.
+func compactPathLinks(body, source string, halt *stopper) (compacted string, ok bool) {
 	base := path.Dir(source)
 	lines := strings.Split(body, "\n")
 	// The scanner expands tabs among a line's leading markers before it reports
@@ -34,7 +35,10 @@ func compactPathLinks(body, source string) string {
 		original += len(line) + 1
 		expanded += len(line) + width + 1
 	}
-	_, spans := linkSpans(lines)
+	_, spans, ok := linkSpans(lines, halt)
+	if !ok {
+		return "", false
+	}
 	var out strings.Builder
 	last := 0
 	for _, s := range spans {
@@ -65,5 +69,5 @@ func compactPathLinks(body, source string) string {
 		last = end
 	}
 	out.WriteString(body[last:])
-	return out.String()
+	return out.String(), true
 }

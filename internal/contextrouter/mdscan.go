@@ -47,11 +47,10 @@ var (
 	quoteGapRe  = regexp.MustCompile(`^((?: {0,3}>[ \t]?)+)([ \t]+)>`)
 	leadQuoteRe = regexp.MustCompile(`^[ \t]*>`)
 	blankLineRe = regexp.MustCompile(`\n[ \t]*\n`)
-	inlineEndRe = regexp.MustCompile(`^(?:` + pySpace + `+` + titlePattern + `)?` + pySpace + `*\)`)
 	autolinkRe  = regexp.MustCompile("^<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\\x00-\\x20]*|[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9.-]+)>")
-	// The reference spells the comment as <!--(?:(?!-->)[\s\S])*-->, which is the lazy form.
-	inlineHTMLRe = regexp.MustCompile(`^(?:<!--[\s\S]*?-->|<\?[\s\S]*?\?>|<![A-Z][\s\S]*?>|<!\[CDATA\[[\s\S]*?\]\]>|` + htmlTagPattern + `)`)
-	defStartRe   = regexp.MustCompile(`^ {0,3}\[((?:\\.|[^\]\\])+)\]:`)
+	// INLINE_HTML's tag alternative; regionIndex.inlineHTML handles the others.
+	inlineTagRe = regexp.MustCompile(`^(?:` + htmlTagPattern + `)`)
+	defStartRe  = regexp.MustCompile(`^ {0,3}\[((?:\\.|[^\]\\])+)\]:`)
 	// The reference's (?=[ \t\n]) lookahead: the gap before a title is not empty.
 	defEndRe     = regexp.MustCompile(`^(?:(?:[ \t]+(?:\n[ \t]*)?|\n[ \t]*)` + titlePattern + `)?[ \t]*(?:\n|$)`)
 	escapedAnyRe = regexp.MustCompile(`\\.`)
@@ -473,6 +472,9 @@ func containerPrefix(line string, listIndent int, openLists []listItem, hasOpen 
 	}
 	var lists []string
 	sawList, sawQuote, indentation := false, false, 0
+	// The column of pos with tabs expanded, kept as pos advances: a line of
+	// markers would otherwise expand its whole prefix once per marker.
+	column, columnAt := 0, 0
 	for pos < len(line) {
 		start := pos
 		chars, _ := indentPrefix(line[pos:], -1, 0)
@@ -500,7 +502,14 @@ func containerPrefix(line string, listIndent int, openLists []listItem, hasOpen 
 			pos = start
 			break
 		}
-		end, width, _, extra := listPadding(line[pos:], markerEnd, len(expandTabs(line[:pos])))
+		for ; columnAt < pos; columnAt++ {
+			if line[columnAt] == '\t' {
+				column += 4 - column%4
+			} else {
+				column++
+			}
+		}
+		end, width, _, extra := listPadding(line[pos:], markerEnd, column)
 		lists = append(lists, space+line[pos:pos+end])
 		markers = append(markers, marker{len(quotes), width})
 		sawList, pos = true, pos+end
@@ -513,6 +522,43 @@ func containerPrefix(line string, listIndent int, openLists []listItem, hasOpen 
 		return quoteText + strings.Join(lists, "") + line[pos:], true, markers, len(quoteText)
 	}
 	return line, false, markers, len(quoteText)
+}
+
+// thematicTails answers THEMATIC.fullmatch for every suffix of one line in
+// constant time. A line of list markers asks once per marker, and matching the
+// rest of the line each time would be quadratic.
+type thematicTails struct {
+	line  string
+	kind  []byte  // of line[i:]: 0 only blanks, a mark character when only that mark and blanks, 0xff otherwise
+	marks []int32 // how many marks line[i:] holds
+}
+
+func newThematicTails(line string) *thematicTails {
+	t := &thematicTails{line: line, kind: make([]byte, len(line)+1), marks: make([]int32, len(line)+1)}
+	for i := len(line) - 1; i >= 0; i-- {
+		switch c := line[i]; {
+		case c == ' ' || c == '\t':
+			t.kind[i], t.marks[i] = t.kind[i+1], t.marks[i+1]
+		case (c == '*' || c == '-' || c == '_') && (t.kind[i+1] == 0 || t.kind[i+1] == c):
+			t.kind[i], t.marks[i] = c, t.marks[i+1]+1
+		default:
+			t.kind[i] = 0xff
+		}
+	}
+	return t
+}
+
+// match reports whether line[from:] is a thematic break.
+func (t *thematicTails) match(from int) bool {
+	i := from
+	for i < len(t.line) && i-from < 3 && t.line[i] == ' ' {
+		i++
+	}
+	if i >= len(t.line) {
+		return false
+	}
+	c := t.line[i]
+	return (c == '*' || c == '-' || c == '_') && t.kind[i] == c && t.marks[i] >= 3
 }
 
 func openIndent(lists []listItem) int {
@@ -566,7 +612,7 @@ func blockRegions(result []string, eligible []eligibleLine) []region {
 // markdownText mirrors markdown_text: lines (leading tabs already expanded)
 // with inactive Markdown masked, the labels of reference definitions, and the
 // regions where inline syntax is live.
-func markdownText(lines []string) (text string, labels []string, regions []region) {
+func markdownText(lines []string, stop *stopper) (text string, labels []string, regions []region, ok bool) {
 	result := make([]string, 0, len(lines))
 	var eligible []eligibleLine
 	consumed := 0
@@ -576,22 +622,36 @@ func markdownText(lines []string) (text string, labels []string, regions []regio
 	var rawClose func(string) bool // nil while rawOn: the block ends at a blank line
 	paragraph, quoteDepth := false, 0
 	var lists []listItem // open list items, innermost last
+	// What every line asks of the lists opened outside any quote: the innermost
+	// one's indent and the widest indent. Kept until the lists change, so a run
+	// of lines under deep nesting does not walk the nesting once per line.
+	outerIndent, outerWidest, outerKnown := 0, 0, false
+	outerLists := func() (int, int) {
+		if !outerKnown {
+			outerIndent, outerWidest, outerKnown = 0, 0, true
+			for _, item := range lists {
+				if item.quoteAt == 0 {
+					outerIndent = item.width
+					outerWidest = max(outerWidest, item.width)
+				}
+			}
+		}
+		return outerIndent, outerWidest
+	}
+	setLists := func(next []listItem) { lists, outerKnown = next, false }
 	for lineIndex, ln := range lines {
+		if stop != nil && stop.now() {
+			return "", nil, nil, false
+		}
 		if lineIndex < consumed {
 			result = append(result, blank(ln))
 			continue
 		}
 		column := indentColumns(ln)
 		if leadQuoteRe.MatchString(ln) {
-			outerOpen := false
-			for _, item := range lists {
-				if item.quoteAt == 0 && item.width > column {
-					outerOpen = true
-				}
-			}
-			if outerOpen {
+			if _, widest := outerLists(); widest > column {
 				// A quote marker left of an outer list item closes that item and everything inside it.
-				lists = keepLists(lists, func(item listItem) bool { return item.quoteAt == 0 && item.width <= column })
+				setLists(keepLists(lists, func(item listItem) bool { return item.quoteAt == 0 && item.width <= column }))
 				if owner.indent > column {
 					fence, rawOn = "", false
 				}
@@ -600,12 +660,7 @@ func markdownText(lines []string) (text string, labels []string, regions []regio
 				}
 			}
 		}
-		outer := 0 // Only lists opened outside any quote sit ahead of the quote markers.
-		for _, item := range lists {
-			if item.quoteAt == 0 {
-				outer = item.width
-			}
-		}
+		outer, _ := outerLists() // Only lists opened outside any quote sit ahead of the quote markers.
 		source := ln
 		ln, nested, markers, quoteEnd := containerPrefix(ln, outer, lists, true)
 		// The regex would read a moved list indent as the optional space after a bare '>'.
@@ -653,7 +708,7 @@ func markdownText(lines []string) (text string, labels []string, regions []regio
 		if paragraph && depth < quoteDepth && !isBlank(content) {
 			// A lazy line keeps the quote open but sits outside the lists opened inside it.
 			lazy, hasLazy = lists, true
-			lists = keepLists(lists, func(item listItem) bool { return item.quoteAt <= depth })
+			setLists(keepLists(lists, func(item listItem) bool { return item.quoteAt <= depth }))
 		} else if depth != quoteDepth {
 			if !nested {
 				// Leaving a quote keeps the items around it; entering one closes the items it interrupts.
@@ -661,7 +716,7 @@ func markdownText(lines []string) (text string, labels []string, regions []regio
 				if depth < quoteDepth {
 					keep = depth
 				}
-				lists = keepLists(lists, func(item listItem) bool { return item.quoteAt <= keep })
+				setLists(keepLists(lists, func(item listItem) bool { return item.quoteAt <= keep }))
 			}
 			paragraph, quoteDepth = false, depth
 		}
@@ -670,7 +725,7 @@ func markdownText(lines []string) (text string, labels []string, regions []regio
 			if !hasLazy && paragraph {
 				lazy, hasLazy = lists, true // Restored if the line continues the paragraph.
 			}
-			lists = keepLists(lists, func(item listItem) bool { return item.width <= indentation })
+			setLists(keepLists(lists, func(item listItem) bool { return item.width <= indentation }))
 		}
 		listIndent := openIndent(lists)
 		if listIndent != 0 {
@@ -683,6 +738,7 @@ func markdownText(lines []string) (text string, labels []string, regions []regio
 		}
 		// A marker moved after the quotes can join the quoted text into a false thematic break.
 		thematic := thematicRe.MatchString(content) && !reopened
+		var tails *thematicTails
 		markerEnd := -1
 		if !thematic {
 			markerEnd = listMarkerEnd(content)
@@ -698,11 +754,15 @@ func markdownText(lines []string) (text string, labels []string, regions []regio
 			if quoteAt == 0 { // Reordering moves a quote's padding after an enclosing marker; use the source indent.
 				listIndent = width
 			}
-			lists = append(lists[:len(lists):len(lists)], listItem{listIndent, quoteAt})
+			// keepLists always copies, so nothing else holds this slice's spare capacity.
+			setLists(append(lists, listItem{listIndent, quoteAt}))
 			prefix += end
 			content = ln[prefix:]
 			paragraph = false
-			thematic = thematicRe.MatchString(content)
+			if tails == nil {
+				tails = newThematicTails(ln)
+			}
+			thematic = tails.match(prefix)
 			_, columns := indentPrefix(content, -1, baseColumn)
 			if thematic || columns+extraIndent >= 4 {
 				markerEnd = -1
@@ -779,7 +839,7 @@ func markdownText(lines []string) (text string, labels []string, regions []regio
 			result = append(result, strings.Repeat(" ", prefix)+content)
 			boundary := thematic || blockHeadRe.MatchString(content) || (paragraph && !hasLazy && setextRe.MatchString(content))
 			if hasLazy && paragraph && !boundary {
-				lists = lazy
+				setLists(lazy)
 			}
 			if !isBlank(content) {
 				eligible = append(eligible, eligibleLine{lineIndex, !paragraph || boundary, boundary})
@@ -787,7 +847,7 @@ func markdownText(lines []string) (text string, labels []string, regions []regio
 			paragraph = !isBlank(content) && !boundary
 		}
 	}
-	return strings.Join(result, "\n"), labels, blockRegions(result, eligible)
+	return strings.Join(result, "\n"), labels, blockRegions(result, eligible), true
 }
 
 // validLabel mirrors valid_label.
@@ -853,12 +913,15 @@ type opener struct {
 // linkSpans mirrors link_destinations(lines, spans=True): the inline links
 // outside images, in source order. text is the lines with their leading tabs
 // expanded, which is what the offsets refer to.
-func linkSpans(lines []string) (text string, spans []span) {
+func linkSpans(lines []string, halt *stopper) (text string, spans []span, ok bool) {
 	expanded := make([]string, len(lines))
 	for i, line := range lines {
 		expanded[i] = expandLead(line)
 	}
-	masked, labels, regions := markdownText(expanded)
+	masked, labels, regions, ok := markdownText(expanded, halt)
+	if !ok {
+		return "", nil, false
+	}
 	definitions := map[string]bool{}
 	for _, label := range labels {
 		definitions[normalizeLabel(label)] = true
@@ -894,8 +957,12 @@ func linkSpans(lines []string) (text string, spans []span) {
 			latest[size] = start
 		}
 		var stack []opener
-		generation := 0
+		generation, images := 0, 0 // images counts the image openers on the stack
+		index := regionIndex{text: text, begin: begin, end: end}
 		for pos := begin; pos < end; {
+			if halt != nil && halt.now() {
+				return "", nil, false
+			}
 			c, stop := text[pos], pos+1
 			switch {
 			case c == '\\' && pos+1 < end && isPunctuation(text[pos+1]):
@@ -912,8 +979,8 @@ func linkSpans(lines []string) (text string, spans []span) {
 			case c == '<':
 				if loc := autolinkRe.FindStringIndex(text[pos:end]); loc != nil {
 					stop = pos + loc[1]
-				} else if loc := inlineHTMLRe.FindStringIndex(text[pos:end]); loc != nil {
-					stop = pos + loc[1]
+				} else if tokenEnd, ok := index.inlineHTML(pos); ok {
+					stop = tokenEnd
 				}
 			case c == '[' || (c == '!' && pos+1 < len(text) && text[pos+1] == '['):
 				image := c == '!'
@@ -922,18 +989,24 @@ func linkSpans(lines []string) (text string, spans []span) {
 					opening++
 				}
 				stack = append(stack, opener{opening, line, image, generation})
+				if image {
+					images++
+				}
 				stop = opening + 1
 			case c == ']' && len(stack) > 0:
 				top := stack[len(stack)-1]
 				stack = stack[:len(stack)-1]
+				if top.image {
+					images--
+				}
 				if !top.image && top.generation != generation {
 					break
 				}
 				inline, reference := false, false
 				if stop < end && text[stop] == '(' {
-					if _, destEnd, ok := destination(text, stop+1, end); ok {
-						if tail := inlineEndRe.FindStringIndex(text[destEnd:end]); tail != nil {
-							inline, stop = true, destEnd+tail[1]
+					if destEnd, ok := index.destination(stop + 1); ok {
+						if tailEnd, ok := index.inlineEnd(destEnd); ok {
+							inline, stop = true, tailEnd
 						}
 					}
 				}
@@ -943,7 +1016,8 @@ func linkSpans(lines []string) (text string, spans []span) {
 						label, labelEnd, hasLabel = referenceLabel(text, stop, end)
 					}
 					own := ""
-					if utf8.RuneCountInString(text[top.opening:pos]) <= 1000 {
+					// A label over 1000 characters is no label; past 4000 bytes it cannot be shorter.
+					if pos-top.opening <= 4000 && utf8.RuneCountInString(text[top.opening:pos]) <= 1000 {
 						own = text[top.opening+1 : pos]
 					}
 					value := own
@@ -961,14 +1035,8 @@ func linkSpans(lines []string) (text string, spans []span) {
 					if !top.image {
 						generation++ // Earlier link openers become inactive; images remain active.
 					}
-					if inline && !top.image {
-						insideImage := false
-						for _, item := range stack {
-							insideImage = insideImage || item.image
-						}
-						if !insideImage {
-							spans = append(spans, span{top.line, top.opening, stop})
-						}
+					if inline && !top.image && images == 0 {
+						spans = append(spans, span{top.line, top.opening, stop})
 					}
 				}
 			}
@@ -976,5 +1044,5 @@ func linkSpans(lines []string) (text string, spans []span) {
 			pos = stop
 		}
 	}
-	return text, spans
+	return text, spans, true
 }

@@ -15,11 +15,7 @@ type Limits struct {
 	// MaxScanBytes caps the file bytes read in one report, and separately the
 	// bytes scanned for bodies.
 	MaxScanBytes int64
-	// MaxCompactBytes caps one body that compactPathLinks rewrites. The link
-	// scanner is quadratic on input built to stress it, so a body past this
-	// is left unmeasured rather than scanned.
-	MaxCompactBytes int
-	MaxTopics       int
+	MaxTopics    int
 	// MaxSources caps source entries across all topics.
 	MaxSources int
 	// MaxDuration caps the time spent measuring; zero means no cap.
@@ -28,13 +24,12 @@ type Limits struct {
 
 // DefaultLimits is what the dashboard uses.
 var DefaultLimits = Limits{
-	MaxConfigBytes:  1 << 20,
-	MaxFileBytes:    1 << 20,
-	MaxScanBytes:    64 << 20,
-	MaxCompactBytes: 64 << 10,
-	MaxTopics:       500,
-	MaxSources:      2000,
-	MaxDuration:     5 * time.Second,
+	MaxConfigBytes: 1 << 20,
+	MaxFileBytes:   1 << 20,
+	MaxScanBytes:   64 << 20,
+	MaxTopics:      500,
+	MaxSources:     2000,
+	MaxDuration:    5 * time.Second,
 }
 
 // Why the config could not be used.
@@ -134,6 +129,7 @@ type measurer struct {
 	read     int64 // file bytes read and kept
 	scanned  int64 // file bytes scanned for bodies
 	deadline time.Time
+	halt     *stopper // stops a link scan when the time is spent or the request is gone
 }
 
 // spent reports whether the time budget is used up.
@@ -189,10 +185,12 @@ func (m *measurer) body(src sourceCfg) (result bodyResult, ok bool) {
 		switch {
 		case hits != 1:
 			result = bodyResult{code: ErrHeading, hits: hits}
-		case m.cfg.Compact && len(text) > m.lim.MaxCompactBytes:
-			return bodyResult{}, false
 		case m.cfg.Compact:
-			result = bodyResult{bytes: len(compactPathLinks(text, rel))}
+			compacted, done := compactPathLinks(text, rel, m.halt)
+			if !done {
+				return bodyResult{}, false
+			}
+			result = bodyResult{bytes: len(compacted)}
 		default:
 			result = bodyResult{bytes: len(text)}
 		}
@@ -275,6 +273,7 @@ func Measure(ctx context.Context, root string, lim Limits) (Report, error) {
 	if lim.MaxDuration > 0 {
 		m.deadline = time.Now().Add(lim.MaxDuration)
 	}
+	m.halt = &stopper{ctx: ctx, deadline: m.deadline}
 
 	kernel := &Kernel{Path: cfg.RootInstructions, Cap: cfg.KernelCap}
 	report.Kernel = kernel

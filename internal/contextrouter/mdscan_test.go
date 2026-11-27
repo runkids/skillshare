@@ -39,7 +39,7 @@ func loadCompactCases(t *testing.T) []compactCase {
 // The scanners find exactly the links the reference finds, on every corpus case.
 func TestLinkSpansCorpus(t *testing.T) {
 	for _, c := range loadCompactCases(t) {
-		text, spans := linkSpans(strings.Split(c.Input, "\n"))
+		text, spans, _ := linkSpans(strings.Split(c.Input, "\n"), nil)
 		got := [][2]int{}
 		for _, s := range spans {
 			got = append(got, [2]int{s.start, s.end})
