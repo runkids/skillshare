@@ -33,9 +33,6 @@ func topicNamed(t *testing.T, report Report, name string) Topic {
 // Every size equals what the reference script printed for the same folder.
 func TestMeasureGoldens(t *testing.T) {
 	for _, c := range loadCases(t) {
-		if c.Compact {
-			continue
-		}
 		t.Run(c.Name, func(t *testing.T) {
 			report := measure(t, c.materialize(t), DefaultLimits)
 			if report.Error != nil || report.Reference != ReferenceCommit {
@@ -101,9 +98,10 @@ func TestMeasureStates(t *testing.T) {
 		t.Errorf("mounts: %+v, topics %+v", report.Mounts, report.Topics)
 	}
 
+	// A router that compacts path links is sized like any other.
 	report = measure(t, goldenNamed(t, "compact-basic").materialize(t), DefaultLimits)
 	for _, topic := range report.Topics {
-		if topic.Bytes != nil || topic.Reason != ReasonCompacted || topic.Sources[0].Bytes == nil {
+		if topic.Bytes == nil || topic.Reason != "" {
 			t.Errorf("compacted %s: %+v", topic.Name, topic)
 		}
 	}

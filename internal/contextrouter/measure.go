@@ -34,8 +34,6 @@ const (
 const (
 	ReasonSource = "source" // one of its sources failed
 	ReasonLimit  = "limit"  // the report ran out of its Limits
-	// ReasonCompacted: the config compacts path links, which is not measured.
-	ReasonCompacted = "compacted"
 )
 
 // ErrHeading is a source whose heading does not match exactly once.
@@ -154,9 +152,12 @@ func (m *measurer) body(src sourceCfg) (result bodyResult, ok bool) {
 		}
 		m.scanned += int64(len(file.text))
 		text, hits := section(file.text, sectionOpts{Heading: src.Heading, Strip: strip, Frontmatter: src.Frontmatter})
-		if hits != 1 {
+		switch {
+		case hits != 1:
 			result = bodyResult{code: ErrHeading, hits: hits}
-		} else {
+		case m.cfg.Compact:
+			result = bodyResult{bytes: len(compactPathLinks(text, rel))}
+		default:
 			result = bodyResult{bytes: len(text)}
 		}
 	}
@@ -253,9 +254,6 @@ func Measure(ctx context.Context, root string, lim Limits) (Report, error) {
 		}
 		if index >= lim.MaxTopics {
 			topic.Reason = ReasonLimit
-		}
-		if topic.Reason == "" && cfg.Compact {
-			topic.Reason = ReasonCompacted
 		}
 		if topic.Reason == "" {
 			topic.Bytes = &total
