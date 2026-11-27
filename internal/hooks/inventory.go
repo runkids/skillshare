@@ -195,7 +195,8 @@ func (s *Service) unownedFiles(target, dir string, state ledger) []string {
 	return names
 }
 
-// codexInlineEvents names the [hooks] events inline in Codex's config.toml.
+// codexInlineEvents names the [hooks] events inline in Codex's config.toml,
+// ignoring Codex's own [hooks.state] trust ledger.
 func codexInlineEvents(path string) []string {
 	data, exists, _, err := safeRead(path)
 	if err != nil || !exists {
@@ -207,6 +208,7 @@ func codexInlineEvents(path string) []string {
 	if toml.Unmarshal(data, &doc) != nil {
 		return nil
 	}
+	delete(doc.Hooks, "state")
 	return sortedKeys(doc.Hooks)
 }
 
