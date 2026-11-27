@@ -178,7 +178,11 @@ func runHooksImport(service *hooks.Service, o hooksOptions) error {
 		}
 		// Importing takes over the registrations it read, so they are not reported as
 		// unmanaged duplicates on the next sync.
-		return finishHooksMutation(service, "hooks import", hooks.Mutation{Name: c.Name, Entry: &c.Entry, Replace: o.replace, Adopt: true}, o)
+		adoptSource := ""
+		if o.file == "" {
+			adoptSource = c.Source
+		}
+		return finishHooksMutation(service, "hooks import", hooks.Mutation{Name: c.Name, Entry: &c.Entry, Replace: o.replace, Adopt: true, AdoptSource: adoptSource}, o)
 	}
 	return fmt.Errorf("hook %q not found in %s", o.name, o.from)
 }

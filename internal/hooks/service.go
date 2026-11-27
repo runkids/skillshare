@@ -52,6 +52,10 @@ type Mutation struct {
 	// next sync adopts them in place. It never takes over edited outputs or another
 	// config's registrations.
 	Adopt bool `json:"adopt,omitempty"`
+	// AdoptSource names the unmanaged file in the target's native directory that an
+	// imported file-based hook adopts; sync writes Skillshare's file and deletes the
+	// original after taking a backup.
+	AdoptSource string `json:"adoptSource,omitempty"`
 	// Unmanage, with Remove and a Name, also forgets which native registrations the
 	// hook wrote, so sync leaves them in place as the user's own hooks.
 	Unmanage bool `json:"unmanage,omitempty"`
@@ -98,10 +102,12 @@ type Plan struct {
 	state      ledger
 	stateBytes []byte
 	files      []*filePlan
-	// adopted are the ledger keys an Adopt mutation claims, recorded even without sync.
-	adopted     []string
-	gitGuards   []*gitGuard
-	gitInactive map[string]string
+	// adopted are the shared-file ledger keys an Adopt mutation claims; adoptedFiles
+	// are file-based records (including retired source files) recorded even without sync.
+	adopted      []string
+	adoptedFiles map[string]record
+	gitGuards    []*gitGuard
+	gitInactive  map[string]string
 }
 
 // FileDiff is one native file's text before and after a planned sync.
@@ -203,7 +209,7 @@ type Candidate struct {
 	Warnings []string `json:"warnings"`
 	// Editable marks unmanaged hooks a NativeEdit can change or remove in place.
 	Editable bool `json:"editable,omitempty"`
-	// Source is the Antigravity block or Copilot file an editable hook was read from.
+	// Source is the Antigravity block, Copilot file, or code-agent file an imported hook was read from.
 	Source string `json:"source,omitempty"`
 }
 

@@ -30,6 +30,8 @@ type Source struct {
 	projectKeys     map[string]string
 	// unmanaged are the hooks a draft stops managing, keyed by project root and name.
 	unmanaged map[string]bool
+	// adoptSources maps root+"\x00"+entry to an unmanaged filename being adopted.
+	adoptSources map[string]string
 }
 
 func mapping(node *yaml.Node) *yaml.Node {
@@ -121,7 +123,7 @@ func loadSource(configPath string, accounts map[string]string) (*Source, error) 
 }
 
 func parseSource(path string, data []byte, accounts map[string]string, project bool) (*Source, error) {
-	s := &Source{ConfigPath: path, Entries: map[string]Entry{}, Projects: map[string]Project{}, touched: map[string]bool{}, touchedProjects: map[string]bool{}, projectKeys: map[string]string{}, unmanaged: map[string]bool{}, bytes: data}
+	s := &Source{ConfigPath: path, Entries: map[string]Entry{}, Projects: map[string]Project{}, touched: map[string]bool{}, touchedProjects: map[string]bool{}, projectKeys: map[string]string{}, unmanaged: map[string]bool{}, adoptSources: map[string]string{}, bytes: data}
 	d := yaml.NewDecoder(bytes.NewReader(s.bytes))
 	if err := d.Decode(&s.doc); err != nil {
 		if err == io.EOF {

@@ -45,8 +45,13 @@ Without a subcommand, `hooks` lists entries. `add` and `edit` read an Entry JSON
 or YAML document from `--file`. Import without a name lists candidates, one per
 Agent event or file; choose one name to save. Saving an import takes over the
 registrations it read in place: the next sync adopts them without `--replace`,
-and events you did not import stay unmanaged. Import only reads configuration or
-code and never runs it.
+and events you did not import stay unmanaged. When importing directly from a
+target's native folder (without `--file`), flat code files (Pi, Oh My Pi, Amp,
+OpenCode) and Copilot hook files write `skillshare-NAME` on sync and retire the
+imported original file after taking a backup (an existing `skillshare-NAME`
+file under the same name is adopted in place); `hooks restore` can bring a
+retired original back, whereas `--file` imports read the supplied file without
+retiring it. Import only reads configuration or code and never runs it.
 
 `hooks list` also shows sources an Agent loads that import never reads: Codex
 inline `[hooks]` tables in `config.toml`, OMP's `hooks/pre` and `hooks/post`,
@@ -206,8 +211,11 @@ synced project extension can execute at the next OMP startup.
 
 OMP's `hooks/pre` and `hooks/post` factories remain additional unmanaged sources.
 They are listed but not imported into `extensions`, which would risk loading the
-same factory twice. Importing an existing standalone extension also leaves its
-original file in place; review the import warning before syncing another copy.
+same factory twice. Importing an existing standalone extension from the target
+(without `--file`) adopts it: the next sync writes `skillshare-NAME.ts` and
+deletes the original file after taking a backup (an existing `skillshare-NAME.ts`
+under the same name is adopted in place), and `hooks restore` can bring the
+original file back.
 
 Pi and OMP both honor `PI_CODING_AGENT_DIR`. If bindings resolve to the same
 output file, Skillshare blocks the plan before writing. Use separate explicit
@@ -486,6 +494,6 @@ Skillshare probes only `opencode --version` (or the account's `cli`). When the v
 
 For a complete v2 package, use `bindings.opencode.package` instead of `code`/`codeFile`: a map of relative filenames to UTF-8 contents, including `package.json`. The manifest and its dependency requirements are preserved verbatim. Nested files are allowed; traversal, symlinks, file/directory collisions, `.git`, and `node_modules` are not package payloads. The native editor displays this file map as JSON. The server entry must be a string root or `./server` export with a package name, or a conventional root `server`/`index` file (`.ts`, `.tsx`, `.js`). Conditional and fallback server exports are refused rather than guessed. A `package` binding needs OpenCode v2; on v1 it is skipped with a warning.
 
-`hooks import --from opencode` also reads immediate package directories under the native `plugins` folder. Like flat code imports, it copies them to Skillshare's named output and warns you to remove the original files and registration after syncing to avoid duplicate loading. Installed `node_modules` and `.git` are not imported. A package holding a file that cannot be read, such as a symlink, is listed with that problem; the other packages and flat files stay importable. On OpenCode v1, directories under `plugins` are not listed as hooks. Sync, edits and removal use the same ownership checks and backups as other hooks; an externally edited package file conflicts rather than being overwritten.
+`hooks import --from opencode` also reads immediate package directories under the native `plugins` folder. Unlike flat code imports from the target folder (which automatically retire the imported file after taking a backup), importing a package directory copies its source files to Skillshare's named output and warns you to remove the original directory and registration after syncing to avoid duplicate loading. Installed `node_modules` and `.git` are not imported. A package holding a file that cannot be read, such as a symlink, is listed with that problem; the other packages and flat files stay importable. On OpenCode v1, directories under `plugins` are not listed as hooks. Sync, edits and removal use the same ownership checks and backups as other hooks; an externally edited package file conflicts rather than being overwritten.
 
 Provision declared dependencies yourself before loading; the preview says so whenever it writes package files. Skillshare never runs plugin code, installs dependencies, or converts v1 code to v2. Registration is not proof the plugin loaded. The dashboard intentionally supplies no OpenCode starter code because the two APIs differ.

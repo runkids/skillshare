@@ -135,6 +135,9 @@ func emptyGitConfig(data []byte) bool {
 
 func gitWritePriority(f *filePlan) int {
 	if f.target != "git" {
+		if f.kind == kindFile && f.remove {
+			return 5
+		}
 		return 0
 	}
 	if f.include != nil {
