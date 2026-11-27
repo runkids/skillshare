@@ -188,6 +188,7 @@ export const staleTimes = {
   syncMatrix: 30 * 1000, // 30s — changes after filter edits
   extras: 30 * 1000, // 30s — fast-changing like diff
   analyze: 2 * 60 * 1000, // 2min — walks every skill file
+  contextRouter: 60 * 1000, // 1min — reads a folder's instruction files; writes elsewhere invalidate it
   doctor: 60 * 1000, // 1min — health checks
   skillignore: 5 * 60 * 1000, // 5min — rarely changes
   agentignore: 5 * 60 * 1000, // 5min — rarely changes

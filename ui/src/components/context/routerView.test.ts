@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest';
 import type { RouterReport, RouterTopic } from '../../api/contextRouter';
 import { ApiError } from '../../api/http';
 import {
+  dropStaleRoot,
   exactBytes,
   isStaleRoot,
   originKey,
   routerProblems,
+  selectRoot,
   topicState,
   versionLine,
   versionNote,
@@ -194,5 +196,22 @@ describe('router script version', () => {
         key: `context.router.version.note.${status}`,
         params: { version: '0.7.0', semantics: '0.6.0' },
       });
+  });
+});
+
+describe('the folder in the URL', () => {
+  it('moves a stale folder aside so the default one loads and the note can name it', () => {
+    const before = new URLSearchParams('tab=router&root=%2Fgone%2Ffolder');
+    const after = dropStaleRoot(before, '/gone/folder');
+    expect(after.toString()).toBe('tab=router&gone=%2Fgone%2Ffolder');
+    expect(before.get('root')).toBe('/gone/folder');
+  });
+
+  it('forgets the lost folder once another is picked', () => {
+    const stale = new URLSearchParams('tab=router&gone=%2Fgone');
+    expect(selectRoot(stale, '/a').toString()).toBe('tab=router&root=%2Fa');
+    expect(selectRoot(new URLSearchParams('tab=router&root=%2Fa'), '').toString()).toBe(
+      'tab=router',
+    );
   });
 });

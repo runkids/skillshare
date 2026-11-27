@@ -103,3 +103,20 @@ export const versionNote = (
         key: `context.router.version.note.${r.versionStatus}`,
         params: { version: r.scriptVersion, semantics: r.semanticsVersion },
       };
+
+/** The URL after a folder turned out stale: the folder moves from `root` to `gone`, so the default folder loads and the note can still name what was lost. */
+export function dropStaleRoot(params: URLSearchParams, root: string): URLSearchParams {
+  const next = new URLSearchParams(params);
+  next.set('gone', root);
+  next.delete('root');
+  return next;
+}
+
+/** The URL after the user picks a folder: any note about a lost one goes. An empty folder means the default. */
+export function selectRoot(params: URLSearchParams, root: string): URLSearchParams {
+  const next = new URLSearchParams(params);
+  if (root) next.set('root', root);
+  else next.delete('root');
+  next.delete('gone');
+  return next;
+}

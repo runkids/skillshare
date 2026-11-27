@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { AlertCircle, AlertTriangle, ExternalLink, FileText, Signpost } from 'lucide-react';
 import { contextRouterApi } from '../../api/contextRouter';
 import type { RouterSource, RouterTopic } from '../../api/contextRouter';
@@ -13,10 +13,12 @@ import { plural, useT } from '../../i18n';
 import { shortenHome } from '../../lib/paths';
 import { queryKeys, staleTimes } from '../../lib/queryKeys';
 import {
+  dropStaleRoot,
   exactBytes,
   isStaleRoot,
   originKey,
   routerProblems,
+  selectRoot,
   topicState,
   versionLine,
   versionNote,
@@ -32,20 +34,13 @@ export default function RouterPanel({ actions }: { actions: HTMLElement | null }
   // The folder lives in the URL so the tab can be linked to.
   const [params, setParams] = useSearchParams();
   const root = params.get('root') ?? '';
-  const setRoot = (next: string) =>
-    setParams(
-      (p) => {
-        if (next) p.set('root', next);
-        else p.delete('root');
-        p.delete('gone');
-        return p;
-      },
-      { replace: true },
-    );
-  const { data, isPending, error } = useQuery({
+  const setRoot = (next: string) => setParams((p) => selectRoot(p, next), { replace: true });
+  const { data, isPending, isPlaceholderData, error } = useQuery({
     queryKey: queryKeys.contextRouter.root(root),
     queryFn: ({ signal }) => contextRouterApi.get(root, signal),
-    staleTime: staleTimes.check,
+    staleTime: staleTimes.contextRouter,
+    // Keep the folder on screen while the next one is measured, instead of a spinner.
+    placeholderData: keepPreviousData,
     retry: false,
   });
   // A bookmarked folder that lost its router: fall back to the default folder and say so.
@@ -53,15 +48,7 @@ export default function RouterPanel({ actions }: { actions: HTMLElement | null }
   const stale = params.get('gone') ?? '';
   const staleNow = isStaleRoot(error, root);
   useEffect(() => {
-    if (!staleNow) return;
-    setParams(
-      (p) => {
-        p.set('gone', root);
-        p.delete('root');
-        return p;
-      },
-      { replace: true },
-    );
+    if (staleNow) setParams((p) => dropStaleRoot(p, root), { replace: true });
   }, [staleNow, root, setParams]);
 
   if (isPending || staleNow)
@@ -145,7 +132,10 @@ export default function RouterPanel({ actions }: { actions: HTMLElement | null }
   };
 
   return (
-    <div className="flex flex-col gap-5">
+    <div
+      className={`flex flex-col gap-5 ${isPlaceholderData ? 'opacity-60' : ''}`}
+      aria-busy={isPlaceholderData}
+    >
       {actions &&
         roots.length > 1 &&
         createPortal(
