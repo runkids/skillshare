@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"skillshare/internal/config"
+	"skillshare/internal/utils"
 )
 
 func TestPrefixedTargetName(t *testing.T) {
@@ -127,18 +128,26 @@ func TestPrintResolutionSummary_ListsSkillsNamedApartFromFolder(t *testing.T) {
 	})
 }
 
-func TestResolveTargetSkillsForTarget_PrefixedNamingSkipsRemainingCollisions(t *testing.T) {
+func TestResolveTargetSkillsForTarget_PrefixedNamingKeepsRemainingCollisionsUnderFlatNames(t *testing.T) {
 	dir := t.TempDir()
 	repoSkill := createTempSkill(t, dir, "_a/b-c", "b-c")
-	repoSkill.IsInRepo, repoSkill.RepoRelPath = true, "_a"
+	repoSkill.IsInRepo, repoSkill.RepoRelPath, repoSkill.FlatName = true, "_a", "_a__b-c"
 	skills := []DiscoveredSkill{repoSkill, createTempSkill(t, dir, "a-b-c", "a-b-c")}
 
 	resolution, err := ResolveTargetSkillsForTarget("claude", config.ResourceTargetConfig{TargetNaming: "prefixed"}, skills)
 	if err != nil {
 		t.Fatalf("ResolveTargetSkillsForTarget() error = %v", err)
 	}
-	if len(resolution.Skills) != 0 || len(resolution.Collisions) != 1 || resolution.Collisions[0].Name != "a-b-c" {
-		t.Fatalf("Skills = %v, Collisions = %v; want both excluded under a-b-c", resolution.Skills, resolution.Collisions)
+	if len(resolution.Collisions) != 1 || resolution.Collisions[0].Name != "a-b-c" {
+		t.Fatalf("Collisions = %v, want one under a-b-c", resolution.Collisions)
+	}
+	got := map[string]string{}
+	for _, s := range resolution.Skills {
+		got[s.TargetName] = s.Naming
+	}
+	// The top-level a-b-c keeps its name; the tracked skill moves to its flat name.
+	if len(got) != 2 || got["a-b-c"] != "prefixed" || got["_a__b-c"] != "flat" {
+		t.Fatalf("skills = %v; want a-b-c under prefixed and _a__b-c under flat", got)
 	}
 }
 
@@ -184,5 +193,124 @@ func TestKeptLocalWarning_CapsTheNameList(t *testing.T) {
 	want := "kept local: a, b, c, d, e ... and 2 more (sync --force replaces them)"
 	if got != want {
 		t.Fatalf("keptLocalWarning = %q, want %q", got, want)
+	}
+}
+
+// A flat name that still clashes with another skill's name would put two
+// skills in one entry, so those skills are skipped as before.
+func TestResolveTargetSkillsForTarget_SkipsFlatNamesThatStillClash(t *testing.T) {
+	dir := t.TempDir()
+	flat := func(s DiscoveredSkill) DiscoveredSkill {
+		s.FlatName = utils.PathToFlatName(s.RelPath)
+		return s
+	}
+	t.Run("prefixed", func(t *testing.T) {
+		// bar's name: is foo; it shares foo with x/foo, and its flat name bar is y/bar's name.
+		skills := []DiscoveredSkill{
+			flat(createTempSkill(t, dir, "p/bar", "foo")),
+			flat(createTempSkill(t, dir, "p/x/foo", "foo")),
+			flat(createTempSkill(t, dir, "p/y/bar", "bar")),
+		}
+		skills[0].FlatName = "bar" // a top-level skill's flat name is its folder
+		resolution, err := ResolveTargetSkillsForTarget("claude", config.ResourceTargetConfig{TargetNaming: "prefixed"}, skills)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := map[string]string{}
+		for _, s := range resolution.Skills {
+			got[s.Skill.RelPath] = s.TargetName
+		}
+		if len(got) != 2 || got["p/x/foo"] != "p__x__foo" || got["p/y/bar"] != "bar" || resolution.SkippedCount != 1 {
+			t.Fatalf("skills = %v, skipped = %d; want p/x/foo as p__x__foo, p/y/bar as bar, one skipped", got, resolution.SkippedCount)
+		}
+		if resolution.SharedNameSkippedCount != 1 || resolution.NamingSkippedCount != 0 || !strings.Contains(strings.Join(resolution.Warnings, "\n"), "p/bar") {
+			t.Fatalf("warnings = %v, naming = %d, shared = %d; want one shared-name warning for p/bar", resolution.Warnings, resolution.NamingSkippedCount, resolution.SharedNameSkippedCount)
+		}
+	})
+	t.Run("standard", func(t *testing.T) {
+		skills := []DiscoveredSkill{
+			flat(createTempSkill(t, dir, "s/a__b/dev", "dev")),
+			flat(createTempSkill(t, dir, "s/a/b/dev", "dev")),
+		}
+		resolution, err := ResolveTargetSkillsForTarget("claude", config.ResourceTargetConfig{TargetNaming: "standard"}, skills)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(resolution.Skills) != 0 || resolution.SkippedCount != 2 || resolution.SharedNameSkippedCount != 2 || resolution.NamingSkippedCount != 0 {
+			t.Fatalf("skills = %v, skipped = %d, warnings = %v; want both skipped with a warning each", resolution.Skills, resolution.SkippedCount, resolution.Warnings)
+		}
+	})
+}
+
+// A top-level skill's flat name is its own name, so it keeps it, and with it
+// the target's naming, while the nested one moves to its flat name.
+func TestResolveTargetSkillsForTarget_TopLevelSkillKeepsItsNameInACollision(t *testing.T) {
+	dir := t.TempDir()
+	top := createTempSkill(t, dir, "dev", "dev")
+	nested := createTempSkill(t, dir, "frontend/dev", "dev")
+	nested.FlatName = "frontend__dev"
+
+	resolution, err := ResolveTargetSkillsForTarget("claude", config.ResourceTargetConfig{TargetNaming: "standard"}, []DiscoveredSkill{top, nested})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]string{}
+	for _, s := range resolution.Skills {
+		got[s.TargetName] = s.Naming
+	}
+	if len(got) != 2 || got["dev"] != "standard" || got["frontend__dev"] != "flat" {
+		t.Fatalf("skills = %v; want dev under standard and frontend__dev under flat", got)
+	}
+}
+
+// When a collision appears, both skills can claim the copy under the shared
+// name. Sync renames it for the first, so diff must report the same.
+func TestLegacyNames_FirstSkillClaimsASharedLegacyCopy(t *testing.T) {
+	src, target := t.TempDir(), t.TempDir()
+	a := createTempSkill(t, src, "a/dev", "dev")
+	b := createTempSkill(t, src, "b/dev", "dev")
+	a.FlatName, b.FlatName = "a__dev", "b__dev"
+	if err := os.MkdirAll(filepath.Join(target, "dev"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	manifest := &Manifest{Managed: map[string]string{"dev": "sum"}, Naming: map[string]string{"dev": "standard"}}
+
+	resolution, err := ResolveTargetSkillsForTarget("claude", config.ResourceTargetConfig{TargetNaming: "standard"}, []DiscoveredSkill{a, b})
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacy := resolution.LegacyNames("copy", target, manifest)
+	if got := legacy["dev"].Skill.RelPath; got != "a/dev" {
+		t.Fatalf("dev is claimed by %q, want a/dev", got)
+	}
+}
+
+// A dry run leaves the shared copy where it is, so the second skill must not
+// also claim it.
+func TestSelectActiveTargetNameForSync_DryRunRenamesASharedCopyOnce(t *testing.T) {
+	src, target := t.TempDir(), t.TempDir()
+	a := createTempSkill(t, src, "a/dev", "dev")
+	b := createTempSkill(t, src, "b/dev", "dev")
+	a.FlatName, b.FlatName = "a__dev", "b__dev"
+	if err := os.MkdirAll(filepath.Join(target, "dev"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	manifest := &Manifest{Managed: map[string]string{"dev": "sum"}, Naming: map[string]string{"dev": "standard"}}
+
+	resolution, err := ResolveTargetSkillsForTarget("claude", config.ResourceTargetConfig{TargetNaming: "standard"}, []DiscoveredSkill{a, b})
+	if err != nil {
+		t.Fatal(err)
+	}
+	taken := resolution.ValidTargetNames()
+	var got []string
+	for _, s := range resolution.Skills {
+		name, err := selectActiveTargetNameForSync("copy", target, s, taken, manifest, true)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got = append(got, name)
+	}
+	if strings.Join(got, ",") != "dev,b__dev" {
+		t.Fatalf("active names = %v, want dev for a/dev (renamed later) and b__dev", got)
 	}
 }

@@ -97,7 +97,7 @@ cursor
 | Renamed | 管理対象のエントリが以前の `target_naming` による名前のまま | `sync` が名前を変更する |
 | Local only, skill kept under old name | 現在の `target_naming` が付ける名前をローカルフォルダーが使っているため、Skill は以前の管理対象エントリのまま（`name (stays at old-name)` と表示） | フォルダーの名前を変えるか削除してから `sync` |
 | Local override | symlink ではなくローカルコピー（編集済みの copy mode コピーを含む） | `sync --force` で置き換え |
-| Orphan | マニフェストにあるが Source にない | `sync` が刈り取る |
+| Orphan | マニフェストにあるが Source にない。たどる Source リンクが利用できない間は、sync が何も刈り取らないため表示されない | `sync` が刈り取る |
 | Local only | Target のみに存在し、Source にない | `collect` でインポート |
 
 ## ファイル単位の詳細

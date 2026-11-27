@@ -159,16 +159,17 @@ When multiple skills share the same `name` field, sync checks whether they actua
 **Collision reaches the same target** — actionable warning:
 
 ```
-! 1 duplicate skill names detected
+! 1 duplicate skill names detected; those skills sync under their full path name
   ui                              _team-a/ vs _team-b/
-  Rename one in SKILL.md or adjust include/exclude filters
-  1 name collision(s) excluded
+  Rename one of them (its folder and the name in its SKILL.md) or adjust include/exclude filters
 ```
+
+Both skills still reach the target, as `_team-a__ui` and `_team-b__ui`.
 
 **Solution:** Use namespaced names or route with filters:
 
 ```yaml
-# Option 1: Namespace in SKILL.md
+# Option 1: Rename the folder and the name in its SKILL.md
 name: team-a-ui
 
 # Option 2: Route with filters (global config)

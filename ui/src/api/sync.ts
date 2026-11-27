@@ -30,7 +30,14 @@ export const syncApi = {
   sync: (opts: { dryRun?: boolean; force?: boolean; kind?: 'skill' | 'agent'; project?: string }) =>
     http.post<SyncResponse>('/sync', opts),
   diff: (target?: string) =>
-    http.get<{ diffs: DiffTarget[]; folder_conflicts?: FolderConflict[] } & IgnoreSources>(
+    http.get<
+      {
+        diffs: DiffTarget[];
+        folder_conflicts?: FolderConflict[];
+        /** Followed source links that could not be read; sync prunes nothing until they are back. */
+        unavailable_source_links?: string[];
+      } & IgnoreSources
+    >(
       `/diff${target ? '?target=' + encodeURIComponent(target) : ''}`,
     ),
   diffStream: (

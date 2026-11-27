@@ -97,7 +97,7 @@ cursor
 | Renamed | 관리 항목이 이전 `target_naming`이 준 이름을 아직 사용함 | `sync`가 이름을 변경함 |
 | Local only, skill kept under old name | 현재 `target_naming`이 skill에 주는 이름을 로컬 폴더가 사용 중이라 skill이 이전 관리 항목에 남음(`name (stays at old-name)`으로 표시) | 폴더 이름을 바꾸거나 삭제한 뒤 `sync` |
 | Local override | symlink 대신 local 사본(편집된 copy mode 복사본 포함) | `sync --force`로 교체 |
-| Orphan | manifest에는 있지만 source에는 없음 | `sync`가 제거함 |
+| Orphan | manifest에는 있지만 source에는 없음. 따라가는 source 링크를 사용할 수 없는 동안에는 sync가 아무것도 제거하지 않으므로 표시하지 않음 | `sync`가 제거함 |
 | Local only | target에만 존재, source에는 없음 | `collect`로 가져오기 |
 
 ## File 단위 세부 정보

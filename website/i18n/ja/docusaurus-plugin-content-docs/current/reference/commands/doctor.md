@@ -132,12 +132,13 @@ Source link の確認はグローバルモードとプロジェクトモード�
 
 各 Target には **skills** と **agents**（Agent が設定されている場合）のサブ項目が表示されます。
 - Skills: パス、sync モード、sync 状態、共有/ローカルの件数
-  - 「N skills not synced」には `sync` が配置する skill だけを数えます。`sync` が意図的にスキップするもの（`standard` / `prefixed` naming での無効な名前、または名前の衝突）は含みません
+  - 「N skills not synced」には `sync` が配置する skill だけを数えます。`sync` が意図的にスキップするもの（`standard` / `prefixed` naming での無効な名前）は含みません
 - Agents: sync モード、リンク済み件数、drift の検出。Developer Mode がオフの Windows では `merge` が `copy` と表示され、最新の管理対象コピーはリンク済みとして数えられます。skillshare が所有していない、内容が同じローカルファイルは保持されます。copy fallback では agent の件数に `local preserved` として別に表示されます（例：`0/1 linked, 1 local preserved`）。
 - 壊れたシンボリックリンクがないこと
 - 意図しないローカルの衝突を検出する Skill 重複チェック:
   - `merge` モード: スキップ（ローカルの Skill は想定内のため）
   - `copy` モード: マニフェストで管理されているコピーは無視され、ローカルで衝突しているコピーのみ警告
+- 共有されたスキル名：`standard` または `prefixed` の命名で、Target が sync する 2 つの Skill が同じ `name:` を持つ場合。sync はそれぞれをフルパス名にしますが、名前で Skill を読み込むツールは片方しか読み込まないことがあるため、doctor は警告して一覧を表示します
 - 有効な include/exclude glob パターン
 - Naming と mode：copy 以外の mode で `prefixed` に解決される Target はエラーになります。sync がスキップするためです
 - 該当する場合、Target ごとの情報レベルの互換性ヒント（Target の優先順位の例: `cursor` → `antigravity` → `copilot` → `opencode`。これらの Target が存在しない場合はヒントなし）
@@ -303,6 +304,8 @@ skillshare sync  # 孤立したシンボリックリンクを削除します
 ```
 
 代わりに行に `behind an unavailable source link, kept until it is back` と表示される場合、その Skill はリンク先が利用できない[たどられた source リンク](../targets/configuration.md#follow_source_links)の背後にあります。prune するものはありません。ドライブをマウントするかチェックアウトを復元して、`skillshare sync` を実行してください。
+
+たどる source リンクが利用できない間、`sync` は何も prune しません。そのため、本来 prune される壊れたリンクは `broken symlink kept while a source link is unavailable` としてエラーではなく警告で報告されます。リンクが戻ると `sync` が削除します。
 
 行に `broken link skillshare did not create, kept` と表示される場合、そのリンクは source の外を指していてマニフェストに記録がないため、他のツールかユーザー自身が作ったものです。`sync` はこれを残し、`doctor --json` の `broken_symlinks` チェックは `error` ではなく `warning` になります。不要なリンクであれば自分で削除してください。マニフェストに記録がある名前の壊れたリンクは、source のどの Skill もその名前を使わなくなると、`sync` が刈り取るため broken symlink として報告されます。
 

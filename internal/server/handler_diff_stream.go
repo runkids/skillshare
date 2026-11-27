@@ -40,7 +40,8 @@ func (s *Server) handleDiffStream(w http.ResponseWriter, r *http.Request) {
 
 	safeSend("discovering", map[string]string{"phase": "scanning source directory"})
 
-	discovered, ignoreStats, err := ssync.DiscoverSourceSkillsWithStats(source, s.skillsWalk())
+	walk := s.skillsWalk()
+	discovered, ignoreStats, err := ssync.DiscoverSourceSkillsWithStats(source, walk)
 	if err != nil {
 		safeSend("error", map[string]string{"error": err.Error()})
 		return
@@ -59,6 +60,9 @@ func (s *Server) handleDiffStream(w http.ResponseWriter, r *http.Request) {
 		}
 
 		dt := s.computeTargetDiff(name, target, discovered, globalMode, source, ignorePatterns)
+		if walk.Follow.Incomplete() {
+			dt.Items = withoutPrunes(dt.Items)
+		}
 		diffs = append(diffs, dt)
 		checked++
 
@@ -71,9 +75,24 @@ func (s *Server) handleDiffStream(w http.ResponseWriter, r *http.Request) {
 	diffs = s.appendAgentDiffs(diffs, targets, agentsSource, "")
 
 	donePayload := map[string]any{"diffs": diffs}
+	if links := walk.Follow.Unavailable(); len(links) > 0 {
+		donePayload["unavailable_source_links"] = links
+	}
 	maps.Copy(donePayload, ignorePayload(ignoreStats))
 	maps.Copy(donePayload, agentIgnorePayload(agentsSource, nil))
 	safeSend("done", donePayload)
+}
+
+// withoutPrunes drops the prune items: while a followed source link is
+// unavailable, sync prunes nothing.
+func withoutPrunes(items []diffItem) []diffItem {
+	kept := items[:0]
+	for _, item := range items {
+		if item.Action != "prune" {
+			kept = append(kept, item)
+		}
+	}
+	return kept
 }
 
 // computeTargetDiff computes the diff for a single target.
@@ -108,10 +127,10 @@ func (s *Server) computeTargetDiff(name string, target config.TargetConfig, disc
 		dt.Items = append(dt.Items, diffItem{Skill: "(target naming)", Action: "skip", Reason: err.Error(), Kind: kindSkill})
 		return dt
 	}
-	// Surface collision/validation stats so the UI can show why skills were skipped
-	dt.CollisionCount = len(resolution.Collisions)
+	// Surface validation stats so the UI can show why skills were skipped
 	dt.SkippedCount = resolution.SkippedCount
 	dt.NamingSkippedCount = resolution.NamingSkippedCount
+	dt.SharedNameSkippedCount = resolution.SharedNameSkippedCount
 	dt.Warnings = resolution.Warnings
 	for _, warning := range resolution.SelectionWarnings {
 		dt.Items = append(dt.Items, diffItem{Skill: "(skill selection)", Action: "skip", Reason: warning, Kind: kindSkill})
@@ -155,13 +174,12 @@ func (s *Server) computeTargetDiff(name string, target config.TargetConfig, disc
 					dt.Items = append(dt.Items, diffItem{Skill: resolved.TargetName, Action: "update", Reason: "cannot access target entry", Kind: kindSkill})
 				} else if !targetInfo.IsDir() {
 					dt.Items = append(dt.Items, diffItem{Skill: resolved.TargetName, Action: "update", Reason: "target entry is not a directory", Kind: kindSkill})
-				} else if recorded := manifest.Naming[resolved.TargetName]; recorded != "" && recorded != resolution.Naming {
+				} else if recorded := manifest.Naming[resolved.TargetName]; recorded != "" && recorded != resolved.Naming {
 					// A copy made under another naming carries another name:, so sync re-copies it.
 					dt.Items = append(dt.Items, diffItem{Skill: resolved.TargetName, Action: "update", Reason: ssync.NamingChangedReason, Kind: kindSkill})
 				} else {
-					oldMtime := manifest.Mtimes[resolved.TargetName]
 					currentMtime, mtimeErr := ssync.DirMaxMtimeWithIgnore(skill.SourcePath, ignorePatterns)
-					if mtimeErr == nil && oldMtime > 0 && currentMtime == oldMtime {
+					if mtimeErr == nil && manifest.CopyUnchanged(resolved.TargetName, skill.RelPath, currentMtime) {
 						continue
 					}
 					srcChecksum, checksumErr := ssync.DirChecksumWithIgnore(skill.SourcePath, ignorePatterns)

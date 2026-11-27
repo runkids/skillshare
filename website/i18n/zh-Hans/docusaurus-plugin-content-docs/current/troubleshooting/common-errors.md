@@ -557,9 +557,9 @@ skillshare sync --force
 
 **原因：** 多个 Skill 使用了相同的 `name` 字段，并且落在同一个 Target 上。
 
-**解决方式：** 在 SKILL.md 中重新命名其中一个，或用 `include`/`exclude` 过滤器把它们分流到不同的 Target：
+**解决方式：** 重新命名其中一个（文件夹和 SKILL.md 中的名称），或用 `include`/`exclude` 过滤器把它们分流到不同的 Target：
 ```yaml
-# 选项 1：在 SKILL.md 中加上命名空间
+# 选项 1：文件夹和 SKILL.md 中的名称一起改
 name: team-a-skill-name
 
 # 选项 2：用过滤器分流（global 配置）

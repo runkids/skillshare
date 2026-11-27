@@ -87,6 +87,7 @@ func syncProject(cfg *config.Config, root string, dryRun bool) (*ssync.ExecuteRe
 		}
 		discovery.SourceIncomplete = walk.Follow.Incomplete()
 		warnings = append(warnings, ssync.SourceLinkWarnings(walk, discovery.SourceIncomplete)...)
+		warnings = append(warnings, ssync.SharedNameWarnings(discovery.Skills, targets, cfg.Mode)...)
 		if len(discovery.Skills) == 0 {
 			warnings = append(warnings, "source directory is empty (0 skills)")
 		}

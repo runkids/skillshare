@@ -289,3 +289,32 @@ func TestComputeTargetDiff_BrokenTargetLinkReportedOnce(t *testing.T) {
 		t.Errorf("items = %+v, want one skip for the whole folder", dt.Items)
 	}
 }
+
+// Sync prunes nothing while a followed source link is unavailable, so the
+// dashboard diff must not offer to prune that link's entries.
+func TestHandleDiff_UnavailableSourceLinkListsNoPrunes(t *testing.T) {
+	target := t.TempDir()
+	s, src := newTestServerWithTargets(t, map[string]string{"claude": target})
+	s.cfg.FollowSourceLinks = true
+	if err := s.saveConfig(); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(t.TempDir(), "gone"), filepath.Join(src, "_dev")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if err := os.Symlink(filepath.Join(src, "_dev", "foo"), filepath.Join(target, "_dev__foo")); err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/api/diff", nil))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if strings.Contains(rr.Body.String(), "_dev__foo") {
+		t.Fatalf("diff offers to prune the unavailable link's entry: %s", rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), `"unavailable_source_links":["_dev"]`) {
+		t.Fatalf("diff does not name the unavailable link: %s", rr.Body.String())
+	}
+}

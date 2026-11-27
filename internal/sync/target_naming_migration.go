@@ -33,6 +33,8 @@ func selectActiveTargetNameForSync(mode, targetPath string, skill ResolvedTarget
 
 	if dryRun {
 		fmt.Fprintf(DiagOutput, "[dry-run] Would rename managed target entry: %s -> %s\n", legacyName, desiredName)
+		// The entry keeps its name in a dry run, so no later skill may claim it.
+		taken[legacyName] = true
 		return legacyName, nil
 	}
 
@@ -75,12 +77,20 @@ func findLegacyTargetEntry(mode, targetPath string, skill ResolvedTargetSkill, t
 			continue
 		}
 		desiredPath := filepath.Join(targetPath, skill.TargetName)
-		if info, err := os.Lstat(desiredPath); err == nil && isManagedTargetEntry(mode, desiredPath, info, skill, manifest, namedTarget{name: skill.TargetName}) {
+		if info, err := os.Lstat(desiredPath); err == nil && (isManagedTargetEntry(mode, desiredPath, info, skill, manifest, namedTarget{name: skill.TargetName}) ||
+			heldByAnotherSkill(mode, desiredPath, skill.TargetName, manifest)) {
 			return namedTarget{}, nil
 		}
 		return c, nil
 	}
 	return namedTarget{}, nil
+}
+
+// heldByAnotherSkill reports whether the merge-mode link at path is one sync
+// made for another skill that held the name before (a shared name appeared or
+// went). Sync repoints it, and the skill's old entry goes as an orphan.
+func heldByAnotherSkill(mode, path, name string, manifest *Manifest) bool {
+	return mode == "merge" && manifest != nil && manifest.Managed[name] == manifestSymlink && utils.IsSymlinkOrJunction(path)
 }
 
 // isManagedTargetEntry reports whether the entry c.name at entryPath is the
@@ -141,4 +151,8 @@ func renameManifestEntry(manifest *Manifest, oldName, newName, oldNaming string)
 	}
 	delete(manifest.Naming, oldName)
 	manifest.Naming[newName] = oldNaming
+	if origin, ok := manifest.Origins[oldName]; ok {
+		manifest.Origins[newName] = origin
+		delete(manifest.Origins, oldName)
+	}
 }

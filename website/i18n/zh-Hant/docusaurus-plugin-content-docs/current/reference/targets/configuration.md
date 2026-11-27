@@ -196,7 +196,7 @@ skillshare sync
 
 - 指向 source 根目錄或其任一上層目錄的連結會被略過。
 - 與 sync target 重疊的連結會被略過。這是依連結文字判斷的，所以即使 target 目錄尚不存在也適用。
-- 連結目標不存在或無法讀取時，會略過並顯示警告。走訪目標或其子目錄時讀取失敗，也會將該連結標記為 unavailable，即使已經找到部分 Skill。該次執行**不會進行 prune、不會刪除孤立複本，也不會刪除中繼資料**。未掛載的外接硬碟是安全的：重新掛載後再執行一次 sync 即可。`skillshare doctor` 會把該 source 連結背後的懸空 target 連結列為「等待它」，而非列為需要 prune 的壞連結。 這個分類依據連結儲存的目標路徑，因此也適用於 `target_naming: standard`。
+- 連結目標不存在或無法讀取時，會略過並顯示警告。走訪目標或其子目錄時讀取失敗，也會將該連結標記為 unavailable，即使已經找到部分 Skill。該次執行**不會進行 prune、不會刪除孤立複本，也不會刪除中繼資料**。與連結裡的 skill 同名的 skill 在這次執行中看起來沒有撞名，所以會改用自己的名稱，等連結恢復後再改回完整路徑名稱；copy 模式下每次都會重新複製。未掛載的外接硬碟是安全的：重新掛載後再執行一次 sync 即可。`skillshare doctor` 會把該 source 連結背後的懸空 target 連結列為「等待它」，而非列為需要 prune 的壞連結。 這個分類依據連結儲存的目標路徑，因此也適用於 `target_naming: standard`。
 - 指向檔案的連結（例如共用的 `.skillignore`）不是目錄連結。它仍是一般項目，絕不影響 prune。
 
 #### Discovery 如何判斷 {#how-discovery-decides}

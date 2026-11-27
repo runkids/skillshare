@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"skillshare/internal/config"
@@ -1071,6 +1072,74 @@ func CheckNameCollisionsForTargets(
 	}
 
 	return global, perTarget
+}
+
+// PerSkillTargets returns the targets that sync each skill on its own: all but
+// symlink mode, set or inherited from defaultMode, which links the source whole.
+func PerSkillTargets(targets map[string]config.TargetConfig, defaultMode string) map[string]config.TargetConfig {
+	out := make(map[string]config.TargetConfig, len(targets))
+	for name, t := range targets {
+		if !isSymlinkMode(t, defaultMode) {
+			out[name] = t
+		}
+	}
+	return out
+}
+
+// SharedNameWarnings returns one line per target and name that two or more of
+// the target's skills want, sorted by target. Sync gives those skills their
+// full path names; when their name: is the same too, a tool that loads skills
+// by name may still load only one. A symlink-mode target holds the source as
+// it is, so it gets none.
+func SharedNameWarnings(skills []DiscoveredSkill, targets map[string]config.TargetConfig, defaultMode string) []string {
+	var warnings []string
+	for _, s := range SharedNames(skills, targets, defaultMode) {
+		warnings = append(warnings, s.Warning())
+	}
+	return warnings
+}
+
+// SharedName is a name that skills share on a target, so they sync under their
+// full path names instead.
+type SharedName struct {
+	Target string   `json:"target"`
+	Name   string   `json:"name"`
+	Paths  []string `json:"paths"`
+	// SameName is set when the skills' name: fields match, so a tool that loads
+	// skills by name still sees them as one.
+	SameName bool `json:"same_name"`
+}
+
+// Warning renders the shared name as one line of CLI output.
+func (s SharedName) Warning() string {
+	paths := strings.Join(s.Paths[:len(s.Paths)-1], ", ") + " and " + s.Paths[len(s.Paths)-1]
+	if s.SameName {
+		return fmt.Sprintf("%s: %s share the name %s; all but a top-level one sync under their full path names, and a tool that loads skills by name may load only one", s.Target, paths, s.Name)
+	}
+	return fmt.Sprintf("%s: %s would both sync as %s; all but a top-level one sync under their full path names instead", s.Target, paths, s.Name)
+}
+
+// SharedNames returns the names skills share on each target that syncs skills
+// one by one, sorted by target.
+func SharedNames(skills []DiscoveredSkill, targets map[string]config.TargetConfig, defaultMode string) []SharedName {
+	_, perTarget := CheckNameCollisionsForTargets(skills, PerSkillTargets(targets, defaultMode))
+	slices.SortFunc(perTarget, func(a, b TargetCollision) int { return strings.Compare(a.TargetName, b.TargetName) })
+	sourceOf := make(map[string]string, len(skills))
+	for _, s := range skills {
+		sourceOf[s.RelPath] = s.SourcePath
+	}
+	var shared []SharedName
+	for _, tc := range perTarget {
+		for _, c := range tc.Collisions {
+			names := make(map[string]bool, len(c.Paths))
+			for _, p := range c.Paths {
+				name, _ := utils.ParseSkillName(sourceOf[p])
+				names[name] = true
+			}
+			shared = append(shared, SharedName{Target: tc.TargetName, Name: c.Name, Paths: c.Paths, SameName: len(names) == 1})
+		}
+	}
+	return shared
 }
 
 // CheckStatusMerge checks the status of a target in merge mode

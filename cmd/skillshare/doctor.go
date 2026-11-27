@@ -351,6 +351,7 @@ func runDoctorChecks(cfg *config.Config, result *doctorResult, isProject bool, p
 	checkSyncDrift(cfg, result, discovered, targetCache)
 	checkBrokenSymlinks(cfg, walk.Follow, result, discovered, discoverErr == nil)
 	checkDuplicateSkills(cfg, result, discovered)
+	checkSharedSkillNames(cfg, result, discovered, discoverErr == nil)
 }
 
 func printDoctorSummary(result *doctorResult) {
@@ -1177,9 +1178,10 @@ func checkSkillTargetsField(result *doctorResult, discovered []sync.DiscoveredSk
 // broken and are kept by sync, so they are reported as waiting, not as errors.
 // So are broken links skillshare did not create: sync keeps those too, and only
 // the user can say whether they should go. A broken link that sync would prune
-// is an error either way, so the split follows what sync does.
+// is an error either way, so the split follows what sync does, except while a
+// source link is unavailable: sync prunes nothing then, so it is kept too.
 func checkBrokenSymlinks(cfg *config.Config, follow *sourcewalk.Follow, result *doctorResult, discovered []sync.DiscoveredSkill, discoveredOK bool) {
-	var allBroken, allWaiting, allForeign []string
+	var allBroken, allWaiting, allForeign, allKept []string
 	unavailable := follow.Unavailable()
 	names := targetNamesFromConfig(cfg.Targets)
 	sort.Strings(names)
@@ -1189,7 +1191,7 @@ func checkBrokenSymlinks(cfg *config.Config, follow *sourcewalk.Follow, result *
 		if !target.SkillsConfig().IsEnabled() {
 			continue
 		}
-		var broken, waiting, foreign []string
+		var broken, waiting, foreign, kept []string
 		manifest, _ := sync.ReadManifest(target.SkillsConfig().Path)
 		orphan := orphanNames(name, target, cfg.Mode, manifest, discovered, discoveredOK)
 		for _, b := range findBrokenSymlinks(target.SkillsConfig().Path) {
@@ -1198,7 +1200,11 @@ func checkBrokenSymlinks(cfg *config.Config, follow *sourcewalk.Follow, result *
 				waiting = append(waiting, b)
 			} else if manifest.OwnsLink(b, link, cfg.EffectiveSkillsSource()) ||
 				(orphan != nil && orphan(b) && sync.OrphanLink(link, cfg.EffectiveSkillsSource(), manifest.Records(b), false).RemoveReason != "") {
-				broken = append(broken, b)
+				if len(unavailable) > 0 {
+					kept = append(kept, b)
+				} else {
+					broken = append(broken, b)
+				}
 			} else {
 				foreign = append(foreign, b)
 			}
@@ -1218,6 +1224,13 @@ func checkBrokenSymlinks(cfg *config.Config, follow *sourcewalk.Follow, result *
 				allWaiting = append(allWaiting, fmt.Sprintf("%s/%s", name, b))
 			}
 		}
+		if len(kept) > 0 {
+			ui.Row(ui.MarkWarn, name, plural(len(kept), "broken symlink")+" kept while a source link is unavailable: "+strings.Join(kept, ", ")+" (sync removes them once it is back)", width)
+			result.addWarning()
+			for _, b := range kept {
+				allKept = append(allKept, fmt.Sprintf("%s/%s", name, b))
+			}
+		}
 		if len(foreign) > 0 {
 			ui.Row(ui.MarkWarn, name, plural(len(foreign), "broken link")+" skillshare did not create, kept: "+strings.Join(foreign, ", ")+" (delete by hand if stale)", width)
 			result.addWarning()
@@ -1230,15 +1243,18 @@ func checkBrokenSymlinks(cfg *config.Config, follow *sourcewalk.Follow, result *
 	case len(allBroken) > 0:
 		result.addCheck("broken_symlinks", checkError,
 			fmt.Sprintf("%d broken symlink(s) found", len(allBroken)), append(allBroken, allForeign...))
-	case len(allWaiting)+len(allForeign) > 0:
+	case len(allWaiting)+len(allKept)+len(allForeign) > 0:
 		var parts []string
 		if len(allWaiting) > 0 {
 			parts = append(parts, fmt.Sprintf("%d link(s) behind an unavailable source link", len(allWaiting)))
 		}
+		if len(allKept) > 0 {
+			parts = append(parts, fmt.Sprintf("%d broken symlink(s) kept while a source link is unavailable", len(allKept)))
+		}
 		if len(allForeign) > 0 {
 			parts = append(parts, fmt.Sprintf("%d broken link(s) skillshare did not create", len(allForeign)))
 		}
-		result.addCheck("broken_symlinks", checkWarning, strings.Join(parts, ", "), append(allWaiting, allForeign...))
+		result.addCheck("broken_symlinks", checkWarning, strings.Join(parts, ", "), slices.Concat(allWaiting, allKept, allForeign))
 	default:
 		result.addCheck("broken_symlinks", checkPass, "No broken symlinks", nil)
 	}

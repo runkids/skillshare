@@ -27,7 +27,8 @@ func cmdDiffProject(root, targetName string, kind resourceKindFilter, opts diffR
 	if !opts.jsonOutput {
 		spinner = ui.StartSpinner("Discovering skills")
 	}
-	discovered, err := sync.DiscoverSourceSkills(runtime.sourcePath, runtime.skillsWalk())
+	walk := runtime.skillsWalk()
+	discovered, err := sync.DiscoverSourceSkills(runtime.sourcePath, walk)
 	if err != nil {
 		if spinner != nil {
 			spinner.Fail("Discovery failed")
@@ -37,6 +38,7 @@ func cmdDiffProject(root, targetName string, kind resourceKindFilter, opts diffR
 	if spinner != nil {
 		spinner.Stop()
 	}
+	printWarningLines(sync.SourceLinkWarnings(walk, true), opts.jsonOutput)
 
 	targets := make([]config.ProjectTargetEntry, len(runtime.config.Targets))
 	copy(targets, runtime.config.Targets)
@@ -110,7 +112,7 @@ func cmdDiffProject(root, targetName string, kind resourceKindFilter, opts diffR
 			defer wg.Done()
 			defer func() { <-sem }()
 			progress.startTarget(rt.name)
-			r := collectTargetDiff(rt.name, rt.target, runtime.sourcePath, rt.mode, rt.resolution, ignorePatterns, progress)
+			r := collectTargetDiff(rt.name, rt.target, runtime.sourcePath, rt.mode, rt.resolution, ignorePatterns, walk.Follow.Incomplete(), progress)
 			progress.doneTarget(rt.name, r)
 			results[idx] = r
 		}(i, rt)

@@ -151,7 +151,7 @@ func TestComputeTargetDiff_MergeModeCopyWithReincludedDefaultIsReplacedWithLink(
 	}
 }
 
-func TestComputeTargetDiff_CountsNamingSkipsApartFromCollisions(t *testing.T) {
+func TestComputeTargetDiff_CountsNamingSkipsButNotSharedNames(t *testing.T) {
 	source, target := t.TempDir(), t.TempDir()
 	skills := map[string]string{"a/dev": "dev", "b/dev": "dev", "odd": "not-odd"}
 	for dir, name := range skills {
@@ -168,7 +168,8 @@ func TestComputeTargetDiff_CountsNamingSkipsApartFromCollisions(t *testing.T) {
 	}
 
 	dt := (&Server{}).computeTargetDiff("claude", config.TargetConfig{Skills: &config.ResourceTargetConfig{Path: target, Mode: "copy", TargetNaming: "standard"}}, discovered, "merge", source, nil)
-	if dt.SkippedCount != 3 || dt.CollisionCount != 1 || dt.NamingSkippedCount != 1 {
-		t.Fatalf("skipped = %d, collisions = %d, naming = %d; want 3, 1, 1", dt.SkippedCount, dt.CollisionCount, dt.NamingSkippedCount)
+	// The two dev skills sync under their flat names, so only odd is skipped.
+	if dt.SkippedCount != 1 || dt.NamingSkippedCount != 1 {
+		t.Fatalf("skipped = %d, naming = %d; want 1, 1", dt.SkippedCount, dt.NamingSkippedCount)
 	}
 }
