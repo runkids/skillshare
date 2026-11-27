@@ -14,7 +14,7 @@ import CodeEditor from '../CodeEditor';
 import DialogShell from '../DialogShell';
 import { Select } from '../Input';
 import Spinner from '../Spinner';
-import { bindingLines, suggestName } from './hookCatalog';
+import { bindingLines, defaultImportNames } from './hookCatalog';
 import HooksImportEditor from './HooksImportEditor';
 import HooksImportRow from './HooksImportRow';
 import { nativeEdits, rowEvents, rowPath, rowTitle, sameEvents } from './hooksImport';
@@ -111,19 +111,20 @@ export default function HooksImportDialog({
       adopt: false,
     })),
   ];
-  // Prefilled names never repeat a saved hook or each other.
-  const defaults: Record<string, string> = {};
-  for (const row of rows) {
-    const line = bindingLines(row.candidate.entry.bindings[row.target])[0];
-    const taken = (n: string) => n in existing || Object.values(defaults).includes(n);
-    defaults[row.id] = suggestName(
-      row.candidate.name,
-      isCodeAgent(agentOf(row.target)) ? '' : (line?.command ?? ''),
-      taken,
-    );
-  }
   // An Antigravity hook is the block of that name, so taking one over keeps the block's name.
   const fixedName = (row: ImportRow) => row.adopt && row.target === 'antigravity';
+  // Prefilled names never repeat a saved hook or each other; shared dispatchers keep <target>-<event>.
+  const defaults = defaultImportNames(
+    rows.map((row) => ({
+      id: row.id,
+      candidate: row.candidate.name,
+      command:
+        fixedName(row) || isCodeAgent(agentOf(row.target))
+          ? ''
+          : (bindingLines(row.candidate.entry.bindings[row.target])[0]?.command ?? ''),
+    })),
+    (name) => name in existing,
+  );
   const nameOf = (row: ImportRow) =>
     fixedName(row) ? row.candidate.name : (names[row.id] ?? defaults[row.id]);
   const nameError = (row: ImportRow) => {

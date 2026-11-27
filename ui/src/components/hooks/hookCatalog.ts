@@ -530,19 +530,95 @@ const slugPart = (s: string) =>
     .replace(/[^a-z0-9_.-]+/g, '-')
     .replace(/^[-.]+|[-.]+$/g, '');
 
+const INTERPRETER =
+  /^(?:env|sh|bash|zsh|dash|ksh|fish|py|pythonw?|pypy|node(?:js)?|bun|deno|tsx|ts-node|uv|ruby|perl|php|pwsh|powershell|cmd)(?:[-@]?\d+(?:\.\d+)*[a-z]?)?$/i;
+
+const SHELL = /^(?:sh|bash|zsh|dash|ksh|fish)(?:[-@]?\d+(?:\.\d+)*[a-z]?)?$/i;
+
+const basename = (token: string) => token.split(/[\\/]/).pop() ?? '';
+
+const interpreterBase = (token: string) => basename(token).replace(/\.(?:exe|cmd|bat)$/i, '');
+
+const fileStem = (token: string) =>
+  slugPart(basename(token).replace(/\.[A-Za-z][A-Za-z0-9]*$/, '')).slice(0, 60);
+
+const isInterpreter = (token: string) => INTERPRETER.test(interpreterBase(token));
+
+/**
+ * Extracts a hook script's stem when the command runs a file by path (`~/.claude/guard.sh` → `guard`,
+ * `/opt/homebrew/bin/python3.14 ~/.local/tool/check.py` → `check`), ignoring bare shells and interpreters.
+ */
+export function commandScriptStem(command: string) {
+  const tokens = (command.match(/(?:"[^"]*"|'[^']*'|[^\s"']+)+/g) ?? [])
+    .map((t) => t.replace(/["']/g, ''))
+    .filter(Boolean);
+  let i = 0;
+  while (i < tokens.length && /^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[i])) i++;
+  const first = tokens[i] ?? '';
+  if (isInterpreter(first)) {
+    let shell = SHELL.test(interpreterBase(first));
+    for (let j = i + 1; j < tokens.length; j++) {
+      const arg = tokens[j];
+      if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(arg) || /^\/[a-z?]$/i.test(arg)) continue;
+      if (isInterpreter(arg)) {
+        shell = SHELL.test(interpreterBase(arg));
+        continue;
+      }
+      if (
+        arg === '-c' ||
+        arg === '--command' ||
+        arg === '--eval' ||
+        arg === '--print' ||
+        arg === '-m' ||
+        (shell && /^-[a-z]+c$/i.test(arg)) ||
+        (!shell && (arg === '-e' || arg === '-p'))
+      )
+        return '';
+      if (arg.startsWith('-')) continue;
+      if (/[\\/]/.test(arg) || /\.[A-Za-z][A-Za-z0-9]*$/.test(arg)) return fileStem(arg);
+    }
+    return '';
+  }
+  return /[\\/]/.test(first) ? fileStem(first) : '';
+}
+
 /**
  * An import's default name: the script's basename when the command runs a file by path (`~/.claude/guard.sh` → guard),
- * otherwise the CLI's candidate name, `<target>-<event>` (claude-stop). Numbered when taken.
+ * otherwise the CLI's candidate name, `<target>-<event>` (claude-stop). Falls back to `<target>-<event>` when the
+ * script stem is already taken, and numbers when `<target>-<event>` is also taken.
  */
 export function suggestName(candidate: string, command: string, taken: (name: string) => boolean) {
-  const first = command.trim().split(/\s+/)[0] ?? '';
-  const script = /[\\/]/.test(first)
-    ? slugPart((first.split(/[\\/]/).pop() ?? '').replace(/\.[A-Za-z0-9]+$/, ''))
-    : '';
-  const stem = script.slice(0, 60) || candidate;
+  const script = commandScriptStem(command);
+  const stem = script && !taken(script) ? script : candidate;
   let name = stem;
   for (let n = 2; taken(name); n++) name = `${stem}-${n}`;
   return name;
+}
+
+/**
+ * Computes default import names for a batch of rows. When multiple rows invoke the same script or
+ * dispatcher binary (e.g. `~/.local/bin/hyp hook <agent> <event>`), each row falls back to its own
+ * `<target>-<event>` candidate name instead of collapsing into `<stem>`, `<stem>-2`, `<stem>-3`, …
+ */
+export function defaultImportNames(
+  items: { id: string; candidate: string; command: string }[],
+  taken: (name: string) => boolean,
+) {
+  const stems = items.map((item) => commandScriptStem(item.command));
+  const used = new Set<string>();
+  const out: Record<string, string> = {};
+  items.forEach((item, idx) => {
+    const unique =
+      Boolean(stems[idx]) && stems.indexOf(stems[idx]) === stems.lastIndexOf(stems[idx]);
+    const name = suggestName(
+      item.candidate,
+      unique ? item.command : '',
+      (n) => taken(n) || used.has(n),
+    );
+    used.add(name);
+    out[item.id] = name;
+  });
+  return out;
 }
 
 // ---- Diff ---------------------------------------------------------------------------------------
