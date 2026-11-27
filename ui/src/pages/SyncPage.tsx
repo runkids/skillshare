@@ -29,6 +29,7 @@ import Button from '../components/Button';
 import CollectDialog from '../components/CollectDialog';
 import { Checkbox } from '../components/Input';
 import PageHeader from '../components/PageHeader';
+import Reveal from '../components/Reveal';
 import Spinner from '../components/Spinner';
 import Tooltip from '../components/Tooltip';
 import { useToast } from '../components/Toast';
@@ -741,14 +742,13 @@ export default function SyncPage() {
                       })}
                     </span>
                     <span className="flex-1" />
-                    {open.has('inSync') ? (
-                      <ChevronDown size={15} className="text-ink-3" />
-                    ) : (
-                      <ChevronRight size={15} className="text-ink-3" />
-                    )}
+                    <ChevronRight
+                      size={15}
+                      className={`text-ink-3 transition-transform duration-200 ease-[cubic-bezier(.3,.7,.3,1)] motion-reduce:transition-none ${open.has('inSync') ? 'rotate-90' : ''}`}
+                    />
                   </button>
                 )}
-                {open.has('inSync') && (
+                <Reveal open={open.has('inSync')}>
                   <div className="flex flex-col px-[18px] pb-[18px] pt-4 [border-top:var(--sep)] [&>*+*]:mt-3.5 [&>*+*]:pt-3.5 [&>*+*]:[border-top:var(--sep)]">
                     {inSync.global.length > 0 && (
                       <ScopeRow
@@ -794,7 +794,7 @@ export default function SyncPage() {
                       </ScopeRow>
                     )}
                   </div>
-                )}
+                </Reveal>
               </>
             )}
           </div>
