@@ -498,7 +498,7 @@ func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval) (
 					p.Changes = append(p.Changes, Change{Name: name, Target: target, ID: b.ID, Binding: b, Action: "skip", Message: "Herdr app home is absent; skipped.", MessageKey: "plugins.note.herdrHomeSkipped"})
 					continue
 				}
-				if agent == "rex" && b.Selected() && r.Action != "remove" && r.Action != "uninstall" && host(target).Status == HostMissing {
+				if agent == "rex" && b.Selected() && r.Action != "remove" && r.Action != "uninstall" && r.Action != "enable" && r.Action != "disable" && host(target).Status == HostMissing {
 					p.Changes = append(p.Changes, Change{Name: name, Target: target, ID: b.ID, Binding: b, Action: "skip", Message: "Rex is not installed here; this will be applied on a machine that has it.", MessageKey: "plugins.note.rexMissing"})
 					continue
 				}
@@ -598,7 +598,7 @@ func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval) (
 				case "sync":
 					if !b.Selected() {
 						c.Action = "uninstall"
-						if !exists && !ownMarket(target, b) && agent != "omp" {
+						if !exists && !ownMarket(target, b) && agent != "omp" && !(agent == "rex" && b.Pending == "uninstall") {
 							c.Action = "noop"
 						}
 						break

@@ -372,6 +372,43 @@ func TestRexAmberDiscovery(t *testing.T) {
 	}
 }
 
+func TestRexAmberLocalSourceName(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "bell.rex")
+	writePluginFile(t, root, "lua/other.lua", "return {}")
+	writePluginFile(t, root, "lua/bell.lua", "return {}")
+	// Preserve the final dot to exercise native path cleaning on every platform.
+	location := root + string(filepath.Separator) + "."
+	m, err := rexAdopt(root, location, "")
+	if err != nil || m.ID != "local.bell" || m.Main != "bell" {
+		t.Fatalf("adopt = %+v, %v", m, err)
+	}
+}
+
+func TestRexMissingHostSavesSelection(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("REX_CONFIG", filepath.Join(home, "init.lua"))
+	s := &Service{ConfigPath: filepath.Join(home, "config.yaml"), StateDir: filepath.Join(home, "state")}
+	s.Run = func(_ context.Context, _ string, _ []string, _ string, _ ...string) ([]byte, error) {
+		return nil, ErrCLIMissing
+	}
+	applyPluginRequest(t, s, Request{Action: "add", Source: rexFixture(t), Targets: []string{"rex"}})
+	for _, action := range []string{"disable", "enable"} {
+		req := Request{Action: action, Name: "acme.test", Targets: []string{"rex"}}
+		p, err := s.Preview(context.Background(), req)
+		if err != nil || len(p.Changes) != 1 || p.Changes[0].Action != "selection" {
+			t.Fatalf("%s preview = %+v, %v", action, p, err)
+		}
+		if _, err := s.Apply(context.Background(), req, p.Revision); err != nil {
+			t.Fatal(err)
+		}
+		d, err := s.load()
+		if err != nil || d.intent["acme.test"].Bindings["rex"].runtime().Selected() != (action == "enable") {
+			t.Fatalf("%s selection not saved: %+v, %v", action, d, err)
+		}
+	}
+}
+
 func TestRexProbeOnlyIncludesIncomingPlugin(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
@@ -636,6 +673,51 @@ func TestRexPendingRemoveRetriesReconcile(t *testing.T) {
 		t.Fatal(err)
 	}
 	applyPluginRequest(t, s, Request{Action: "sync"})
+	data, err := os.ReadFile(actual)
+	if err != nil || string(data) != "-- user\n" {
+		t.Fatalf("init = %q, %v", data, err)
+	}
+	for _, path := range []string{filepath.Join(filepath.Dir(init), "skillshare_rex.lua"), record} {
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			t.Fatalf("%s remains: %v", path, err)
+		}
+	}
+}
+
+func TestRexPendingUninstallRetriesReconcile(t *testing.T) {
+	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+		t.Skip("requires Unix directory permissions and a non-root user")
+	}
+	s, init, record := rexRecordTestService(t)
+	dir := filepath.Join(filepath.Dir(init), "readonly")
+	if err := os.Mkdir(dir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	actual := filepath.Join(dir, "init.lua")
+	if err := os.WriteFile(actual, []byte("-- user\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(actual, init); err != nil {
+		t.Fatal(err)
+	}
+	applyPluginRequest(t, s, Request{Action: "add", Source: rexFixture(t), Targets: []string{"rex"}})
+	applyPluginRequest(t, s, Request{Action: "disable", Name: "acme.test", Targets: []string{"rex"}})
+	req := Request{Action: "sync"}
+	p, err := s.Preview(context.Background(), req)
+	if err != nil || p.Blocked {
+		t.Fatalf("preview: %+v %v", p, err)
+	}
+	if err := os.Chmod(dir, 0555); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(dir, 0755) })
+	if _, err := s.Apply(context.Background(), req, p.Revision); err == nil {
+		t.Fatal("expected init write failure")
+	}
+	if err := os.Chmod(dir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	applyPluginRequest(t, s, req)
 	data, err := os.ReadFile(actual)
 	if err != nil || string(data) != "-- user\n" {
 		t.Fatalf("init = %q, %v", data, err)

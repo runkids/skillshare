@@ -100,13 +100,18 @@ func (s *Service) rexHost(ctx context.Context, target string) Host {
 
 // rexAdopt follows rexd's Amber module and source naming rules.
 func rexAdopt(dir, location, commit string) (rexManifest, error) {
-	parts := strings.FieldsFunc(strings.TrimSuffix(strings.TrimRight(location, "/"), ".git"), func(r rune) bool { return r == '/' || r == ':' })
-	if len(parts) == 0 {
-		return rexManifest{}, fmt.Errorf("missing Rex source name")
-	}
-	repo, owner := parts[len(parts)-1], "local"
-	if !filepath.IsAbs(location) && len(parts) > 1 {
-		owner = parts[len(parts)-2]
+	repo, owner := "", "local"
+	if filepath.IsAbs(location) {
+		repo = strings.TrimSuffix(filepath.Base(filepath.Clean(location)), ".git")
+	} else {
+		parts := strings.FieldsFunc(strings.TrimSuffix(strings.TrimRight(location, "/"), ".git"), func(r rune) bool { return r == '/' || r == ':' })
+		if len(parts) == 0 {
+			return rexManifest{}, fmt.Errorf("missing Rex source name")
+		}
+		repo = parts[len(parts)-1]
+		if len(parts) > 1 {
+			owner = parts[len(parts)-2]
+		}
 	}
 	name := strings.TrimSuffix(repo, ".rex")
 	var modules []string
