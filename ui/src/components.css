@@ -3969,14 +3969,16 @@ svg.lucide {
     inset: 0;
     z-index: -1;
     background: var(--glass-bar);
-    backdrop-filter: var(--mat);
+    /* Prefixed first: the build's CSS minifier keeps only the last of the pair when the value is a
+       var(), and Chrome reads only the unprefixed one. */
     -webkit-backdrop-filter: var(--mat);
+    backdrop-filter: var(--mat);
   }
   :root:not([data-theme='playful']) :is(.ss-menu, .ss-hud) {
     background: var(--glass-menu);
     border-color: transparent;
-    backdrop-filter: var(--mat-menu);
     -webkit-backdrop-filter: var(--mat-menu);
+    backdrop-filter: var(--mat-menu);
   }
   :root:not([data-theme='playful']) .ss-menu {
     padding: 6px;
