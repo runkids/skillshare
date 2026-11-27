@@ -37,9 +37,7 @@ export const syncApi = {
         /** Followed source links that could not be read; sync prunes nothing until they are back. */
         unavailable_source_links?: string[];
       } & IgnoreSources
-    >(
-      `/diff${target ? '?target=' + encodeURIComponent(target) : ''}`,
-    ),
+    >(`/diff${target ? '?target=' + encodeURIComponent(target) : ''}`),
   diffStream: (
     onDiscovering: () => void,
     onStart: (total: number) => void,

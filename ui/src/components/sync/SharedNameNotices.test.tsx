@@ -9,15 +9,26 @@ describe('Shared name notices', () => {
       <I18nProvider>
         <SharedNameNotices
           items={[
-            { target: 'claude', name: 'dev', paths: ['backend/dev', 'frontend/dev'], same_name: true },
+            {
+              target: 'claude',
+              name: 'dev',
+              paths: ['backend/dev', 'frontend/dev'],
+              same_name: true,
+            },
             { target: 'cursor', name: 'repo-ui', paths: ['_repo/ui', 'repo-ui'], same_name: false },
           ]}
         />
       </I18nProvider>,
     );
 
-    expect(screen.getByText(/claude: backend\/dev and frontend\/dev share the name dev\. All but a top-level one/)).toBeInTheDocument();
-    expect(screen.getByText(/cursor: _repo\/ui and repo-ui would both sync as repo-ui/)).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /claude: backend\/dev and frontend\/dev share the name dev\. All but a top-level one/,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/cursor: _repo\/ui and repo-ui would both sync as repo-ui/),
+    ).toBeInTheDocument();
   });
 
   it('renders nothing without shared names', () => {
