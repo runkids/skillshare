@@ -41,6 +41,23 @@ A typical dashboard request follows this path:
 3. The handler uses the same `internal/` domain package as the CLI. Do not duplicate core behavior in the frontend or handler.
 4. Project/global differences use the server mode and existing helpers rather than a separate data model.
 
+## Context Router Report
+
+`internal/contextrouter` measures a folder's agents-context-router setup for the
+dashboard's **Context → Router** tab (`GET /api/context/router`,
+`handler_context_router.go`, `ui/src/components/context/RouterPanel.tsx`). It
+reads `wiki/ai-context.json` and the files it names through one `os.Root` and
+never runs the folder's `scripts/ai-context.py`; that script is read only for
+its `VERSION`, which picks the size rule. The route loads the config read-only
+and is excluded from the reload middleware, so opening the tab writes nothing.
+
+The size rule and the Markdown link scanner (`mdscan.go`, `compact.go`) are a
+port of the router's script at the release named by `Reference` in
+`version.go`. `testdata/` holds what that script prints, written by
+`scripts/testing/context_router_goldens.py`. To follow a newer router, change
+the tag there and in `version.go`, regenerate, and make the port match again;
+do not edit the goldens or relax a comparison.
+
 ## Shared Memory Notes
 
 `internal/memory` owns note discovery, bounded UTF-8 reads, content-version
