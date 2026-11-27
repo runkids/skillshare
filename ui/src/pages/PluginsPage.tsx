@@ -26,6 +26,7 @@ import {
 import AgentTile from '../components/AgentTile';
 import Button from '../components/Button';
 import { Checkbox } from '../components/Checkbox';
+import DialogHeader from '../components/DialogHeader';
 import DialogShell from '../components/DialogShell';
 import EmptyState from '../components/EmptyState';
 import IconButton from '../components/IconButton';
@@ -766,18 +767,12 @@ export default function PluginsPage() {
         maxWidth="2xl"
         padding="none"
       >
-        <div className="dh">
-          <div className="flex flex-col gap-1">
-            <h2 className="ss-h2">{t('plugins.import')}</h2>
-            <p className="text-[13px] text-ink-2">{t('plugins.importHelp')}</p>
-          </div>
-          <IconButton
-            icon={<X size={16} />}
-            label={t('common.close')}
-            disabled={busy}
-            onClick={() => setImporting(false)}
-          />
-        </div>
+        <DialogHeader
+          title={t('plugins.import')}
+          subtitle={t('plugins.importHelp')}
+          onClose={() => setImporting(false)}
+          closeDisabled={busy}
+        />
         <div className="db overflow-y-auto">
           <div className="ss-list">
             {!hostsReady && (
@@ -913,18 +908,12 @@ export default function PluginsPage() {
         maxWidth="2xl"
         padding="none"
       >
-        <div className="dh">
-          <div className="flex flex-col gap-1">
-            <h2 className="ss-h2">{t('plugins.preview')}</h2>
-            <p className="text-[13px] text-ink-2">{t('plugins.previewHelp')}</p>
-          </div>
-          <IconButton
-            icon={<X size={16} />}
-            label={t('common.close')}
-            disabled={busy}
-            onClick={closeReview}
-          />
-        </div>
+        <DialogHeader
+          title={t('plugins.preview')}
+          subtitle={t('plugins.previewHelp')}
+          onClose={closeReview}
+          closeDisabled={busy}
+        />
         <div className="db overflow-y-auto">
           {review?.plan.changes.length === 0 ? (
             <p className="text-[13px] text-ink-2">{t('plugins.noChanges')}</p>

@@ -14,6 +14,7 @@ import { queryKeys } from '../../lib/queryKeys';
 import { shortenHome } from '../../lib/paths';
 import AgentTile from '../AgentTile';
 import Button from '../Button';
+import DialogHeader from '../DialogHeader';
 import DialogShell from '../DialogShell';
 import { lineDiff } from '../instructions/instructionsView';
 import type { DiffLine } from '../instructions/instructionsView';
@@ -314,9 +315,7 @@ export default function MemoryGuidance({
         maxWidth={plan ? '4xl' : 'lg'}
         ariaLabel={t('memory.connect')}
       >
-        <div className="dh">
-          <h2 className="ss-h2">{t(plan ? 'memory.reviewConnections' : 'memory.connect')}</h2>
-        </div>
+        <DialogHeader title={t(plan ? 'memory.reviewConnections' : 'memory.connect')} />
         <div className="db flex flex-col gap-4">
           {error && (
             <div role="alert" className="ss-note bad whitespace-pre-wrap">

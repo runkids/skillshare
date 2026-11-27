@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import Button from './Button';
+import DialogHeader from './DialogHeader';
 import DialogShell from './DialogShell';
 import { useT } from '../i18n';
 
@@ -43,9 +44,7 @@ export default function ConfirmDialog({
       preventClose={loading}
       ariaLabel={title}
     >
-      <div className="dh">
-        <h2 className="ss-h2">{title}</h2>
-      </div>
+      <DialogHeader title={title} />
       <div className="db text-ink-2 overflow-y-auto">{message}</div>
       <div className="df">
         {resolvedCancelText && (

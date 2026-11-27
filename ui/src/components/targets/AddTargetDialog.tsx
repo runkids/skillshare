@@ -15,7 +15,6 @@ import {
   Search,
   SquareTerminal,
   Users,
-  X,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { api, type AvailableTarget, type Target } from '../../api/client';
@@ -28,6 +27,7 @@ import AgentIcon from '../AgentIcon';
 import AgentStack from '../AgentStack';
 import AgentTile from '../AgentTile';
 import Button from '../Button';
+import DialogHeader from '../DialogHeader';
 import DialogShell from '../DialogShell';
 import { Checkbox } from '../Input';
 import { setupPathProblem } from '../instructions/instructionsView';
@@ -448,21 +448,7 @@ export default function AddTargetDialog({
       ariaLabel={title}
       className="!max-w-[720px]"
     >
-      <div className="dh">
-        <div className="flex flex-col gap-1">
-          <h2 className="ss-h2">{title}</h2>
-          <p className="text-[13px] text-ink-2">{subtitle}</p>
-        </div>
-        <button
-          type="button"
-          className="ss-ib"
-          aria-label={t('common.close')}
-          onClick={onClose}
-          disabled={busy}
-        >
-          <X size={16} />
-        </button>
-      </div>
+      <DialogHeader title={title} subtitle={subtitle} onClose={onClose} closeDisabled={busy} />
       <form
         id="add-target"
         className="db"

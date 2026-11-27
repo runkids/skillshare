@@ -1,10 +1,11 @@
 import { scalarText } from '../../lib/scalarText';
 import { useState } from 'react';
-import { TriangleAlert, X } from 'lucide-react';
+import { TriangleAlert } from 'lucide-react';
 import { api, ApiError } from '../../api/client';
 import type { InstructionsWarning } from '../../api/client';
 import Button from '../Button';
 import { Checkbox } from '../Checkbox';
+import DialogHeader from '../DialogHeader';
 import DialogShell from '../DialogShell';
 import { useT } from '../../i18n';
 import { shortenHome } from '../../lib/paths';
@@ -99,28 +100,17 @@ export default function AddLocationDialog({
       ariaLabel={title}
       className="!max-w-[600px]"
     >
-      <div className="dh">
-        <div className="flex flex-col gap-1">
-          <h2 className="ss-h2">{title}</h2>
-          <p className="text-[13px] text-ink-2">
-            {t(
-              project
-                ? 'instructions.locations.dialog.projectSubtitle'
-                : 'instructions.locations.dialog.subtitle',
-              { name, file },
-            )}
-          </p>
-        </div>
-        <button
-          type="button"
-          className="ss-ib"
-          aria-label={t('common.close')}
-          onClick={onClose}
-          disabled={saving}
-        >
-          <X size={16} />
-        </button>
-      </div>
+      <DialogHeader
+        title={title}
+        subtitle={t(
+          project
+            ? 'instructions.locations.dialog.projectSubtitle'
+            : 'instructions.locations.dialog.subtitle',
+          { name, file },
+        )}
+        onClose={onClose}
+        closeDisabled={saving}
+      />
       <div className="db flex flex-col gap-4">
         <div className="grid grid-cols-2 gap-3.5">
           <div className="ss-fld">

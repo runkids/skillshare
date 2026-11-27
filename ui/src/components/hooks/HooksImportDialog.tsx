@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQueries } from '@tanstack/react-query';
-import { Download, Pencil, Plus, Trash2, TriangleAlert, X } from 'lucide-react';
+import { Download, Pencil, Plus, Trash2, TriangleAlert } from 'lucide-react';
 import { hookAgents, hooksApi } from '../../api/hooks';
 import { ApiError } from '../../api/http';
 import type { HookCandidate, HookInventory, HookPreview } from '../../api/hooks';
@@ -11,6 +11,7 @@ import AgentIcon from '../AgentIcon';
 import Button from '../Button';
 import { Checkbox } from '../Checkbox';
 import CodeEditor from '../CodeEditor';
+import DialogHeader from '../DialogHeader';
 import DialogShell from '../DialogShell';
 import { Select } from '../Input';
 import Spinner from '../Spinner';
@@ -308,21 +309,13 @@ export default function HooksImportDialog({
         ariaLabel={title}
         className="!max-w-[720px] !bg-bg"
       >
-        <div className="dh sep">
-          <div className="flex flex-col gap-1">
-            <h2 className="ss-h2">{title}</h2>
-            <p className="text-[13px] text-ink-2">{t('hooks.importReviewHint')}</p>
-          </div>
-          <button
-            type="button"
-            className="ss-ib"
-            aria-label={t('common.close')}
-            onClick={onClose}
-            disabled={busy}
-          >
-            <X size={16} />
-          </button>
-        </div>
+        <DialogHeader
+          className="sep"
+          title={title}
+          subtitle={t('hooks.importReviewHint')}
+          onClose={onClose}
+          closeDisabled={busy}
+        />
         <div className="db !gap-5">
           <div className="ss-list">
             {chosen.length > 0 && (
@@ -443,21 +436,12 @@ export default function HooksImportDialog({
       ariaLabel={title}
       className="!max-w-[1120px] !bg-bg"
     >
-      <div className="dh">
-        <div className="flex flex-col gap-1">
-          <h2 className="ss-h2">{title}</h2>
-          <p className="text-[13px] text-ink-2">{t('hooks.importHint')}</p>
-        </div>
-        <button
-          type="button"
-          className="ss-ib"
-          aria-label={t('common.close')}
-          onClick={onClose}
-          disabled={busy}
-        >
-          <X size={16} />
-        </button>
-      </div>
+      <DialogHeader
+        title={title}
+        subtitle={t('hooks.importHint')}
+        onClose={onClose}
+        closeDisabled={busy}
+      />
       <div className="flex h-[620px] max-h-[calc(100vh-240px)] min-h-0 gap-5 px-[22px] pt-[18px]">
         <nav
           aria-label={t('hooks.importTargets')}

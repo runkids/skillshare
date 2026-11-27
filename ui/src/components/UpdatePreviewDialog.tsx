@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { ExternalLink, X } from 'lucide-react';
+import { ExternalLink } from 'lucide-react';
 import { api, ApiError } from '../api/client';
 import type { RepoUpstreamChanges } from '../api/client';
 import { queryKeys } from '../lib/queryKeys';
@@ -11,6 +11,7 @@ import {
 } from '../lib/updateFilters';
 import { formatNumber, formatRelativeTime, plural, useI18n, useT } from '../i18n';
 import Button from './Button';
+import DialogHeader from './DialogHeader';
 import DialogShell from './DialogShell';
 import FileDiffList, { LocalChanges } from './FileDiffList';
 import Spinner from './Spinner';
@@ -41,20 +42,13 @@ export default function UpdatePreviewDialog({
     <DialogShell open={!!unit} onClose={onClose} maxWidth="3xl" padding="none" ariaLabel={title}>
       {unit && (
         <>
-          <div className="dh flex items-start gap-3">
-            <div className="flex flex-col gap-1 min-w-0 flex-1">
-              <h2 className="ss-h2 font-mono break-all">{unit.label}</h2>
-              <span className="text-[13px] text-ink-2">{title}</span>
-            </div>
-            <button
-              type="button"
-              className="ss-ib shrink-0"
-              aria-label={t('common.close')}
-              onClick={onClose}
-            >
-              <X size={16} />
-            </button>
-          </div>
+          <DialogHeader
+            className="flex items-start gap-3"
+            title={unit.label}
+            titleClassName="font-mono break-all"
+            subtitle={title}
+            onClose={onClose}
+          />
           <div className="db text-ink-2 overflow-y-auto">
             {local ? (
               <>

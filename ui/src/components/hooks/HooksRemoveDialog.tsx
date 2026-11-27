@@ -1,9 +1,10 @@
 import { useId, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Info, X } from 'lucide-react';
+import { Info } from 'lucide-react';
 import { hooksApi } from '../../api/hooks';
 import { useI18n, plural } from '../../i18n';
 import Button from '../Button';
+import DialogHeader from '../DialogHeader';
 import DialogShell from '../DialogShell';
 import Spinner from '../Spinner';
 import Tooltip from '../Tooltip';
@@ -91,18 +92,7 @@ export default function HooksRemoveDialog({
       ariaLabel={title}
       className="!max-w-[880px]"
     >
-      <div className="dh">
-        <h2 className="ss-h2">{title}</h2>
-        <button
-          type="button"
-          className="ss-ib"
-          aria-label={t('common.close')}
-          onClick={onClose}
-          disabled={busy}
-        >
-          <X size={16} />
-        </button>
-      </div>
+      <DialogHeader title={title} onClose={onClose} closeDisabled={busy} />
       <div className="db">
         <p className="text-[13px]">{t('hooks.removeDesc', { name })}</p>
         {others.length > 0 && (

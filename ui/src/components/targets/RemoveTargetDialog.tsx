@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Trash2, X } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import { api, type Target } from '../../api/client';
 import { shortenHome } from '../../lib/paths';
 import { useT, plural } from '../../i18n';
 import Button from '../Button';
+import DialogHeader from '../DialogHeader';
 import DialogShell from '../DialogShell';
 
 /** What removal does mirrors handleRemoveTarget: merge links become copies, a whole-folder link is deleted, copies stay. */
@@ -49,21 +50,12 @@ export default function RemoveTargetDialog({
       ariaLabel={title}
       className="!max-w-[460px]"
     >
-      <div className="dh">
-        <div className="flex flex-col gap-1">
-          <h2 className="ss-h2">{title}</h2>
-          <p className="text-[13px] text-ink-2">{t('targets.remove.subtitle')}</p>
-        </div>
-        <button
-          type="button"
-          className="ss-ib"
-          aria-label={t('common.close')}
-          onClick={onClose}
-          disabled={busy}
-        >
-          <X size={16} />
-        </button>
-      </div>
+      <DialogHeader
+        title={title}
+        subtitle={t('targets.remove.subtitle')}
+        onClose={onClose}
+        closeDisabled={busy}
+      />
       <div className="db !gap-2.5 text-[13.5px] leading-relaxed">
         <p>{effect}</p>
         <p>{t('targets.remove.untouched')}</p>

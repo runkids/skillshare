@@ -1,5 +1,6 @@
 import { Fragment, useMemo } from 'react';
 import Button from '../Button';
+import DialogHeader from '../DialogHeader';
 import DialogShell from '../DialogShell';
 import { useT } from '../../i18n';
 
@@ -79,16 +80,12 @@ export default function DiffView({ oldText, newText, saving, onConfirm, onCancel
       ariaLabel={title}
       preventClose={saving}
     >
-      <div className="dh">
-        <div className="flex flex-col gap-1">
-          <h2 className="ss-h2">{title}</h2>
-          <p className="text-[13px] text-ink-2">
-            {t(changed === 1 ? 'skillEditor.review.line' : 'skillEditor.review.lines', {
-              count: changed,
-            })}
-          </p>
-        </div>
-      </div>
+      <DialogHeader
+        title={title}
+        subtitle={t(changed === 1 ? 'skillEditor.review.line' : 'skillEditor.review.lines', {
+          count: changed,
+        })}
+      />
       <div className="db">
         <div className="ss-code !overflow-auto max-h-[60vh]">
           <div className="min-w-max">

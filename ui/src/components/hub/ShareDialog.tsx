@@ -2,11 +2,12 @@ import { scalarText } from '../../lib/scalarText';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Check, Copy, Download, X } from 'lucide-react';
+import { Check, Copy, Download } from 'lucide-react';
 import { ApiError } from '../../api/client';
 import { hubAddCommand, hubDrafts } from '../../api/hubDrafts';
 import type { DraftResponse } from '../../api/hubDrafts';
 import Button from '../Button';
+import DialogHeader from '../DialogHeader';
 import DialogShell from '../DialogShell';
 import { blockedEntries, downloadIndex, publishable } from './hubShared';
 import { queryKeys } from '../../lib/queryKeys';
@@ -109,29 +110,20 @@ export default function ShareDialog({
       preventClose={busy}
       ariaLabel={t('hubs.share.title', { name })}
     >
-      <div className="dh">
-        <div className="flex flex-col gap-1">
-          <h2 className="ss-h2">{t('hubs.share.title', { name })}</h2>
-          <p className="text-[13px] text-ink-2">
-            {empty
-              ? t('hubBuilder.problem.empty')
-              : blocked > 0
-                ? t(plural('hubBuilder.blocked', blocked), { count: blocked })
-                : t(plural('hubs.share.ready', draft.entries.length), {
-                    count: draft.entries.length,
-                  })}
-          </p>
-        </div>
-        <button
-          type="button"
-          className="ss-ib"
-          onClick={() => void close()}
-          aria-label={t('common.close')}
-          disabled={busy}
-        >
-          <X size={16} />
-        </button>
-      </div>
+      <DialogHeader
+        title={t('hubs.share.title', { name })}
+        subtitle={
+          empty
+            ? t('hubBuilder.problem.empty')
+            : blocked > 0
+              ? t(plural('hubBuilder.blocked', blocked), { count: blocked })
+              : t(plural('hubs.share.ready', draft.entries.length), {
+                  count: draft.entries.length,
+                })
+        }
+        onClose={() => void close()}
+        closeDisabled={busy}
+      />
       <div className="db !gap-5">
         {error && (
           <div role="alert" className="ss-note bad">

@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 
 import { api, type UnmatchedInclude } from '../api/client';
 import Button from './Button';
+import DialogHeader from './DialogHeader';
 import DialogShell from './DialogShell';
 import Spinner from './Spinner';
 import SyncResultList, { SyncUpToDate } from './SyncResultList';
@@ -99,13 +100,10 @@ export default function SyncPreviewModal({
       ariaLabel={title}
       className={className}
     >
-      <div className="dh">
-        <div className="flex flex-col gap-1">
-          <h2 className="ss-h2">{title}</h2>
-          {kind && !synced && (
-            <p className="text-[13px] text-ink-2">{t(`syncPreview.scope.${kind}`)}</p>
-          )}
-        </div>
+      <DialogHeader
+        title={title}
+        subtitle={kind && !synced ? t(`syncPreview.scope.${kind}`) : null}
+      >
         {!loading && !synced && (
           <button
             type="button"
@@ -117,7 +115,7 @@ export default function SyncPreviewModal({
             <RefreshCw size={16} />
           </button>
         )}
-      </div>
+      </DialogHeader>
 
       <div className="db">
         {synced ? (

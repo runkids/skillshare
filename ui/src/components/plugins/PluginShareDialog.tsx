@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Copy, X } from 'lucide-react';
+import { Copy } from 'lucide-react';
 import Button from '../Button';
 import { Checkbox } from '../Checkbox';
+import DialogHeader from '../DialogHeader';
 import DialogShell from '../DialogShell';
-import IconButton from '../IconButton';
 import PiPackageIcon from '../PiPackageIcon';
 import { useToast } from '../Toast';
 import { useT } from '../../i18n';
@@ -65,13 +65,11 @@ export default function PluginShareDialog({ plugins, initial, onClose }: Props) 
       maxWidth="2xl"
       padding="none"
     >
-      <div className="dh">
-        <div className="flex flex-col gap-1">
-          <h2 className="ss-h2">{t('plugins.share')}</h2>
-          <p className="text-[13px] text-ink-2">{t('plugins.shareHelp')}</p>
-        </div>
-        <IconButton icon={<X size={16} />} label={t('common.close')} onClick={onClose} />
-      </div>
+      <DialogHeader
+        title={t('plugins.share')}
+        subtitle={t('plugins.shareHelp')}
+        onClose={onClose}
+      />
       <div className="db overflow-y-auto">
         <div className="ss-list max-h-[320px] overflow-y-auto !shadow-none">
           <div className="ss-lh !px-4">

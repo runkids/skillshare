@@ -27,7 +27,6 @@ import {
   ShieldCheck,
   Trash2,
   TriangleAlert,
-  X,
 } from 'lucide-react';
 import {
   api,
@@ -56,6 +55,7 @@ import { formatDateTime, formatNumber, formatRelativeTime, useI18n, useT, plural
 import AgentTile from '../components/AgentTile';
 import Button from '../components/Button';
 import ConfirmDialog from '../components/ConfirmDialog';
+import DialogHeader from '../components/DialogHeader';
 import DialogShell from '../components/DialogShell';
 import EmptyState from '../components/EmptyState';
 import FindingList from '../components/FindingList';
@@ -1467,21 +1467,13 @@ function BlockedDialog({
       ariaLabel={title}
       preventClose={loading}
     >
-      <div className="dh">
-        <div className="flex flex-col gap-1">
-          <h2 className="ss-h2">{title}</h2>
-          <p className="font-mono text-[13px] text-ink-2">{name}</p>
-        </div>
-        <button
-          type="button"
-          className="ss-ib"
-          aria-label={t('common.close')}
-          onClick={onClose}
-          disabled={loading}
-        >
-          <X size={16} />
-        </button>
-      </div>
+      <DialogHeader
+        title={title}
+        subtitle={name}
+        subtitleProps={{ className: 'font-mono text-[13px] text-ink-2' }}
+        onClose={onClose}
+        closeDisabled={loading}
+      />
       <div className="db">
         <div className="ss-note bad">
           <TriangleAlert size={16} />

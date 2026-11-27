@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { RotateCcw, X } from 'lucide-react';
+import { RotateCcw } from 'lucide-react';
 import { hooksApi, type HookBackup } from '../../api/hooks';
 import { formatDateTime, useI18n } from '../../i18n';
 import { shortenHome } from '../../lib/paths';
 import AgentTile from '../AgentTile';
 import Button from '../Button';
+import DialogHeader from '../DialogHeader';
 import DialogShell from '../DialogShell';
 import Spinner from '../Spinner';
 import HooksPreview from './HooksPreview';
@@ -56,21 +57,12 @@ export default function HooksRestoreDialog({ backups, initialId, onClose, onRest
       ariaLabel={title}
       className="!max-w-[680px]"
     >
-      <div className="dh">
-        <div className="flex flex-col gap-1">
-          <h2 className="ss-h2">{title}</h2>
-          <p className="text-[13px] text-ink-2">{t('hooks.backupsHint')}</p>
-        </div>
-        <button
-          type="button"
-          className="ss-ib"
-          aria-label={t('common.close')}
-          onClick={onClose}
-          disabled={busy}
-        >
-          <X size={16} />
-        </button>
-      </div>
+      <DialogHeader
+        title={title}
+        subtitle={t('hooks.backupsHint')}
+        onClose={onClose}
+        closeDisabled={busy}
+      />
       <div className="db">
         <div
           role="radiogroup"

@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Info, X } from 'lucide-react';
+import { Info } from 'lucide-react';
 import { mcpApi } from '../../api/mcp';
 import AgentTile from '../AgentTile';
 import Button from '../Button';
+import DialogHeader from '../DialogHeader';
 import DialogShell from '../DialogShell';
 import Spinner from '../Spinner';
 import { useI18n, plural } from '../../i18n';
@@ -81,18 +82,7 @@ export default function MCPRemoveDialog({
       ariaLabel={title}
       className="!max-w-[600px]"
     >
-      <div className="dh">
-        <h2 className="ss-h2">{title}</h2>
-        <button
-          type="button"
-          className="ss-ib"
-          aria-label={t('common.close')}
-          onClick={onClose}
-          disabled={busy}
-        >
-          <X size={16} />
-        </button>
-      </div>
+      <DialogHeader title={title} onClose={onClose} closeDisabled={busy} />
       <div className="db">
         <p className="text-[13px]">{t('mcp.removeDesc')}</p>
         {users.length > 0 && (

@@ -14,6 +14,7 @@ import { useT, plural } from '../../i18n';
 import { relativeTo, shortenHome } from '../../lib/paths';
 import { queryKeys } from '../../lib/queryKeys';
 import Button from '../Button';
+import DialogHeader from '../DialogHeader';
 import DialogShell from '../DialogShell';
 import Spinner from '../Spinner';
 import { SyncBox } from '../StatusRail';
@@ -115,18 +116,16 @@ export function HooksSyncDialog({
       preventClose={running}
       ariaLabel={title}
     >
-      <div className="dh">
-        <div className="flex flex-col gap-1">
-          <h2 className="ss-h2">{done ? t('syncPreview.titleComplete') : title}</h2>
-          {!done && (
-            <p className="text-[13px] text-ink-2">
-              {replacing.length > 0
-                ? t('hooks.takeoverMessage')
-                : t(project ? 'hooks.syncDialog.subtitle' : 'hooks.syncDialog.globalSubtitle')}
-            </p>
-          )}
-        </div>
-      </div>
+      <DialogHeader
+        title={done ? t('syncPreview.titleComplete') : title}
+        subtitle={
+          !done
+            ? replacing.length > 0
+              ? t('hooks.takeoverMessage')
+              : t(project ? 'hooks.syncDialog.subtitle' : 'hooks.syncDialog.globalSubtitle')
+            : null
+        }
+      />
       <div className="db">
         {done ? (
           <div className="ss-note inf">

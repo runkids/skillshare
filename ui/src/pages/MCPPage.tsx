@@ -13,7 +13,6 @@ import {
   PowerOff,
   ToggleRight,
   Trash2,
-  X,
 } from 'lucide-react';
 import {
   isShared,
@@ -25,6 +24,7 @@ import {
 } from '../api/mcp';
 import Button from '../components/Button';
 import { useAppContext } from '../context/AppContext';
+import DialogHeader from '../components/DialogHeader';
 import DialogShell from '../components/DialogShell';
 import EmptyState from '../components/EmptyState';
 import PageHeader from '../components/PageHeader';
@@ -658,18 +658,7 @@ function MCPReplaceDialog({
     >
       {replace && (
         <>
-          <div className="dh">
-            <h2 className="ss-h2">{t('mcp.replace')}</h2>
-            <button
-              type="button"
-              className="ss-ib"
-              aria-label={t('common.close')}
-              onClick={onClose}
-              disabled={busy}
-            >
-              <X size={16} />
-            </button>
-          </div>
+          <DialogHeader title={t('mcp.replace')} onClose={onClose} closeDisabled={busy} />
           <div className="db">
             <MCPPreview plan={replace.plan} />
           </div>

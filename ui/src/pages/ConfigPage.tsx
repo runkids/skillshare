@@ -12,7 +12,6 @@ import {
   WandSparkles,
   Maximize2,
   Minimize2,
-  X,
 } from 'lucide-react';
 import { useT } from '../i18n';
 import CodeMirror from '@uiw/react-codemirror';
@@ -33,6 +32,7 @@ import { useToast } from '../components/Toast';
 import AssistantPanel from '../components/config/AssistantPanel';
 import ConfirmDialog from '../components/ConfirmDialog';
 import FilesDialog from '../components/FilesDialog';
+import DialogHeader from '../components/DialogHeader';
 import DialogShell from '../components/DialogShell';
 import { api, isConnectionLost } from '../api/client';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
@@ -581,17 +581,11 @@ export default function ConfigPage() {
         preventClose
         ariaLabel={t('config.expand')}
       >
-        <div className="dh">
-          <h2 className="ss-h2 font-mono">{FILES.find((f) => f.value === tab)?.label}</h2>
-          <button
-            type="button"
-            className="ss-ib"
-            onClick={() => setExpanded(false)}
-            aria-label={t('common.close')}
-          >
-            <X size={16} />
-          </button>
-        </div>
+        <DialogHeader
+          title={FILES.find((f) => f.value === tab)?.label}
+          titleClassName="font-mono"
+          onClose={() => setExpanded(false)}
+        />
         <div className="db">
           <div className="grid grid-cols-[minmax(0,1fr)_360px] items-start gap-5">
             {expanded && editorBlock}
