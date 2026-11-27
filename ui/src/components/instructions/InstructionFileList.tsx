@@ -66,7 +66,7 @@ export default function InstructionFileList({
               aria-current={on || undefined}
               onClick={() => onSelect(item.id)}
               title={item.path}
-              className={`flex shrink-0 items-center gap-2.5 rounded-[8px] border px-2.5 py-2 text-left ${on ? 'border-line bg-surface' : 'border-transparent hover:bg-sunken'}`}
+              className={`flex shrink-0 items-center gap-2.5 rounded-[var(--r-sm)] border px-2.5 py-2 text-left ${on ? 'border-line bg-surface' : 'border-transparent hover:bg-sunken'}`}
             >
               <span className="flex shrink-0 items-center">
                 <AgentIcon target={item.id} size={18} />

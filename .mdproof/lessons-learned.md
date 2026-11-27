@@ -60,14 +60,14 @@
 ### [gotcha] Don't nest ssenv inside mdproof — use mdproof's own isolation
 
 - **Context**: cli-e2e-test skill wraps mdproof inside `ssenv enter $ENV -- mdproof ...`, but mdproof.json has its own `setup` command that runs `ss init -g --force`
-- **Discovery**: `ssenv create --init` already initializes the environment. When mdproof's setup then runs `ss init -g --force`, it fails with "already initialized" (exit code 1), causing ALL steps to be "skipped". mdproof's `isolation: per-runbook` creates its own isolated `$HOME`/`$TMPDIR` per runbook, making ssenv redundant
+- **Discovery**: mdproof's `isolation: per-runbook` creates its own isolated `$HOME`/`$TMPDIR` per runbook, making ssenv redundant. Nested inside ssenv, the setup hook reports passed but initializes a different `HOME` from the one the steps run in, so the steps find no config and fail (verified with mdproof v0.0.9)
 - **Fix**: Run `mdproof` directly inside the container (`docker exec $CONTAINER mdproof ...`) without wrapping in `ssenv`. mdproof handles its own isolation. Only use ssenv for manual interactive debugging
 - **Runbooks affected**: All runbooks when run via the cli-e2e-test skill
 
 ### [pattern] Self-contained steps avoid mdproof setup conflicts
 
-- **Context**: extras_flatten_runbook needed multi-step state (step 1 creates source files, step 4 syncs them). But mdproof.json's `setup` re-runs `ss init -g --force` before EACH step, wiping config.yaml including extras configuration from previous steps
-- **Discovery**: The mdproof global `setup` is designed to give each step a clean init state. This conflicts with runbooks that build state across steps (extras init → sync → verify). Combined with the ssenv+mdproof dual HOME isolation issue, the flatten runbook couldn't use mdproof at all
+- **Context**: extras_flatten_runbook needed multi-step state (step 1 creates source files, step 4 syncs them). mdproof.json's `setup` (`ss init -g --force`) runs once before each runbook, not before each step (`mdproof --help`: "command to run before each runbook"); the state problem came from the ssenv+mdproof dual HOME above
+- **Discovery**: State built in one step carries to the next within a runbook. Run inside ssenv, the steps did not see the setup's config (the dual HOME issue above), so the flatten runbook couldn't use mdproof that way
 - **Fix**: Make each step fully self-contained — every step includes its own cleanup + source creation + extras init + action + assertion in one bash block. Verbose but reliable. The runbook was ultimately executed via direct `ssenv enter ... -- bash -c '...'` instead of mdproof
 - **Tradeoff**: Self-contained steps are verbose (~15 lines per step vs ~3) but eliminate all setup/state dependency issues. Best for extras runbooks where state must persist across config operations
 - **Runbooks affected**: extras_flatten_runbook.md (all 9 steps are self-contained)

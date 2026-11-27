@@ -162,6 +162,9 @@ type Unmanaged struct {
 	Target  string   `json:"target"`
 	Path    string   `json:"path"`
 	Names   []string `json:"names"`
+	// Importable is false for sources Skillshare only lists: Codex inline TOML, OMP
+	// factories, Droid's legacy file, Claude's local project settings and Git config.
+	Importable bool `json:"importable"`
 }
 
 // Inventory is everything the list views need.

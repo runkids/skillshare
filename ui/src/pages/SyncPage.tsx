@@ -63,6 +63,7 @@ import {
 } from '../components/sync/syncView';
 import FolderConflictNotice from '../components/sync/FolderConflictNotice';
 import SyncResult from '../components/sync/SyncResult';
+import SharedNameNotices from '../components/sync/SharedNameNotices';
 import UnmatchedNotices from '../components/sync/UnmatchedNotices';
 import SyncError from '../components/sync/SyncError';
 import SkillsOffDialog from '../components/targets/SkillsOffDialog';
@@ -252,6 +253,7 @@ export default function SyncPage() {
   const last = log.data?.entries.find((e) => !e.args?.dry_run);
   const targetList = targets.data?.targets ?? [];
   const conflicts = diff.data?.folder_conflicts ?? [];
+  const unavailableLinks = diff.data?.unavailable_source_links ?? [];
   const stopTarget = targetList.find((x) => x.name === stopping);
   const stopConflict = conflicts.find((c) => c.stop.includes(stopping));
   // Skill names and Discard all need the skills list and matrix only while skills are being added.
@@ -607,6 +609,7 @@ export default function SyncPage() {
             onForce={() => setForce(true)}
           />
           <UnmatchedNotices items={outcome?.unmatched} />
+          <SharedNameNotices items={outcome?.shared_names} />
           {!!outcome?.path_overlap && (
             <div className="ss-note warn !items-center">
               <TriangleAlert size={16} />
@@ -620,6 +623,12 @@ export default function SyncPage() {
               </Link>
             </div>
           )}
+          {unavailableLinks.map((name) => (
+            <div key={name} className="ss-note warn">
+              <TriangleAlert size={16} />
+              <span>{t('sync.sourceLinkUnavailable', { name })}</span>
+            </div>
+          ))}
           {conflicts.map((c) => (
             <FolderConflictNotice
               key={c.path}

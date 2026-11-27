@@ -92,8 +92,6 @@ func SyncTargetCopyWithSkillsOptions(name string, target config.TargetConfig, al
 	if err != nil {
 		return nil, fmt.Errorf("failed to read manifest: %w", err)
 	}
-	naming := resolution.Naming
-
 	taken := resolution.ValidTargetNames()
 	for i, resolved := range resolution.Skills {
 		skill := resolved.Skill
@@ -117,6 +115,7 @@ func SyncTargetCopyWithSkillsOptions(name string, target config.TargetConfig, al
 		// refreshed even when the source is unchanged. A legacy entry kept
 		// under its old name keeps its old naming.
 		onDesiredName := activeName == resolved.TargetName
+		naming := resolved.Naming
 		recordedNaming := manifest.Naming[activeName]
 		namingChanged := onDesiredName && recordedNaming != "" && recordedNaming != naming
 		// Under prefixed naming the copy's name: becomes the entry name, so it
@@ -126,11 +125,18 @@ func SyncTargetCopyWithSkillsOptions(name string, target config.TargetConfig, al
 			rewriteName = resolved.TargetName
 		}
 		recordNaming := func() {
-			if onDesiredName && !dryRun {
+			if dryRun {
+				return
+			}
+			if manifest.Origins == nil {
+				manifest.Origins = make(map[string]string)
+			}
+			manifest.Origins[activeName] = skill.RelPath
+			if onDesiredName {
 				manifest.Naming[activeName] = naming
 			}
 		}
-		if mtimeErr == nil && isManaged && !force && !namingChanged && oldMtime > 0 && currentMtime == oldMtime {
+		if mtimeErr == nil && isManaged && !force && !namingChanged && manifest.CopyUnchanged(activeName, skill.RelPath, currentMtime) {
 			// Verify target still exists as a directory (user may have replaced it)
 			if ti, err := os.Lstat(targetSkillPath); err == nil && ti.IsDir() {
 				recordNaming()

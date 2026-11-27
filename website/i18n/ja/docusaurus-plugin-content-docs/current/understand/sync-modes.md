@@ -261,13 +261,13 @@ skillshare target claude --target-naming standard
 skillshare sync
 ```
 
-**Standard mode** は [Agent Skills specification](https://agentskills.io/specification) に従い、SKILL.md の `name` フィールドが親ディレクトリ名と一致することを要求します。有効な名前は最大 64 文字の小文字（どの文字体系でも可）、数字、単独のハイフンで構成され、`-` で始まったり終わったりしません。アンダースコアは使えません。名前が無効な Skill や名前の衝突は警告され、スキップされます。
+**Standard mode** は [Agent Skills specification](https://agentskills.io/specification) に従い、SKILL.md の `name` フィールドが親ディレクトリ名と一致することを要求します。有効な名前は最大 64 文字の小文字（どの文字体系でも可）、数字、単独のハイフンで構成され、`-` で始まったり終わったりしません。アンダースコアは使えません。名前が無効な Skill は警告され、スキップされます。同じ名前の Skill は `flat` と同じくフルパス名（`_team-a__ui`、`_team-b__ui`）で sync されるため、どれも落とされません。source の最上位にある Skill は、それがフルパスなので名前を保ちます。まれにフルパス名が別の Skill の名前と同じになる場合、sync は警告してその Skill をスキップします。`name:` で Skill を読み込むツールには `ui` が 2 つ見えるため、どれかの名前（フォルダ名と `SKILL.md` の名前）を変えるか、フィルターを調整して、それぞれに固有の名前を付けてください。
 
-**Prefixed mode** は、同じ名前の Skill を提供する tracked repo のためのものです。`standard` では、別々の repo にある 2 つの `prototype` Skill が衝突して両方ともスキップされますが、`prefixed` では tracked repo 内の各 Skill が `<repo>-<name>` になるため、両方がツールに届きます。`<repo>` は tracked repo フォルダー名から先頭の `_` を除き、小文字にし、文字と数字（任意の文字体系）以外をすべて `-` に置き換えたものです。prefixed 名はフォルダー名として使われ、コピーされた `SKILL.md` の `name:` にも書き込まれます。source は変更されません。
+**Prefixed mode** は、同じ名前の Skill を提供する tracked repo のためのものです。`standard` では、別々の repo にある 2 つの `prototype` Skill が同じ名前になるため両方ともフルパス名になりますが、`prefixed` では tracked repo 内の各 Skill が `<repo>-<name>` になるため、両方がツールに届きます。`<repo>` は tracked repo フォルダー名から先頭の `_` を除き、小文字にし、文字と数字（任意の文字体系）以外をすべて `-` に置き換えたものです。prefixed 名はフォルダー名として使われ、コピーされた `SKILL.md` の `name:` にも書き込まれます。source は変更されません。
 
 - 名前がすでに repo 名で始まっている場合は、再度プレフィックスを付けません: `_bmad/skills/bmad-ux` は `bmad-ux` のままです。
 - tracked repo の外にある Skill は名前をそのまま保ちます。
-- source の Skill の `name:` は `standard` の命名規則に従う必要がありますが、コピーの `name:` は書き換えられるため、フォルダー名と一致する必要はありません。それ自体が Skill である tracked repo（`name: ooux` の `_ooux`）は `ooux` として sync されます。このように命名された Skill は sync が一覧表示します。prefixed 名が 64 文字を超える場合は警告付きでスキップされ、それでも名前が衝突する場合は `standard` と同様にスキップされます。tracked Skill は `SKILL.md` で名前を変更できないため、sync はもう一方の Skill の名前を変えるか、`--name` で repo を再度 track することを提案します。
+- source の Skill の `name:` は `standard` の命名規則に従う必要がありますが、コピーの `name:` は書き換えられるため、フォルダー名と一致する必要はありません。それ自体が Skill である tracked repo（`name: ooux` の `_ooux`）は `ooux` として sync されます。このように命名された Skill は sync が一覧表示します。prefixed 名が 64 文字を超える場合は警告付きでスキップされ、それでも名前が衝突する場合は `standard` と同様にフルパス名になります。tracked Skill は `SKILL.md` で名前を変更できないため、sync はもう一方の Skill の名前を変えるか、`--name` で repo を再度 track することを提案します。
 - より短いプレフィックスにしたい場合は、repo を短い名前で track します: `skillshare install <repo> --track --name mp` は `mp-prototype` になります。
 - 兄弟 Skill への相対リンク（`../other-skill/`）は書き換えられません。これは copy mode の `flat` と同じです。
 - この名前がツールに表示される名前になります。Claude Code ではスラッシュコマンドになります。例: `/mattpocock-skills-prototype`。

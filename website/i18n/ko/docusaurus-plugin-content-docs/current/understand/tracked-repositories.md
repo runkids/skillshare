@@ -294,18 +294,19 @@ tag와 commit SHA는 `--track`과 함께 사용할 수 없습니다. tracked rep
 **충돌이 동일한 target에 도달함** — 실행 가능한 경고입니다:
 
 ```
-! 1 duplicate skill names detected
+! 1 duplicate skill names detected; those skills sync under their full path name
   ui                              _team-a/ vs _team-b/
-  Rename one in SKILL.md or adjust include/exclude filters
-  1 name collision(s) excluded
+  Rename one of them (its folder and the name in its SKILL.md) or adjust include/exclude filters
 ```
+
+두 skill 모두 `_team-a__ui`와 `_team-b__ui`로 target에 전달됩니다.
 
 `target_naming: prefixed`에서는 tracked skill이 이미 그 접두사 이름을 가진 skill과 충돌할 수도 있습니다(`_alpha/prototype`은 `alpha-prototype`이 됩니다). tracked skill은 `SKILL.md`에서 이름을 바꿀 수 없으므로 sync는 다른 skill의 이름을 바꾸거나 `--name`으로 repo를 다시 track하도록 안내합니다.
 
 **모범 사례** — skill에 네임스페이스를 부여하거나 필터를 사용하세요:
 
 ```yaml
-# Option 1: Namespace in SKILL.md
+# 옵션 1: 폴더와 SKILL.md의 이름을 함께 변경
 name: team-a-ui
 
 # Option 2: Route with filters (global config)

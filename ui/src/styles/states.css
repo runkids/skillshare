@@ -178,10 +178,10 @@
     background: var(--sunken);
   }
   :root:not([data-theme='playful']) .ss-counts > a:first-child {
-    border-radius: 12px 0 0 12px;
+    border-radius: var(--r-box) 0 0 var(--r-box);
   }
   :root:not([data-theme='playful']) .ss-counts > a:last-child {
-    border-radius: 0 12px 12px 0;
+    border-radius: 0 var(--r-box) var(--r-box) 0;
   }
   @media (hover: hover) and (pointer: fine) {
     :root[data-theme='playful'] .ss-counts > a:hover {
@@ -200,10 +200,10 @@
     background: var(--accent-bg);
   }
   :root:not([data-theme='playful']) .ss-counts > button:first-child {
-    border-radius: 12px 0 0 12px;
+    border-radius: var(--r-box) 0 0 var(--r-box);
   }
   :root:not([data-theme='playful']) .ss-counts > button:last-child {
-    border-radius: 0 12px 12px 0;
+    border-radius: 0 var(--r-box) var(--r-box) 0;
   }
   .ss-sw {
     transition: background-color 0.15s;
@@ -293,7 +293,7 @@
     padding: 10px 18px;
     background: var(--surface);
     border: var(--frame);
-    border-radius: 14px;
+    border-radius: var(--r-float);
     box-shadow: var(--sh-float);
     font-size: 13px;
     color: var(--ink-2);

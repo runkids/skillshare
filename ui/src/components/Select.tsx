@@ -355,7 +355,7 @@ export function Select({
               role="option"
               aria-selected={isSelected}
               aria-disabled={opt.disabled || undefined}
-              className={`min-h-8 shrink-0 rounded-[7px] flex ${quiet ? 'items-start gap-2.5 p-2.5' : 'items-center gap-2 px-2 py-1.5'} ${opt.disabled ? 'cursor-not-allowed text-ink-3' : isFocused ? 'cursor-pointer bg-sel text-sel-ink' : isSelected || quiet ? 'cursor-pointer text-ink' : 'cursor-pointer text-ink-2'}`}
+              className={`min-h-8 shrink-0 rounded-[var(--r-in)] flex ${quiet ? 'items-start gap-2.5 p-2.5' : 'items-center gap-2 px-2 py-1.5'} ${opt.disabled ? 'cursor-not-allowed text-ink-3' : isFocused ? 'cursor-pointer bg-sel text-sel-ink' : isSelected || quiet ? 'cursor-pointer text-ink' : 'cursor-pointer text-ink-2'}`}
               onMouseEnter={() => setFocusIdx(i)}
               onMouseDown={(e) => {
                 e.preventDefault();
@@ -466,7 +466,7 @@ export function Select({
           disabled={disabled}
           onClick={toggle}
           onKeyDown={handleKeyDown}
-          className={`inline-flex h-[30px] cursor-pointer items-center gap-1 rounded-[8px] px-2 text-[13px] font-semibold text-ink outline-none hover:bg-sel disabled:cursor-not-allowed disabled:opacity-50 ${open ? 'bg-sel' : 'bg-transparent'} ${chosen[0]?.mono ? 'font-mono' : ''}`}
+          className={`inline-flex h-[30px] cursor-pointer items-center gap-1 rounded-[var(--r-sm)] px-2 text-[13px] font-semibold text-ink outline-none hover:bg-sel disabled:cursor-not-allowed disabled:opacity-50 ${open ? 'bg-sel' : 'bg-transparent'} ${chosen[0]?.mono ? 'font-mono' : ''}`}
           role="combobox"
           aria-label={ariaLabel}
           aria-expanded={open}
@@ -527,7 +527,7 @@ export function Select({
               className={menuClass}
               style={menuStyle}
             >
-              <label className="mb-1 flex h-8 shrink-0 items-center gap-2 rounded-[7px] bg-sunken px-2 text-ink-3">
+              <label className="mb-1 flex h-8 shrink-0 items-center gap-2 rounded-[var(--r-in)] bg-sunken px-2 text-ink-3">
                 <Search size={14} aria-hidden className="shrink-0" />
                 <input
                   autoFocus

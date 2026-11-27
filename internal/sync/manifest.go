@@ -20,10 +20,14 @@ const manifestSymlink = "symlink"
 // Manifest tracks which skills are managed by skillshare in a target directory.
 // Used by both merge mode (values: "symlink") and copy mode (values: SHA-256 checksum).
 type Manifest struct {
-	Managed   map[string]string `json:"managed"`           // flatName → "symlink" (merge) or SHA-256 checksum (copy)
-	Mtimes    map[string]int64  `json:"mtimes,omitempty"`  // flatName → source dir max mtime (UnixNano), copy mode only
-	Sources   map[string]string `json:"sources,omitempty"` // output name → SHA-256 of the source it was converted from, extension outputs only
-	Naming    map[string]string `json:"naming,omitempty"`  // entry name → target_naming that produced it, copy mode only
+	Managed map[string]string `json:"managed"`           // flatName → "symlink" (merge) or SHA-256 checksum (copy)
+	Mtimes  map[string]int64  `json:"mtimes,omitempty"`  // flatName → source dir max mtime (UnixNano), copy mode only
+	Sources map[string]string `json:"sources,omitempty"` // output name → SHA-256 of the source it was converted from, extension outputs only
+	Naming  map[string]string `json:"naming,omitempty"`  // entry name → target_naming that produced it, copy mode only
+	// Origins maps an entry name to the source path (RelPath) of the skill it
+	// was copied from, copy mode only. A name passes between skills when a
+	// shared name appears or goes, so an unchanged mtime alone is not enough.
+	Origins   map[string]string `json:"origins,omitempty"`
 	UpdatedAt time.Time         `json:"updated_at"`
 }
 
@@ -34,7 +38,7 @@ func ReadManifest(targetPath string) (*Manifest, error) {
 	data, err := os.ReadFile(p)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return &Manifest{Managed: make(map[string]string), Mtimes: make(map[string]int64), Naming: make(map[string]string)}, nil
+			return &Manifest{Managed: make(map[string]string), Mtimes: make(map[string]int64), Naming: make(map[string]string), Origins: make(map[string]string)}, nil
 		}
 		return nil, err
 	}
@@ -42,7 +46,7 @@ func ReadManifest(targetPath string) (*Manifest, error) {
 	var m Manifest
 	if err := json.Unmarshal(data, &m); err != nil {
 		// Corrupt manifest — treat as empty so next sync rebuilds it.
-		return &Manifest{Managed: make(map[string]string), Mtimes: make(map[string]int64), Naming: make(map[string]string)}, nil
+		return &Manifest{Managed: make(map[string]string), Mtimes: make(map[string]int64), Naming: make(map[string]string), Origins: make(map[string]string)}, nil
 	}
 	if m.Managed == nil {
 		m.Managed = make(map[string]string)
@@ -53,6 +57,9 @@ func ReadManifest(targetPath string) (*Manifest, error) {
 	if m.Naming == nil {
 		m.Naming = make(map[string]string)
 	}
+	if m.Origins == nil {
+		m.Origins = make(map[string]string)
+	}
 	return &m, nil
 }
 
@@ -61,6 +68,18 @@ func (m *Manifest) Remove(name string) {
 	delete(m.Managed, name)
 	delete(m.Mtimes, name)
 	delete(m.Naming, name)
+	delete(m.Origins, name)
+}
+
+// CopyUnchanged reports whether the copy at name was made from the skill at
+// origin when its newest file had modified time mtime, so it needs no checksum.
+// A copy recorded before origins were kept counts as the skill's own.
+func (m *Manifest) CopyUnchanged(name, origin string, mtime int64) bool {
+	if m == nil {
+		return false
+	}
+	recorded := m.Origins[name]
+	return m.Mtimes[name] > 0 && m.Mtimes[name] == mtime && (recorded == "" || recorded == origin)
 }
 
 // CopyToLinkReason is the diff reason for a copy-mode copy that merge sync replaces with a link.

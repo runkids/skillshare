@@ -97,7 +97,7 @@ cursor
 | Renamed | 受管理的項目仍使用先前 `target_naming` 給的名稱 | `sync` 會重新命名它 |
 | Local only, skill kept under old name | 本機資料夾佔用了目前 `target_naming` 給 skill 的名稱，skill 留在舊的受管理項目，顯示為 `name (stays at old-name)` | 重新命名或刪除該資料夾後 `sync` |
 | Local override | 本機複本而非 symlink（包含被編輯過的 copy mode 副本） | `sync --force` 以取代 |
-| Orphan | 存在於 manifest 但不在 source 中 | `sync` 會清除它 |
+| Orphan | 存在於 manifest 但不在 source 中。被跟進的 source 連結無法存取時不會列出，因為那時 sync 不會清除任何東西 | `sync` 會清除它 |
 | Local only | 只存在於 target，不在 source 中 | 用 `collect` 匯入 |
 
 ## 檔案層級細節

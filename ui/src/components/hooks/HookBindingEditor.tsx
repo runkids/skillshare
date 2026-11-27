@@ -435,7 +435,7 @@ function Expandable({
         aria-label={expanded ? title : undefined}
         className={
           expanded
-            ? 'fixed inset-6 z-[71] flex flex-col gap-2.5 rounded-[14px] border border-line bg-surface p-4 shadow-[var(--sh-dialog)]'
+            ? 'fixed inset-6 z-[71] flex flex-col gap-2.5 rounded-[var(--r-float)] border border-line bg-surface p-4 shadow-[var(--sh-dialog)]'
             : 'ss-fld'
         }
         onKeyDown={(e) => {
@@ -702,7 +702,7 @@ export default function HookBindingEditor({
         />
       ) : (
         // The frame's own border stands in for the first card's separator.
-        <div className="overflow-hidden rounded-[10px] border border-line">
+        <div className="overflow-hidden rounded-[var(--r-inner)] border border-line">
           <div className="-mt-px">
             <CommandCards
               agent={agent}
