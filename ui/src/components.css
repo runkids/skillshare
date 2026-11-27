@@ -757,7 +757,7 @@ svg.lucide {
   .ss-tabs > *.on {
     color: var(--ink);
     font-weight: 600;
-    border-bottom-color: var(--ink);
+    border-bottom-color: var(--pri);
   }
   :root[data-theme='playful'] .ss-tabs > * {
     margin-bottom: -2px;
@@ -906,10 +906,10 @@ svg.lucide {
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
   }
   .ss-sw.on {
-    background: var(--ink);
+    background: var(--pri);
   }
   .ss-sw.on i {
-    background: var(--surface);
+    background: var(--on-pri);
   }
   /* Some of the items it covers are on: half-tone track, centered knob with a dash. */
   .ss-sw.mix {
@@ -1238,7 +1238,7 @@ svg.lucide {
       background-color 0.12s ease;
   }
   .ss-tag.ss-pat.hot {
-    border-color: var(--ink);
+    border-color: var(--pri);
     background: var(--sunken);
   }
   .ss-tag.ss-pat.zero {
@@ -1470,7 +1470,7 @@ svg.lucide {
     left: 0;
     width: 30%;
     border-radius: inherit;
-    background: var(--ink);
+    background: var(--pri);
     opacity: 0.18;
     transition: opacity 0.2s ease-out;
     animation: ss-indet 1.8s ease-in-out infinite;
@@ -1479,7 +1479,7 @@ svg.lucide {
     position: absolute;
     inset: 0;
     border-radius: inherit;
-    background: var(--ink);
+    background: var(--pri);
     transition: transform 0.45s cubic-bezier(0.3, 0.7, 0.3, 1);
   }
   /* Nothing to count: the runner alone, at full strength. */
@@ -1529,12 +1529,12 @@ svg.lucide {
   .ss-barslot.shut:has(.indet) {
     transition-delay: 0.2s;
   }
-  /* A row status that is under way: an ink dot, no spinner. */
+  /* A row status that is under way: a dot in the primary colour, no spinner. */
   .ss-st.on {
     font-weight: 600;
   }
   .ss-st.on::before {
-    background: var(--ink);
+    background: var(--pri);
   }
   .ss-r.dim .nm {
     color: var(--ink-3);
@@ -2894,8 +2894,8 @@ svg.lucide {
     border-radius: 12px;
   }
   .ss-pick.on {
-    border-color: var(--ink);
-    box-shadow: 0 0 0 1px var(--ink);
+    border-color: var(--pri);
+    box-shadow: 0 0 0 1px var(--pri);
   }
   :root[data-theme='playful'] .ss-pick.on {
     border-color: var(--line);

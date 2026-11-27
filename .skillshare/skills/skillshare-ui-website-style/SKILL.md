@@ -63,7 +63,7 @@ Defined per look at the top of `ui/src/components.css`. `ui/src/index.css` expos
 | Text | `--ink` `--ink-2` `--ink-3` | Primary, secondary, tertiary and placeholder |
 | Lines | `--line` `--line-2` `--line-soft` | Frames, control borders, soft dividers |
 | Borders | `--sep` `--frame` `--bw` | Whole `border` values: row separator, box frame, control border width |
-| Action | `--pri` `--on-pri` `--accent` `--accent-bg` `--sel` `--sel-ink` | Primary button, links and focus, selected nav and menu items |
+| Action | `--pri` `--on-pri` `--accent` `--accent-bg` `--sel` `--sel-ink` | Primary button and on or picked controls (checkbox, switch, tab underline, picked option, progress), links and focus, selected nav and menu items. Text stays `--ink` |
 | Status | `--ok` `--warn` `--bad`, each with `-bg` | Text or dot colour, plus its tinted background |
 | Kind | `--c-skill` `--c-agent` `--c-extra` `--c-mcp` `--c-plugin` `--c-target`, each with `-bg` | Resource-kind colour, used by `.ss-cat` |
 | Pastels | `--pa` `--pb` `--pc` `--pd` `--pe` `--on-pa` | **Playful only.** Never reference outside a `[data-theme="playful"]` rule. `--on-pa` is the text on them |
