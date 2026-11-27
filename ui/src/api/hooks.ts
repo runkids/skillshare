@@ -52,6 +52,8 @@ export interface HookMutation {
   replace?: boolean;
   /** Save an imported entry as the owner of the native registrations it was read from, so sync adopts them instead of reporting a conflict. */
   adopt?: boolean;
+  /** Unmanaged filename being adopted so sync writes Skillshare's file and deletes the original after taking a backup. */
+  adoptSource?: string;
 }
 /** `root`: the hooks.projects root a native file belongs to; left out for the global files. */
 /** Events a change adds to, updates in, or removes from a shared hooks file. */
@@ -125,7 +127,7 @@ export interface HookBackup {
   root?: string;
   time?: string;
 }
-/** `editable`: the hook can be changed or removed in its target file without importing it. `source`: the Antigravity block or Copilot file it was read from. */
+/** `editable`: the hook can be changed or removed in its target file without importing it. `source`: the Antigravity block or native hook file (Copilot, Pi, Oh My Pi, OpenCode, Amp) it was read from. */
 export interface HookCandidate {
   name: string;
   entry: HookEntry;

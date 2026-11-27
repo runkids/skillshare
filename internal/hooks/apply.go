@@ -42,6 +42,7 @@ type backupRecord struct {
 	Target     string        `json:"target"`
 	Path       string        `json:"path"`
 	Root       string        `json:"root,omitempty"`
+	Entry      string        `json:"entry,omitempty"`
 	Kind       string        `json:"kind"`
 	// Ops are the element edits of a shared file, with the values before and after.
 	Ops []elementOp `json:"ops,omitempty"`
@@ -172,6 +173,9 @@ func (s *Service) draft(m Mutation) (*Source, map[string]bool, map[string]bool, 
 	if m.Adopt && (m.Entry == nil || m.Name == "") {
 		return nil, nil, nil, fmt.Errorf("adopt takes a hook name and entry")
 	}
+	if m.AdoptSource != "" && !m.Adopt {
+		return nil, nil, nil, fmt.Errorf("adoptSource requires adopt")
+	}
 	if m.Entry != nil && m.Remove {
 		return nil, nil, nil, fmt.Errorf("cannot save and remove the same hook")
 	}
@@ -222,6 +226,9 @@ func (s *Service) draft(m Mutation) (*Source, map[string]bool, map[string]bool, 
 	}
 	if m.Adopt {
 		adopt[root+"\x00"+m.Name] = true
+		if m.AdoptSource != "" {
+			source.adoptSources[root+"\x00"+m.Name] = m.AdoptSource
+		}
 	}
 	switch {
 	case m.Remove:
@@ -340,7 +347,7 @@ func (s *Service) Mutate(m Mutation, revision string, sync bool) (*Result, error
 // recordAdopted claims the registrations an import adopts without syncing, so the
 // next sync adopts them in place instead of reporting a conflict.
 func (s *Service) recordAdopted(p *Plan) error {
-	if len(p.adopted) == 0 {
+	if len(p.adopted) == 0 && len(p.adoptedFiles) == 0 {
 		return nil
 	}
 	state, _, err := s.loadLedger()
@@ -348,8 +355,12 @@ func (s *Service) recordAdopted(p *Plan) error {
 		return err
 	}
 	for _, key := range p.adopted {
-		r := p.state.Records[key]
-		r.Adopted = true
+		if r, ok := p.state.Records[key]; ok {
+			r.Adopted = true
+			state.Records[key] = r
+		}
+	}
+	for key, r := range p.adoptedFiles {
 		state.Records[key] = r
 	}
 	return writeJSONFile(s.statePath(), state)
@@ -440,6 +451,27 @@ func (s *Service) applyScoped(p *Plan, root *string) (*Result, error) {
 	}
 	if !bytes.Equal(stateBytes, p.stateBytes) {
 		return result, fmt.Errorf("hooks ownership changed: %w", ErrStaleRevision)
+	}
+	// Persist adoptions before the first write: Mutate has already saved the source, so
+	// a later refresh or write error must not lose ownership of the imported native hook.
+	adoptedChanged := false
+	for _, key := range p.adopted {
+		if r, ok := p.state.Records[key]; ok && inScope(r.Root) {
+			r.Adopted = true
+			state.Records[key] = r
+			adoptedChanged = true
+		}
+	}
+	for key, r := range p.adoptedFiles {
+		if inScope(r.Root) {
+			state.Records[key] = r
+			adoptedChanged = true
+		}
+	}
+	if adoptedChanged {
+		if err := writeJSONFile(s.statePath(), state); err != nil {
+			return result, err
+		}
 	}
 	// Check every file before the first write, and each again at its write.
 	for _, guard := range p.gitGuards {
@@ -533,7 +565,11 @@ func (s *Service) applyScoped(p *Plan, root *string) (*Result, error) {
 		}
 		for _, key := range f.keys {
 			if r, ok := state.Records[key]; ok {
-				backup.OwnedBefore[key] = &r
+				if r.RetiredSource && remove {
+					backup.Entry = r.Entry
+				} else {
+					backup.OwnedBefore[key] = &r
+				}
 			}
 			if r, ok := p.state.Records[key]; ok {
 				backup.OwnedAfter[key] = &r
@@ -951,6 +987,9 @@ func (s *Service) PreviewRestore(id string) (*Plan, error) {
 		if b.BeforeMode != 0 {
 			f.mode = b.BeforeMode
 		}
+		if b.Entry != "" {
+			change.Name = b.Entry
+		}
 		for key := range b.OwnedAfter {
 			change.Name = b.OwnedAfter[key].Entry
 		}
@@ -972,6 +1011,15 @@ func (s *Service) PreviewRestore(id string) (*Plan, error) {
 				f.remove = true
 			} else {
 				f.write = []byte(*b.Before)
+			}
+			if b.Entry != "" && len(b.OwnedBefore) == 0 && len(b.OwnedAfter) == 0 {
+				entries := source.Entries
+				if b.Root != "" {
+					entries = source.Projects[b.Root].Entries
+				}
+				if entry, ok := entries[b.Entry]; ok && entry.IsEnabled() {
+					p.Warnings = append(p.Warnings, fmt.Sprintf("hook %s is still managed by Skillshare; remove or disable it so restoring %s does not run twice", b.Entry, filepath.Base(b.Path)))
+				}
 			}
 		}
 	} else {

@@ -35,6 +35,9 @@ type record struct {
 	// Adopted marks a registration an import claimed without syncing; the next sync
 	// reports it as adopted once, then as unchanged.
 	Adopted bool `json:"adopted,omitempty"`
+	// RetiredSource marks an unmanaged native file adopted by an import whose sync
+	// writes Skillshare's own file and deletes this original file.
+	RetiredSource bool `json:"retiredSource,omitempty"`
 }
 
 type ledger struct {
@@ -520,7 +523,7 @@ func (s *Service) previewSource(source *Source, replace, adopt map[string]bool) 
 	if err != nil {
 		return nil, err
 	}
-	p := &Plan{SourcePath: source.ConfigPath, Changes: []Change{}, Warnings: append([]string{}, d.warnings...), source: source, stateBytes: stateBytes, state: ledger{Version: 1, Records: maps.Clone(state.Records), Created: maps.Clone(state.Created), NewFiles: maps.Clone(state.NewFiles), Dirs: maps.Clone(state.Dirs)}}
+	p := &Plan{SourcePath: source.ConfigPath, Changes: []Change{}, Warnings: append([]string{}, d.warnings...), source: source, stateBytes: stateBytes, adoptedFiles: map[string]record{}, state: ledger{Version: 1, Records: maps.Clone(state.Records), Created: maps.Clone(state.Created), NewFiles: maps.Clone(state.NewFiles), Dirs: maps.Clone(state.Dirs)}}
 	pl := &planner{s: s, source: source, p: p, replace: replace, adopt: adopt, parked: map[string]bool{}, changes: map[string]*Change{}, events: map[string]map[string]string{}}
 	for _, name := range sortedKeys(source.Entries) {
 		p.Warnings = append(p.Warnings, eventWarnings(name, source.Entries[name], s.agentOf)...)
@@ -556,6 +559,9 @@ func (s *Service) previewSource(source *Source, replace, adopt map[string]bool) 
 	}
 	parked := map[string]*parkedGroup{}
 	owner := source.ConfigPath
+	if err := pl.adoptSourceFiles(d, state); err != nil {
+		return nil, err
+	}
 	pl.collectGitRetired(d, state)
 	// A file the source no longer writes still needs a plan, to remove what it left there.
 	for key, r := range state.Records {
@@ -601,10 +607,12 @@ func (s *Service) previewSource(source *Source, replace, adopt map[string]bool) 
 		return nil, err
 	}
 	proposal, _ := json.Marshal(struct {
-		Entries  map[string]Entry
-		Projects map[string]Project
-		Replace  []string
-	}{source.Entries, source.Projects, sortedKeys(replace)})
+		Entries      map[string]Entry
+		Projects     map[string]Project
+		Replace      []string
+		Adopt        []string
+		AdoptSources map[string]string
+	}{source.Entries, source.Projects, sortedKeys(replace), sortedKeys(adopt), source.adoptSources})
 	revision := digest(source.bytes) + digest(stateBytes) + digest(proposal)
 	owned, _ := json.Marshal(state)
 	fingerprint := digest(proposal) + digest(owned)
@@ -684,6 +692,91 @@ func (s *Service) previewSource(source *Source, replace, adopt map[string]bool) 
 func (pl *planner) replaces(root, entry string) bool { return pl.replace[root+"\x00"+entry] }
 
 func (pl *planner) adopts(root, entry string) bool { return pl.adopt[root+"\x00"+entry] }
+
+func (pl *planner) adoptSourceFiles(d *desired, state ledger) error {
+	s, p, owner := pl.s, pl.p, pl.source.ConfigPath
+	for _, key := range sortedKeys(pl.source.adoptSources) {
+		srcFile := pl.source.adoptSources[key]
+		root, name, _ := strings.Cut(key, "\x00")
+		entries := pl.source.Entries
+		if root != "" {
+			entries = pl.source.Projects[root].Entries
+		}
+		entry, ok := entries[name]
+		if !ok {
+			return fmt.Errorf("hook %q not found", name)
+		}
+		if len(entry.Bindings) != 1 {
+			return fmt.Errorf("hook %s: adoptSource applies only to a single binding", name)
+		}
+		var target string
+		var b Binding
+		for k, v := range entry.Bindings {
+			target, b = k, v
+		}
+		scope := s.scopedFor(root)
+		sc, agent := scope.forTarget(target)
+		if agent == "antigravity" {
+			continue
+		}
+		def, _ := targetDef(agent)
+		if !((def.Kind == KindCode && b.Package == nil) || agent == "copilot") {
+			return fmt.Errorf("hook %s: adoptSource applies only to code or Copilot file bindings", name)
+		}
+		rendered := false
+		for _, w := range d.files {
+			if w.root == root && w.entry == name && w.target == target {
+				rendered = true
+				break
+			}
+		}
+		if !rendered {
+			return fmt.Errorf("hook %s: target %s has no active output to adopt %q into", name, target, srcFile)
+		}
+		ext := filepath.Ext(srcFile)
+		validExt := (agent == "copilot" && ext == ".json") || (agent != "copilot" && (ext == ".ts" || ext == ".js"))
+		if srcFile != filepath.Base(srcFile) || !validExt {
+			return fmt.Errorf("invalid hook source file %q", srcFile)
+		}
+		dir, err := sc.nativePath(agent)
+		if err != nil {
+			return err
+		}
+		base, err := s.base(target, root)
+		if err != nil {
+			return err
+		}
+		srcPath := filepath.Join(dir, srcFile)
+		if err := checkPath(base, srcPath); err != nil {
+			return err
+		}
+		srcKey := fileKey(srcPath)
+		if r, owned := state.Records[srcKey]; owned {
+			if r.Owner == owner && r.Root == root && r.Entry == name {
+				continue
+			}
+			return fmt.Errorf("%s is managed by Skillshare; edit that hook instead", srcPath)
+		}
+		data, exists, _, err := safeRead(srcPath)
+		if err != nil {
+			return err
+		}
+		matches := exists && string(data) == b.Code
+		if agent == "copilot" && exists {
+			hooks, err := copilotHooks(srcPath, data)
+			matches = err == nil && elementHash(hooks) == elementHash(b.Events)
+		}
+		if !matches {
+			return fmt.Errorf("%s changed since it was read: %w", srcPath, ErrStaleRevision)
+		}
+		_, inPlace := d.files[srcPath]
+		srcRec := record{Owner: owner, Target: target, Path: srcPath, Root: root, Entry: name, Hash: digest(data), Adopted: true, RetiredSource: !inPlace}
+		p.adoptedFiles[srcKey] = srcRec
+		state.Records[srcKey] = srcRec
+		p.state.Records[srcKey] = srcRec
+	}
+	return nil
+}
 
 func (pl *planner) planShared(path, target, root string, want []wantElement, state ledger) (*filePlan, error) {
 	s, p, owner := pl.s, pl.p, pl.source.ConfigPath
@@ -999,6 +1092,7 @@ func (pl *planner) planFile(w wantFile, state ledger) (*filePlan, error) {
 		return f, nil
 	}
 	replace := pl.replaces(w.root, w.entry)
+	adopt := pl.adopts(w.root, w.entry)
 	if has && r.Owner != owner {
 		if !ownerGone(r.Owner) || !replace || w.content == nil {
 			pl.note(w.target, w.path, w.root, w.entry, "conflict", "managed by another Skillshare config: "+r.Owner)
@@ -1018,7 +1112,11 @@ func (pl *planner) planFile(w wantFile, state ledger) (*filePlan, error) {
 	case w.content == nil && current == r.Hash:
 		f.remove, f.keys = true, []string{key}
 		delete(p.state.Records, key)
-		pl.note(w.target, w.path, w.root, w.entry, "remove", "")
+		msg := ""
+		if r.RetiredSource {
+			msg = "retires the imported original " + filepath.Base(w.path)
+		}
+		pl.note(w.target, w.path, w.root, w.entry, "remove", msg)
 	case w.content == nil && replace:
 		delete(p.state.Records, key)
 		pl.note(w.target, w.path, w.root, w.entry, "release", "left in place; Skillshare no longer manages it")
@@ -1028,6 +1126,8 @@ func (pl *planner) planFile(w wantFile, state ledger) (*filePlan, error) {
 		if w.target == "git" && s.platform() != "windows" && mode.Perm() != f.mode.Perm() {
 			f.write = w.content
 			set("update", "restore Git helper permissions")
+		} else if r.Adopted {
+			set("adopt", "")
 		} else {
 			set("unchanged", "")
 		}
@@ -1039,7 +1139,10 @@ func (pl *planner) planFile(w wantFile, state ledger) (*filePlan, error) {
 	case !has && !exists:
 		f.write = w.content
 		set("add", "")
-	case !has && current == next.Hash && replace:
+	case !has && current == next.Hash && (replace || adopt):
+		if adopt {
+			p.adopted = append(p.adopted, key)
+		}
 		set("adopt", "")
 	case !has && !replace:
 		pl.note(w.target, w.path, w.root, w.entry, "conflict", "a file Skillshare does not manage already exists here; import it or explicitly replace it")

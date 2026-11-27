@@ -172,9 +172,14 @@ func runHooksImport(service *hooks.Service, o hooksOptions) error {
 		if _, err := hooksEntry(service, c.Name); err == nil && !o.replace {
 			return fmt.Errorf("hook %s already exists; use --replace to overwrite its definition", c.Name)
 		}
-		// Importing takes over the registrations it read, so they are not reported as
-		// unmanaged duplicates on the next sync.
-		return finishHooksMutation(service, "hooks import", hooks.Mutation{Name: c.Name, Entry: &c.Entry, Replace: o.replace, Adopt: true}, o)
+		// Importing from a target's native files takes over the registrations it read, so
+		// they are not reported as unmanaged duplicates on the next sync.
+		adopt := o.file == ""
+		adoptSource := ""
+		if adopt {
+			adoptSource = c.Source
+		}
+		return finishHooksMutation(service, "hooks import", hooks.Mutation{Name: c.Name, Entry: &c.Entry, Replace: o.replace, Adopt: adopt, AdoptSource: adoptSource}, o)
 	}
 	return fmt.Errorf("hook %q not found in %s", o.name, o.from)
 }

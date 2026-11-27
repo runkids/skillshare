@@ -229,7 +229,10 @@ export default function HooksImportDialog({
           ...(project && { project }),
           name: nameOf(row).trim(),
           entry: row.candidate.entry,
-          ...(row.adopt && { adopt: true }),
+          ...(row.adopt && {
+            adopt: true,
+            ...(row.candidate.source && { adoptSource: row.candidate.source }),
+          }),
         });
       }
       onImported(chosen.length, edits.length);

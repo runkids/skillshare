@@ -216,6 +216,50 @@ describe('hooks import', () => {
     );
   });
 
+  it('passes adoptSource when importing a code-agent extension file', async () => {
+    const user = userEvent.setup();
+    const ext: HookCandidate = {
+      name: 'activity',
+      source: 'activity.ts',
+      problems: [],
+      warnings: [],
+      entry: { bindings: { pi: { code: 'export default function () {}\n' } } },
+    };
+    vi.mocked(hooksApi.import).mockResolvedValue([ext]);
+    vi.mocked(hooksApi.save).mockResolvedValue({ applied: [], backupIds: [] });
+    wrap(
+      <HooksImportDialog
+        data={
+          {
+            ...data,
+            paths: { pi: '/home/u/.pi/agent/extensions' },
+            unmanaged: [
+              {
+                target: 'pi',
+                path: '/home/u/.pi/agent/extensions',
+                names: ['activity.ts'],
+              },
+            ],
+          } as unknown as HookInventory
+        }
+        onClose={vi.fn()}
+        onChanged={vi.fn()}
+        onImported={vi.fn()}
+      />,
+    );
+    await user.click(await screen.findByRole('checkbox', { name: 'Import activity' }));
+    await user.click(screen.getByRole('button', { name: 'Import 1' }));
+    await waitFor(() =>
+      expect(hooksApi.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'activity',
+          adopt: true,
+          adoptSource: 'activity.ts',
+        }),
+      ),
+    );
+  });
+
   const editable = (name: string, command: string): HookCandidate => ({
     ...candidate(name, command),
     editable: true,

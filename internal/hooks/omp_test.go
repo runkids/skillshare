@@ -81,7 +81,7 @@ func TestOMP_NativeHookFactoriesAreListedNotImported(t *testing.T) {
 	}
 	candidates, err := e.service.Import(ImportRequest{From: "omp"})
 	must(t, err)
-	if len(candidates) != 1 || candidates[0].Name != "mine" || !strings.Contains(strings.Join(candidates[0].Warnings, "\n"), "keeps loading") {
+	if len(candidates) != 1 || candidates[0].Name != "mine" || candidates[0].Source != "mine.ts" || !strings.Contains(strings.Join(candidates[0].Warnings, "\n"), "adopts") {
 		t.Fatalf("import must offer extensions only: %+v", candidates)
 	}
 }

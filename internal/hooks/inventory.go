@@ -333,7 +333,22 @@ func dedupe(items []string) []string {
 	return out
 }
 
-const adoptWarning = "saving the import takes over the existing registrations in place; sync leaves them as they are instead of adding duplicates"
+const (
+	adoptWarning     = "saving the import takes over the existing registrations in place; sync leaves them as they are instead of adding duplicates"
+	adoptFileWarning = "saving the import adopts %s; the next sync writes Skillshare's file and deletes the original after taking a backup"
+)
+
+func (s *Service) fileAdoptWarning(agent, name, path string) string {
+	if out, err := s.codePath(agent, name); err == nil && out == path {
+		if agent == "opencode" {
+			if v2, err := s.openCode2(); err == nil && v2 {
+				return fmt.Sprintf(adoptFileWarning, path)
+			}
+		}
+		return adoptWarning
+	}
+	return fmt.Sprintf(adoptFileWarning, path)
+}
 
 func (s *Service) importShared(target string, req ImportRequest, state ledger) ([]Candidate, error) {
 	path, err := s.nativePath(target)
@@ -495,7 +510,7 @@ func (s *Service) importCopilot(req ImportRequest, state ledger) ([]Candidate, e
 			out = append(out, Candidate{Name: candidateName(strings.TrimSuffix(file, ".json")), Entry: Entry{Bindings: map[string]Binding{}}, Problems: []string{err.Error()}})
 			continue
 		}
-		c.Warnings = []string{fmt.Sprintf("%s keeps loading; remove it after syncing so Copilot does not run these hooks twice", path)}
+		c.Warnings = []string{s.fileAdoptWarning("copilot", c.Name, path)}
 		// A file without hooks has nothing NativeEdit could name.
 		c.Editable, c.Source = len(c.Entry.Bindings["copilot"].Events) > 0, file
 		out = append(out, c)
@@ -529,8 +544,8 @@ func (s *Service) importCode(target string, req ImportRequest, state ledger) ([]
 			return nil, err
 		}
 		name := candidateName(strings.TrimSuffix(strings.TrimPrefix(file, "skillshare-"), filepath.Ext(file)))
-		c := Candidate{Name: name, Entry: Entry{Bindings: map[string]Binding{s.targetKey(target): {Code: string(data)}}}}
-		c.Warnings = []string{fmt.Sprintf("%s keeps loading; remove it after syncing so the plugin does not run twice", path)}
+		c := Candidate{Name: name, Source: file, Entry: Entry{Bindings: map[string]Binding{s.targetKey(target): {Code: string(data)}}}}
+		c.Warnings = []string{s.fileAdoptWarning(target, name, path)}
 		if filepath.Ext(file) == ".js" {
 			c.Warnings = append(c.Warnings, "Skillshare writes code as a .ts file; plain JavaScript is valid TypeScript for the loader, but check any CommonJS syntax")
 		}
