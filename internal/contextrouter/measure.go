@@ -4,25 +4,41 @@ import (
 	"context"
 	"os"
 	"strings"
+	"time"
 )
 
 // ReferenceCommit is the agents-context-router revision the size rule follows.
 const ReferenceCommit = "19c94f9"
 
 // Limits bound the work one report may do. The config is untrusted: one topic
-// can name the same large file many times.
+// can name the same large file many times, and many names can lead to one file.
 type Limits struct {
 	MaxConfigBytes int64
 	MaxFileBytes   int64
-	// MaxScanBytes caps the file bytes scanned for bodies in one report.
+	// MaxScanBytes caps the file bytes read in one report, and separately the
+	// bytes scanned for bodies.
 	MaxScanBytes int64
-	MaxTopics    int
+	// MaxCompactBytes caps one body that compactPathLinks rewrites. The link
+	// scanner is quadratic on input built to stress it, so a body past this
+	// is left unmeasured rather than scanned.
+	MaxCompactBytes int
+	MaxTopics       int
 	// MaxSources caps source entries across all topics.
 	MaxSources int
+	// MaxDuration caps the time spent measuring; zero means no cap.
+	MaxDuration time.Duration
 }
 
 // DefaultLimits is what the dashboard uses.
-var DefaultLimits = Limits{MaxConfigBytes: 1 << 20, MaxFileBytes: 1 << 20, MaxScanBytes: 64 << 20, MaxTopics: 500, MaxSources: 2000}
+var DefaultLimits = Limits{
+	MaxConfigBytes:  1 << 20,
+	MaxFileBytes:    1 << 20,
+	MaxScanBytes:    64 << 20,
+	MaxCompactBytes: 64 << 10,
+	MaxTopics:       500,
+	MaxSources:      2000,
+	MaxDuration:     5 * time.Second,
+}
 
 // Why the config could not be used.
 const (
@@ -108,25 +124,38 @@ type fileResult struct {
 }
 
 type measurer struct {
-	root    *os.Root
-	lim     Limits
-	cfg     routerCfg
-	files   map[string]fileResult
-	bodies  map[bodyKey]bodyResult
-	scanned int64
+	root     *os.Root
+	lim      Limits
+	cfg      routerCfg
+	files    map[string]fileResult
+	bodies   map[bodyKey]bodyResult
+	read     int64 // file bytes read and kept
+	scanned  int64 // file bytes scanned for bodies
+	deadline time.Time
 }
 
-func (m *measurer) file(rel string) fileResult {
-	if cached, ok := m.files[rel]; ok {
-		return cached
+// spent reports whether the time budget is used up.
+func (m *measurer) spent() bool {
+	return !m.deadline.IsZero() && time.Now().After(m.deadline)
+}
+
+// file reads rel once. ok is false when the read budget is spent: many names
+// (symlinks inside the folder) can lead to one large file, and each is kept.
+func (m *measurer) file(rel string) (result fileResult, ok bool) {
+	if cached, done := m.files[rel]; done {
+		return cached, true
+	}
+	if m.read >= m.lim.MaxScanBytes {
+		return fileResult{}, false
 	}
 	text, code := readRegular(m.root, rel, m.lim.MaxFileBytes)
-	result := fileResult{text, code}
+	m.read += int64(len(text))
+	result = fileResult{text, code}
 	m.files[rel] = result
-	return result
+	return result, true
 }
 
-// body returns one source's body length. ok is false when the scan budget is spent.
+// body returns one source's body length. ok is false when a budget is spent.
 func (m *measurer) body(src sourceCfg) (result bodyResult, ok bool) {
 	rel, inside := cleanRel(src.Path)
 	if !inside {
@@ -143,7 +172,10 @@ func (m *measurer) body(src sourceCfg) (result bodyResult, ok bool) {
 	if cached, done := m.bodies[key]; done {
 		return cached, true
 	}
-	file := m.file(rel)
+	file, ok := m.file(rel)
+	if !ok {
+		return bodyResult{}, false
+	}
 	if file.code != "" {
 		result = bodyResult{code: file.code}
 	} else {
@@ -155,6 +187,8 @@ func (m *measurer) body(src sourceCfg) (result bodyResult, ok bool) {
 		switch {
 		case hits != 1:
 			result = bodyResult{code: ErrHeading, hits: hits}
+		case m.cfg.Compact && len(text) > m.lim.MaxCompactBytes:
+			return bodyResult{}, false
 		case m.cfg.Compact:
 			result = bodyResult{bytes: len(compactPathLinks(text, rel))}
 		default:
@@ -165,13 +199,17 @@ func (m *measurer) body(src sourceCfg) (result bodyResult, ok bool) {
 	return result, true
 }
 
-// Measure reads the router in root. The error is non-nil only when ctx ended
-// or root cannot be opened; everything else is in the report.
+// Measure reads the router in root. The error is non-nil only when ctx ended;
+// everything else is in the report, a folder that is gone included.
 func Measure(ctx context.Context, root string, lim Limits) (Report, error) {
 	report := Report{Root: root, Config: ConfigRel, Reference: ReferenceCommit, Topics: []Topic{}, Mounts: []Mount{}}
+	if err := ctx.Err(); err != nil {
+		return report, err
+	}
 	dir, err := os.OpenRoot(root)
 	if err != nil {
-		return report, err
+		report.Error = &Problem{Code: ConfigUnreadable, Detail: ErrMissing}
+		return report, nil
 	}
 	defer dir.Close()
 
@@ -189,13 +227,16 @@ func Measure(ctx context.Context, root string, lim Limits) (Report, error) {
 		report.Mounts = cfg.Mounts
 	}
 	m := &measurer{root: dir, lim: lim, cfg: cfg, files: map[string]fileResult{}, bodies: map[bodyKey]bodyResult{}}
+	if lim.MaxDuration > 0 {
+		m.deadline = time.Now().Add(lim.MaxDuration)
+	}
 
 	kernel := &Kernel{Path: cfg.RootInstructions, Cap: cfg.KernelCap}
 	report.Kernel = kernel
 	kernelText, kernelRead := "", false
 	if rel, inside := cleanRel(cfg.RootInstructions); !inside {
 		kernel.Error = ErrOutside
-	} else if file := m.file(rel); file.code != "" {
+	} else if file, _ := m.file(rel); file.code != "" {
 		kernel.Error = file.code
 	} else {
 		size := len(file.text)
@@ -222,7 +263,7 @@ func Measure(ctx context.Context, root string, lim Limits) (Report, error) {
 				source.Heading = *sc.Heading
 			}
 			sources++
-			if topic.Reason == ReasonLimit || index >= lim.MaxTopics || sources > lim.MaxSources {
+			if topic.Reason == ReasonLimit || index >= lim.MaxTopics || sources > lim.MaxSources || m.spent() {
 				topic.Reason = ReasonLimit
 				topic.Sources = append(topic.Sources, source)
 				continue

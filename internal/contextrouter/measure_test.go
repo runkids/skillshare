@@ -3,11 +3,13 @@ package contextrouter
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 )
 
 func measure(t *testing.T, dir string, lim Limits) Report {
@@ -216,7 +218,70 @@ func TestMeasureCancelled(t *testing.T) {
 	if _, err := Measure(ctx, goldenNamed(t, "repeat").materialize(t), DefaultLimits); !errors.Is(err, context.Canceled) {
 		t.Fatalf("got %v", err)
 	}
-	if _, err := Measure(context.Background(), filepath.Join(t.TempDir(), "gone"), DefaultLimits); err == nil {
-		t.Fatal("a folder that does not exist measured")
+	// A folder that vanished after it was listed is a report, so the caller can still offer the others.
+	gone, err := Measure(context.Background(), filepath.Join(t.TempDir(), "gone"), DefaultLimits)
+	if err != nil || gone.Error == nil || gone.Error.Code != ConfigUnreadable || gone.Error.Detail != ErrMissing {
+		t.Fatalf("gone folder: %+v %v", gone.Error, err)
+	}
+}
+
+// A hostile folder cannot make one report read without bound, scan a body
+// built to stress the link scanner, or run past its time.
+func TestMeasureHostile(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		// Twenty names for one page: each is read and kept, so the read budget must stop it.
+		files := map[string]string{"AGENTS.md": "", "wiki/page.md": strings.Repeat("x", 1000)}
+		topics := []string{}
+		for i := 0; i < 20; i++ {
+			topics = append(topics, fmt.Sprintf(`"t%02d":{"description":"","sources":[{"path":"wiki/link%02d.md"}]}`, i, i))
+		}
+		files[ConfigRel] = `{"topics":{` + strings.Join(topics, ",") + `}}`
+		dir := writeTree(t, files)
+		for i := 0; i < 20; i++ {
+			if err := os.Symlink("page.md", filepath.Join(dir, "wiki", fmt.Sprintf("link%02d.md", i))); err != nil {
+				t.Fatal(err)
+			}
+		}
+		lim := DefaultLimits
+		lim.MaxScanBytes = 3000
+		report := measure(t, dir, lim)
+		sized := 0
+		for _, topic := range report.Topics {
+			if topic.Bytes != nil {
+				sized++
+			} else if topic.Reason != ReasonLimit {
+				t.Errorf("%s: reason %q", topic.Name, topic.Reason)
+			}
+		}
+		if sized != 3 || !report.Truncated {
+			t.Errorf("read budget: %d topics sized, truncated=%v", sized, report.Truncated)
+		}
+	}
+
+	// The scanner takes minutes on a megabyte of unclosed links; such a body is not scanned.
+	hostile := writeTree(t, map[string]string{
+		"AGENTS.md": "`a`", "wiki/a.md": strings.Repeat("[a](", 200_000),
+		ConfigRel: `{"compactPathLinks":true,"topics":{"a":{"description":"","sources":[{"path":"wiki/a.md"}]}}}`,
+	})
+	start := time.Now()
+	report := measure(t, hostile, DefaultLimits)
+	if topic := report.Topics[0]; topic.Bytes != nil || topic.Reason != ReasonLimit || !report.Truncated {
+		t.Errorf("oversized compacted body: %+v", topic)
+	}
+	if elapsed := time.Since(start); elapsed > 5*time.Second {
+		t.Errorf("oversized compacted body took %v", elapsed)
+	}
+
+	// Past the time budget nothing more is measured.
+	lim := DefaultLimits
+	lim.MaxDuration = time.Nanosecond
+	report = measure(t, goldenNamed(t, "routed").materialize(t), lim)
+	for _, topic := range report.Topics {
+		if topic.Bytes != nil || topic.Reason != ReasonLimit {
+			t.Errorf("past the deadline %s: %+v", topic.Name, topic)
+		}
+	}
+	if !report.Truncated {
+		t.Error("deadline did not mark the report truncated")
 	}
 }
