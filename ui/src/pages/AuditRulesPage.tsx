@@ -26,6 +26,7 @@ import AuditRulesYaml from './AuditRulesYaml';
 import { useOverviewQuery } from '../hooks/useSharedQueries';
 import { invalidate } from '../lib/queryEvents';
 import { segSlide } from '../lib/segSlide';
+import Tabs, { TabLink } from '../components/Tabs';
 
 const PROFILES = ['default', 'strict', 'permissive'];
 const SEVERITIES = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'];
@@ -145,12 +146,14 @@ export default function AuditRulesPage() {
   );
 
   const tabs = (
-    <nav className="ss-tabs" aria-label={t('audit.header.title')}>
-      <Link to="/audit">{t('audit.tab.findings')}</Link>
-      <Link to="/audit/rules" className="on" aria-current="page">
+    <Tabs slideKey="audit" aria-label={t('audit.header.title')}>
+      <TabLink to="/audit" on={false}>
+        {t('audit.tab.findings')}
+      </TabLink>
+      <TabLink to="/audit/rules" on>
         {t('audit.tab.rules')}
-      </Link>
-    </nav>
+      </TabLink>
+    </Tabs>
   );
 
   if (yamlView) {

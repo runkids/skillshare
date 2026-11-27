@@ -83,6 +83,7 @@ import {
 } from './UpdatePage';
 import { useDiffQuery, useSkillsQuery } from '../hooks/useSharedQueries';
 import { invalidate } from '../lib/queryEvents';
+import Tabs, { TabLink } from '../components/Tabs';
 
 type Tab = 'doc' | 'files' | 'audit';
 
@@ -426,20 +427,23 @@ export default function ResourceDetailPage() {
 
   const findingCount = audit?.findings.filter((f) => !f.acknowledged).length ?? 0;
   const tabs = (
-    <nav className="ss-tabs" aria-label={t('resourceDetail.tabs.label')}>
-      <Link to={tabSearch('doc')} className={tab === 'doc' ? 'on' : ''}>
+    <Tabs aria-label={t('resourceDetail.tabs.label')}>
+      <TabLink to={tabSearch('doc')} on={tab === 'doc'}>
         {docName}
-      </Link>
+      </TabLink>
       {!isAgent && (
-        <Link to={tabSearch('files')} className={tab === 'files' ? 'on' : ''}>
-          {t('resourceDetail.tabs.files')} <span className="ss-cnt">{files.length}</span>
-        </Link>
+        <TabLink to={tabSearch('files')} on={tab === 'files'} count={files.length}>
+          {t('resourceDetail.tabs.files')}
+        </TabLink>
       )}
-      <Link to={tabSearch('audit')} className={tab === 'audit' ? 'on' : ''}>
-        {t('resourceDetail.tabs.audit')}{' '}
-        {findingCount > 0 && <span className="ss-cnt">{findingCount}</span>}
-      </Link>
-    </nav>
+      <TabLink
+        to={tabSearch('audit')}
+        on={tab === 'audit'}
+        count={findingCount > 0 ? findingCount : undefined}
+      >
+        {t('resourceDetail.tabs.audit')}
+      </TabLink>
+    </Tabs>
   );
 
   const description = str(frontmatter.description);

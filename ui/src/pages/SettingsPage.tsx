@@ -17,6 +17,7 @@ import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { useOverviewQuery } from '../hooks/useSharedQueries';
 import { invalidate } from '../lib/queryEvents';
 import { segSlide } from '../lib/segSlide';
+import Tabs, { TabLink } from '../components/Tabs';
 
 const MODES = ['merge', 'copy', 'symlink'];
 const SEVERITIES = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'];
@@ -43,21 +44,17 @@ export function SettingsTabs({ current }: { current: string }) {
   const t = useT();
   return (
     // Seven tabs are wider than a phone, so the row scrolls there instead of widening the page.
-    <nav
-      className="ss-tabs max-sm:overflow-x-auto max-sm:pb-px max-sm:whitespace-nowrap"
+    <Tabs
+      slideKey="settings"
+      className="max-sm:overflow-x-auto max-sm:pb-px max-sm:whitespace-nowrap"
       aria-label={t('layout.nav.settings')}
     >
       {SETTINGS_TABS.map((tab) => (
-        <Link
-          key={tab.key}
-          to={tab.to}
-          className={current === tab.key ? 'on' : ''}
-          aria-current={current === tab.key ? 'page' : undefined}
-        >
+        <TabLink key={tab.key} to={tab.to} on={current === tab.key}>
           {t(tab.labelKey)}
-        </Link>
+        </TabLink>
       ))}
-    </nav>
+    </Tabs>
   );
 }
 

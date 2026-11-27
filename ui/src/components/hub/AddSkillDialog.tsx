@@ -12,6 +12,7 @@ import { Checkbox, Select } from '../Input';
 import { inHub, refOptions, skillSource } from './hubShared';
 import { queryKeys } from '../../lib/queryKeys';
 import { useT, plural } from '../../i18n';
+import Tabs, { TabButton } from '../Tabs';
 
 interface Props {
   hubName: string;
@@ -135,20 +136,13 @@ export default function AddSkillDialog({ hubName, entries, onAdd, onManual, onCl
         </button>
       </div>
       <div className="db">
-        <div className="ss-tabs" role="tablist" aria-label={t('hubs.addSkill.how')}>
+        <Tabs role="tablist" aria-label={t('hubs.addSkill.how')}>
           {(['url', 'installed'] as const).map((k) => (
-            <button
-              key={k}
-              type="button"
-              role="tab"
-              aria-selected={tab === k}
-              className={tab === k ? 'on' : ''}
-              onClick={() => setTab(k)}
-            >
+            <TabButton key={k} on={tab === k} onClick={() => setTab(k)}>
               {t(k === 'url' ? 'hubs.addSkill.tab.url' : 'hubs.addSkill.tab.installed')}
-            </button>
+            </TabButton>
           ))}
-        </div>
+        </Tabs>
 
         {tab === 'url' ? (
           <>

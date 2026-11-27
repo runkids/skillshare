@@ -119,6 +119,7 @@ import { useDiffQuery, useSkillsQuery, useSyncedTargetsQuery } from '../hooks/us
 import { invalidate } from '../lib/queryEvents';
 import { bulkGhost } from '../lib/exitGhost';
 import { useHeldWhileClosing } from '../hooks/usePresence';
+import Tabs, { TabLink } from '../components/Tabs';
 
 type Kind = Skill['kind'];
 type StatusFilter = 'all' | 'enabled' | 'disabled';
@@ -1629,8 +1630,8 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
         }
       />
 
-      <nav
-        className="ss-tabs overflow-x-auto overflow-y-hidden"
+      <Tabs
+        className="overflow-x-auto overflow-y-hidden"
         aria-label={t(isAgent ? 'layout.nav.agents' : 'layout.nav.skills')}
         data-tour="skills-view"
       >
@@ -1641,17 +1642,16 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
             ['trash', '?tab=trash', t('trash.title'), trashCount],
           ] as const
         ).map(([key, query, label, n]) => (
-          <Link
+          <TabLink
             key={key}
             to={`${isAgent ? '/agents' : '/skills'}${query}`}
-            className={tab === key ? 'on' : ''}
-            aria-current={tab === key ? 'page' : undefined}
+            on={tab === key}
+            count={key === 'installed' || n > 0 ? n : undefined}
           >
             {label}
-            {(key === 'installed' || n > 0) && <span className="ss-cnt">{n}</span>}
-          </Link>
+          </TabLink>
         ))}
-      </nav>
+      </Tabs>
 
       {tab === 'installed' ? (
         <>

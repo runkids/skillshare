@@ -4158,4 +4158,33 @@ svg.lucide {
       transition: none;
     }
   }
+  /* Clean tabs: the underline is one bar that slides between tabs (segSlide), also from page to page
+     when the rows share a data-slide-key. It sits where the selected tab's own border would. */
+  :root:not([data-theme='playful']) .ss-tabs[data-slide] {
+    position: relative;
+  }
+  :root:not([data-theme='playful']) .ss-tabs[data-slide]::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: var(--seg-w);
+    height: 2px;
+    transform: translate(var(--seg-x), calc(var(--seg-y) + var(--seg-h) - 2px));
+    background: var(--pri);
+    pointer-events: none;
+  }
+  :root:not([data-theme='playful']) .ss-tabs[data-slide='move']::before {
+    transition:
+      transform 0.43s var(--spring),
+      width 0.43s var(--spring);
+  }
+  :root:not([data-theme='playful']) .ss-tabs[data-slide] > .on {
+    border-bottom-color: transparent;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    :root:not([data-theme='playful']) .ss-tabs[data-slide='move']::before {
+      transition: none;
+    }
+  }
 }

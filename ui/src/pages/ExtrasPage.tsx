@@ -49,6 +49,7 @@ import {
 } from '../components/extras/ExtraEditDialogs';
 import { invalidate } from '../lib/queryEvents';
 import { segSlide } from '../lib/segSlide';
+import Tabs, { TabLink } from '../components/Tabs';
 
 /** A file name typed where a path would be wrong. */
 const isPathLike = (name: string) => /[\\/]/.test(name);
@@ -1074,32 +1075,17 @@ export default function ExtrasPage() {
         }
       />
 
-      <nav className="ss-tabs mb-7" aria-label={t('extras.tabs')}>
-        <Link
-          to="?"
-          replace
-          className={tab === 'folders' ? 'on' : ''}
-          aria-current={tab === 'folders'}
-        >
+      <Tabs className="mb-7" aria-label={t('extras.tabs')}>
+        <TabLink to="?" replace on={tab === 'folders'}>
           {t('extras.tab.folders')}
-        </Link>
-        <Link
-          to="?tab=instructions"
-          replace
-          className={tab === 'instructions' ? 'on' : ''}
-          aria-current={tab === 'instructions'}
-        >
+        </TabLink>
+        <TabLink to="?tab=instructions" replace on={tab === 'instructions'}>
           {t('extras.tab.instructions')}
-        </Link>
-        <Link
-          to="?tab=memory"
-          replace
-          className={tab === 'memory' ? 'on' : ''}
-          aria-current={tab === 'memory'}
-        >
+        </TabLink>
+        <TabLink to="?tab=memory" replace on={tab === 'memory'}>
           {t('memory.title')}
-        </Link>
-      </nav>
+        </TabLink>
+      </Tabs>
 
       {tab === 'memory' ? (
         <MemoryNotes creating={creatingNote} setCreating={setCreatingNote} />

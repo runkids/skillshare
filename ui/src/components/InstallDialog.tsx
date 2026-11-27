@@ -61,6 +61,7 @@ import Spinner from './Spinner';
 import { useToast } from './Toast';
 import { useSkillsQuery } from '../hooks/useSharedQueries';
 import { invalidate } from '../lib/queryEvents';
+import Tabs, { TabButton } from './Tabs';
 
 type Kind = 'skill' | 'agent';
 type Tab = 'search' | 'url';
@@ -566,20 +567,13 @@ export default function InstallDialog({
   };
 
   const tabs = !isAgent && (
-    <div className="ss-tabs" role="tablist">
+    <Tabs role="tablist">
       {(['url', 'search'] as const).map((k) => (
-        <button
-          key={k}
-          type="button"
-          role="tab"
-          aria-selected={tab === k}
-          className={tab === k ? 'on' : ''}
-          onClick={() => setTab(k)}
-        >
+        <TabButton key={k} on={tab === k} onClick={() => setTab(k)}>
           {t(k === 'search' ? 'install.tab.search' : 'install.tab.url')}
-        </button>
+        </TabButton>
       ))}
-    </div>
+    </Tabs>
   );
 
   let title = t(isAgent ? 'install.title.agents' : 'install.title.skills');

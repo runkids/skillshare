@@ -48,6 +48,7 @@ import { fileName, shortenHome } from '../lib/paths';
 import { useI18n, useT, plural } from '../i18n';
 import { useAvailableTargetsQuery, useHooksQuery, useMcpQuery } from '../hooks/useSharedQueries';
 import { invalidate } from '../lib/queryEvents';
+import Tabs, { TabLink } from '../components/Tabs';
 
 type Kind = 'skill' | 'agent';
 // File tabs (the instruction file first) past this many go into a menu.
@@ -493,28 +494,31 @@ function TargetEditor({ target, targets }: { target: Target; targets: Target[] }
       })}
 
       {tabs.length > 1 && (
-        <nav className="ss-tabs mb-7" aria-label={t('targetDetail.tabs')}>
+        <Tabs className="mb-7" aria-label={t('targetDetail.tabs')}>
           {tabs
             .filter((k) => k !== 'instructions')
             .map((k) => (
-              <Link key={k} to={tabLink(k)} replace className={tab === k ? 'on' : ''}>
+              <TabLink
+                key={k}
+                to={tabLink(k)}
+                replace
+                on={tab === k}
+                count={tabCount(k) ?? undefined}
+              >
                 {tabLabel(k)}
-                {tabCount(k) !== null && <span className="ss-cnt">{tabCount(k)}</span>}
-              </Link>
+              </TabLink>
             ))}
           {shownFiles.map((f) => (
-            <Link
+            <TabLink
               key={f.id}
               to={f.to}
               replace
-              className={f === activeFile ? 'on' : ''}
+              on={f === activeFile}
               title={f.label}
+              count={f.id === 'instructions' ? (tabCount('instructions') ?? undefined) : undefined}
             >
               <span className="max-w-[180px] truncate">{f.label}</span>
-              {f.id === 'instructions' && tabCount('instructions') !== null && (
-                <span className="ss-cnt">{tabCount('instructions')}</span>
-              )}
-            </Link>
+            </TabLink>
           ))}
           {hiddenFiles.length > 0 && <FileTabMenu files={hiddenFiles} />}
           {files.data?.root && (
@@ -530,7 +534,7 @@ function TargetEditor({ target, targets }: { target: Target; targets: Target[] }
               </button>
             </span>
           )}
-        </nav>
+        </Tabs>
       )}
 
       {tab === 'file' ? (
