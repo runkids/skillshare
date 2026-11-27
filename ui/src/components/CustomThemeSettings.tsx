@@ -203,7 +203,8 @@ type Part =
   | 'text'
   | 'heading'
   | 'layout'
-  | 'button';
+  | 'button'
+  | 'icon';
 type Hint = { part: Part; n: number };
 const EASE_OUT = 'cubic-bezier(0.23, 1, 0.32, 1)';
 
@@ -293,15 +294,15 @@ function MiniPreview({
         />
       </div>
       <div inert className="sd">
-        <span className="ss-nv">
+        <span className="ss-nv" data-part="icon">
           <LayoutDashboard size={15} />
           {t('layout.nav.dashboard')}
         </span>
-        <span className="ss-nv on">
+        <span className="ss-nv on" data-part="icon">
           <Puzzle size={15} />
           {t('layout.nav.skills')}
         </span>
-        <span className="ss-nv">
+        <span className="ss-nv" data-part="icon">
           <Target size={15} />
           {t('layout.nav.targets')}
         </span>
@@ -609,6 +610,19 @@ export default function CustomThemeSettings() {
               ))}
             </div>
           </Row>
+          {clean && (
+            <Row label={t('settings.custom.texture')} hint={t('settings.custom.textureHint')}>
+              <Choice
+                label={t('settings.custom.texture')}
+                value={theme.texture}
+                options={(['none', 'dots'] as const).map((v) => ({
+                  value: v,
+                  label: t(`settings.custom.texture.${v}`),
+                }))}
+                onChange={(texture) => change({ texture }, 'bg')}
+              />
+            </Row>
+          )}
           <Row label={t('settings.custom.corners')}>
             <Choice
               label={t('settings.custom.corners')}
@@ -620,6 +634,19 @@ export default function CustomThemeSettings() {
               onChange={(corners) => change({ corners }, 'shape')}
             />
           </Row>
+          {clean && (
+            <Row label={t('settings.custom.depth')} hint={t('settings.custom.depthHint')}>
+              <Choice
+                label={t('settings.custom.depth')}
+                value={theme.depth}
+                options={(['flat', 'default', 'lifted'] as const).map((v) => ({
+                  value: v,
+                  label: t(`settings.custom.depth.${v}`),
+                }))}
+                onChange={(depth) => change({ depth }, 'shape')}
+              />
+            </Row>
+          )}
           <Row label={t('settings.custom.font')} hint={t('settings.custom.fontHint')}>
             <Choice
               label={t('settings.custom.font')}
@@ -809,6 +836,46 @@ export default function CustomThemeSettings() {
                   { value: 'raised', label: t('settings.custom.buttons.raised') },
                 ]}
                 onChange={(buttons) => change({ buttons }, 'button')}
+              />
+            </Row>
+          )}
+          {clean && (
+            <Row label={t('settings.custom.borders')} hint={t('settings.custom.bordersHint')}>
+              <Choice
+                label={t('settings.custom.borders')}
+                value={theme.borders}
+                options={(['default', 'bold'] as const).map((v) => ({
+                  value: v,
+                  label: t(`settings.custom.borders.${v}`),
+                }))}
+                onChange={(borders) => change({ borders }, 'shape')}
+              />
+            </Row>
+          )}
+          {clean && (
+            <Row label={t('settings.custom.icons')} hint={t('settings.custom.iconsHint')}>
+              <Choice
+                label={t('settings.custom.icons')}
+                value={theme.icons}
+                options={(['light', 'default', 'bold'] as const).map((v) => ({
+                  value: v,
+                  label: t(`settings.custom.icons.${v}`),
+                }))}
+                onChange={(icons) => change({ icons }, 'icon')}
+              />
+            </Row>
+          )}
+          {clean && (
+            <Row label={t('settings.custom.glass')} hint={t('settings.custom.glassHint')}>
+              {/* The preview has no menu or toolbar to show this on, so nothing is marked. */}
+              <Choice
+                label={t('settings.custom.glass')}
+                value={theme.glass}
+                options={(['frosted', 'solid'] as const).map((v) => ({
+                  value: v,
+                  label: t(`settings.custom.glass.${v}`),
+                }))}
+                onChange={(glass) => setCustomTheme({ ...theme, glass })}
               />
             </Row>
           )}

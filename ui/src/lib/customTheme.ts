@@ -4,15 +4,22 @@
  *  file, a shared link, a message from an embedding app) only reaches CSS through parseCustomTheme. */
 
 export type CustomBase = 'clean' | 'playful';
+// Near-greys first, then the tints in hue order around the wheel, so neighbouring chips blend.
 export const BACKGROUNDS = [
   'neutral',
   'warm',
   'paper',
+  'peach',
   'rose',
-  'sage',
-  'cool',
-  'slate',
+  'mauve',
   'lavender',
+  'slate',
+  'cool',
+  'sky',
+  'teal',
+  'mint',
+  'sage',
+  'olive',
   'accent',
 ] as const;
 export type Background = (typeof BACKGROUNDS)[number];
@@ -41,6 +48,13 @@ export interface CustomTheme {
   layout: 'inset' | 'full';
   headings: 'default' | 'tight';
   buttons: 'flat' | 'raised';
+  /** Clean base only, like the options below: Playful keeps its own dots, shadows, borders and
+   *  icons. */
+  texture: 'none' | 'dots';
+  depth: 'flat' | 'default' | 'lifted';
+  borders: 'default' | 'bold';
+  icons: 'light' | 'default' | 'bold';
+  glass: 'frosted' | 'solid';
 }
 
 export const ACCENT_SWATCHES = [
@@ -72,6 +86,11 @@ const PRESET_DEFAULTS = {
   layout: 'inset',
   headings: 'default',
   buttons: 'flat',
+  texture: 'none',
+  depth: 'default',
+  borders: 'default',
+  icons: 'default',
+  glass: 'frosted',
 } as const;
 
 export const PRESETS = {
@@ -249,6 +268,11 @@ const ENUMS = {
   layout: ['inset', 'full'],
   headings: ['default', 'tight'],
   buttons: ['flat', 'raised'],
+  texture: ['none', 'dots'],
+  depth: ['flat', 'default', 'lifted'],
+  borders: ['default', 'bold'],
+  icons: ['light', 'default', 'bold'],
+  glass: ['frosted', 'solid'],
 } as const;
 
 function hex(value: unknown): string | null {
@@ -323,6 +347,11 @@ export function serializeCustomTheme(t: CustomTheme): string {
     layout: t.layout,
     headings: t.headings,
     buttons: t.buttons,
+    texture: t.texture,
+    depth: t.depth,
+    borders: t.borders,
+    icons: t.icons,
+    glass: t.glass,
   });
 }
 
@@ -488,11 +517,17 @@ const TINTS: Record<Exclude<Background, 'accent'>, [chroma: number, hue: number]
   neutral: [0.006, 88],
   warm: [0.013, 70],
   paper: [0.02, 88],
+  peach: [0.016, 45],
   rose: [0.014, 12],
-  sage: [0.014, 145],
-  cool: [0.008, 255],
-  slate: [0.018, 255],
+  mauve: [0.014, 335],
   lavender: [0.016, 295],
+  slate: [0.018, 255],
+  cool: [0.008, 255],
+  sky: [0.016, 230],
+  teal: [0.014, 200],
+  mint: [0.014, 170],
+  sage: [0.014, 145],
+  olive: [0.016, 115],
 };
 
 // Status colours in OKLCH: [light text, light tint, dark text, dark tint].
@@ -521,6 +556,27 @@ const CORNERS: Record<Exclude<Corners, 'default'>, Record<string, string>> = {
   sharp: { 'r-ctl': '4px', 'r-btn': '6px', 'r-box': '6px', 'r-tag': '3px' },
   // Far enough from either base's default to read as a choice of its own: pill tags, soft cards.
   round: { 'r-ctl': '14px', 'r-btn': '999px', 'r-box': '22px', 'r-tag': '999px' },
+};
+
+// Shadows under cards and lists; Lifted stays below the menus' --sh-float.
+const DEPTH: Record<'flat' | 'lifted', Record<Mode, string>> = {
+  flat: { light: 'none', dark: 'none' },
+  lifted: {
+    light: '0 1px 3px rgba(20, 19, 18, 0.08), 0 8px 24px -8px rgba(20, 19, 18, 0.16)',
+    dark: '0 1px 3px rgba(0, 0, 0, 0.45), 0 10px 28px -10px rgba(0, 0, 0, 0.75)',
+  },
+};
+
+// Icon stroke width, far enough from Clean's own 1.75 to see at 15px.
+const ICONS = { light: '1.25', bold: '2.4' };
+const BOLD_BORDER = '2px';
+
+// Menus and the sticky toolbar as the solid colour they float over, without the blur.
+const SOLID = {
+  'glass-menu': 'var(--surface)',
+  'glass-bar': 'var(--bg)',
+  mat: 'none',
+  'mat-menu': 'none',
 };
 
 const SYSTEM_FONT =
@@ -704,9 +760,11 @@ function deriveMode(theme: CustomTheme, mode: Mode, out: Derived): Record<string
     if (bgs.some((b) => contrast(fg, b) < MIN_CONTRAST)) out.failures.push(`${mode} --${token}`);
   }
 
+  const clean = theme.base === 'clean';
   v['line-soft'] = v.line;
   v.sep = `1px solid ${v.sep}`;
-  v.frame = `1px solid ${v.frame}`;
+  v.frame = `${clean && theme.borders === 'bold' ? BOLD_BORDER : '1px'} solid ${v.frame}`;
+  if (clean && theme.depth !== 'default') v['sh-box'] = DEPTH[theme.depth][mode];
   v.shell = v.side;
   v['glass-bar'] = alpha(v.bg, 0.74);
   v['glass-menu'] = dark
@@ -743,9 +801,14 @@ function shared(theme: CustomTheme): Record<string, string> {
     v.f = `'${f.sans}', ${SYSTEM_FONT}`;
     if (f.mono) v.fm = `'${f.mono}', ${SYSTEM_MONO}`;
   }
-  if (theme.base === 'clean' && theme.headings === 'tight') {
-    v.h1 = '600 32px/1.1 var(--fh)';
-    v['h1-track'] = '-0.035em';
+  if (theme.base === 'clean') {
+    if (theme.headings === 'tight') {
+      v.h1 = '600 32px/1.1 var(--fh)';
+      v['h1-track'] = '-0.035em';
+    }
+    if (theme.borders === 'bold') v.bw = BOLD_BORDER;
+    if (theme.icons !== 'default') v.isw = ICONS[theme.icons];
+    if (theme.glass === 'solid') Object.assign(v, SOLID);
   }
   return v;
 }
@@ -817,6 +880,18 @@ export function themeCss(theme: CustomTheme): string {
         `${DARK} .ss-btn.pri ${dark}`,
         `:root[data-custom] .ss-mini[data-mode='light'] .ss-btn.pri ${light}`,
         `:root[data-custom] .ss-mini[data-mode='dark'] .ss-btn.pri ${dark}`,
+      );
+    }
+    if (theme.texture === 'dots') {
+      // On the page and the preview's page, not the shell around them. The doubled attribute
+      // outranks the inset panel's solid background whichever stylesheet loads first.
+      const dots = (c: string) =>
+        `{\n  background-image: radial-gradient(${c} 1px, transparent 1px);\n  background-size: 24px 24px;\n}`;
+      parts.push(
+        `:root[data-custom][data-custom]:not(.dark) .ss-main ${dots(vars.light['line-2'])}`,
+        `${DARK} .ss-main ${dots(vars.dark['line-2'])}`,
+        `:root[data-custom] .ss-mini[data-mode='light'] > .pn ${dots(vars.light['line-2'])}`,
+        `:root[data-custom] .ss-mini[data-mode='dark'] > .pn ${dots(vars.dark['line-2'])}`,
       );
     }
   }

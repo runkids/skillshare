@@ -22,6 +22,15 @@ import {
 } from './customTheme';
 
 const pine: CustomTheme = PRESETS.pine;
+// Every surface option away from its default.
+const surfaces = {
+  texture: 'dots',
+  depth: 'lifted',
+  borders: 'bold',
+  icons: 'bold',
+  glass: 'solid',
+} as const;
+const SURFACE_CSS = /--(bw|isw|sh-box|mat):|radial-gradient/;
 
 describe('parseCustomTheme', () => {
   it('accepts an exported theme unchanged', () => {
@@ -42,6 +51,11 @@ describe('parseCustomTheme', () => {
       layout: 'inset',
       headings: 'default',
       buttons: 'flat',
+      texture: 'none',
+      depth: 'default',
+      borders: 'default',
+      icons: 'default',
+      glass: 'frosted',
     });
   });
 
@@ -49,6 +63,7 @@ describe('parseCustomTheme', () => {
     ['another version', { v: 2, accent: '#0f766e' }],
     ['a colour that is not hex', { v: 1, accent: 'red; } body { display: none' }],
     ['an unknown option value', { v: 1, accent: '#0f766e', font: "x'); @import url(evil" }],
+    ['an unknown texture', { v: 1, accent: '#0f766e', texture: 'stripes' }],
     ['a bad optional colour', { v: 1, accent: '#0f766e', link: 'url(x)' }],
     ['an array', [1]],
     ['a string', '#0f766e'],
@@ -73,6 +88,11 @@ describe('parseCustomTheme', () => {
 describe('share link', () => {
   it('round-trips a theme, including a non-Latin name', () => {
     const theme = { ...PRESETS.ember, name: '琥珀 Ember' };
+    expect(decodeShare(encodeShare(theme))).toEqual(theme);
+  });
+
+  it('round-trips the surface options', () => {
+    const theme: CustomTheme = { ...pine, ...surfaces };
     expect(decodeShare(encodeShare(theme))).toEqual(theme);
   });
 
@@ -205,6 +225,31 @@ describe('themeCss', () => {
       css.indexOf(`.ss-mini[data-mode='${mode}'] .ss-btn.pri`) > css.indexOf('.dark .ss-btn.pri');
     expect([rule('light'), rule('dark')]).toEqual([true, true]);
   });
+
+  it('writes nothing for the default surface options', () => {
+    expect(themeCss(pine)).not.toMatch(SURFACE_CSS);
+  });
+
+  it('applies the surface options on a Clean base', () => {
+    const css = themeCss({ ...pine, ...surfaces });
+    expect(
+      ['--bw: 2px;', '--isw: 2.4;', '--mat: none;', '--sh-box: 0 1px', 'radial-gradient'].filter(
+        (s) => !css.includes(s),
+      ),
+    ).toEqual([]);
+  });
+
+  it('leaves the surface options to a Playful base', () => {
+    expect(themeCss({ ...pine, ...surfaces, base: 'playful' })).not.toMatch(SURFACE_CSS);
+  });
+
+  it("gives the editor preview the dots and shadow of the mode it shows, not the page's", () => {
+    const theme: CustomTheme = { ...pine, ...surfaces };
+    expect([
+      themeCss(theme).includes(".ss-mini[data-mode='dark'] > .pn"),
+      deriveTheme(theme).dark['sh-box'].includes('rgba(0, 0, 0'),
+    ]).toEqual([true, true]);
+  });
 });
 
 describe('themeVars', () => {
@@ -273,8 +318,9 @@ describe('presets', () => {
   it('names the preset an edited theme started from, and none while it still matches', () => {
     expect([
       editedFrom({ ...PRESETS.graphite, from: 'graphite', corners: 'round' }),
+      editedFrom({ ...PRESETS.graphite, from: 'graphite', texture: 'dots' }),
       editedFrom({ ...PRESETS.graphite, from: 'graphite' }),
-    ]).toEqual(['graphite', null]);
+    ]).toEqual(['graphite', 'graphite', null]);
   });
 
   it('names an edited preset generically and keeps an imported name', () => {
