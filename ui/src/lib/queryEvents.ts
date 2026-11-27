@@ -55,14 +55,16 @@ const events = {
     ),
 
   // Targets, projects and sync
-  targetsChanged: () => keys(...targets, k.instructions.all),
+  targetsChanged: () => keys(...targets, k.instructions.all, k.contextRouter.all),
   synced: () => keys(k.targets.all, k.overview, k.diff()),
-  syncRan: () => keys(...targets, k.extrasDiff(), k.extras, k.mcp, k.hooks, k.logAll),
-  projectSynced: () => keys(...targets, k.mcp, k.hooks, k.logAll),
-  // A project or a source folder is where the Router tab looks for a context router.
+  syncRan: () =>
+    keys(...targets, k.extrasDiff(), k.extras, k.mcp, k.hooks, k.logAll, k.contextRouter.all),
+  projectSynced: () => keys(...targets, k.mcp, k.hooks, k.logAll, k.contextRouter.all),
+  // The Router tab measures files on disk: a project or source folder decides where it looks,
+  // and a write to instruction, target or source files can change what it measures.
   projectChanged: () => keys(...targets, k.mcp, k.hooks, k.contextRouter.all),
   projectAdded: () => keys(...targets, k.mcp, k.hooks, k.contextRouter.all),
-  targetFilesChanged: (target: string) => keys(k.targetFiles.list(target)),
+  targetFilesChanged: (target: string) => keys(k.targetFiles.list(target), k.contextRouter.all),
   // Only the list: the removed file's content query is still mounted and would fetch again.
   targetFileRemoved: (target: string): InvalidateQueryFilters[] => [
     { queryKey: k.targetFiles.list(target), exact: true },
@@ -96,10 +98,12 @@ const events = {
   auditRulesChanged: () => keys(k.audit.rules, k.audit.compiled),
 
   // Extras, instructions and memory
-  extrasChanged: () => keys(k.extras, k.extrasDiff(), k.config, k.overview, k.memory.all),
+  extrasChanged: () =>
+    keys(k.extras, k.extrasDiff(), k.config, k.overview, k.memory.all, k.contextRouter.all),
   instructionsChanged: () =>
-    keys(k.instructions.all, k.extras, k.extrasDiff(), k.config, k.memory.all),
-  managedFilesChanged: () => keys(k.fileBackups.all, k.instructions.all, k.memory.all),
+    keys(k.instructions.all, k.extras, k.extrasDiff(), k.config, k.memory.all, k.contextRouter.all),
+  managedFilesChanged: () =>
+    keys(k.fileBackups.all, k.instructions.all, k.memory.all, k.contextRouter.all),
   memoryNotesChanged: () => keys(k.memory.all, k.extras, k.fileBackups.all),
   memoryRefreshed: () => keys(k.memory.all),
 
@@ -126,7 +130,7 @@ const events = {
   // Backups, logs, git and the app itself
   backupsChanged: () => keys(k.backups),
   backupLimitsSaved: () => keys(k.backups, k.config),
-  backupRestored: () => keys(k.backups, k.targets.all),
+  backupRestored: () => keys(k.backups, k.targets.all, k.contextRouter.all),
   logsCleared: () => keys(k.logAll, k.logStatsAll),
   gitFetched: () => keys(k.gitStatus),
   gitChanged: () =>
@@ -139,6 +143,7 @@ const events = {
       k.targets.all,
       k.diff(),
       k.versionCheck,
+      k.contextRouter.all,
     ),
   // Root scope can change any of the source resources shown elsewhere.
   sourceDiscarded: (): InvalidateQueryFilters[] => [{}],
