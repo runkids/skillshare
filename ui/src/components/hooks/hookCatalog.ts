@@ -530,19 +530,231 @@ const slugPart = (s: string) =>
     .replace(/[^a-z0-9_.-]+/g, '-')
     .replace(/^[-.]+|[-.]+$/g, '');
 
+const INTERPRETER =
+  /^(?:env|sh|bash|zsh|dash|ksh|fish|py|pythonw?|pypy|node(?:js)?|bun|deno|tsx|ts-node|uv|ruby|perl|php|pwsh|powershell|cmd)(?:[-@]?\d+(?:\.\d+)*[a-z]?)?$/i;
+
+interface InterpSpec {
+  inline: (arg: string) => boolean;
+  takesValue: (arg: string) => boolean;
+}
+
+function interpreterSpec(base: string): InterpSpec {
+  const name = base.replace(/[-@]?\d+(?:\.\d+)*[a-z]?$/i, '').toLowerCase();
+  switch (name) {
+    case 'env':
+      return {
+        inline: () => false,
+        takesValue: (a) =>
+          a === '-u' ||
+          a === '-C' ||
+          a === '-P' ||
+          /^--(?:unset|chdir|default-signal|ignore-signal|block-signal)$/.test(a),
+      };
+    case 'sh':
+    case 'bash':
+    case 'zsh':
+    case 'dash':
+    case 'ksh':
+    case 'fish':
+      return {
+        inline: (a) => a === '-c' || a === '--command' || /^-[a-z]+c$/.test(a),
+        takesValue: (a) =>
+          a === '-o' ||
+          a === '+o' ||
+          a === '--rcfile' ||
+          a === '--init-file' ||
+          a === '-C' ||
+          a === '--init-command',
+      };
+    case 'py':
+    case 'python':
+    case 'pythonw':
+    case 'pypy':
+      return {
+        inline: (a) => a === '-c' || a === '-m',
+        takesValue: (a) => a === '-W' || a === '-X' || a === '--check-hash-based-pycs',
+      };
+    case 'uv':
+      return {
+        inline: (a) => a === '-m' || a === '--module',
+        takesValue: (a) =>
+          a === '-p' ||
+          /^--(?:python|directory|project|config-file|env-file|with|with-requirements|with-editable|index|default-index)$/.test(
+            a,
+          ),
+      };
+    case 'node':
+    case 'nodejs':
+    case 'tsx':
+    case 'ts-node':
+      return {
+        inline: (a) => a === '-e' || a === '--eval' || a === '-p' || a === '--print',
+        takesValue: (a) =>
+          a === '-r' ||
+          a === '-C' ||
+          (name === 'ts-node' && (a === '-P' || a === '-O')) ||
+          /^--(?:require|import|loader|experimental-loader|env-file|env-file-if-exists|tsconfig|project|conditions|compiler|compiler-options|watch-path)$/.test(
+            a,
+          ),
+      };
+    case 'bun':
+      return {
+        inline: (a) => a === '-e' || a === '--eval' || a === '-p' || a === '--print',
+        takesValue: (a) =>
+          a === '-r' ||
+          a === '-c' ||
+          /^--(?:preload|require|import|env-file|config|cwd|tsconfig-override|conditions)$/.test(a),
+      };
+    case 'deno':
+      return {
+        inline: (a) => a === 'eval',
+        takesValue: (a) =>
+          a === '-c' ||
+          /^--(?:config|import-map|lock|cert|env-file|location|seed|v8-flags)$/.test(a),
+      };
+    case 'ruby':
+      return {
+        inline: (a) => a === '-e' || /^-[a-z]*e$/.test(a),
+        takesValue: (a) =>
+          a === '-r' || a === '-I' || a === '-C' || a === '-E' || a === '--encoding',
+      };
+    case 'perl':
+      return {
+        inline: (a) => a === '-e' || a === '-E',
+        takesValue: (a) => a === '-I' || a === '-M' || a === '-m',
+      };
+    case 'php':
+      return {
+        inline: (a) => a === '-r' || a === '--run',
+        takesValue: (a) =>
+          a === '-c' || a === '-d' || a === '-z' || /^--(?:php-ini|define|zend-extension)$/.test(a),
+      };
+    case 'pwsh':
+    case 'powershell':
+      return {
+        inline: (a) => /^-(?:c|command|ec|encodedcommand)$/i.test(a),
+        takesValue: (a) =>
+          /^-(?:executionpolicy|ep|configurationname|workingdirectory|wd|settingsfile|inputformat|outputformat)$/i.test(
+            a,
+          ),
+      };
+    default:
+      return { inline: () => false, takesValue: () => false };
+  }
+}
+
+const basename = (token: string) => token.split(/[\\/]/).pop() ?? '';
+
+const interpreterBase = (token: string) => basename(token).replace(/\.(?:exe|cmd|bat)$/i, '');
+
+const fileStem = (token: string) =>
+  slugPart(basename(token).replace(/\.[A-Za-z][A-Za-z0-9]*$/, '')).slice(0, 60);
+
+const isInterpreter = (token: string) => INTERPRETER.test(interpreterBase(token));
+
+const tokenizeCommand = (command: string) =>
+  (command.match(/(?:"[^"]*"|'[^']*'|[^\s"']+)+/g) ?? [])
+    .map((t) => t.replace(/["']/g, ''))
+    .filter(Boolean);
+
+const interpreterName = (base: string) =>
+  base.replace(/[-@]?\d+(?:\.\d+)*[a-z]?$/i, '').toLowerCase();
+
+/**
+ * Extracts a hook script's stem when the command runs a file by path (`~/.claude/guard.sh` → `guard`,
+ * `/opt/homebrew/bin/python3.14 ~/.local/tool/check.py` → `check`), ignoring bare shells and interpreters.
+ */
+export function commandScriptStem(command: string) {
+  const tokens = tokenizeCommand(command);
+  let i = 0;
+  while (i < tokens.length && /^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[i])) i++;
+  const first = tokens[i] ?? '';
+  if (isInterpreter(first)) {
+    let name = interpreterName(interpreterBase(first));
+    let spec = interpreterSpec(interpreterBase(first));
+    let sawRun = false;
+    for (let j = i + 1; j < tokens.length; j++) {
+      const arg = tokens[j];
+      if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(arg) || /^\/[a-z?]$/i.test(arg)) continue;
+      if (name === 'env') {
+        if (arg === '-S' || arg === '--split-string') {
+          const split = tokenizeCommand(tokens[j + 1] ?? '');
+          tokens.splice(j, 2, ...split);
+          j--;
+          continue;
+        }
+        if (arg.startsWith('-S') && arg.length > 2) {
+          tokens.splice(j, 1, ...tokenizeCommand(arg.slice(2)));
+          j--;
+          continue;
+        }
+        if (arg.startsWith('--split-string=')) {
+          tokens.splice(j, 1, ...tokenizeCommand(arg.slice('--split-string='.length)));
+          j--;
+          continue;
+        }
+      }
+      if (isInterpreter(arg)) {
+        const base = interpreterBase(arg);
+        name = interpreterName(base);
+        spec = interpreterSpec(base);
+        sawRun = false;
+        continue;
+      }
+      if (spec.inline(arg)) return '';
+      if (spec.takesValue(arg)) {
+        j++;
+        continue;
+      }
+      if (arg.startsWith('-')) continue;
+      if (!sawRun && (name === 'uv' || name === 'deno' || name === 'bun') && arg === 'run') {
+        sawRun = true;
+        continue;
+      }
+      return /[\\/]/.test(arg) || /\.[A-Za-z][A-Za-z0-9]*$/.test(arg) ? fileStem(arg) : '';
+    }
+    return '';
+  }
+  return /[\\/]/.test(first) ? fileStem(first) : '';
+}
+
 /**
  * An import's default name: the script's basename when the command runs a file by path (`~/.claude/guard.sh` → guard),
- * otherwise the CLI's candidate name, `<target>-<event>` (claude-stop). Numbered when taken.
+ * otherwise the CLI's candidate name, `<target>-<event>` (claude-stop). Falls back to `<target>-<event>` when the
+ * script stem is already taken, and numbers when `<target>-<event>` is also taken.
  */
 export function suggestName(candidate: string, command: string, taken: (name: string) => boolean) {
-  const first = command.trim().split(/\s+/)[0] ?? '';
-  const script = /[\\/]/.test(first)
-    ? slugPart((first.split(/[\\/]/).pop() ?? '').replace(/\.[A-Za-z0-9]+$/, ''))
-    : '';
-  const stem = script.slice(0, 60) || candidate;
+  const script = commandScriptStem(command);
+  const stem = script && !taken(script) ? script : candidate;
   let name = stem;
   for (let n = 2; taken(name); n++) name = `${stem}-${n}`;
   return name;
+}
+
+/**
+ * Computes default import names for a batch of rows. When multiple rows invoke the same script or
+ * dispatcher binary (e.g. `~/.local/bin/hyp hook <agent> <event>`), each row falls back to its own
+ * `<target>-<event>` candidate name instead of collapsing into `<stem>`, `<stem>-2`, `<stem>-3`, …
+ */
+export function defaultImportNames(
+  items: { id: string; candidate: string; command: string }[],
+  taken: (name: string) => boolean,
+) {
+  const stems = items.map((item) => commandScriptStem(item.command));
+  const used = new Set<string>();
+  const out: Record<string, string> = {};
+  items.forEach((item, idx) => {
+    const unique =
+      Boolean(stems[idx]) && stems.indexOf(stems[idx]) === stems.lastIndexOf(stems[idx]);
+    const name = suggestName(
+      item.candidate,
+      unique ? item.command : '',
+      (n) => taken(n) || used.has(n),
+    );
+    used.add(name);
+    out[item.id] = name;
+  });
+  return out;
 }
 
 // ---- Diff ---------------------------------------------------------------------------------------
