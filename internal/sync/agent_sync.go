@@ -81,7 +81,7 @@ func SyncAgents(agents []resource.DiscoveredResource, sourceDir, targetDir, mode
 // source path (absSource) reference the same file. The fast path is a direct
 // string compare; the slow path canonicalizes both sides through EvalSymlinks so
 // symlinked ancestors (e.g. macOS /var → /private/var) do not make a stable
-// relative link look like it points elsewhere. Mirrors isSymlinkToSource in sync.go.
+// relative link look like it points elsewhere. Mirrors IsSymlinkToSource in sync.go.
 func linkResolvesToSource(absLink, absSource string) bool {
 	if utils.PathsEqual(absLink, absSource) {
 		return true

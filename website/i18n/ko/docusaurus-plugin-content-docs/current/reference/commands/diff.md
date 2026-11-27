@@ -163,6 +163,8 @@ symlink mode를 사용하는 target의 경우:
 - symlink가 올바른 source를 가리키는지 단순히 확인
 - "in sync"를 표시하거나 잘못된 symlink에 대해 경고
 
+merge 또는 copy mode target의 폴더가 여전히 source로 향하는 링크라면 같은 방식으로 확인합니다. 폴더가 다른 도구의 링크(dotfiles manager)인 경우에는 그 링크가 가리키는 디렉터리로 비교합니다. 링크가 아무 곳도 가리키지 않으면 `diff`는 모든 skill을 나열하는 대신 그 상태를 보고합니다.
+
 ## 사용 사례
 
 ### Sync 전에

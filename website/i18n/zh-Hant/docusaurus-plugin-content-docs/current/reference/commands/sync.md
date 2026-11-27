@@ -307,7 +307,8 @@ git add → commit → push`"]
 
 - **Symlinked source** — 所有指令（`sync`、`update`、`uninstall`、`list`、`diff`、`install`）在走訪前都會先解析 symlink，因此 skills 能被正確發現。連鎖 symlinks（link → link → 實際目錄）也能運作。
 - **Symlinked target** — `sync` 會偵測到該 target symlink**不是**由 skillshare 建立的，並予以保留。Skills 會同步進解析後的目錄。
-- **Status/collect** — `status` 與 `collect` 會跟隨外部 target symlinks，而不是回報衝突。
+- **Status/diff/collect** — `status`、`diff` 與 `collect` 會跟隨外部 target symlinks，而不是回報衝突。
+- **Backup/restore** — `backup` 與 `restore` 會使用外部 target symlink 指向的目錄，並保留該連結。`target remove` 會保留該連結，並清理它指向的目錄。
 
 :::info sync 如何判斷
 當 target 目錄是 symlink 時，sync 會檢查它是否指向 skillshare 的 source 目錄。只有由 skillshare 自身 symlink mode 建立的 symlinks，才會在 mode 轉換時被移除 — 外部的 symlinks（來自 dotfiles managers）一律會被保留。

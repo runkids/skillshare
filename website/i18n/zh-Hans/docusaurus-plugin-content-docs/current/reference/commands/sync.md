@@ -324,8 +324,10 @@ git add → commit → push`"]
   （link → link → 真实目录）同样可行。
 - **Symlinked target** —— `sync` 会检测到该 target symlink **并非**由 skillshare 创建，
   并保留它。skills 会被同步到解析后的目录中。
-- **Status/collect** —— `status` 和 `collect` 会跟随外部的 target symlink，
+- **Status/diff/collect** —— `status`、`diff` 和 `collect` 会跟随外部的 target symlink，
   而不是报告冲突。
+- **Backup/restore** —— `backup` 和 `restore` 会使用外部 target symlink 指向的目录，并保留该链接。
+  `target remove` 会保留该链接，并清理其指向的目录。
 
 :::info sync 如何判断
 当一个 target 目录是 symlink 时，sync 会检查它是否指向 skillshare 的 source 目录。

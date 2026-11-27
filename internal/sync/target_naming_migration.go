@@ -89,7 +89,7 @@ func findLegacyTargetEntry(mode, targetPath string, skill ResolvedTargetSkill, t
 func isManagedTargetEntry(mode, entryPath string, info os.FileInfo, skill ResolvedTargetSkill, manifest *Manifest, c namedTarget) bool {
 	switch mode {
 	case "merge":
-		return utils.IsSymlinkOrJunction(entryPath) && isSymlinkToSource(entryPath, skill.Skill.SourcePath)
+		return utils.IsSymlinkOrJunction(entryPath) && IsSymlinkToSource(entryPath, skill.Skill.SourcePath)
 	case "copy":
 		if manifest == nil {
 			return false
@@ -97,7 +97,7 @@ func isManagedTargetEntry(mode, entryPath string, info os.FileInfo, skill Resolv
 		// A link merge mode made (recorded as "symlink") migrates like a managed
 		// copy; copy sync replaces it with a copy. A user's own link stays put.
 		if utils.IsLinkMode(entryPath, info.Mode()) {
-			return manifest.Managed[c.name] == manifestSymlink && isSymlinkToSource(entryPath, skill.Skill.SourcePath)
+			return manifest.Managed[c.name] == manifestSymlink && IsSymlinkToSource(entryPath, skill.Skill.SourcePath)
 		}
 		if !info.IsDir() {
 			return false

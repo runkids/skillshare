@@ -6,6 +6,7 @@ import (
 
 	"skillshare/internal/backup"
 	"skillshare/internal/config"
+	"skillshare/internal/sync"
 	"skillshare/internal/ui"
 	"skillshare/internal/utils"
 )
@@ -135,7 +136,7 @@ func resolveGlobalAgentBackupContextFromCfg(cfg *config.Config) (string, []agent
 	for name := range cfg.Targets {
 		agentPath := resolveAgentTargetPath(cfg.Targets[name], builtinAgents, name)
 		if agentPath != "" {
-			targets = append(targets, agentTarget{name: name, agentPath: agentPath})
+			targets = append(targets, agentTarget{name: name, agentPath: sync.ResolveTargetRoot(agentPath, cfg.EffectiveAgentsSource())})
 		}
 	}
 
@@ -153,7 +154,7 @@ func resolveProjectAgentBackupContext(cwd string) (string, []agentTarget, error)
 	for _, entry := range projCfg.Targets {
 		agentPath := resolveProjectAgentTargetPath(entry, builtinAgents, cwd)
 		if agentPath != "" {
-			targets = append(targets, agentTarget{name: entry.Name, agentPath: agentPath})
+			targets = append(targets, agentTarget{name: entry.Name, agentPath: sync.ResolveTargetRoot(agentPath, projCfg.EffectiveAgentsSource(cwd))})
 		}
 	}
 

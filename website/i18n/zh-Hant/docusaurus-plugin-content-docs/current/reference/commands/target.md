@@ -91,6 +91,8 @@ skillshare target remove cursor --dry-run # 預覽
 
 如果還有其他 target 寫入同一個 skills 資料夾（例如 `codex` 和 `universal` 都用 `~/.agents/skills`），會略過第 2 步：skills 仍為那個 target 保持連結，只有被移除的 target 從設定中拿掉。
 
+如果 skills 資料夾是另一個工具的連結（dotfiles manager），該連結會保留，第 2 步會在它指向的目錄中執行。資料夾指向的目錄與另一個 target 相同時，視為與該 target 共用。
+
 [關閉 skills](#skills-off) 的 target 沒有任何同步內容，因此同樣會略過第 2 步，其資料夾維持原樣。
 
 ### target list

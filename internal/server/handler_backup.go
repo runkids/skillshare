@@ -10,6 +10,7 @@ import (
 
 	"skillshare/internal/backup"
 	"skillshare/internal/config"
+	ssync "skillshare/internal/sync"
 	"skillshare/internal/utils"
 )
 
@@ -73,7 +74,7 @@ func (s *Server) backupRestoreDest(entry string, targets map[string]config.Targe
 	if name, ok := backup.AgentsEntryTarget(entry); ok {
 		if t, found := targets[name]; found {
 			if p := resolveAgentPath(t, s.builtinAgentTargets(), name, s.IsProjectMode()); p != "" {
-				return p, true
+				return ssync.ResolveTargetRoot(p, s.agentsSource()), true
 			}
 		}
 	}
@@ -81,7 +82,7 @@ func (s *Server) backupRestoreDest(entry string, targets map[string]config.Targe
 		return "", false
 	}
 	if t, ok := targets[entry]; ok {
-		return t.SkillsConfig().Path, true
+		return ssync.ResolveTargetRoot(t.SkillsConfig().Path, s.skillsSource()), true
 	}
 	return "", false
 }
@@ -138,7 +139,7 @@ func (s *Server) handleCreateBackup(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			if p := resolveAgentPath(t, builtin, name, true); p != "" {
-				targets[entry] = p
+				targets[entry] = ssync.ResolveTargetRoot(p, s.agentsSource())
 			}
 		}
 		if body.Target != "" && len(targets) == 0 {
@@ -151,10 +152,10 @@ func (s *Server) handleCreateBackup(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "target not found: "+body.Target)
 			return
 		}
-		targets[body.Target] = t.SkillsConfig().Path
+		targets[body.Target] = ssync.ResolveTargetRoot(t.SkillsConfig().Path, s.skillsSource())
 	} else {
 		for name, t := range s.cfg.Targets {
-			targets[name] = t.SkillsConfig().Path
+			targets[name] = ssync.ResolveTargetRoot(t.SkillsConfig().Path, s.skillsSource())
 		}
 	}
 

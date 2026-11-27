@@ -801,7 +801,7 @@ func displayTargetStatus(target config.TargetConfig, source, mode string, row fu
 			statusWord = status.String()
 		}
 	case "copy":
-		status, managedCount, localCount := sync.CheckStatusCopy(sc.Path)
+		status, managedCount, localCount := sync.CheckStatusCopy(sc.Path, source)
 		cached.status = status
 		cached.syncedCount = managedCount
 		switch status {

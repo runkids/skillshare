@@ -13,6 +13,7 @@ import (
 	"skillshare/internal/backup"
 	"skillshare/internal/config"
 	"skillshare/internal/oplog"
+	"skillshare/internal/sync"
 	"skillshare/internal/theme"
 	"skillshare/internal/trash"
 	"skillshare/internal/ui"
@@ -145,7 +146,7 @@ func createBackup(targetName string, dryRun bool) error {
 	if dryRun {
 		for _, name := range names {
 			target := targets[name]
-			if err := previewBackup(name, target.SkillsConfig().Path, width); err != nil {
+			if err := previewBackup(name, sync.ResolveTargetRoot(target.SkillsConfig().Path, cfg.EffectiveSkillsSource()), width); err != nil {
 				ui.Row(ui.MarkWarn, name, fmt.Sprintf("could not inspect: %v", err), width)
 			}
 		}
@@ -167,7 +168,7 @@ func createBackup(targetName string, dryRun bool) error {
 	for _, name := range names {
 		spinner.Update(fmt.Sprintf("Backing up %s...", name))
 		target := targets[name]
-		backupPath, err := backup.Create(name, target.SkillsConfig().Path)
+		backupPath, err := backup.Create(name, sync.ResolveTargetRoot(target.SkillsConfig().Path, cfg.EffectiveSkillsSource()))
 		if err != nil {
 			results = append(results, backupResult{name: name, errMsg: err.Error()})
 			failed++
@@ -446,19 +447,20 @@ func cmdRestore(args []string) error {
 
 	opts := backup.RestoreOptions{Force: force}
 
-	sc := target.SkillsConfig()
+	// Another tool's link keeps pointing where it did; the snapshot goes into its directory.
+	dest := sync.ResolveTargetRoot(target.SkillsConfig().Path, cfg.EffectiveSkillsSource())
 	if dryRun {
 		if fromTimestamp != "" {
-			return previewRestoreFromTimestamp(targetName, sc.Path, fromTimestamp, opts)
+			return previewRestoreFromTimestamp(targetName, dest, fromTimestamp, opts)
 		}
-		return previewRestoreFromLatest(targetName, sc.Path, opts)
+		return previewRestoreFromLatest(targetName, dest, opts)
 	}
 
 	var restoreErr error
 	if fromTimestamp != "" {
-		restoreErr = restoreFromTimestamp(targetName, sc.Path, fromTimestamp, opts)
+		restoreErr = restoreFromTimestamp(targetName, dest, fromTimestamp, opts)
 	} else {
-		restoreErr = restoreFromLatest(targetName, sc.Path, opts)
+		restoreErr = restoreFromLatest(targetName, dest, opts)
 	}
 
 	e := oplog.NewEntry("restore", statusFromErr(restoreErr), time.Since(start))
@@ -513,7 +515,7 @@ func restoreTUIDispatch(noTUI bool) error {
 			ui.Done(ui.MarkNone, "No backups found", 0)
 			return nil
 		}
-		return runRestoreTUI(summaries, backupDir, cfg.Targets, config.ConfigPath())
+		return runRestoreTUI(summaries, backupDir, cfg)
 
 	case 1: // Trash Restore
 		cwd, _ := os.Getwd()

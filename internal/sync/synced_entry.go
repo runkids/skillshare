@@ -56,6 +56,6 @@ func AgentSyncedToTarget(mode, extension, targetDir, sourceDir string, agent res
 		return SyncedAgentCopies(targetDir, one) == 1
 	default:
 		link := filepath.Join(targetDir, agent.FlatName)
-		return utils.IsSymlinkOrJunction(link) && isSymlinkToSource(link, agent.AbsPath)
+		return utils.IsSymlinkOrJunction(link) && IsSymlinkToSource(link, agent.AbsPath)
 	}
 }

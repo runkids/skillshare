@@ -177,6 +177,29 @@ func TestTarget_List_JSON(t *testing.T) {
 	}
 }
 
+// A target without its own mode syncs with the config's mode, and the list says so.
+func TestTarget_List_JSON_UsesConfigMode(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	claudePath := sb.CreateTarget("claude")
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\nmode: copy\ntargets:\n  claude:\n    path: " + claudePath + "\n")
+
+	result := sb.RunCLI("target", "list", "--json")
+	result.AssertSuccess(t)
+	var output struct {
+		Targets []struct {
+			Mode string `json:"mode"`
+		} `json:"targets"`
+	}
+	if err := json.Unmarshal([]byte(result.Stdout), &output); err != nil {
+		t.Fatalf("invalid JSON output: %v\nStdout: %s", err, result.Stdout)
+	}
+	if len(output.Targets) != 1 || output.Targets[0].Mode != "copy" {
+		t.Errorf("targets = %+v, want one target in copy mode", output.Targets)
+	}
+}
+
 func TestTarget_List_Project_JSON_IncludesSyncMetadata(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

@@ -307,7 +307,8 @@ source または target ディレクトリをシンボリックリンクする d
 
 - **シンボリックリンクされた source** — すべてのコマンド（`sync`、`update`、`uninstall`、`list`、`diff`、`install`）は walk する前にシンボリックリンクを解決するため、skill は正しく検出されます。連鎖したシンボリックリンク（リンク → リンク → 実ディレクトリ）も動作します。
 - **シンボリックリンクされた target** — `sync` は target のシンボリックリンクが skillshare によって作成された**ものではない**ことを検知し、それを保持します。Skill は解決されたディレクトリに sync されます。
-- **Status/collect** — `status` と `collect` は、コンフリクトを報告する代わりに外部の target シンボリックリンクをたどります。
+- **Status/diff/collect** — `status`、`diff`、`collect` は、コンフリクトを報告する代わりに外部の target シンボリックリンクをたどります。
+- **Backup/restore** — `backup` と `restore` は、外部 target シンボリックリンクのリンク先ディレクトリを使い、リンクはそのまま残します。`target remove` はリンクを残し、リンク先のディレクトリを整理します。
 
 :::info sync の判定方法
 target ディレクトリがシンボリックリンクである場合、sync はそれが skillshare の source ディレクトリを指しているかどうかを確認します。mode 変換時に削除されるのは skillshare 自身の symlink mode によって作成されたシンボリックリンクのみです — 外部のシンボリックリンク（dotfiles manager によるもの）は常に保持されます。

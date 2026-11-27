@@ -90,11 +90,16 @@ func (s *Server) computeTargetDiff(name string, target config.TargetConfig, disc
 		return dt // skills off: nothing is synced, so nothing differs
 	}
 
-	if mode == "symlink" {
+	// As in the CLI diff: another tool's link counts as the directory it leads to.
+	switch root := ssync.ClassifyTargetRoot(sc.Path, source); {
+	case mode == "symlink" || root == ssync.TargetRootSourceLink:
 		status := ssync.CheckStatus(sc.Path, source)
 		if status != ssync.StatusLinked {
 			dt.Items = append(dt.Items, diffItem{Skill: "(entire directory)", Action: "link", Reason: "source only", Kind: kindSkill})
 		}
+		return dt
+	case root == ssync.TargetRootBrokenLink:
+		dt.Items = append(dt.Items, diffItem{Skill: "(entire directory)", Action: "skip", Reason: "target link does not lead to a directory", Kind: kindSkill})
 		return dt
 	}
 

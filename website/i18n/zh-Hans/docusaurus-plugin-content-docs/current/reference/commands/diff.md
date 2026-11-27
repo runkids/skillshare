@@ -163,6 +163,8 @@ claude
 - 仅检查 symlink 是否指向正确的 Source
 - 显示 "in sync"，或对错误的 symlink 发出警告
 
+如果 merge 或 copy mode 的 Target 的文件夹仍是指向 Source 的链接，会用同样的方式检查。如果文件夹是另一个工具的链接（dotfiles manager），则会按它指向的目录进行比较；如果该链接指向不存在的位置，`diff` 会报告这一情况，而不是列出每个 Skill。
+
 ## 使用案例
 
 ### Sync 之前

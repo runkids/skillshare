@@ -255,7 +255,7 @@ func (s *Service) detachDeparting(before, after *config.Config, affected []strin
 		// including a target with the same name after an edit.
 		probe := maps.Clone(survivors)
 		probe["@departing"] = config.TargetConfig{Skills: &config.ResourceTargetConfig{Path: path}}
-		if config.SkillsPathKeptBy(probe, "@departing", nil) != "" {
+		if ssync.SkillsFolderKeptBy(probe, "@departing", nil, before.EffectiveSkillsSource()) != "" {
 			report.Retained = append(report.Retained, path)
 			continue
 		}

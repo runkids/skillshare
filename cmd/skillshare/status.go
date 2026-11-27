@@ -395,7 +395,7 @@ func getTargetStatusDetail(target config.TargetConfig, source, mode string) targ
 	case "merge":
 		return getMergeStatusDetail(target, source, mode)
 	case "copy":
-		return getCopyStatusDetail(target, mode)
+		return getCopyStatusDetail(target, source, mode)
 	default:
 		return getSymlinkStatusDetail(target, source, mode)
 	}
@@ -412,8 +412,8 @@ func getMergeStatusDetail(target config.TargetConfig, source, mode string) targe
 	}
 }
 
-func getCopyStatusDetail(target config.TargetConfig, mode string) targetStatusResult {
-	status, managedCount, localCount := sync.CheckStatusCopy(target.SkillsConfig().Path)
+func getCopyStatusDetail(target config.TargetConfig, source, mode string) targetStatusResult {
+	status, managedCount, localCount := sync.CheckStatusCopy(target.SkillsConfig().Path, source)
 
 	switch status {
 	case sync.StatusCopied, sync.StatusLinked:

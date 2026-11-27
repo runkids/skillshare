@@ -91,6 +91,8 @@ skillshare target remove cursor --dry-run # Preview
 
 如果还有其他 target 写入同一个 skills 文件夹（例如 `codex` 和 `universal` 都使用 `~/.agents/skills`），会跳过第 2 步：skills 仍为那个 target 保持链接，只有被移除的 target 从配置中删除。
 
+如果 skills 文件夹是另一个工具的链接（dotfiles manager），该链接会保留，第 2 步会在它指向的目录中执行。文件夹指向的目录与另一个 target 相同时，视为与该 target 共用。
+
 [关闭 skills](#skills-off) 的 target 没有同步任何内容，因此同样会跳过第 2 步，其文件夹保持原样。
 
 ### target list

@@ -14,6 +14,7 @@ import (
 
 	"skillshare/internal/config"
 	"skillshare/internal/oplog"
+	"skillshare/internal/sourcewalk"
 	"skillshare/internal/sync"
 	"skillshare/internal/textdiff"
 	"skillshare/internal/ui"
@@ -620,9 +621,16 @@ func collectTargetDiff(name string, target config.TargetConfig, source, mode str
 		sourceMap[resolved.TargetName] = resolved.Skill.SourcePath
 	}
 
-	if utils.IsSymlinkOrJunction(sc.Path) {
+	// An external link (a dotfiles manager) counts as the directory it leads
+	// to, as in sync; only symlink mode compares the link itself.
+	switch root := sync.ClassifyTargetRoot(sc.Path, source); {
+	case root == sync.TargetRootSourceLink || (mode == "symlink" && root != sync.TargetRootPlain):
 		r.mode = "symlink"
 		collectSymlinkDiff(&r, sc.Path, source)
+		dp.add(len(resolution.Skills))
+		return r
+	case root == sync.TargetRootBrokenLink:
+		r.errMsg = fmt.Sprintf("Target link does not lead to a directory: %s", sc.Path)
 		dp.add(len(resolution.Skills))
 		return r
 	}
@@ -652,7 +660,7 @@ func collectTargetDiff(name string, target config.TargetConfig, source, mode str
 
 	// Compute mtime only for copy mode (merge uses symlinks, mtime is misleading)
 	if mode == "copy" {
-		r.dstMtime = latestMtime(sc.Path)
+		r.dstMtime = latestMtime(sourcewalk.Canonical(sc.Path))
 		var srcLatest time.Time
 		for _, resolved := range resolution.Skills {
 			mt := copiedMtime(resolved.Skill.SourcePath, ignorePatterns)
