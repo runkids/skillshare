@@ -50,6 +50,7 @@ var walkReasons = map[string]string{
 	"plugin":       "Plugin packages and locks",
 	"hooks":        "Hook resources and snapshots",
 	"memory":       "Shared memory notes",
+	"preview":      "Read-only file listing for the dashboard's viewers",
 	"project":      "Project initialization and content detection",
 	"test-fixture": "Test infrastructure compiled as a non-test package",
 }

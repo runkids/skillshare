@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"time"
 
+	"skillshare/internal/filepreview"
 	"skillshare/internal/install"
 	syncpkg "skillshare/internal/sync"
 	"skillshare/internal/wsl"
@@ -113,6 +114,29 @@ func (s *Server) handleExtensionsInstall(w http.ResponseWriter, r *http.Request)
 		"scope": "ui",
 	}, "")
 	writeJSON(w, map[string]any{"success": true, "name": body.Name})
+}
+
+// handleExtensionsFiles — GET /api/extensions/files
+// Lists the extensions folder, so the page can show it where no file manager can open it.
+func (s *Server) handleExtensionsFiles(w http.ResponseWriter, r *http.Request) {
+	files, err := filepreview.List(s.extensionsDir())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, map[string]any{"files": files})
+}
+
+// handleExtensionsFile — GET /api/extensions/files/{filepath...}
+// Reads one file of the extensions folder, never one outside it.
+func (s *Server) handleExtensionsFile(w http.ResponseWriter, r *http.Request) {
+	rel := r.PathValue("filepath")
+	data, err := filepreview.Read(s.extensionsDir(), rel)
+	if err != nil {
+		writePreviewError(w, err, rel)
+		return
+	}
+	writeJSON(w, map[string]string{"content": string(data)})
 }
 
 // handleExtensionsOpen — POST /api/extensions/open

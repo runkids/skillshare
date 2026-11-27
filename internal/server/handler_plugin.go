@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"net/http"
 	"time"
 
@@ -278,12 +277,8 @@ func (s *Server) handlePluginFile(w http.ResponseWriter, r *http.Request) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	data, err := s.pluginService().ReadFile(r.PathValue("name"), r.PathValue("filepath"))
-	if errors.Is(err, fs.ErrNotExist) {
-		writeError(w, http.StatusNotFound, "file not found: "+r.PathValue("filepath"))
-		return
-	}
 	if err != nil {
-		writeError(w, 400, err.Error())
+		writePreviewError(w, err, r.PathValue("filepath"))
 		return
 	}
 	writeJSON(w, map[string]any{"content": string(data)})

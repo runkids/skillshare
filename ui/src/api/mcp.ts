@@ -226,4 +226,9 @@ export const mcpApi = {
   /** Open one Agent's config file, as listed in `paths` or `projectPaths`, the way the skill page opens a skill; `folder` opens its directory instead. */
   open: (target: string, opts: { project?: string; folder?: boolean } = {}) =>
     http.post<{ editor: string; path: string; pid: number }>('/mcp/open', { target, ...opts }),
+  /** One Agent's config file, shown in the page; like `open`, only for a browser on the dashboard's machine. */
+  file: (target: string, project?: string) =>
+    http.get<{ path: string; content: string }>(
+      `/mcp/file?${new URLSearchParams({ target, ...(project ? { project } : {}) })}`,
+    ),
 };

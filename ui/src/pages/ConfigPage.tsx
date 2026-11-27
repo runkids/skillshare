@@ -7,6 +7,7 @@ import {
   RefreshCw,
   FileCog,
   FolderOpen,
+  Eye,
   Download,
   WandSparkles,
   Maximize2,
@@ -31,6 +32,7 @@ import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import AssistantPanel from '../components/config/AssistantPanel';
 import ConfirmDialog from '../components/ConfirmDialog';
+import FilesDialog from '../components/FilesDialog';
 import DialogShell from '../components/DialogShell';
 import { api, isConnectionLost } from '../api/client';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
@@ -634,6 +636,7 @@ function ExtensionsSection({ isProjectMode }: { isProjectMode: boolean }) {
   // earlier one's loading state).
   const [installing, setInstalling] = useState<Set<string>>(new Set());
   const [opening, setOpening] = useState(false);
+  const [viewing, setViewing] = useState(false);
   const [removing, setRemoving] = useState<string | null>(null);
   // The extension pending removal confirmation, with the extras referencing it.
   const [removeTarget, setRemoveTarget] = useState<{ name: string; usedBy: string[] } | null>(null);
@@ -716,11 +719,34 @@ function ExtensionsSection({ isProjectMode }: { isProjectMode: boolean }) {
             'Extensions pass each file through a script during sync, so it arrives in the format a tool expects. Install one here, then select it on a target in Extras.',
           )}
         </p>
-        <Button variant="secondary" onClick={handleOpenDir} loading={opening}>
-          <FolderOpen size={15} />
-          {t('config.extensions.openDir', {}, 'Open directory')}
-        </Button>
+        <div className="flex shrink-0 gap-2">
+          <Button variant="secondary" onClick={() => setViewing(true)}>
+            <Eye size={15} />
+            {t('config.extensions.viewFiles')}
+          </Button>
+          <Button variant="secondary" onClick={handleOpenDir} loading={opening}>
+            <FolderOpen size={15} />
+            {t('config.extensions.openDir', {}, 'Open directory')}
+          </Button>
+        </div>
       </div>
+      {viewing && (
+        <FilesDialog
+          title={dirLabel}
+          ariaLabel={t('config.extensions.viewFiles')}
+          emptyText={t('config.extensions.emptyFolder')}
+          files={{
+            key: queryKeys.extensionFiles,
+            list: () => api.extensionFiles().then((r) => r.files),
+          }}
+          file={(path) => ({
+            key: queryKeys.extensionFile(path),
+            read: () => api.extensionFile(path).then((r) => r.content),
+          })}
+          fresh
+          onClose={() => setViewing(false)}
+        />
+      )}
 
       {isPending ? (
         <PageSkeleton />

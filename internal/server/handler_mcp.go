@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"skillshare/internal/config"
+	"skillshare/internal/filepreview"
 	"skillshare/internal/mcp"
 	"skillshare/internal/projectdir"
 	syncpkg "skillshare/internal/sync"
@@ -351,6 +352,27 @@ func (s *Server) mcpOpenPath(target, project string) (string, error) {
 		return "", fmt.Errorf("unknown MCP target: %s", target)
 	}
 	return paths[target], nil
+}
+
+// handleMCPFile shows one Agent's MCP config file in the page, for a dashboard whose machine
+// has no desktop to open it on. Like handleMCPOpen it answers only a browser on this machine,
+// because the file can hold tokens, and only for a file the MCP page lists.
+func (s *Server) handleMCPFile(w http.ResponseWriter, r *http.Request) {
+	if !browserOnServerMachine(r) {
+		writeError(w, http.StatusForbidden, "viewing an Agent's file is available only on the machine running the dashboard")
+		return
+	}
+	path, err := s.mcpOpenPath(r.URL.Query().Get("target"), r.URL.Query().Get("project"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	data, err := filepreview.ReadFile(path)
+	if err != nil {
+		writePreviewError(w, err, path)
+		return
+	}
+	writeJSON(w, map[string]string{"path": path, "content": string(data)})
 }
 
 // nearestDir returns dir, or its closest parent that exists.
