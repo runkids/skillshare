@@ -503,9 +503,13 @@ export default function CustomThemeSettings() {
         {/* Stuck to the very top, with page colour above and to the sides (Playful's offset shadows
             reach past the box), so rows never show through. */}
         {/* The sentinel reaches a screen up from the preview, so it still counts as in view while
-            the preview is below the fold, and a jump straight to the pinned position crosses it. */}
+            the preview is below the fold, and a jump straight to the pinned position crosses it. It
+            ends level with the sticky box's top (its -mt-3), so it leaves just as the box pins. */}
         <div className="relative" aria-hidden>
-          <div ref={sentinel} className="pointer-events-none absolute bottom-0 h-screen w-px" />
+          <div
+            ref={sentinel}
+            className="pointer-events-none absolute bottom-0 h-screen w-px md:bottom-3"
+          />
         </div>
         <div
           className={`ss-ministick z-20 mb-3 bg-bg md:sticky md:top-0 md:-mt-3 md:pt-3 ${stuck ? 'stuck' : ''}`}

@@ -2682,16 +2682,18 @@ svg.lucide {
       border-radius 0.24s cubic-bezier(0.77, 0, 0.175, 1),
       box-shadow 0.24s cubic-bezier(0.77, 0, 0.175, 1);
   }
-  /* The editor's sticky preview. Once pinned it widens a little, so its corners sit past the side
-     edges of the list scrolling under it instead of meeting them. */
+  /* The editor's sticky preview. Once pinned it grows a little from its top edge, so its corners sit
+     past the side edges of the list scrolling under it instead of meeting them. A scale, not a
+     wider margin, so the preview is not laid out again on every frame while the page scrolls. */
   @media (min-width: 768px) {
     .ss-ministick {
       margin-inline: -8px;
       padding-inline: 8px;
-      transition: margin-inline 0.22s cubic-bezier(0.23, 1, 0.32, 1);
+      transform-origin: top;
+      transition: transform 0.22s cubic-bezier(0.23, 1, 0.32, 1);
     }
     .ss-ministick.stuck {
-      margin-inline: -20px;
+      transform: scale(1.02);
     }
   }
   @media (min-width: 768px) and (prefers-reduced-motion: reduce) {
