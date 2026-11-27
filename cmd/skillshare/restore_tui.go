@@ -18,6 +18,7 @@ import (
 	"skillshare/internal/backup"
 	"skillshare/internal/config"
 	"skillshare/internal/oplog"
+	"skillshare/internal/sync"
 	"skillshare/internal/theme"
 	"skillshare/internal/utils"
 )
@@ -150,6 +151,9 @@ type restoreTUIModel struct {
 	backupDir string
 	targets   map[string]config.TargetConfig
 	cfgPath   string
+	// Sources tell a symlink-mode link from another tool's link when restoring.
+	skillsSource string
+	agentsSource string
 
 	// Target list
 	targetList     list.Model
@@ -495,16 +499,17 @@ func (m restoreTUIModel) startRestore() (tea.Model, tea.Cmd) {
 	version := *m.selectedVersion
 	targets := m.targets
 	cfgPath := m.cfgPath
+	skillsSource, agentsSource := m.skillsSource, m.agentsSource
 
 	cmd := func() tea.Msg {
 		start := time.Now()
 
 		var destPath string
 		if isAgentBackupEntry(targetName) {
-			destPath = resolveAgentBackupPath(targets, targetName)
+			destPath = sync.ResolveTargetRoot(resolveAgentBackupPath(targets, targetName), agentsSource)
 		} else {
 			if tc, ok := targets[targetName]; ok {
-				destPath = tc.SkillsConfig().Path
+				destPath = sync.ResolveTargetRoot(tc.SkillsConfig().Path, skillsSource)
 			}
 		}
 		if destPath == "" {
@@ -842,7 +847,7 @@ func (m restoreTUIModel) renderTargetDetail(s backup.TargetBackupSummary) string
 		agentPath := resolveAgentBackupPath(m.targets, s.TargetName)
 		if agentPath != "" {
 			row("Path", shortenPath(agentPath))
-			row("Status", describeTargetState(agentPath))
+			row("Status", describeTargetState(sync.ResolveTargetRoot(agentPath, m.agentsSource)))
 		}
 	} else if t, ok := m.targets[s.TargetName]; ok {
 		sc := t.SkillsConfig()
@@ -850,7 +855,7 @@ func (m restoreTUIModel) renderTargetDetail(s backup.TargetBackupSummary) string
 		if sc.Mode != "" {
 			row("Mode", sc.Mode)
 		}
-		row("Status", describeTargetState(sc.Path))
+		row("Status", describeTargetState(sync.ResolveTargetRoot(sc.Path, m.skillsSource)))
 	}
 
 	b.WriteString("\n")
@@ -1070,8 +1075,9 @@ func diffSkillSets(backupSkills, currentSkills []string) (added, removed, common
 }
 
 // runRestoreTUI starts the backup restore TUI.
-func runRestoreTUI(summaries []backup.TargetBackupSummary, backupDir string, targets map[string]config.TargetConfig, cfgPath string) error {
-	model := newRestoreTUIModel(summaries, backupDir, targets, cfgPath)
+func runRestoreTUI(summaries []backup.TargetBackupSummary, backupDir string, cfg *config.Config) error {
+	model := newRestoreTUIModel(summaries, backupDir, cfg.Targets, config.ConfigPath())
+	model.skillsSource, model.agentsSource = cfg.EffectiveSkillsSource(), cfg.EffectiveAgentsSource()
 	p := tea.NewProgram(model, tea.WithAltScreen())
 	_, err := p.Run()
 	return err

@@ -39,7 +39,8 @@ func DetachSkillsTarget(path string, opts DetachOptions) (DetachReport, error) {
 	if err != nil {
 		return report, fmt.Errorf("failed to inspect target: %w", err)
 	}
-	if utils.IsLinkMode(path, info.Mode()) {
+	root := ClassifyTargetRoot(path, opts.Source)
+	if root == TargetRootSourceLink {
 		// Symlink mode: entire directory is a symlink
 		if !opts.DryRun {
 			if err := removeTargetPath(path); err != nil {
@@ -47,8 +48,9 @@ func DetachSkillsTarget(path string, opts DetachOptions) (DetachReport, error) {
 			}
 		}
 		report.Removed = append(report.Removed, path)
-	} else if info.IsDir() {
-		// Remove manifest if present (merge/copy mode)
+	} else if root == TargetRootExternalLink || (root == TargetRootPlain && info.IsDir()) {
+		// Remove manifest if present (merge/copy mode); another tool's link
+		// stays, and what sync wrote through it goes.
 		manifestPath := filepath.Join(path, ManifestFile)
 		if opts.DryRun {
 			_, err = os.Lstat(manifestPath)

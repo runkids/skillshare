@@ -204,6 +204,7 @@ project mode에서는 이 페이지가 프로젝트만 다룹니다. `.skillshar
 - merge mode: 로컬(symlink되지 않은) skill만 백업됩니다. 동기화된 skill은 source에 존재합니다
 - copy mode: 관리되는 모든 skill 디렉터리가 백업됩니다(실제 파일이므로)
 - symlink mode: 아무것도 백업되지 않습니다(전체 디렉터리가 하나의 symlink이므로)
+- target 폴더가 다른 도구의 링크(dotfiles manager)이면 그 링크가 가리키는 디렉터리에서 백업합니다. `restore`는 그 디렉터리의 내용을 교체하고 링크는 그대로 유지합니다
 
 target에 symlink만 존재하는 경우 백업이 생성되지 않으며, `backup`은 할 일이 없다고 보고합니다 — 비어 있는 복원 지점은 쓸모가 없기 때문입니다.
 

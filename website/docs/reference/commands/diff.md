@@ -163,6 +163,8 @@ For targets using symlink mode:
 - Simply checks if symlink points to correct source
 - Shows "in sync" or warns about wrong symlink
 
+A merge or copy target whose folder is still a link to the source is checked the same way. A folder that is another tool's link (a dotfiles manager) is compared as the directory it leads to; if that link leads nowhere, `diff` reports it instead of listing every skill.
+
 ## Use Cases
 
 ### Before Sync

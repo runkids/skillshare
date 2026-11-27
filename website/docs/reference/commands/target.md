@@ -91,6 +91,8 @@ skillshare target remove cursor --dry-run # Preview
 
 If another target writes to the same skills folder, such as `codex` and `universal` in `~/.agents/skills`, step 2 is skipped: the skills stay linked for that target, and only the removed one leaves the config.
 
+If the skills folder is another tool's link (a dotfiles manager), the link stays and step 2 runs in the directory it leads to. A target whose folder leads to the same directory as another target's counts as sharing it.
+
 A target with [skills off](#skills-off) has nothing synced, so step 2 is skipped for it too and its folder is left as is.
 
 ### target list

@@ -188,7 +188,7 @@ func buildTargetTUIItems(isProject bool, cwd string) ([]targetTUIItem, error) {
 			if err != nil {
 				return nil, err
 			}
-			skillSync, skillSyncText := targetSkillSyncSummary(resolved, projCfg.EffectiveSkillsSource(cwd))
+			skillSync, skillSyncText := targetSkillSyncSummary(resolved, projCfg.EffectiveSkillsSource(cwd), "")
 			items = append(items, targetTUIItem{
 				name:          entry.Name,
 				target:        resolved,
@@ -214,7 +214,7 @@ func buildTargetTUIItems(isProject bool, cwd string) ([]targetTUIItem, error) {
 			if err != nil {
 				return nil, err
 			}
-			skillSync, skillSyncText := targetSkillSyncSummary(t, cfg.EffectiveSkillsSource())
+			skillSync, skillSyncText := targetSkillSyncSummary(t, cfg.EffectiveSkillsSource(), cfg.Mode)
 			items = append(items, targetTUIItem{
 				name:          name,
 				target:        t,
@@ -224,6 +224,7 @@ func buildTargetTUIItems(isProject bool, cwd string) ([]targetTUIItem, error) {
 				agentConfig:   config.ResourceTargetConfig{Mode: agentSummaryMode(agentSummary), Include: agentSummaryInclude(agentSummary), Exclude: agentSummaryExclude(agentSummary)},
 				agentSummary:  agentSummary,
 				namingErr:     t.NamingModeConfigError(cfg.Mode),
+				defaultMode:   cfg.Mode,
 			})
 		}
 	}
@@ -973,7 +974,7 @@ func (m targetListTUIModel) renderTargetDetail(item targetTUIItem) string {
 	heading("Skills")
 	row("Path", shortenPath(displayPath))
 	if sc.IsEnabled() {
-		row("Mode", sync.EffectiveMode(sc.Mode))
+		row("Mode", item.skillsMode())
 		row("Naming", config.EffectiveTargetNaming(sc.TargetNaming))
 		if item.namingErr != nil {
 			row("Warning", theme.Warning().Render(item.namingErr.Error()))
@@ -1019,12 +1020,12 @@ const skillsOffSummary = "skills off (not synced)"
 
 // targetSkillSyncSummary returns the skills sync summary twice: as the TUI
 // and JSON show it, and as the plain list shows it, with zero counts left out.
-func targetSkillSyncSummary(target config.TargetConfig, sourcePath string) (summary, text string) {
+func targetSkillSyncSummary(target config.TargetConfig, sourcePath, defaultMode string) (summary, text string) {
 	sc := target.SkillsConfig()
 	if !sc.IsEnabled() {
 		return skillsOffSummary, skillsOffSummary
 	}
-	return buildTargetSkillSyncSummary(sc.Path, sourcePath, sc.Mode)
+	return buildTargetSkillSyncSummary(sc.Path, sourcePath, getTargetMode(sc.Mode, defaultMode))
 }
 
 func buildTargetSkillSyncSummary(targetPath, sourcePath, mode string) (summary, text string) {
@@ -1033,7 +1034,7 @@ func buildTargetSkillSyncSummary(targetPath, sourcePath, mode string) (summary, 
 	label := "managed"
 	switch sync.EffectiveMode(mode) {
 	case "copy":
-		status, synced, local = sync.CheckStatusCopy(targetPath)
+		status, synced, local = sync.CheckStatusCopy(targetPath, sourcePath)
 	case "merge":
 		status, synced, local = sync.CheckStatusMerge(targetPath, sourcePath)
 		label = "shared"
@@ -1210,6 +1211,9 @@ func (m targetListTUIModel) handleEditMenuKey(msg tea.KeyMsg) (tea.Model, tea.Cm
 		cfg := itemConfigForScope(item, option.scope)
 		switch option.action {
 		case "mode":
+			if option.scope == "skills" {
+				cfg.Mode = item.skillsMode()
+			}
 			return m.openModePickerForScope(item.name, cfg, option.scope)
 		case "naming":
 			return m.openNamingPicker(item.name, item.target)

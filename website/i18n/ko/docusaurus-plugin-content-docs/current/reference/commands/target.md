@@ -91,6 +91,8 @@ skillshare target remove cursor --dry-run # Preview
 
 같은 skills 폴더에 쓰는 다른 target이 있으면(예: `codex`와 `universal`은 둘 다 `~/.agents/skills`를 사용) 2단계를 건너뜁니다. skills는 그 target을 위해 링크된 채 남고, 제거한 target만 config에서 빠집니다.
 
+skills 폴더가 다른 도구의 링크(dotfiles manager)인 경우 링크는 그대로 남고, 2단계는 그 링크가 가리키는 디렉터리에서 실행됩니다. 폴더가 가리키는 디렉터리가 다른 target과 같으면 그 target과 공유하는 것으로 봅니다.
+
 [skills를 끈](#skills-off) target은 동기화된 것이 없으므로 이 경우에도 2단계를 건너뛰고 폴더를 그대로 둡니다.
 
 ### target list

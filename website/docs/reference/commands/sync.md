@@ -318,7 +318,8 @@ If you use a dotfiles manager (GNU Stow, chezmoi, yadm, bare-git) that symlinks 
 
 - **Symlinked source** — all commands (`sync`, `update`, `uninstall`, `list`, `diff`, `install`) resolve the symlink before walking, so skills are discovered correctly. Chained symlinks (link → link → real dir) also work.
 - **Symlinked target** — `sync` detects that the target symlink was **not** created by skillshare and preserves it. Skills are synced into the resolved directory.
-- **Status/collect** — `status` and `collect` follow external target symlinks instead of reporting conflicts.
+- **Status/diff/collect** — `status`, `diff`, and `collect` follow external target symlinks instead of reporting conflicts.
+- **Backup/restore** — `backup` and `restore` use the directory an external target symlink leads to and keep the link. `target remove` keeps the link and cleans up the directory it leads to.
 
 :::info How sync decides
 When a target directory is a symlink, sync checks whether it points to the skillshare source directory. Only symlinks created by skillshare's own symlink mode are removed during mode conversion — external symlinks (from dotfiles managers) are always preserved.

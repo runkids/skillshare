@@ -212,7 +212,7 @@ func syncAgentsProject(projectRoot string, skip map[string]error, dryRun, force,
 		var dir string
 		for _, entry := range projCfg.Targets {
 			all = append(all, entry.Name)
-			agentPath := resolveProjectAgentTargetPath(entry, builtinAgents, projectRoot)
+			agentPath := sync.ResolveTargetRoot(resolveProjectAgentTargetPath(entry, builtinAgents, projectRoot), projCfg.EffectiveAgentsSource(projectRoot))
 			if agentPath == "" || skip[entry.Name] != nil {
 				continue
 			}

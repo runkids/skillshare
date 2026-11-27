@@ -31,6 +31,9 @@ type BackupTargetsOptions struct {
 	ProjectMode         bool
 	ProjectRoot         string
 	BuiltinAgentTargets map[string]config.TargetConfig
+	// Sources tell a symlink-mode link from another tool's link (see ResolveTargetRoot).
+	SkillsSource string
+	AgentsSource string
 }
 
 // BackupTargets snapshots folders before execution and returns nonfatal warnings.
@@ -48,10 +51,10 @@ func BackupTargets(targets map[string]config.TargetConfig, skills, agents bool, 
 	builtinAgents := opts.BuiltinAgentTargets
 	for name, target := range targets {
 		if skills && target.SkillsConfig().IsEnabled() {
-			snapshot(name, target.SkillsConfig().Path)
+			snapshot(name, ResolveTargetRoot(target.SkillsConfig().Path, opts.SkillsSource))
 		}
 		if p := ResolveAgentTargetPath(target, builtinAgents, name, opts.ProjectMode); agents && p != "" {
-			snapshot(name+"-agents", resolveTargetPath(opts.ProjectRoot, p))
+			snapshot(name+"-agents", ResolveTargetRoot(resolveTargetPath(opts.ProjectRoot, p), opts.AgentsSource))
 		}
 	}
 	if _, err := backup.CleanupInDir(dir, opts.Retention); err != nil {

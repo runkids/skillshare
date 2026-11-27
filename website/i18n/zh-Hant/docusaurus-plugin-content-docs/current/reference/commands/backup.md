@@ -204,6 +204,7 @@ reason 說明 skillshare 當時正要做什麼：
 - 在 merge 模式下：只有本機（非 symlink）的 skills 會被備份。已同步的 skills 存在於 source 中
 - 在 copy 模式下：所有受管理的 skill 目錄都會被備份（它們是真實檔案）
 - 在 symlink 模式下：不會備份任何東西（整個目錄是單一 symlink）
+- 如果 target 資料夾是另一個工具的連結（dotfiles manager），會從它指向的目錄備份；`restore` 會取代該目錄的內容並保留連結
 
 如果 target 內只有 symlinks，就不會建立備份，`backup` 會回報沒有需要處理的內容——一個空的還原點沒有意義。
 

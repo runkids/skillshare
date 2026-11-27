@@ -541,10 +541,10 @@ type MergeResult struct {
 	UnmatchedIncludes []UnmatchedInclude
 }
 
-// isSymlinkToSource checks whether targetPath is a symlink pointing to sourcePath.
+// IsSymlinkToSource checks whether targetPath is a symlink pointing to sourcePath.
 // Both sides are canonicalized (EvalSymlinks) so that symlink aliases of the same
 // physical directory are recognized as equal.
-func isSymlinkToSource(targetPath, sourcePath string) bool {
+func IsSymlinkToSource(targetPath, sourcePath string) bool {
 	absLink, err := utils.ResolveLinkTarget(targetPath)
 	if err != nil {
 		return false
@@ -571,7 +571,7 @@ func isSymlinkToSource(targetPath, sourcePath string) bool {
 func ensureRealTargetDir(targetPath, sourcePath, modeName string, dryRun bool) (created bool, err error) {
 	info, lstatErr := os.Lstat(targetPath)
 	if lstatErr == nil && info != nil && utils.IsSymlinkOrJunction(targetPath) {
-		if isSymlinkToSource(targetPath, sourcePath) {
+		if IsSymlinkToSource(targetPath, sourcePath) {
 			if dryRun {
 				fmt.Fprintf(DiagOutput, "[dry-run] Would convert from symlink mode to %s mode: %s\n", modeName, targetPath)
 				return false, nil
@@ -1085,25 +1085,8 @@ func CheckStatusMerge(targetPath, sourcePath string) (TargetStatus, int, int) {
 		return StatusUnknown, 0, 0
 	}
 
-	// If it's a symlink/junction to source, it's using symlink mode not merge
-	if utils.IsSymlinkOrJunction(targetPath) {
-		absLink, err := utils.ResolveLinkTarget(targetPath)
-		if err != nil {
-			return StatusUnknown, 0, 0
-		}
-		absSource, _ := filepath.Abs(sourcePath)
-		if utils.PathsEqual(absLink, absSource) {
-			return StatusLinked, 0, 0
-		}
-		// External symlink (e.g., dotfiles manager) — follow it and treat
-		// the resolved directory as a normal target directory.
-		resolved, statErr := os.Stat(targetPath)
-		if statErr != nil || !resolved.IsDir() {
-			return StatusConflict, 0, 0
-		}
-		// Fall through to count linked/local skills in the resolved directory
-	} else if !info.IsDir() {
-		return StatusUnknown, 0, 0
+	if status, done := rootLinkStatus(targetPath, sourcePath, info); done {
+		return status, 0, 0
 	}
 
 	// Count linked vs local skills

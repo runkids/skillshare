@@ -4,7 +4,6 @@ import (
 	"io"
 
 	"skillshare/internal/config"
-	"skillshare/internal/sync"
 	"skillshare/internal/targetsummary"
 	"skillshare/internal/theme"
 
@@ -24,6 +23,13 @@ type targetTUIItem struct {
 	agentSummary  *targetsummary.AgentSummary
 	// namingErr is why sync will fail for this target's naming and mode, with the fix.
 	namingErr error
+	// defaultMode is the config's mode, for skills without a mode of their own.
+	defaultMode string
+}
+
+// skillsMode is the mode sync uses for the target's skills.
+func (i targetTUIItem) skillsMode() string {
+	return getTargetMode(i.target.SkillsConfig().Mode, i.defaultMode)
 }
 
 func (i targetTUIItem) FilterValue() string { return i.name }
@@ -42,7 +48,7 @@ func (targetListDelegate) Render(w io.Writer, m list.Model, index int, item list
 	if !ok {
 		return
 	}
-	mode := sync.EffectiveMode(ti.target.SkillsConfig().Mode)
+	mode := ti.skillsMode()
 	if !ti.target.SkillsConfig().IsEnabled() {
 		mode = "skills off"
 	}

@@ -308,7 +308,8 @@ source나 target 디렉터리를 symlink로 연결하는 dotfiles manager(GNU St
 
 - **Symlink된 source** — 모든 command(`sync`, `update`, `uninstall`, `list`, `diff`, `install`)는 순회하기 전에 symlink를 resolve하므로 skill이 올바르게 발견됩니다. 연쇄된 symlink(link → link → real dir)도 작동합니다.
 - **Symlink된 target** — `sync`는 target symlink가 skillshare에 의해 생성되지 **않았음**을 감지하고 이를 보존합니다. skill은 resolve된 디렉터리로 sync됩니다.
-- **Status/collect** — `status`와 `collect`는 conflict를 보고하는 대신 외부 target symlink를 따라갑니다.
+- **Status/diff/collect** — `status`, `diff`, `collect`는 conflict를 보고하는 대신 외부 target symlink를 따라갑니다.
+- **Backup/restore** — `backup`와 `restore`는 외부 target symlink가 가리키는 디렉터리를 사용하고 링크는 그대로 유지합니다. `target remove`는 링크를 유지하고 그 링크가 가리키는 디렉터리를 정리합니다.
 
 :::info sync의 판단 방식
 target 디렉터리가 symlink인 경우, sync는 그것이 skillshare source 디렉터리를 가리키는지 확인합니다. skillshare 자체의 symlink mode로 생성된 symlink만 mode 변환 중에 제거됩니다 — dotfiles manager로부터의 외부 symlink는 항상 보존됩니다.

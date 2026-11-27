@@ -338,7 +338,7 @@ func backupTargets(cfg *config.Config, toRemove []string, width int) {
 		if !target.SkillsConfig().IsEnabled() {
 			continue
 		}
-		backupPath, err := backup.Create(targetName, target.SkillsConfig().Path)
+		backupPath, err := backup.Create(targetName, sync.ResolveTargetRoot(target.SkillsConfig().Path, cfg.EffectiveSkillsSource()))
 		if err != nil {
 			ui.Row(ui.MarkWarn, targetName, "backup failed: "+err.Error(), width)
 		} else if backupPath != "" {
@@ -373,17 +373,13 @@ func backupTargets(cfg *config.Config, toRemove []string, width int) {
 // there was nothing to unlink.
 func unlinkTarget(target config.TargetConfig, sourcePath string) (string, error) {
 	sc := target.SkillsConfig()
-	info, err := os.Lstat(sc.Path)
-	if err != nil {
-		return "", nil // Target doesn't exist, OK to remove from config
-	}
-
-	if utils.IsLinkMode(sc.Path, info.Mode()) {
+	switch skillsUnlinkKind(sc.Path, sourcePath) {
+	case unlinkFolderLink:
 		if err := unlinkSymlinkMode(sc.Path, sourcePath); err != nil {
 			return "", err
 		}
 		return "unlinked and restored", nil
-	} else if info.IsDir() {
+	case unlinkSkillLinks:
 		// Remove manifest if present (merge/copy mode)
 		sync.RemoveManifest(sc.Path) //nolint:errcheck
 		if err := unlinkMergeMode(sc.Path, sourcePath); err != nil {
@@ -391,8 +387,32 @@ func unlinkTarget(target config.TargetConfig, sourcePath string) (string, error)
 		}
 		return "skill symlinks removed", nil
 	}
-
 	return "", nil
+}
+
+// unlinkKind is what target remove undoes in a skills folder.
+type unlinkKind int
+
+const (
+	unlinkNothing    unlinkKind = iota
+	unlinkFolderLink            // the folder links to the source: unlink it and restore copies
+	unlinkSkillLinks            // drop the manifest and the skill links into the source
+)
+
+// skillsUnlinkKind decides by the folder itself, not the configured mode.
+// Another tool's link stays, and what sync wrote through it is removed.
+func skillsUnlinkKind(path, sourcePath string) unlinkKind {
+	switch sync.ClassifyTargetRoot(path, sourcePath) {
+	case sync.TargetRootSourceLink:
+		return unlinkFolderLink
+	case sync.TargetRootExternalLink:
+		return unlinkSkillLinks
+	case sync.TargetRootPlain:
+		if info, err := os.Lstat(path); err == nil && info.IsDir() {
+			return unlinkSkillLinks
+		}
+	}
+	return unlinkNothing
 }
 
 func targetRemove(args []string) error {
@@ -429,7 +449,7 @@ func targetRemove(args []string) error {
 		// Another target writing the same folder (codex and universal) still owns its links.
 		if !target.SkillsConfig().IsEnabled() {
 			ui.Row(ui.MarkNone, targetName, "skills off, folder left as is", width)
-		} else if keeper := config.SkillsPathKeptBy(cfg.Targets, targetName, leaving); keeper != "" {
+		} else if keeper := sync.SkillsFolderKeptBy(cfg.Targets, targetName, leaving, cfg.EffectiveSkillsSource()); keeper != "" {
 			ui.Row(ui.MarkNone, targetName, fmt.Sprintf("skills kept, %s uses the same folder", keeper), width)
 		} else if done, err := unlinkTarget(target, cfg.EffectiveSkillsSource()); err != nil {
 			ui.Row(ui.MarkFail, targetName, err.Error(), width)
@@ -478,12 +498,11 @@ func targetRemoveDryRun(cfg *config.Config, toRemove []string) error {
 			ui.Row(ui.MarkNone, targetName, "would remove from config · skills off, folder left as is", width)
 			continue
 		}
-		if keeper := config.SkillsPathKeptBy(cfg.Targets, targetName, leaving); keeper != "" {
+		if keeper := sync.SkillsFolderKeptBy(cfg.Targets, targetName, leaving, cfg.EffectiveSkillsSource()); keeper != "" {
 			ui.Row(ui.MarkNone, targetName, fmt.Sprintf("would remove from config · skills kept, %s uses the same folder", keeper), width)
 			continue
 		}
-		info, err := os.Lstat(target.SkillsConfig().Path)
-		if err != nil {
+		if _, err := os.Lstat(target.SkillsConfig().Path); err != nil {
 			if os.IsNotExist(err) {
 				ui.Row(ui.MarkNone, targetName, "would remove from config · folder not found", width)
 				continue
@@ -492,10 +511,10 @@ func targetRemoveDryRun(cfg *config.Config, toRemove []string) error {
 			continue
 		}
 
-		switch {
-		case utils.IsLinkMode(target.SkillsConfig().Path, info.Mode()):
+		switch skillsUnlinkKind(target.SkillsConfig().Path, cfg.EffectiveSkillsSource()) {
+		case unlinkFolderLink:
 			ui.Row(ui.MarkNone, targetName, "would back up, unlink and restore contents, and remove from config", width)
-		case info.IsDir():
+		case unlinkSkillLinks:
 			ui.Row(ui.MarkNone, targetName, "would back up, remove skill symlinks, and remove from config", width)
 		default:
 			ui.Row(ui.MarkNone, targetName, "would remove from config", width)
@@ -851,7 +870,7 @@ func showTargetInfo(cfg *config.Config, name string, target config.TargetConfig)
 	case !sc.IsEnabled():
 		statusLine = skillsOffSummary
 	case effectiveMode == "copy":
-		status, managed, local := sync.CheckStatusCopy(sc.Path)
+		status, managed, local := sync.CheckStatusCopy(sc.Path, cfg.EffectiveSkillsSource())
 		statusLine = statusWithCounts(status, managed, "managed", local)
 	case effectiveMode == "merge":
 		status, linked, local := sync.CheckStatusMerge(sc.Path, cfg.EffectiveSkillsSource())

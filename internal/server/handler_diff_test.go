@@ -246,3 +246,46 @@ func TestComputeTargetDiff_ListsRecordedLinkThatCannotBeFollowed(t *testing.T) {
 		t.Fatalf("items = %+v, want the looping link pruned", dt.Items)
 	}
 }
+
+// A target folder left as a link to the source is symlink mode, as sync
+// sees it, so the merge diff must not list every skill as a local copy.
+func TestComputeTargetDiff_LinkToSourceIsSymlinkMode(t *testing.T) {
+	source := t.TempDir()
+	addSkill(t, source, "alpha")
+	target := filepath.Join(t.TempDir(), "skills")
+	if err := os.Symlink(source, target); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	discovered, err := sync.DiscoverSourceSkills(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	dt := (&Server{}).computeTargetDiff("claude", config.TargetConfig{Skills: &config.ResourceTargetConfig{Path: target}}, discovered, "merge", source, nil)
+
+	if len(dt.Items) != 0 {
+		t.Errorf("items = %+v, want none", dt.Items)
+	}
+}
+
+// A link that leads nowhere is reported once, as the CLI diff does, instead
+// of every skill showing as missing.
+func TestComputeTargetDiff_BrokenTargetLinkReportedOnce(t *testing.T) {
+	source := t.TempDir()
+	addSkill(t, source, "alpha")
+	addSkill(t, source, "beta")
+	target := filepath.Join(t.TempDir(), "skills")
+	if err := os.Symlink(filepath.Join(t.TempDir(), "gone"), target); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	discovered, err := sync.DiscoverSourceSkills(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	dt := (&Server{}).computeTargetDiff("claude", config.TargetConfig{Skills: &config.ResourceTargetConfig{Path: target}}, discovered, "merge", source, nil)
+
+	if len(dt.Items) != 1 || dt.Items[0].Action != "skip" {
+		t.Errorf("items = %+v, want one skip for the whole folder", dt.Items)
+	}
+}

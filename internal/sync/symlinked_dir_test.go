@@ -525,7 +525,7 @@ func TestPullSkill_SourceIsSymlink(t *testing.T) {
 	}
 }
 
-// --- isSymlinkToSource: symlink alias equivalence ---
+// --- IsSymlinkToSource: symlink alias equivalence ---
 
 func TestIsSymlinkToSource_AliasEquivalence(t *testing.T) {
 	tmp := t.TempDir()
@@ -545,8 +545,8 @@ func TestIsSymlinkToSource_AliasEquivalence(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if !isSymlinkToSource(targetLink1, symlinkAlias) {
-		t.Error("isSymlinkToSource should return true when target points to the real path of a symlinked source alias")
+	if !IsSymlinkToSource(targetLink1, symlinkAlias) {
+		t.Error("IsSymlinkToSource should return true when target points to the real path of a symlinked source alias")
 	}
 
 	// Case 2: Target points to alias, source is the real path
@@ -555,8 +555,8 @@ func TestIsSymlinkToSource_AliasEquivalence(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if !isSymlinkToSource(targetLink2, realSource) {
-		t.Error("isSymlinkToSource should return true when target points to symlink alias of source")
+	if !IsSymlinkToSource(targetLink2, realSource) {
+		t.Error("IsSymlinkToSource should return true when target points to symlink alias of source")
 	}
 }
 

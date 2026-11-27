@@ -366,7 +366,7 @@ func pruneOrphanCopiesWithConfig(targetName string, sc config.ResourceTargetConf
 
 // CheckStatusCopy checks the status of a target in copy mode.
 // Returns: status, managed count, local count.
-func CheckStatusCopy(targetPath string) (TargetStatus, int, int) {
+func CheckStatusCopy(targetPath, sourcePath string) (TargetStatus, int, int) {
 	info, err := os.Lstat(targetPath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -375,13 +375,8 @@ func CheckStatusCopy(targetPath string) (TargetStatus, int, int) {
 		return StatusUnknown, 0, 0
 	}
 
-	// If it's a symlink, it's using symlink mode, not copy
-	if utils.IsSymlinkOrJunction(targetPath) {
-		return StatusLinked, 0, 0
-	}
-
-	if !info.IsDir() {
-		return StatusUnknown, 0, 0
+	if status, done := rootLinkStatus(targetPath, sourcePath, info); done {
+		return status, 0, 0
 	}
 
 	manifest, err := ReadManifest(targetPath)

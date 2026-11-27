@@ -164,21 +164,8 @@ func targetRemoveProject(args []string, root string) error {
 
 	for _, name := range toRemove {
 		if target, ok := targets[name]; ok && target.SkillsConfig().IsEnabled() {
-			sc := target.SkillsConfig()
-			mode := sc.Mode
-			if mode == "" {
-				mode = "merge"
-			}
-			if mode == "symlink" {
-				if err := unlinkSymlinkMode(sc.Path, sourcePath); err != nil {
-					ui.Warning("%s: %v", name, err)
-				}
-			} else {
-				// Remove copy-mode manifest if present
-				sync.RemoveManifest(sc.Path)
-				if err := unlinkMergeModeSafe(sc.Path, sourcePath); err != nil {
-					ui.Warning("%s: %v", name, err)
-				}
+			if _, err := unlinkTarget(target, sourcePath); err != nil {
+				ui.Warning("%s: %v", name, err)
 			}
 		}
 	}
@@ -207,8 +194,7 @@ func targetRemoveProjectDryRun(toRemove []string, targets map[string]config.Targ
 			ui.Row(ui.MarkNone, name, "would remove from config · skills off, folder left as is", width)
 			continue
 		}
-		info, err := os.Lstat(sc.Path)
-		if err != nil {
+		if _, err := os.Lstat(sc.Path); err != nil {
 			if os.IsNotExist(err) {
 				ui.Row(ui.MarkNone, name, "would remove from config · folder not found", width)
 				continue
@@ -217,9 +203,12 @@ func targetRemoveProjectDryRun(toRemove []string, targets map[string]config.Targ
 			continue
 		}
 
-		if info.IsDir() {
+		switch skillsUnlinkKind(sc.Path, sourcePath) {
+		case unlinkFolderLink:
+			ui.Row(ui.MarkNone, name, "would unlink and restore contents, and remove from config", width)
+		case unlinkSkillLinks:
 			ui.Row(ui.MarkNone, name, "would remove skill symlinks and remove from config", width)
-		} else {
+		default:
 			ui.Row(ui.MarkNone, name, "would remove from config", width)
 		}
 	}
@@ -451,7 +440,7 @@ func targetInfoProject(name string, args []string, root string) error {
 	case mode == "symlink":
 		statusLine = sync.CheckStatus(resolvedSC.Path, sourcePath).String()
 	case mode == "copy":
-		status, managed, local := sync.CheckStatusCopy(resolvedSC.Path)
+		status, managed, local := sync.CheckStatusCopy(resolvedSC.Path, sourcePath)
 		statusLine = statusWithCounts(status, managed, "managed", local)
 	default:
 		status, linked, local := sync.CheckStatusMerge(resolvedSC.Path, sourcePath)
@@ -480,18 +469,4 @@ func updateTargetSettingsProject(cfg *config.ProjectConfig, idx int, settings pa
 		}
 	}
 	return u.apply(settings)
-}
-
-func unlinkMergeModeSafe(targetPath, sourcePath string) error {
-	info, err := os.Stat(targetPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
-		return err
-	}
-	if !info.IsDir() {
-		return nil
-	}
-	return unlinkMergeMode(targetPath, sourcePath)
 }
