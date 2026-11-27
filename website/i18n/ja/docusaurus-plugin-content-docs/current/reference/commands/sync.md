@@ -178,7 +178,7 @@ skillshare sync --json
 
 `ignored_count` と `ignored_skills` フィールドは、`.skillignore`（および存在する場合は `.skillignore.local`）によって除外された skill を示します。これらは discovery 時にフィルタリングされ、どの target にも到達しません。`.skillignore.local` が有効な場合、テキスト出力には `.local` の source ヒントが含まれます。パターンの構文については [.skillignore](/docs/reference/appendix/file-structure#skillignore-optional) を参照してください。
 
-`warnings` は、第1階層の source リンクがたどられなかった場合にのみ表示されます（[`follow_source_links`](../targets/configuration.md#follow_source_links) を参照）。リンク先が利用できなかったために target のエントリを保持した実行は、そこにその旨が記載されます。その場合、`pruned` は設計上 `0` になります。
+`warnings` は、第1階層の source リンクがたどられなかった場合（[`follow_source_links`](../targets/configuration.md#follow_source_links) を参照）と、`standard` または `prefixed` の target が sync する 2 つの skill が同じ名前の場合に表示されます。source の最上位にある skill を除き、同じ名前の skill はフルパス名で sync され、警告にそれらが記載されます。リンク先が利用できなかったために target のエントリを保持した実行は、そこにその旨が記載されます。その場合、`pruned` は設計上 `0` になります。
 
 ### 実行内容
 

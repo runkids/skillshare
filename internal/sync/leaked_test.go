@@ -88,17 +88,12 @@ func TestLeakedSkills_CountsLocalSkillsInWriterFolder(t *testing.T) {
 }
 
 func TestLeakedSkills_CountsSkillsStandardNamingSkips(t *testing.T) {
-	// Two skills named dev collide in opencode's standard folder, so sync skips
-	// both there; claude's filter keeps one, which opencode then loads from it.
+	// dev's name: does not match its folder, so opencode's standard naming skips
+	// it; claude's flat naming keeps it, and opencode then loads it from there.
 	src := t.TempDir()
-	discovered := []DiscoveredSkill{
-		createTempSkill(t, src, "frontend/dev", "dev"),
-		createTempSkill(t, src, "backend/dev", "dev"),
-	}
+	discovered := []DiscoveredSkill{createTempSkill(t, src, "frontend/dev", "web-dev")}
 	targets := leakTargets(t, "opencode")
 	targets["opencode"].Skills.TargetNaming = "standard"
-	targets["claude"].Skills.TargetNaming = "standard"
-	targets["claude"].Skills.Include = []string{"frontend/dev"}
 
 	leaked, known := LeakedSkills("opencode", "claude", targets, "merge", discovered)
 	if !known || !slices.Equal(leaked, []string{"frontend/dev"}) {

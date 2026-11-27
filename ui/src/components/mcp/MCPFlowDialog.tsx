@@ -40,7 +40,7 @@ function Source({
 }) {
   return (
     <div
-      className="absolute left-4 flex h-16 w-[224px] items-center gap-2.5 rounded-xl border border-line bg-surface px-4 text-[13px] leading-[18px] text-ink-2"
+      className="absolute left-4 flex h-16 w-[224px] items-center gap-2.5 rounded-lg border border-line bg-surface px-4 text-[13px] leading-[18px] text-ink-2"
       style={{ top }}
     >
       <span className="flex shrink-0">{icon}</span>
@@ -78,9 +78,9 @@ export default function MCPFlowDialog({ root, global, shared, own, files, paths,
         />
       </div>
       <div className="db">
-        <div className="overflow-x-auto rounded-xl border border-line p-2">
+        <div className="overflow-x-auto rounded-lg border border-line p-2">
           <div className="relative mx-auto" style={{ width: W, height: H }}>
-            <div className="absolute left-0 top-0 h-[216px] w-[256px] rounded-xl bg-sunken" />
+            <div className="absolute left-0 top-0 h-[216px] w-[256px] rounded-lg bg-sunken" />
             <span className="absolute left-4 top-2.5 text-xs font-medium text-ink-3">
               {t('mcp.flow.defined')}
             </span>
@@ -137,7 +137,7 @@ export default function MCPFlowDialog({ root, global, shared, own, files, paths,
               line={t('mcp.flow.own', { count: own })}
             />
             <div
-              className="absolute flex flex-col items-center justify-center rounded-xl border-2 border-ink bg-surface px-4 text-center text-[13px] text-ink-2"
+              className="absolute flex flex-col items-center justify-center rounded-lg border-2 border-ink bg-surface px-4 text-center text-[13px] text-ink-2"
               style={{ left: PROJECT.x, top: PROJECT.y, width: PROJECT.w, height: PROJECT.h }}
             >
               <b
@@ -149,7 +149,7 @@ export default function MCPFlowDialog({ root, global, shared, own, files, paths,
               {t(plural('mcp.flow.loads', total), { count: total })}
             </div>
             <div
-              className="absolute top-0 flex flex-col rounded-xl border border-line bg-surface px-3.5 py-3 text-[13px]"
+              className="absolute top-0 flex flex-col rounded-lg border border-line bg-surface px-3.5 py-3 text-[13px]"
               style={{ left: AGENTS_X, width: W - AGENTS_X, height: H }}
             >
               <span className="flex items-baseline gap-1.5 pb-1.5">

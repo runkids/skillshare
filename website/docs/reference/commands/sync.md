@@ -189,7 +189,7 @@ skillshare sync --json
 
 The `ignored_count` and `ignored_skills` fields show skills excluded by `.skillignore` (and `.skillignore.local` if present). These are filtered at discovery time and never reach any target. When `.skillignore.local` is active, the text output includes a `.local` source hint. See [.skillignore](/docs/reference/appendix/file-structure#skillignore-optional) for pattern syntax.
 
-`warnings` appears only when a first-level source link was not followed (see [`follow_source_links`](../targets/configuration.md#follow_source_links)). A run that kept target entries because the link's target was unavailable says so there; `pruned` is `0` in that case by design.
+`warnings` appears when a first-level source link was not followed (see [`follow_source_links`](../targets/configuration.md#follow_source_links)), or when two skills a `standard` or `prefixed` target syncs share a name: all but a skill at the top of the source sync under their full path names, and the warning names them. A run that kept target entries because the link's target was unavailable says so there; `pruned` is `0` in that case by design.
 
 ### What Happens
 

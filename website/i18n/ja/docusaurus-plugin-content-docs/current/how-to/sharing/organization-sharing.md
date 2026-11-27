@@ -163,16 +163,17 @@ _org-skills/
 **衝突が同じ Target に到達する** — 対応が必要な警告:
 
 ```
-! 1 duplicate skill names detected
+! 1 duplicate skill names detected; those skills sync under their full path name
   ui                              _team-a/ vs _team-b/
-  Rename one in SKILL.md or adjust include/exclude filters
-  1 name collision(s) excluded
+  Rename one of them (its folder and the name in its SKILL.md) or adjust include/exclude filters
 ```
+
+2 つの Skill はどちらも `_team-a__ui` と `_team-b__ui` として Target に届きます。
 
 **解決策:** 名前空間化された名前を使うか、フィルターでルーティングします。
 
 ```yaml
-# オプション 1: SKILL.md で名前空間化する
+# オプション 1: フォルダ名と SKILL.md の名前を一緒に変える
 name: team-a-ui
 
 # オプション 2: フィルターでルーティングする（global config）

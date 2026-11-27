@@ -62,7 +62,7 @@
     gap: 12px;
     padding: 12px 14px;
     border: var(--bw) solid var(--line-2);
-    border-radius: 10px;
+    border-radius: var(--r-inner);
     background: var(--surface);
   }
   :root[data-theme='playful'] .ss-pick {
@@ -106,7 +106,7 @@
     column-gap: 4px;
     padding: 4px;
     border: var(--frame);
-    border-radius: 12px;
+    border-radius: var(--r-box);
   }
   :root[data-theme='playful'] .ss-checks {
     border-radius: var(--r-box);
@@ -118,7 +118,7 @@
     min-width: 0;
     min-height: 44px;
     padding: 0 12px;
-    border-radius: 8px;
+    border-radius: var(--r-sm);
     text-align: left;
     color: var(--ink);
     cursor: pointer;
@@ -160,7 +160,7 @@
     padding: 0 6px;
     display: grid;
     place-items: center;
-    border-radius: 7px;
+    border-radius: var(--r-in);
     font-size: 13px;
     font-weight: 500;
     color: var(--ink-2);

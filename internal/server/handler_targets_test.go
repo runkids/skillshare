@@ -732,7 +732,7 @@ func TestHandleListTargets_SeparatesSkipRemedies(t *testing.T) {
 		t.Fatal(rr.Body.String())
 	}
 	got := response.Targets[0]
-	if got.NamingSkippedSkillCount != 1 || got.SelectionSkippedSkillCount != 2 || got.CollisionCount != 1 || got.SkippedSkillCount != 5 {
+	if got.NamingSkippedSkillCount != 1 || got.SelectionSkippedSkillCount != 2 || got.SkippedSkillCount != 3 {
 		t.Fatalf("skip remedies: %s", rr.Body.String())
 	}
 }

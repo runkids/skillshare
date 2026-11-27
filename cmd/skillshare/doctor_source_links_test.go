@@ -173,18 +173,20 @@ func TestDoctorBrokenLinksUseSourceDestination(t *testing.T) {
 				}
 				result := &doctorResult{}
 				output := captureStdout(t, func() { checkBrokenSymlinks(cfg, walk.Follow, result, nil, false) })
-				expectedErrors := 0
+				// Sync prunes nothing while a source link is unavailable, so the
+				// unrelated broken link is kept too, not an error.
+				expectedWarnings := 1
 				if broken {
-					expectedErrors = 1
+					expectedWarnings = 2
 				}
-				if result.errors != expectedErrors || result.warnings != 1 || !strings.Contains(output, "kept until it is back: frontmatter-name") {
+				if result.errors != 0 || result.warnings != expectedWarnings || !strings.Contains(output, "kept until it is back: frontmatter-name") {
 					t.Fatalf("misclassified link destinations: %q %+v", output, result)
 				}
-				if !broken && strings.Contains(output, "prune the broken links") {
+				if strings.Contains(output, "prune the broken links") {
 					t.Fatalf("unavailable link suggested pruning: %s", output)
 				}
-				if broken && !strings.Contains(output, "broken symlink: _dev-skills__unrelated") {
-					t.Fatalf("unrelated link not broken: %s", output)
+				if broken && !strings.Contains(output, "kept while a source link is unavailable: _dev-skills__unrelated") {
+					t.Fatalf("unrelated link not kept: %s", output)
 				}
 			})
 		}
@@ -213,6 +215,34 @@ func TestCheckBrokenSymlinksSeparatesLinksSkillshareDidNotCreate(t *testing.T) {
 		!strings.Contains(output, "1 broken symlink: ours") ||
 		!strings.Contains(output, "1 broken link skillshare did not create, kept: theirs") {
 		t.Fatalf("misclassified broken links: %q %+v", output, result)
+	}
+}
+
+// Sync prunes nothing while a followed source link is unavailable, so doctor
+// must not send the user to sync to remove a removed skill's link.
+func TestCheckBrokenSymlinksKeepsLinksWhileSourceIncomplete(t *testing.T) {
+	source, target := t.TempDir(), t.TempDir()
+	if err := os.Symlink(filepath.Join(t.TempDir(), "unmounted"), filepath.Join(source, "_dev")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if err := os.Symlink(filepath.Join(source, "removed"), filepath.Join(target, "removed")); err != nil {
+		t.Fatal(err)
+	}
+	if err := sync.WriteManifest(target, &sync.Manifest{Managed: map[string]string{"removed": "symlink"}}); err != nil {
+		t.Fatal(err)
+	}
+	cfg := &config.Config{Source: source, FollowSourceLinks: true, Targets: map[string]config.TargetConfig{"test": {Skills: &config.ResourceTargetConfig{Path: target}}}}
+	walk := cfg.SkillsWalk()
+	if _, err := sourcewalk.ReadDir(source, walk); err != nil {
+		t.Fatal(err)
+	}
+	result := &doctorResult{}
+
+	output := captureStdout(t, func() { checkBrokenSymlinks(cfg, walk.Follow, result, nil, true) })
+
+	if result.errors != 0 || result.warnings != 1 || strings.Contains(output, "prune the broken links") ||
+		!strings.Contains(output, "kept while a source link is unavailable: removed") {
+		t.Fatalf("doctor should keep the link while the source is incomplete: %q %+v", output, result)
 	}
 }
 

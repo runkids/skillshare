@@ -15,6 +15,9 @@ OMP writes verbatim `code` to `~/.omp/agent/extensions/skillshare-NAME.ts`,
 next OMP startup, never during Skillshare management. Use OMP's installed
 extension API; Pi compatibility is not guaranteed. Native `hooks/pre` and
 `hooks/post` factories are listed as additional unmanaged sources, not imported.
+`hooks list --json` marks such list-only sources (also Codex inline TOML,
+Droid's legacy `hooks/hooks.json`, Claude's project `settings.local.json` and
+Git config) with `"importable": false`.
 Pi and OMP share `PI_CODING_AGENT_DIR`; colliding output paths block before writes.
 
 ```bash

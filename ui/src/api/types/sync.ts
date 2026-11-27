@@ -73,6 +73,7 @@ export interface SyncResponse extends IgnoreSources {
   warnings?: string[];
   /** Targets whose include filter selects no skill */
   unmatched?: UnmatchedInclude[];
+  shared_names?: SharedName[] | null;
   failed?: SyncTargetFailure[];
   folder_conflicts?: FolderConflict[];
   /** Targets whose skills path overlaps another's in a way folder_conflicts doesn't explain. */
@@ -92,6 +93,15 @@ export interface UnmatchedInclude {
   all: boolean;
 }
 
+/** A name skills share on a target, so all but a top-level one sync under their full path names. */
+export interface SharedName {
+  target: string;
+  name: string;
+  paths: string[];
+  /** Their SKILL.md names match, so a tool that loads skills by name may load only one */
+  same_name: boolean;
+}
+
 /** A skills folder two or more targets sync into with different settings, so each sync undoes the other. */
 export interface FolderConflict {
   path: string;
@@ -107,7 +117,7 @@ export interface DiffTarget {
   warnings?: string[];
   items: { skill: string; action: string; reason?: string; kind?: 'skill' | 'agent' }[];
   skippedCount?: number;
-  collisionCount?: number;
-  /** How many of skippedCount break naming rules rather than collide */
+  /** How many of skippedCount break naming rules */
   namingSkippedCount?: number;
+  sharedNameSkippedCount?: number;
 }

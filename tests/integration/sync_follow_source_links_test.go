@@ -86,3 +86,34 @@ func TestSync_FollowSourceLinks_JSONReportsUnavailableLink(t *testing.T) {
 		t.Fatalf("warnings = %q", out.Warnings)
 	}
 }
+
+// Sync prunes nothing while a followed link is unavailable, so diff must not
+// list that link's entries as orphans to prune.
+func TestDiff_FollowSourceLinks_UnavailableLinkListsNoOrphans(t *testing.T) {
+	for _, mode := range []string{"merge", "copy"} {
+		t.Run(mode, func(t *testing.T) {
+			sb := testutil.NewSandbox(t)
+			defer sb.Cleanup()
+
+			checkout := filepath.Join(sb.Root, "code", "dev-skills")
+			sb.WriteFile(filepath.Join(checkout, "foo", "SKILL.md"), "---\nname: foo\n---\n# foo")
+			sb.CreateSymlink(checkout, filepath.Join(sb.SourcePath, "_dev-skills"))
+			target := sb.CreateTarget("claude")
+			sb.WriteConfig("source: " + sb.SourcePath + "\nfollow_source_links: true\ntargets:\n  claude:\n    path: " + target + "\n    mode: " + mode + "\n")
+			sb.RunCLI("sync").AssertSuccess(t)
+
+			if err := os.Rename(checkout, checkout+".moved"); err != nil {
+				t.Fatal(err)
+			}
+			result := sb.RunCLI("diff")
+			result.AssertSuccess(t)
+			out := result.Output()
+			if strings.Contains(out, "_dev-skills__foo") {
+				t.Fatalf("diff lists the unavailable link's entry:\n%s", out)
+			}
+			if !strings.Contains(out, "source link _dev-skills not followed") || !strings.Contains(out, "nothing pruned") {
+				t.Fatalf("diff does not say the link was not followed:\n%s", out)
+			}
+		})
+	}
+}

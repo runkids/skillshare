@@ -260,13 +260,13 @@ skillshare target claude --target-naming standard
 skillshare sync
 ```
 
-**Standard 模式**遵循 [Agent Skills specification](https://agentskills.io/specification)，该规范要求 SKILL.md 的 `name` 字段与父目录名一致。有效名称最多 64 个字符，只能包含小写字母（任何文字系统）、数字和单个连字符，且不能以 `-` 开头或结尾；不允许使用下划线。名称无效或存在名称冲突的 skill 会收到警告并被跳过。
+**Standard 模式**遵循 [Agent Skills specification](https://agentskills.io/specification)，该规范要求 SKILL.md 的 `name` 字段与父目录名一致。有效名称最多 64 个字符，只能包含小写字母（任何文字系统）、数字和单个连字符，且不能以 `-` 开头或结尾；不允许使用下划线。名称无效的 skill 会收到警告并被跳过。同名的 skill 会改用完整路径名称同步，与 `flat` 相同（`_team-a__ui`、`_team-b__ui`），因此不会有任何一个被丢弃；位于 source 最上层的 skill 会保留原名，因为那就是它的完整路径。少数情况下完整路径名称恰好是另一个 skill 的名称，sync 会发出警告并跳过那个 skill。按 `name:` 加载 skill 的工具仍会看到两个 `ui`，因此请为其中一个改名（文件夹和 `SKILL.md` 中的名称一起改），或调整 filters，让每个都有自己的名称。
 
-**Prefixed 模式**适用于包含同名 skill 的 tracked repo。在 `standard` 下，来自不同 repo 的两个 `prototype` skill 会冲突并都被跳过；在 `prefixed` 下，tracked repo 内的每个 skill 都会变成 `<repo>-<name>`，因此两者都能到达工具。`<repo>` 是 tracked repo 文件夹名去掉开头的 `_`、转为小写，并把字母和数字（任何文字系统）以外的字符替换为 `-` 的结果。带前缀的名称既用作文件夹名，也会写入复制出的 `SKILL.md` 的 `name:`；source 不会被修改。
+**Prefixed 模式**适用于包含同名 skill 的 tracked repo。在 `standard` 下，来自不同 repo 的两个 `prototype` skill 名称相同，因此两者都会改用完整路径名称；在 `prefixed` 下，tracked repo 内的每个 skill 都会变成 `<repo>-<name>`，因此两者都能到达工具。`<repo>` 是 tracked repo 文件夹名去掉开头的 `_`、转为小写，并把字母和数字（任何文字系统）以外的字符替换为 `-` 的结果。带前缀的名称既用作文件夹名，也会写入复制出的 `SKILL.md` 的 `name:`；source 不会被修改。
 
 - 名称已经以 repo 名开头时不会重复加前缀：`_bmad/skills/bmad-ux` 仍是 `bmad-ux`。
 - 不在 tracked repo 内的 skill 保持原名。
-- source skill 的 `name:` 必须符合 `standard` 的命名规则，但不必与文件夹名称相同，因为副本的 `name:` 会被改写：本身就是 skill 的 tracked repo（`_ooux`，`name: ooux`）会以 `ooux` 同步。sync 会列出以这种方式命名的 skill。带前缀的名称超过 64 个字符时会收到警告并被跳过，仍然冲突的名称与 `standard` 一样被跳过。tracked skill 不能在 `SKILL.md` 中改名，因此 sync 会建议重命名另一个 skill，或用 `--name` 重新 track 该 repo。
+- source skill 的 `name:` 必须符合 `standard` 的命名规则，但不必与文件夹名称相同，因为副本的 `name:` 会被改写：本身就是 skill 的 tracked repo（`_ooux`，`name: ooux`）会以 `ooux` 同步。sync 会列出以这种方式命名的 skill。带前缀的名称超过 64 个字符时会收到警告并被跳过，仍然冲突的名称与 `standard` 一样改用完整路径名称。tracked skill 不能在 `SKILL.md` 中改名，因此 sync 会建议重命名另一个 skill，或用 `--name` 重新 track 该 repo。
 - 想要更短的前缀，可以用较短的名称 track repo：`skillshare install <repo> --track --name mp` 会得到 `mp-prototype`。
 - 指向同级 skill 的相对链接（`../other-skill/`）不会被改写，与 copy 模式下的 `flat` 相同。
 - 该名称就是工具中显示的名称；在 Claude Code 中它是 slash command，例如 `/mattpocock-skills-prototype`。

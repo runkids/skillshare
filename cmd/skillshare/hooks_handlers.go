@@ -71,7 +71,11 @@ func runHooksList(service *hooks.Service, o hooksOptions) error {
 		}
 	}
 	for _, u := range inv.Unmanaged {
-		ui.Row(ui.MarkWarn, u.Target, "not managed "+ui.DimText("· "+utils.FoldHomePath(u.Path)+": "+strings.Join(u.Names, ", ")), width)
+		mark, status := ui.MarkWarn, "not managed "
+		if !u.Importable {
+			mark, status = ui.MarkNone, "left as is "
+		}
+		ui.Row(mark, u.Target, status+ui.DimText("· "+utils.FoldHomePath(u.Path)+": "+strings.Join(u.Names, ", ")), width)
 	}
 	if len(inv.Source.Entries) == 0 {
 		fmt.Println()
@@ -172,14 +176,13 @@ func runHooksImport(service *hooks.Service, o hooksOptions) error {
 		if _, err := hooksEntry(service, c.Name); err == nil && !o.replace {
 			return fmt.Errorf("hook %s already exists; use --replace to overwrite its definition", c.Name)
 		}
-		// Importing from a target's native files takes over the registrations it read, so
-		// they are not reported as unmanaged duplicates on the next sync.
-		adopt := o.file == ""
+		// Importing takes over the registrations it read, so they are not reported as
+		// unmanaged duplicates on the next sync.
 		adoptSource := ""
-		if adopt {
+		if o.file == "" {
 			adoptSource = c.Source
 		}
-		return finishHooksMutation(service, "hooks import", hooks.Mutation{Name: c.Name, Entry: &c.Entry, Replace: o.replace, Adopt: adopt, AdoptSource: adoptSource}, o)
+		return finishHooksMutation(service, "hooks import", hooks.Mutation{Name: c.Name, Entry: &c.Entry, Replace: o.replace, Adopt: true, AdoptSource: adoptSource}, o)
 	}
 	return fmt.Errorf("hook %q not found in %s", o.name, o.from)
 }

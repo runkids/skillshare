@@ -159,16 +159,17 @@ _org-skills/
 **충돌이 동일한 Target에 도달함** — 조치가 필요한 경고:
 
 ```
-! 1 duplicate skill names detected
+! 1 duplicate skill names detected; those skills sync under their full path name
   ui                              _team-a/ vs _team-b/
-  Rename one in SKILL.md or adjust include/exclude filters
-  1 name collision(s) excluded
+  Rename one of them (its folder and the name in its SKILL.md) or adjust include/exclude filters
 ```
+
+두 skill 모두 `_team-a__ui`와 `_team-b__ui`로 target에 전달됩니다.
 
 **해결 방법:** 네임스페이스가 적용된 이름을 사용하거나 필터로 라우팅하세요:
 
 ```yaml
-# 옵션 1: SKILL.md에서 네임스페이스 지정
+# 옵션 1: 폴더와 SKILL.md의 이름을 함께 변경
 name: team-a-ui
 
 # 옵션 2: 필터로 라우팅 (Global config)

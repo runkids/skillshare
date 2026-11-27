@@ -15,9 +15,10 @@ Execute a runbook with:
 ```sh
 docker exec "$CONTAINER" /workspace/.devcontainer/ensure-mdproof.sh
 docker exec "$CONTAINER" env SKILLSHARE_DEV_ALLOW_WORKSPACE_PROJECT=1 \
-  ssenv enter "$ENV_NAME" -- \
   mdproof --report json /workspace/ai_docs/tests/<runbook>.md
 ```
+
+Run mdproof directly, not inside `ssenv enter`: `ai_docs/tests/mdproof.json` sets `isolation: per-runbook`, so mdproof gives each runbook its own `HOME` and runs the setup hook there. Wrapped in ssenv, the setup initializes one `HOME` and the steps run in another, so every step fails. Use ssenv only to reproduce a failed step by hand.
 
 Do not abort the whole runbook after the first failed step. Preserve every step result, then classify the failure:
 

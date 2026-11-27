@@ -8,6 +8,7 @@ import {
   deriveTheme,
   editedFrom,
   encodeShare,
+  glassBackdrops,
   fontUrl,
   parseCustomTheme,
   presetOf,
@@ -76,6 +77,12 @@ describe('parseCustomTheme', () => {
       parseCustomTheme({ v: 1, accent: '#000000', from: 'pine' })?.from,
       parseCustomTheme({ v: 1, accent: '#000000', from: 'fjord' })?.from,
     ]).toEqual(['pine', undefined]);
+  });
+
+  it('keeps glass everywhere', () => {
+    expect(parseCustomTheme({ v: 1, accent: '#000000', glass: 'surfaces' })?.glass).toBe(
+      'surfaces',
+    );
   });
 
   it('strips control characters from the name and caps its length', () => {
@@ -264,6 +271,33 @@ describe('themeVars', () => {
   });
 });
 
+describe('depth on glass', () => {
+  it('gives glass cards the chosen depth, with Flat as a shadow that still forms a list', () => {
+    expect([
+      themeVars({ ...pine, depth: 'flat' }).light['gs-shadow'],
+      themeVars({ ...pine, depth: 'lifted' }).dark['gs-shadow'],
+      themeVars(pine).light['gs-shadow'],
+    ]).toEqual([
+      '0 0 transparent',
+      themeVars({ ...pine, depth: 'lifted' }).dark['sh-box'],
+      undefined,
+    ]);
+  });
+});
+
+describe('glass everywhere in dark mode', () => {
+  it('keeps text at 4.5:1 over the brightest light behind the glass', () => {
+    for (const [name, preset] of Object.entries(PRESETS).filter(([, p]) => p.base === 'clean')) {
+      const v = themeVars({ ...preset, glass: 'surfaces' }).dark;
+      for (const bg of glassBackdrops(v.bg, v.ink)) {
+        for (const token of ['ink-2', 'ink-3', 'accent']) {
+          expect(contrast(v[token], bg), `${name} ${token} on ${bg}`).toBeGreaterThanOrEqual(4.5);
+        }
+      }
+    }
+  });
+});
+
 describe('styleVars', () => {
   it("leaves a Playful base's own borders out of the colours set for a mode", () => {
     const theme: CustomTheme = { ...pine, base: 'playful' };
@@ -277,6 +311,7 @@ describe('rootAttributes', () => {
       'data-theme': 'playful',
       'data-custom': null,
       'data-layout': null,
+      'data-glass': null,
     });
   });
 
@@ -285,7 +320,15 @@ describe('rootAttributes', () => {
       'data-theme': null,
       'data-custom': '',
       'data-layout': 'full',
+      'data-glass': null,
     });
+  });
+
+  it('frosts the surfaces of a Clean-based custom theme only', () => {
+    expect(rootAttributes('custom', { ...pine, glass: 'surfaces' })['data-glass']).toBe('surfaces');
+    expect(
+      rootAttributes('custom', { ...pine, base: 'playful', glass: 'surfaces' })['data-glass'],
+    ).toBeNull();
   });
 
   it('ignores the layout on a Playful base, which has no inset panel', () => {
@@ -293,6 +336,7 @@ describe('rootAttributes', () => {
       'data-theme': 'playful',
       'data-custom': '',
       'data-layout': null,
+      'data-glass': null,
     });
   });
 });

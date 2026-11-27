@@ -147,7 +147,12 @@ describe('hooks import', () => {
     previewError: '',
     paths: { claude: '/home/u/.claude/settings.json' },
     unmanaged: [
-      { target: 'claude', path: '/home/u/.claude/settings.json', names: ['notify', 'format'] },
+      {
+        target: 'claude',
+        path: '/home/u/.claude/settings.json',
+        names: ['notify', 'format'],
+        importable: true,
+      },
     ],
   } as unknown as HookInventory;
 
@@ -197,7 +202,12 @@ describe('hooks import', () => {
       ...data,
       paths: { antigravity: '/home/u/.gemini/config/hooks.json' },
       unmanaged: [
-        { target: 'antigravity', path: '/home/u/.gemini/config/hooks.json', names: ['lint'] },
+        {
+          target: 'antigravity',
+          path: '/home/u/.gemini/config/hooks.json',
+          names: ['lint'],
+          importable: true,
+        },
       ],
     } as unknown as HookInventory;
     wrap(
@@ -238,6 +248,7 @@ describe('hooks import', () => {
                 target: 'pi',
                 path: '/home/u/.pi/agent/extensions',
                 names: ['activity.ts'],
+                importable: true,
               },
             ],
           } as unknown as HookInventory
@@ -298,6 +309,7 @@ describe('hooks import', () => {
           target: 'copilot',
           path: '/home/u/.copilot/hooks',
           names: ['lint.json', 'skillshare-lint.json'],
+          importable: true,
         },
       ],
     } as unknown as HookInventory;
@@ -439,13 +451,35 @@ describe('hooks import', () => {
     );
   });
 
+  it('reads no Agent whose unmanaged hooks can only be listed', async () => {
+    vi.mocked(hooksApi.import).mockResolvedValue([]);
+    const inline = { target: 'codex', path: '/home/u/.codex/config.toml', names: ['Stop'] };
+    const listed = {
+      ...data,
+      unmanaged: [...data.unmanaged, { ...inline, importable: false }],
+    } as unknown as HookInventory;
+    wrap(
+      <HooksImportDialog
+        data={listed}
+        onClose={vi.fn()}
+        onChanged={vi.fn()}
+        onImported={vi.fn()}
+      />,
+    );
+    await waitFor(() => expect(hooksApi.import).toHaveBeenCalledWith({ from: 'claude' }));
+    expect(hooksApi.import).toHaveBeenCalledTimes(1);
+  });
+
   it('keeps the changes of a file a failed write did not reach', async () => {
     const user = userEvent.setup();
     const geminiPath = '/home/u/.gemini/settings.json';
     const both = {
       ...data,
       paths: { ...data.paths, gemini: geminiPath },
-      unmanaged: [...data.unmanaged, { target: 'gemini', path: geminiPath, names: ['cleanup'] }],
+      unmanaged: [
+        ...data.unmanaged,
+        { target: 'gemini', path: geminiPath, names: ['cleanup'], importable: true },
+      ],
     } as unknown as HookInventory;
     const cleanup: HookCandidate = {
       name: 'cleanup',

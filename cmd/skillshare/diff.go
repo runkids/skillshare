@@ -147,6 +147,9 @@ type targetDiffResult struct {
 	exclude    []string
 	srcMtime   time.Time // newest file mtime across source skills
 	dstMtime   time.Time // newest file mtime in target dir
+	// keepOrphans is set when a followed source link is unavailable: sync
+	// prunes nothing then, so no orphan is listed.
+	keepOrphans bool
 }
 
 // inSync reports no pending work or selection diagnostics. Folders only the
@@ -413,7 +416,8 @@ func cmdDiffGlobal(targetName string, kind resourceKindFilter, opts diffRenderOp
 	if !opts.jsonOutput {
 		spinner = ui.StartSpinner("Discovering skills")
 	}
-	discovered, discoverErr := sync.DiscoverSourceSkills(cfg.EffectiveSkillsSource(), cfg.SkillsWalk())
+	walk := cfg.SkillsWalk()
+	discovered, discoverErr := sync.DiscoverSourceSkills(cfg.EffectiveSkillsSource(), walk)
 	if discoverErr != nil {
 		if spinner != nil {
 			spinner.Fail("Discovery failed")
@@ -423,6 +427,8 @@ func cmdDiffGlobal(targetName string, kind resourceKindFilter, opts diffRenderOp
 	if spinner != nil {
 		spinner.Stop()
 	}
+	// Diff previews sync, which keeps entries while a link is unavailable.
+	printWarningLines(sync.SourceLinkWarnings(walk, true), opts.jsonOutput)
 
 	targets := cfg.Targets
 	if targetName != "" {
@@ -499,7 +505,7 @@ func cmdDiffGlobal(targetName string, kind resourceKindFilter, opts diffRenderOp
 			defer wg.Done()
 			defer func() { <-sem }()
 			progress.startTarget(fe.name)
-			r := collectTargetDiff(fe.name, fe.target, cfg.EffectiveSkillsSource(), fe.mode, fe.resolution, sync.EffectiveFileIgnorePatterns(cfg.Ignore), progress)
+			r := collectTargetDiff(fe.name, fe.target, cfg.EffectiveSkillsSource(), fe.mode, fe.resolution, sync.EffectiveFileIgnorePatterns(cfg.Ignore), walk.Follow.Incomplete(), progress)
 			progress.doneTarget(fe.name, r)
 			results[idx] = r
 		}(i, fe)
@@ -598,7 +604,7 @@ func diffOutputJSONWithExtras(results []targetDiffResult, extrasResults []extraD
 	return writeJSON(&o)
 }
 
-func collectTargetDiff(name string, target config.TargetConfig, source, mode string, resolution *sync.TargetSkillResolution, ignorePatterns []string, dp *diffProgress) targetDiffResult {
+func collectTargetDiff(name string, target config.TargetConfig, source, mode string, resolution *sync.TargetSkillResolution, ignorePatterns []string, sourceIncomplete bool, dp *diffProgress) targetDiffResult {
 	sc := target.SkillsConfig()
 	r := targetDiffResult{
 		name:    name,
@@ -635,13 +641,13 @@ func collectTargetDiff(name string, target config.TargetConfig, source, mode str
 		return r
 	}
 
-	var manifest *sync.Manifest // only copy-mode legacy lookups read it
-	if mode == "copy" {
-		manifest, _ = sync.ReadManifest(sc.Path)
-	}
+	// Legacy lookups read the manifest in both modes: a merge link the manifest
+	// records may be another skill's, which this skill takes over.
+	manifest, _ := sync.ReadManifest(sc.Path)
 	legacyNames := resolution.LegacyNames(mode, sc.Path, manifest)
+	r.keepOrphans = sourceIncomplete
 	if mode == "copy" {
-		collectCopyDiff(&r, name, sc.Path, source, resolution.Skills, resolution.Naming, sourceSkills, legacyNames, manifest, ignorePatterns, dp)
+		collectCopyDiff(&r, name, sc.Path, source, resolution.Skills, sourceSkills, legacyNames, manifest, ignorePatterns, dp)
 		for i := range r.items {
 			r.items[i].copyIgnore = ignorePatterns
 		}
@@ -688,7 +694,7 @@ func collectSymlinkDiff(r *targetDiffResult, targetPath, source string) {
 	}
 }
 
-func collectCopyDiff(r *targetDiffResult, targetName, targetPath, source string, filtered []sync.ResolvedTargetSkill, naming string, sourceSkills map[string]bool, legacyNames map[string]sync.ResolvedTargetSkill, manifest *sync.Manifest, ignorePatterns []string, dp *diffProgress) {
+func collectCopyDiff(r *targetDiffResult, targetName, targetPath, source string, filtered []sync.ResolvedTargetSkill, sourceSkills map[string]bool, legacyNames map[string]sync.ResolvedTargetSkill, manifest *sync.Manifest, ignorePatterns []string, dp *diffProgress) {
 	renamedFrom := sync.RenamedFrom(legacyNames)
 	for _, resolved := range filtered {
 		skill := resolved.Skill
@@ -734,14 +740,13 @@ func collectCopyDiff(r *targetDiffResult, targetName, targetPath, source string,
 			continue
 		}
 		// A copy made under another naming carries another name:, so sync re-copies it.
-		if recorded := manifest.Naming[resolved.TargetName]; recorded != "" && recorded != naming {
+		if recorded := manifest.Naming[resolved.TargetName]; recorded != "" && recorded != resolved.Naming {
 			r.items = append(r.items, copyDiffEntry{action: "modify", name: resolved.TargetName, reason: sync.NamingChangedReason, isSync: true, srcDir: srcDir, dstDir: dstDir})
 			continue
 		}
 		// mtime fast-path
-		oldMtime := manifest.Mtimes[resolved.TargetName]
 		currentMtime, mtimeErr := sync.DirMaxMtimeWithIgnore(skill.SourcePath, ignorePatterns)
-		if mtimeErr == nil && oldMtime > 0 && currentMtime == oldMtime {
+		if mtimeErr == nil && manifest.CopyUnchanged(resolved.TargetName, skill.RelPath, currentMtime) {
 			continue
 		}
 		srcChecksum, err := sync.DirChecksumWithIgnore(skill.SourcePath, ignorePatterns)
@@ -759,7 +764,7 @@ func collectCopyDiff(r *targetDiffResult, targetName, targetPath, source string,
 		if _, keepLegacy := legacyNames[name]; keepLegacy {
 			continue
 		}
-		if !sourceSkills[name] {
+		if !sourceSkills[name] && !r.keepOrphans {
 			r.items = append(r.items, copyDiffEntry{action: "remove", name: name, reason: "orphan (will be pruned)", isSync: true, dstDir: filepath.Join(targetPath, name)})
 		}
 	}
@@ -839,6 +844,10 @@ func collectMergeDiff(r *targetDiffResult, targetPath, source string, sourceSkil
 			// Another tool's link on the skill's name: sync keeps it, like a local copy.
 			r.items = append(r.items, copyDiffEntry{action: "modify", name: skill, reason: sync.ForeignLinkReason, isSync: true, srcDir: srcDir, dstDir: dstDir})
 			r.syncCount++
+		} else if !sync.IsSymlinkToSource(dstDir, srcDir) {
+			// Its link leads to another skill, which held the name before.
+			r.items = append(r.items, copyDiffEntry{action: "modify", name: skill, reason: "symlink points elsewhere", isSync: true, srcDir: srcDir, dstDir: dstDir})
+			r.syncCount++
 		}
 	}
 
@@ -857,7 +866,7 @@ func collectMergeDiff(r *targetDiffResult, targetPath, source string, sourceSkil
 			continue
 		}
 		// A link no skill maps to: listed only when sync would prune it.
-		if sync.OrphanLink(dstDir, source, manifest.Records(skill), false).RemoveReason != "" {
+		if !r.keepOrphans && sync.OrphanLink(dstDir, source, manifest.Records(skill), false).RemoveReason != "" {
 			r.items = append(r.items, copyDiffEntry{action: "remove", name: skill, reason: "orphan (will be pruned)", isSync: true, dstDir: dstDir})
 			r.syncCount++
 		}

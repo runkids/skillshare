@@ -190,7 +190,7 @@ skillshare sync --json
 永远不会到达任何 Target。当 `.skillignore.local` 生效时，文本输出会包含 `.local`
 来源提示。模式语法参见 [.skillignore](/docs/reference/appendix/file-structure#skillignore-optional)。
 
-`warnings` 仅在某个第一层 Source 链接未被跟随时才会出现（参见 [`follow_source_links`](../targets/configuration.md#follow_source_links)）。如果某次运行因为链接的目标不可用而保留了 Target 条目，会在这里说明；这种情况下 `pruned` 按设计为 `0`。
+`warnings` 会在某个第一层 Source 链接未被跟随时出现（参见 [`follow_source_links`](../targets/configuration.md#follow_source_links)），或在 `standard` 或 `prefixed` Target 同步的两个 skill 同名时出现：除了位于 Source 最上层的 skill，它们都会改用完整路径名称同步，警告会列出它们。如果某次运行因为链接的目标不可用而保留了 Target 条目，会在这里说明；这种情况下 `pruned` 按设计为 `0`。
 
 ### 执行流程
 

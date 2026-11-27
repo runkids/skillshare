@@ -37,7 +37,11 @@ func followedRepoSkipped(walk sourcewalk.Options, walkRoot, path string) (warnin
 }
 
 func printSkippedSourceLinkWarnings(walk sourcewalk.Options, jsonOutput bool) {
-	for _, warning := range ssync.SourceLinkWarnings(walk, false) {
+	printWarningLines(ssync.SourceLinkWarnings(walk, false), jsonOutput)
+}
+
+func printWarningLines(warnings []string, jsonOutput bool) {
+	for _, warning := range warnings {
 		if jsonOutput {
 			fmt.Fprintf(os.Stderr, "! %s\n", warning)
 		} else {
