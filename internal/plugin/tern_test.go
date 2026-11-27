@@ -279,7 +279,7 @@ func TestTernMissingUpdateRefSkipsUnreachableSource(t *testing.T) {
 	}
 	var skipped, other bool
 	for _, c := range p.Changes {
-		if c.Target == "tern" && c.Action == "skip" && c.MessageKey == "plugins.error.cliMissing" {
+		if c.Target == "tern" && c.Action == "selection" && c.MessageKey == "plugins.error.cliMissing" {
 			skipped = true
 		}
 		if c.Target == "copilot" && c.Action != "skip" && c.Action != "blocked" {
@@ -288,6 +288,51 @@ func TestTernMissingUpdateRefSkipsUnreachableSource(t *testing.T) {
 	}
 	if !skipped || !other {
 		t.Fatalf("changes: %+v", p.Changes)
+	}
+}
+
+func TestTernMissingUpdateRefReconcilesOnAnotherHost(t *testing.T) {
+	f := newTernFixture(t)
+	git := func(args ...string) string {
+		t.Helper()
+		cmd := exec.Command("git", args...)
+		cmd.Dir = f.source
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("git %v: %s %v", args, out, err)
+		}
+		return strings.TrimSpace(string(out))
+	}
+	git("init", "-b", "main")
+	git("add", ".")
+	git("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "-m", "main")
+	git("checkout", "-b", "next")
+	writeFile(t, f.source, "main.luau", "return { next = true }")
+	git("add", ".")
+	git("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "-m", "next")
+	next := git("rev-parse", "HEAD")
+	cfg := filepath.Join(t.TempDir(), "gitconfig")
+	writeFile(t, filepath.Dir(cfg), filepath.Base(cfg), fmt.Sprintf("[url \"file://%s\"]\n insteadOf = https://fixture.invalid/tern.git\n", f.source))
+	t.Setenv("GIT_CONFIG_GLOBAL", cfg)
+	applyPluginRequest(t, f.service, Request{Action: "add", Source: "https://fixture.invalid/tern.git", SourceRef: "main", Targets: []string{"tern"}})
+	if err := os.Rename(f.source, f.source+"-offline"); err != nil {
+		t.Fatal(err)
+	}
+	applyPluginRequest(t, f.service, Request{Action: "update", Name: "demo", SourceRef: "next"})
+	if got := readState(t, f.service).intent["demo"].Bindings["tern"].SourceRef; got != "next" {
+		t.Fatalf("saved ref = %q; want next", got)
+	}
+	if len(f.commands) != 0 {
+		t.Fatalf("native work while missing: %v", f.commands)
+	}
+	if err := os.Rename(f.source+"-offline", f.source); err != nil {
+		t.Fatal(err)
+	}
+	other := &Service{ConfigPath: f.service.ConfigPath, StateDir: filepath.Join(filepath.Dir(f.service.StateDir), "other-state"), Run: f.service.Run}
+	f.missing = false
+	applyPluginRequest(t, other, Request{Action: "sync", Name: "demo"})
+	if got := hostPackages(t, other)["demo"].Bindings["tern"]; !f.installed["tern"] || got.SourceRef != "next" || got.Commit != next {
+		t.Fatalf("installed binding = %+v; want ref next and commit %s", got, next)
 	}
 }
 

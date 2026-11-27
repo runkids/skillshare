@@ -232,7 +232,12 @@ func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval) (
 		switch r.Action {
 		case "add", "remove":
 			c.Action = "selection"
-		case "sync", "check", "update":
+		case "update":
+			c.Action = "skip"
+			if r.SourceRef != "" {
+				c.Action = "selection"
+			}
+		case "sync", "check":
 			c.Action = "skip"
 		default:
 			return false
@@ -519,15 +524,17 @@ func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval) (
 				}
 				decl, declared := d.intent[name].Bindings[target]
 
-				if deferMissing(Change{Name: name, Target: target, ID: b.ID, Binding: b, Action: r.Action}) {
-					continue
-				}
-
 				if r.Action == "update" && r.SourceRef != "" {
 					if decl.Source == "" || decl.Imported || isNpmSource(decl.Source) {
 						return nil, fmt.Errorf("source ref requires a reviewed Git source for %s/%s", name, target)
 					}
 					decl.SourceRef = r.SourceRef
+				}
+				if deferMissing(Change{Name: name, Target: target, ID: b.ID, Binding: b, Action: r.Action}) {
+					continue
+				}
+
+				if r.Action == "update" && r.SourceRef != "" {
 					disc, err := s.discover(ctx, decl.Source, decl.SourceRef, decl.Entry)
 					if err != nil {
 						return nil, err
