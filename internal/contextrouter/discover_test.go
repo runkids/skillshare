@@ -84,6 +84,18 @@ func TestDiscover(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		return
 	}
+	// A source that was never created, reached through a link, still finds the
+	// router above it once, under the same path as its sibling source.
+	viaLink := at("vault-link")
+	if err := os.Symlink(vault, viaLink); err != nil {
+		t.Fatal(err)
+	}
+	check("missing source behind a link", DiscoverInput{SkillsSource: skills, AgentsSource: filepath.Join(viaLink, "skillshare", "never-created")},
+		Root{vault, "vault", OriginSkillsSource})
+	if err := os.Remove(viaLink); err != nil {
+		t.Fatal(err)
+	}
+
 	dangling := mkdir(at("dangling"))
 	mkdir(filepath.Join(dangling, "wiki"))
 	if err := os.Symlink(at("nowhere.json"), filepath.Join(dangling, "wiki", "ai-context.json")); err != nil {

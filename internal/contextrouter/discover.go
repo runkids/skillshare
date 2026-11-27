@@ -53,14 +53,22 @@ func hasConfig(dir string) bool {
 	return err == nil
 }
 
+// physical resolves symlinks in path. A path that does not exist yet (a source
+// folder never created) is resolved as far as it does exist, so two spellings
+// of one folder still compare equal.
 func physical(path string) string {
 	if path == "" {
 		return ""
 	}
+	path = filepath.Clean(path)
 	if resolved, err := filepath.EvalSymlinks(path); err == nil {
 		return resolved
 	}
-	return filepath.Clean(path)
+	parent := filepath.Dir(path)
+	if parent == path {
+		return path
+	}
+	return filepath.Join(physical(parent), filepath.Base(path))
 }
 
 // aroundSource returns the nearest folder with a config among source and up
