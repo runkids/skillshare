@@ -885,10 +885,11 @@ export function themeCss(theme: CustomTheme): string {
     if (theme.texture === 'dots') {
       // On the page and the preview's page, not the shell around them. The doubled attribute
       // outranks the inset panel's solid background whichever stylesheet loads first. Light dots
-      // take the stronger line colour to show at all; on a dark page the softer one is enough.
+      // sit halfway between the two line colours, the softer alone barely shows; on a dark page
+      // the softer one is enough.
       const dots = (c: string) =>
         `{\n  background-image: radial-gradient(${c} 1px, transparent 1px);\n  background-size: 24px 24px;\n}`;
-      const light = dots(vars.light['line-2']);
+      const light = dots(`color-mix(in oklab, ${vars.light.line}, ${vars.light['line-2']})`);
       const dark = dots(vars.dark.line);
       parts.push(
         `:root[data-custom][data-custom]:not(.dark) .ss-main ${light}`,
