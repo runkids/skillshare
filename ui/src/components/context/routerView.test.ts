@@ -4,10 +4,11 @@ import { ApiError } from '../../api/http';
 import {
   exactBytes,
   isStaleRoot,
-  orderTopics,
   originKey,
   routerProblems,
   topicState,
+  versionLine,
+  versionNote,
 } from './routerView';
 
 const topic = (
@@ -27,7 +28,9 @@ const topic = (
 const report = (extra: Partial<RouterReport> = {}): RouterReport => ({
   root: '/r',
   config: 'wiki/ai-context.json',
-  reference: '19c94f9',
+  scriptVersion: '0.6.0',
+  semanticsVersion: '0.6.0',
+  versionStatus: 'ok',
   kernel: { path: 'AGENTS.md', bytes: 10, cap: 100 },
   topics: [],
   truncated: false,
@@ -43,19 +46,6 @@ describe('topicState', () => {
 
   it('gives no verdict without a size', () => {
     expect(topicState({ bytes: null, cap: 16384 })).toBe('unavailable');
-  });
-});
-
-describe('orderTopics', () => {
-  it('puts topics without a size first, then the largest share of the cap, then by name', () => {
-    const topics = [topic('a', 10), topic('b', null), topic('d', 90), topic('c', 90)];
-    expect(orderTopics(topics).map((t) => t.name)).toEqual(['b', 'c', 'd', 'a']);
-    expect(topics.map((t) => t.name)).toEqual(['a', 'b', 'd', 'c']);
-  });
-
-  it('compares shares, not sizes, when caps differ', () => {
-    const topics = [topic('big', 500, { cap: 1000 }), topic('small', 9, { cap: 10 })];
-    expect(orderTopics(topics).map((t) => t.name)).toEqual(['small', 'big']);
   });
 });
 
@@ -89,7 +79,7 @@ describe('routerProblems', () => {
     ).toEqual({ key: 'context.router.reason.outside', params: {} });
   });
 
-  it('reports the kernel, then each topic in display order', () => {
+  it('reports the kernel, then each topic in the order the config lists it', () => {
     const problems = routerProblems(
       report({
         kernel: { path: 'AGENTS.md', bytes: 8193, cap: 8192 },
@@ -113,6 +103,11 @@ describe('routerProblems', () => {
         key: 'context.router.problem.kernelOver',
         params: { file: 'AGENTS.md', actual: '8,193', cap: '8,192' },
       },
+      { key: 'context.router.problem.notListed', params: { topic: 'hidden', file: 'AGENTS.md' } },
+      {
+        key: 'context.router.problem.topicOver',
+        params: { topic: 'over', actual: '16,385', cap: '16,384' },
+      },
       {
         key: 'context.router.problem.source',
         params: { topic: 'broken', path: 'wiki/b.md' },
@@ -127,11 +122,6 @@ describe('routerProblems', () => {
         reason: { key: 'context.router.reason.too_large', params: {} },
       },
       { key: 'context.router.problem.limit', params: { topic: 'cut' } },
-      {
-        key: 'context.router.problem.topicOver',
-        params: { topic: 'over', actual: '16,385', cap: '16,384' },
-      },
-      { key: 'context.router.problem.notListed', params: { topic: 'hidden', file: 'AGENTS.md' } },
     ]);
   });
 
@@ -182,4 +172,27 @@ describe('isStaleRoot', () => {
 it('formats bytes exactly and names the origin key', () => {
   expect(exactBytes(16377)).toBe('16,377');
   expect(originKey('skills_source')).toBe('context.router.origin.skills_source');
+});
+
+describe('router script version', () => {
+  it('names the folder script and the rule applied', () => {
+    expect(versionLine({ scriptVersion: '0.2.1', semanticsVersion: '0.2.1' })).toEqual({
+      key: 'context.router.version.known',
+      params: { version: '0.2.1', semantics: '0.2.1' },
+    });
+    expect(versionLine({ scriptVersion: '', semanticsVersion: '0.6.0' })).toEqual({
+      key: 'context.router.version.unknown',
+      params: { semantics: '0.6.0' },
+    });
+  });
+
+  it('adds a note for every status but a matching script', () => {
+    const report = { scriptVersion: '0.7.0', semanticsVersion: '0.6.0' };
+    expect(versionNote({ ...report, versionStatus: 'ok' })).toBeNull();
+    for (const status of ['legacy', 'newer', 'unknown'] as const)
+      expect(versionNote({ ...report, versionStatus: status })).toEqual({
+        key: `context.router.version.note.${status}`,
+        params: { version: '0.7.0', semantics: '0.6.0' },
+      });
+  });
 });

@@ -47,11 +47,16 @@ export interface RouterMount {
   root: string;
 }
 
-/** One folder's router. With `error`, the config could not be used and there is no kernel and no topic. `reference` is the agents-context-router commit the sizes follow. */
+/** How the folder's own `scripts/ai-context.py` relates to the size rule applied: the same rule, an older script whose missing options are ignored, a newer one measured by the current rule and unverified, or no readable version. */
+export type RouterVersionStatus = 'ok' | 'legacy' | 'newer' | 'unknown';
+
+/** One folder's router. With `error`, the config could not be used and there is no kernel and no topic. `scriptVersion` is empty when the folder's script has no readable version; `semanticsVersion` is the router version whose size rule was applied. Topics come in the config's order. */
 export interface RouterReport {
   root: string;
   config: string;
-  reference: string;
+  scriptVersion: string;
+  semanticsVersion: string;
+  versionStatus: RouterVersionStatus;
   error?: { code: 'config_unreadable' | 'config_invalid'; detail?: string };
   kernel?: RouterKernel;
   topics: RouterTopic[];

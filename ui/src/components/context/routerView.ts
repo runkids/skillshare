@@ -8,13 +8,6 @@ export type TopicState = 'ok' | 'over' | 'unavailable';
 export const topicState = (t: Pick<RouterTopic, 'bytes' | 'cap'>): TopicState =>
   t.bytes === null ? 'unavailable' : t.bytes > t.cap ? 'over' : 'ok';
 
-const share = (t: RouterTopic) =>
-  t.bytes === null ? Infinity : t.cap > 0 ? t.bytes / t.cap : t.bytes;
-
-/** Topics that need a look first: those without a size, then the largest share of the cap. */
-export const orderTopics = (topics: RouterTopic[]): RouterTopic[] =>
-  [...topics].sort((a, b) => share(b) - share(a) || a.name.localeCompare(b.name));
-
 type Params = Record<string, string | number>;
 type Sentence = { key: string; params: Params };
 
@@ -28,7 +21,7 @@ export interface RouterProblem {
 /** Exact, since a topic can sit a few bytes under its cap. Digits are not localized: they are compared by eye with the router's own output. */
 export const exactBytes = (n: number): string => n.toLocaleString('en-US');
 
-/** What is wrong with this folder's own kernel and topics, most pressing first. Mounts are not looked at. */
+/** What is wrong with this folder's own kernel and topics, in the config's order, which is the order the router prints. Mounts are not looked at. */
 export function routerProblems(r: RouterReport): RouterProblem[] {
   if (r.error) {
     const reason: Sentence =
@@ -51,7 +44,7 @@ export function routerProblems(r: RouterReport): RouterProblem[] {
       params: { file, actual: exactBytes(r.kernel.bytes), cap: exactBytes(r.kernel.cap) },
     });
   }
-  for (const t of orderTopics(r.topics)) {
+  for (const t of r.topics) {
     if (t.bytes !== null && t.bytes > t.cap) {
       out.push({
         key: 'context.router.problem.topicOver',
@@ -88,3 +81,25 @@ export const originKey = (o: RouterOrigin): string => `context.router.origin.${o
 /** The folder in the URL is no longer one the server lists: a bookmark, or a router that was removed. */
 export const isStaleRoot = (error: unknown, root: string): boolean =>
   root !== '' && error instanceof ApiError && error.status === 404;
+
+/** The header line: which script the folder carries and whose size rule was applied. */
+export const versionLine = (
+  r: Pick<RouterReport, 'scriptVersion' | 'semanticsVersion'>,
+): { key: string; params: Params } =>
+  r.scriptVersion
+    ? {
+        key: 'context.router.version.known',
+        params: { version: r.scriptVersion, semantics: r.semanticsVersion },
+      }
+    : { key: 'context.router.version.unknown', params: { semantics: r.semanticsVersion } };
+
+/** The note a version mismatch needs, or null when the script's rule is the one applied. */
+export const versionNote = (
+  r: Pick<RouterReport, 'scriptVersion' | 'semanticsVersion' | 'versionStatus'>,
+): { key: string; params: Params } | null =>
+  r.versionStatus === 'ok'
+    ? null
+    : {
+        key: `context.router.version.note.${r.versionStatus}`,
+        params: { version: r.scriptVersion, semantics: r.semanticsVersion },
+      };

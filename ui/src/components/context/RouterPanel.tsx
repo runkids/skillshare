@@ -15,10 +15,11 @@ import { queryKeys, staleTimes } from '../../lib/queryKeys';
 import {
   exactBytes,
   isStaleRoot,
-  orderTopics,
   originKey,
   routerProblems,
   topicState,
+  versionLine,
+  versionNote,
 } from './routerView';
 import type { RouterProblem } from './routerView';
 
@@ -103,7 +104,10 @@ export default function RouterPanel({ actions }: { actions: HTMLElement | null }
   const problems = routerProblems(router);
   const kernel = router.kernel;
   const kernelOver = !!kernel && kernel.bytes !== null && kernel.bytes > kernel.cap;
-  const topics = orderTopics(router.topics);
+  // The config's order, which is the order the router's own list and check print.
+  const topics = router.topics;
+  const version = versionLine(router);
+  const note = versionNote(router);
 
   const sourceSize = (s: RouterSource) => {
     if (s.bytes !== null) return `${exactBytes(s.bytes)} B`;
@@ -172,6 +176,15 @@ export default function RouterPanel({ actions }: { actions: HTMLElement | null }
               current: shortenHome(current.path),
             })}
           </span>
+        </div>
+      )}
+
+      {/* Which script's numbers these are compared with, and whose rule produced them. */}
+      <p className="-mt-3 text-[13px] text-ink-2">{t(version.key, version.params)}</p>
+      {note && (
+        <div className={`ss-note ${router.versionStatus === 'newer' ? 'warn' : 'inf'}`}>
+          {router.versionStatus === 'newer' && <AlertTriangle size={16} />}
+          <span className="flex-1 break-words">{t(note.key, note.params)}</span>
         </div>
       )}
 
@@ -276,9 +289,7 @@ export default function RouterPanel({ actions }: { actions: HTMLElement | null }
       )}
 
       {!router.error && (
-        <p className="text-[13px] leading-relaxed text-ink-3">
-          {t('context.router.footnote', { reference: router.reference })}
-        </p>
+        <p className="text-[13px] leading-relaxed text-ink-3">{t('context.router.footnote')}</p>
       )}
     </div>
   );
