@@ -59,6 +59,7 @@ const cached = {
   doctor: k.doctor,
   skillignore: k.skillignore,
   agentignore: k.agentignore,
+  contextRouter: k.contextRouter.root('/a'),
 };
 type Label = keyof typeof cached;
 
@@ -104,8 +105,8 @@ const stale: Record<QueryEvent, Label[] | { args: string[]; stale: Label[] }> = 
   synced: [...T, 'overview', 'diff'],
   syncRan: [...TARGETS, 'extrasDiff', ...X, ...M, ...H, 'log'],
   projectSynced: [...TARGETS, ...M, ...H, 'log'],
-  projectChanged: [...TARGETS, ...M, ...H],
-  projectAdded: [...TARGETS, ...M, ...H],
+  projectChanged: [...TARGETS, ...M, ...H, 'contextRouter'],
+  projectAdded: [...TARGETS, ...M, ...H, 'contextRouter'],
   targetFilesChanged: { args: ['claude'], stale: ['targetFiles', 'targetFile'] },
   targetFileRemoved: { args: ['claude'], stale: ['targetFiles'] },
 
@@ -126,6 +127,7 @@ const stale: Record<QueryEvent, Label[] | { args: string[]; stale: Label[] }> = 
     'instructions',
     'memory',
     'memoryOverview',
+    'contextRouter',
   ],
   updatePolicyChanged: ['version', 'doctor'],
   settingsSaved: ['policy', 'config', 'version', 'doctor'],

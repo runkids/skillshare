@@ -158,6 +158,11 @@ export const queryKeys = {
   preview: (source: string) => ['preview', source] as const,
   extrasDiff: (name?: string) => ['extras-diff', name ?? '__all'] as const,
   analyze: ['analyze'] as const,
+  // One entry per folder; `all` reaches every one of them.
+  contextRouter: {
+    all: ['context-router'] as const,
+    root: (root: string) => ['context-router', root] as const,
+  },
   doctor: ['doctor'] as const,
   skillignore: ['skillignore'] as const,
   agentignore: ['agentignore'] as const,

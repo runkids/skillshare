@@ -59,8 +59,9 @@ const events = {
   synced: () => keys(k.targets.all, k.overview, k.diff()),
   syncRan: () => keys(...targets, k.extrasDiff(), k.extras, k.mcp, k.hooks, k.logAll),
   projectSynced: () => keys(...targets, k.mcp, k.hooks, k.logAll),
-  projectChanged: () => keys(...targets, k.mcp, k.hooks),
-  projectAdded: () => keys(...targets, k.mcp, k.hooks),
+  // A project or a source folder is where the Router tab looks for a context router.
+  projectChanged: () => keys(...targets, k.mcp, k.hooks, k.contextRouter.all),
+  projectAdded: () => keys(...targets, k.mcp, k.hooks, k.contextRouter.all),
   targetFilesChanged: (target: string) => keys(k.targetFiles.list(target)),
   // Only the list: the removed file's content query is still mounted and would fetch again.
   targetFileRemoved: (target: string): InvalidateQueryFilters[] => [
@@ -85,6 +86,7 @@ const events = {
       k.doctor,
       k.instructions.all,
       k.memory.all,
+      k.contextRouter.all,
     ),
   updatePolicyChanged: () => keys(k.versionCheck, k.doctor),
   settingsSaved: () => keys(k.updatePolicy, k.config, k.versionCheck, k.doctor),
