@@ -340,7 +340,38 @@ func TestTernMissingDeferredAddRejectsDuplicateIdentity(t *testing.T) {
 	f := newTernFixture(t)
 	applyPluginRequest(t, f.service, Request{Action: "add", Name: "first", Source: f.source, Targets: []string{"tern"}})
 	p, err := f.service.Preview(context.Background(), Request{Action: "add", Name: "second", Source: f.source, Targets: []string{"tern"}})
-	if err != nil || !p.Blocked || len(p.Changes) != 1 || p.Changes[0].Action != "blocked" || p.Changes[0].MessageKey != "plugins.note.identityInUse" || !strings.Contains(p.Changes[0].Message, "first") {
+	if err != nil || !p.Blocked || len(p.Changes) != 1 || p.Changes[0].Action != "blocked" || p.Changes[0].MessageKey != "" || !strings.Contains(p.Changes[0].Message, "first") {
 		t.Fatalf("duplicate: %+v %v", p, err)
+	}
+}
+
+func TestTernDeferredOwnerThenHostAppears(t *testing.T) {
+	f := newTernFixture(t)
+	applyPluginRequest(t, f.service, Request{Action: "add", Name: "first", Source: f.source, Targets: []string{"tern"}})
+	f.missing = false
+	p, err := f.service.Preview(context.Background(), Request{Action: "add", Name: "second", Source: f.source, Targets: []string{"tern"}})
+	if err != nil || !p.Blocked {
+		t.Fatalf("second owner accepted: %+v %v", p, err)
+	}
+}
+
+func TestTernDeferredSameNameDifferentSource(t *testing.T) {
+	f := newTernFixture(t)
+	applyPluginRequest(t, f.service, Request{Action: "add", Name: "demo", Source: f.source, Targets: []string{"tern"}})
+	other := fixture(t)
+	writeFile(t, other, "plugin.toml", "schema=1\nid='demo'\nname='Demo'\nversion='9'\nhost='main.luau'\n")
+	writeFile(t, other, "main.luau", "return { different=true }")
+	p, err := f.service.Preview(context.Background(), Request{Action: "add", Name: "demo", Source: other, Targets: []string{"tern"}})
+	if err != nil || !p.Blocked {
+		t.Fatalf("deferred source replaced: %+v %v", p, err)
+	}
+}
+
+func TestTernDeferredCollisionGuidance(t *testing.T) {
+	f := newTernFixture(t)
+	applyPluginRequest(t, f.service, Request{Action: "add", Name: "first", Source: f.source, Targets: []string{"tern"}})
+	p, err := f.service.Preview(context.Background(), Request{Action: "add", Name: "second", Source: f.source, Targets: []string{"tern"}})
+	if err != nil || !p.Blocked || len(p.Changes) != 1 || p.Changes[0].MessageKey == "plugins.note.identityInUse" {
+		t.Fatalf("declaration collision guidance: %+v %v", p, err)
 	}
 }
