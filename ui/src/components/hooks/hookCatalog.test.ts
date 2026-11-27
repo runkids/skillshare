@@ -203,6 +203,10 @@ describe('suggestName', () => {
     expect(commandScriptStem('python -u ./hook.py')).toBe('hook');
     expect(commandScriptStem('python3 -I -P ./isolated.py')).toBe('isolated');
     expect(commandScriptStem('/usr/bin/env -S uv run -p 3.12 scripts/verify.py')).toBe('verify');
+    expect(commandScriptStem("/usr/bin/env -S 'python ./hook.py --mode check'")).toBe('hook');
+    expect(commandScriptStem('env FOO=1 ruff ./src')).toBe('');
+    expect(commandScriptStem('uv run ruff ./src')).toBe('');
+    expect(commandScriptStem('bun run lint ./src')).toBe('');
     expect(commandScriptStem('uv run --python 3.12 scripts/verify.py')).toBe('verify');
     expect(commandScriptStem('uv run -p 3.12 scripts/verify.py')).toBe('verify');
     expect(commandScriptStem('node -r ./bootstrap.js ./hook.js')).toBe('hook');

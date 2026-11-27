@@ -652,24 +652,53 @@ const fileStem = (token: string) =>
 
 const isInterpreter = (token: string) => INTERPRETER.test(interpreterBase(token));
 
+const tokenizeCommand = (command: string) =>
+  (command.match(/(?:"[^"]*"|'[^']*'|[^\s"']+)+/g) ?? [])
+    .map((t) => t.replace(/["']/g, ''))
+    .filter(Boolean);
+
+const interpreterName = (base: string) =>
+  base.replace(/[-@]?\d+(?:\.\d+)*[a-z]?$/i, '').toLowerCase();
+
 /**
  * Extracts a hook script's stem when the command runs a file by path (`~/.claude/guard.sh` → `guard`,
  * `/opt/homebrew/bin/python3.14 ~/.local/tool/check.py` → `check`), ignoring bare shells and interpreters.
  */
 export function commandScriptStem(command: string) {
-  const tokens = (command.match(/(?:"[^"]*"|'[^']*'|[^\s"']+)+/g) ?? [])
-    .map((t) => t.replace(/["']/g, ''))
-    .filter(Boolean);
+  const tokens = tokenizeCommand(command);
   let i = 0;
   while (i < tokens.length && /^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[i])) i++;
   const first = tokens[i] ?? '';
   if (isInterpreter(first)) {
+    let name = interpreterName(interpreterBase(first));
     let spec = interpreterSpec(interpreterBase(first));
+    let sawRun = false;
     for (let j = i + 1; j < tokens.length; j++) {
       const arg = tokens[j];
       if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(arg) || /^\/[a-z?]$/i.test(arg)) continue;
+      if (name === 'env') {
+        if (arg === '-S' || arg === '--split-string') {
+          const split = tokenizeCommand(tokens[j + 1] ?? '');
+          tokens.splice(j, 2, ...split);
+          j--;
+          continue;
+        }
+        if (arg.startsWith('-S') && arg.length > 2) {
+          tokens.splice(j, 1, ...tokenizeCommand(arg.slice(2)));
+          j--;
+          continue;
+        }
+        if (arg.startsWith('--split-string=')) {
+          tokens.splice(j, 1, ...tokenizeCommand(arg.slice('--split-string='.length)));
+          j--;
+          continue;
+        }
+      }
       if (isInterpreter(arg)) {
-        spec = interpreterSpec(interpreterBase(arg));
+        const base = interpreterBase(arg);
+        name = interpreterName(base);
+        spec = interpreterSpec(base);
+        sawRun = false;
         continue;
       }
       if (spec.inline(arg)) return '';
@@ -678,7 +707,11 @@ export function commandScriptStem(command: string) {
         continue;
       }
       if (arg.startsWith('-')) continue;
-      if (/[\\/]/.test(arg) || /\.[A-Za-z][A-Za-z0-9]*$/.test(arg)) return fileStem(arg);
+      if (!sawRun && (name === 'uv' || name === 'deno' || name === 'bun') && arg === 'run') {
+        sawRun = true;
+        continue;
+      }
+      return /[\\/]/.test(arg) || /\.[A-Za-z][A-Za-z0-9]*$/.test(arg) ? fileStem(arg) : '';
     }
     return '';
   }
