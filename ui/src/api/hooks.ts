@@ -50,6 +50,7 @@ export interface HookMutation {
   /** With remove: stop managing the hook and leave its target entries as they are. */
   unmanage?: boolean;
   replace?: boolean;
+  replaceNames?: string[];
   /** Save an imported entry as the owner of the native registrations it was read from, so sync adopts them instead of reporting a conflict. */
   adopt?: boolean;
   /** Unmanaged filename being adopted so sync writes Skillshare's file and deletes the original after taking a backup. */

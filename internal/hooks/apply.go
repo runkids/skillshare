@@ -182,7 +182,10 @@ func (s *Service) draft(m Mutation) (*Source, map[string]bool, map[string]bool, 
 	if m.Unmanage && (!m.Remove || m.Name == "") {
 		return nil, nil, nil, fmt.Errorf("stop managing applies only to removing a named hook")
 	}
-	if (m.Entry != nil || m.Remove || m.Replace) && m.Name == "" && m.Project == "" {
+	if len(m.ReplaceNames) > 0 && (m.Name != "" || m.Entry != nil || m.Remove || m.Replace) {
+		return nil, nil, nil, fmt.Errorf("replaceNames applies only to sync")
+	}
+	if (m.Entry != nil || m.Remove || m.Replace) && m.Name == "" && len(m.ReplaceNames) == 0 && (m.Project == "" || m.Replace) {
 		return nil, nil, nil, fmt.Errorf("hook name is required")
 	}
 	root := ""
@@ -206,21 +209,32 @@ func (s *Service) draft(m Mutation) (*Source, map[string]bool, map[string]bool, 
 			delete(source.Projects, root)
 			source.touchedProjects[root] = true
 			return source, nil, nil, nil
+		case len(m.ReplaceNames) > 0:
+			if !exists {
+				return nil, nil, nil, fmt.Errorf("%w: %s", ErrUnknownProject, m.Project)
+			}
 		case m.Name == "" && m.Entry == nil:
 			if !exists {
 				source.Projects[root] = Project{Entries: map[string]Entry{}}
 				source.touchedProjects[root] = true
 			}
 			return source, nil, nil, nil
+		default:
+			if project.Entries == nil {
+				project.Entries = map[string]Entry{}
+			}
+			source.Projects[root] = project
+			entries = project.Entries
+			source.touchedProjects[root] = true
 		}
-		if project.Entries == nil {
-			project.Entries = map[string]Entry{}
-		}
-		source.Projects[root] = project
-		entries = project.Entries
-		source.touchedProjects[root] = true
 	}
 	replace, adopt := map[string]bool{}, map[string]bool{}
+	for _, name := range m.ReplaceNames {
+		if strings.TrimSpace(name) == "" {
+			return nil, nil, nil, fmt.Errorf("hook name is required")
+		}
+		replace[root+"\x00"+name] = true
+	}
 	if m.Replace {
 		replace[root+"\x00"+m.Name] = true
 	}

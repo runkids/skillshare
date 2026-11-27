@@ -368,3 +368,60 @@ func TestImport_CopilotProjectAccountAndOpenCodeV2AdoptFiles(t *testing.T) {
 		t.Fatalf("mixed-case file must not remain unmanaged: %+v, err=%v", again, err)
 	}
 }
+
+func TestReplace_MultipleConflictingHooksAdoptedInOneSync(t *testing.T) {
+	e := newEnv(t)
+	claudePath := filepath.Join(e.home, ".claude", "settings.json")
+	codexPath := filepath.Join(e.home, ".codex", "hooks.json")
+	write(t, claudePath, trialSettings)
+	write(t, codexPath, `{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"echo codex-stop"}]}]}}`)
+
+	c1 := importOne(t, e.service, "claude", "claude-stop")
+	c2 := importOne(t, e.service, "claude", "claude-pretooluse")
+	c3 := importOne(t, e.service, "codex", "codex-stop")
+	for _, c := range []Candidate{c1, c2, c3} {
+		_, err := e.service.Mutate(Mutation{Name: c.Name, Entry: &c.Entry}, "", false)
+		must(t, err)
+	}
+
+	if _, err := e.service.PreviewMutation(Mutation{Replace: true}); err == nil {
+		t.Fatal("nameless Replace must still be rejected")
+	}
+	if p, err := e.service.Preview(); err != nil || !p.Blocked {
+		t.Fatalf("expected conflict before takeover: %+v, err=%v", p, err)
+	}
+
+	m := Mutation{ReplaceNames: []string{"claude-stop", "claude-pretooluse", "codex-stop"}}
+	p, err := e.service.PreviewMutation(m)
+	must(t, err)
+	if p.Blocked {
+		t.Fatalf("multi-hook takeover preview still blocked: %s", actions(p))
+	}
+	_, err = e.service.Mutate(m, p.Revision, true)
+	must(t, err)
+
+	if p, _ := e.service.Preview(); p.Blocked || actions(p) != "claude:claude-pretooluse:unchanged,claude:claude-stop:unchanged,codex:codex-stop:unchanged" {
+		t.Fatalf("after multi-hook takeover: %s", actions(p))
+	}
+
+	// Verify ReplaceNames also works inside a hooks.projects root and rejects unknown roots.
+	projRoot := t.TempDir()
+	if _, err := e.service.PreviewMutation(Mutation{Project: projRoot, ReplaceNames: []string{"claude-stop"}}); err == nil {
+		t.Fatal("expected ErrUnknownProject for unregistered project root")
+	}
+	write(t, filepath.Join(projRoot, ".claude", "settings.json"), trialSettings)
+	_, err = e.service.Mutate(Mutation{Project: projRoot}, "", false)
+	must(t, err)
+	for _, c := range []Candidate{c1, c2} {
+		_, err = e.service.Mutate(Mutation{Project: projRoot, Name: c.Name, Entry: &c.Entry}, "", false)
+		must(t, err)
+	}
+	pm := Mutation{Project: projRoot, ReplaceNames: []string{"claude-stop", "claude-pretooluse"}}
+	pp, err := e.service.PreviewMutation(pm)
+	must(t, err)
+	if pp.Blocked {
+		t.Fatalf("project multi-hook takeover still blocked: %s", actions(pp))
+	}
+	_, err = e.service.Mutate(pm, pp.Revision, true)
+	must(t, err)
+}

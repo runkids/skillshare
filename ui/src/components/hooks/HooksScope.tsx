@@ -483,6 +483,7 @@ export default function HooksScope({ data, project, header, tools = [], onRemove
         <HooksSyncDialog
           project={project}
           takeover={{ name: takingOver, entry: entries[takingOver] }}
+          canTakeOver={canTakeOver}
           onClose={() => {
             setTakingOver('');
             refresh();
