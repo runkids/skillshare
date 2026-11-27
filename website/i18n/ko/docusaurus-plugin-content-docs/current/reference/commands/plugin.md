@@ -165,7 +165,7 @@ Rex에는 자체 plugin 관리자가 없으며, Skillshare는 rexd가 필요하�
 - 형식: `config` 파일을 지정한 `rex-plugin.toml`이 있는 폴더, 또는 `rex/lua/`나 `lua/`에 있고 `setup` 함수를 가진 Amber 스타일 Lua 모듈. Lua 모듈은 source에 다른 plugin 매니페스트가 없을 때만 채택됩니다. ID는 `owner.repo`(로컬 디렉터리는 `local.<folder>`)이고 버전은 commit입니다. 모듈이 여러 개이면 그중 하나는 저장소 이름과 같아야 합니다.
 - `[[scripts]]` 또는 `[[build]]`를 선언한 plugin은 거부됩니다. 이벤트 스크립트와 빌드 단계는 rexd가 실행하며, Skillshare는 데몬을 실행하지 않습니다.
 - 설치 전에 Skillshare는 plugin 하나만으로 `rex config check`를 실행합니다. Rex가 거부한 plugin은 설치되지 않습니다.
-- plugin 사본은 Skillshare의 state 디렉터리에 보관됩니다. Skillshare는 `init.lua`(`REX_CONFIG`, 없으면 `$XDG_CONFIG_HOME/rex/init.lua` 또는 `~/.config/rex/init.lua`, Windows에서는 `%AppData%\rex\init.lua`) 옆에 로더 `skillshare_rex.lua`를 쓰고, 이를 불러오는 한 줄을 `init.lua` 맨 위에 추가하며, 파일의 나머지는 건드리지 않습니다. 마지막 Rex plugin을 제거하면 로더와 그 줄이 삭제되어 `init.lua`가 원래대로 돌아갑니다.
+- plugin 사본은 Skillshare의 state 디렉터리에 보관됩니다. Skillshare는 `init.lua`(`REX_CONFIG`, 없으면 `$XDG_CONFIG_HOME/rex/init.lua` 또는 `~/.config/rex/init.lua`, Windows에서는 `%AppData%\rex\init.lua`) 에서 불러올 로더 `skillshare_rex.lua`를 state 디렉터리에 쓰고, 한 줄을 `init.lua` 맨 위에 추가하며, 파일의 나머지는 건드리지 않습니다. 마지막 Rex plugin을 제거하면 로더가 삭제되고 이 기기에서 추가한 줄도 삭제됩니다.
 - plugin은 `rexd.plugin` 테이블(`id`, `version`, `dir`, `options`)을 받고 `rex/lua` 또는 `lua` 폴더의 모듈을 `require`할 수 있으므로, rexd용으로 작성된 설정 코드 전용 plugin은 그대로 동작합니다. 모든 Rex plugin은 Lua 모듈 이름을 공유하므로, `require("my-plugin.helpers")`처럼 plugin의 모듈 앞에 plugin 이름을 붙이세요. 로더가 plugin마다 감싸서 실행하므로 한 plugin의 런타임 오류가 다른 plugin을 멈추지 않습니다. 문제는 `rex config check`가 보고합니다.
 - 변경 후 `rex config reload`를 실행해 실행 중인 Rex 서버가 다시 읽도록 하세요.
 - `rex`가 없는 머신에서는 Skillshare가 변경을 저장하고 Rex를 건너뛰며, Rex가 있는 머신에서 적용합니다. Rex plugin은 import할 수 없으니 source에서 add하세요.

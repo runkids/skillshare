@@ -166,7 +166,7 @@ Rex には独自の plugin マネージャーがなく、skillshare は rexd を
 - フォーマット: `config` ファイルを指定した `rex-plugin.toml` を持つフォルダ、または `rex/lua/` か `lua/` にある、`setup` 関数を持つ Amber 形式の Lua モジュール。Lua モジュールは Source にほかの plugin マニフェストがない場合にのみ採用されます。その ID は `owner.repo`（ローカルディレクトリでは `local.<folder>`）、バージョンは commit です。モジュールが複数ある場合は、1 つがリポジトリと同じ名前である必要があります。
 - `[[scripts]]` または `[[build]]` を宣言した plugin は拒否されます。イベントスクリプトとビルド手順は rexd が実行するもので、skillshare はデーモンを実行しません。
 - インストール前に、skillshare は plugin 単体に対して `rex config check` を実行します。Rex が拒否した plugin はインストールされません。
-- plugin のコピーは skillshare の state ディレクトリに置かれます。skillshare は `init.lua`（`REX_CONFIG`、なければ `$XDG_CONFIG_HOME/rex/init.lua` または `~/.config/rex/init.lua`、Windows では `%AppData%\rex\init.lua`）の隣にローダー `skillshare_rex.lua` を書き込み、それを読み込む 1 行を `init.lua` の先頭に追加し、ファイルの残りには手を加えません。最後の Rex plugin を削除するとローダーとその行が削除され、`init.lua` は元の状態に戻ります。
+- plugin のコピーは skillshare の state ディレクトリに置かれます。skillshare は `init.lua`（`REX_CONFIG`、なければ `$XDG_CONFIG_HOME/rex/init.lua` または `~/.config/rex/init.lua`、Windows では `%AppData%\rex\init.lua`）を読み込むため、state ディレクトリにローダー `skillshare_rex.lua` を書き込み、1 行を `init.lua` の先頭に追加し、ファイルの残りには手を加えません。最後の Rex plugin を削除するとローダーが削除され、このマシンが追加した行も削除されます。
 - plugin は `rexd.plugin` テーブル（`id`、`version`、`dir`、`options`）を受け取り、`rex/lua` または `lua` フォルダのモジュールを `require` できるため、rexd 向けに書かれた設定コードのみの plugin はそのまま動作します。Rex の plugin はすべて Lua のモジュール名を共有するため、plugin のモジュールには `require("my-plugin.helpers")` のように plugin 名を前に付けてください。ローダーは plugin ごとに処理を包むため、ある plugin の実行時エラーで他の plugin が止まることはありません。問題は `rex config check` で報告されます。
 - 変更後は `rex config reload` を実行して、実行中の Rex サーバーに読み込ませてください。
 - `rex` のないマシンでは、skillshare は変更を保存して Rex をスキップし、Rex のあるマシンで適用します。Rex の plugin は Import できません。Source から add してください。

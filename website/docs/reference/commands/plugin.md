@@ -250,11 +250,10 @@ installs a plugin's config code (actions and key bindings), in global scope only
 - Before installing, Skillshare runs `rex config check` on the plugin by itself. A
   plugin Rex rejects is not installed.
 - Plugin copies stay in Skillshare's state directory. Skillshare writes a loader,
-  `skillshare_rex.lua`, next to `init.lua` (`REX_CONFIG`, else
+  `skillshare_rex.lua`, in that state directory and adds one line at the top of `init.lua` (`REX_CONFIG`, else
   `$XDG_CONFIG_HOME/rex/init.lua` or `~/.config/rex/init.lua`; `%AppData%\rex\init.lua`
-  on Windows), adds one line at the top of `init.lua` to load it, and leaves the
-  rest of the file untouched. Removing the last Rex plugin deletes the loader and
-  that line, so `init.lua` is as you had it.
+  on Windows) to load it, and leaves the rest of the file untouched. Removing the
+  last Rex plugin deletes the loader and removes the line if this machine added it.
 - Plugins get the `rexd.plugin` table (`id`, `version`, `dir`, `options`) and can
   `require` modules from their `rex/lua` or `lua` folder, so config-only plugins
   written for rexd load unchanged. All Rex plugins share Lua's module names, so
