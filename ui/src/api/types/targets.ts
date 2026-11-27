@@ -108,9 +108,9 @@ export interface Target {
   expectedSkillCount: number;
   skippedSkillCount?: number;
   namingSkippedSkillCount?: number;
+  sharedNameSkippedSkillCount?: number;
   selectionSkippedSkillCount?: number;
   warnings?: string[];
-  collisionCount?: number;
   agentPath?: string;
   agentMode?: string;
   agentExtension?: string; // converts each agent; implies copy mode

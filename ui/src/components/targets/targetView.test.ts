@@ -224,24 +224,31 @@ it('keeps diagnostic paths while localizing selection and naming warnings separa
   expect(
     targetWarning("Target 'codex': skipped broken because SKILL.md name could not be read: error"),
   ).toEqual({ key: 'sync.skipped.hintNaming', path: 'broken' });
+  expect(
+    targetWarning(
+      "Target 'codex': skipped bar because its name and its full path name bar are both taken",
+    ),
+  ).toEqual({ key: 'sync.skipped.hintSharedName', path: 'bar' });
 });
 
 describe('targetSkipHints', () => {
-  it('keeps ambiguity separate from naming and collisions', () => {
+  it('keeps ambiguity separate from naming', () => {
     expect(
       targetSkipHints(
         target({
-          skippedSkillCount: 5,
+          skippedSkillCount: 3,
           namingSkippedSkillCount: 1,
           selectionSkippedSkillCount: 2,
-          collisionCount: 1,
         }),
       ),
-    ).toEqual(['sync.skipped.hintMixed', 'sync.skipped.hintSelection']);
+    ).toEqual(['sync.skipped.hintNaming', 'sync.skipped.hintSelection']);
     expect(
       targetSkipHints(
         target({ targetNaming: 'standard', skippedSkillCount: 2, selectionSkippedSkillCount: 2 }),
       ),
     ).toEqual(['sync.skipped.hintSelection']);
+    expect(
+      targetSkipHints(target({ skippedSkillCount: 1, sharedNameSkippedSkillCount: 1 })),
+    ).toEqual(['sync.skipped.hintSharedName']);
   });
 });

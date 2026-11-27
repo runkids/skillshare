@@ -132,12 +132,13 @@ Source-link checks apply in both global and project mode. The source root is res
 
 Each target shows sub-items for **skills** and **agents** (when agents are configured):
 - Skills: path, sync mode, sync state, shared/local counts
-  - "N skills not synced" counts only skills `sync` would place; ones it skips on purpose (an invalid name under `standard` or `prefixed` naming, or a name collision) are left out
+  - "N skills not synced" counts only skills `sync` would place; ones it skips on purpose (an invalid name under `standard` or `prefixed` naming) are left out
 - Agents: sync mode, linked count, drift detection. On Windows without Developer Mode, `merge` shows as `copy`; up-to-date managed copies count as linked. Identical local files that skillshare does not own are preserved. In copy fallback, agent counts show them separately as `local preserved`, for example `0/1 linked, 1 local preserved`.
 - No broken symlinks
 - Duplicate-skill checks for unintended local collisions:
   - `merge` mode: skipped (local skills are expected)
   - `copy` mode: manifest-managed copies are ignored; only local colliding copies are warned
+- Shared skill names: under `standard` or `prefixed` naming, two skills a target syncs share a `name:`. Sync gives them their full path names, but a tool that loads skills by name may load only one, so doctor warns and lists them
 - Valid include/exclude glob patterns
 - Naming and mode: a target that resolves to `prefixed` outside copy mode is an error, because sync would skip it
 - Info-level per-target compatibility hint when applicable (example target priority: `cursor` → `antigravity` → `copilot` → `opencode`; no hint when these targets are absent)
@@ -308,6 +309,8 @@ skillshare sync  # Will prune orphaned symlinks
 ```
 
 If the line says `behind an unavailable source link, kept until it is back` instead, the skill lives behind a [followed source link](../targets/configuration.md#follow_source_links) whose target is away. Nothing to prune: mount the drive or restore the checkout and run `skillshare sync`.
+
+While a followed source link is unavailable, `sync` prunes nothing, so a broken link it would otherwise prune is reported as `broken symlink kept while a source link is unavailable` with a warning instead of an error. `sync` removes it once the link is back.
 
 If the line says `broken link skillshare did not create, kept` instead, the link points outside the source and the manifest does not record it, so another tool or you made it. `sync` keeps it, and the `broken_symlinks` check is `warning` instead of `error` in `doctor --json`. Delete the link yourself if it is stale. A broken link under a name the manifest does record is reported as a broken symlink once no skill in the source uses that name, because `sync` prunes it.
 

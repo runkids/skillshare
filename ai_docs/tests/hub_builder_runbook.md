@@ -13,8 +13,7 @@ Verify author drafts, portable export, and installation by a separate recipient.
 
 ## Environment
 
-Run inside the devcontainer in a fresh `ssenv` created with `--init`.
-When invoking mdproof from an active ssenv, unset inherited `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME`, `XDG_CACHE_HOME`, and `SKILLSHARE_CONFIG` for mdproof so its per-runbook HOME isolation also controls configuration.
+Run mdproof directly inside the devcontainer, not inside ssenv, so its per-runbook HOME isolation also controls configuration.
 The test creates and deletes its own recipient environment and stops its own API server.
 It does not publish a Hub or modify the normal development configuration.
 

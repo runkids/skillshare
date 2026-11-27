@@ -294,18 +294,19 @@ Tag 與 commit SHA 不能搭配 `--track`：tracked repo 是從 branch pull，de
 **衝突延伸到同一個 target** — 可採取行動的警告：
 
 ```
-! 1 duplicate skill names detected
+! 1 duplicate skill names detected; those skills sync under their full path name
   ui                              _team-a/ vs _team-b/
-  Rename one in SKILL.md or adjust include/exclude filters
-  1 name collision(s) excluded
+  Rename one of them (its folder and the name in its SKILL.md) or adjust include/exclude filters
 ```
+
+兩個 skill 仍會送達 target，分別是 `_team-a__ui` 與 `_team-b__ui`。
 
 使用 `target_naming: prefixed` 時，tracked skill 也可能與已使用該前綴名稱的 skill 衝突（`_alpha/prototype` 會變成 `alpha-prototype`）。tracked skill 無法在 `SKILL.md` 中改名，因此 sync 會建議重新命名另一個 skill，或以 `--name` 重新 track 該 repo。
 
 **最佳做法** — 為 skills 加上命名空間，或使用過濾：
 
 ```yaml
-# Option 1: Namespace in SKILL.md
+# 選項 1：資料夾和 SKILL.md 中的名稱一起改
 name: team-a-ui
 
 # Option 2: Route with filters (global config)

@@ -678,6 +678,7 @@ type pullResponse struct {
 	Message     string             `json:"message,omitempty"`
 	Warnings    []string           `json:"warnings,omitempty"`
 	Unmatched   []unmatchedInclude `json:"unmatched,omitempty"`
+	SharedNames []sharedName       `json:"shared_names,omitempty"`
 }
 
 // handlePull pulls changes and syncs to targets
@@ -845,6 +846,7 @@ func (s *Server) handlePull(w http.ResponseWriter, r *http.Request) {
 			resp.SyncResults = out.results
 			resp.Warnings = append(resp.Warnings, out.warnings...)
 			resp.Unmatched = out.unmatched
+			resp.SharedNames = out.sharedNames
 			if out.pathOverlap > 0 {
 				resp.Warnings = append(resp.Warnings, fmt.Sprintf("Skill path overlap across %d target(s) — see Health Check for details", out.pathOverlap))
 			}

@@ -3,6 +3,7 @@ package sync
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"skillshare/internal/config"
@@ -39,8 +40,8 @@ func TestResolveTargetSkillsForTarget_FlatNamingUsesFlatNames(t *testing.T) {
 		t.Fatalf("ResolveTargetSkillsForTarget() error = %v", err)
 	}
 
-	if resolution.Naming != "flat" {
-		t.Fatalf("Naming = %q, want flat", resolution.Naming)
+	if resolution.Skills[0].Naming != "flat" {
+		t.Fatalf("Naming = %q, want flat", resolution.Skills[0].Naming)
 	}
 	if len(resolution.Warnings) != 0 {
 		t.Fatalf("Warnings = %v, want none", resolution.Warnings)
@@ -64,11 +65,11 @@ func TestResolveTargetSkillsForTarget_StandardNamingUsesSkillName(t *testing.T) 
 		t.Fatalf("ResolveTargetSkillsForTarget() error = %v", err)
 	}
 
-	if resolution.Naming != "standard" {
-		t.Fatalf("Naming = %q, want standard", resolution.Naming)
-	}
 	if len(resolution.Skills) != 1 {
 		t.Fatalf("len(Skills) = %d, want 1", len(resolution.Skills))
+	}
+	if resolution.Skills[0].Naming != "standard" {
+		t.Fatalf("Naming = %q, want standard", resolution.Skills[0].Naming)
 	}
 	if resolution.Skills[0].TargetName != "dev" {
 		t.Fatalf("TargetName = %q, want dev", resolution.Skills[0].TargetName)
@@ -139,30 +140,36 @@ func TestResolveTargetSkillsForTarget_StandardNamingSkipsInvalidSkill(t *testing
 	}
 }
 
-func TestResolveTargetSkillsForTarget_StandardNamingSkipsCollisions(t *testing.T) {
+func TestResolveTargetSkillsForTarget_StandardNamingKeepsCollisionsUnderFlatNames(t *testing.T) {
 	dir := t.TempDir()
-	skills := []DiscoveredSkill{
-		createTempSkill(t, dir, "frontend/dev", "dev"),
-		createTempSkill(t, dir, "backend/dev", "dev"),
-		createTempSkill(t, dir, "alpha", "alpha"),
-	}
+	frontend := createTempSkill(t, dir, "frontend/dev", "dev")
+	backend := createTempSkill(t, dir, "backend/dev", "dev")
+	frontend.FlatName, backend.FlatName = "frontend__dev", "backend__dev"
+	skills := []DiscoveredSkill{frontend, backend, createTempSkill(t, dir, "alpha", "alpha")}
 
 	resolution, err := ResolveTargetSkillsForTarget("claude", config.ResourceTargetConfig{TargetNaming: "standard"}, skills)
 	if err != nil {
 		t.Fatalf("ResolveTargetSkillsForTarget() error = %v", err)
 	}
 
-	if len(resolution.Collisions) != 1 {
-		t.Fatalf("Collisions = %v, want 1 collision", resolution.Collisions)
+	if len(resolution.Collisions) != 1 || resolution.Collisions[0].Name != "dev" {
+		t.Fatalf("Collisions = %v, want one under dev", resolution.Collisions)
 	}
-	if resolution.Collisions[0].Name != "dev" {
-		t.Fatalf("collision name = %q, want dev", resolution.Collisions[0].Name)
+	got := map[string]string{}
+	for _, s := range resolution.Skills {
+		got[s.TargetName] = s.Naming
 	}
-	if len(resolution.Skills) != 1 {
-		t.Fatalf("len(Skills) = %d, want 1", len(resolution.Skills))
+	want := map[string]string{"frontend__dev": "flat", "backend__dev": "flat", "alpha": "standard"}
+	if len(got) != len(want) {
+		t.Fatalf("skills = %v, want %v", got, want)
 	}
-	if resolution.Skills[0].TargetName != "alpha" {
-		t.Fatalf("TargetName = %q, want alpha", resolution.Skills[0].TargetName)
+	for name, naming := range want {
+		if got[name] != naming {
+			t.Fatalf("skills = %v, want %v", got, want)
+		}
+	}
+	if resolution.SkippedCount != 0 {
+		t.Fatalf("SkippedCount = %d, want 0", resolution.SkippedCount)
 	}
 }
 
@@ -277,5 +284,49 @@ func TestCheckNameCollisionsForTargets_SymlinkModeSkipped(t *testing.T) {
 	}
 	if len(perTarget) != 0 {
 		t.Errorf("expected no per-target collisions for symlink mode, got %d", len(perTarget))
+	}
+}
+
+// Skills that share a name reach the target under their full path names, but
+// a tool that loads skills by name: still sees one name, so each is reported.
+// A symlink-mode target, set or inherited, holds the source as it is.
+func TestSharedNameWarnings_NamesEachTargetAndSkill(t *testing.T) {
+	dir := t.TempDir()
+	skills := []DiscoveredSkill{
+		createTempSkill(t, dir, "frontend/dev", "dev"),
+		createTempSkill(t, dir, "backend/dev", "dev"),
+	}
+	standard := func(path, mode string) config.TargetConfig {
+		return config.TargetConfig{Skills: &config.ResourceTargetConfig{Path: path, Mode: mode, TargetNaming: "standard"}}
+	}
+	targets := map[string]config.TargetConfig{
+		"cursor": standard("/tmp/cursor", "merge"),
+		"claude": standard("/tmp/claude", "copy"),
+		"codex":  standard("/tmp/codex", ""), // inherits symlink
+	}
+
+	got := SharedNameWarnings(skills, targets, "symlink")
+	want := []string{
+		"claude: backend/dev and frontend/dev share the name dev; all but a top-level one sync under their full path names, and a tool that loads skills by name may load only one",
+		"cursor: backend/dev and frontend/dev share the name dev; all but a top-level one sync under their full path names, and a tool that loads skills by name may load only one",
+	}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("warnings =\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+}
+
+// Under prefixed naming two skills can want one entry while their name: differ;
+// a tool then tells them apart, so the warning does not say it loads one.
+func TestSharedNameWarnings_PrefixedEntryClashWithDifferentNames(t *testing.T) {
+	dir := t.TempDir()
+	tracked := createTempSkill(t, dir, "_repo/ui", "ui")
+	tracked.IsInRepo, tracked.RepoRelPath = true, "_repo"
+	skills := []DiscoveredSkill{tracked, createTempSkill(t, dir, "repo-ui", "repo-ui")}
+	targets := map[string]config.TargetConfig{"claude": {Skills: &config.ResourceTargetConfig{Path: "/tmp/claude", Mode: "copy", TargetNaming: "prefixed"}}}
+
+	got := SharedNameWarnings(skills, targets, "")
+	want := "claude: _repo/ui and repo-ui would both sync as repo-ui; all but a top-level one sync under their full path names instead"
+	if len(got) != 1 || got[0] != want {
+		t.Fatalf("warnings = %q, want %q", got, want)
 	}
 }

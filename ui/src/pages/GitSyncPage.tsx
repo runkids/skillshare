@@ -31,6 +31,7 @@ import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import { parseStatusLine } from '../components/git/gitView';
 import PullConflictDialog from '../components/git/PullConflictDialog';
+import SharedNameNotices from '../components/sync/SharedNameNotices';
 import UnmatchedNotices from '../components/sync/UnmatchedNotices';
 import type { GitPullConflict, GitPullResolution } from '../api/types/git';
 import { useAppContext } from '../context/AppContext';
@@ -484,6 +485,7 @@ export default function GitSyncPage() {
           </div>
         ))}
         <UnmatchedNotices items={pulled?.unmatched} />
+        <SharedNameNotices items={pulled?.shared_names} />
       </div>
 
       {!status.isRepo ? (

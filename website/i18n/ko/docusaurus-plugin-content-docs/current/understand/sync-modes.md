@@ -260,13 +260,13 @@ skillshare target claude --target-naming standard
 skillshare sync
 ```
 
-**Standard mode**는 [Agent Skills specification](https://agentskills.io/specification)을 따르며, SKILL.md의 `name` 필드가 부모 디렉터리 이름과 일치해야 합니다. 유효한 이름은 최대 64자의 소문자(문자 체계 무관), 숫자, 단일 하이픈으로 이루어지며 `-`로 시작하거나 끝나지 않습니다. 밑줄은 허용되지 않습니다. 이름이 유효하지 않거나 이름이 충돌하는 skill은 경고와 함께 건너뛰어집니다.
+**Standard mode**는 [Agent Skills specification](https://agentskills.io/specification)을 따르며, SKILL.md의 `name` 필드가 부모 디렉터리 이름과 일치해야 합니다. 유효한 이름은 최대 64자의 소문자(문자 체계 무관), 숫자, 단일 하이픈으로 이루어지며 `-`로 시작하거나 끝나지 않습니다. 밑줄은 허용되지 않습니다. 이름이 유효하지 않은 skill은 경고와 함께 건너뛰어집니다. 이름이 같은 skill은 `flat`처럼 전체 경로 이름(`_team-a__ui`, `_team-b__ui`)으로 sync되므로 어느 것도 빠지지 않습니다. source 최상위에 있는 skill은 그것이 전체 경로이므로 이름을 유지합니다. 드물게 전체 경로 이름이 다른 skill의 이름과 같으면 sync는 경고하고 그 skill을 건너뜁니다. `name:`으로 skill을 읽는 도구에는 `ui`가 두 개 보이므로, 그중 하나의 이름(폴더와 `SKILL.md`의 이름)을 바꾸거나 필터를 조정해 각각 고유한 이름을 주세요.
 
-**Prefixed mode**는 같은 이름의 skill을 제공하는 tracked repo를 위한 것입니다. `standard`에서는 서로 다른 repo의 `prototype` skill 두 개가 충돌해 둘 다 건너뛰어지지만, `prefixed`에서는 tracked repo 안의 각 skill이 `<repo>-<name>`이 되므로 둘 다 도구에 전달됩니다. `<repo>`는 tracked repo 폴더 이름에서 앞의 `_`를 제거하고 소문자로 바꾼 뒤, 문자와 숫자(모든 문자 체계) 이외의 문자는 모두 `-`로 바꾼 것입니다. 접두사가 붙은 이름은 폴더 이름으로 사용되고 복사된 `SKILL.md`의 `name:`에도 기록되며, source는 변경되지 않습니다.
+**Prefixed mode**는 같은 이름의 skill을 제공하는 tracked repo를 위한 것입니다. `standard`에서는 서로 다른 repo의 `prototype` skill 두 개가 이름이 같아 둘 다 전체 경로 이름을 사용하지만, `prefixed`에서는 tracked repo 안의 각 skill이 `<repo>-<name>`이 되므로 둘 다 도구에 전달됩니다. `<repo>`는 tracked repo 폴더 이름에서 앞의 `_`를 제거하고 소문자로 바꾼 뒤, 문자와 숫자(모든 문자 체계) 이외의 문자는 모두 `-`로 바꾼 것입니다. 접두사가 붙은 이름은 폴더 이름으로 사용되고 복사된 `SKILL.md`의 `name:`에도 기록되며, source는 변경되지 않습니다.
 
 - 이름이 이미 repo 이름으로 시작하면 접두사를 다시 붙이지 않습니다: `_bmad/skills/bmad-ux`는 `bmad-ux`로 유지됩니다.
 - tracked repo 밖의 skill은 이름을 그대로 유지합니다.
-- source skill의 `name:`은 `standard` 이름 규칙을 따라야 하지만, 복사본의 `name:`이 다시 쓰이므로 폴더 이름과 같을 필요는 없습니다. 그 자체가 skill인 tracked repo(`name: ooux`인 `_ooux`)는 `ooux`로 sync됩니다. 이렇게 이름이 정해진 skill은 sync가 목록으로 보여 줍니다. 접두사가 붙은 이름이 64자를 넘으면 경고와 함께 건너뛰어지고, 그래도 이름이 충돌하면 `standard`와 같이 건너뛰어집니다. tracked skill은 `SKILL.md`에서 이름을 바꿀 수 없으므로 sync는 다른 skill의 이름을 바꾸거나 `--name`으로 repo를 다시 track하도록 안내합니다.
+- source skill의 `name:`은 `standard` 이름 규칙을 따라야 하지만, 복사본의 `name:`이 다시 쓰이므로 폴더 이름과 같을 필요는 없습니다. 그 자체가 skill인 tracked repo(`name: ooux`인 `_ooux`)는 `ooux`로 sync됩니다. 이렇게 이름이 정해진 skill은 sync가 목록으로 보여 줍니다. 접두사가 붙은 이름이 64자를 넘으면 경고와 함께 건너뛰어지고, 그래도 이름이 충돌하면 `standard`와 같이 전체 경로 이름을 사용합니다. tracked skill은 `SKILL.md`에서 이름을 바꿀 수 없으므로 sync는 다른 skill의 이름을 바꾸거나 `--name`으로 repo를 다시 track하도록 안내합니다.
 - 더 짧은 접두사가 필요하면 repo를 짧은 이름으로 track하세요: `skillshare install <repo> --track --name mp`는 `mp-prototype`을 만듭니다.
 - 형제 skill로의 상대 링크(`../other-skill/`)는 다시 쓰이지 않으며, 이는 copy mode의 `flat`과 같습니다.
 - 이 이름이 도구에 표시되는 이름이 됩니다. Claude Code에서는 slash command이며, 예: `/mattpocock-skills-prototype`.

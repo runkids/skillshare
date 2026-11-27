@@ -294,18 +294,19 @@ skillshare install github.com/team/skills --branch 8f14e45 --all
 **衝突が同じ Target に達する場合** — 対応が必要な警告:
 
 ```
-! 1 duplicate skill names detected
+! 1 duplicate skill names detected; those skills sync under their full path name
   ui                              _team-a/ vs _team-b/
-  Rename one in SKILL.md or adjust include/exclude filters
-  1 name collision(s) excluded
+  Rename one of them (its folder and the name in its SKILL.md) or adjust include/exclude filters
 ```
+
+2 つの Skill はどちらも `_team-a__ui` と `_team-b__ui` として Target に届きます。
 
 `target_naming: prefixed` では、tracked Skill が、すでにその prefixed 名を持つ Skill と衝突することもあります（`_alpha/prototype` は `alpha-prototype` になります）。tracked Skill は `SKILL.md` で名前を変更できないため、sync はもう一方の Skill の名前を変えるか、`--name` で repo を再度 track することを提案します。
 
 **ベストプラクティス** — Skill に名前空間を付けるか、フィルターを使用します:
 
 ```yaml
-# Option 1: Namespace in SKILL.md
+# オプション1: フォルダ名と SKILL.md の名前を一緒に変える
 name: team-a-ui
 
 # Option 2: Route with filters (global config)

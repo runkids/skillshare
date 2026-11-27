@@ -97,7 +97,7 @@ Targets with different results (e.g. due to `include`/`exclude` filters) are sti
 | Renamed | Managed entry still under the name an earlier `target_naming` gave it | `sync` will rename it |
 | Local only, skill kept under old name | A local folder holds the name the current `target_naming` gives a skill, so the skill stays under its old managed entry, shown as `name (stays at old-name)` | Rename or remove the folder, then `sync` |
 | Local override | Local copy instead of symlink (including a copy-mode copy you edited) | `sync --force` to replace |
-| Orphan | In manifest but not in source | `sync` will prune it |
+| Orphan | In manifest but not in source. Not listed while a followed source link is unavailable, since sync then prunes nothing | `sync` will prune it |
 | Local only | Only in target, not in source | `collect` to import |
 
 ## File-Level Details
