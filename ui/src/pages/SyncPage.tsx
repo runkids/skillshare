@@ -25,6 +25,8 @@ import {
 } from 'lucide-react';
 import { api, formatTokenK, type SyncResponse } from '../api/client';
 import AgentIcon from '../components/AgentIcon';
+import AgentStack from '../components/AgentStack';
+import AgentTile from '../components/AgentTile';
 import Button from '../components/Button';
 import CollectDialog from '../components/CollectDialog';
 import { Checkbox } from '../components/Input';
@@ -345,9 +347,7 @@ export default function SyncPage() {
         {g.part === 'extra' ? (
           <span className="ss-cat sm extra">{PART_ICON.extra}</span>
         ) : (
-          <span className="ss-at">
-            <AgentIcon target={g.name} size={17} />
-          </span>
+          <AgentTile target={g.name} />
         )}
         <span className="font-semibold">
           {g.part === 'mcp' ? targetLabel(g.name) : g.part === 'hooks' ? hookLabel(g.name) : g.name}
@@ -489,13 +489,7 @@ export default function SyncPage() {
           {set.targets.some((g) => failedTargets.has(g.name)) && (
             <span className="ss-tag bad shrink-0">{t('sync.result.lastFailed')}</span>
           )}
-          <span className="ss-stack">
-            {set.targets.slice(0, 5).map((g) => (
-              <span key={g.name} className="ss-at">
-                <AgentIcon target={g.name} size={15} />
-              </span>
-            ))}
-          </span>
+          <AgentStack targets={set.targets.map((g) => g.name)} max={5} iconSize={15} />
           <span className="shrink-0 text-[12px] text-ink-2">
             {t(plural('sync.set.targets', set.targets.length), { count: set.targets.length })}
           </span>
@@ -724,13 +718,12 @@ export default function SyncPage() {
                     onClick={() => setOpen((s) => toggle(s, 'inSync'))}
                   >
                     {!open.has('inSync') && (
-                      <span className="ss-stack ml-1.5">
-                        {resources.inSync.slice(0, 4).map((name) => (
-                          <span key={name} className="ss-at">
-                            <AgentIcon target={name} size={14} />
-                          </span>
-                        ))}
-                      </span>
+                      <AgentStack
+                        targets={resources.inSync}
+                        max={4}
+                        iconSize={14}
+                        className="ml-1.5"
+                      />
                     )}
                     <span className="font-semibold">
                       {t(plural('sync.inSync', resources.inSync.length), {

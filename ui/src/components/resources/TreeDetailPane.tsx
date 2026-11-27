@@ -5,7 +5,7 @@ import type { Skill } from '../../api/client';
 import { useT } from '../../i18n';
 import { formatTrackedRepoName, resourceHref } from '../../lib/resourceNames';
 import { formatVersion } from '../../lib/format';
-import AgentIcon from '../AgentIcon';
+import AgentStack from '../AgentStack';
 import Tooltip from '../Tooltip';
 import Button from '../Button';
 import Switch from '../Switch';
@@ -175,13 +175,7 @@ export default function TreeDetailPane({
               <span className="text-[13px]">{t('targetMenu.allTargets')}</span>
             ) : (
               <span className="flex min-w-0 items-center gap-2">
-                <span className="ss-stack shrink-0">
-                  {summary.targets.slice(0, 4).map((n) => (
-                    <span key={n} className="ss-at">
-                      <AgentIcon target={n} size={14} />
-                    </span>
-                  ))}
-                </span>
+                <AgentStack targets={summary.targets} max={4} iconSize={14} className="shrink-0" />
                 <span className="truncate text-[13px]">{summary.display}</span>
               </span>
             )}

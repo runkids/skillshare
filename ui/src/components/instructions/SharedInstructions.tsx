@@ -22,7 +22,8 @@ import type {
   SharedInstructionsFile,
   SharedInstructionsTarget,
 } from '../../api/client';
-import AgentIcon from '../AgentIcon';
+import AgentStack from '../AgentStack';
+import AgentTile from '../AgentTile';
 import Button from '../Button';
 import { Checkbox } from '../Checkbox';
 import ConfirmDialog from '../ConfirmDialog';
@@ -186,13 +187,12 @@ export default function SharedInstructions({
                     </span>
                     <span className="flex items-center gap-2">
                       {using.length > 0 && (
-                        <span className="ss-stack" aria-hidden="true">
-                          {using.slice(0, 5).map((tg) => (
-                            <span key={tg.name} className="ss-at !h-5 !w-5">
-                              <AgentIcon target={tg.name} size={11} />
-                            </span>
-                          ))}
-                        </span>
+                        <AgentStack
+                          targets={using.map((tg) => tg.name)}
+                          max={5}
+                          size="sm"
+                          aria-hidden="true"
+                        />
                       )}
                       <span className="text-[12px] text-ink-3">
                         {t(plural('instructions.shared.count', using.length), {
@@ -401,9 +401,7 @@ function FilePanel({
       <div className="ss-list">
         {rows.map((r) => (
           <div key={r.target} className="ss-r !min-h-11 !gap-2.5 !py-1.5">
-            <span className="ss-at !h-6 !w-6">
-              <AgentIcon target={r.target} size={14} />
-            </span>
+            <AgentTile target={r.target} size="md" />
             <span className="min-w-0 flex-1 truncate font-mono text-[13px] font-semibold text-ink">
               {r.target}
             </span>
@@ -716,9 +714,7 @@ function FilePanel({
                     setSelected(next);
                   }}
                 />
-                <span className="ss-at">
-                  <AgentIcon target={tg.name} size={17} />
-                </span>
+                <AgentTile target={tg.name} />
                 {/* Not a target of its own: where it comes from is on hover, not a line on every row. */}
                 <span className="w-[110px] shrink-0">
                   {tg.rider_of ? (

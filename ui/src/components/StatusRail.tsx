@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { ChevronDown } from 'lucide-react';
-import AgentIcon from './AgentIcon';
+import AgentTile from './AgentTile';
 import Spinner from './Spinner';
 import Reveal from './Reveal';
 import { useT } from '../i18n';
@@ -246,9 +246,11 @@ export function RailRow({
   const [open, setOpen] = useState(false);
   const head = (
     <>
-      <span className={`ss-at !h-[22px] !w-[22px] !rounded-md ${dim ? 'opacity-55' : ''}`}>
-        <AgentIcon target={target} size={13} />
-      </span>
+      <AgentTile
+        target={target}
+        iconSize={13}
+        className={`!h-[22px] !w-[22px] !rounded-md ${dim ? 'opacity-55' : ''}`}
+      />
       <span className="flex min-w-0 flex-1 flex-col gap-px">
         <span className={`truncate text-[13.5px] font-medium ${dim ? 'text-ink-2' : ''}`}>
           {label}

@@ -14,6 +14,7 @@ import {
 } from '../../api/plugins';
 import { AlertCircle, Check, ChevronRight, Package, Search, TriangleAlert, X } from 'lucide-react';
 import AgentIcon from '../AgentIcon';
+import AgentStack from '../AgentStack';
 import { agentReasons } from './agentReasons';
 import { keyedText } from './outcomeText';
 import SourceHint from './SourceHint';
@@ -555,13 +556,12 @@ export default function PluginAddDialog({
                           )}
                         </span>
                         {c.targets.length > 0 && (
-                          <span className="ss-stack shrink-0 pt-px" aria-hidden="true">
-                            {c.targets.map((target) => (
-                              <span key={target} className="ss-at !size-[22px]">
-                                <AgentIcon target={target} size={13} />
-                              </span>
-                            ))}
-                          </span>
+                          <AgentStack
+                            targets={c.targets}
+                            tileClassName="!size-[22px]"
+                            className="shrink-0 pt-px"
+                            aria-hidden="true"
+                          />
                         )}
                       </button>
                     );

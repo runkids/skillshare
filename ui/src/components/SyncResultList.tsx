@@ -1,8 +1,8 @@
 import { CircleCheck } from 'lucide-react';
 
+import AgentTile from './AgentTile';
 import type { ChangeGroup } from './sync/syncView';
 
-import AgentIcon from './AgentIcon';
 import { hookLabel } from './hooks/hooksView';
 import { targetLabel } from './mcp/mcpView';
 import { baseName } from './projects/projectView';
@@ -57,9 +57,7 @@ export default function SyncResultList({
         const listed = mcp || hooks;
         return (
           <div key={g.key} className="ss-r">
-            <span className="ss-at">
-              <AgentIcon target={g.name} size={15} />
-            </span>
+            <AgentTile target={g.name} iconSize={15} />
             <span
               className={`min-w-0 truncate text-[13px] font-semibold ${listed ? 'shrink-0' : 'flex-1'}`}
               title={g.path ?? g.name}

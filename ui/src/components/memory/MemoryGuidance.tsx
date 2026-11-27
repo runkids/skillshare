@@ -12,7 +12,7 @@ import type {
 import { useT } from '../../i18n';
 import { queryKeys } from '../../lib/queryKeys';
 import { shortenHome } from '../../lib/paths';
-import AgentIcon from '../AgentIcon';
+import AgentTile from '../AgentTile';
 import Button from '../Button';
 import DialogShell from '../DialogShell';
 import { lineDiff } from '../instructions/instructionsView';
@@ -277,9 +277,7 @@ export default function MemoryGuidance({
         <div className="ss-list">
           {targets.map((target) => (
             <div key={target.name} className="ss-r !min-h-[56px]">
-              <span className="ss-at">
-                <AgentIcon target={target.name} size={17} />
-              </span>
+              <AgentTile target={target.name} />
               <span className="w-[110px] shrink-0 truncate font-mono text-[13px] font-semibold">
                 {target.name}
               </span>
@@ -359,9 +357,7 @@ export default function MemoryGuidance({
                         >
                           {on && <Check size={12} strokeWidth={3} />}
                         </span>
-                        <span className="ss-at !h-6 !w-6">
-                          <AgentIcon target={target.name} size={14} />
-                        </span>
+                        <AgentTile target={target.name} size="md" />
                         <span className="flex min-w-0 flex-1 flex-col">
                           <span className="truncate font-mono text-[13px] font-semibold text-ink">
                             {target.name}

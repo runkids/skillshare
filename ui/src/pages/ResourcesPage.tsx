@@ -74,7 +74,7 @@ import { useSyncMatrix } from '../hooks/useSyncMatrix';
 import { useRepoUpdate } from '../hooks/useRepoUpdate';
 import { useT, plural } from '../i18n';
 import Reveal from '../components/Reveal';
-import AgentIcon from '../components/AgentIcon';
+import AgentStack from '../components/AgentStack';
 import Button from '../components/Button';
 import { Checkbox } from '../components/Checkbox';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -242,13 +242,7 @@ function TargetStack({
   const { global, projects } = splitTargets(names);
   const icons = global.length > 0 && (
     <>
-      <span className="ss-stack">
-        {global.slice(0, max).map((n) => (
-          <span key={n} className="ss-at">
-            <AgentIcon target={n} size={14} />
-          </span>
-        ))}
-      </span>
+      <AgentStack targets={global} max={max} iconSize={14} />
       {global.length > max && (
         <span className="ml-1.5 text-xs text-ink-3">+{global.length - max}</span>
       )}

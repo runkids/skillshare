@@ -26,7 +26,7 @@ import Tooltip from '../Tooltip';
 import { SkillContextMenu, type ContextMenuItem } from '../TargetMenu';
 import { useToast } from '../Toast';
 import ProjectSectionHead, { InfoTip } from '../mcp/ProjectSectionHead';
-import { AgentStack } from '../mcp/TargetPicker';
+import AgentStack from '../AgentStack';
 import { targetLabel } from '../mcp/mcpView';
 import HookDialog from './HookDialog';
 import { HooksConfigDialog } from './HooksConfigView';
@@ -294,9 +294,12 @@ export default function HooksScope({ data, project, header, tools = [], onRemove
                         className="flex min-h-9 items-center gap-2.5 text-[13px] text-ink-3"
                         title={noHooks.map(targetLabel).join(', ')}
                       >
-                        <span className="ss-stack shrink-0 opacity-55">
-                          <AgentStack targets={noHooks} max={3} />
-                        </span>
+                        <AgentStack
+                          targets={noHooks}
+                          max={3}
+                          showRest
+                          className="shrink-0 opacity-55"
+                        />
                         <span className="min-w-0 flex-1">
                           {t(plural('projects.hooks.unsupported', noHooks.length), {
                             count: noHooks.length,

@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FileText, Info } from 'lucide-react';
 import { api } from '../../api/client';
 import type { ProjectInstructionsReach } from '../../api/client';
-import AgentIcon from '../AgentIcon';
+import AgentTile from '../AgentTile';
 import Button from '../Button';
 import { PageSkeleton } from '../Skeleton';
 import { useToast } from '../Toast';
@@ -93,9 +93,7 @@ export default function ProjectInstructions({
           )}
           {data.targets.map((r) => (
             <div key={r.target} className="ss-r !min-h-[52px]">
-              <span className="ss-at">
-                <AgentIcon target={r.target} size={17} />
-              </span>
+              <AgentTile target={r.target} />
               <span className="w-[120px] shrink-0 truncate font-mono text-[13px] font-semibold">
                 {r.target}
               </span>

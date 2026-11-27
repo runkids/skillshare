@@ -32,6 +32,7 @@ import { auditSourceLinkNote } from '../lib/auditDisplay';
 import { formatLogDetail } from '../lib/logFormat';
 import { formatDateTime, formatRelativeTime, useI18n, useT, plural } from '../i18n';
 import AgentIcon from '../components/AgentIcon';
+import AgentTile from '../components/AgentTile';
 import Button from '../components/Button';
 import ConfirmDialog from '../components/ConfirmDialog';
 import PageHeader from '../components/PageHeader';
@@ -261,9 +262,7 @@ export default function DashboardPage() {
                 to={`/targets/${encodeURIComponent(tgt.name)}`}
                 className="ss-r link"
               >
-                <span className="ss-at">
-                  <AgentIcon target={tgt.name} size={17} />
-                </span>
+                <AgentTile target={tgt.name} />
                 <span className="flex flex-col min-w-0 flex-1 gap-px">
                   <span className="font-semibold">{tgt.name}</span>
                   <span className="font-mono text-xs text-ink-3 truncate">{tgt.path}</span>

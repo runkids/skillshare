@@ -1,19 +1,24 @@
 import { useState, type ReactNode } from 'react';
 import { ChevronDown, Package } from 'lucide-react';
-import AgentIcon from '../AgentIcon';
+import AgentTile from '../AgentTile';
 import Tooltip from '../Tooltip';
 import { byPlugin, type PluginRun } from '../../api/plugins';
 import { useT } from '../../i18n';
 
 /** Agents as overlapping logos. Two Agents can share a logo, so each names itself on hover or focus. */
-function AgentStack({ targets, label }: { targets: string[]; label: (target: string) => string }) {
+function NamedStack({ targets, label }: { targets: string[]; label: (target: string) => string }) {
   return (
     <span className="ss-stack shrink-0">
       {targets.map((target) => (
         <Tooltip key={target} side="top" content={label(target)}>
-          <span className="ss-at" role="img" tabIndex={0} aria-label={label(target)}>
-            {target ? <AgentIcon target={target} size={13} /> : <Package size={13} />}
-          </span>
+          <AgentTile
+            target={target}
+            iconSize={13}
+            fallback={<Package size={13} />}
+            role="img"
+            tabIndex={0}
+            aria-label={label(target)}
+          />
         </Tooltip>
       ))}
     </span>
@@ -45,7 +50,7 @@ export function PluginRunLine({
         >
           {name}
         </span>
-        <AgentStack targets={targets} label={label} />
+        <NamedStack targets={targets} label={label} />
         {right}
       </div>
       {note && <span className="break-words text-xs leading-normal text-ink-3">{note}</span>}
@@ -78,9 +83,7 @@ export function UnchangedRuns({
       <div className="ss-list">
         {runs.map((r) => (
           <div key={`${r.name}:${r.target}`} className="ss-r min-h-10 py-1.5">
-            <span className="ss-at">
-              <AgentIcon target={r.target} size={17} />
-            </span>
+            <AgentTile target={r.target} />
             <span className="nm font-mono">{r.name}</span>
             <span className="text-[13px] text-ink-2">{expanded.label(r.target)}</span>
             {versions && r.version && (

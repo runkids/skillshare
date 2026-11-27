@@ -23,7 +23,7 @@ import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { useAppContext } from '../context/AppContext';
 import Switch from '../components/Switch';
 import { useToast } from '../components/Toast';
-import AgentIcon from '../components/AgentIcon';
+import AgentTile from '../components/AgentTile';
 import Button from '../components/Button';
 import MemoryNotes from '../components/memory/MemoryNotes';
 import DialogShell from '../components/DialogShell';
@@ -78,9 +78,7 @@ function targetOf(path: string, known: AvailableTarget[]): string | null {
 function TargetMark({ path, known }: { path: string; known: AvailableTarget[] }) {
   const name = targetOf(path, known);
   return (
-    <span className="ss-at">
-      {name ? <AgentIcon target={name} size={17} /> : <Folder size={15} className="text-ink-3" />}
-    </span>
+    <AgentTile target={name ?? undefined} fallback={<Folder size={15} className="text-ink-3" />} />
   );
 }
 

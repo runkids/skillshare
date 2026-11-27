@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import type { MCPServer } from '../../api/mcp';
 
 import { describeEndpoint } from './mcpView';
-import { AgentStack } from './TargetPicker';
+import AgentStack from '../AgentStack';
 import Switch from '../Switch';
 
 interface Props {
@@ -58,9 +58,14 @@ export default function ProjectServerRow({
           </span>
         )}
         {icons.length > 0 && (
-          <span className="ss-stack" role="img" aria-label={iconsLabel} title={iconsLabel}>
-            <AgentStack targets={icons} max={STACK} />
-          </span>
+          <AgentStack
+            targets={icons}
+            max={STACK}
+            showRest
+            role="img"
+            aria-label={iconsLabel}
+            title={iconsLabel}
+          />
         )}
         {action}
         <Switch

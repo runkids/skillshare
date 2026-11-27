@@ -2,7 +2,7 @@ import { Fragment, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronDown, ChevronRight, Search } from 'lucide-react';
 import type { SyncMatrixEntry } from '../../api/client';
-import AgentIcon from '../AgentIcon';
+import AgentStack from '../AgentStack';
 import Spinner from '../Spinner';
 import { useT, plural } from '../../i18n';
 import PatternInput from './PatternInput';
@@ -247,13 +247,14 @@ export function TargetLinks({
 export function TargetRow({ sentence, names }: { sentence: string; names: string[] }) {
   return (
     <div className="ss-note items-center">
-      <span className="ss-stack shrink-0" aria-hidden="true">
-        {names.slice(0, 5).map((n) => (
-          <span key={n} className="ss-at !h-6 !w-6">
-            <AgentIcon target={n} size={13} />
-          </span>
-        ))}
-      </span>
+      <AgentStack
+        targets={names}
+        max={5}
+        size="md"
+        iconSize={13}
+        className="shrink-0"
+        aria-hidden="true"
+      />
       <TargetLinks sentence={sentence} names={names} />
     </div>
   );

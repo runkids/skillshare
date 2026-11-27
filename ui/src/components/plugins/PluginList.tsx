@@ -14,6 +14,8 @@ import {
 } from '../../api/plugins';
 import type { PluginUpdate } from '../../api/plugins';
 import AgentIcon from '../AgentIcon';
+import AgentStack from '../AgentStack';
+import AgentTile from '../AgentTile';
 import { Checkbox } from '../Checkbox';
 import Reveal from '../Reveal';
 import Spinner from '../Spinner';
@@ -165,15 +167,7 @@ function Group({ members, ...props }: Props & { members: string[] }) {
           aria-label={t('plugins.groupShow', { name: label })}
           onClick={() => setExpanded(!expanded)}
         >
-          {targets.length > 0 && (
-            <span className="ss-stack" aria-hidden="true">
-              {targets.slice(0, STACK).map((target) => (
-                <span key={target} className="ss-at">
-                  <AgentIcon target={target} size={13} />
-                </span>
-              ))}
-            </span>
-          )}
+          {targets.length > 0 && <AgentStack targets={targets} max={STACK} aria-hidden="true" />}
           {on}/{members.length}
           <ChevronDown
             size={14}
@@ -403,13 +397,12 @@ function Row({
           >
             {/* The logo stays mounted, so turning it off greys it and turning it on brings it back. */}
             <span className="ss-stack" aria-hidden="true">
-              <span className="ss-at ss-one">
-                {working === `${name}:${only[0]}` ? (
-                  <Loader2 size={13} className="animate-spin" />
-                ) : (
-                  <AgentIcon target={only[0]} size={13} />
-                )}
-              </span>
+              <AgentTile
+                target={working === `${name}:${only[0]}` ? undefined : only[0]}
+                iconSize={13}
+                fallback={<Loader2 size={13} className="animate-spin" />}
+                className="ss-one"
+              />
             </span>
             {selected.length}/1
           </button>
@@ -423,13 +416,7 @@ function Row({
             onClick={() => setExpanded(!expanded)}
           >
             {selected.length > 0 && (
-              <span className="ss-stack" aria-hidden="true">
-                {selected.slice(0, STACK).map((target) => (
-                  <span key={target} className="ss-at">
-                    <AgentIcon target={target} size={13} />
-                  </span>
-                ))}
-              </span>
+              <AgentStack targets={selected} max={STACK} aria-hidden="true" />
             )}
             {selected.length}/{total}
             <ChevronDown

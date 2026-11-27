@@ -1,24 +1,9 @@
 import { Check, ChevronDown } from 'lucide-react';
 import AgentIcon from '../AgentIcon';
+import AgentStack from '../AgentStack';
 import { targetLabel } from './mcpView';
 
 const STACK = 6;
-
-/** The logos inside an `ss-stack`, those past `max` folded into a count. */
-export function AgentStack({ targets, max }: { targets: readonly string[]; max: number }) {
-  return (
-    <>
-      {targets.slice(0, max).map((target) => (
-        <span key={target} className="ss-at">
-          <AgentIcon target={target} size={13} />
-        </span>
-      ))}
-      {targets.length > max && (
-        <span className="ss-at text-[11px] font-semibold text-ink-2">+{targets.length - max}</span>
-      )}
-    </>
-  );
-}
 
 /** The selected Agents as a stack of logos. `text` is the count, or a word such as "inherited". */
 export function TargetPill({
@@ -43,9 +28,7 @@ export function TargetPill({
       onClick={onClick}
     >
       {selected.length > 0 && (
-        <span className="ss-stack" aria-hidden="true">
-          <AgentStack targets={selected} max={STACK} />
-        </span>
+        <AgentStack targets={selected} max={STACK} showRest aria-hidden="true" />
       )}
       {text}
       <ChevronDown

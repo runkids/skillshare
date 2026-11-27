@@ -23,7 +23,7 @@ import {
   type PluginTarget,
   type PluginInventory,
 } from '../api/plugins';
-import AgentIcon from '../components/AgentIcon';
+import AgentTile from '../components/AgentTile';
 import Button from '../components/Button';
 import { Checkbox } from '../components/Checkbox';
 import DialogShell from '../components/DialogShell';
@@ -804,9 +804,7 @@ export default function PluginsPage() {
                         onChange={(on) => togglePicks(pickable, on)}
                       />
                     )}
-                    <span className="ss-at">
-                      <AgentIcon target={h.target} size={17} />
-                    </span>
+                    <AgentTile target={h.target} />
                     <span className="font-semibold">
                       {pluginTargets[h.target]?.label ?? h.target}
                     </span>
@@ -936,19 +934,20 @@ export default function PluginsPage() {
                 <div className="ss-list">
                   {active.map((c) => (
                     <div key={`${c.name}:${c.target}`} className="ss-r">
-                      <span className="ss-at">
-                        {c.target ? (
-                          <AgentIcon target={c.target} size={17} />
-                        ) : c.logo ? (
-                          <img
-                            src={c.logo}
-                            alt=""
-                            className="size-full rounded-[inherit] object-cover"
-                          />
-                        ) : (
-                          <Package size={15} />
-                        )}
-                      </span>
+                      <AgentTile
+                        target={c.target}
+                        fallback={
+                          c.logo ? (
+                            <img
+                              src={c.logo}
+                              alt=""
+                              className="size-full rounded-[inherit] object-cover"
+                            />
+                          ) : (
+                            <Package size={15} />
+                          )
+                        }
+                      />
                       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                         <span className="flex items-center gap-2">
                           <span className="font-mono font-semibold">{c.name}</span>

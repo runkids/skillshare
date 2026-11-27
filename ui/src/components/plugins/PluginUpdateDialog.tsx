@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Check, CircleAlert, CircleArrowUp, Package, X } from 'lucide-react';
 import { targetMap } from '../../api/plugins';
 import type { PluginInventory, PluginPlan, PluginTarget } from '../../api/plugins';
-import AgentIcon from '../AgentIcon';
+import AgentTile from '../AgentTile';
 import Button from '../Button';
 import { Checkbox } from '../Checkbox';
 import DialogShell from '../DialogShell';
@@ -131,9 +131,7 @@ export default function PluginUpdateDialog({
               <div className="ss-list">
                 {g.rows.map((c) => (
                   <div key={`${c.name}:${c.target}`} className="ss-r">
-                    <span className="ss-at">
-                      <AgentIcon target={c.target} size={17} />
-                    </span>
+                    <AgentTile target={c.target} />
                     <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                       <span className="flex items-center gap-2">
                         <span className="font-mono font-semibold">{c.name}</span>
@@ -315,13 +313,11 @@ function Picking({
                     }
                     className="mt-2"
                   />
-                  <span className="ss-at mt-0.5">
-                    {rows.length === 1 ? (
-                      <AgentIcon target={rows[0].target} size={17} />
-                    ) : (
-                      <Package size={15} />
-                    )}
-                  </span>
+                  <AgentTile
+                    target={rows.length === 1 ? rows[0].target : undefined}
+                    fallback={<Package size={15} />}
+                    className="mt-0.5"
+                  />
                   <span className="flex min-w-0 flex-1 flex-col gap-1.5">
                     {/* As tall as the icon with its margin, so the first line centers on it. */}
                     <span className="flex min-h-[34px] items-center gap-2">
@@ -496,13 +492,11 @@ function Running({
                 key={item.name}
                 className={`ss-r items-start ${{ failed: 'bg-bad-bg', running: 'updating', waiting: 'dim', done: 'flash', skipped: '' }[item.status]}`}
               >
-                <span className="ss-at mt-0.5">
-                  {item.targets.length === 1 ? (
-                    <AgentIcon target={item.targets[0]} size={17} />
-                  ) : (
-                    <Package size={15} />
-                  )}
-                </span>
+                <AgentTile
+                  target={item.targets.length === 1 ? item.targets[0] : undefined}
+                  fallback={<Package size={15} />}
+                  className="mt-0.5"
+                />
                 <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                   <span className="nm truncate font-mono" title={item.name}>
                     {item.name}

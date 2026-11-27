@@ -1,6 +1,6 @@
 import { CircleX, TriangleAlert } from 'lucide-react';
 import type { MCPCheckFinding } from '../../api/mcpCheck';
-import AgentIcon from '../AgentIcon';
+import AgentTile from '../AgentTile';
 import { useT } from '../../i18n';
 import {
   describeMessage,
@@ -55,9 +55,11 @@ export default function MCPCheckFindings({ findings }: { findings: MCPCheckFindi
             <TriangleAlert size={15} className="shrink-0 text-warn" />
           )}
           {f.target && (
-            <span className="ss-at !h-[22px] !w-[22px] !rounded-md">
-              <AgentIcon target={f.target} size={13} />
-            </span>
+            <AgentTile
+              target={f.target}
+              className="!h-[22px] !w-[22px] !rounded-md"
+              iconSize={13}
+            />
           )}
           <span className="min-w-0">{text(f)}</span>
         </div>

@@ -53,7 +53,7 @@ import Switch from '../components/Switch';
 import { projectUrl } from '../components/projects/projectView';
 import { receivesSkill } from '../components/sync/syncView';
 import { formatDateTime, formatNumber, formatRelativeTime, useI18n, useT, plural } from '../i18n';
-import AgentIcon from '../components/AgentIcon';
+import AgentTile from '../components/AgentTile';
 import Button from '../components/Button';
 import ConfirmDialog from '../components/ConfirmDialog';
 import DialogShell from '../components/DialogShell';
@@ -969,9 +969,7 @@ function TargetsSection({ resource }: { resource: Skill }) {
           if (!row.entry) {
             return (
               <div key={row.target.name} className="ss-r !min-h-11 opacity-55">
-                <span className="ss-at">
-                  <AgentIcon target={row.target.name} />
-                </span>
+                <AgentTile target={row.target.name} iconSize={16} />
                 <span className="min-w-0 flex-1 truncate">{row.target.name}</span>
                 <span className="text-xs text-ink-3">
                   {t('resourceDetail.targets.noAgentSupport')}
@@ -983,9 +981,7 @@ function TargetsSection({ resource }: { resource: Skill }) {
           const text = label(row);
           return (
             <div key={row.target.name} className="ss-r !min-h-[50px]">
-              <span className="ss-at">
-                <AgentIcon target={row.target.name} />
-              </span>
+              <AgentTile target={row.target.name} iconSize={16} />
               <div className="flex min-w-0 flex-1 flex-col gap-px">
                 <span className="truncate font-semibold">{row.target.name}</span>
                 {text && <span className="text-xs text-ink-3">{text}</span>}
@@ -1086,9 +1082,7 @@ export function ProjectsList({
             >
               <span className="ss-stack shrink-0">
                 {p.rows.map((r) => (
-                  <span key={r.target} className="ss-at" title={r.target}>
-                    <AgentIcon target={r.target} size={14} />
-                  </span>
+                  <AgentTile key={r.target} target={r.target} iconSize={14} title={r.target} />
                 ))}
               </span>
               <div className="flex min-w-0 flex-1 flex-col gap-px">

@@ -189,6 +189,8 @@ Shared components in `ui/src/components/` wrap the `ss-*` classes. Use the compo
 | `Skeleton`, `PageSkeleton` | shimmer | `variant="text\|card\|circle"` |
 | `useToast()` | `.ss-toast` | `toast(message, 'success'\|'error'\|'warning'\|'info', { title? })` |
 | `AgentIcon` | real agent logo | For targets and agents. Do not substitute a generic lucide icon |
+| `AgentTile` | `.ss-at` + `AgentIcon` | `target?`, `size="sm\|md\|lg"` (frame/logo: 20/11, 24/14, 30/17; a plain `lg` tile in a stack is 24px), `iconSize?`, `fallback?` (drawn without a target) + span props |
+| `AgentStack` | `.ss-stack` of `AgentTile` | `targets`, `max?`, `showRest?` (ends with `+N`), `size?`, `iconSize?` (default 13 without a `size`), `tileClassName?` + span props. When tiles differ from each other, write the `.ss-stack` span with `AgentTile` children |
 | `CopyButton`, `CodeView`, `CodeEditor`, `MarkdownView` | `.ss-code` `.ss-prose` | Code and markdown display |
 
 Feature folders (`audit/`, `config/`, `git/`, `hub/`, `mcp/`, `plugins/`, `skill-editor/`, `sync/`, `targets/`, `tour/`) hold page-specific pieces.
