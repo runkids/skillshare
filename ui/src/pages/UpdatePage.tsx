@@ -695,6 +695,9 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
 
   // Search and filters narrow the main list only; failed and stale sections report every unit.
   const statusOf = (u: UpdateUnit) => unitCheck(statuses, u).status;
+  // Update all skips what the last check found current or deleted upstream (Prune handles those);
+  // unchecked, failed and locally edited units still go.
+  const needsUpdate = units.filter((u) => statusOf(u) !== 'up-to-date' && statusOf(u) !== 'stale');
   const query = filters.query.trim();
   const filtering =
     query !== '' || filters.source !== 'all' || filters.status !== 'all' || filters.folder !== null;
@@ -1120,10 +1123,10 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
               ) : (
                 <Button
                   variant="primary"
-                  disabled={busy || syncChecking}
+                  disabled={busy || syncChecking || needsUpdate.length === 0}
                   onClick={() =>
                     startUpdate(
-                      units.map((u) => u.name),
+                      needsUpdate.map((u) => u.name),
                       force,
                     )
                   }
