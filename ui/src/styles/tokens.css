@@ -1,0 +1,308 @@
+/* skillshare dashboard design system: tokens for the Clean and Playful styles,
+   light and dark. Ported from the approved redesign mockups.
+   Style: html[data-theme="playful"] (absent = Clean). Mode: html.dark. */
+
+:root:not([data-theme='playful']) {
+  --bg: #f7f6f3;
+  --side: #f1efea;
+  --shell: #f1efea;
+  --surface: #ffffff;
+  --sunken: #f4f2ed;
+  --ink: #141312;
+  --ink-2: #57544d;
+  --ink-3: #6b675f;
+  --line: #e6e3dc;
+  --line-soft: #e6e3dc;
+  --line-2: #d6d2c9;
+  --sep: 1px solid #ece9e3;
+  --frame: 1px solid #e2dfd7;
+  --accent: #2d5da1;
+  --accent-bg: #ebf1fa;
+  --sel: rgba(20, 19, 18, 0.065);
+  --sel-ink: #141312;
+  --pri: #141312;
+  --on-pri: #ffffff;
+  --ok: #1b7345;
+  --ok-bg: #e7f4ec;
+  --warn: #8a5200;
+  --warn-bg: #fbf0da;
+  --bad: #b3261e;
+  --bad-bg: #fbeae8;
+  --c-skill: #2d5da1;
+  --c-skill-bg: #ebf1fa;
+  --c-agent: #b83b2b;
+  --c-agent-bg: #fbece9;
+  --c-extra: #4d7c0f;
+  --c-extra-bg: #eef5e1;
+  --c-mcp: #6d45a8;
+  --c-mcp-bg: #f1ebfa;
+  --c-target: #1b7345;
+  --c-target-bg: #e7f4ec;
+  --c-plugin: #a82a74;
+  --c-plugin-bg: #faeaf3;
+  --f:
+    -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI Variable Text', 'Segoe UI',
+    system-ui, sans-serif;
+  --fh: var(--f);
+  --fm: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
+  --h1: 700 28px/1.15 var(--fh);
+  --h1-track: -0.022em;
+  --h2: 600 15px/1.3 var(--fh);
+  --h2-track: -0.008em;
+  --r-ctl: 8px;
+  --r-btn: 999px;
+  --r-box: 12px;
+  --r-tag: 5px;
+  --bw: 1px;
+  --sh-box: 0 1px 2px rgba(20, 19, 18, 0.04);
+  --sh-btn: none;
+  --sh-float: 0 12px 32px rgba(20, 19, 18, 0.16), 0 0 0 1px rgba(20, 19, 18, 0.06);
+  --sh-dialog: 0 24px 64px rgba(20, 19, 18, 0.24), 0 0 0 1px rgba(20, 19, 18, 0.06);
+  --isw: 1.75;
+  --dots: transparent;
+  --glass-menu: rgba(255, 255, 255, 0.76);
+  --glass-bar: rgba(247, 246, 243, 0.72);
+  --mat: blur(20px) saturate(180%);
+  --mat-menu: blur(24px) saturate(180%);
+}
+:root:not([data-theme='playful']).dark {
+  --bg: #111110;
+  --side: #161514;
+  --shell: #0b0b0a;
+  --surface: #1c1b19;
+  --sunken: #181715;
+  --ink: #edebe6;
+  --ink-2: #a9a59d;
+  --ink-3: #8b877f;
+  --line: #2a2825;
+  --line-soft: #2a2825;
+  --line-2: #3a3833;
+  --sep: 1px solid #262421;
+  --frame: 1px solid #2c2a26;
+  --accent: #8fb4ec;
+  --accent-bg: #1a2535;
+  --sel: rgba(255, 255, 255, 0.08);
+  --sel-ink: #edebe6;
+  --pri: #edebe6;
+  --on-pri: #141312;
+  --ok: #5cc98a;
+  --ok-bg: #14261c;
+  --warn: #f0b840;
+  --warn-bg: #2a2110;
+  --bad: #f2837a;
+  --bad-bg: #2e1716;
+  --c-skill: #8fb4ec;
+  --c-skill-bg: #1a2535;
+  --c-agent: #f2937f;
+  --c-agent-bg: #2e1a16;
+  --c-extra: #a3cf62;
+  --c-extra-bg: #1d2612;
+  --c-mcp: #bfa0f0;
+  --c-mcp-bg: #231a33;
+  --c-target: #5cc98a;
+  --c-target-bg: #14261c;
+  --c-plugin: #f09ccb;
+  --c-plugin-bg: #2e1726;
+  --sh-box: none;
+  --sh-float: 0 12px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.08);
+  --sh-dialog: 0 24px 64px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.08);
+  --glass-menu: rgba(38, 37, 34, 0.76);
+  --glass-bar: rgba(17, 17, 16, 0.72);
+}
+/* Reduce transparency: every material turns back into the solid surface it floats over. */
+@media (prefers-reduced-transparency: reduce) {
+  :root:not([data-theme='playful']),
+  :root:not([data-theme='playful']).dark {
+    --glass-menu: var(--surface);
+    --glass-bar: var(--bg);
+    --mat: none;
+    --mat-menu: none;
+  }
+}
+:root[data-theme='playful'] {
+  --bg: #f8f5ef;
+  --side: #f8f5ef;
+  --surface: #fffdf9;
+  --sunken: #f2ede3;
+  --ink: #2b2722;
+  --ink-2: #5c554b;
+  --ink-3: #625b50;
+  --pa: #f2dc9c;
+  --pb: #efc9cf;
+  --pc: #c6dcec;
+  --pd: #d2e3c1;
+  --pe: #f5eedd;
+  --accent: #2d5da1;
+  --accent-bg: #e6eef9;
+  --sel: #f0e6cc;
+  --sel-ink: #2b2722;
+  --pri: #b4502f;
+  --on-pri: #fffaf3;
+  --ok: #1b7345;
+  --ok-bg: #ddf1e3;
+  --warn: #8a5200;
+  --warn-bg: #ffedc4;
+  --bad: #b3261e;
+  --bad-bg: #ffdfda;
+  --c-skill: #2d5da1;
+  --c-skill-bg: #e6eef9;
+  --c-agent: #c8372d;
+  --c-agent-bg: #ffe4df;
+  --c-extra: #4d7c0f;
+  --c-extra-bg: #ecf6d8;
+  --c-mcp: #6d45a8;
+  --c-mcp-bg: #efe6fb;
+  --c-target: #1b7345;
+  --c-target-bg: #ddf1e3;
+  --c-plugin: #b02a78;
+  --c-plugin-bg: #fde3f1;
+  --f:
+    -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI Variable Text', 'Segoe UI',
+    system-ui, sans-serif;
+  --fh: 'Kalam', var(--f);
+  --fm: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
+  --h1: 700 38px/1.05 var(--fh);
+  --h1-track: -0.005em;
+  --h2: 700 22px/1.2 var(--fh);
+  --h2-track: 0;
+  --r-ctl: 10px;
+  --r-btn: 999px;
+  --r-box: 14px;
+  --r-tag: 6px;
+  --bw: 1.5px;
+  --sh-box: 3px 3px 0 #3a342d;
+  --sh-btn: 2px 2px 0 #3a342d;
+  --sh-float: 4px 4px 0 #3a342d;
+  --sh-dialog: 6px 6px 0 #3a342d;
+  --isw: 2.1;
+  --dots: #2b272212;
+  --on-pa: #2b2722;
+}
+:root[data-theme='playful'].dark {
+  --bg: #1c1b19;
+  --side: #1c1b19;
+  --surface: #252320;
+  --sunken: #211f1c;
+  --ink: #ece6da;
+  --ink-2: #b3ac9f;
+  --ink-3: #9a9386;
+  --accent: #9dbdf0;
+  --accent-bg: #1e2939;
+  --sel: #3a3324;
+  --sel-ink: #f3e3bf;
+  --pri: #e0b25f;
+  --on-pri: #1c1b19;
+  --pa: #d6b26e;
+  --pb: #cf9aaa;
+  --pc: #8fb3d4;
+  --pd: #9fbf86;
+  --pe: #2a2720;
+  --ok: #6fd39a;
+  --ok-bg: #17281e;
+  --warn: #f2c053;
+  --warn-bg: #2e2411;
+  --bad: #f58c82;
+  --bad-bg: #321a18;
+  --c-skill: #9dbdf0;
+  --c-skill-bg: #1e2939;
+  --c-agent: #f59a88;
+  --c-agent-bg: #321c18;
+  --c-extra: #a9d46a;
+  --c-extra-bg: #1f2813;
+  --c-mcp: #c4a8f2;
+  --c-mcp-bg: #261d36;
+  --c-target: #6fd39a;
+  --c-target-bg: #17281e;
+  --c-plugin: #f2a6d1;
+  --c-plugin-bg: #321a2a;
+  --sh-box: 3px 3px 0 #0d0c0b;
+  --sh-btn: 2px 2px 0 #0d0c0b;
+  --sh-float: 4px 4px 0 #0d0c0b;
+  --sh-dialog: 6px 6px 0 #0d0c0b;
+  --dots: #2a2723;
+  --on-pa: #1b1916;
+}
+/* Playful's lines, apart from its colours: the custom theme editor's preview sets them for the mode
+   it shows, which can differ from the page's, while a custom theme on Playful keeps them. */
+:root[data-theme='playful'],
+:root[data-theme='playful'] .ss-mini[data-mode='light'] {
+  --line: #3a342d;
+  --line-soft: #e4ddcf;
+  --line-2: #3a342d;
+  --sep: 1.5px dashed #e4ddcf;
+  --frame: 1.5px solid #3a342d;
+}
+:root[data-theme='playful'].dark,
+:root[data-theme='playful'] .ss-mini[data-mode='dark'] {
+  --line: #6b6458;
+  --line-soft: #38342e;
+  --line-2: #6b6458;
+  --sep: 1.5px dashed #38342e;
+  --frame: 1.5px solid #6b6458;
+}
+
+/* Diffs are the one place the Clean style uses colour: removed lines red, added lines green. */
+/* Spring easings: --spring is critically damped (no overshoot); its duration is 1.23 x the spring's
+   response (.37s for .30, .43s for .35, .49s for .40). --spring-bounce is damping .8, response .30, over .36s. */
+:root {
+  --spring: linear(
+    0,
+    0.041,
+    0.135,
+    0.249,
+    0.365,
+    0.474,
+    0.571,
+    0.654,
+    0.724,
+    0.781,
+    0.828,
+    0.866,
+    0.895,
+    0.919,
+    0.937,
+    0.952,
+    0.963,
+    0.972,
+    0.979,
+    0.984,
+    0.988,
+    0.991,
+    0.993,
+    0.995,
+    1
+  );
+  --spring-bounce: linear(
+    0,
+    0.041,
+    0.137,
+    0.261,
+    0.392,
+    0.517,
+    0.63,
+    0.726,
+    0.806,
+    0.868,
+    0.917,
+    0.952,
+    0.977,
+    0.995,
+    1.005,
+    1.012,
+    1.014,
+    1.015,
+    1.014,
+    1.013,
+    1.011,
+    1.009,
+    1.007,
+    1.005,
+    1
+  );
+}
+:root {
+  --diff-add: var(--ok);
+  --diff-add-bg: var(--ok-bg);
+  --diff-del: var(--bad);
+  --diff-del-bg: var(--bad-bg);
+}

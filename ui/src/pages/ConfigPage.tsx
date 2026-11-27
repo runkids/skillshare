@@ -45,6 +45,7 @@ import { yamlKeyOffset } from '../lib/yamlSection';
 import { shortenHome } from '../lib/paths';
 import { useOverviewQuery } from '../hooks/useSharedQueries';
 import { invalidate } from '../lib/queryEvents';
+import EmptyState from '../components/EmptyState';
 
 type ConfigTab = 'config' | 'skillignore' | 'agentignore' | 'extensions';
 
@@ -770,9 +771,9 @@ function ExtensionsSection({ isProjectMode }: { isProjectMode: boolean }) {
                 ))}
               </div>
             ) : (
-              <p className="ss-empty">
-                {t('config.extensions.none', {}, 'No extensions installed yet.')}
-              </p>
+              <EmptyState
+                description={t('config.extensions.none', {}, 'No extensions installed yet.')}
+              />
             )}
           </section>
 

@@ -1,6 +1,6 @@
 # Skillshare Web Dashboard — Style Guide
 
-The rules behind the dashboard, and why they exist. Token names, the `ss-*` class list and component APIs are in `../SKILL.md`; values are in `ui/src/components.css`.
+The rules behind the dashboard, and why they exist. Token names, the `ss-*` class list and component APIs are in `../SKILL.md`; values are in `ui/src/styles/tokens.css`.
 
 Reference pages: `ui/src/pages/TargetsPage.tsx`, `ui/src/pages/ResourcesPage.tsx`.
 
@@ -133,7 +133,7 @@ One primary per view. A destructive action always goes through `ConfirmDialog`.
 |---------|-------|
 | Page entry | `animate-page-in`: a 120ms fade with no movement, since navigation is frequent |
 | In-page reveal (status swap, expanded group) | `animate-fade-in` |
-| Dialog, dropdown | `animate-dialog-in`, `animate-dropdown-in` (it scales, so give the menu an `origin-*` class or `transformOrigin` at the corner touching its trigger); render the menu through `useMenuPresence(open)` (`hooks/usePresence`) so closing fades out with `animate-dropdown-out` |
+| Dialog, dropdown | `animate-dialog-in`, `animate-dropdown-in` (it scales, so give the menu an `origin-*` class or `transformOrigin` at the corner touching its trigger); render the menu through `useMenuPresence(open)` (`hooks/usePresence`) so closing fades out with `animate-dropdown-out`; close a menu or popover on outside mousedown and Escape with `useDismiss(ref, open, close)` (`hooks/useDismiss`), where `ref` contains the trigger |
 | Layer its caller unmounts (dialog, floating bar) | `DialogShell` already exits through `dialogGhost`; a `.ss-bulk` takes `ref={bulkGhost}` (`lib/exitGhost`), which plays the exit on a frozen copy; a hand-made overlay takes `ref={dialogGhost}`. No copy plays when the layer's page goes with it |
 | Toast | `useToast()` already renders `.ss-toast` with `animate-toast-in` (rises 12px over 320ms) |
 | Springy control (switch knob, segment pill, settling divider) | `var(--spring)` (critically damped, duration 1.23 x response) or `var(--spring-bounce)` |

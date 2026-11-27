@@ -18,8 +18,8 @@ In the dashboard, open **Plugins → Add plugin**:
 
 ![Add plugin dialog: discovered plugin with compatible and unsupported targets](/img/plugins-add-dialog.png)
 
-Most users only need a repository and target checkboxes. **Advanced options** adds
-a Git ref, to choose a release. Discovery shows each target's components and
+Most users only need a repository and target checkboxes. The optional **Git branch,
+tag, or commit** field chooses a release. Discovery shows each target's components and
 compatibility separately. When OpenCode is listed as unsupported because its entry
 could not be detected, **Set entry path** on that row takes the built file and
 searches the source again, keeping what you already chose. Safe relative repository
@@ -87,6 +87,12 @@ sync**, not “enable inside the Agent.”
 - The package definition remains, so you can select the target again later.
 - A plugin disabled inside Claude or Codex stays disabled; manage native settings
   in that tool.
+- Plugins added from the same source share one row, which counts how many of them
+  sync. Open it for each plugin's own row. Its menu updates, pauses or resumes sync
+  for, or removes all of them at once.
+- Tick the box at the start of rows, in any section, to act on them together. The bar
+  at the bottom turns sync on or pauses it, updates what the last check found, or
+  removes them. Each action skips the plugins it does not apply to.
 
 In the dashboard, the **Sync** box at the top right of the Plugins page lists what
 the next sync would install or remove for each Agent. Its button opens a preview;

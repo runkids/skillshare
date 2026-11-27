@@ -165,6 +165,61 @@ describe('UpdatePage', () => {
     });
   });
 
+  it('leaves skills found up to date or deleted upstream out of Update all', async () => {
+    const current = {
+      ...nestedSkill,
+      name: 'review',
+      flatName: 'tools__review',
+      relPath: 'tools/review',
+      sourcePath: '/skills/tools/review',
+      source: 'https://github.com/example/review',
+    };
+    const gone = {
+      ...current,
+      name: 'gone',
+      flatName: 'tools__gone',
+      relPath: 'tools/gone',
+      sourcePath: '/skills/tools/gone',
+    };
+    vi.mocked(api.listSkills).mockResolvedValue({ resources: [nestedSkill, current, gone] });
+    // A check reports each status; a cached stale status is not trusted, so this one is live.
+    const reported = (name: string, status: string) => ({
+      name,
+      source: current.source,
+      version: '1',
+      status,
+    });
+    vi.mocked(api.checkStream).mockImplementation((_a, _b, _c, onDone) => {
+      queueMicrotask(() =>
+        onDone({
+          tracked_repos: [],
+          skills: [
+            reported('tools/agent-browser', 'update_available'),
+            reported('tools/review', 'up_to_date'),
+            reported('tools/gone', 'stale'),
+          ],
+        }),
+      );
+      return { close: vi.fn() } as unknown as EventSource;
+    });
+    vi.mocked(api.updateAllStream).mockImplementation((_onStart, _onResult, onDone) => {
+      queueMicrotask(() => onDone(noResults));
+      return { close: vi.fn() } as unknown as EventSource;
+    });
+
+    const user = userEvent.setup();
+    renderUpdatePage();
+    await user.click(await screen.findByRole('button', { name: /check for updates/i }));
+    await findRow('gone');
+    await user.click(await screen.findByRole('button', { name: /update all/i }));
+
+    expect(vi.mocked(api.updateAllStream).mock.calls[0][4]).toEqual({
+      names: ['tools/agent-browser'],
+      kind: 'skill',
+      force: false,
+    });
+  });
+
   it('updates an agent repo as an agent, by its folder', async () => {
     vi.mocked(api.listSkills).mockResolvedValue({
       resources: [

@@ -172,7 +172,7 @@ func TestDiffListsLinkFromAnotherToolAsOverride(t *testing.T) {
 
 	var merge, copyMode targetDiffResult
 	collectMergeDiff(&merge, target, source, names, map[string]string{"alpha": skill}, nil, nil)
-	collectCopyDiff(&copyMode, "claude", target, source, resolved, "flat", names, nil, manifest, nil, nil)
+	collectCopyDiff(&copyMode, "claude", target, source, resolved, names, nil, manifest, nil, nil)
 
 	for mode, r := range map[string]targetDiffResult{"merge": merge, "copy": copyMode} {
 		cats := categorizeItems(r.items)

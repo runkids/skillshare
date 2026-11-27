@@ -25,6 +25,7 @@ import { shortenHome } from '../lib/paths';
 import { useT, plural } from '../i18n';
 import { useAvailableTargetsQuery, useHooksQuery, useMcpQuery } from '../hooks/useSharedQueries';
 import { invalidate } from '../lib/queryEvents';
+import Tabs, { TabLink } from '../components/Tabs';
 
 type MCPList = Awaited<ReturnType<typeof mcpApi.list>>;
 type Tab = 'skills' | 'agents' | 'mcp' | 'hooks' | 'extensions';
@@ -239,19 +240,13 @@ function ProjectEditor({
   };
 
   const tabs = (
-    <nav className="ss-tabs" aria-label={project.name}>
+    <Tabs aria-label={project.name}>
       {shownTabs.map((x) => (
-        <Link
-          key={x}
-          to={x === 'skills' ? '?' : `?tab=${x}`}
-          replace
-          className={tab === x ? 'on' : ''}
-          aria-current={tab === x}
-        >
+        <TabLink key={x} to={x === 'skills' ? '?' : `?tab=${x}`} replace on={tab === x}>
           {LABEL[x]}
-        </Link>
+        </TabLink>
       ))}
-    </nav>
+    </Tabs>
   );
   const health = projectHealth(project, targets.data?.targets ?? [], mcp, hooks);
 

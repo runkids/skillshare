@@ -468,7 +468,11 @@ func checkTargets(planned []Planned, discovered []sync.DiscoveredSkill, o Option
 					}
 					msg := fmt.Sprintf("target %s would get two skills named %q (%s)", t.Name, name, strings.Join(paths, ", "))
 					if o.Force {
-						p.Warnings = append(p.Warnings, msg+"; sync skips both until one is renamed")
+						outcome := "; all but a top-level one sync under their full path names until one is renamed"
+						if config.EffectiveTargetNaming(t.Config.TargetNaming) == "flat" {
+							outcome = "; sync keeps only one of them until one is renamed"
+						}
+						p.Warnings = append(p.Warnings, msg+outcome)
 					} else if bucket[i] == nil {
 						bucket[i] = &Refusal{CodeNameCollision, msg + "; use --force to move anyway"}
 					}

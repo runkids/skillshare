@@ -27,6 +27,7 @@ import {
   type CustomTheme,
   type PresetId,
 } from '../lib/customTheme';
+import Switch from './Switch';
 
 function Choice<T extends string>({
   label,
@@ -663,16 +664,11 @@ export default function CustomThemeSettings() {
           </Row>
           {theme.font !== 'system' && isCjkLanguage(locale) && (
             <Row label={t('settings.custom.cjk')} hint={t('settings.custom.cjkHint')}>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={!!theme.cjk}
+              <Switch
+                checked={!!theme.cjk}
                 aria-label={t('settings.custom.cjk')}
-                className={`ss-sw ${theme.cjk ? 'on' : ''}`}
-                onClick={() => change({ cjk: theme.cjk ? undefined : true }, fontPart)}
-              >
-                <i />
-              </button>
+                onChange={() => change({ cjk: theme.cjk ? undefined : true }, fontPart)}
+              />
             </Row>
           )}
           <Row
@@ -708,13 +704,10 @@ export default function CustomThemeSettings() {
                   }}
                 />
               )}
-              <button
-                type="button"
-                role="switch"
-                aria-checked={derive}
+              <Switch
+                checked={derive}
                 aria-label={t('settings.custom.deriveDark')}
-                className={`ss-sw ${derive ? 'on' : ''}`}
-                onClick={() => {
+                onChange={() => {
                   // Dark colours are what this changes, so the preview shows them.
                   setPreviewMode('dark');
                   change(
@@ -724,9 +717,7 @@ export default function CustomThemeSettings() {
                     accentPart,
                   );
                 }}
-              >
-                <i />
-              </button>
+              />
             </div>
           </Row>
           <Row label={t('settings.custom.share')} hint={t('settings.custom.shareHint')}>

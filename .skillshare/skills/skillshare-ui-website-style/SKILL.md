@@ -21,7 +21,7 @@ Before acting, run `python3 scripts/ai-context.py frontend`. That topic and the 
 | Aspect | UI Dashboard (`ui/`) | Website (`website/`) |
 |--------|---------------------|----------------------|
 | Stack | React 19 + Vite + Tailwind CSS v4 | Docusaurus 3 + custom CSS |
-| Source of truth | `ui/src/components.css` (tokens + `ss-*` classes), `ui/src/index.css` (Tailwind mapping) | `website/src/css/custom.css` (docs), `website/src/pages/*.module.css` (homepage, features) |
+| Source of truth | `ui/src/styles/*.css` (tokens + `ss-*` classes), `ui/src/index.css` (Tailwind mapping) | `website/src/css/custom.css` (docs), `website/src/pages/*.module.css` (homepage, features) |
 | Looks | Two styles, **Clean** and **Playful**, each in light and dark; **Custom** recolours either | Docs: clean. Homepage: hand-drawn string board |
 
 **This file names tokens and classes and says when to use them. It does not copy their values.** Colours, radii, fonts and shadows change; read them from the CSS when you need one.
@@ -55,7 +55,7 @@ All four looks come from CSS variables alone. A page that uses only tokens and `
 
 ### Design tokens
 
-Defined per look at the top of `ui/src/components.css`. `ui/src/index.css` exposes them to Tailwind through `@theme inline`, so `text-ink-2`, `bg-surface`, `border-line` all follow the active look.
+Defined per look in `ui/src/styles/tokens.css`. `ui/src/index.css` exposes them to Tailwind through `@theme inline`, so `text-ink-2`, `bg-surface`, `border-line` all follow the active look.
 
 | Group | Tokens | Use |
 |-------|--------|-----|
@@ -63,7 +63,7 @@ Defined per look at the top of `ui/src/components.css`. `ui/src/index.css` expos
 | Text | `--ink` `--ink-2` `--ink-3` | Primary, secondary, tertiary and placeholder |
 | Lines | `--line` `--line-2` `--line-soft` | Frames, control borders, soft dividers |
 | Borders | `--sep` `--frame` `--bw` | Whole `border` values: row separator, box frame, control border width |
-| Action | `--pri` `--on-pri` `--accent` `--accent-bg` `--sel` `--sel-ink` | Primary button, links and focus, selected nav and menu items |
+| Action | `--pri` `--on-pri` `--accent` `--accent-bg` `--sel` `--sel-ink` | Primary button and on or picked controls (checkbox, switch, tab underline, picked option, progress), links and focus, selected nav and menu items. Text stays `--ink` |
 | Status | `--ok` `--warn` `--bad`, each with `-bg` | Text or dot colour, plus its tinted background |
 | Kind | `--c-skill` `--c-agent` `--c-extra` `--c-mcp` `--c-plugin` `--c-target`, each with `-bg` | Resource-kind colour, used by `.ss-cat` |
 | Pastels | `--pa` `--pb` `--pc` `--pd` `--pe` `--on-pa` | **Playful only.** Never reference outside a `[data-theme="playful"]` rule. `--on-pa` is the text on them |
@@ -91,10 +91,10 @@ Tailwind names: `bg` `side` `surface` `sunken` `ink` `ink-2` `ink-3` `line` `lin
 
 ### The `ss-*` classes
 
-All in `@layer components` in `ui/src/components.css`. List what exists today:
+In `ui/src/styles/*.css`: `tokens.css` and `base.css` are unlayered, every other file is one `@layer components` block. The cascade follows the import order in `ui/src/index.css`, so moving or reordering rules can change which one wins. Only `index.css` imports these files: CSS imported from a component loads with its lazy route, in whatever order pages are opened. List what exists today:
 
 ```bash
-grep -o '\.ss-[a-z0-9-]*' ui/src/components.css | sort -u
+grep -oh '\.ss-[a-z0-9-]*' ui/src/styles/*.css | sort -u
 ```
 
 State and variant are short modifier classes on the same element: `.on` (selected or checked), `.sel` (selected row or tile), `.ok` `.warn` `.bad` `.inf` (tone), `.sm` `.lg` (size).
@@ -104,8 +104,8 @@ State and variant are short modifier classes on the same element: `.on` (selecte
 | Page | `.ss-wrap` (1080px column, 28px gap), `.ss-pgh` + `.ss-ph` (header, via `PageHeader`), `.ss-crumb`, `.ss-sec` (section heading row; `h2` inside, `.more` link on the right), `.ss-h1` `.ss-h2`, `.ss-hand` (Kalam aside) |
 | Shell | `.ss-side` `.ss-wm` `.ss-nvg` `.ss-nv` `.ss-sidefoot` — `Layout.tsx` only |
 | Buttons | `.ss-btn` + `.pri` `.ghost` `.dng` + `.sm` `.lg`; `.ss-ib` (30px icon button); `.ss-more` (text link) |
-| Forms | `.ss-fld` (label + control + `.hp` help), `.ss-inp` (+ `.area` `.err`, `.k` key hint), `.ss-chk` (+ `.rad`), `.ss-sw` (switch; `.on`, `.mix` when only some are on), `.ss-tgl` (icon toggle), `.ss-seg` (+ `.ic` icon-only; give it `ref={segSlide}` from `lib/segSlide` so the Clean pill slides) |
-| Navigation | `.ss-tabs`, `.ss-tabbar` (tabs with controls on the right), `.ss-pager`, `.ss-menu` (+ `.hv` `.dng`, `hr`, `.k`) |
+| Forms | `.ss-fld` (label + control + `.hp` help), `.ss-inp` (+ `.area` `.err`, `.k` key hint), `.ss-chk` (+ `.rad`), `.ss-sw` (switch, via `Switch`; `.on`, `.mix` when only some are on), `.ss-tgl` (icon toggle), `.ss-seg` (+ `.ic` icon-only; give it `ref={segSlide}` from `lib/segSlide` so the Clean pill slides) |
+| Navigation | `.ss-tabs` (via `Tabs`), `.ss-tabbar` (tabs with controls on the right), `.ss-pager`, `.ss-menu` (+ `.hv` `.dng`, `hr`, `.k`) |
 | Lists | `.ss-list` (framed container), `.ss-lh` (column header), `.ss-gh` (group header), `.ss-r` (row; `.link` clickable, `.sel`, `.fold`; `.nm` name, `.nm.m` mono name), `.ss-plain` (rows without side padding), `.ss-split` (tree view box: `.lp` tree, `.dv` divider, `.rp` detail pane), `.ss-tn` (tree row; `.sel`, `.in` inside a selected folder, `.off`; indent with `--d`) |
 | Boxes | `.ss-box` (card, via `Card`), `.ss-tiles` + `.ss-tile` (grid; sticky notes in Playful), `.ss-kv` (`dl` key/value), `.ss-setrow` (settings row), `.ss-counts` (stat strip) |
 | Status | `.ss-st` (dot + text; `.ok` `.warn` `.bad` `.off`, `.wrap` for long messages), `.ss-tag` (mono label; `.ok` `.warn` `.bad` `.inf`), `.ss-sev` (audit severity; `.c` `.h` `.md` `.l` `.n`), `.ss-cnt` (count) |
@@ -127,9 +127,9 @@ Tailwind utilities are for layout inside these (`flex`, `gap-*`, `min-w-0`, `w-[
   <PageHeader title={t('x.title')} subtitle={t('x.subtitle')} actions={<>...</>} />
 
   {/* optional: tabs, or tabs with controls on the right */}
-  <nav className="ss-tabs" aria-label={t('x.title')}>
-    <button type="button" className={on ? 'on' : ''} aria-current={on}>...</button>
-  </nav>
+  <Tabs aria-label={t('x.title')}>
+    <TabLink to="?tab=x" replace on={on}>...</TabLink>
+  </Tabs>
 
   {error && <div className="ss-note bad"><span className="flex-1">{error.message}</span></div>}
 
@@ -164,7 +164,7 @@ Tailwind utilities are for layout inside these (`flex`, `gap-*`, `min-w-0`, `w-[
 
 ### Components
 
-Shared components in `ui/src/components/` wrap the `ss-*` classes. Use the component when one exists; write the class directly for things that have none (`.ss-list` rows, `.ss-note`, `.ss-tabs`, `.ss-st`, `.ss-tag`, `.ss-kv`).
+Shared components in `ui/src/components/` wrap the `ss-*` classes. Use the component when one exists; write the class directly for things that have none (`.ss-list` rows, `.ss-note`, `.ss-st`, `.ss-tag`, `.ss-kv`).
 
 | Component | Renders | API |
 |-----------|---------|-----|
@@ -174,19 +174,23 @@ Shared components in `ui/src/components/` wrap the `ss-*` classes. Use the compo
 | `Card` | `.ss-box` | `padding="none\|sm\|md"`, `variant="default\|outlined"`, `hover?`, `overflow?`, `onClick?`. `tilt` and `skillCard` do nothing |
 | `Badge` | `.ss-tag` | `variant="default\|success\|warning\|danger\|info"`, `size`, `dot?` |
 | `KindBadge` | `.ss-tag` | `kind="skill\|agent"` |
-| `EmptyState` | `.ss-empty` | `icon` (LucideIcon), `title`, `description?`, `action?` |
+| `EmptyState` | `.ss-empty` | `icon?` (LucideIcon), `title?`, `description?`, `action?`, `tone="bad"` (failed to load), `compact?` (inside a section), `className?`. A `description` alone renders as one line of body text |
+| `Switch`, `SwitchMark` | `.ss-sw` | `Switch`: `checked`, `onChange`, `mixed?` + native button props; name it with `aria-label` or `aria-labelledby`. `SwitchMark` (`checked`, `mixed?`) is the look alone, for a larger button that has `role="switch"` itself; it does not dim on `:disabled`, so dim that button |
 | `DialogShell` | `.ss-scrim` `.ss-dlg` | `open`, `onClose`, `maxWidth="sm".."7xl"`, `padding`, `preventClose?`, `ariaLabel`. Use `padding="none"` with `.dh` / `.db` / `.df` children for the standard header, body and footer |
 | `ConfirmDialog` | `DialogShell` | `open`, `onConfirm`, `onCancel`, `title`, `message`, `variant="default\|danger"`, `loading?`, `wide?` |
 | `Input`, `Textarea` | `.ss-fld` `.ss-inp` | `label?`, `size="sm\|md"` + native props. `Input.tsx` re-exports `Checkbox` and `Select` |
 | `Select` | `.ss-inp` + `.ss-menu` | `label?`, `value`, `onChange`, `options[]` (`description?`, `triggerLabel?`, `detail?`), `size`, `prefix?`, `quiet` (footer menu without a box), `up`, `search` (type-to-filter) |
 | `Checkbox` | `.ss-chk` | `label` (required), `checked`, `onChange`, `indeterminate?`, `hideLabel?` for row selection |
 | `SegmentedControl` | `.ss-seg` | `value`, `onChange`, `options[]` (`count?`, `title?` for icon-only), `colorFn?` |
+| `Tabs`, `TabLink`, `TabButton` | `.ss-tabs` | `Tabs`: `slideKey?` (shared by rows a route change replaces). `TabLink`: `on`, `count?` + `Link` props. `TabButton`: `on`, `count?`, inside `<Tabs role="tablist">` |
 | `Pagination` | `.ss-pager` | `page`, `totalPages`, `onPageChange`, `rangeText?`, `pageSize?` |
 | `Tooltip`, `TruncateTip` | `.ss-tip` | `content`, `side`, `delay`, `followCursor?` |
 | `Spinner` | lucide `Loader2` | `size="sm\|md\|lg"` |
 | `Skeleton`, `PageSkeleton` | shimmer | `variant="text\|card\|circle"` |
 | `useToast()` | `.ss-toast` | `toast(message, 'success'\|'error'\|'warning'\|'info', { title? })` |
 | `AgentIcon` | real agent logo | For targets and agents. Do not substitute a generic lucide icon |
+| `AgentTile` | `.ss-at` + `AgentIcon` | `target?`, `size="sm\|md\|lg"` (frame/logo: 20/11, 24/14, 30/17; a plain `lg` tile in a stack is 24px), `iconSize?`, `fallback?` (drawn without a target) + span props |
+| `AgentStack` | `.ss-stack` of `AgentTile` | `targets`, `max?`, `showRest?` (ends with `+N`), `size?`, `iconSize?` (default 13 without a `size`), `tileClassName?` + span props. When tiles differ from each other, write the `.ss-stack` span with `AgentTile` children |
 | `CopyButton`, `CodeView`, `CodeEditor`, `MarkdownView` | `.ss-code` `.ss-prose` | Code and markdown display |
 
 Feature folders (`audit/`, `config/`, `git/`, `hub/`, `mcp/`, `plugins/`, `skill-editor/`, `sync/`, `targets/`, `tour/`) hold page-specific pieces.

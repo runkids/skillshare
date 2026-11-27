@@ -2,8 +2,6 @@ import { useId, useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  ChevronDown,
-  ChevronRight,
   ArrowLeft,
   CircleX,
   Download,
@@ -44,6 +42,7 @@ import {
 import { parseSkillMarkdown } from '../lib/frontmatter';
 import { parseSkillsAddCommand, requestedSkills } from '../lib/skillsAddCommand';
 import type { SkillsAddCommand } from '../lib/skillsAddCommand';
+import Switch from './Switch';
 import CodeView from './CodeView';
 import MarkdownView, { ViewToggle } from './MarkdownView';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
@@ -63,6 +62,7 @@ import Spinner from './Spinner';
 import { useToast } from './Toast';
 import { useSkillsQuery } from '../hooks/useSharedQueries';
 import { invalidate } from '../lib/queryEvents';
+import Tabs, { TabButton } from './Tabs';
 
 type Kind = 'skill' | 'agent';
 type Tab = 'search' | 'url';
@@ -178,7 +178,6 @@ export default function InstallDialog({
 
   const [source, setSource] = useState(initialSource ?? '');
   const [track, setTrack] = useState(false);
-  const [advanced, setAdvanced] = useState(false);
   const [into, setInto] = useState('');
   const [branch, setBranch] = useState('');
   const [name, setName] = useState('');
@@ -569,20 +568,13 @@ export default function InstallDialog({
   };
 
   const tabs = !isAgent && (
-    <div className="ss-tabs" role="tablist">
+    <Tabs role="tablist">
       {(['url', 'search'] as const).map((k) => (
-        <button
-          key={k}
-          type="button"
-          role="tab"
-          aria-selected={tab === k}
-          className={tab === k ? 'on' : ''}
-          onClick={() => setTab(k)}
-        >
+        <TabButton key={k} on={tab === k} onClick={() => setTab(k)}>
           {t(k === 'search' ? 'install.tab.search' : 'install.tab.url')}
-        </button>
+        </TabButton>
       ))}
-    </div>
+    </Tabs>
   );
 
   let title = t(isAgent ? 'install.title.agents' : 'install.title.skills');
@@ -1189,16 +1181,12 @@ export default function InstallDialog({
 
         {canTrack && (
           <div className="flex items-start gap-3.5">
-            <button
-              type="button"
-              role="switch"
-              aria-checked={track}
+            <Switch
+              checked={track}
               aria-labelledby={`${ids}track`}
-              className={`ss-sw mt-0.5 ${track ? 'on' : ''}`}
-              onClick={() => setTrack(!track)}
-            >
-              <i />
-            </button>
+              className="mt-0.5"
+              onChange={setTrack}
+            />
             <div className="flex flex-1 flex-col gap-0.5">
               <span id={`${ids}track`} className="font-semibold">
                 {t('install.url.track')}
@@ -1208,76 +1196,65 @@ export default function InstallDialog({
           </div>
         )}
 
-        <button
-          type="button"
-          className="ss-disc self-start"
-          aria-expanded={advanced}
-          onClick={() => setAdvanced(!advanced)}
-        >
-          {advanced ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
-          {t('install.url.advanced')}
-        </button>
-        {advanced && (
-          <div className="ml-[22px] flex flex-col gap-3.5">
-            <FolderPicker
-              label={t('install.url.into')}
-              kind={kind}
-              value={into}
-              onChange={setInto}
-              folders={folders}
-              rootCount={ofKind.length}
-              onNewFolder={(parent) => {
-                newFolder.start(parent);
-                setView('folder');
-              }}
-              caption={tracking ? undefined : <InstallsTo folder={into} skill={skillName} />}
-              hint="--into"
-            />
-            <div className="grid grid-cols-2 gap-3.5">
-              {canTrack && (
-                <Field
-                  label={t('install.url.branch')}
-                  hint="--branch"
-                  icon={<GitBranch size={15} className="shrink-0 text-ink-3" />}
-                >
-                  <input
-                    value={branch}
-                    onChange={(e) => {
-                      setBranch(e.target.value);
-                      setFound(null);
-                      setNothing(null);
-                    }}
-                    placeholder="main"
-                  />
-                </Field>
-              )}
+        <div className="flex flex-col gap-3.5">
+          <FolderPicker
+            label={t('install.url.into')}
+            kind={kind}
+            value={into}
+            onChange={setInto}
+            folders={folders}
+            rootCount={ofKind.length}
+            onNewFolder={(parent) => {
+              newFolder.start(parent);
+              setView('folder');
+            }}
+            caption={tracking ? undefined : <InstallsTo folder={into} skill={skillName} />}
+            hint="--into"
+          />
+          <div className="grid grid-cols-2 gap-3.5">
+            {canTrack && (
               <Field
-                label={t('install.url.name')}
-                hint={`--name · ${t('install.url.nameHint')}`}
-                disabled={tracking || (found !== null && count !== 1)}
+                label={t('install.url.branch')}
+                hint="--branch"
+                icon={<GitBranch size={15} className="shrink-0 text-ink-3" />}
               >
                 <input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder={t('install.url.namePlaceholder')}
-                  disabled={tracking || (found !== null && count !== 1)}
+                  value={branch}
+                  onChange={(e) => {
+                    setBranch(e.target.value);
+                    setFound(null);
+                    setNothing(null);
+                  }}
+                  placeholder="main"
                 />
               </Field>
-            </div>
-            <Option
-              label={t('install.url.force')}
-              hint={t('install.url.forceHint')}
-              checked={force}
-              onChange={setForce}
-            />
-            <Option
-              label={t('install.url.skipAudit')}
-              hint={t('install.url.skipAuditHint')}
-              checked={skipAudit}
-              onChange={setSkipAudit}
-            />
+            )}
+            <Field
+              label={t('install.url.name')}
+              hint={`--name · ${t('install.url.nameHint')}`}
+              disabled={tracking || (found !== null && count !== 1)}
+            >
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={t('install.url.namePlaceholder')}
+                disabled={tracking || (found !== null && count !== 1)}
+              />
+            </Field>
           </div>
-        )}
+          <Option
+            label={t('install.url.force')}
+            hint={t('install.url.forceHint')}
+            checked={force}
+            onChange={setForce}
+          />
+          <Option
+            label={t('install.url.skipAudit')}
+            hint={t('install.url.skipAuditHint')}
+            checked={skipAudit}
+            onChange={setSkipAudit}
+          />
+        </div>
       </>
     );
     foot = (

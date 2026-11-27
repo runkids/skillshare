@@ -152,6 +152,9 @@ func (s *Service) run(ctx context.Context, target string, args ...string) ([]byt
 	if bin == "antigravity-cli" {
 		bin = "agy"
 	}
+	if bin == "herdr-app" {
+		env = []string{"HERDR_APP_HOME=" + herdrHome()}
+	}
 	explicit := false
 	if account, ok := s.account(target); ok {
 		env = account.env()

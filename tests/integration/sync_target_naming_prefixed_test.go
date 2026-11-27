@@ -138,14 +138,17 @@ func TestPrefixedNamingOutsideCopyMode_IsFlaggedBeforeSync(t *testing.T) {
 }
 
 func TestSync_TargetNamingPrefixed_SwitchesRenameInPlace(t *testing.T) {
+	flatNames := []string{"_emil-design__skills__prototype", "_mattpocock-skills__skills__engineering__prototype", "my-skill"}
 	steps := []struct {
 		naming string
 		want   []string
+		// keepsName is set where a copy keeps the source name: under a flat name.
+		keepsName bool
 	}{
-		{"flat", []string{"_emil-design__skills__prototype", "_mattpocock-skills__skills__engineering__prototype", "my-skill"}},
-		{"prefixed", []string{"emil-design-prototype", "mattpocock-skills-prototype", "my-skill"}},
-		{"standard", []string{"my-skill"}}, // both prototypes collide under standard
-		{"prefixed", []string{"emil-design-prototype", "mattpocock-skills-prototype", "my-skill"}},
+		{"flat", flatNames, true},
+		{"prefixed", []string{"emil-design-prototype", "mattpocock-skills-prototype", "my-skill"}, false},
+		{"standard", flatNames, true}, // both prototypes share a name under standard, so they keep their flat names
+		{"prefixed", []string{"emil-design-prototype", "mattpocock-skills-prototype", "my-skill"}, false},
 	}
 
 	sb := testutil.NewSandbox(t)
@@ -155,7 +158,7 @@ func TestSync_TargetNamingPrefixed_SwitchesRenameInPlace(t *testing.T) {
 		writeNamingConfig(sb, targetPath, step.naming, "copy")
 		sb.RunCLI("sync").AssertSuccess(t)
 		// Flat copies keep the source name:, so only check the folder list there.
-		if step.naming == "flat" {
+		if step.keepsName {
 			if got := strings.Join(filterVisible(sb.ListDir(targetPath)), ","); got != strings.Join(step.want, ",") {
 				t.Fatalf("after %s: entries = %s, want %v", step.naming, got, step.want)
 			}
@@ -371,7 +374,7 @@ func TestSync_TargetNamingPrefixed_ReportsCollisionsOnlyThePrefixCreates(t *test
 	// The tracked skill cannot be renamed in SKILL.md; say what prefixing did and what to change.
 	result.AssertOutputContains(t, "A tracked skill cannot be renamed in SKILL.md")
 	result.AssertOutputContains(t, "--name")
-	result.AssertOutputNotContains(t, "Rename one in SKILL.md")
+	result.AssertOutputNotContains(t, "Rename one of them (its folder and the name in its SKILL.md)")
 }
 
 func TestSync_TargetNamingPrefixed_CollisionHintStaysWhenSourceAlreadyHasDuplicates(t *testing.T) {
@@ -388,7 +391,7 @@ func TestSync_TargetNamingPrefixed_CollisionHintStaysWhenSourceAlreadyHasDuplica
 	result.AssertOutputContains(t, "A tracked skill cannot be renamed in SKILL.md")
 	result.AssertOutputContains(t, "--name")
 	// Re-tracking leaves the two ordinary skills clashing, so their remedy stays too.
-	result.AssertOutputContains(t, "Rename one in SKILL.md")
+	result.AssertOutputContains(t, "Rename one of them (its folder and the name in its SKILL.md)")
 }
 
 func TestSync_TargetNamingPrefixed_CollisionPrintsBothHintsAcrossTargets(t *testing.T) {
@@ -414,7 +417,7 @@ targets:
 
 	result := sb.RunCLI("sync")
 	result.AssertOutputContains(t, "A tracked skill cannot be renamed in SKILL.md")
-	result.AssertOutputContains(t, "Rename one in SKILL.md")
+	result.AssertOutputContains(t, "Rename one of them (its folder and the name in its SKILL.md)")
 }
 
 func TestSync_TargetNamingPrefixed_SameRepoDuplicateStillOffersFilters(t *testing.T) {
@@ -438,7 +441,7 @@ func TestSync_TargetNamingPrefixed_UnderscoreFolderWithoutRepoIsNotTracked(t *te
 	writeNamingConfig(sb, targetPath, "prefixed", "copy")
 
 	result := sb.RunCLI("sync")
-	result.AssertOutputContains(t, "Rename one in SKILL.md")
+	result.AssertOutputContains(t, "Rename one of them (its folder and the name in its SKILL.md)")
 	result.AssertOutputNotContains(t, "A tracked skill cannot be renamed")
 }
 

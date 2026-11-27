@@ -31,6 +31,7 @@ import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import { parseStatusLine } from '../components/git/gitView';
 import PullConflictDialog from '../components/git/PullConflictDialog';
+import SharedNameNotices from '../components/sync/SharedNameNotices';
 import UnmatchedNotices from '../components/sync/UnmatchedNotices';
 import type { GitPullConflict, GitPullResolution } from '../api/types/git';
 import { useAppContext } from '../context/AppContext';
@@ -38,6 +39,7 @@ import { useT, plural } from '../i18n';
 import { parseRemoteURL } from '../lib/parseRemoteURL';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { invalidate } from '../lib/queryEvents';
+import Switch from '../components/Switch';
 
 const SCOPES = ['skills', 'agents', 'extras', 'root'];
 const TONE = { New: 'ok', Changed: 'warn', Renamed: 'warn', Deleted: 'bad' } as const;
@@ -483,6 +485,7 @@ export default function GitSyncPage() {
           </div>
         ))}
         <UnmatchedNotices items={pulled?.unmatched} />
+        <SharedNameNotices items={pulled?.shared_names} />
       </div>
 
       {!status.isRepo ? (
@@ -555,16 +558,7 @@ export default function GitSyncPage() {
               disabled={writing}
             />
             <div className="flex items-center gap-2.5">
-              <button
-                type="button"
-                role="switch"
-                aria-checked={dryRun}
-                aria-labelledby="git-dry-run"
-                className={`ss-sw ${dryRun ? 'on' : ''}`}
-                onClick={() => setDryRun(!dryRun)}
-              >
-                <i />
-              </button>
+              <Switch checked={dryRun} aria-labelledby="git-dry-run" onChange={setDryRun} />
               <span id="git-dry-run" className="text-[13px] font-semibold">
                 {t('gitSync.dryRun')}
               </span>

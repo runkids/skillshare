@@ -5,7 +5,7 @@ import { plural, useT } from '../../i18n';
 import Button from '../Button';
 import { RailLayout, RailSection, SyncBox } from '../StatusRail';
 import ProjectSectionHead, { InfoTip } from '../mcp/ProjectSectionHead';
-import { AgentStack } from '../mcp/TargetPicker';
+import AgentStack from '../AgentStack';
 import { targetLabel } from '../mcp/mcpView';
 import FilterCard from '../targets/FilterCard';
 import ModeField from '../targets/ModeField';
@@ -14,6 +14,7 @@ import { patternName } from '../targets/targetView';
 import { useFilterFeedback } from '../targets/useFilterFeedback';
 import ProjectTools from './ProjectTools';
 import { syncBoxState, writeFolders, type ProjectState } from './projectView';
+import { SwitchMark } from '../Switch';
 
 const FOLDERS_SHOWN = 5;
 
@@ -156,9 +157,7 @@ export default function ProjectResourceTab({
                       className="flex min-h-8 items-center gap-2.5"
                       title={f.tools.map(targetLabel).join(', ')}
                     >
-                      <span className="ss-stack shrink-0">
-                        <AgentStack targets={f.tools} max={3} />
-                      </span>
+                      <AgentStack targets={f.tools} max={3} showRest className="shrink-0" />
                       <span className="min-w-0 flex-1 truncate font-mono text-[12.5px]">
                         {f.path}
                       </span>
@@ -176,9 +175,7 @@ export default function ProjectResourceTab({
                       className="flex min-h-8 items-center gap-2.5 text-[13px] text-ink-3"
                       title={none.map(targetLabel).join(', ')}
                     >
-                      <span className="ss-stack shrink-0 opacity-55">
-                        <AgentStack targets={none} max={3} />
-                      </span>
+                      <AgentStack targets={none} max={3} showRest className="shrink-0 opacity-55" />
                       <span className="min-w-0 flex-1">
                         {t(plural('projects.writes.noAgentsCount', none.length), {
                           count: none.length,
@@ -249,9 +246,7 @@ export default function ProjectResourceTab({
             disabled={disabled}
             onClick={onToggle}
           >
-            <span className={`ss-sw ${resource ? 'on' : ''}`}>
-              <i />
-            </span>
+            <SwitchMark checked={Boolean(resource)} />
           </button>
         </ProjectSectionHead>
 

@@ -4,6 +4,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { pluginsApi } from '../../api/plugins';
 import { invalidate } from '../../lib/queryEvents';
+import { queryKeys } from '../../lib/queryKeys';
 import { ApiError } from '../../api/client';
 import type {
   PluginCheckEvent,
@@ -14,9 +15,12 @@ import type {
 import {
   changedRuns,
   failureText,
+  bulkActions,
+  groupBySource,
   importPackageNames,
   importRequest,
   piPackageTest,
+  herdrPackageTest,
   reviewChanges,
   syncTodo,
   updatesFound,
@@ -780,7 +784,7 @@ describe('plugins flow', () => {
   });
 
   it("previews and applies a tick in one step, with that preview's revision and no review", async () => {
-    const { now, refresh } = flow();
+    const { now } = flow();
     await act(() => now().selectTarget('demo', 'codex', false));
     expect(pluginsApi.preview).toHaveBeenCalledWith({
       action: 'disable',
@@ -792,13 +796,96 @@ describe('plugins flow', () => {
       'reviewed',
     );
     expect(now().review).toBeNull();
-    expect(refresh).toHaveBeenCalledTimes(1);
     await act(() => now().selectTarget('demo', 'codex', true));
     expect(pluginsApi.preview).toHaveBeenLastCalledWith({
       action: 'enable',
       name: 'demo',
       targets: ['codex'],
     });
+  });
+
+  it('leaves the update check alone after a tick', async () => {
+    const client = new QueryClient();
+    client.setQueryData(queryKeys.pluginCheck, { updates: {}, answers: {}, done: 0 });
+    // The page's refresh, which reruns the check.
+    const refresh = () => void invalidate(client, 'pluginsChanged');
+    const hook = renderHook(() => usePluginsFlow({ t, refresh, onPreviewed: vi.fn() }), {
+      wrapper: queryWrapper(client),
+    });
+    await act(() => hook.result.current.selectTarget('demo', 'codex', false));
+    expect(client.getQueryState(queryKeys.pluginCheck)?.isInvalidated).toBe(false);
+  });
+
+  it('shows a tick at once, before the inventory is fetched again', async () => {
+    const client = new QueryClient();
+    client.setQueryData(queryKeys.plugins, {
+      targetDefinitions: [],
+      packages: { demo: { bindings: { codex: { id: 'demo' } } } },
+      hosts: [],
+    });
+    const hook = renderHook(() => usePluginsFlow({ t, refresh: vi.fn(), onPreviewed: vi.fn() }), {
+      wrapper: queryWrapper(client),
+    });
+    vi.mocked(pluginsApi.preview).mockResolvedValue(plan('r', { action: 'selection' }));
+    await act(() => hook.result.current.selectTarget('demo', 'codex', false));
+    expect(
+      client.getQueryData<PluginInventory>(queryKeys.plugins)?.packages.demo?.bindings.codex?.sync,
+    ).toBe(false);
+  });
+
+  it('leaves a switch the preview skipped as it was, as the server does', async () => {
+    const client = new QueryClient();
+    client.setQueryData(queryKeys.plugins, {
+      targetDefinitions: [],
+      packages: { demo: { bindings: { 'herdr-app': { id: 'demo' } } } },
+      hosts: [],
+    });
+    const hook = renderHook(() => usePluginsFlow({ t, refresh: vi.fn(), onPreviewed: vi.fn() }), {
+      wrapper: queryWrapper(client),
+    });
+    // Herdr app's home is absent: the server saves nothing for it.
+    vi.mocked(pluginsApi.preview).mockResolvedValue(
+      plan('r', { target: 'herdr-app', action: 'skip' }),
+    );
+    await act(() => hook.result.current.selectTarget('demo', 'herdr-app', false));
+    expect(
+      client.getQueryData<PluginInventory>(queryKeys.plugins)?.packages.demo?.bindings['herdr-app']
+        ?.sync,
+    ).toBeUndefined();
+  });
+
+  it('turns a group off in one request and shows every package off at once', async () => {
+    const client = new QueryClient();
+    client.setQueryData(queryKeys.plugins, {
+      targetDefinitions: [],
+      packages: {
+        a: { bindings: { 'herdr-app': { id: 'a' } } },
+        b: { bindings: { 'herdr-app': { id: 'b' } } },
+        c: { bindings: { 'herdr-app': { id: 'c' } } },
+      },
+      hosts: [],
+    });
+    const hook = renderHook(() => usePluginsFlow({ t, refresh: vi.fn(), onPreviewed: vi.fn() }), {
+      wrapper: queryWrapper(client),
+    });
+    vi.mocked(pluginsApi.preview).mockResolvedValue(
+      plan(
+        'r',
+        { name: 'a', target: 'herdr-app', action: 'selection' },
+        { name: 'b', target: 'herdr-app', action: 'selection' },
+      ),
+    );
+    await act(() => hook.result.current.selectMany(['a', 'b'], false, 'group:a'));
+    expect(pluginsApi.apply).toHaveBeenCalledWith(
+      { action: 'disable', names: ['a', 'b'] },
+      expect.anything(),
+    );
+    const packages = client.getQueryData<PluginInventory>(queryKeys.plugins)?.packages;
+    expect(['a', 'b', 'c'].map((name) => packages?.[name]?.bindings['herdr-app']?.sync)).toEqual([
+      false,
+      false,
+      undefined,
+    ]);
   });
 
   it('does not apply a tick whose preview failed', async () => {
@@ -812,6 +899,50 @@ describe('plugins flow', () => {
 });
 
 describe('plugins flow rules', () => {
+  it('acts on several packages only where each can take the action', () => {
+    const inventory: PluginInventory = {
+      targetDefinitions: [],
+      packages: {
+        on: { bindings: { codex: { id: 'on' } } },
+        off: { bindings: { codex: { id: 'off', sync: false } } },
+        cleaning: { bindings: { codex: { id: 'cleaning', sync: false, cleanup: true } } },
+        moved: { bindings: { codex: { id: 'moved', contextChanged: true } } },
+      },
+      hosts: [],
+    };
+    const pending = [
+      { name: 'on', targets: ['codex'] },
+      { name: 'elsewhere', targets: ['codex'] },
+    ];
+    expect(bulkActions(inventory, ['on', 'off', 'cleaning', 'moved'], pending)).toEqual({
+      off: ['off'],
+      on: ['on'],
+      removable: ['on', 'off', 'cleaning'],
+      picks: [{ name: 'on', targets: ['codex'] }],
+    });
+  });
+
+  it('groups the packages one source added, and leaves one alone in its source as it is', () => {
+    const repo = 'https://github.com/owner/pixel/tree/main';
+    const from = (source?: string, sourceRef?: string) => ({
+      bindings: { 'herdr-app': { id: 'x', source, sourceRef } },
+    });
+    const inventory: PluginInventory = {
+      targetDefinitions: [],
+      packages: {
+        'company-a': from(repo),
+        solo: from('https://github.com/owner/solo'),
+        'company-b': from(repo),
+        pinned: from(repo, 'v1'),
+        local: { bindings: { 'herdr-app': { id: 'local' } } },
+      },
+      hosts: [],
+    };
+    expect(groupBySource(inventory, ['company-a', 'solo', 'company-b', 'pinned', 'local'])).toEqual(
+      [['company-a', 'company-b'], ['solo'], ['pinned'], ['local']],
+    );
+  });
+
   const keyed = {
     status: 'failed',
     message: 'claude command failed',
@@ -947,6 +1078,19 @@ describe('plugins flow rules', () => {
     expect(
       ['demo', 'driver', 'powers', 'unbound', 'gone'].filter(piPackageTest(inventory)),
     ).toEqual(['driver']);
+  });
+  it('calls a package bound only to the Herdr app a Herdr package', () => {
+    const herdr: PluginInventory = {
+      packages: {
+        lantern: { bindings: { 'herdr-app': { id: 'lantern' } } },
+        mixed: { bindings: { 'herdr-app': { id: 'mixed' }, codex: { id: 'mixed@m' } } },
+        unbound: { bindings: {} },
+      },
+      hosts: [],
+    };
+    expect(['lantern', 'mixed', 'unbound', 'gone'].filter(herdrPackageTest(herdr))).toEqual([
+      'lantern',
+    ]);
   });
   it('splits a preview into what it changes and what it leaves alone, with the version each has', () => {
     const { active, idle } = reviewChanges(

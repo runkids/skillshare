@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { AlertCircle, AlertTriangle, ArrowDown, Puzzle, Search, X } from 'lucide-react';
 import { api, type AnalyzeSkill, type AnalyzeTarget } from '../../api/client';
 import AgentIcon from '../AgentIcon';
+import AgentTile from '../AgentTile';
 import Button from '../Button';
 import { Checkbox } from '../Checkbox';
 import DialogShell from '../DialogShell';
@@ -340,9 +341,7 @@ function SkillDialog({ skill, onClose }: { skill: AnalyzeSkill; onClose: () => v
               <dt>{t('analyze.detail.restrictedTo')}</dt>
               <dd className="flex flex-wrap items-center gap-1.5">
                 {skill.targets.map((name) => (
-                  <span key={name} className="ss-at">
-                    <AgentIcon target={name} size={15} />
-                  </span>
+                  <AgentTile key={name} target={name} iconSize={15} />
                 ))}
                 <span className="text-[13px] text-ink-2">{skill.targets.join(', ')}</span>
               </dd>

@@ -21,8 +21,9 @@ import { api } from '../api/client';
 import type { AvailableTarget, Extra, ExtraTarget } from '../api/client';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { useAppContext } from '../context/AppContext';
+import Switch from '../components/Switch';
 import { useToast } from '../components/Toast';
-import AgentIcon from '../components/AgentIcon';
+import AgentTile from '../components/AgentTile';
 import Button from '../components/Button';
 import MemoryNotes from '../components/memory/MemoryNotes';
 import DialogShell from '../components/DialogShell';
@@ -49,6 +50,7 @@ import {
 } from '../components/extras/ExtraEditDialogs';
 import { invalidate } from '../lib/queryEvents';
 import { segSlide } from '../lib/segSlide';
+import Tabs, { TabLink } from '../components/Tabs';
 
 /** A file name typed where a path would be wrong. */
 const isPathLike = (name: string) => /[\\/]/.test(name);
@@ -76,9 +78,7 @@ function targetOf(path: string, known: AvailableTarget[]): string | null {
 function TargetMark({ path, known }: { path: string; known: AvailableTarget[] }) {
   const name = targetOf(path, known);
   return (
-    <span className="ss-at">
-      {name ? <AgentIcon target={name} size={17} /> : <Folder size={15} className="text-ink-3" />}
-    </span>
+    <AgentTile target={name ?? undefined} fallback={<Folder size={15} className="text-ink-3" />} />
   );
 }
 
@@ -220,17 +220,12 @@ function DraftFields({
         disabled={disabled || locked}
       />
       <span className="flex w-[96px] shrink-0 items-center gap-2">
-        <button
-          type="button"
-          role="switch"
-          aria-checked={draft.flatten}
+        <Switch
+          checked={draft.flatten}
           aria-label={t('extras.flatten')}
-          className={`ss-sw ${draft.flatten ? 'on' : ''} disabled:opacity-50`}
-          onClick={() => onChange({ ...draft, flatten: !draft.flatten })}
+          onChange={() => onChange({ ...draft, flatten: !draft.flatten })}
           disabled={disabled || draft.mode === 'symlink'}
-        >
-          <i />
-        </button>
+        />
         <span className="text-xs text-ink-2">flatten</span>
       </span>
     </>
@@ -1074,32 +1069,17 @@ export default function ExtrasPage() {
         }
       />
 
-      <nav className="ss-tabs mb-7" aria-label={t('extras.tabs')}>
-        <Link
-          to="?"
-          replace
-          className={tab === 'folders' ? 'on' : ''}
-          aria-current={tab === 'folders'}
-        >
+      <Tabs className="mb-7" aria-label={t('extras.tabs')}>
+        <TabLink to="?" replace on={tab === 'folders'}>
           {t('extras.tab.folders')}
-        </Link>
-        <Link
-          to="?tab=instructions"
-          replace
-          className={tab === 'instructions' ? 'on' : ''}
-          aria-current={tab === 'instructions'}
-        >
+        </TabLink>
+        <TabLink to="?tab=instructions" replace on={tab === 'instructions'}>
           {t('extras.tab.instructions')}
-        </Link>
-        <Link
-          to="?tab=memory"
-          replace
-          className={tab === 'memory' ? 'on' : ''}
-          aria-current={tab === 'memory'}
-        >
+        </TabLink>
+        <TabLink to="?tab=memory" replace on={tab === 'memory'}>
           {t('memory.title')}
-        </Link>
-      </nav>
+        </TabLink>
+      </Tabs>
 
       {tab === 'memory' ? (
         <MemoryNotes creating={creatingNote} setCreating={setCreatingNote} />

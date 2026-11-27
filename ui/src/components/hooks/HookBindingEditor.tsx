@@ -48,6 +48,7 @@ import {
 import type { HookCatalog, HookDiagnostic } from './hookCatalog';
 import { dialogGhost } from '../../lib/exitGhost';
 import { commandSummary, formatCommand } from './hooksImport';
+import Tabs, { TabButton } from '../Tabs';
 
 interface Props {
   agent: string;
@@ -607,23 +608,11 @@ export default function HookBindingEditor({
           tabsHost,
         )
       ) : (
-        <div className="ss-tabs" role="tablist">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={!native}
-            className={native ? '' : 'on'}
-            onClick={() => pick('simple')}
-          >
+        <Tabs role="tablist">
+          <TabButton on={!native} onClick={() => pick('simple')}>
             {t('hooks.mode.simple')}
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={native}
-            className={native ? 'on' : ''}
-            onClick={() => pick('native')}
-          >
+          </TabButton>
+          <TabButton on={native} onClick={() => pick('native')}>
             {t('hooks.mode.native')}
             {errors.length > 0 && (
               <span
@@ -633,8 +622,8 @@ export default function HookBindingEditor({
                 {errors.length}
               </span>
             )}
-          </button>
-        </div>
+          </TabButton>
+        </Tabs>
       )}
       {native && stuck && (
         <div className="ss-note bad" role="alert">

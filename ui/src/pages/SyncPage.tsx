@@ -25,10 +25,13 @@ import {
 } from 'lucide-react';
 import { api, formatTokenK, type SyncResponse } from '../api/client';
 import AgentIcon from '../components/AgentIcon';
+import AgentStack from '../components/AgentStack';
+import AgentTile from '../components/AgentTile';
 import Button from '../components/Button';
 import CollectDialog from '../components/CollectDialog';
 import { Checkbox } from '../components/Input';
 import PageHeader from '../components/PageHeader';
+import Reveal from '../components/Reveal';
 import Spinner from '../components/Spinner';
 import Tooltip from '../components/Tooltip';
 import { useToast } from '../components/Toast';
@@ -60,6 +63,7 @@ import {
 } from '../components/sync/syncView';
 import FolderConflictNotice from '../components/sync/FolderConflictNotice';
 import SyncResult from '../components/sync/SyncResult';
+import SharedNameNotices from '../components/sync/SharedNameNotices';
 import UnmatchedNotices from '../components/sync/UnmatchedNotices';
 import SyncError from '../components/sync/SyncError';
 import SkillsOffDialog from '../components/targets/SkillsOffDialog';
@@ -79,6 +83,7 @@ import {
 } from '../hooks/useSharedQueries';
 import { invalidate } from '../lib/queryEvents';
 import { useSyncMatrix } from '../hooks/useSyncMatrix';
+import Switch from '../components/Switch';
 
 const ROW_ICON: Record<RowIcon, [typeof Plus, string]> = {
   add: [Plus, 'text-ok'],
@@ -248,6 +253,7 @@ export default function SyncPage() {
   const last = log.data?.entries.find((e) => !e.args?.dry_run);
   const targetList = targets.data?.targets ?? [];
   const conflicts = diff.data?.folder_conflicts ?? [];
+  const unavailableLinks = diff.data?.unavailable_source_links ?? [];
   const stopTarget = targetList.find((x) => x.name === stopping);
   const stopConflict = conflicts.find((c) => c.stop.includes(stopping));
   // Skill names and Discard all need the skills list and matrix only while skills are being added.
@@ -343,9 +349,7 @@ export default function SyncPage() {
         {g.part === 'extra' ? (
           <span className="ss-cat sm extra">{PART_ICON.extra}</span>
         ) : (
-          <span className="ss-at">
-            <AgentIcon target={g.name} size={17} />
-          </span>
+          <AgentTile target={g.name} />
         )}
         <span className="font-semibold">
           {g.part === 'mcp' ? targetLabel(g.name) : g.part === 'hooks' ? hookLabel(g.name) : g.name}
@@ -487,13 +491,7 @@ export default function SyncPage() {
           {set.targets.some((g) => failedTargets.has(g.name)) && (
             <span className="ss-tag bad shrink-0">{t('sync.result.lastFailed')}</span>
           )}
-          <span className="ss-stack">
-            {set.targets.slice(0, 5).map((g) => (
-              <span key={g.name} className="ss-at">
-                <AgentIcon target={g.name} size={15} />
-              </span>
-            ))}
-          </span>
+          <AgentStack targets={set.targets.map((g) => g.name)} max={5} iconSize={15} />
           <span className="shrink-0 text-[12px] text-ink-2">
             {t(plural('sync.set.targets', set.targets.length), { count: set.targets.length })}
           </span>
@@ -541,18 +539,13 @@ export default function SyncPage() {
                 />
               ))}
               <span className="flex items-center gap-2" title={t('sync.forceHint')}>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={force}
+                <Switch
+                  checked={force}
                   aria-labelledby="sync-force"
                   aria-describedby="sync-force-hint"
-                  className={`ss-sw ${force ? 'on' : ''} disabled:opacity-50`}
                   disabled={running}
-                  onClick={() => setForce(!force)}
-                >
-                  <i />
-                </button>
+                  onChange={setForce}
+                />
                 <span id="sync-force" className="text-[13px] font-semibold">
                   Force
                 </span>
@@ -616,6 +609,7 @@ export default function SyncPage() {
             onForce={() => setForce(true)}
           />
           <UnmatchedNotices items={outcome?.unmatched} />
+          <SharedNameNotices items={outcome?.shared_names} />
           {!!outcome?.path_overlap && (
             <div className="ss-note warn !items-center">
               <TriangleAlert size={16} />
@@ -629,6 +623,12 @@ export default function SyncPage() {
               </Link>
             </div>
           )}
+          {unavailableLinks.map((name) => (
+            <div key={name} className="ss-note warn">
+              <TriangleAlert size={16} />
+              <span>{t('sync.sourceLinkUnavailable', { name })}</span>
+            </div>
+          ))}
           {conflicts.map((c) => (
             <FolderConflictNotice
               key={c.path}
@@ -727,13 +727,12 @@ export default function SyncPage() {
                     onClick={() => setOpen((s) => toggle(s, 'inSync'))}
                   >
                     {!open.has('inSync') && (
-                      <span className="ss-stack ml-1.5">
-                        {resources.inSync.slice(0, 4).map((name) => (
-                          <span key={name} className="ss-at">
-                            <AgentIcon target={name} size={14} />
-                          </span>
-                        ))}
-                      </span>
+                      <AgentStack
+                        targets={resources.inSync}
+                        max={4}
+                        iconSize={14}
+                        className="ml-1.5"
+                      />
                     )}
                     <span className="font-semibold">
                       {t(plural('sync.inSync', resources.inSync.length), {
@@ -741,14 +740,13 @@ export default function SyncPage() {
                       })}
                     </span>
                     <span className="flex-1" />
-                    {open.has('inSync') ? (
-                      <ChevronDown size={15} className="text-ink-3" />
-                    ) : (
-                      <ChevronRight size={15} className="text-ink-3" />
-                    )}
+                    <ChevronRight
+                      size={15}
+                      className={`text-ink-3 transition-transform duration-200 ease-[cubic-bezier(.3,.7,.3,1)] motion-reduce:transition-none ${open.has('inSync') ? 'rotate-90' : ''}`}
+                    />
                   </button>
                 )}
-                {open.has('inSync') && (
+                <Reveal open={open.has('inSync')}>
                   <div className="flex flex-col px-[18px] pb-[18px] pt-4 [border-top:var(--sep)] [&>*+*]:mt-3.5 [&>*+*]:pt-3.5 [&>*+*]:[border-top:var(--sep)]">
                     {inSync.global.length > 0 && (
                       <ScopeRow
@@ -794,7 +792,7 @@ export default function SyncPage() {
                       </ScopeRow>
                     )}
                   </div>
-                )}
+                </Reveal>
               </>
             )}
           </div>

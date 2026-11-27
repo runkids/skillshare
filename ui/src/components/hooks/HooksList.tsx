@@ -2,7 +2,7 @@ import { Ellipsis } from 'lucide-react';
 import { useState } from 'react';
 import type { HookEntry, HookPlan } from '../../api/hooks';
 import { useT } from '../../i18n';
-import AgentIcon from '../AgentIcon';
+import AgentTile from '../AgentTile';
 import { bindingLines } from './hookCatalog';
 import {
   boundAgents,
@@ -12,6 +12,7 @@ import {
   syncState,
   type SyncState,
 } from './hooksView';
+import { SwitchMark } from '../Switch';
 
 interface Props {
   entries: Record<string, HookEntry>;
@@ -120,9 +121,13 @@ function CompactList({
               </span>
               <span className={`ss-stack shrink-0 ${enabled ? '' : 'opacity-45 grayscale'}`}>
                 {agents.slice(0, STACK).map((a) => (
-                  <span key={a} className="ss-at" title={keyLabel(accounts, a)} aria-hidden="true">
-                    <AgentIcon target={agentOfKey(accounts, a)} size={13} />
-                  </span>
+                  <AgentTile
+                    key={a}
+                    target={agentOfKey(accounts, a)}
+                    iconSize={13}
+                    title={keyLabel(accounts, a)}
+                    aria-hidden="true"
+                  />
                 ))}
                 {agents.length > STACK && (
                   <span className="ss-at text-[11px] font-semibold text-ink-2" aria-hidden="true">
@@ -145,9 +150,7 @@ function CompactList({
                 disabled={disabled}
                 onClick={() => onToggle(name, !enabled)}
               >
-                <span className={`ss-sw ${enabled ? 'on' : ''}`}>
-                  <i />
-                </span>
+                <SwitchMark checked={enabled} />
               </button>
               <button
                 type="button"
@@ -247,16 +250,17 @@ export default function HooksList({
               <span className="flex-1" />
               <span className={`ss-stack ${enabled ? '' : 'opacity-45 grayscale'}`}>
                 {agents.map((a, i) => (
-                  <span
+                  <AgentTile
                     key={a}
+                    target={agentOfKey(accounts, a)}
+                    iconSize={14}
                     title={`${keyLabel(accounts, a)} · ${t(`hooks.sync.${states[i]}`)}`}
-                    className={`ss-at transition-opacity ${hovered?.name === name && !hovered.agents.includes(a) ? 'opacity-25' : ''}`}
+                    className={`transition-opacity ${hovered?.name === name && !hovered.agents.includes(a) ? 'opacity-25' : ''}`}
                   >
-                    <AgentIcon target={agentOfKey(accounts, a)} size={14} />
                     <span className="sr-only">
                       {keyLabel(accounts, a)} · {t(`hooks.sync.${states[i]}`)}
                     </span>
-                  </span>
+                  </AgentTile>
                 ))}
               </span>
               <button
@@ -268,9 +272,7 @@ export default function HooksList({
                 disabled={disabled}
                 onClick={() => onToggle(name, !enabled)}
               >
-                <span className={`ss-sw ${enabled ? 'on' : ''}`}>
-                  <i />
-                </span>
+                <SwitchMark checked={enabled} />
               </button>
               <button
                 type="button"

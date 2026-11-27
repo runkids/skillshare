@@ -23,11 +23,10 @@ Validates the SEP-2640 skills server over stdio and Streamable HTTP, and its opt
 
 ## Environment
 
-Run inside the devcontainer with a fresh ssenv HOME:
+Run mdproof directly inside the devcontainer, not inside ssenv; its per-runbook isolation gives the runbook a fresh HOME:
 
 ```bash
-ssenv create mcp-serve-e2e --init
-ssenv enter mcp-serve-e2e -- mdproof --report json /workspace/ai_docs/tests/mcp_serve_runbook.md
+mdproof --report json /workspace/ai_docs/tests/mcp_serve_runbook.md
 ```
 
 Every step works from `$HOME` and points `SKILLSHARE_CONFIG` at `$HOME/mcp-serve/config.yaml`.

@@ -14,7 +14,7 @@ Use when changing React components, pages, CSS, responsive layouts, interactions
 
 | Concern | Source |
 |---|---|
-| Tokens and `ss-*` classes | `ui/src/components.css` |
+| Tokens and `ss-*` classes | `ui/src/styles/*.css` |
 | Tailwind token mapping | `ui/src/index.css` |
 | Theme selection | `ui/src/context/ThemeContext.tsx` |
 | Shared components | `ui/src/components/` |
@@ -27,7 +27,7 @@ Use when changing React components, pages, CSS, responsive layouts, interactions
 
 The dashboard supports Clean, Playful and Custom styles plus light, dark, and system modes. New UI must use CSS variables, token utilities, and existing `ss-*` classes. Never hardcode colors, radii, shadows, or fonts. Scope Playful-only pastels to the Playful theme.
 
-`python3 scripts/design/tokens.py` exports the Clean tokens from `components.css` in Design System `tokens.json` format, for mockup tools that read a design system instead of the CSS. A new Clean color variable needs a usage note in that script, or the export (and its test) fails.
+`python3 scripts/design/tokens.py` exports the Clean tokens from `styles/*.css` in Design System `tokens.json` format, for mockup tools that read a design system instead of the CSS. A new Clean color variable needs a usage note in that script, or the export (and its test) fails.
 
 Operation hooks such as `useResourceToggle` and `useResourceMove` own requests and cache reconciliation; pages and dialogs own selection, confirmation, and translated feedback. Pass React Query's signal to cancellable reads, not writes. Keep MCP preview/revision sequencing in `mcpApi.save`, not its callers.
 

@@ -191,6 +191,10 @@ export function targetWarning(warning: string): { key: string; path: string } | 
     /^Target ".*": skipped ambiguous .* variant (.+); use include\/exclude/,
   );
   if (selection) return { key: 'sync.skipped.ambiguousVariant', path: selection[1] };
+  const shared = warning.match(
+    /^Target '.*': skipped (.+) because its name and its full path name .+ are both taken$/,
+  );
+  if (shared) return { key: 'sync.skipped.hintSharedName', path: shared[1] };
   const naming = warning.match(/^Target '.*': skipped (.+) because /);
   return naming ? { key: 'sync.skipped.hintNaming', path: naming[1] } : null;
 }
@@ -198,13 +202,8 @@ export function targetWarning(warning: string): { key: string; path: string } | 
 /** Independent remedies for skills omitted from this target. */
 export function targetSkipHints(target: Target) {
   const keys = [];
-  if (target.namingSkippedSkillCount)
-    keys.push(
-      target.collisionCount
-        ? ('sync.skipped.hintMixed' as const)
-        : ('sync.skipped.hintNaming' as const),
-    );
-  else if (target.collisionCount) keys.push('sync.skipped.hint' as const);
+  if (target.namingSkippedSkillCount) keys.push('sync.skipped.hintNaming' as const);
   if (target.selectionSkippedSkillCount) keys.push('sync.skipped.hintSelection' as const);
+  if (target.sharedNameSkippedSkillCount) keys.push('sync.skipped.hintSharedName' as const);
   return keys;
 }

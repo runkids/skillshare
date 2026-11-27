@@ -29,7 +29,7 @@ interface FolderPickerProps {
   placeholder?: string;
   /** Under the field, e.g. where the install lands. */
   caption?: ReactNode;
-  /** Under the caption, like the other install options. */
+  /** The CLI flag, before the caption on the same line, like the other install options. */
   hint?: string;
 }
 
@@ -73,8 +73,13 @@ export default function FolderPicker({
         options={options}
         onChange={(v) => (v === NEW ? onNewFolder(isNew ? '' : (value ?? '')) : onChange(v))}
       />
-      {caption && <span className="hp">{caption}</span>}
-      {hint && <span className="hp font-mono">{hint}</span>}
+      {(hint || caption) && (
+        <span className="hp font-mono">
+          {hint}
+          {hint && caption && ' · '}
+          {caption}
+        </span>
+      )}
     </div>
   );
 }

@@ -1,7 +1,8 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { ChevronDown } from 'lucide-react';
-import AgentIcon from './AgentIcon';
+import AgentTile from './AgentTile';
 import Spinner from './Spinner';
+import Reveal from './Reveal';
 import { useT } from '../i18n';
 
 /**
@@ -82,8 +83,39 @@ export function SyncBox({
   children: ReactNode;
 }) {
   const t = useT();
+  const box = useRef<HTMLDivElement>(null);
+  const height = useRef(0);
+  const grow = useRef<Animation | null>(null);
+  const shown = useRef(`${tone}:${state}`);
+  // A new state swaps the box's contents at once; grow or shrink it from the old height instead of jumping.
+  // Other renders only note the height. Only this animation counts: the tint's transition runs on the box too.
+  useLayoutEffect(() => {
+    const el = box.current;
+    if (!el || typeof el.animate !== 'function') return;
+    const key = `${tone}:${state}`;
+    const running = grow.current?.playState === 'running' ? grow.current : null;
+    if (key === shown.current) {
+      if (!running) height.current = el.offsetHeight;
+      return;
+    }
+    shown.current = key;
+    // Caught midway, it starts again from where it is.
+    const from = running ? el.offsetHeight : height.current;
+    running?.cancel();
+    const to = (height.current = el.offsetHeight);
+    if (!from || from === to || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)
+      return;
+    grow.current = el.animate(
+      { height: [`${from}px`, `${to}px`], overflow: ['hidden', 'hidden'] },
+      // The curve and length of a Reveal growing open.
+      { duration: 250, easing: 'cubic-bezier(0.3, 0.7, 0.3, 1)' },
+    );
+  });
   return (
-    <div className={`ss-box flex shrink-0 flex-col gap-3 ${tone === 'warn' ? 'bg-warn-bg' : ''}`}>
+    <div
+      ref={box}
+      className={`ss-box ss-syncbox flex shrink-0 flex-col gap-3 ${tone === 'warn' ? 'bg-warn-bg' : ''}`}
+    >
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-[15px] font-semibold">{t('sync.title')}</h3>
         {tone === 'busy' ? (
@@ -132,23 +164,59 @@ export function RailGroup({
   count,
   right,
   foot,
+  fold,
   children,
 }: {
   label: string;
   count?: number;
   right?: ReactNode;
   foot?: string;
+  /** Starts as just its heading, opened from it: for a group nobody needs while working, so the rail fits the window and stays in view. */
+  fold?: boolean;
   children?: ReactNode;
 }) {
-  return (
-    <div className="flex flex-col gap-1.5 pt-3.5 [border-top:var(--sep)] first:pt-0 first:[border-top:0]">
-      <div className="flex min-h-5 items-center gap-1.5 text-xs font-semibold text-ink-3">
-        <span>{label}</span>
-        {count !== undefined && <span>· {count}</span>}
-        {right && <span className="ml-auto flex">{right}</span>}
-      </div>
+  const [open, setOpen] = useState(!fold);
+  const heading = (
+    <>
+      <span>{label}</span>
+      {count !== undefined && <span>· {count}</span>}
+    </>
+  );
+  const body = (
+    <>
       {children && <div className="flex flex-col">{children}</div>}
       {foot && <p className="text-xs leading-normal text-ink-3">{foot}</p>}
+    </>
+  );
+  return (
+    <div className="flex flex-col gap-1.5 pt-3.5 [border-top:var(--sep)] first:pt-0 first:[border-top:0]">
+      {fold ? (
+        <button
+          type="button"
+          aria-expanded={open}
+          onClick={() => setOpen((o) => !o)}
+          className="flex min-h-5 items-center gap-1.5 text-left text-xs font-semibold text-ink-3 hover:text-ink-2"
+        >
+          {heading}
+          <ChevronDown
+            size={14}
+            className={`ml-auto transition-transform duration-200 ease-[cubic-bezier(.3,.7,.3,1)] motion-reduce:transition-none ${open ? 'rotate-180' : ''}`}
+            aria-hidden="true"
+          />
+        </button>
+      ) : (
+        <div className="flex min-h-5 items-center gap-1.5 text-xs font-semibold text-ink-3">
+          {heading}
+          {right && <span className="ml-auto flex">{right}</span>}
+        </div>
+      )}
+      {fold ? (
+        <Reveal open={open}>
+          <div className="flex flex-col gap-1.5">{body}</div>
+        </Reveal>
+      ) : (
+        body
+      )}
     </div>
   );
 }
@@ -178,9 +246,11 @@ export function RailRow({
   const [open, setOpen] = useState(false);
   const head = (
     <>
-      <span className={`ss-at !h-[22px] !w-[22px] !rounded-md ${dim ? 'opacity-55' : ''}`}>
-        <AgentIcon target={target} size={13} />
-      </span>
+      <AgentTile
+        target={target}
+        iconSize={13}
+        className={`!h-[22px] !w-[22px] !rounded-md ${dim ? 'opacity-55' : ''}`}
+      />
       <span className="flex min-w-0 flex-1 flex-col gap-px">
         <span className={`truncate text-[13.5px] font-medium ${dim ? 'text-ink-2' : ''}`}>
           {label}

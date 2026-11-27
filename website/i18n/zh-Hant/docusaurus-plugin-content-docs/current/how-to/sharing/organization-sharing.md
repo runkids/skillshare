@@ -159,16 +159,17 @@ _org-skills/
 **衝突發生在同一個 target 上** — 需要處理的警告：
 
 ```
-! 1 duplicate skill names detected
+! 1 duplicate skill names detected; those skills sync under their full path name
   ui                              _team-a/ vs _team-b/
-  Rename one in SKILL.md or adjust include/exclude filters
-  1 name collision(s) excluded
+  Rename one of them (its folder and the name in its SKILL.md) or adjust include/exclude filters
 ```
+
+兩個 skill 仍會送達 target，分別是 `_team-a__ui` 與 `_team-b__ui`。
 
 **解決方式：** 使用具命名空間的名稱，或用篩選條件分流：
 
 ```yaml
-# 選項 1：在 SKILL.md 中加上命名空間
+# 選項 1：資料夾和 SKILL.md 中的名稱一起改
 name: team-a-ui
 
 # 選項 2：用篩選條件分流（global 設定）

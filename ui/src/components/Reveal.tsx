@@ -18,7 +18,7 @@ export default function Reveal({
   if (open && children !== held) setHeld(children);
   useEffect(() => {
     if (open) return;
-    // Outlasts the .ss-collapse.grow.shut transition in components.css (100ms delay + 250ms).
+    // Outlasts the .ss-collapse.grow.shut transition in styles/progress.css (100ms delay + 250ms).
     const timer = setTimeout(() => setHeld(null), 370);
     return () => clearTimeout(timer);
   }, [open]);

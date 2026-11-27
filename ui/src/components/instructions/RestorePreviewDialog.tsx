@@ -9,6 +9,7 @@ import { useT, plural } from '../../i18n';
 import { shortenHome } from '../../lib/paths';
 import { queryKeys } from '../../lib/queryKeys';
 import { instructionsErrorMessage, formatSize, lineCount, lineDiff } from './instructionsView';
+import Tabs, { TabButton } from '../Tabs';
 
 /** Restore one target, or remove one other location: shows what its file goes back to before taking the shared file off it. */
 export default function RestorePreviewDialog({
@@ -104,20 +105,13 @@ export default function RestorePreviewDialog({
           </p>
         ) : (
           <>
-            <div className="ss-tabs" role="tablist">
+            <Tabs role="tablist">
               {(['content', 'diff'] as const).map((k) => (
-                <button
-                  key={k}
-                  type="button"
-                  role="tab"
-                  aria-selected={tab === k}
-                  className={tab === k ? 'on' : ''}
-                  onClick={() => setTab(k)}
-                >
+                <TabButton key={k} on={tab === k} onClick={() => setTab(k)}>
                   {t(`instructions.restorePreview.tab.${k}`)}
-                </button>
+                </TabButton>
               ))}
-            </div>
+            </Tabs>
             <div className="ss-list !shadow-none" role="tabpanel">
               <div className="ss-lh !normal-case">
                 <span className="flex-1 text-[12.5px]">

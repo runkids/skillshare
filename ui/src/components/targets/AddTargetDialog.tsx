@@ -25,12 +25,15 @@ import { useAppContext } from '../../context/AppContext';
 import { shortenHome } from '../../lib/paths';
 import { useI18n, plural } from '../../i18n';
 import AgentIcon from '../AgentIcon';
+import AgentStack from '../AgentStack';
+import AgentTile from '../AgentTile';
 import Button from '../Button';
 import DialogShell from '../DialogShell';
 import { Checkbox } from '../Input';
 import { setupPathProblem } from '../instructions/instructionsView';
 import { mcpClient } from '../mcp/mcpView';
 import { useMcpQuery } from '../../hooks/useSharedQueries';
+import { SwitchMark } from '../Switch';
 
 const PREVIEW_COUNT = 5;
 const SHARED_ICONS = 5;
@@ -269,9 +272,7 @@ export default function AddTargetDialog({
           }}
           disabled={busy}
         >
-          <span className="ss-at">
-            <AgentIcon target={a.name} size={17} />
-          </span>
+          <AgentTile target={a.name} />
           <span className="flex min-w-0 flex-col">
             <span className="flex items-center gap-2">
               <span className="font-semibold">{a.name}</span>
@@ -340,9 +341,7 @@ export default function AddTargetDialog({
                   onClick={() => setSkills(!skills)}
                   disabled={busy}
                 >
-                  <span className={`ss-sw ${skills ? 'on' : ''}`}>
-                    <i />
-                  </span>
+                  <SwitchMark checked={skills} />
                 </button>
               </span>,
             )}
@@ -655,18 +654,14 @@ export default function AddTargetDialog({
                       {(shared.readBy?.length ?? 0) > 0 && (
                         <span className="flex flex-wrap items-center gap-2">
                           {t('targets.add.sharedReadBy')}
-                          <span
-                            className="ss-stack"
+                          <AgentStack
+                            targets={shared.readBy!}
+                            max={SHARED_ICONS}
+                            size="sm"
                             role="img"
                             aria-label={shared.readBy!.join(', ')}
                             title={shared.readBy!.join(', ')}
-                          >
-                            {shared.readBy!.slice(0, SHARED_ICONS).map((name) => (
-                              <span key={name} className="ss-at !h-5 !w-5">
-                                <AgentIcon target={name} size={11} />
-                              </span>
-                            ))}
-                          </span>
+                          />
                           {shared.readBy!.length > SHARED_ICONS && (
                             <span className="text-[12.5px] text-ink-3">
                               {t('targetDetail.skillsOff.readers.more', {

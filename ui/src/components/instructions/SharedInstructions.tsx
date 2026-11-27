@@ -22,7 +22,8 @@ import type {
   SharedInstructionsFile,
   SharedInstructionsTarget,
 } from '../../api/client';
-import AgentIcon from '../AgentIcon';
+import AgentStack from '../AgentStack';
+import AgentTile from '../AgentTile';
 import Button from '../Button';
 import { Checkbox } from '../Checkbox';
 import ConfirmDialog from '../ConfirmDialog';
@@ -62,6 +63,7 @@ import {
 } from './instructionsView';
 import { invalidate } from '../../lib/queryEvents';
 import { bulkGhost } from '../../lib/exitGhost';
+import Switch from '../Switch';
 
 const PREVIEW_LINES = 8;
 type Pending = {
@@ -185,13 +187,12 @@ export default function SharedInstructions({
                     </span>
                     <span className="flex items-center gap-2">
                       {using.length > 0 && (
-                        <span className="ss-stack" aria-hidden="true">
-                          {using.slice(0, 5).map((tg) => (
-                            <span key={tg.name} className="ss-at !h-5 !w-5">
-                              <AgentIcon target={tg.name} size={11} />
-                            </span>
-                          ))}
-                        </span>
+                        <AgentStack
+                          targets={using.map((tg) => tg.name)}
+                          max={5}
+                          size="sm"
+                          aria-hidden="true"
+                        />
                       )}
                       <span className="text-[12px] text-ink-3">
                         {t(plural('instructions.shared.count', using.length), {
@@ -400,9 +401,7 @@ function FilePanel({
       <div className="ss-list">
         {rows.map((r) => (
           <div key={r.target} className="ss-r !min-h-11 !gap-2.5 !py-1.5">
-            <span className="ss-at !h-6 !w-6">
-              <AgentIcon target={r.target} size={14} />
-            </span>
+            <AgentTile target={r.target} size="md" />
             <span className="min-w-0 flex-1 truncate font-mono text-[13px] font-semibold text-ink">
               {r.target}
             </span>
@@ -715,9 +714,7 @@ function FilePanel({
                     setSelected(next);
                   }}
                 />
-                <span className="ss-at">
-                  <AgentIcon target={tg.name} size={17} />
-                </span>
+                <AgentTile target={tg.name} />
                 {/* Not a target of its own: where it comes from is on hover, not a line on every row. */}
                 <span className="w-[110px] shrink-0">
                   {tg.rider_of ? (
@@ -785,18 +782,13 @@ function FilePanel({
                 <span className="w-[90px] shrink-0">
                   {on && a && <span className={`ss-st ${statusTone(a.status)}`}>{a.status}</span>}
                 </span>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={on}
+                <Switch
+                  checked={on}
                   aria-label={label}
                   title={label}
-                  className={`ss-sw ${on ? 'on' : ''} disabled:opacity-50`}
                   disabled={busy || Boolean(tg.same_as)}
-                  onClick={() => toggle(tg)}
-                >
-                  <i />
-                </button>
+                  onChange={() => toggle(tg)}
+                />
               </div>
               {held[tg.name] && (
                 <div className="ss-note bad mr-4 mb-3 ml-[82px]" role="alert">
@@ -885,14 +877,11 @@ function FilePanel({
           />
         </div>
       ) : (
-        <div className="ss-empty !gap-1.5 !p-[26px]">
-          <span className="text-[13.5px] font-semibold text-ink">
-            {t('instructions.locations.empty.title')}
-          </span>
-          <span className="max-w-[460px] text-[12.5px] leading-normal text-ink-3">
-            {t('instructions.locations.empty.description', { name })}
-          </span>
-        </div>
+        <EmptyState
+          compact
+          title={t('instructions.locations.empty.title')}
+          description={t('instructions.locations.empty.description', { name })}
+        />
       )}
 
       {chosen.length > 0 && (

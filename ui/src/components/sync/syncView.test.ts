@@ -739,17 +739,15 @@ describe('failureExplanation', () => {
 describe('skippedHintKeys', () => {
   it.each([
     [{ skippedCount: 2 }, ['sync.skipped.hintSelection']],
-    [{ collisionCount: 1 }, ['sync.skipped.hint']],
     [{ namingSkippedCount: 1 }, ['sync.skipped.hintNaming']],
-    [{ collisionCount: 1, namingSkippedCount: 1 }, ['sync.skipped.hintMixed']],
+    [{ skippedCount: 1, sharedNameSkippedCount: 1 }, ['sync.skipped.hintSharedName']],
     [
       {
-        skippedCount: 5,
-        collisionCount: 1,
+        skippedCount: 3,
         namingSkippedCount: 1,
         items: [{ skill: '(skill selection)', action: 'skip' }],
       },
-      ['sync.skipped.hintMixed', 'sync.skipped.hintSelection'],
+      ['sync.skipped.hintNaming', 'sync.skipped.hintSelection'],
     ],
   ])('explains %o with %s', (counts, key) => {
     expect(skippedHintKeys({ target: 'codex', items: [], ...counts })).toEqual(key);

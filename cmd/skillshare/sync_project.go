@@ -76,11 +76,14 @@ func cmdSyncProject(root string, dryRun, force, jsonOutput, quiet bool) (syncLog
 	}
 	if spinner != nil {
 		spinner.Stop()
-		reportCollisions(discoveredSkills, runtime.targets)
+		reportCollisions(discoveredSkills, sync.PerSkillTargets(runtime.targets, ""))
 	}
 	sourceIncomplete := walk.Follow.Incomplete()
 	linkWarnings := append(metaWarnings, sync.SourceLinkWarnings(walk, sourceIncomplete)...)
-	if !jsonOutput {
+	if jsonOutput {
+		// Text output reports shared names above, with how to fix them.
+		linkWarnings = append(linkWarnings, sync.SharedNameWarnings(discoveredSkills, runtime.targets, "")...)
+	} else {
 		for _, w := range linkWarnings {
 			ui.Warning("%s", w)
 		}

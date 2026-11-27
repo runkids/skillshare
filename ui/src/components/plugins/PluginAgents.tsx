@@ -146,6 +146,7 @@ export default function PluginAgents({ inventory, ready, refreshing, disabled, o
               label={t('plugins.hostMissing')}
               count={byStatus('missing').length}
               foot={t('plugins.hostMissingHelp')}
+              fold
             >
               {byStatus('missing').map((h) =>
                 h.errorArgs ? (

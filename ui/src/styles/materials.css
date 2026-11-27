@@ -1,0 +1,114 @@
+@layer components {
+  /* Clean materials: only layers that float over scrolling content are frosted glass (menus, the
+   shortcut hint, the sticky toolbar); the page, cards and sidebar stay solid. The toolbar paints its
+   glass on a ::before so it is not a backdrop root: a menu opened inside it still blurs the page. */
+  :root:not([data-theme='playful']) .ss-stickbar {
+    background: none;
+  }
+  /* Keep the glass continuous through the lower edge so scrolled rows stay blurred. */
+  :root:not([data-theme='playful']) .ss-stickbar.stuck {
+    box-shadow: none;
+  }
+  :root:not([data-theme='playful']) .ss-stickbar::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: var(--glass-bar);
+    /* Prefixed first: the build's CSS minifier keeps only the last of the pair when the value is a
+       var(), and Chrome reads only the unprefixed one. */
+    -webkit-backdrop-filter: var(--mat);
+    backdrop-filter: var(--mat);
+  }
+  :root:not([data-theme='playful']) :is(.ss-menu, .ss-hud) {
+    background: var(--glass-menu);
+    border-color: transparent;
+    -webkit-backdrop-filter: var(--mat-menu);
+    backdrop-filter: var(--mat-menu);
+  }
+  :root:not([data-theme='playful']) .ss-menu {
+    padding: 6px;
+    border-radius: 14px;
+  }
+  /* Clean segmented controls: the selected surface is one pill that slides between segments (segSlide). */
+  :root:not([data-theme='playful']) .ss-seg[data-slide] {
+    position: relative;
+    isolation: isolate;
+  }
+  :root:not([data-theme='playful']) .ss-seg[data-slide]::before {
+    content: '';
+    position: absolute;
+    z-index: -1;
+    top: 0;
+    left: 0;
+    width: var(--seg-w);
+    height: var(--seg-h);
+    transform: translate(var(--seg-x), var(--seg-y));
+    border-radius: 7px;
+    background: var(--surface);
+    box-shadow: 0 1px 2px rgba(20, 19, 18, 0.12);
+  }
+  :root:not([data-theme='playful']) .ss-seg[data-slide='move']::before {
+    transition:
+      transform 0.43s var(--spring),
+      width 0.43s var(--spring),
+      height 0.43s var(--spring);
+  }
+  :root:not([data-theme='playful']) .ss-seg[data-slide] > .on {
+    background: transparent;
+    box-shadow: none;
+  }
+  /* In dark mode the surface is barely lighter than the track, so the selected pill takes the
+     control border colour instead. The theme editor's preview can show the other mode than the
+     page; its own mode decides there. */
+  :root:not([data-theme='playful']).dark .ss-seg > *.on,
+  :root:not([data-theme='playful']).dark .ss-seg[data-slide]::before,
+  :root:not([data-theme='playful']) .ss-mini[data-mode='dark'] .ss-seg > *.on,
+  :root:not([data-theme='playful']) .ss-mini[data-mode='dark'] .ss-seg[data-slide]::before {
+    background: var(--line-2);
+  }
+  :root:not([data-theme='playful']) .ss-mini[data-mode='light'] .ss-seg > *.on,
+  :root:not([data-theme='playful']) .ss-mini[data-mode='light'] .ss-seg[data-slide]::before {
+    background: var(--surface);
+  }
+  :root:not([data-theme='playful']) .ss-mini[data-mode] .ss-seg[data-slide] > .on {
+    background: transparent;
+  }
+  :root:not([data-theme='playful']).dark .ss-seg[data-slide] > .on {
+    background: transparent;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    :root:not([data-theme='playful']) .ss-seg[data-slide='move']::before {
+      transition: none;
+    }
+  }
+  /* Clean tabs: the underline is one bar that slides between tabs (segSlide), also from page to page
+     when the rows share a data-slide-key. It sits where the selected tab's own border would. */
+  :root:not([data-theme='playful']) .ss-tabs[data-slide] {
+    position: relative;
+  }
+  :root:not([data-theme='playful']) .ss-tabs[data-slide]::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: var(--seg-w);
+    height: 2px;
+    transform: translate(var(--seg-x), calc(var(--seg-y) + var(--seg-h) - 2px));
+    background: var(--pri);
+    pointer-events: none;
+  }
+  :root:not([data-theme='playful']) .ss-tabs[data-slide='move']::before {
+    transition:
+      transform 0.43s var(--spring),
+      width 0.43s var(--spring);
+  }
+  :root:not([data-theme='playful']) .ss-tabs[data-slide] > .on {
+    border-bottom-color: transparent;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    :root:not([data-theme='playful']) .ss-tabs[data-slide='move']::before {
+      transition: none;
+    }
+  }
+}

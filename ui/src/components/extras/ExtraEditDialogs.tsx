@@ -12,6 +12,7 @@ import Button from '../Button';
 import DialogShell from '../DialogShell';
 import { Select } from '../Input';
 import FilterSection from '../targets/FilterSection';
+import Switch from '../Switch';
 
 /** <folder>/<file>, for a single-file extra's source or target file, with the separator the folder already uses (a backslash on Windows). */
 export const joinFile = (dir: string, file: string) => {
@@ -291,17 +292,12 @@ export function EditTargetDialog({
           <div className="ss-fld w-[110px]">
             <span className="text-[13px] font-semibold">{t('extras.flatten')}</span>
             <span className="flex h-9 items-center gap-2">
-              <button
-                type="button"
-                role="switch"
-                aria-checked={flat}
+              <Switch
+                checked={flat}
                 aria-label={t('extras.flatten')}
-                className={`ss-sw ${flat ? 'on' : ''} disabled:opacity-50`}
-                onClick={() => change({ flatten: !flatten })}
+                onChange={() => change({ flatten: !flatten })}
                 disabled={saving || mode === 'symlink'}
-              >
-                <i />
-              </button>
+              />
               <span className="text-xs text-ink-2">
                 {t(flat ? 'extras.flattenOn' : 'extras.flattenOff')}
               </span>

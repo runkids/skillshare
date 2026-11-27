@@ -37,7 +37,7 @@ target 會儲存這個選擇。下一次 `sync plugins` 會移除其受管理的
 | Command | Behavior |
 |---|---|
 | `list` | 已設定的綁定與原生安裝狀態；在終端機中提供互動式管理介面 |
-| `discover SOURCE` | 檢查本機目錄、`owner/repo`，或 HTTPS Git repository |
+| `discover SOURCE` | 檢查本機資料夾、`owner/repo`、HTTPS Git 儲存庫、GitHub 套件資料夾或 Herdr mod 連結 |
 | `add [SOURCE]` | 選擇並安裝整個 plugin 及其 target adapter，或透過 Pi 安裝 `npm:` 套件 |
 | `import [NATIVE-ID]` | 採用既有安裝，不重新安裝也不啟用 |
 | `unimport NAME` | 解除明確指定目標的本機匯入安裝，保留共用來源宣告 |
@@ -141,9 +141,19 @@ marketplace registry：
 
 ### Herdr app {#herdr-app}
 
-`herdr-app` target 透過複製檔案來安裝 Herdr mod 與啟動器應用程式。它只支援 global，不會執行 `herdr-app` 或套件裡的程式碼。Herdr 的主目錄是 `$HERDR_APP_HOME`，未設定時為 `~/.config/herdr-app`。
+`herdr-app` target 透過複製檔案來安裝 Herdr mod 與啟動器應用程式。它只支援 global，Skillshare 不會直接執行套件裡的程式碼。Herdr 的主目錄是 `$HERDR_APP_HOME`，未設定時為 `~/.config/herdr-app`。
 
-Skillshare 只在沒有 plugin manifest、也沒有 marketplace catalog 的 source 中尋找 Herdr 內容。source 根目錄下的每個 `mods/<id>/main.js` 是一個 plugin，安裝到 `<herdr home>/mods/<id>`。更深層資料夾中的 mod 不會被找到。同時有 manifest 與根目錄 `mods/` 資料夾的 source，仍照原本的方式探索。 只有一般 `package.json` 的 source 也可透過 `--entry` 新增啟動器。
+在沒有 plugin manifest 或 marketplace catalog 的來源中，Skillshare 會找根目錄下的 `mods/<id>/main.js`，將 mod 安裝到 `<herdr home>/mods/<id>`。如果套件在大型儲存庫的子目錄，貼上包含 `mods/` 的 GitHub 資料夾連結；若只想選一個 mod，貼上它的 `mods/<id>/main.js` 連結。更新會沿用連結中的 ref，也可以用 `--source-ref` 指定其他 ref。
+
+在 Dashboard 的**儲存庫或資料夾**欄位貼上連結並搜尋。安裝啟動器時，另外在 **Herdr 啟動器執行檔**填入路徑；安裝 mod 時留空。啟動器也可使用一般的 `package.json`。
+
+找到多個 Herdr mod 時，可以多選或全選後一起預覽。每個 mod 獨立管理，不會匯入版面或主題。Herdr 根據 `place` 自動寫入的版面項目不會隨 mod 一起刪除。
+
+單獨新增一個在 `mod.json` 中宣告 `left`、`right`、`top` 或 `bottom` 的 mod 時，預設勾選**在 Herdr 顯示 mod 面板**。保持 Herdr 開啟，套用後會在目前版面的副本顯示面板，重裝也一樣。
+
+安裝官方 Skillshare mod 時，選擇 **在 Herdr 顯示 Skillshare 面板**可以預覽加到目前版面副本的內容。開啟 Herdr 後套用，會切換到包含按鈕和面板的副本，不更動原版面。
+
+取消勾選 Herdr 後同步會卸載 mod，但保留套件紀錄和版面副本，以便重新安裝。**移除**也會刪除 Skillshare 記錄的未修改副本，必要時先把視窗切到沒有這個 mod 面板的版面。改過或沒有紀錄的版面會保留。 之後從這個副本再複製出的副本也會顯示它的面板。停用時如果正在使用其中一個，開啟的 Herdr 會切到最新一個沒有這個 mod 面板的版面。重新勾選並同步時，如果視窗還停在 Skillshare 切過去的版面，等那個副本顯示的 mod 都安裝好，就會切回原本離開的副本。**移除**時如果留下的其他 mod 的副本是從它的副本複製出來的，那個副本會保留，裡面仍有已移除 mod 的面板。
 
 指向 mod 資料夾外部的連結不會被複製。
 
@@ -305,7 +315,7 @@ skillshare plugin import npm:my-pi-package --from pi --name my-package --no-tui
 
 ## Refs and explicit entries
 
-**Add plugin** 中的進階選項可接受選填的 Git ref 與 OpenCode entry。一般的引導流程可以留空。
+**Add plugin** 在來源旁可填選填的 Git ref；偵測不到 OpenCode entry 時，可在 OpenCode 那一列填寫。一般的引導流程可以留空。
 終端機精靈接受相同的旗標；自動化流程則可以使用：
 
 ```bash

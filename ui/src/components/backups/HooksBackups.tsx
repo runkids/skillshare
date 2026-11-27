@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Webhook } from 'lucide-react';
 import type { HookBackup } from '../../api/hooks';
-import AgentIcon from '../AgentIcon';
+import AgentTile from '../AgentTile';
 import Button from '../Button';
 import EmptyState from '../EmptyState';
 import { PageSkeleton } from '../Skeleton';
@@ -50,9 +50,7 @@ export default function HooksBackups() {
         [...groups.values()].map((group) => (
           <div key={`${group[0].target}\n${group[0].path}`} className="ss-list">
             <div className="ss-gh !min-h-12">
-              <span className="ss-at">
-                <AgentIcon target={group[0].target} size={16} />
-              </span>
+              <AgentTile target={group[0].target} iconSize={16} />
               <span className="font-semibold">{hookLabel(group[0].target)}</span>
               <span className="min-w-0 flex-1 truncate font-mono text-ink-3" title={group[0].path}>
                 {shortenHome(group[0].path)}

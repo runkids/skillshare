@@ -50,6 +50,18 @@ func (s *Service) validate(r Request) error {
 	if r.Name != "" && !namePattern.MatchString(r.Name) {
 		return fmt.Errorf("invalid package name")
 	}
+	if len(r.Names) != 0 {
+		if r.Name != "" || r.All || r.Action != "remove" && r.Action != "enable" && r.Action != "disable" {
+			return fmt.Errorf("several package names are only supported for remove, enable or disable")
+		}
+		seen := make(map[string]bool, len(r.Names))
+		for _, name := range r.Names {
+			if !namePattern.MatchString(name) || seen[name] {
+				return fmt.Errorf("invalid or duplicate package name %q", name)
+			}
+			seen[name] = true
+		}
+	}
 	if r.Source != "" && r.Action != "add" {
 		return fmt.Errorf("source is only valid for add")
 	}
@@ -76,8 +88,24 @@ func (s *Service) validate(r Request) error {
 		}
 		seen[t] = true
 	}
+	if len(r.Plugins) != 0 {
+		if r.Action != "add" || r.Plugin != "" || r.Name != "" || r.Entry != "" || r.HerdrPanel || isNpmSource(r.Source) || !slices.Equal(r.Targets, []string{"herdr-app"}) {
+			return fmt.Errorf("batch selection only supports adding Herdr mods by their source names")
+		}
+		names := make(map[string]bool, len(r.Plugins))
+		for _, name := range r.Plugins {
+			key := strings.ToLower(name)
+			if !namePattern.MatchString(name) || names[key] {
+				return fmt.Errorf("invalid or duplicate Herdr mod name %q", name)
+			}
+			names[key] = true
+		}
+	}
 	if r.Action == "add" && r.Source == "" {
 		return fmt.Errorf("add requires a source")
+	}
+	if r.HerdrPanel && (r.Action != "add" || r.Entry != "" || isNpmSource(r.Source) || !slices.Equal(r.Targets, []string{"herdr-app"})) {
+		return fmt.Errorf("Herdr layout placement requires adding one mod to Herdr app")
 	}
 	if r.Action == "add" && isNpmSource(r.Source) {
 		if !validNpmSource(r.Source) {
@@ -110,7 +138,7 @@ func (s *Service) validate(r Request) error {
 	if r.Action == "update" && r.Name == "" && !r.All {
 		return fmt.Errorf("update requires a package name or --all")
 	}
-	if (r.Action == "unimport" || r.Action == "remove" || r.Action == "enable" || r.Action == "disable") && r.Name == "" {
+	if (r.Action == "unimport" || r.Action == "remove" || r.Action == "enable" || r.Action == "disable") && r.Name == "" && len(r.Names) == 0 {
 		return fmt.Errorf("%s requires a package name", r.Action)
 	}
 	if r.Action == "unimport" && len(r.Targets) == 0 {
@@ -244,117 +272,141 @@ func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval) (
 		if err != nil {
 			return nil, err
 		}
-		var candidate *Candidate
-		for _, c := range discovered.Candidates {
-			if c.Name == r.Plugin || (r.Plugin == "" && len(discovered.Candidates) == 1) {
-				cc := c
-				candidate = &cc
-				break
-			}
+		selectors := r.Plugins
+		if len(selectors) == 0 {
+			selectors = []string{r.Plugin}
 		}
-		if candidate == nil {
-			return nil, fmt.Errorf("choose a plugin from this source using --plugin")
-		}
-		c := *candidate
-		name := r.Name
-		if name == "" {
-			name = c.Name
-		}
-		pack, exists := d.packages[name]
-		// The recorded source is where Agents are bound from later. It does not stop one Agent
-		// from using another distribution under the same name.
-		otherSource := pack.Source != "" && (pack.Source != discovered.Source || pack.Plugin != c.Name || pack.SourceRef != discovered.SourceRef)
-		if len(r.Targets) == 0 {
-			// Only record the package; Agents are bound later from the same source.
-			change := Change{Name: name, Action: "record", Components: c.Components, Message: "Add to Skillshare only; choose Agents later.", Binding: Binding{Source: discovered.Source, SourceRef: discovered.SourceRef, Plugin: c.Name, Entry: r.Entry, Version: c.Version}}
-			if slices.Contains(c.Targets, "codex") {
-				change.Logo = c.TargetInfo["codex"].Logo
+		for _, selector := range selectors {
+			idx := slices.IndexFunc(discovered.Candidates, func(c Candidate) bool {
+				return c.Name == selector || (selector == "" && len(discovered.Candidates) == 1)
+			})
+			if idx < 0 {
+				if len(r.Plugins) != 0 {
+					return nil, fmt.Errorf("Herdr mod %q was not found in the source; find plugins again", selector)
+				}
+				return nil, fmt.Errorf("choose a plugin from this source using --plugin")
 			}
-			if c.Problem != "" || len(c.Targets) == 0 {
-				change.Action = "blocked"
-				change.Message = c.Problem
-				if change.Message == "" {
-					change.Message = "No Agent can use this plugin."
-				}
-			} else if otherSource {
-				change.Action = "blocked"
-				change.Message = "Package already uses a different source; choose another name or remove it first."
-			} else if exists {
-				change.Action = "noop"
+			c := discovered.Candidates[idx]
+			if len(r.Plugins) != 0 && c.TargetInfo["herdr-app"].Entry != "" {
+				return nil, fmt.Errorf("%q is a Herdr launcher, not a mod", c.Name)
 			}
-			p.Blocked = change.Action == "blocked"
-			p.Changes = append(p.Changes, change)
-		}
-		for _, target := range slices.Compact(slices.Sorted(slices.Values(r.Targets))) {
-			agent := s.agentOf(target)
-			// Name the plugin so native marketplace lists show what Skillshare added.
-			digest := hash([]byte(s.ConfigPath + "\x00" + discovered.Source + "\x00" + c.Name + "\x00" + target))[:16]
-			market := "skillshare-" + marketUnsafe.ReplaceAllString(c.Name, "-") + "-" + digest
-			b := Binding{ID: c.Name + "@" + market, Source: discovered.Source, SourceRef: discovered.SourceRef, Commit: discovered.Commit, Plugin: c.Name, Digest: discovered.Digest, Version: c.TargetInfo[agent].Version, Components: c.TargetInfo[agent].Components}
-			switch agent {
-			case "cursor", "antigravity", "antigravity-cli", "copilot", "grok", "kimi", "hermes", "devin":
-				b.ID = c.Name
-			case "herdr-app":
-				b.ID, b.Entry = c.Name, c.TargetInfo[agent].Entry
-			case "omp":
-				// omp caps marketplace names at 64 characters, so the plugin name is left out.
-				b.ID = c.Name + "@skillshare-" + digest
-			case "pi":
-				b.ID = filepath.Join(s.snapshotPath(b, target), "content", filepath.FromSlash(c.pathFor(agent)))
-			case "opencode":
-				b.Entry = c.Entry
-				path := filepath.Join(s.snapshotPath(b, target), "content", filepath.FromSlash(c.pathFor(agent)))
-				if !openCode2(host(target).Version) {
-					path = filepath.Join(path, c.Entry)
-				}
-				b.ID = fileURL(path)
+			name := r.Name
+			if name == "" {
+				name = c.Name
 			}
-			recipe := declareBinding(b)
-			change := Change{Name: name, Target: target, ID: b.ID, Binding: b, Action: "install", Components: b.Components, recipe: &recipe, sourceVersion: &c.Version}
-			if c.Problem != "" || !slices.Contains(c.Targets, agent) {
-				change.Action = "blocked"
-				change.Message = c.Problem
-				if info, ok := c.TargetInfo[agent]; ok && info.Problem != "" {
-					change.Message = info.Problem
+			pack, exists := d.packages[name]
+			// The recorded source is where Agents are bound from later. It does not stop one Agent
+			// from using another distribution under the same name.
+			otherSource := pack.Source != "" && (pack.Source != discovered.Source || pack.Plugin != c.Name || pack.SourceRef != discovered.SourceRef)
+			if len(r.Targets) == 0 {
+				// Only record the package; Agents are bound later from the same source.
+				change := Change{Name: name, Action: "record", Components: c.Components, Message: "Add to Skillshare only; choose Agents later.", Binding: Binding{Source: discovered.Source, SourceRef: discovered.SourceRef, Plugin: c.Name, Entry: r.Entry, Version: c.Version}}
+				if slices.Contains(c.Targets, "codex") {
+					change.Logo = c.TargetInfo["codex"].Logo
 				}
-				if change.Message == "" {
-					change.Message = "No native manifest for this target; plugin components will not be silently converted or omitted."
-				}
-			}
-			if agent == "opencode" {
-				problem := c.TargetInfo[agent].openCodeV1Error
-				if openCode2(host(target).Version) {
-					problem = c.TargetInfo[agent].openCodeV2Error
-				}
-				if problem != "" {
-					change.Action, change.Message = "blocked", problem
-				}
-			}
-			if old, ok := d.packages[name].Bindings[target]; ok && old.ID != "" && !old.Cleanup {
-				if old.Source == b.Source && old.Plugin == b.Plugin && old.SourceRef == b.SourceRef || d.intent[name].Bindings[target].Source == b.Source && d.intent[name].Bindings[target].Plugin == b.Plugin && d.intent[name].Bindings[target].SourceRef == b.SourceRef {
-					change.Binding = old
-					change.ID = old.ID
-					if _, ok := find(target, old.ID); ok && change.Action != "blocked" {
-						change.Action = "noop"
-					}
-				} else {
+				if c.Problem != "" || len(c.Targets) == 0 {
 					change.Action = "blocked"
-					change.Message = "Package already has a different binding for this target; choose another name or remove it first."
+					change.Message = c.Problem
+					if change.Message == "" {
+						change.Message = "No Agent can use this plugin."
+					}
+				} else if otherSource {
+					change.Action = "blocked"
+					change.Message = "Package already uses a different source; choose another name or remove it first."
+				} else if exists {
+					change.Action = "noop"
+				}
+				p.Blocked = change.Action == "blocked"
+				p.Changes = append(p.Changes, change)
+			}
+			for _, target := range slices.Compact(slices.Sorted(slices.Values(r.Targets))) {
+				agent := s.agentOf(target)
+				// Name the plugin so native marketplace lists show what Skillshare added.
+				digest := hash([]byte(s.ConfigPath + "\x00" + discovered.Source + "\x00" + c.Name + "\x00" + target))[:16]
+				market := "skillshare-" + marketUnsafe.ReplaceAllString(c.Name, "-") + "-" + digest
+				b := Binding{ID: c.Name + "@" + market, Source: discovered.Source, SourceRef: discovered.SourceRef, Commit: discovered.Commit, Plugin: c.Name, Digest: discovered.Digest, Version: c.TargetInfo[agent].Version, Components: c.TargetInfo[agent].Components}
+				switch agent {
+				case "cursor", "antigravity", "antigravity-cli", "copilot", "grok", "kimi", "hermes", "devin":
+					b.ID = c.Name
+				case "herdr-app":
+					b.ID, b.Entry = c.Name, c.TargetInfo[agent].Entry
+				case "omp":
+					// omp caps marketplace names at 64 characters, so the plugin name is left out.
+					b.ID = c.Name + "@skillshare-" + digest
+				case "pi":
+					b.ID = filepath.Join(s.snapshotPath(b, target), "content", filepath.FromSlash(c.pathFor(agent)))
+				case "opencode":
+					b.Entry = c.Entry
+					path := filepath.Join(s.snapshotPath(b, target), "content", filepath.FromSlash(c.pathFor(agent)))
+					if !openCode2(host(target).Version) {
+						path = filepath.Join(path, c.Entry)
+					}
+					b.ID = fileURL(path)
+				}
+				recipe := declareBinding(b)
+				change := Change{Name: name, Target: target, ID: b.ID, Binding: b, Action: "install", Components: b.Components, recipe: &recipe, sourceVersion: &c.Version}
+				if c.Problem != "" || !slices.Contains(c.Targets, agent) {
+					change.Action = "blocked"
+					change.Message = c.Problem
+					if info, ok := c.TargetInfo[agent]; ok && info.Problem != "" {
+						change.Message = info.Problem
+					}
+					if change.Message == "" {
+						change.Message = "No native manifest for this target; plugin components will not be silently converted or omitted."
+					}
+				}
+				if agent == "opencode" {
+					problem := c.TargetInfo[agent].openCodeV1Error
+					if openCode2(host(target).Version) {
+						problem = c.TargetInfo[agent].openCodeV2Error
+					}
+					if problem != "" {
+						change.Action, change.Message = "blocked", problem
+					}
+				}
+				if old, ok := d.packages[name].Bindings[target]; ok && old.ID != "" && !old.Cleanup {
+					if old.Source == b.Source && old.Plugin == b.Plugin && old.SourceRef == b.SourceRef || d.intent[name].Bindings[target].Source == b.Source && d.intent[name].Bindings[target].Plugin == b.Plugin && d.intent[name].Bindings[target].SourceRef == b.SourceRef {
+						change.Binding = old
+						change.ID = old.ID
+						if _, ok := find(target, old.ID); ok && change.Action != "blocked" {
+							change.Action = "noop"
+						}
+					} else {
+						change.Action = "blocked"
+						change.Message = "Package already has a different binding for this target; choose another name or remove it first."
+					}
+				}
+				if len(r.Plugins) != 0 && otherSource {
+					change.Action = "blocked"
+					change.Message = "Package already uses a different source; add this mod individually with a different name."
+				}
+				if change.Action == "install" {
+					change = existingNativeSourceChange(change, host(target).Installed, agent, c.TargetInfo[agent].Marketplace, d.intent[name].Bindings[target].Source, d.packages[name].Bindings[target])
+				}
+				if _, ok := find(target, change.ID); ok && change.Action == "install" && !(d.packages[name].Bindings[target].Cleanup && d.packages[name].Bindings[target].ID == change.ID) {
+					change.Action = "blocked"
+					change.Message = "A native installation already uses this identity; import it explicitly instead of replacing it."
+					change.MessageKey = "plugins.note.identityInUse"
+					if agent == "herdr-app" {
+						change.Message = "A Herdr mod or launcher named " + change.ID + " already exists and is not managed by Skillshare; move it aside before adding"
+						change.MessageKey, change.MessageArgs = "plugins.note.herdrIdentityInUse", map[string]string{"id": change.ID}
+					}
+				}
+				appendChange(change)
+			}
+			if r.HerdrPanel && !p.Blocked {
+				switch dock := c.TargetInfo["herdr-app"].HerdrDock; {
+				case supportsHerdrPanel(r.Source, c.Name):
+					p.HerdrPanel, err = s.previewHerdrPanel(ctx)
+				case dock != nil:
+					p.HerdrPanel, err = s.previewHerdrPlacement(ctx, c.Name, *dock)
+				default:
+					err = fmt.Errorf("mod %q does not declare a supported Herdr dock", c.Name)
+				}
+				if err != nil {
+					return nil, err
 				}
 			}
-			if change.Action == "install" {
-				change = existingNativeSourceChange(change, host(target).Installed, agent, c.TargetInfo[agent].Marketplace, d.intent[name].Bindings[target].Source, d.packages[name].Bindings[target])
-			}
-			if _, ok := find(target, change.ID); ok && change.Action == "install" && !(d.packages[name].Bindings[target].Cleanup && d.packages[name].Bindings[target].ID == change.ID) {
-				change.Action = "blocked"
-				change.Message = "A native installation already uses this identity; import it explicitly instead of replacing it."
-				change.MessageKey = "plugins.note.identityInUse"
-				if agent == "herdr-app" {
-					change.Message = "A Herdr mod or launcher named " + change.ID + " already exists and is not managed by Skillshare; move it aside before adding"
-					change.MessageKey, change.MessageArgs = "plugins.note.herdrIdentityInUse", map[string]string{"id": change.ID}
-				}
-			}
-			appendChange(change)
 		}
 	} else if r.Action == "import" {
 		installed, ok := find(r.From, r.Plugin)
@@ -410,9 +462,14 @@ func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval) (
 
 		appendChange(change)
 	} else {
+		// The packages the request names; none named means every package.
+		picked := r.Names
 		if r.Name != "" {
-			if _, ok := d.packages[r.Name]; !ok {
-				return nil, fmt.Errorf("plugin package %q not found", r.Name)
+			picked = []string{r.Name}
+		}
+		for _, name := range picked {
+			if _, ok := d.packages[name]; !ok {
+				return nil, fmt.Errorf("plugin package %q not found", name)
 			}
 		}
 		names := make([]string, 0, len(d.packages))
@@ -421,7 +478,7 @@ func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval) (
 		}
 		slices.Sort(names)
 		for _, name := range names {
-			if r.Name != "" && r.Name != name {
+			if len(picked) > 0 && !slices.Contains(picked, name) {
 				continue
 			}
 			if r.Action == "unimport" {
@@ -639,6 +696,40 @@ func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval) (
 			}
 		}
 	}
+	if !p.Blocked && (r.Action == "remove" || r.Action == "sync") {
+		removing := map[string]bool{}
+		for _, c := range p.Changes {
+			if r.Action == "remove" && c.Target == "herdr-app" && c.ID != "" && (c.Action == "remove" || c.Action == "forget") {
+				removing[c.Name] = true
+			}
+		}
+		plan := newHerdrLayoutPlan(d)
+		orderHerdrLayoutChanges(p.Changes, plan,
+			func(c Change) bool {
+				return c.ID != "" && plan.owns(c.Name) && (r.Action == "sync" || removing[c.Name])
+			},
+			func(c Change) bool { return r.Action != "sync" || !c.Binding.Selected() })
+		for i := range p.Changes {
+			c := &p.Changes[i]
+			if c.Target != "herdr-app" || c.ID == "" {
+				continue
+			}
+			layouts := d.state.Bindings[c.Name][c.Target].HerdrLayouts
+			switch {
+			case r.Action == "remove" && (c.Action == "remove" || c.Action == "forget"):
+				if err := s.prepareHerdrLayoutCleanup(ctx, c, d, removing); err != nil {
+					return nil, err
+				}
+				if err := s.prepareHerdrLayoutView(ctx, c, plan, layouts, false, false); err != nil {
+					return nil, err
+				}
+			case r.Action == "sync" && (c.Action == "uninstall" || c.Action == "install" || c.Action == "noop"):
+				if err := s.prepareHerdrLayoutView(ctx, c, plan, layouts, c.Binding.Selected(), true); err != nil {
+					return nil, err
+				}
+			}
+		}
+	}
 	// Bind previews to source bytes, selected operations, native versions/inventory,
 	// and config bytes. A changed selection or external edit invalidates approval.
 	ompRoots := map[string]string{}
@@ -661,6 +752,14 @@ func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval) (
 	for _, target := range s.targets() {
 		stores[target] = s.storeIdentity(target)
 	}
+	var herdrPanelRevision string
+	if p.HerdrPanel != nil {
+		reviewed, _ := json.Marshal(struct {
+			*HerdrPanelPlan
+			Dock herdrDock
+		}{p.HerdrPanel, p.HerdrPanel.dock})
+		herdrPanelRevision = string(reviewed) + "\x00" + p.HerdrPanel.digest
+	}
 	fingerprint, _ := json.Marshal(struct {
 		Request         Request
 		Raw             string
@@ -671,7 +770,8 @@ func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval) (
 		OMPCacheRoots   map[string]string
 		OMPRemovals     map[string]string
 		OMPRuntimePaths map[string]string
-	}{r, string(d.raw), string(d.stateRaw), stores, reviewedChanges(p.Changes), hosts, ompRoots, ompRemovals, ompRuntimePaths})
+		HerdrPanel      string
+	}{r, string(d.raw), string(d.stateRaw), stores, reviewedChanges(p.Changes), hosts, ompRoots, ompRemovals, ompRuntimePaths, herdrPanelRevision})
 	p.hosts = hosts
 	p.Revision = hash(fingerprint)
 	return p, nil

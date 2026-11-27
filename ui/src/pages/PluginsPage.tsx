@@ -6,6 +6,8 @@ import {
   Download,
   FolderOpen,
   Package,
+  Pause,
+  Play,
   Plus,
   RefreshCw,
   Share2,
@@ -21,7 +23,7 @@ import {
   type PluginTarget,
   type PluginInventory,
 } from '../api/plugins';
-import AgentIcon from '../components/AgentIcon';
+import AgentTile from '../components/AgentTile';
 import Button from '../components/Button';
 import { Checkbox } from '../components/Checkbox';
 import DialogShell from '../components/DialogShell';
@@ -40,6 +42,9 @@ import PluginUpdateDialog from '../components/plugins/PluginUpdateDialog';
 import PluginAgents from '../components/plugins/PluginAgents';
 import { keyedMessage, keyedText, outcomeStatus } from '../components/plugins/outcomeText';
 import {
+  bulkActions,
+  groupKey,
+  herdrPackageTest,
   importPackageNames,
   importRequest,
   installedVersion,
@@ -51,6 +56,11 @@ import { useT, plural } from '../i18n';
 import { useSlow } from '../hooks/useSlow';
 import { queryKeys } from '../lib/queryKeys';
 import { invalidate } from '../lib/queryEvents';
+import { bulkGhost } from '../lib/exitGhost';
+import ConfirmDialog from '../components/ConfirmDialog';
+
+/** The selection bar's `working` key: a package name has no `:`, so no row's key matches it. */
+const BULK = ':bulk';
 
 export default function PluginsPage() {
   const t = useT();
@@ -89,6 +99,16 @@ export default function PluginsPage() {
   const [sharing, setSharing] = useState<string[] | null>(null);
   const [browsing, setBrowsing] = useState<{ name: string; source?: string } | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number; items: ContextMenuItem[] } | null>(null);
+  // Packages ticked for the selection bar, across every section.
+  const [selected, setSelected] = useState<Set<string>>(() => new Set());
+  // Removing several packages asks first; the review that follows shows what each Agent loses.
+  const [confirmRemove, setConfirmRemove] = useState<{ names: string[]; key: string } | null>(null);
+  const select = (names: string[], on: boolean) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      names.forEach((name) => (on ? next.add(name) : next.delete(name)));
+      return next;
+    });
   const refresh = () => void invalidate(cache, 'pluginsChanged');
   const {
     busy,
@@ -107,6 +127,7 @@ export default function PluginsPage() {
     begin,
     apply,
     selectTarget,
+    selectMany,
     check,
     updateMany,
     importMany,
@@ -178,14 +199,18 @@ export default function PluginsPage() {
   const updatable = pendingUpdates.length;
   const actionTone = (action: string) =>
     action === 'blocked' ? 'bad' : action === 'noop' ? '' : action === 'skip' ? 'warn' : 'inf';
+  // Not every Agent can be updated from here, and a deselected one has nothing installed; the preview names the ones that are.
+  const updatableTargets = (name: string) => {
+    const bindings = data?.packages[name]?.bindings ?? {};
+    return Object.keys(bindings).filter(
+      (key) => bindings[key]?.sync !== false && pluginTargets[key]?.operations.includes('update'),
+    );
+  };
   const openMenu = (e: React.MouseEvent<HTMLButtonElement>, name: string) => {
     const r = e.currentTarget.getBoundingClientRect();
     const bindings = data?.packages[name]?.bindings ?? {};
     const source = Object.values(bindings).find((b) => b?.source)?.source;
-    // Not every Agent can be updated from here, and a deselected one has nothing installed; the preview names the ones that are.
-    const updatable = Object.keys(bindings).filter(
-      (key) => bindings[key]?.sync !== false && pluginTargets[key]?.operations.includes('update'),
-    );
+    const updatable = updatableTargets(name);
     setMenu({
       x: r.left,
       y: r.bottom + 4,
@@ -237,21 +262,95 @@ export default function PluginsPage() {
       ],
     });
   };
+  /** The packages one source added, at once: each action is one request for all of them. */
+  const openGroupMenu = (e: React.MouseEvent<HTMLButtonElement>, members: string[]) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    const key = groupKey(members);
+    if (!data) return;
+    const { off, on, removable, picks } = bulkActions(data, members, pendingUpdates);
+    setMenu({
+      x: r.left,
+      y: r.bottom + 4,
+      items: [
+        ...(picks.length > 0
+          ? [
+              {
+                key: 'update',
+                label: t('plugins.groupUpdate'),
+                icon: <RefreshCw size={14} />,
+                // The batch shows its progress and failures in the update dialog.
+                onSelect: () => {
+                  setUpdating(true);
+                  void updateMany(picks);
+                },
+              },
+            ]
+          : []),
+        ...(off.length > 0
+          ? [
+              {
+                key: 'enable',
+                label: t('plugins.groupEnable'),
+                icon: <Play size={14} />,
+                onSelect: () => void selectMany(off, true, key),
+              },
+            ]
+          : []),
+        ...(on.length > 0
+          ? [
+              {
+                key: 'disable',
+                label: t('plugins.groupDisable'),
+                icon: <Pause size={14} />,
+                onSelect: () => void selectMany(on, false, key),
+              },
+            ]
+          : []),
+        ...(removable.length > 0
+          ? [
+              {
+                key: 'remove',
+                label: t('plugins.groupRemove'),
+                icon: <Trash2 size={14} />,
+                danger: true,
+                onSelect: () => setConfirmRemove({ names: removable, key }),
+              },
+            ]
+          : []),
+      ],
+    });
+  };
   const names = Object.keys(data?.packages ?? {});
   const piPackages = names.filter(isPi);
-  const plugins = names.filter((name) => !isPi(name));
-  const list = (shown: string[], pi?: boolean) =>
+  const isHerdr = herdrPackageTest(data);
+  const herdrPackages = names.filter(isHerdr);
+  const plugins = names.filter((name) => !isPi(name) && !isHerdr(name));
+  // A removed package leaves the selection with its row, so one added again later comes back unticked.
+  const ticked = names.filter((name) => selected.has(name));
+  if (data && ticked.length < selected.size) setSelected(new Set(ticked));
+  const bulk = data && bulkActions(data, ticked, pendingUpdates);
+  // A section's "select all" shows while some of it is not ticked.
+  const selectAll = (shown: string[], name: string) =>
+    shown.some((n) => !selected.has(n)) && (
+      <button type="button" className="more" onClick={() => select(shown, true)}>
+        {t('resources.select.group', { name })}
+      </button>
+    );
+  const list = (shown: string[], kind?: 'pi' | 'herdr') =>
     data && (
       <PluginList
         inventory={data}
         names={shown}
-        pi={pi}
+        kind={kind}
         updates={updates}
         checkFailures={checkFailures}
         busy={busy}
         working={working}
         onToggle={(name, target, on) => void selectTarget(name, target, on)}
         onMenu={openMenu}
+        onGroupMenu={openGroupMenu}
+        ticked={selected}
+        onTick={select}
         onAdd={begin}
         onBlocked={(name, source) =>
           setAdding({
@@ -332,12 +431,19 @@ export default function PluginsPage() {
               </div>
               <Button
                 className="w-full justify-center"
-                loading={working === 'sync'}
                 disabled={busy}
                 onClick={() => begin({ action: 'sync' }, 'sync')}
               >
                 {t('plugins.sync')}
-                <ChevronRight size={15} />
+                {/* The spinner takes the arrow's place. Button's loading puts one before the label, which
+                    pushes the centred label aside for as long as the preview takes. */}
+                {working === 'sync' ? (
+                  <span className="grid size-[15px] place-items-center" aria-hidden="true">
+                    <span className="spin animate-spin" />
+                  </span>
+                ) : (
+                  <ChevronRight size={15} />
+                )}
               </Button>
               <p className="text-xs leading-normal text-ink-2">{t('plugins.syncHint')}</p>
             </>
@@ -465,12 +571,14 @@ export default function PluginsPage() {
 
       {data && (
         <RailLayout rail={rail}>
-          <div className="flex flex-col gap-7">
+          {/* Room below the last row for the selection bar, which floats over the page's foot. */}
+          <div className={`flex flex-col gap-7 ${ticked.length > 0 ? 'pb-12' : ''}`}>
             {(packages.length === 0 || plugins.length > 0) && (
               <section aria-labelledby="plugins-managed-title" className="flex flex-col gap-3">
                 <div className="ss-sec">
                   <h2 id="plugins-managed-title">{t('plugins.managedTitle')}</h2>
                   <span className="ss-cnt">{plugins.length}</span>
+                  {plugins.length > 0 && selectAll(plugins, t('plugins.managedTitle'))}
                 </div>
                 {packages.length === 0 ? (
                   <EmptyState
@@ -484,17 +592,130 @@ export default function PluginsPage() {
                 )}
               </section>
             )}
+            {herdrPackages.length > 0 && (
+              <section aria-labelledby="plugins-herdr-title" className="flex flex-col gap-3">
+                <div className="ss-sec">
+                  <h2 id="plugins-herdr-title">{t('plugins.herdrTitle')}</h2>
+                  <span className="ss-cnt">{herdrPackages.length}</span>
+                  {selectAll(herdrPackages, t('plugins.herdrTitle'))}
+                </div>
+                {list(herdrPackages, 'herdr')}
+              </section>
+            )}
             {piPackages.length > 0 && (
               <section aria-labelledby="plugins-pi-title" className="flex flex-col gap-3">
                 <div className="ss-sec">
                   <h2 id="plugins-pi-title">{t('plugins.piTitle')}</h2>
                   <span className="ss-cnt">{piPackages.length}</span>
+                  {selectAll(piPackages, t('plugins.piTitle'))}
                 </div>
-                {list(piPackages, true)}
+                {list(piPackages, 'pi')}
               </section>
             )}
           </div>
         </RailLayout>
+      )}
+
+      {confirmRemove && (
+        <ConfirmDialog
+          open
+          variant="danger"
+          title={t(plural('plugins.bulkRemoveTitle', confirmRemove.names.length), {
+            count: confirmRemove.names.length,
+          })}
+          message={
+            <div className="flex flex-col gap-3">
+              <p>{t('plugins.bulkRemoveBody')}</p>
+              <ul className="flex flex-col gap-1 font-mono text-[13px] text-ink">
+                {confirmRemove.names.map((name) => (
+                  <li key={name}>{name}</li>
+                ))}
+              </ul>
+            </div>
+          }
+          confirmText={t('plugins.remove')}
+          onCancel={() => setConfirmRemove(null)}
+          onConfirm={() => {
+            const { names: picked, key } = confirmRemove;
+            setConfirmRemove(null);
+            begin(
+              picked.length === 1
+                ? { action: 'remove', name: picked[0] }
+                : { action: 'remove', names: picked },
+              key,
+            );
+          }}
+        />
+      )}
+
+      {/* Each action sends one request for every ticked package it applies to, as a group's menu does. */}
+      {bulk && ticked.length > 0 && (
+        <div
+          ref={bulkGhost}
+          className="ss-bulk"
+          role="toolbar"
+          aria-label={t('resources.select.count', { count: ticked.length })}
+        >
+          <b>{t('resources.select.count', { count: ticked.length })}</b>
+          {working === BULK && <Spinner size="sm" />}
+          <span className="dv" />
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={busy || bulk.off.length === 0}
+            // A failure keeps the selection, so the same packages can be tried again.
+            onClick={() =>
+              void selectMany(bulk.off, true, BULK).then((ok) => ok && setSelected(new Set()))
+            }
+          >
+            <Play size={15} />
+            {t('plugins.bulkEnable')}
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={busy || bulk.on.length === 0}
+            // A failure keeps the selection, so the same packages can be tried again.
+            onClick={() =>
+              void selectMany(bulk.on, false, BULK).then((ok) => ok && setSelected(new Set()))
+            }
+          >
+            <Pause size={15} />
+            {t('plugins.bulkDisable')}
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={busy || bulk.picks.length === 0}
+            onClick={() => {
+              setUpdating(true);
+              void updateMany(bulk.picks);
+              setSelected(new Set());
+            }}
+          >
+            <RefreshCw size={15} />
+            {t('plugins.updateLatest')}
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            className="text-danger"
+            disabled={busy || bulk.removable.length === 0}
+            onClick={() => setConfirmRemove({ names: bulk.removable, key: BULK })}
+          >
+            <Trash2 size={15} />
+            {t('plugins.remove')}
+          </Button>
+          <span className="dv" />
+          <button
+            type="button"
+            className="ss-ib"
+            aria-label={t('resources.select.clear')}
+            onClick={() => setSelected(new Set())}
+          >
+            <X size={16} />
+          </button>
+        </div>
       )}
 
       {sharing && (
@@ -583,9 +804,7 @@ export default function PluginsPage() {
                         onChange={(on) => togglePicks(pickable, on)}
                       />
                     )}
-                    <span className="ss-at">
-                      <AgentIcon target={h.target} size={17} />
-                    </span>
+                    <AgentTile target={h.target} />
                     <span className="font-semibold">
                       {pluginTargets[h.target]?.label ?? h.target}
                     </span>
@@ -715,19 +934,20 @@ export default function PluginsPage() {
                 <div className="ss-list">
                   {active.map((c) => (
                     <div key={`${c.name}:${c.target}`} className="ss-r">
-                      <span className="ss-at">
-                        {c.target ? (
-                          <AgentIcon target={c.target} size={17} />
-                        ) : c.logo ? (
-                          <img
-                            src={c.logo}
-                            alt=""
-                            className="size-full rounded-[inherit] object-cover"
-                          />
-                        ) : (
-                          <Package size={15} />
-                        )}
-                      </span>
+                      <AgentTile
+                        target={c.target}
+                        fallback={
+                          c.logo ? (
+                            <img
+                              src={c.logo}
+                              alt=""
+                              className="size-full rounded-[inherit] object-cover"
+                            />
+                          ) : (
+                            <Package size={15} />
+                          )
+                        }
+                      />
                       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                         <span className="flex items-center gap-2">
                           <span className="font-mono font-semibold">{c.name}</span>
@@ -761,10 +981,25 @@ export default function PluginsPage() {
                   ))}
                 </div>
               )}
-              {/* Only an install or update can end in a prompt inside the Agent; on a removal the line would be noise. */}
-              {active.some((c) => c.action === 'install' || c.action === 'update') && (
-                <p className="text-xs text-ink-3">{t('plugins.nativeHelp')}</p>
+              {review?.plan.herdrPanel ? (
+                <p className="ss-note info">
+                  {t(
+                    review.plan.herdrPanel.mod
+                      ? 'plugins.herdrDockPreview'
+                      : 'plugins.herdrPanelPreview',
+                    review.plan.herdrPanel,
+                  )}
+                </p>
+              ) : (
+                active.some(
+                  (c) =>
+                    c.target === 'herdr-app' && (c.action === 'install' || c.action === 'update'),
+                ) && <p className="text-xs text-ink-3">{t('plugins.herdrPreviewHelp')}</p>
               )}
+              {active.some(
+                (c) =>
+                  c.target !== 'herdr-app' && (c.action === 'install' || c.action === 'update'),
+              ) && <p className="text-xs text-ink-3">{t('plugins.nativeHelp')}</p>}
               <UnchangedRuns runs={idle} isPi={isPi} versions />
             </>
           )}

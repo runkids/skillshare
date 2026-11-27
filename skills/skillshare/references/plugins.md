@@ -31,20 +31,21 @@ preview and apply. Repeat `--target` to select several supported clients. Use
 separate from `--revision`, the token that binds an apply to a reviewed preview.
 `add` installs the selected targets immediately; `sync plugins` reconciles
 managed target selection, while `plugin update` refreshes upstream content.
-When adding a new package, omit `--source-ref` to follow the remote's default branch.
-Updates reuse its stored ref; omitting the flag on update does not unpin an existing package.
+When adding a new package, omit `--source-ref` to follow the remote's default branch
+or the ref named in a GitHub folder or Herdr mod link. Updates reuse the selected ref;
+omitting the flag on update does not unpin an existing package.
 Adding a plugin does not schedule automatic updates; run `check` and `update` later.
 `sync --all` does not update or sync plugins; use `plugin update --all` (`-a`) to update all managed plugins.
 To follow a branch again after a pin, run `plugin update NAME --source-ref BRANCH`: the stored
 ref becomes that branch, and later updates fetch its latest commit. Pin a tag or commit only
 when the user asks for that version.
 
-A remote source is read at its repository root, where discovery looks for plugin manifests and
-marketplaces. For a plugin in a subdirectory that no root marketplace lists, clone the
-repository's default branch to a dedicated directory and add the plugin's folder from that
-clone. A local source takes no `--source-ref`, so `check` and `update` see only what the clone
-holds: run `git -C CLONE pull --ff-only` first. Do not check out a release tag in the clone
-unless the user asked for that version.
+Discovery reads the source root for plugin manifests and marketplaces. To use a package
+inside a GitHub repository, pass the package folder's `https://github.com/OWNER/REPO/tree/REF/PATH`
+link. For a Herdr mod, pass its package folder (containing `mods/`) or the GitHub link to its
+`mods/<id>/main.js` file. For other hosts, clone the repository and use the local package folder.
+A local source takes no `--source-ref`; run `git -C CLONE pull --ff-only` before checking for
+updates. Do not check out a release tag unless the user asked for that version.
 
 ## Inspect before changing
 

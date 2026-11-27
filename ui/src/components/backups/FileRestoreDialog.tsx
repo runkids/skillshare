@@ -11,6 +11,7 @@ import { shortenHome } from '../../lib/paths';
 import { queryKeys } from '../../lib/queryKeys';
 import { lineDiff } from '../instructions/instructionsView';
 import { fileBackupErrorMessage, reasonKey } from './backupView';
+import Tabs, { TabButton } from '../Tabs';
 
 /** Shows what a file goes back to, then restores that version. */
 export default function FileRestoreDialog({
@@ -102,20 +103,13 @@ export default function FileRestoreDialog({
           <Spinner className="self-center" />
         ) : (
           <>
-            <div className="ss-tabs" role="tablist">
+            <Tabs role="tablist">
               {(['diff', 'full'] as const).map((k) => (
-                <button
-                  key={k}
-                  type="button"
-                  role="tab"
-                  aria-selected={tab === k}
-                  className={tab === k ? 'on' : ''}
-                  onClick={() => setTab(k)}
-                >
+                <TabButton key={k} on={tab === k} onClick={() => setTab(k)}>
                   {t(`backup.files.restore.tab.${k}`)}
-                </button>
+                </TabButton>
               ))}
-            </div>
+            </Tabs>
             <div className="ss-list !shadow-none" role="tabpanel">
               <pre
                 className="ss-code !max-h-[320px] !overflow-auto !rounded-none !border-0 !whitespace-pre-wrap"

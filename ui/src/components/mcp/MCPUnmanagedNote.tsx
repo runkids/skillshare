@@ -1,6 +1,6 @@
 import { Download } from 'lucide-react';
 import type { MCPUnmanaged } from '../../api/mcp';
-import AgentIcon from '../AgentIcon';
+import AgentStack from '../AgentStack';
 import Button from '../Button';
 import { useT, plural } from '../../i18n';
 import { targetLabel } from './mcpView';
@@ -19,13 +19,7 @@ export default function MCPUnmanagedNote({ entries, onImport }: Props) {
   const targets = entries.map((e) => e.target);
   return (
     <div className="ss-note inf !items-center">
-      <span className="ss-stack">
-        {targets.map((x) => (
-          <span key={x} className="ss-at">
-            <AgentIcon target={x} size={13} />
-          </span>
-        ))}
-      </span>
+      <AgentStack targets={targets} />
       <span className="flex-1">
         {t(plural('mcp.unmanaged', count), { count, targets: targets.map(targetLabel).join(', ') })}
       </span>

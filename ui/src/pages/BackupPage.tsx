@@ -6,6 +6,8 @@ import { api } from '../api/client';
 import { ApiError } from '../api/http';
 import type { BackupInfo, RestoreValidateResponse } from '../api/client';
 import AgentIcon from '../components/AgentIcon';
+import AgentStack from '../components/AgentStack';
+import AgentTile from '../components/AgentTile';
 import Button from '../components/Button';
 import ConfirmDialog from '../components/ConfirmDialog';
 import DialogShell from '../components/DialogShell';
@@ -370,13 +372,7 @@ function FolderBackups({ creating }: { creating: boolean }) {
                             {formatRelativeTime(b.date, locale)}
                           </span>
                         </span>
-                        <span className="ss-stack shrink-0">
-                          {icons.map((target) => (
-                            <span key={target} className="ss-at">
-                              <AgentIcon target={target} size={14} />
-                            </span>
-                          ))}
-                        </span>
+                        <AgentStack targets={icons} iconSize={14} className="shrink-0" />
                         <span className="min-w-0 flex-1 truncate text-[13px] text-ink-2">
                           {shown
                             .map((it) => (it.kind === 'agents' ? `${it.target} agents` : it.target))
@@ -397,9 +393,7 @@ function FolderBackups({ creating }: { creating: boolean }) {
                             const e = entries.get(it.name);
                             return (
                               <div key={it.name} className="flex items-center gap-2.5 py-1.5">
-                                <span className="ss-at">
-                                  <AgentIcon target={it.target} size={14} />
-                                </span>
+                                <AgentTile target={it.target} iconSize={14} />
                                 <span className="font-mono text-[13px]">{it.target}</span>
                                 <span className="ss-tag">{it.kind}</span>
                                 {e && (
@@ -643,9 +637,7 @@ function ItemLabel({ name }: { name: string }) {
   const it = backupItem(name);
   return (
     <>
-      <span className="ss-at">
-        <AgentIcon target={it.target} size={16} />
-      </span>
+      <AgentTile target={it.target} iconSize={16} />
       <span className="nm">{it.target}</span>
       <span className="ss-tag">{it.kind}</span>
       <span className="flex-1" />

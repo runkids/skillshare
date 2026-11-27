@@ -4,7 +4,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -207,7 +206,10 @@ func inspect(root string, explicit ...string) (Candidate, error) {
 	}
 	c.collectTargets()
 	if c.Name == "" {
-		return c, fmt.Errorf("no valid supported plugin manifest found; choose a plugin or marketplace directory")
+		return c, agentError{
+			key:     "plugins.error.noPluginSource",
+			message: "No plugin found here. Paste a link to the package folder, or a Herdr mod's main.js link.",
+		}
 	}
 	return c, nil
 }

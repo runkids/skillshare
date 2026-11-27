@@ -5,7 +5,7 @@ description: >-
   skill whenever the user asks to: run an E2E test, execute a test runbook,
   validate a feature end-to-end, create a new runbook, or test CLI behavior in
   isolation. If you need to run a multi-step CLI validation sequence (init →
-  install → sync → verify), this is the skill — it handles ssenv isolation,
+  install → sync → verify), this is the skill — it handles mdproof isolation,
   flag verification, and structured reporting. Prefer this over ad-hoc docker
   exec sequences for any test that follows a runbook or needs reproducible
   isolation.
@@ -73,22 +73,13 @@ Prompt user (via AskUserQuestion):
 
 #### Running existing runbook:
 
-1. Create isolated environment with **auto-initialization**:
-   ```bash
-   ENV_NAME="e2e-$(date +%Y%m%d-%H%M%S)"
-
-   # Use --init to automatically run 'ss init -g' with all targets
-   docker exec $CONTAINER ssenv create "$ENV_NAME" --init
-   ```
-
-2. Execute the entire runbook via mdproof inside the container:
+1. Execute the entire runbook via mdproof inside the container. Run mdproof directly, **not inside `ssenv enter`**: `ai_docs/tests/mdproof.json` sets `isolation: per-runbook`, so mdproof gives each runbook its own `$HOME` and runs the `setup` hook (`ss init -g`) there. Inside ssenv, the setup hook initializes the ssenv HOME while the steps run in mdproof's HOME, so every step fails without a config.
    ```bash
    docker exec $CONTAINER env SKILLSHARE_DEV_ALLOW_WORKSPACE_PROJECT=1 \
-     ssenv enter "$ENV_NAME" -- \
-     mdproof --report json \
+     mdproof --report json --keep-failed-artifacts \
      /workspace/ai_docs/tests/<runbook_file>.md
    ```
-   mdproof executes each step (`bash -c <command>`) in the ssenv-isolated HOME, then returns structured JSON:
+   mdproof executes each step (`bash -c <command>`) in its isolated HOME (reported as `environment.HOME`), then returns structured JSON:
    ```json
    {
      "version": "1",
@@ -107,7 +98,7 @@ Prompt user (via AskUserQuestion):
    }
    ```
 
-3. Analyze the JSON output:
+2. Analyze the JSON output:
    - **All passed** → proceed to Phase 4
    - **Any failed** → filter for failures only (full JSON can be too large for terminal output):
      ```bash
@@ -121,17 +112,13 @@ Prompt user (via AskUserQuestion):
        }]
      }'
      ```
-   - **Skipped steps** (executor=`manual`) → these need manual verification, run them individually:
+   - **Skipped steps** (executor=`manual`) and **failed steps** → reproduce them by hand in an ssenv environment. ssenv is for manual debugging only; replay the earlier steps first, since this HOME starts with just `ss init`:
      ```bash
+     ENV_NAME="e2e-$(date +%Y%m%d-%H%M%S)"
+     docker exec $CONTAINER ssenv create "$ENV_NAME" --init
      docker exec $CONTAINER env SKILLSHARE_DEV_ALLOW_WORKSPACE_PROJECT=1 \
-       ssenv enter "$ENV_NAME" -- <command from step.command>
+       ssenv enter "$ENV_NAME" -- bash -c '<step command>'
      ```
-
-4. For failed steps, debug individually using manual docker exec (same as before):
-   ```bash
-   docker exec $CONTAINER env SKILLSHARE_DEV_ALLOW_WORKSPACE_PROJECT=1 \
-     ssenv enter "$ENV_NAME" -- bash -c '<failed step command>'
-   ```
    - **Prefer `--json` + `jq` for assertions** — see the JSON Reference below
 
 #### Generating new runbook:
@@ -159,9 +146,9 @@ Prompt user (via AskUserQuestion):
 
 ### Phase 4: Cleanup & Report
 
-1. Ask user before cleanup (via AskUserQuestion):
-   - **Option A**: Delete ssenv environment now
-   - **Option B**: Keep for manual debugging (print env name for later `ssenv delete`)
+1. mdproof removes its isolated HOME itself (`--keep-failed-artifacts` keeps a failed run's files). If you created an ssenv environment to debug, ask the user before cleanup (via AskUserQuestion):
+   - **Option A**: Delete the ssenv environment now
+   - **Option B**: Keep it for manual debugging (print the env name for later `ssenv delete`)
 
 2. If user chose Option A:
    ```bash
@@ -173,7 +160,7 @@ Prompt user (via AskUserQuestion):
    ── E2E Test Report ──
 
    Runbook:  {runbook name}
-   Env:      {ENV_NAME}
+   Env:      {environment.HOME}
    Duration: {duration_ms}ms
 
    Step 1: {title}  PASS
@@ -205,8 +192,8 @@ Prompt user (via AskUserQuestion):
 Before executing a newly generated runbook, verify:
 
 - [ ] **All CLI flags exist** — every `ss <cmd> --flag` was grep-verified against source
-- [ ] **`--init` interaction** — if runbook has `ss init`, account for `ssenv create --init` already initializing (add `--force` to re-init, or skip init step)
-- [ ] **`--init` creates default extras** — `ssenv create --init` creates a `rules` extra by default. Runbooks that assume an empty extras list must add cleanup first: `ss extras remove rules --force -g 2>/dev/null || true` + `rm -rf ~/.claude/rules`
+- [ ] **`ss init` interaction** — if runbook has `ss init`, account for the mdproof `setup` hook already running `ss init -g --force` (add `--force` to re-init, or skip init step)
+- [ ] **`ssenv create --init` creates default extras** — when reproducing a step in ssenv, `--init` creates a `rules` extra. Runbooks that assume an empty extras list must add cleanup first: `ss extras remove rules --force -g 2>/dev/null || true` + `rm -rf ~/.claude/rules`
 - [ ] **Correct confirmation flags** — `uninstall` uses `--force` (not `--yes`); `init` re-run needs no flag (just fails gracefully)
 - [ ] **Skill data in registry.yaml** — assertions about installed skills check `registry.yaml`, NOT `config.yaml`; config.yaml should never contain `skills:`
 - [ ] **File existence timing** — `registry.yaml` is only created after first install/reconcile, not on `ss init`
@@ -273,7 +260,7 @@ Apply the `testing` topic. Keep detailed assertion recipes in this workflow cons
 | `ssenv enter <name> -- <cmd>` | Run single command in isolation (automation) |
 
 - For interactive debugging: `ssnew <env>` then `exit` when done
-- For deterministic automation: prefer `ssenv enter <env> -- <command>` one-liners
+- For one-off commands outside a runbook: prefer `ssenv enter <env> -- <command>` one-liners; runbooks run through mdproof directly
 
 ## Test Command Policy
 

@@ -10,7 +10,7 @@ import { shortenHome } from '../../lib/paths';
 import { useI18n, plural } from '../../i18n';
 import Button from '../Button';
 import DialogShell from '../DialogShell';
-import AgentIcon from '../AgentIcon';
+import AgentStack from '../AgentStack';
 import Spinner from '../Spinner';
 import { joinList } from './targetView';
 
@@ -80,18 +80,14 @@ export default function SkillsOffDialog({
     <span className={`flex flex-wrap items-center gap-2 ${muted ? 'text-ink-2' : ''}`}>
       {text}
       <span className="inline-flex items-center gap-2 whitespace-nowrap">
-        <span
-          className="ss-stack"
+        <AgentStack
+          targets={names}
+          max={READER_ICONS}
+          size="sm"
           role="img"
           aria-label={names.join(', ')}
           title={names.join(', ')}
-        >
-          {names.slice(0, READER_ICONS).map((name) => (
-            <span key={name} className="ss-at !h-5 !w-5">
-              <AgentIcon target={name} size={11} />
-            </span>
-          ))}
-        </span>
+        />
         {names.length > READER_ICONS && (
           <span className="text-[12.5px] text-ink-3">
             {t('targetDetail.skillsOff.readers.more', { count: names.length - READER_ICONS })}

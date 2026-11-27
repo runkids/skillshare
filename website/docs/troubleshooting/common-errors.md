@@ -593,9 +593,9 @@ Either way, restart Antigravity to reload skills.
 
 **Cause:** Multiple skills have the same `name` field and land on the same target.
 
-**Solution:** Rename one in SKILL.md or use `include`/`exclude` filters to route them to different targets:
+**Solution:** Rename one of them (its folder and the name in its SKILL.md) or use `include`/`exclude` filters to route them to different targets:
 ```yaml
-# Option 1: Namespace in SKILL.md
+# Option 1: Rename the folder and the name in its SKILL.md
 name: team-a-skill-name
 
 # Option 2: Route with filters (global config)

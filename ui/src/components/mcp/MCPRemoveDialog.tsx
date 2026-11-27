@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Info, X } from 'lucide-react';
 import { mcpApi } from '../../api/mcp';
-import AgentIcon from '../AgentIcon';
+import AgentTile from '../AgentTile';
 import Button from '../Button';
 import DialogShell from '../DialogShell';
 import Spinner from '../Spinner';
@@ -109,9 +109,7 @@ export default function MCPRemoveDialog({
           <div className="ss-list !shadow-none">
             {changes.map((c) => (
               <div key={c.path} className="ss-r !min-h-10">
-                <span className="ss-at">
-                  <AgentIcon target={c.target} size={17} />
-                </span>
+                <AgentTile target={c.target} />
                 <span className="flex min-w-0 flex-1 flex-col">
                   <span className="truncate font-mono text-[13px]" title={c.path}>
                     {shortenHome(c.path)}

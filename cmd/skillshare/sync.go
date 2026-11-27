@@ -385,11 +385,14 @@ func cmdSync(args []string) error {
 	}
 	if spinner != nil {
 		spinner.Stop()
-		reportCollisions(discoveredSkills, cfg.Targets)
+		reportCollisions(discoveredSkills, sync.PerSkillTargets(syncCfg.Targets, cfg.Mode))
 	}
 	sourceIncomplete := walk.Follow.Incomplete()
 	linkWarnings := append(metaWarnings, sync.SourceLinkWarnings(walk, sourceIncomplete)...)
-	if !jsonOutput {
+	if jsonOutput {
+		// Text output reports shared names above, with how to fix them.
+		linkWarnings = append(linkWarnings, sync.SharedNameWarnings(discoveredSkills, syncCfg.Targets, cfg.Mode)...)
+	} else {
 		for _, w := range linkWarnings {
 			ui.Warning("%s", w)
 		}
@@ -807,10 +810,10 @@ func reportCollisions(skills []sync.DiscoveredSkill, targets map[string]config.T
 
 	// Summary line
 	if len(targetNames) == len(seenTargets) && len(seenTargets) > 1 {
-		ui.Warning("%d duplicate skill names affect %d targets (%s)",
+		ui.Warning("%d duplicate skill names affect %d targets (%s); those skills sync under their full path name",
 			len(deduped), len(targetNames), strings.Join(targetNames, ", "))
 	} else {
-		ui.Warning("%d duplicate skill names detected", len(deduped))
+		ui.Warning("%d duplicate skill names detected; those skills sync under their full path name", len(deduped))
 	}
 
 	// One entry per collision name
@@ -832,7 +835,7 @@ func reportCollisions(skills []sync.DiscoveredSkill, targets map[string]config.T
 		ui.Note("A tracked skill cannot be renamed in SKILL.md: rename the other skill, re-track the repo with --name (prefixed naming puts the repo name in front), or adjust include/exclude filters")
 	}
 	if anyOther {
-		ui.Note("Rename one in SKILL.md or adjust include/exclude filters")
+		ui.Note("Rename one of them (its folder and the name in its SKILL.md) or adjust include/exclude filters")
 	}
 	fmt.Println()
 }

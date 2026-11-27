@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { AlertCircle, CircleCheck, TriangleAlert } from 'lucide-react';
-import AgentIcon from '../AgentIcon';
+import AgentTile from '../AgentTile';
 import Button from '../Button';
 import { useT, plural } from '../../i18n';
 import { failureExplanation, type SyncFailure } from './syncView';
@@ -44,9 +44,7 @@ export default function SyncResult({ failures, warnings, synced, force, onForce 
           </div>
           {failures.map((f) => (
             <div key={`${f.part}/${f.extra ?? ''}/${f.target}`} className="ss-r">
-              <span className="ss-at">
-                <AgentIcon target={f.target} size={17} />
-              </span>
+              <AgentTile target={f.target} />
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <div className="flex items-center gap-2">
                   <span className="font-semibold">{f.target}</span>

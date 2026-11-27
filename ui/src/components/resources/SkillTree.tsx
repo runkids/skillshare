@@ -74,7 +74,7 @@ export default function SkillTree({
     if (row.collapsed) onToggleFolder(row.node.path);
     else if (!closing) {
       setClosing(row.id);
-      // Matches the .ss-tn height transition in components.css.
+      // Matches the .ss-tn height transition in styles/tree.css.
       closeTimer.current = setTimeout(() => {
         setClosing(null);
         const now = latest.current.find((r) => r.id === row.id);

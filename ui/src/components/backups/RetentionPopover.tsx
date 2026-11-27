@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { SlidersHorizontal } from 'lucide-react';
 import type { BackupRetention } from '../../api/client';
 import Button from '../Button';
@@ -6,6 +6,7 @@ import { useI18n, useT } from '../../i18n';
 import { retentionSummary } from './backupView';
 import { segSlide } from '../../lib/segSlide';
 import { useMenuPresence } from '../../hooks/usePresence';
+import { useDismiss } from '../../hooks/useDismiss';
 
 const COUNTS = [5, 10, 20, 50, 0];
 const SIZES = [100, 500, 1000, 5000, 0];
@@ -44,24 +45,10 @@ export default function RetentionPopover({
     setOpen(false);
     triggerRef.current?.focus();
   };
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (!containerRef.current?.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setOpen(false);
-        triggerRef.current?.focus();
-      }
-    };
-    document.addEventListener('mousedown', onDown);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onDown);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [open]);
+  useDismiss(containerRef, open, (e) => {
+    setOpen(false);
+    if (e instanceof KeyboardEvent) triggerRef.current?.focus();
+  });
 
   if (!editable) return <span>{summary}</span>;
 

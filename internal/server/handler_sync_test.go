@@ -983,3 +983,42 @@ func TestHandleSync_MalformedMetadataIsWarnedNotOverwritten(t *testing.T) {
 		t.Errorf("metadata file = %q, want it left untouched", data)
 	}
 }
+
+// The dashboard translates shared-name notices, so they come as data, not as
+// English warning lines.
+func TestHandleSync_ReportsSharedNamesAsData(t *testing.T) {
+	tgtPath := filepath.Join(t.TempDir(), "claude-skills")
+	s, src := newTestServerWithTargets(t, map[string]string{"claude": tgtPath})
+	tc := s.cfg.Targets["claude"]
+	tc.Skills.TargetNaming = "standard"
+	s.cfg.Targets["claude"] = tc
+	if err := s.saveConfig(); err != nil {
+		t.Fatal(err)
+	}
+	addSkillNested(t, src, "frontend/dev")
+	addSkillNested(t, src, "backend/dev")
+
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodPost, "/api/sync", strings.NewReader(`{}`)))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	var res struct {
+		Warnings    []string `json:"warnings"`
+		SharedNames []struct {
+			Target, Name string
+			Paths        []string
+			SameName     bool `json:"same_name"`
+		} `json:"shared_names"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &res); err != nil {
+		t.Fatal(err)
+	}
+	if len(res.SharedNames) != 1 || res.SharedNames[0].Target != "claude" || res.SharedNames[0].Name != "dev" ||
+		!res.SharedNames[0].SameName || strings.Join(res.SharedNames[0].Paths, ",") != "backend/dev,frontend/dev" {
+		t.Fatalf("shared_names = %+v", res.SharedNames)
+	}
+	if strings.Contains(strings.Join(res.Warnings, "\n"), "share the name") {
+		t.Fatalf("shared names also sent as English warnings: %v", res.Warnings)
+	}
+}

@@ -39,6 +39,7 @@ import ExtensionsReviewDialog from './ExtensionsReviewDialog';
 import { PageSkeleton } from '../Skeleton';
 import Tooltip from '../Tooltip';
 import { bulkGhost } from '../../lib/exitGhost';
+import { SwitchMark } from '../Switch';
 
 type T = ReturnType<typeof useT>;
 type Scope = PiExtensionChange['scope'];
@@ -644,9 +645,7 @@ function RowSwitch({ on, label, onToggle }: { on: boolean; label: string; onTogg
       className="grid h-8 w-[38px] shrink-0 place-items-center"
       onClick={onToggle}
     >
-      <span className={`ss-sw ${on ? 'on' : ''}`}>
-        <i />
-      </span>
+      <SwitchMark checked={on} />
     </button>
   );
 }

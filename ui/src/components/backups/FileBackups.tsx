@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FileText } from 'lucide-react';
 import { api } from '../../api/client';
 import type { FileBackup, FileBackupVersion } from '../../api/client';
-import AgentIcon from '../AgentIcon';
+import AgentTile from '../AgentTile';
 import Button from '../Button';
 import EmptyState from '../EmptyState';
 import { PageSkeleton } from '../Skeleton';
@@ -65,9 +65,7 @@ export default function FileBackups() {
                 className={`ss-r link w-full text-left ${f === selected ? 'sel' : ''}`}
                 onClick={() => setPicked(f.path)}
               >
-                <span className="ss-at">
-                  {f.target ? <AgentIcon target={f.target} size={16} /> : <FileText size={15} />}
-                </span>
+                <AgentTile target={f.target} iconSize={16} fallback={<FileText size={15} />} />
                 <span className="flex min-w-0 flex-1 flex-col gap-px">
                   <span className="truncate font-mono text-[13px] font-semibold" title={f.path}>
                     {shortenHome(f.path)}

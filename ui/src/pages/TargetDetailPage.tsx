@@ -13,6 +13,7 @@ import {
   TriangleAlert,
 } from 'lucide-react';
 import { api, type Target } from '../api/client';
+import { SwitchMark } from '../components/Switch';
 import Button from '../components/Button';
 import CollectDialog from '../components/CollectDialog';
 import EmptyState from '../components/EmptyState';
@@ -48,6 +49,7 @@ import { fileName, shortenHome } from '../lib/paths';
 import { useI18n, useT, plural } from '../i18n';
 import { useAvailableTargetsQuery, useHooksQuery, useMcpQuery } from '../hooks/useSharedQueries';
 import { invalidate } from '../lib/queryEvents';
+import Tabs, { TabLink } from '../components/Tabs';
 
 type Kind = 'skill' | 'agent';
 // File tabs (the instruction file first) past this many go into a menu.
@@ -493,28 +495,31 @@ function TargetEditor({ target, targets }: { target: Target; targets: Target[] }
       })}
 
       {tabs.length > 1 && (
-        <nav className="ss-tabs mb-7" aria-label={t('targetDetail.tabs')}>
+        <Tabs className="mb-7" aria-label={t('targetDetail.tabs')}>
           {tabs
             .filter((k) => k !== 'instructions')
             .map((k) => (
-              <Link key={k} to={tabLink(k)} replace className={tab === k ? 'on' : ''}>
+              <TabLink
+                key={k}
+                to={tabLink(k)}
+                replace
+                on={tab === k}
+                count={tabCount(k) ?? undefined}
+              >
                 {tabLabel(k)}
-                {tabCount(k) !== null && <span className="ss-cnt">{tabCount(k)}</span>}
-              </Link>
+              </TabLink>
             ))}
           {shownFiles.map((f) => (
-            <Link
+            <TabLink
               key={f.id}
               to={f.to}
               replace
-              className={f === activeFile ? 'on' : ''}
+              on={f === activeFile}
               title={f.label}
+              count={f.id === 'instructions' ? (tabCount('instructions') ?? undefined) : undefined}
             >
               <span className="max-w-[180px] truncate">{f.label}</span>
-              {f.id === 'instructions' && tabCount('instructions') !== null && (
-                <span className="ss-cnt">{tabCount('instructions')}</span>
-              )}
-            </Link>
+            </TabLink>
           ))}
           {hiddenFiles.length > 0 && <FileTabMenu files={hiddenFiles} />}
           {files.data?.root && (
@@ -530,7 +535,7 @@ function TargetEditor({ target, targets }: { target: Target; targets: Target[] }
               </button>
             </span>
           )}
-        </nav>
+        </Tabs>
       )}
 
       {tab === 'file' ? (
@@ -569,29 +574,30 @@ function TargetEditor({ target, targets }: { target: Target; targets: Target[] }
           <PageSkeleton />
         )
       ) : !agent && !skillsOn ? (
-        <div className="ss-empty !py-16">
-          <CirclePause size={24} className="text-ink-3" />
-          <h3 className="font-semibold text-ink">
-            {t('targetDetail.skillsOff.title', { name: target.name })}
-          </h3>
-          <p className="max-w-md text-[13px]">
-            {t('targetDetail.skillsOff.noWrites', { path: shortenHome(target.path) })}
-            <br />
-            {readFrom
-              ? t(plural('targetDetail.skillsOff.readsFrom', readFrom.linkedCount), {
-                  name: target.name,
-                  from: readFrom.name,
-                  path: shortenHome(readFrom.path),
-                  count: readFrom.linkedCount,
-                })
-              : t('targetDetail.skillsOff.generic')}
-          </p>
-          <div className="mt-2">
+        <EmptyState
+          className="!py-16 [&>p]:max-w-md"
+          icon={CirclePause}
+          title={t('targetDetail.skillsOff.title', { name: target.name })}
+          description={
+            <>
+              {t('targetDetail.skillsOff.noWrites', { path: shortenHome(target.path) })}
+              <br />
+              {readFrom
+                ? t(plural('targetDetail.skillsOff.readsFrom', readFrom.linkedCount), {
+                    name: target.name,
+                    from: readFrom.name,
+                    path: shortenHome(readFrom.path),
+                    count: readFrom.linkedCount,
+                  })
+                : t('targetDetail.skillsOff.generic')}
+            </>
+          }
+          action={
             <Button variant="secondary" onClick={resume} loading={resuming}>
               {t('targetDetail.skillsOff.resume')}
             </Button>
-          </div>
-        </div>
+          }
+        />
       ) : (
         <RailLayout
           rail={
@@ -786,9 +792,7 @@ function TargetEditor({ target, targets }: { target: Target; targets: Target[] }
                   disabled={saving}
                   onClick={() => setStoppingSkills(true)}
                 >
-                  <span className="ss-sw on">
-                    <i />
-                  </span>
+                  <SwitchMark checked />
                 </button>
               )}
             </ProjectSectionHead>

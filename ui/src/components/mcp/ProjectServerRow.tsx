@@ -2,7 +2,8 @@ import type { ReactNode } from 'react';
 import type { MCPServer } from '../../api/mcp';
 
 import { describeEndpoint } from './mcpView';
-import { AgentStack } from './TargetPicker';
+import AgentStack from '../AgentStack';
+import Switch from '../Switch';
 
 interface Props {
   name: string;
@@ -57,23 +58,23 @@ export default function ProjectServerRow({
           </span>
         )}
         {icons.length > 0 && (
-          <span className="ss-stack" role="img" aria-label={iconsLabel} title={iconsLabel}>
-            <AgentStack targets={icons} max={STACK} />
-          </span>
+          <AgentStack
+            targets={icons}
+            max={STACK}
+            showRest
+            role="img"
+            aria-label={iconsLabel}
+            title={iconsLabel}
+          />
         )}
         {action}
-        <button
-          type="button"
-          role="switch"
-          aria-checked={checked}
+        <Switch
+          checked={checked}
           aria-label={name}
           aria-describedby={noteId}
-          className={`ss-sw ${checked ? 'on' : ''} disabled:opacity-50`}
           disabled={disabled}
-          onClick={onToggle}
-        >
-          <i />
-        </button>
+          onChange={onToggle}
+        />
       </span>
       <span id={noteId} className="flex flex-col text-xs empty:hidden">
         {children}

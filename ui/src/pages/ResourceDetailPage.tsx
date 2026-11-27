@@ -49,10 +49,11 @@ import { resourceHref } from '../lib/resourceNames';
 import { repoOf, sourceLinkOf } from '../lib/resourceGrouping';
 import { targetFilterPatch } from '../lib/targetFilter';
 import { useSyncMatrix } from '../hooks/useSyncMatrix';
+import Switch from '../components/Switch';
 import { projectUrl } from '../components/projects/projectView';
 import { receivesSkill } from '../components/sync/syncView';
 import { formatDateTime, formatNumber, formatRelativeTime, useI18n, useT, plural } from '../i18n';
-import AgentIcon from '../components/AgentIcon';
+import AgentTile from '../components/AgentTile';
 import Button from '../components/Button';
 import ConfirmDialog from '../components/ConfirmDialog';
 import DialogShell from '../components/DialogShell';
@@ -83,6 +84,7 @@ import {
 } from './UpdatePage';
 import { useDiffQuery, useSkillsQuery } from '../hooks/useSharedQueries';
 import { invalidate } from '../lib/queryEvents';
+import Tabs, { TabLink } from '../components/Tabs';
 
 type Tab = 'doc' | 'files' | 'audit';
 
@@ -426,20 +428,23 @@ export default function ResourceDetailPage() {
 
   const findingCount = audit?.findings.filter((f) => !f.acknowledged).length ?? 0;
   const tabs = (
-    <nav className="ss-tabs" aria-label={t('resourceDetail.tabs.label')}>
-      <Link to={tabSearch('doc')} className={tab === 'doc' ? 'on' : ''}>
+    <Tabs aria-label={t('resourceDetail.tabs.label')}>
+      <TabLink to={tabSearch('doc')} on={tab === 'doc'}>
         {docName}
-      </Link>
+      </TabLink>
       {!isAgent && (
-        <Link to={tabSearch('files')} className={tab === 'files' ? 'on' : ''}>
-          {t('resourceDetail.tabs.files')} <span className="ss-cnt">{files.length}</span>
-        </Link>
+        <TabLink to={tabSearch('files')} on={tab === 'files'} count={files.length}>
+          {t('resourceDetail.tabs.files')}
+        </TabLink>
       )}
-      <Link to={tabSearch('audit')} className={tab === 'audit' ? 'on' : ''}>
-        {t('resourceDetail.tabs.audit')}{' '}
-        {findingCount > 0 && <span className="ss-cnt">{findingCount}</span>}
-      </Link>
-    </nav>
+      <TabLink
+        to={tabSearch('audit')}
+        on={tab === 'audit'}
+        count={findingCount > 0 ? findingCount : undefined}
+      >
+        {t('resourceDetail.tabs.audit')}
+      </TabLink>
+    </Tabs>
   );
 
   const description = str(frontmatter.description);
@@ -964,9 +969,7 @@ function TargetsSection({ resource }: { resource: Skill }) {
           if (!row.entry) {
             return (
               <div key={row.target.name} className="ss-r !min-h-11 opacity-55">
-                <span className="ss-at">
-                  <AgentIcon target={row.target.name} />
-                </span>
+                <AgentTile target={row.target.name} iconSize={16} />
                 <span className="min-w-0 flex-1 truncate">{row.target.name}</span>
                 <span className="text-xs text-ink-3">
                   {t('resourceDetail.targets.noAgentSupport')}
@@ -978,24 +981,18 @@ function TargetsSection({ resource }: { resource: Skill }) {
           const text = label(row);
           return (
             <div key={row.target.name} className="ss-r !min-h-[50px]">
-              <span className="ss-at">
-                <AgentIcon target={row.target.name} />
-              </span>
+              <AgentTile target={row.target.name} iconSize={16} />
               <div className="flex min-w-0 flex-1 flex-col gap-px">
                 <span className="truncate font-semibold">{row.target.name}</span>
                 {text && <span className="text-xs text-ink-3">{text}</span>}
               </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={row.on}
+              <Switch
+                checked={row.on}
                 aria-label={row.target.name}
                 disabled={!patch || pending !== null}
-                className={`ss-sw ${row.on ? 'on' : ''} disabled:cursor-not-allowed disabled:opacity-50`}
-                onClick={() => toggle(row)}
-              >
-                <i />
-              </button>
+                className="disabled:cursor-not-allowed"
+                onChange={() => toggle(row)}
+              />
             </div>
           );
         })}
@@ -1085,9 +1082,7 @@ export function ProjectsList({
             >
               <span className="ss-stack shrink-0">
                 {p.rows.map((r) => (
-                  <span key={r.target} className="ss-at" title={r.target}>
-                    <AgentIcon target={r.target} size={14} />
-                  </span>
+                  <AgentTile key={r.target} target={r.target} iconSize={14} title={r.target} />
                 ))}
               </span>
               <div className="flex min-w-0 flex-1 flex-col gap-px">

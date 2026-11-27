@@ -18,8 +18,8 @@ sidebar_position: 9
 
 ![Add plugin 对话框：发现的 plugin，以及兼容与不支持的 targets](/img/plugins-add-dialog.png)
 
-大多数用户只需要一个仓库与目标复选框即可。**Advanced options** 可以新增
-一个 Git ref，用于选择某个 release。Discovery 会分别显示每个 Target 的组件与
+大多数用户只需要一个仓库与目标复选框即可。选填的 **Git 分支、标签或 commit**
+栏位可以选择某个 release。Discovery 会分别显示每个 Target 的组件与
 兼容性。当 OpenCode 因为其入口无法被检测而被列为不受支持时，该行上的
 **Set entry path** 会取用已构建好的文件，并重新在 Source 中搜索，
 同时保留你已选择的内容。安全的相对仓库符号链接会被保留。
@@ -80,6 +80,8 @@ Target**，而不是“在该 Agent 内部启用”。
 - 该套件定义仍会保留，你之后可以再次选取该 Target。
 - 在 Claude 或 Codex 内部被停用的 plugin 会保持停用状态；请在该工具中
   管理其原生设置。
+- 从同一个 Source 添加的 plugin 会合并成一行，显示其中有几个在同步。展开它可看到每个 plugin 自己的行；这一行的菜单可一次全部更新、暂停或恢复同步，或全部移除。
+- 勾选行最前面的方框（可跨区块）就能一起操作。底部的操作栏可开始或暂停同步、更新上次检查找到新版本的项目，或全部移除；不适用的 plugin 会被跳过。
 
 在控制台中，Plugins 页面右上角的 **Sync** 方框，会列出下一次同步将为
 每个 Agent 安装或移除的内容。其按钮会打开预览；在你确认之前，任何

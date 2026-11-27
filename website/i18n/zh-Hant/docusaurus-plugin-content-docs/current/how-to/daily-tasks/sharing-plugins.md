@@ -17,7 +17,7 @@ Skillshare 會保持這個套件完整，並讓你選擇哪些工具要接收它
 
 ![Add plugin 對話框：找到的 plugin，以及相容與不支援的 targets](/img/plugins-add-dialog.png)
 
-大多數使用者只需要一個 repository 與 target 勾選框。**進階選項**可新增 Git ref，以選擇特定 release。探索結果會分別顯示每個 target 的元件與相容性。當 OpenCode 因為偵測不到其進入點而被列為不支援時，該列的 **Set entry path** 會使用已建置的檔案並重新搜尋來源，同時保留你先前的選擇。安全的相對 repository symlinks 會被保留。
+大多數使用者只需要一個 repository 與 target 勾選框。選填的 **Git 分支、標籤或 commit** 欄位可選擇特定 release。探索結果會分別顯示每個 target 的元件與相容性。當 OpenCode 因為偵測不到其進入點而被列為不支援時，該列的 **Set entry path** 會使用已建置的檔案並重新搜尋來源，同時保留你先前的選擇。安全的相對 repository symlinks 會被保留。
 
 同樣的引導式流程也能在終端機中使用：
 
@@ -68,6 +68,8 @@ skillshare plugin import review@team --from claude --no-tui
 - 取消勾選它，然後同步以移除該受管理的安裝。
 - 套件定義仍會保留，因此之後可以再次選取該 target。
 - 在 Claude 或 Codex 內部被停用的 plugin 仍會維持停用；請在該工具中管理原生設定。
+- 從同一個來源新增的 plugin 會合併成一列，顯示其中有幾個在同步。展開它可看到每個 plugin 自己的列；這一列的選單可一次全部更新、暫停或恢復同步，或全部移除。
+- 勾選列最前面的方塊（可跨區塊）就能一起操作。底部的操作列可開始或暫停同步、更新上次檢查找到新版的項目，或全部移除；不適用的 plugin 會被略過。
 
 在 dashboard 中，Plugins 頁面右上角的 **Sync** 方塊會列出下一次同步將為每個 Agent
 安裝或移除的內容。點選其按鈕會開啟預覽；在你確認之前，任何 Agent 都不會有變動。

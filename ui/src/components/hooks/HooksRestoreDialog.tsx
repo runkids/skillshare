@@ -4,7 +4,7 @@ import { RotateCcw, X } from 'lucide-react';
 import { hooksApi, type HookBackup } from '../../api/hooks';
 import { formatDateTime, useI18n } from '../../i18n';
 import { shortenHome } from '../../lib/paths';
-import AgentIcon from '../AgentIcon';
+import AgentTile from '../AgentTile';
 import Button from '../Button';
 import DialogShell from '../DialogShell';
 import Spinner from '../Spinner';
@@ -90,9 +90,7 @@ export default function HooksRestoreDialog({ backups, initialId, onClose, onRest
                 disabled={busy}
               >
                 <span className={`ss-chk rad ${on ? 'on' : ''}`} />
-                <span className="ss-at">
-                  <AgentIcon target={b.target} size={17} />
-                </span>
+                <AgentTile target={b.target} />
                 <span className="flex min-w-0 flex-1 flex-col gap-px">
                   <span className="truncate font-mono text-[13px]" title={b.path}>
                     {shortenHome(b.path)}

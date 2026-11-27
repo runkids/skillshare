@@ -1,0 +1,176 @@
+@layer components {
+  /* Syntax colors (lib/highlight) */
+  :is(.ss-code, .ss-pre) :is(.tok-keyword, .tok-heading, .tok-link) {
+    color: var(--accent);
+  }
+  :is(.ss-code, .ss-pre) :is(.tok-string, .tok-string2, .tok-inserted) {
+    color: var(--ok);
+  }
+  :is(.ss-code, .ss-pre)
+    :is(.tok-number, .tok-bool, .tok-atom, .tok-typeName, .tok-className, .tok-list, .tok-arg) {
+    color: var(--warn);
+  }
+  :is(.ss-code, .ss-pre) :is(.tok-comment, .tok-meta, .tok-punctuation, .tok-quote) {
+    color: var(--ink-3);
+  }
+  :is(.ss-code, .ss-pre) .tok-propertyName {
+    color: var(--c-mcp);
+  }
+  :is(.ss-code, .ss-pre) :is(.tok-definition, .tok-macroName, .tok-deleted) {
+    color: var(--c-agent);
+  }
+  :is(.ss-code, .ss-pre) :is(.tok-heading, .tok-strong) {
+    font-weight: 600;
+  }
+  /* Body editor: a transparent textarea over the highlighted copy. Weights stay regular so both wrap identically */
+  .ss-ed :is(.tok-heading, .tok-strong) {
+    font-weight: inherit;
+  }
+  .ss-ed textarea {
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+    caret-color: var(--ink);
+  }
+  .ss-ed textarea::selection {
+    background: color-mix(in srgb, var(--accent) 24%, transparent);
+  }
+  .ss-code .add {
+    background: var(--ok-bg);
+    color: var(--ok);
+    display: block;
+    margin: 0 -16px;
+    padding: 0 16px;
+  }
+  .ss-code .del {
+    background: var(--bad-bg);
+    color: var(--bad);
+    display: block;
+    margin: 0 -16px;
+    padding: 0 16px;
+  }
+  .ss-disc {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink-2);
+  }
+  .ss-pick {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border: var(--bw) solid var(--line-2);
+    border-radius: 10px;
+    background: var(--surface);
+  }
+  :root[data-theme='playful'] .ss-pick {
+    border-radius: 12px;
+  }
+  .ss-pick.on {
+    border-color: var(--pri);
+    box-shadow: 0 0 0 1px var(--pri);
+  }
+  :root[data-theme='playful'] .ss-pick.on {
+    border-color: var(--line);
+    background: var(--pe);
+    box-shadow: 3px 3px 0 var(--line);
+  }
+  :root[data-theme='playful'].dark .ss-pick.on {
+    background: #332b17;
+  }
+  /* Add plugin: one row per plugin in a single frame, and the Agents as a two-column checklist. */
+  .ss-choice {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    width: 100%;
+    padding: 12px 16px 12px 14px;
+    text-align: left;
+    cursor: pointer;
+  }
+  .ss-choice + .ss-choice {
+    border-top: var(--sep);
+  }
+  .ss-choice.on {
+    background: var(--sunken);
+  }
+  .ss-choice:disabled {
+    cursor: default;
+    opacity: 0.6;
+  }
+  .ss-checks {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 4px;
+    padding: 4px;
+    border: var(--frame);
+    border-radius: 12px;
+  }
+  :root[data-theme='playful'] .ss-checks {
+    border-radius: var(--r-box);
+  }
+  .ss-checks > button {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    min-height: 44px;
+    padding: 0 12px;
+    border-radius: 8px;
+    text-align: left;
+    color: var(--ink);
+    cursor: pointer;
+  }
+  .ss-checks > button:disabled {
+    cursor: default;
+  }
+  .ss-checks .nm {
+    font-size: 14px;
+    white-space: nowrap;
+  }
+  .ss-checks .pt {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+    color: var(--ink-3);
+  }
+  /* Already on the Agent: ticked, but grey, because unticking it belongs to the list. */
+  .ss-chk.on.has {
+    background: var(--line-2);
+    border-color: var(--line-2);
+  }
+  .ss-bulk.static {
+    position: static;
+    transform: none;
+    margin: 0;
+    align-self: flex-start;
+  }
+  .ss-pager {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .ss-pager > * {
+    min-width: 28px;
+    height: 28px;
+    padding: 0 6px;
+    display: grid;
+    place-items: center;
+    border-radius: 7px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink-2);
+  }
+  .ss-pager > *.on {
+    background: var(--sel);
+    color: var(--sel-ink);
+    font-weight: 600;
+  }
+  :root[data-theme='playful'] .ss-pager > *.on {
+    outline: 1.5px solid var(--line);
+  }
+}

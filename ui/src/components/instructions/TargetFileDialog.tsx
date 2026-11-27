@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { TriangleAlert, X } from 'lucide-react';
 import { api } from '../../api/client';
 import type { SharedInstructionsTarget } from '../../api/client';
-import AgentIcon from '../AgentIcon';
+import AgentTile from '../AgentTile';
 import Button from '../Button';
 import CodeView from '../CodeView';
 import DialogShell from '../DialogShell';
@@ -73,9 +73,7 @@ export default function TargetFileDialog({
     >
       <div className="dh">
         <div className="flex min-w-0 items-center gap-3">
-          <span className="ss-at">
-            <AgentIcon target={target.name} size={17} />
-          </span>
+          <AgentTile target={target.name} />
           <div className="flex min-w-0 flex-col gap-0.5">
             <h2 className="ss-h2 font-mono">{target.name}</h2>
             <p className="truncate font-mono text-[12.5px] text-ink-2" title={target.path}>

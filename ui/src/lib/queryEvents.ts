@@ -111,6 +111,11 @@ const events = {
   hooksSynced: () => keys(k.hooks, k.logAll),
   hooksRestored: () => keys(k.hooks),
   pluginsChanged: () => keys(k.plugins, k.config, k.piExtensionsAll, k.ompExtensionsAll),
+  // Turning an Agent on or off moves no source or version, so the update check (also under `plugins`) stands.
+  pluginTargetsToggled: (): InvalidateQueryFilters[] => [
+    { queryKey: k.plugins, exact: true },
+    ...keys(k.pluginPackages, k.config, k.piExtensionsAll, k.ompExtensionsAll),
+  ],
   piExtensionsStale: (target: string) => keys(k.piExtensions(target)),
   piExtensionsChanged: (target: string) => keys(k.piExtensions(target), k.plugins),
   ompExtensionsStale: (target: string) => keys(k.ompExtensions(target)),

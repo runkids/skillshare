@@ -1,0 +1,273 @@
+@layer components {
+  /* The ring that separates stacked logos takes the color of what it sits on. */
+  .ss-r.sel .ss-stack .ss-at {
+    box-shadow: 0 0 0 2px var(--accent-bg);
+  }
+  :root[data-theme='playful'] .ss-r.sel .ss-stack .ss-at {
+    box-shadow: 0 0 0 2px var(--pe);
+  }
+  :root[data-theme='playful'].dark .ss-r.sel .ss-stack .ss-at {
+    box-shadow: 0 0 0 2px #332b17;
+  }
+  .ss-note .ss-stack .ss-at {
+    box-shadow: 0 0 0 2px var(--sunken);
+  }
+  .ss-note.warn .ss-stack .ss-at {
+    box-shadow: 0 0 0 2px var(--warn-bg);
+  }
+  .ss-pj {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 24px;
+    padding: 0 8px;
+    border-radius: 99px;
+    background: var(--sunken);
+    border: 1px solid var(--line);
+    font: 600 12px/1 var(--f);
+    color: var(--ink-2);
+  }
+  :root[data-theme='playful'] .ss-stack .ss-at {
+    border-radius: 99px;
+  }
+  .ss-list {
+    background: var(--surface);
+    border: var(--frame);
+    border-radius: var(--r-box);
+    box-shadow: var(--sh-box);
+    overflow: hidden;
+  }
+  :root:not([data-theme='playful']) .ss-list {
+    border-radius: 12px;
+  }
+  .ss-r {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 52px;
+    padding: 8px 16px;
+  }
+  .ss-r + .ss-r {
+    border-top: var(--sep);
+  }
+  .ss-r.sel {
+    background: var(--accent-bg);
+  }
+  :root[data-theme='playful'] .ss-r.sel {
+    background: var(--pe);
+  }
+  :root[data-theme='playful'].dark .ss-r.sel {
+    background: var(--sel);
+  }
+  /* Preview rows: a rule under the pointer lights the rows it matches; a row a rule change just flipped
+   is tinted at once, then fades. Transitions, not keyframes, since rules can change twice in a second. */
+  .ss-fr {
+    transition: background-color 0.3s ease;
+  }
+  .ss-fr.ss-lit {
+    background: var(--sunken);
+    transition-duration: 0.12s;
+  }
+  .ss-fr.ss-chg {
+    background: var(--warn-bg);
+    transition: none;
+  }
+  .ss-tag.ss-pat {
+    transition:
+      border-color 0.12s ease,
+      background-color 0.12s ease;
+  }
+  .ss-tag.ss-pat.hot {
+    border-color: var(--pri);
+    background: var(--sunken);
+  }
+  .ss-tag.ss-pat.zero {
+    border-style: dashed;
+    color: var(--ink-3);
+  }
+  .ss-r .nm {
+    font-weight: 600;
+  }
+  .ss-r .nm.m {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+  }
+  .ss-nr .nm.m {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+  }
+  /* A package's skills hang off a faint spine under its checkbox; each curves in and stops short of its own checkbox.
+   The line colour is opaque so the spine and an elbow overlap without a darker seam. The spine starts --lift above
+   the first skill, inside the padding, so the reveal's clipping does not cut it off. */
+  /* The right margin plus a nested row's 12px padding lines its actions up with the top-level rows' 16px. */
+  .ss-pk-top {
+    --lift: 9px;
+    margin: -13px 4px 8px 16px;
+  }
+  .ss-pk-top + .ss-r {
+    border-top: var(--sep);
+  }
+  /* Rows revealed inside a list keep the separators a plain run of rows would have. */
+  .ss-r + .ss-rv > div > .ss-r:first-child,
+  .ss-rv + .ss-r {
+    border-top: var(--sep);
+  }
+  .ss-pk {
+    --guide: -8px;
+    --elbow: 6px;
+    --tl: color-mix(in srgb, var(--ink) 10%, var(--surface));
+    padding: var(--lift) 0 0 16px;
+  }
+  .ss-pk .ss-collapse {
+    --lift: 4px;
+    margin-top: -4px;
+  }
+  .ss-pk .ss-pk {
+    padding-left: 0;
+  }
+  .ss-pi {
+    --l: 0px;
+    position: relative;
+  }
+  .ss-pi:first-child {
+    --l: var(--lift);
+  }
+  .ss-pi::before,
+  .ss-pi:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: var(--guide);
+    border-left: 1px solid var(--tl);
+    pointer-events: none;
+  }
+  .ss-pi::before {
+    top: calc(-1 * var(--l));
+    height: calc(18px + var(--l));
+    width: calc(var(--elbow) - var(--guide));
+    border-bottom: 1px solid var(--tl);
+    border-bottom-left-radius: 8px;
+  }
+  .ss-pi:not(:last-child)::after {
+    top: 10px;
+    bottom: 0;
+  }
+  .ss-nr {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 36px;
+    padding: 4px 12px;
+    border-radius: 8px;
+  }
+  .ss-nr.sel {
+    background: var(--accent-bg);
+  }
+  .ss-pill {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: 2px;
+    height: 24px;
+    padding: 0 6px 0 9px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--ink) 8%, transparent);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--ink-2);
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .ss-pill:hover {
+    color: var(--ink);
+  }
+  .ss-pill:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  .ss-hit {
+    background: var(--accent-bg);
+    color: var(--accent);
+    border-radius: 3px;
+  }
+  .ss-desc {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  /* Keyboard focus in a row shows its whole description; the mouse gets the title tooltip. */
+  :is(.ss-r, .ss-nr):has(:focus-visible) .ss-desc {
+    white-space: normal;
+    overflow: visible;
+  }
+  .ss-lh {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    height: 34px;
+    padding: 0 16px;
+    font: 500 12px/1 var(--f);
+    color: var(--ink-3);
+    border-bottom: var(--sep);
+    background: var(--sunken);
+  }
+  .ss-gh {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 40px;
+    padding: 6px 16px;
+    background: var(--sunken);
+    border-top: var(--sep);
+    font-size: 13px;
+  }
+  .ss-gh:first-child {
+    border-top: 0;
+  }
+  .ss-plain .ss-r {
+    padding-left: 0;
+    padding-right: 0;
+    min-height: 44px;
+  }
+  /* A toolbar that sticks to the top while its list scrolls; .stick lists keep their header and group heads under it */
+  .ss-stickbar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    margin: 0 -12px;
+    padding: 12px;
+    background: var(--bg);
+  }
+  .ss-stickbar.stuck {
+    box-shadow: 0 1px 0 var(--line);
+  }
+  .ss-btnpair {
+    display: inline-flex;
+  }
+  .ss-btnpair > .ss-btn:first-child:not(:last-child) {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+    padding-right: 12px;
+  }
+  .ss-btnpair > .ss-btn:last-child:not(:first-child) {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    padding: 0 9px;
+    border-left: 1px solid color-mix(in srgb, var(--on-pri) 22%, transparent);
+  }
+  .ss-list.stick {
+    overflow: clip;
+  }
+  .ss-list.stick > .ss-lh {
+    position: sticky;
+    top: var(--stick, 0px);
+    z-index: 3;
+  }
+  .ss-list.stick > .ss-gh {
+    position: sticky;
+    top: calc(var(--stick, 0px) + 34px);
+    z-index: 2;
+  }
+}

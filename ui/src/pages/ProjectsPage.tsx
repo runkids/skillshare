@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowRight, ChevronRight, Folder, Folders, HardDrive, Plus } from 'lucide-react';
 import { api, type ProjectList } from '../api/client';
-import AgentIcon from '../components/AgentIcon';
+import AgentStack from '../components/AgentStack';
 import Button from '../components/Button';
 import ConfirmDialog from '../components/ConfirmDialog';
 import EmptyState from '../components/EmptyState';
@@ -182,13 +182,7 @@ export default function ProjectsPage() {
                 </span>
                 <span className="w-[120px] shrink-0">
                   {tools.length > 0 && (
-                    <span className="ss-stack" title={tools.join(', ')}>
-                      {tools.slice(0, STACK).map((tool) => (
-                        <span key={tool} className="ss-at">
-                          <AgentIcon target={tool} size={13} />
-                        </span>
-                      ))}
-                    </span>
+                    <AgentStack targets={tools} max={STACK} title={tools.join(', ')} />
                   )}
                 </span>
                 <span className="w-[270px] shrink-0 truncate text-[13px] text-ink-2">
@@ -231,13 +225,7 @@ export default function ProjectsPage() {
                     {t('projects.convert.from', { targets: c.targets.join(', ') })}
                   </span>
                 </span>
-                <span className="ss-stack" title={c.tools.join(', ')}>
-                  {c.tools.slice(0, STACK).map((tool) => (
-                    <span key={tool} className="ss-at">
-                      <AgentIcon target={tool} size={13} />
-                    </span>
-                  ))}
-                </span>
+                <AgentStack targets={c.tools} max={STACK} title={c.tools.join(', ')} />
                 <Button variant="secondary" size="sm" onClick={() => setConverting(c)}>
                   <ArrowRight size={14} />
                   {t('projects.convert.button')}

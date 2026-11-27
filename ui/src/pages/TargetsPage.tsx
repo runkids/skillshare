@@ -5,7 +5,7 @@ import { ChevronRight, Plus, Target as TargetIcon } from 'lucide-react';
 import { api, type Target } from '../api/client';
 import { isPiTarget } from '../api/piExtensions';
 import { isOmpTarget } from '../api/ompExtensions';
-import AgentIcon from '../components/AgentIcon';
+import AgentTile from '../components/AgentTile';
 import Button from '../components/Button';
 import EmptyState from '../components/EmptyState';
 import PageHeader from '../components/PageHeader';
@@ -178,9 +178,7 @@ export default function TargetsPage() {
                   className="ss-rl -mx-4 -my-2 flex min-w-0 flex-1 items-center gap-3 self-stretch px-4 py-2"
                   aria-label={tg.name}
                 >
-                  <span className="ss-at">
-                    <AgentIcon target={tg.name} size={17} />
-                  </span>
+                  <AgentTile target={tg.name} />
                   <span className="flex min-w-0 flex-1 flex-col">
                     <span className="flex items-center gap-2">
                       <span className="font-semibold">{tg.name}</span>
@@ -203,7 +201,8 @@ export default function TargetsPage() {
                     <span className="ss-tag">{tg.mode}</span>
                   )}
                 </span>
-                <span className="flex w-[340px] shrink-0 flex-wrap items-center gap-0.5 -ml-2">
+                {/* -ml-2 lines a door's label up with the header; the extra 8px of width keeps the columns before it in place. */}
+                <span className="flex w-[348px] shrink-0 flex-wrap items-center gap-0.5 -ml-2">
                   {doors(tg, state, pending).map((d) => (
                     <Link key={d.key} to={d.to} className="ss-door" title={d.title}>
                       {d.label}
@@ -236,9 +235,7 @@ export default function TargetsPage() {
           <div className="ss-list">
             {found.map((a) => (
               <div key={a.name} className="ss-r">
-                <span className="ss-at">
-                  <AgentIcon target={a.name} size={17} />
-                </span>
+                <AgentTile target={a.name} />
                 <span className="flex min-w-0 flex-1 flex-col">
                   <span className="font-semibold">{a.name}</span>
                   <span className="truncate font-mono text-[12px] text-ink-3">

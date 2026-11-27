@@ -7,6 +7,7 @@ import { deriveTheme } from '../lib/customTheme';
 import { useThemeLabel } from '../hooks/useThemeLabel';
 import { segSlide } from '../lib/segSlide';
 import { useMenuPresence } from '../hooks/usePresence';
+import { useDismiss } from '../hooks/useDismiss';
 
 const styles: { value: Style; label: string }[] = [
   { value: 'clean', label: 'theme.clean' },
@@ -87,21 +88,7 @@ export default function ThemePopover() {
     prevOpen.current = open;
   }, [open]);
 
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
-    };
-    document.addEventListener('mousedown', onDown);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onDown);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [open]);
+  useDismiss(containerRef, open, () => setOpen(false));
 
   // Focus the selected style on open
   useEffect(() => {

@@ -128,7 +128,7 @@ Each refusal has a stable code. It appears in `--json` output (`failed[].code`) 
 | `duplicate_dest` | Two names in one command resolve to the same destination. `--force` does not change it |
 | `overlapping_sources` | One name equals or is below another, such as `move foo foo/sub archive` |
 | `same_folder` | Already in that folder. A no-op, exit code 0 |
-| `name_collision` | The new flat or target name equals another skill's name in a sync target. `--force` accepts it; sync skips both entries until one is renamed |
+| `name_collision` | The new flat or target name equals another skill's name in a sync target. `--force` accepts it. Under `flat` naming only one of them reaches the target until one is renamed; under `standard` or `prefixed` both sync under their full path name |
 | `ambiguous_record` | Two install records in `.metadata.json` claim the same path below the moved name (a legacy basename key and a full-path key), so moving would drop one with its audit acceptances. Remove the stale one from `.metadata.json` by hand, then retry |
 
 ## Target filters

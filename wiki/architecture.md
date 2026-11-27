@@ -135,7 +135,7 @@ memory, telemetry, and Obsidian integration are outside this boundary.
 - Target names, aliases, and default paths: `internal/config/targets.yaml`.
 - Built-in audit rules: `internal/audit/rules.yaml` and related table-driven analyzers.
 - Public configuration contracts: `schemas/*.json` and configuration parsing/validation code.
-- Dashboard design values: `ui/src/components.css` and `ui/src/index.css`.
+- Dashboard design values: `ui/src/styles/*.css` and `ui/src/index.css`.
 - Website design values: `website/src/css/custom.css` and page CSS modules.
 - Build and test commands: `Makefile`, `mise.toml`, and CI workflows.
 

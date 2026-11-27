@@ -1,0 +1,67 @@
+@layer components {
+  .ss-wrap {
+    max-width: 1080px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+  }
+  /* Page headers space themselves for pages that lay out their own children; inside
+   .ss-wrap the 28px flex gap already does it, and both together left a 56px hole. */
+  .ss-pgh {
+    margin-bottom: 28px;
+  }
+  .ss-wrap > .ss-pgh {
+    margin-bottom: 0;
+  }
+  /* The title keeps at least 280px; when the actions do not fit beside it they wrap below. */
+  .ss-ph {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px 24px;
+  }
+  .ss-ph .tt {
+    display: flex;
+    flex: 1 1 280px;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .ss-ph p {
+    color: var(--ink-2);
+  }
+  :root[data-theme='playful'] .ss-ph h1 span {
+    background: linear-gradient(transparent 58%, var(--pa) 58%, var(--pa) 92%, transparent 92%);
+    padding: 0 4px;
+    margin: 0 -4px;
+  }
+  :root[data-theme='playful'].dark .ss-ph h1 span {
+    background: linear-gradient(
+      transparent 58%,
+      rgba(224, 178, 95, 0.26) 58%,
+      rgba(224, 178, 95, 0.26) 92%,
+      transparent 92%
+    );
+  }
+  .ss-crumb {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--ink-3);
+    margin-bottom: -16px;
+  }
+  .ss-sec {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .ss-sec .more {
+    margin-left: auto;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--accent);
+  }
+}

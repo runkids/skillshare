@@ -23,6 +23,7 @@ import {
   displayAuditFindings,
 } from '../lib/auditDisplay';
 import { segSlide } from '../lib/segSlide';
+import Tabs, { TabLink } from '../components/Tabs';
 
 type Kind = 'skills' | 'agents';
 type Severity = AuditFinding['severity'];
@@ -195,13 +196,14 @@ export default function AuditPage() {
     <div className="ss-wrap animate-page-in">
       {header}
 
-      <nav className="ss-tabs" aria-label={t('audit.header.title')} data-tour="audit-summary">
-        <Link to="/audit" className="on" aria-current="page">
+      <Tabs slideKey="audit" aria-label={t('audit.header.title')} data-tour="audit-summary">
+        <TabLink to="/audit" on count={findingCount > 0 ? findingCount : undefined}>
           {t('audit.tab.findings')}
-          {findingCount > 0 && <span className="ss-cnt">{findingCount}</span>}
-        </Link>
-        <Link to="/audit/rules">{t('audit.tab.rules')}</Link>
-      </nav>
+        </TabLink>
+        <TabLink to="/audit/rules" on={false}>
+          {t('audit.tab.rules')}
+        </TabLink>
+      </Tabs>
 
       <div className="flex flex-wrap items-center gap-3">
         <div ref={segSlide} className="ss-seg" role="tablist">

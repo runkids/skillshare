@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { useBeforeUnload } from 'react-router-dom';
 import { Trash2, TriangleAlert, X } from 'lucide-react';
-import AgentIcon from '../AgentIcon';
+import AgentTile from '../AgentTile';
 import Button from '../Button';
 import CodeEditor from '../CodeEditor';
 import ConfirmDialog from '../ConfirmDialog';
@@ -146,9 +146,7 @@ export default function InstructionsEditorDialog({
                 <span className="text-[13px] text-ink-2">{t('instructions.editor.readers')}</span>
                 {readers.map((name) => (
                   <span key={name} className="flex items-center gap-2.5">
-                    <span className="ss-at !h-6 !w-6">
-                      <AgentIcon target={name} size={14} />
-                    </span>
+                    <AgentTile target={name} size="md" />
                     <span className="font-mono text-[13px] font-semibold">{name}</span>
                   </span>
                 ))}

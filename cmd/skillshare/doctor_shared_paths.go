@@ -273,3 +273,26 @@ func checkCrossTargetDiscovery(cfg *config.Config, result *doctorResult, isProje
 	msg := fmt.Sprintf("%d target(s) overlap with other targets' content via cross-runtime discovery", len(scannerNames))
 	result.addCheckWithSuggestions("cross_target_discovery", checkWarning, msg, details, suggestions)
 }
+
+// checkSharedSkillNames warns when two skills a target syncs share a name.
+// Sync gives them their full path names, but their name: stays the same, so a
+// runtime that loads skills by name may load only one of them.
+func checkSharedSkillNames(cfg *config.Config, result *doctorResult, discovered []sync.DiscoveredSkill, discoveryOK bool) {
+	if !discoveryOK {
+		result.addCheck("shared_skill_names", checkInfo, "Shared skill name check skipped (source discovery unavailable)", nil)
+		return
+	}
+	details := sync.SharedNameWarnings(discovered, cfg.Targets, cfg.Mode)
+	if len(details) == 0 {
+		result.addCheck("shared_skill_names", checkPass, "No skill names shared within a target", nil)
+		return
+	}
+	suggestion := "Rename one of each pair (its folder and the name in its SKILL.md), or keep one out of the target with include/exclude filters."
+	for _, d := range details {
+		ui.Warning("%s", d)
+	}
+	ui.Note("suggestion: " + suggestion)
+	result.addWarning()
+	result.addCheckWithSuggestions("shared_skill_names", checkWarning,
+		fmt.Sprintf("%d skill name(s) shared within a target", len(details)), details, []string{suggestion})
+}

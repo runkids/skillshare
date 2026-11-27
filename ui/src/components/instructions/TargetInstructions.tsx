@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { createContext, useContext, useId, useMemo, useRef, useState } from 'react';
 import { Link, useBeforeUnload, useBlocker, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -17,6 +17,7 @@ import {
 import { api } from '../../api/client';
 import type { TargetInstructions as Data } from '../../api/client';
 import AgentIcon from '../AgentIcon';
+import AgentStack from '../AgentStack';
 import Button from '../Button';
 import CodeEditor from '../CodeEditor';
 import ConfirmDialog from '../ConfirmDialog';
@@ -45,6 +46,7 @@ import {
 } from './instructionsView';
 import { invalidate } from '../../lib/queryEvents';
 import { useMenuPresence } from '../../hooks/usePresence';
+import { useDismiss } from '../../hooks/useDismiss';
 
 // The page's bottom padding, and the least height the tab keeps on a short window.
 const PAGE_BOTTOM = 40;
@@ -596,18 +598,14 @@ function SourceCard({
         {others.length > 0 && (
           <>
             <span className="mx-1 h-4 w-px bg-line" aria-hidden="true" />
-            <span
-              className="ss-stack"
+            <AgentStack
+              targets={others}
+              max={5}
+              size="sm"
               role="img"
               aria-label={others.join(', ')}
               title={others.join(', ')}
-            >
-              {others.slice(0, 5).map((n) => (
-                <span key={n} className="ss-at !h-5 !w-5">
-                  <AgentIcon target={n} size={11} />
-                </span>
-              ))}
-            </span>
+            />
             <span className="text-[12.5px] text-ink-3">
               {t(plural('instructions.card.alsoUsed', others.length), { count: others.length })}
             </span>
@@ -686,21 +684,7 @@ function ChangeMenu({
   const [busy, setBusy] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
-    };
-    document.addEventListener('mousedown', onDown);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onDown);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [open]);
+  useDismiss(ref, open, () => setOpen(false));
 
   const switchTo = async (name: string) => {
     setBusy(true);
