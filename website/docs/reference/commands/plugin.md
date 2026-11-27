@@ -247,7 +247,7 @@ installs a plugin's config code (actions and key bindings), in global scope only
   commit. With several modules, one must be named after the repository.
 - A plugin that declares `[[scripts]]` or `[[build]]` is refused: rexd runs event
   scripts and build steps, and Skillshare runs no daemon.
-- Before installing, Skillshare runs `rex config check` on the plugin by itself. A
+- Before installing or updating, Skillshare runs `rex config check` on the plugin by itself. A
   plugin Rex rejects is not installed.
 - Plugin copies stay in Skillshare's state directory. Skillshare writes a loader,
   `skillshare_rex.lua`, in that state directory and adds one line at the top of `init.lua` (`REX_CONFIG`, else
@@ -258,8 +258,7 @@ installs a plugin's config code (actions and key bindings), in global scope only
   `require` modules from their `rex/lua` or `lua` folder, so config-only plugins
   written for rexd load unchanged. All Rex plugins share Lua's module names, so
   prefix a plugin's modules with its name, for example
-  `require("my-plugin.helpers")`. The loader wraps each plugin, so a runtime error
-  in one does not stop the others; `rex config check` reports problems.
+  `require("my-plugin.helpers")`. The loader logs a plugin’s runtime error and continues loading the others.
 - Run `rex config reload` after a change so a running Rex server reads it.
 - On a machine without `rex`, Skillshare saves the change and skips Rex; it is
   applied on a machine that has Rex. Rex plugins cannot be imported; add them from

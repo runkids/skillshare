@@ -220,12 +220,13 @@ func (s *Service) rexEntries(root string) ([]rexEntry, error) {
 	return entries, nil
 }
 
-// rexExpectedLoader refuses an unrecognized loader format.
-func rexExpectedLoader(entries []rexEntry, data []byte) (string, error) {
-	if data != nil && !strings.HasPrefix(string(data), rexHeader) {
-		return "", fmt.Errorf("Rex loader is unrecognized or belongs to another Skillshare version; delete this loader file before retrying")
+// rexExpectedLoader validates loader ownership and returns the loader text.
+func (s *Service) rexExpectedLoader(entries []rexEntry, data []byte) (string, error) {
+	owner := rexHeader + "-- skillshare-root: " + hash([]byte(s.managedRoot())) + "\n"
+	if data != nil && !strings.HasPrefix(string(data), owner) {
+		return "", fmt.Errorf("Rex loader is unrecognized or belongs to another Skillshare configuration or version; delete this loader file before retrying")
 	}
-	return rexLoader(entries, false), nil
+	return strings.Replace(rexLoader(entries, false), rexHeader, owner, 1), nil
 }
 
 func rexLoader(entries []rexEntry, probe bool) string {
@@ -293,7 +294,7 @@ func (s *Service) applyRex(ctx context.Context, c Change, binding Binding, sourc
 	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
-	if _, err = rexExpectedLoader(nil, data); err != nil {
+	if _, err = s.rexExpectedLoader(nil, data); err != nil {
 		return fmt.Errorf("%s: %w", loader, err)
 	}
 	root, _, err := s.localRoot("rex")
@@ -352,7 +353,7 @@ func (s *Service) applyRex(ctx context.Context, c Change, binding Binding, sourc
 			content = rexRemoveLine(content)
 		}
 	} else {
-		expected, err := rexExpectedLoader(entries, data)
+		expected, err := s.rexExpectedLoader(entries, data)
 		if err != nil {
 			return err
 		}

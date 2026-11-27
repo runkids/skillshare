@@ -96,6 +96,48 @@ func TestRexLifecycle(t *testing.T) {
 	}
 }
 
+func TestRexRefusesOtherConfiguration(t *testing.T) {
+	for _, owner := range []string{"first", "second"} {
+		t.Run(owner+" owns loader", func(t *testing.T) {
+			home := t.TempDir()
+			t.Setenv("HOME", home)
+			t.Setenv("REX_CONFIG", filepath.Join(home, "init.lua"))
+			services := map[string]*Service{}
+			for _, name := range []string{"first", "second"} {
+				services[name] = &Service{ConfigPath: filepath.Join(home, name+".yaml"), StateDir: filepath.Join(home, "state")}
+				services[name].Run = func(_ context.Context, _ string, _ []string, _ string, _ ...string) ([]byte, error) { return nil, nil }
+			}
+			other := "first"
+			if owner == other {
+				other = "second"
+			}
+			source := rexFixture(t)
+			binding := Binding{ID: "acme.test"}
+			if err := services[owner].applyRex(context.Background(), Change{Target: "rex", Action: "install"}, binding, source); err != nil {
+				t.Fatal(err)
+			}
+			loader := filepath.Join(home, "state", "skillshare_rex.lua")
+			before, err := os.ReadFile(loader)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, action := range []string{"install", "update", "remove"} {
+				err := services[other].applyRex(context.Background(), Change{Target: "rex", Action: action}, binding, source)
+				if err == nil || !strings.Contains(err.Error(), "belongs to another Skillshare configuration") {
+					t.Errorf("%s: error = %v", action, err)
+				}
+				after, readErr := os.ReadFile(loader)
+				if readErr != nil || string(after) != string(before) {
+					t.Fatalf("%s changed loader: %v", action, readErr)
+				}
+			}
+			if err := services[owner].applyRex(context.Background(), Change{Target: "rex", Action: "remove"}, binding, source); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
 func TestRexMissingSavesIntentThenSyncs(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)

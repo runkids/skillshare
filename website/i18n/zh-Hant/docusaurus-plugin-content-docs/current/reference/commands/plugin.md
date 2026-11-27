@@ -183,9 +183,9 @@ Rex 沒有自己的 plugin 管理器，Skillshare 也不需要 rexd。它只在�
 
 - 格式：一個帶有 `rex-plugin.toml` 並指定其 `config` 檔案的資料夾，或位於 `rex/lua/` 或 `lua/` 中、帶有 `setup` 函式的 Amber 風格 Lua 模組。只有當 source 中沒有其他 plugin manifest 時才會採用 Lua 模組；其 ID 為 `owner.repo`（本機目錄為 `local.<folder>`），版本為 commit。若有多個模組，其中一個必須與儲存庫同名。
 - 宣告了 `[[scripts]]` 或 `[[build]]` 的 plugin 會被拒絕：事件指令碼與建置步驟由 rexd 執行，而 Skillshare 不執行常駐程式。
-- 安裝前，Skillshare 會單獨對該 plugin 執行 `rex config check`。Rex 拒絕的 plugin 不會被安裝。
+- 安裝或更新前，Skillshare 會單獨對該 plugin 執行 `rex config check`。Rex 拒絕的 plugin 不會被安裝。
 - plugin 複本保存在 Skillshare 的狀態目錄中。Skillshare 會在 `init.lua`（`REX_CONFIG`，否則為 `$XDG_CONFIG_HOME/rex/init.lua` 或 `~/.config/rex/init.lua`；Windows 上為 `%AppData%\rex\init.lua`）載入狀態目錄中的載入器 `skillshare_rex.lua`，並在 `init.lua` 頂端加入一行，檔案其餘部分保持不變。移除最後一個 Rex plugin 時會刪除載入器，並移除這台機器加入的那一行。
-- plugin 會取得 `rexd.plugin` 表（`id`、`version`、`dir`、`options`），並可 `require` 其 `rex/lua` 或 `lua` 資料夾中的模組，因此為 rexd 撰寫的純設定 plugin 不需修改即可載入。所有 Rex plugin 共用 Lua 的模組名稱，所以請用 plugin 自己的名稱作為其模組的前綴，例如 `require("my-plugin.helpers")`。載入器會分別包裹每個 plugin，因此一個 plugin 的執行時錯誤不會阻止其他 plugin；`rex config check` 會回報問題。
+- plugin 會取得 `rexd.plugin` 表（`id`、`version`、`dir`、`options`），並可 `require` 其 `rex/lua` 或 `lua` 資料夾中的模組，因此為 rexd 撰寫的純設定 plugin 不需修改即可載入。所有 Rex plugin 共用 Lua 的模組名稱，所以請用 plugin 自己的名稱作為其模組的前綴，例如 `require("my-plugin.helpers")`。載入器會記錄 plugin 的執行時錯誤，並繼續載入其他 plugin。
 - 變更後執行 `rex config reload`，讓正在執行的 Rex 伺服器重新讀取。
 - 在沒有 `rex` 的電腦上，Skillshare 會儲存變更並略過 Rex，到有 Rex 的電腦上再套用。Rex plugin 無法匯入，請從其 source 新增。
 
