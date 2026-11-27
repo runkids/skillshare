@@ -8,6 +8,7 @@ import {
   deriveTheme,
   editedFrom,
   encodeShare,
+  glassBackdrops,
   fontUrl,
   parseCustomTheme,
   presetOf,
@@ -281,6 +282,19 @@ describe('depth on glass', () => {
       themeVars({ ...pine, depth: 'lifted' }).dark['sh-box'],
       undefined,
     ]);
+  });
+});
+
+describe('glass everywhere in dark mode', () => {
+  it('keeps text at 4.5:1 over the brightest light behind the glass', () => {
+    for (const [name, preset] of Object.entries(PRESETS).filter(([, p]) => p.base === 'clean')) {
+      const v = themeVars({ ...preset, glass: 'surfaces' }).dark;
+      for (const bg of glassBackdrops(v.bg, v.ink)) {
+        for (const token of ['ink-2', 'ink-3', 'accent']) {
+          expect(contrast(v[token], bg), `${name} ${token} on ${bg}`).toBeGreaterThanOrEqual(4.5);
+        }
+      }
+    }
   });
 });
 

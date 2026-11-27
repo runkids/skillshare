@@ -459,6 +459,29 @@ function guard(color: string, backgrounds: string[], dark: boolean): string {
   return out;
 }
 
+/** `a` moved toward `b` by `t`, in sRGB as `color-mix(in srgb, …)` mixes. */
+function mix(a: string, b: string, t: number): string {
+  const [x, y] = [rgbOf(a), rgbOf(b)];
+  return `#${x
+    .map((v, i) =>
+      Math.round((v + (y[i] - v) * t) * 255)
+        .toString(16)
+        .padStart(2, '0'),
+    )
+    .join('')}`;
+}
+
+/** Peak opacity of the white light behind dark Glass: Everywhere. The stylesheet reads it as
+ *  --gs-pool, so the contrast check and the page use the same light. */
+export const GLASS_POOL = 0.14;
+
+/** The lightest places dark glass can put text on: the light's peak on the page, under the
+ *  sidebar's 3% ink, and under a card's 5% ink on the inset panel's 18% page colour. */
+export function glassBackdrops(bg: string, ink: string): string[] {
+  const lit = mix(bg, '#ffffff', GLASS_POOL);
+  return [lit, mix(lit, ink, 0.03), mix(mix(lit, bg, 0.18), ink, 0.05)];
+}
+
 function alpha(h: string, a: number) {
   const [r, g, b] = rgbOf(h).map((v) => Math.round(v * 255));
   return `rgba(${r}, ${g}, ${b}, ${a})`;
@@ -712,7 +735,11 @@ function deriveMode(theme: CustomTheme, mode: Mode, out: Derived): Record<string
   for (const [role, [l, k]] of Object.entries(NEUTRALS[mode])) {
     v[role] = fromOklch([l, tintC * k, tintH]);
   }
-  const surfaces = [v.bg, v.side, v.surface, v.sunken, v.sel];
+  // Dark Glass: Everywhere puts text over light the solid surfaces do not have.
+  const glass = dark && theme.base === 'clean' && theme.glass === 'surfaces';
+  const lit = glass ? glassBackdrops(v.bg, v.ink) : [];
+  if (glass) v['gs-pool'] = String(GLASS_POOL);
+  const surfaces = [v.bg, v.side, v.surface, v.sunken, v.sel, ...lit];
   v['ink-2'] = guard(v['ink-2'], surfaces, dark);
   v['ink-3'] = guard(v['ink-3'], surfaces, dark);
   v['sel-ink'] = v.ink;
@@ -745,7 +772,7 @@ function deriveMode(theme: CustomTheme, mode: Mode, out: Derived): Record<string
 
   for (const [name, [lt, lb, dt, db]] of Object.entries(STATUS)) {
     v[`${name}-bg`] = fromOklch(dark ? db : lb);
-    v[name] = guard(fromOklch(dark ? dt : lt), [v.bg, v.surface, v[`${name}-bg`]], dark);
+    v[name] = guard(fromOklch(dark ? dt : lt), [v.bg, v.surface, v[`${name}-bg`], ...lit], dark);
   }
 
   const checks: [string, string, string[]][] = [
@@ -755,7 +782,7 @@ function deriveMode(theme: CustomTheme, mode: Mode, out: Derived): Record<string
     ['accent', v.accent, [...surfaces, v['accent-bg']]],
     ['on-pri', v['on-pri'], [v.pri]],
     ...(['ok', 'warn', 'bad'] as const).map(
-      (s) => [s, v[s], [v.bg, v.surface, v[`${s}-bg`]]] as [string, string, string[]],
+      (s) => [s, v[s], [v.bg, v.surface, v[`${s}-bg`], ...lit]] as [string, string, string[]],
     ),
   ];
   for (const [token, fg, bgs] of checks) {

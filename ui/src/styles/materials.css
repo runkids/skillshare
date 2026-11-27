@@ -97,12 +97,25 @@
   }
   :root[data-glass='surfaces']:not([data-theme='playful']).dark,
   :root[data-glass='surfaces']:not([data-theme='playful']) .ss-mini[data-mode='dark'] {
-    --gs-glow: rgba(255, 255, 255, 0.24);
+    /* --gs-pool comes from the custom theme, whose contrast check counts this light. */
+    --gs-glow: rgba(255, 255, 255, var(--gs-pool, 0.14));
     --gs-hover: rgba(255, 255, 255, 0.06);
     --gs-pools:
-      radial-gradient(24vw 18vw at 30% 16%, rgba(255, 255, 255, 0.26), transparent 70%),
-      radial-gradient(20vw 22vw at 80% 42%, rgba(255, 255, 255, 0.2), transparent 70%),
-      radial-gradient(26vw 18vw at 38% 84%, rgba(255, 255, 255, 0.16), transparent 70%);
+      radial-gradient(
+        24vw 18vw at 30% 16%,
+        rgba(255, 255, 255, var(--gs-pool, 0.14)),
+        transparent 70%
+      ),
+      radial-gradient(
+        20vw 22vw at 80% 42%,
+        rgba(255, 255, 255, calc(var(--gs-pool, 0.14) * 0.8)),
+        transparent 70%
+      ),
+      radial-gradient(
+        26vw 18vw at 38% 84%,
+        rgba(255, 255, 255, calc(var(--gs-pool, 0.14) * 0.65)),
+        transparent 70%
+      );
     --gs-card: color-mix(in srgb, var(--ink) 5%, transparent);
     --gs-float: color-mix(in srgb, var(--surface) 74%, transparent);
     --gs-float-blur: blur(14px) saturate(170%);
