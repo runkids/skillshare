@@ -188,7 +188,17 @@ func (s *Service) unownedFiles(target, dir string, state ledger) []string {
 		if e.IsDir() || !(target == "copilot" && ext == ".json" || target != "copilot" && (ext == ".ts" || ext == ".js")) {
 			continue
 		}
-		if _, owned := state.Records[fileKey(filepath.Join(dir, name))]; !owned {
+		candPath := filepath.Join(dir, name)
+		_, owned := state.Records[fileKey(candPath)]
+		if !owned {
+			for _, r := range state.Records {
+				if r.Event == "" && sameExistingFile(r.Path, candPath) {
+					owned = true
+					break
+				}
+			}
+		}
+		if !owned {
 			names = append(names, name)
 		}
 	}
@@ -338,8 +348,20 @@ const (
 	adoptFileWarning = "saving the import adopts %s; the next sync writes Skillshare's file and deletes the original after taking a backup"
 )
 
+func sameExistingFile(a, b string) bool {
+	if a == b {
+		return true
+	}
+	ia, err := os.Lstat(a)
+	if err != nil {
+		return false
+	}
+	ib, err := os.Lstat(b)
+	return err == nil && os.SameFile(ia, ib)
+}
+
 func (s *Service) fileAdoptWarning(agent, name, path string) string {
-	if out, err := s.codePath(agent, name); err == nil && out == path {
+	if out, err := s.codePath(agent, name); err == nil && sameExistingFile(out, path) {
 		if agent == "opencode" {
 			if v2, err := s.openCode2(); err == nil && v2 {
 				return fmt.Sprintf(adoptFileWarning, path)

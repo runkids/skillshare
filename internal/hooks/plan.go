@@ -750,12 +750,25 @@ func (pl *planner) adoptSourceFiles(d *desired, state ledger) error {
 		if err := checkPath(base, srcPath); err != nil {
 			return err
 		}
-		srcKey := fileKey(srcPath)
-		if r, owned := state.Records[srcKey]; owned {
-			if r.Owner == owner && r.Root == root && r.Entry == name {
-				continue
+		inPlacePath := ""
+		for _, w := range d.files {
+			if w.root == root && w.entry == name && w.target == target && sameExistingFile(w.path, srcPath) {
+				inPlacePath = w.path
+				break
 			}
-			return fmt.Errorf("%s is managed by Skillshare; edit that hook instead", srcPath)
+		}
+		alreadyOwned := false
+		for _, r := range state.Records {
+			if r.Event == "" && sameExistingFile(r.Path, srcPath) {
+				if r.Owner == owner && r.Root == root && r.Entry == name {
+					alreadyOwned = true
+					break
+				}
+				return fmt.Errorf("%s is managed by Skillshare; edit that hook instead", srcPath)
+			}
+		}
+		if alreadyOwned {
+			continue
 		}
 		data, exists, _, err := safeRead(srcPath)
 		if err != nil {
@@ -769,11 +782,15 @@ func (pl *planner) adoptSourceFiles(d *desired, state ledger) error {
 		if !matches {
 			return fmt.Errorf("%s changed since it was read: %w", srcPath, ErrStaleRevision)
 		}
-		_, inPlace := d.files[srcPath]
-		srcRec := record{Owner: owner, Target: target, Path: srcPath, Root: root, Entry: name, Hash: digest(data), Adopted: true, RetiredSource: !inPlace}
-		p.adoptedFiles[srcKey] = srcRec
-		state.Records[srcKey] = srcRec
-		p.state.Records[srcKey] = srcRec
+		recPath := srcPath
+		if inPlacePath != "" {
+			recPath = inPlacePath
+		}
+		recKey := fileKey(recPath)
+		srcRec := record{Owner: owner, Target: target, Path: recPath, Root: root, Entry: name, Hash: digest(data), Adopted: true, RetiredSource: inPlacePath == ""}
+		p.adoptedFiles[recKey] = srcRec
+		state.Records[recKey] = srcRec
+		p.state.Records[recKey] = srcRec
 	}
 	return nil
 }

@@ -121,7 +121,7 @@ hooks:
 
 `bindings.omp.code` 請使用已安裝 OMP 版本的 extension API。Skillshare 會原封不動複製原始碼；不會轉換 shell 事件，也不會執行 extension 來驗證。OMP 沒有 project 信任提示，因此同步後的 project extension 可能在下次 OMP 啟動時執行。
 
-OMP 的 `hooks/pre` 與 `hooks/post` factory 仍是額外的未管理來源。它們會被列出，但不會匯入 `extensions`，以免同一個 factory 被載入兩次。匯入既有的獨立 extension 時，原始檔案也會保留；同步另一份副本前，請先檢視匯入警告。
+OMP 的 `hooks/pre` 與 `hooks/post` factory 仍是額外的未管理來源。它們會被列出，但不會匯入 `extensions`，以免同一個 factory 被載入兩次。匯入既有的獨立 extension 會接管該檔案：下次同步寫入 `skillshare-NAME.ts` 並在備份後刪除原始檔案（既有的 `skillshare-NAME.ts` 則原地接管），可透過 `hooks restore` 還原原始檔案。
 
 Pi 與 OMP 都遵循 `PI_CODING_AGENT_DIR`。如果 binding 解析到同一個輸出檔案，Skillshare 會在寫入前擋下 plan。同時管理兩者時，請使用各自明確的帳號目錄。
 
@@ -279,6 +279,6 @@ Skillshare 只探測 `opencode --version`（或帳戶的 `cli`）。當無法偵
 
 完整的 v2 套件請使用 `bindings.opencode.package` 取代 `code`/`codeFile`：這是一個從相對檔名到 UTF-8 內容的對應，其中包含 `package.json`。manifest 及其相依需求會原樣保留。允許巢狀檔案；路徑越界、符號連結、檔案與目錄衝突、`.git` 和 `node_modules` 都不屬於套件的內容。原生編輯器會將此檔案對應顯示為 JSON。server 進入點必須是帶有套件名稱的字串形式根匯出或 `./server` 匯出，或是慣例的根目錄 `server`/`index` 檔案（`.ts`、`.tsx`、`.js`）。條件式和後備式 server 匯出會被拒絕，而不是猜測。`package` binding 需要 OpenCode v2；在 v1 上會被略過並給出警告。
 
-`hooks import --from opencode` 還會讀取原生 `plugins` 資料夾下的直接子套件目錄。與單一檔案程式碼匯入一樣，它會將其複製到 Skillshare 的命名輸出，並警告你在同步後移除原始檔案和註冊，以避免重複載入。已安裝的 `node_modules` 和 `.git` 不會匯入。包含無法讀取的檔案（例如符號連結）的套件會連同該問題一起列出；其他套件和單一檔案仍可匯入。在 OpenCode v1 上，`plugins` 下的目錄不會列為 hook。同步、編輯和移除使用與其他 hook 相同的擁有權檢查和備份；被外部編輯的套件檔案會產生衝突，而不是被覆蓋。
+`hooks import --from opencode` 還會讀取原生 `plugins` 資料夾下的直接子套件目錄。不同於單一檔案程式碼匯入（會在備份後自動移除原始檔案），匯入套件目錄會將其原始碼檔案複製到 Skillshare 的命名輸出，並警告你在同步後手動移除原始目錄和註冊，以避免重複載入。已安裝的 `node_modules` 和 `.git` 不會匯入。包含無法讀取的檔案（例如符號連結）的套件會連同該問題一起列出；其他套件和單一檔案仍可匯入。在 OpenCode v1 上，`plugins` 下的目錄不會列為 hook。同步、編輯和移除使用與其他 hook 相同的擁有權檢查和備份；被外部編輯的套件檔案會產生衝突，而不是被覆蓋。
 
 請在載入前自行準備宣告的相依套件；只要預覽會寫入套件檔案，就會提示這一點。Skillshare 從不執行外掛程式碼、安裝相依套件或將 v1 程式碼轉換為 v2。註冊並不能證明外掛已載入。由於兩種 API 不同，儀表板刻意不提供 OpenCode 入門程式碼。

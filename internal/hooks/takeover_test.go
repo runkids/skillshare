@@ -329,4 +329,26 @@ func TestImport_CopilotProjectAccountAndOpenCodeV2AdoptFiles(t *testing.T) {
 	if _, err := e.service.PreviewMutation(Mutation{Name: "off", Entry: &offCand.Entry, Adopt: true, AdoptSource: offCand.Source}); err == nil {
 		t.Fatal("expected error when adopting file into disabled entry with no active output")
 	}
+
+	// 4. Mixed-case skillshare-Foo.ts on case-insensitive filesystems is adopted in place (not deleted),
+	// and on case-sensitive filesystems is retired after skillshare-foo.ts is written.
+	piDir := filepath.Join(e.home, ".pi", "agent", "extensions")
+	mixed := filepath.Join(piDir, "skillshare-MixedCase.ts")
+	lower := filepath.Join(piDir, "skillshare-mixedcase.ts")
+	write(t, mixed, "export default function () {}\n")
+	caseInsensitive := sameExistingFile(mixed, lower)
+	mc := importOne(t, e.service, "pi", "mixedcase")
+	if caseInsensitive && !strings.Contains(strings.Join(mc.Warnings, "\n"), "leaves them as they are") {
+		t.Fatalf("expected in-place warning on case-insensitive filesystem: %v", mc.Warnings)
+	}
+	save(t, e.service, Mutation{Name: mc.Name, Entry: &mc.Entry, Adopt: true, AdoptSource: mc.Source})
+	if !exists(lower) {
+		t.Fatalf("expected managed hook file to exist after sync (caseInsensitive=%t)", caseInsensitive)
+	}
+	if !caseInsensitive && exists(mixed) {
+		t.Fatal("expected mixed-case source retired on case-sensitive filesystem")
+	}
+	if again, err := e.service.Import(ImportRequest{From: "pi"}); err != nil || len(again) != 0 {
+		t.Fatalf("mixed-case file must not remain unmanaged: %+v, err=%v", again, err)
+	}
 }
