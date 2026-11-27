@@ -220,6 +220,22 @@ func TestImport_CodeAgentAdoptsOriginalFileAndRetiresItOnSync(t *testing.T) {
 			if !strings.Contains(strings.Join(rp.Warnings, "\n"), "custom-activity") {
 				t.Fatalf("expected double-execution warning on restore preview, got %v", rp.Warnings)
 			}
+			// Source-only disable leaves the synced file live on disk, so restore preview must still warn until synced.
+			disabled := false
+			disabledEntry := c.Entry
+			disabledEntry.Enabled = &disabled
+			_, err = e.service.Mutate(Mutation{Name: "custom-activity", Entry: &disabledEntry}, "", false)
+			must(t, err)
+			rpUnsynced, err := e.service.PreviewRestore(res.BackupIDs[1])
+			must(t, err)
+			if !strings.Contains(strings.Join(rpUnsynced.Warnings, "\n"), "hooks sync") {
+				t.Fatalf("expected unsynced live-output warning on restore preview, got %v", rpUnsynced.Warnings)
+			}
+			// Re-enable in source so the rest of the restore test leaves source enabled.
+			_, err = e.service.Mutate(Mutation{Name: "custom-activity", Entry: &c.Entry}, "", false)
+			must(t, err)
+			rp, err = e.service.PreviewRestore(res.BackupIDs[1])
+			must(t, err)
 			_, err = e.service.Restore(res.BackupIDs[1], rp.Revision)
 			must(t, err)
 			if !exists(orig) {

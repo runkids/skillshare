@@ -1017,8 +1017,22 @@ func (s *Service) PreviewRestore(id string) (*Plan, error) {
 				if b.Root != "" {
 					entries = source.Projects[b.Root].Entries
 				}
-				if entry, ok := entries[b.Entry]; ok && entry.IsEnabled() {
-					p.Warnings = append(p.Warnings, fmt.Sprintf("hook %s is still managed by Skillshare; remove or disable it so restoring %s does not run twice", b.Entry, filepath.Base(b.Path)))
+				entry, ok := entries[b.Entry]
+				enabled := ok && entry.IsEnabled()
+				liveOwned := false
+				for _, r := range state.Records {
+					if r.Owner == source.ConfigPath && r.Root == b.Root && r.Target == b.Target && r.Entry == b.Entry && pathExists(r.Path) {
+						liveOwned = true
+						break
+					}
+				}
+				switch {
+				case enabled && liveOwned:
+					p.Warnings = append(p.Warnings, fmt.Sprintf("hook %s is still managed by Skillshare; remove or disable it with --sync so restoring %s does not run twice", b.Entry, filepath.Base(b.Path)))
+				case !enabled && liveOwned:
+					p.Warnings = append(p.Warnings, fmt.Sprintf("hook %s still has synced output on disk; run 'hooks sync' before restoring %s so it does not run twice", b.Entry, filepath.Base(b.Path)))
+				case enabled:
+					p.Warnings = append(p.Warnings, fmt.Sprintf("hook %s is still enabled in source; remove or disable it so the next sync does not run %s twice", b.Entry, filepath.Base(b.Path)))
 				}
 			}
 		}
