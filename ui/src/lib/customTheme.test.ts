@@ -78,6 +78,12 @@ describe('parseCustomTheme', () => {
     ]).toEqual(['pine', undefined]);
   });
 
+  it('keeps glass everywhere', () => {
+    expect(parseCustomTheme({ v: 1, accent: '#000000', glass: 'surfaces' })?.glass).toBe(
+      'surfaces',
+    );
+  });
+
   it('strips control characters from the name and caps its length', () => {
     expect(
       parseCustomTheme({ v: 1, accent: '#000', name: `a\u0000b${'x'.repeat(60)}` })?.name,
@@ -264,6 +270,20 @@ describe('themeVars', () => {
   });
 });
 
+describe('depth on glass', () => {
+  it('gives glass cards the chosen depth, with Flat as a shadow that still forms a list', () => {
+    expect([
+      themeVars({ ...pine, depth: 'flat' }).light['gs-shadow'],
+      themeVars({ ...pine, depth: 'lifted' }).dark['gs-shadow'],
+      themeVars(pine).light['gs-shadow'],
+    ]).toEqual([
+      '0 0 transparent',
+      themeVars({ ...pine, depth: 'lifted' }).dark['sh-box'],
+      undefined,
+    ]);
+  });
+});
+
 describe('styleVars', () => {
   it("leaves a Playful base's own borders out of the colours set for a mode", () => {
     const theme: CustomTheme = { ...pine, base: 'playful' };
@@ -277,6 +297,7 @@ describe('rootAttributes', () => {
       'data-theme': 'playful',
       'data-custom': null,
       'data-layout': null,
+      'data-glass': null,
     });
   });
 
@@ -285,7 +306,15 @@ describe('rootAttributes', () => {
       'data-theme': null,
       'data-custom': '',
       'data-layout': 'full',
+      'data-glass': null,
     });
+  });
+
+  it('frosts the surfaces of a Clean-based custom theme only', () => {
+    expect(rootAttributes('custom', { ...pine, glass: 'surfaces' })['data-glass']).toBe('surfaces');
+    expect(
+      rootAttributes('custom', { ...pine, base: 'playful', glass: 'surfaces' })['data-glass'],
+    ).toBeNull();
   });
 
   it('ignores the layout on a Playful base, which has no inset panel', () => {
@@ -293,6 +322,7 @@ describe('rootAttributes', () => {
       'data-theme': 'playful',
       'data-custom': '',
       'data-layout': null,
+      'data-glass': null,
     });
   });
 });

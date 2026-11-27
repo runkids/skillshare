@@ -148,7 +148,7 @@
     gap: 8px;
     padding: 10px 14px;
     background: var(--sunken);
-    border-radius: 10px;
+    border-radius: var(--r-inner);
   }
   :root[data-theme='playful'] .ss-prose blockquote {
     background: var(--pe);
@@ -196,7 +196,7 @@
   .ss-prose details {
     padding: 10px 14px;
     border: 1px solid var(--line);
-    border-radius: 10px;
+    border-radius: var(--r-inner);
   }
   .ss-prose details[open] {
     display: flex;
@@ -262,7 +262,7 @@
     color: var(--ink-2);
     background: var(--sunken);
     border: 1px solid var(--line);
-    border-radius: 10px;
+    border-radius: var(--r-inner);
     overflow-x: auto;
   }
   .ss-pre:has(> .lang) pre {

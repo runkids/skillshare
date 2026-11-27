@@ -50,7 +50,7 @@
     height: 34px;
     padding: 0 10px;
     margin-bottom: 1px;
-    border-radius: 8px;
+    border-radius: var(--r-sm);
     color: var(--ink-2);
     font-weight: 500;
     border: var(--bw) solid transparent;

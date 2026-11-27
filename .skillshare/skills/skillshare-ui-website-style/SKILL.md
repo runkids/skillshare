@@ -49,7 +49,7 @@ A third style, Custom, recolours one of the two through `html[data-custom]` and 
 
 All four looks come from CSS variables alone. A page that uses only tokens and `ss-*` classes gets all four for free; a hardcoded colour, radius or shadow breaks three of them.
 
-- Clean: system font, 1px hairlines, soft shadows, ink-coloured primary button. At desktop width the page sits on an inset panel (`.ss-main`) over `--shell`, which the transparent sidebar shares. Only layers that float over scrolling content are frosted glass (menus, `.ss-hud`, the stuck `.ss-stickbar`); the page, cards and sidebar stay solid.
+- Clean: system font, 1px hairlines, soft shadows, ink-coloured primary button. At desktop width the page sits on an inset panel (`.ss-main`) over `--shell`, which the transparent sidebar shares. Only layers that float over scrolling content are frosted glass (menus, `.ss-hud`, the stuck `.ss-stickbar`); the page, cards and sidebar stay solid, unless a custom theme sets Glass to Everywhere (`data-glass="surfaces"`), which frosts `.ss-box`, `.ss-list`, `.ss-counts`, the sidebar, menus and dialogs over soft light pools on `body` (white in dark; in light, pale pools of the accent's hue, or pastels for a black or grey accent). The surfaces paint their glass on `::before` so they are not backdrop roots: a menu inside one still blurs the page.
 - Playful: Kalam headings, 1.5px ink borders, hard offset shadows, dashed separators, terracotta primary, pastel accents, dot-grid background, sticky-note tiles. Text on a pastel fill uses `--on-pa`, not `--sel-ink`.
 - Style-only markup: `.ss-only-clean` / `.ss-only-playful` (Dashboard shows a count strip in Clean and a pin board in Playful).
 
@@ -69,9 +69,10 @@ Defined per look in `ui/src/styles/tokens.css`. `ui/src/index.css` exposes them 
 | Pastels | `--pa` `--pb` `--pc` `--pd` `--pe` `--on-pa` | **Playful only.** Never reference outside a `[data-theme="playful"]` rule. `--on-pa` is the text on them |
 | Type | `--f` `--fh` `--fm` `--h1` `--h2` | Body, heading (Kalam in Playful), mono, heading shorthands |
 | Shape | `--r-ctl` `--r-btn` `--r-box` `--r-tag` | Controls, buttons (pill), boxes, tags |
+| Derived shape | `--r-sm` `--r-in` `--r-seg` `--r-inner` `--r-float` `--r-dlg` | Icon buttons and nav items, items inside a control or menu, segmented controls, blocks inside content (tables, notes, code), menus/HUD/toasts, dialogs. Clean derives them from `--r-ctl`/`--r-box`, so a custom theme's corners reach every part; Playful sets them literally. Use these instead of a px radius |
 | Shadow | `--sh-box` `--sh-btn` `--sh-float` `--sh-dialog` | Boxes, buttons, menus and toasts, dialogs |
 | Motion | `--spring` `--spring-bounce` | `linear()` easings for springy transitions: `--spring` critically damped, `--spring-bounce` for a release that carried momentum. Defined on `:root` beside the components that use them |
-| Glass | `--glass-menu` `--glass-bar` `--mat` `--mat-menu` | **Clean only.** Translucent fill and blur for menus and the sticky toolbar; `prefers-reduced-transparency` turns them solid |
+| Glass | `--glass-menu` `--glass-bar` `--mat` `--mat-menu`; `--gs-*` for Glass: Everywhere (defined in `materials.css`, not here) | **Clean only.** Translucent fill and blur for menus and the sticky toolbar (and cards, lists, the sidebar, dialogs, segmented controls, inputs and secondary buttons with `data-glass="surfaces"`); `prefers-reduced-transparency` turns them solid |
 
 Tailwind names: `bg` `side` `surface` `sunken` `ink` `ink-2` `ink-3` `line` `line-2` `line-soft` `sel` `pri` `on-pri` `ok` `warn` `bad` (with `-bg`) and `link` / `link-bg` for `--accent`.
 

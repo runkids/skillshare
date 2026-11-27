@@ -163,7 +163,7 @@ export default function ConvertDialog({
                     aria-checked={on}
                     onClick={() => setMethod(m)}
                     disabled={busy || !data.convert.includes(m)}
-                    className={`flex gap-2.5 rounded-[10px] px-3 py-2.5 text-left disabled:opacity-60 ${on ? 'bg-sunken' : ''}`}
+                    className={`flex gap-2.5 rounded-[var(--r-inner)] px-3 py-2.5 text-left disabled:opacity-60 ${on ? 'bg-sunken' : ''}`}
                   >
                     <span className={`ss-chk rad mt-0.5 shrink-0 ${on ? 'on' : ''}`} />
                     <span className="flex min-w-0 flex-col gap-0.5">

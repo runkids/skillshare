@@ -127,7 +127,7 @@ export default function CodexTrustDialog({ onClose }: { onClose: () => void }) {
                       </span>
                     )}
                   </span>
-                  <pre className="m-0 whitespace-pre-wrap break-all rounded-[10px] border border-line bg-sunken px-2.5 py-2 font-mono text-xs text-ink">
+                  <pre className="m-0 whitespace-pre-wrap break-all rounded-[var(--r-inner)] border border-line bg-sunken px-2.5 py-2 font-mono text-xs text-ink">
                     {h.command}
                   </pre>
                 </div>

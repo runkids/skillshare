@@ -2,7 +2,7 @@
   .ss-tbl {
     overflow-x: auto;
     border: 1px solid var(--line);
-    border-radius: 10px;
+    border-radius: var(--r-inner);
   }
   :root[data-theme='playful'] .ss-tbl {
     border: 2px solid var(--line);
@@ -59,7 +59,7 @@
     color: var(--ink);
     background: rgba(255, 255, 255, 0.82);
     backdrop-filter: blur(18px) saturate(180%);
-    border-radius: 14px;
+    border-radius: var(--r-float);
     box-shadow: var(--sh-float);
     font-size: 13px;
   }
@@ -89,7 +89,7 @@
     grid-template-columns: repeat(4, minmax(0, 1fr));
     background: var(--surface);
     border: var(--frame);
-    border-radius: 12px;
+    border-radius: var(--r-box);
     box-shadow: var(--sh-box);
   }
   :root[data-theme='playful'] .ss-counts {

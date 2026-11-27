@@ -202,7 +202,7 @@ export default function AddLocationDialog({
             return (
               <div
                 key={o.mode}
-                className={`flex flex-col gap-2 rounded-[10px] ${on ? 'bg-sunken' : ''}`}
+                className={`flex flex-col gap-2 rounded-[var(--r-inner)] ${on ? 'bg-sunken' : ''}`}
               >
                 <button
                   type="button"

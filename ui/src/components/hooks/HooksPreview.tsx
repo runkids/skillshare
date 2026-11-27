@@ -163,7 +163,7 @@ export default function HooksPreview({
             <section
               key={file.path}
               aria-label={file.path}
-              className="shrink-0 overflow-hidden rounded-[12px] border border-line"
+              className="shrink-0 overflow-hidden rounded-lg border border-line"
             >
               <div className="flex min-h-11 items-center gap-2.5 bg-sunken px-3.5 py-2">
                 <AgentIcon target={file.target} size={17} />
