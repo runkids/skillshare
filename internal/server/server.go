@@ -396,6 +396,11 @@ func (s *Server) shouldAutoReloadConfig(path string) bool {
 	if path == "/api/projects" || strings.HasPrefix(path, "/api/projects/") {
 		return false
 	}
+	// The Router tab only reads. Its handler loads the config read-only, since
+	// the ordinary reload can migrate a legacy config on disk.
+	if path == "/api/context/router" {
+		return false
+	}
 	// Keep config editor recoverable even if config file is temporarily invalid.
 	if path == "/api/config" {
 		return false
@@ -727,6 +732,7 @@ func (s *Server) registerRoutes() {
 
 	// Analyze (context-window budget)
 	s.mux.HandleFunc("GET /api/analyze", s.handleAnalyze)
+	s.mux.HandleFunc("GET /api/context/router", s.handleContextRouter)
 
 	// Log
 	s.mux.HandleFunc("GET /api/log", s.handleListLog)
