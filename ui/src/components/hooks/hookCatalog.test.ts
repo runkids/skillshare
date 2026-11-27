@@ -201,6 +201,14 @@ describe('suggestName', () => {
     expect(commandScriptStem('/usr/bin/perl5.34 ~/.claude/filter.pl')).toBe('filter');
     expect(commandScriptStem('/usr/bin/php8.3 ~/.claude/hook.php')).toBe('hook');
     expect(commandScriptStem('uv run --python 3.12 scripts/verify.py')).toBe('verify');
+    expect(commandScriptStem('uv run -p 3.12 scripts/verify.py')).toBe('verify');
+    expect(commandScriptStem('node -r ./bootstrap.js ./hook.js')).toBe('hook');
+    expect(commandScriptStem('node --import ./instrument.mjs ./audit.mjs')).toBe('audit');
+    expect(commandScriptStem('tsx --tsconfig ./tsconfig.hooks.json ./lint.ts')).toBe('lint');
+    expect(commandScriptStem('ruby -I ./lib -r ./setup.rb ./guard.rb')).toBe('guard');
+    expect(commandScriptStem('bash --rcfile ~/.bashrc ~/.claude/guard.sh')).toBe('guard');
+    expect(commandScriptStem('php -r "echo 1;"')).toBe('');
+    expect(commandScriptStem('node -p "1 + 1"')).toBe('');
     expect(commandScriptStem('pwsh -ExecutionPolicy Bypass -File C:\\hooks\\guard.ps1')).toBe(
       'guard',
     );

@@ -535,6 +535,11 @@ const INTERPRETER =
 
 const SHELL = /^(?:sh|bash|zsh|dash|ksh|fish)(?:[-@]?\d+(?:\.\d+)*[a-z]?)?$/i;
 
+// Options whose separate next token is an option operand (preload module, include
+// path, config/env file, target version, working directory) rather than the script.
+const VALUE_OPT =
+  /^(?:-[rIWCXuoP]|--(?:require|import|loader|experimental-loader|preload|env-file|env-file-if-exists|config|config-file|tsconfig|project|import-map|lock|cert|directory|chdir|unset|python|with|with-requirements|rcfile|init-file|executionpolicy|ep|configurationname|workingdirectory|wd|settingsfile))$/i;
+
 const basename = (token: string) => token.split(/[\\/]/).pop() ?? '';
 
 const interpreterBase = (token: string) => basename(token).replace(/\.(?:exe|cmd|bat)$/i, '');
@@ -556,24 +561,31 @@ export function commandScriptStem(command: string) {
   while (i < tokens.length && /^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[i])) i++;
   const first = tokens[i] ?? '';
   if (isInterpreter(first)) {
-    let shell = SHELL.test(interpreterBase(first));
+    let interp = interpreterBase(first);
+    let shell = SHELL.test(interp);
     for (let j = i + 1; j < tokens.length; j++) {
       const arg = tokens[j];
       if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(arg) || /^\/[a-z?]$/i.test(arg)) continue;
       if (isInterpreter(arg)) {
-        shell = SHELL.test(interpreterBase(arg));
+        interp = interpreterBase(arg);
+        shell = SHELL.test(interp);
         continue;
       }
+      const isPhp = /^php(?:[-@]?\d|$)/i.test(interp);
+      const isNode = /^node(?:js)?(?:[-@]?\d|$)/i.test(interp);
       if (
-        arg === '-c' ||
-        arg === '--command' ||
-        arg === '--eval' ||
-        arg === '--print' ||
+        /^-(?:c|-command|command|encodedcommand|ec|-eval)$/i.test(arg) ||
         arg === '-m' ||
         (shell && /^-[a-z]+c$/i.test(arg)) ||
-        (!shell && (arg === '-e' || arg === '-p'))
+        (!shell && arg === '-e') ||
+        (isNode && (arg === '-p' || arg === '--print')) ||
+        (isPhp && arg === '-r')
       )
         return '';
+      if (VALUE_OPT.test(arg) || (/^uv(?:[-@]?\d|$)/i.test(interp) && arg === '-p')) {
+        j++;
+        continue;
+      }
       if (arg.startsWith('-')) continue;
       if (/[\\/]/.test(arg) || /\.[A-Za-z][A-Za-z0-9]*$/.test(arg)) return fileStem(arg);
     }
