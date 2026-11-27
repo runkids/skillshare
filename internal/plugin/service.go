@@ -388,7 +388,7 @@ func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval, r
 				}
 				old := d.packages[name].Bindings[target]
 				decl, declared := d.intent[name].Bindings[target]
-				if !old.Cleanup && (old.ID != "" || !reconcile && declared && !decl.Imported && decl.Source != "") {
+				if !old.Cleanup && (old.ID != "" || agent == "tern" && !reconcile && declared && !decl.Imported && decl.Source != "") {
 					if old.Source == b.Source && old.Plugin == b.Plugin && old.SourceRef == b.SourceRef || decl.Source == b.Source && decl.Plugin == b.Plugin && decl.SourceRef == b.SourceRef {
 						if old.ID != "" {
 							change.Binding = old

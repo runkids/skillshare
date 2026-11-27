@@ -375,3 +375,19 @@ func TestTernDeferredCollisionGuidance(t *testing.T) {
 		t.Fatalf("declaration collision guidance: %+v %v", p, err)
 	}
 }
+
+func TestCopilotSecondMachineAddsDifferentSource(t *testing.T) {
+	f := newTernFixture(t)
+	applyPluginRequest(t, f.service, Request{Action: "add", Source: f.source, Targets: []string{"copilot"}})
+	f.installed["copilot"] = false
+	other := &Service{ConfigPath: f.service.ConfigPath, StateDir: filepath.Join(filepath.Dir(f.service.StateDir), "other-state"), Run: f.service.Run}
+	request := Request{Action: "add", Source: fixture(t), Targets: []string{"copilot"}}
+	plan, err := other.Preview(context.Background(), request)
+	if err != nil || plan.Blocked || len(plan.Changes) != 1 || plan.Changes[0].Action != "install" {
+		t.Fatalf("second machine add: %+v, %v", plan, err)
+	}
+	applyPluginRequest(t, other, request)
+	if !f.installed["copilot"] {
+		t.Fatal("Copilot package not installed on second machine")
+	}
+}
