@@ -7,7 +7,7 @@
     padding: 40px 24px;
     text-align: center;
     border: 1.5px dashed var(--line-2);
-    border-radius: 12px;
+    border-radius: var(--r-box);
     color: var(--ink-2);
   }
   :root[data-theme='playful'] .ss-empty {

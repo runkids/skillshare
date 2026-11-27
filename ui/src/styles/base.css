@@ -26,6 +26,32 @@ body {
     box-shadow: none;
   }
 }
+/* Glass everywhere (materials.css): soft light pools fixed behind the page, and a clear main panel
+   with no blur of its own, which would be the cards' backdrop root and cut them off from the pools.
+   Unlayered like the rules above, which a layered rule could not override. */
+:root[data-glass='surfaces']:not([data-theme='playful']) body {
+  background-color: var(--bg);
+  /* The texture's dots first, then up to six pools: a list shorter than the layers would repeat
+     and tile a pool at the dots' size, and values past the last layer are dropped. */
+  background-image: radial-gradient(var(--dots) 1px, transparent 1px), var(--gs-pools);
+  background-size:
+    24px 24px,
+    auto,
+    auto,
+    auto,
+    auto,
+    auto,
+    auto;
+  background-attachment: scroll, fixed, fixed, fixed, fixed, fixed, fixed;
+}
+@media (min-width: 768px) {
+  :root[data-glass='surfaces']:not([data-theme='playful']):not([data-layout='full']) .ss-main {
+    /* The colour only, so the custom theme's dots stay on the panel. */
+    background-color: color-mix(in srgb, var(--bg) 18%, transparent);
+    border-color: var(--gs-edge);
+    box-shadow: none;
+  }
+}
 svg.lucide {
   flex: none;
   stroke-width: var(--isw);

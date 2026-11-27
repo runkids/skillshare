@@ -485,7 +485,7 @@ export default function PluginAddDialog({
                 const text = keyedText(t, c.problemKey, c.problem, c.problemArgs) || c.description;
                 return (
                   <div
-                    className={`flex gap-3 rounded-xl bg-sunken px-4 ${extending || !text ? 'items-center py-3' : 'items-start py-3.5'}`}
+                    className={`flex gap-3 rounded-lg bg-sunken px-4 ${extending || !text ? 'items-center py-3' : 'items-start py-3.5'}`}
                   >
                     {isHerdrOnly(c) ? (
                       <span className="ss-cat size-8 rounded-lg bg-surface">

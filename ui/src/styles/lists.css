@@ -37,9 +37,6 @@
     box-shadow: var(--sh-box);
     overflow: hidden;
   }
-  :root:not([data-theme='playful']) .ss-list {
-    border-radius: 12px;
-  }
   .ss-r {
     position: relative;
     display: flex;
@@ -160,7 +157,7 @@
     gap: 10px;
     min-height: 36px;
     padding: 4px 12px;
-    border-radius: 8px;
+    border-radius: var(--r-sm);
   }
   .ss-nr.sel {
     background: var(--accent-bg);

@@ -599,3 +599,33 @@ func codexTrustEntry(t *testing.T, command string) *Entry {
 	t.Helper()
 	return entry(t, fmt.Sprintf(`{"bindings":{"codex":{"events":{"SessionStart":[{"hooks":[{"type":"command","command":%q}]}]}}}}`, command))
 }
+
+func TestCodexTrustStateIsNotReportedAsUnmanagedInlineHook(t *testing.T) {
+	e, _ := trustEnv(t)
+	codex := filepath.Join(e.home, ".codex")
+	save(t, e.service, Mutation{Name: "k", Entry: accountEntry(t, "codex", "codex-2")})
+	trustNow(t, e.service)
+
+	inv, err := e.service.List()
+	must(t, err)
+	for _, u := range inv.Unmanaged {
+		if u.Target == "codex" || u.Target == "codex-2" {
+			t.Fatalf("[hooks.state] trust ledger reported as unmanaged hook: %+v", u)
+		}
+	}
+
+	// Real inline [hooks.<event>] entries alongside [hooks.state] still show up.
+	cfgPath := filepath.Join(codex, "config.toml")
+	write(t, cfgPath, read(t, cfgPath)+"\n[hooks.Stop]\ncommand = \"echo inline\"\n")
+	inv, err = e.service.List()
+	must(t, err)
+	var got []string
+	for _, u := range inv.Unmanaged {
+		if u.Target == "codex" && u.Path == cfgPath {
+			got = u.Names
+		}
+	}
+	if !slices.Equal(got, []string{"Stop"}) {
+		t.Fatalf("inline codex hooks = %v, want [Stop]", got)
+	}
+}
