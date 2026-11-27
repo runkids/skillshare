@@ -54,10 +54,9 @@ func compactPathLinks(body, source string, halt *stopper) (compacted string, ok 
 		if strings.HasPrefix(text, "/") || path.Clean(text) != path.Clean(pyJoin(base, dest)) {
 			continue
 		}
+		// PATH_LINK admits no backtick, so the cleaned path is safe inside a code span. (The
+		// reference checks for one because it can prefix a mount's folder name; mounts are not measured.)
 		text = path.Clean(text)
-		if strings.Contains(text, "`") {
-			continue
-		}
 		out.WriteString(body[last:start])
 		if strings.HasSuffix(out.String(), "`") {
 			out.WriteString("<!-- -->") // Keep adjacent code delimiters distinct.
