@@ -482,3 +482,25 @@ func sameMtimes(t *testing.T, dirs ...string) {
 		}
 	}
 }
+
+// A skill that keeps its old name because its new one is taken keeps that
+// entry: another skill must not rename it away and copy over it.
+func TestSync_TargetNamingStandardCopy_KeptOldNameStaysWithItsSkill(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	sb.CreateNestedSkill("a/dev", map[string]string{"SKILL.md": "---\nname: dev\n---\n# a"})
+	targetPath := sb.CreateTarget("claude")
+	sb.WriteConfig("source: " + sb.SourcePath + "\ntarget_naming: standard\ntargets:\n  claude:\n    path: " + targetPath + "\n    mode: copy\n")
+	sb.RunCLI("sync").AssertSuccess(t)
+	sb.WriteFile(filepath.Join(targetPath, "a__dev", "notes.md"), "mine")
+	sb.CreateNestedSkill("b/dev", map[string]string{"SKILL.md": "---\nname: dev\n---\n# b"})
+
+	sb.RunCLI("sync").AssertSuccess(t)
+
+	if got := sb.ReadFile(filepath.Join(targetPath, "dev", "SKILL.md")); !strings.Contains(got, "# a") {
+		t.Fatalf("dev holds %q, want a/dev's kept copy", got)
+	}
+	if got := sb.ReadFile(filepath.Join(targetPath, "b__dev", "SKILL.md")); !strings.Contains(got, "# b") {
+		t.Fatalf("b__dev holds %q, want b/dev", got)
+	}
+}

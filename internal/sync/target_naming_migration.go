@@ -26,6 +26,8 @@ func selectActiveTargetNameForSync(mode, targetPath string, skill ResolvedTarget
 		fmt.Fprintf(DiagOutput,
 			"Warning: kept legacy managed entry %s for target name %q because %s already exists\n",
 			legacyName, desiredName, desiredName)
+		// The skill keeps this entry, so no later skill may claim it.
+		taken[legacyName] = true
 		return legacyName, nil
 	} else if !os.IsNotExist(err) {
 		return "", fmt.Errorf("failed to inspect target entry %s: %w", desiredName, err)
@@ -78,7 +80,7 @@ func findLegacyTargetEntry(mode, targetPath string, skill ResolvedTargetSkill, t
 		}
 		desiredPath := filepath.Join(targetPath, skill.TargetName)
 		if info, err := os.Lstat(desiredPath); err == nil && (isManagedTargetEntry(mode, desiredPath, info, skill, manifest, namedTarget{name: skill.TargetName}) ||
-			heldByAnotherSkill(mode, desiredPath, skill.TargetName, manifest)) {
+			heldByAnotherSkill(mode, desiredPath, info, skill, manifest)) {
 			return namedTarget{}, nil
 		}
 		return c, nil
@@ -86,11 +88,25 @@ func findLegacyTargetEntry(mode, targetPath string, skill ResolvedTargetSkill, t
 	return namedTarget{}, nil
 }
 
-// heldByAnotherSkill reports whether the merge-mode link at path is one sync
-// made for another skill that held the name before (a shared name appeared or
-// went). Sync repoints it, and the skill's old entry goes as an orphan.
-func heldByAnotherSkill(mode, path, name string, manifest *Manifest) bool {
-	return mode == "merge" && manifest != nil && manifest.Managed[name] == manifestSymlink && utils.IsSymlinkOrJunction(path)
+// heldByAnotherSkill reports whether the entry at path is one sync made for
+// another skill that held the name before (a shared name appeared or went):
+// a merge link, or a copy recorded as another skill's. Sync repoints or
+// replaces it, and the skill's old entry goes as an orphan.
+func heldByAnotherSkill(mode, path string, info os.FileInfo, skill ResolvedTargetSkill, manifest *Manifest) bool {
+	if manifest == nil {
+		return false
+	}
+	name := skill.TargetName
+	switch mode {
+	case "merge":
+		return manifest.Managed[name] == manifestSymlink && utils.IsSymlinkOrJunction(path)
+	case "copy":
+		_, managed := manifest.Managed[name]
+		origin := manifest.Origins[name]
+		return managed && info.IsDir() && origin != "" && origin != skill.Skill.RelPath
+	default:
+		return false
+	}
 }
 
 // isManagedTargetEntry reports whether the entry c.name at entryPath is the
@@ -113,6 +129,10 @@ func isManagedTargetEntry(mode, entryPath string, info os.FileInfo, skill Resolv
 			return false
 		}
 		if _, managed := manifest.Managed[c.name]; !managed {
+			return false
+		}
+		// A copy recorded as another skill's is not this skill's to rename.
+		if origin := manifest.Origins[c.name]; origin != "" && origin != skill.Skill.RelPath {
 			return false
 		}
 		// A recorded naming says exactly which naming made the entry; older
