@@ -152,6 +152,9 @@
       border-radius 0.24s cubic-bezier(0.77, 0, 0.175, 1),
       box-shadow 0.24s cubic-bezier(0.77, 0, 0.175, 1);
   }
+  .ss-ministick {
+    background: var(--bg);
+  }
   /* The editor's sticky preview. Once pinned it grows a little from its top edge, so its corners sit
      past the side edges of the list scrolling under it instead of meeting them. A scale, not a
      wider margin, so the preview is not laid out again on every frame while the page scrolls. */
@@ -232,7 +235,7 @@
   .ss-code {
     font: 400 12.5px/1.65 var(--fm);
     padding: 14px 16px;
-    border-radius: 10px;
+    border-radius: var(--r-inner);
     background: var(--sunken);
     border: 1px solid var(--line);
     color: var(--ink-2);

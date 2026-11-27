@@ -47,6 +47,9 @@
             if (custom.base !== 'playful' && custom.layout === 'full') {
               root.setAttribute('data-layout', 'full');
             }
+            if (custom.base !== 'playful' && custom.glass === 'surfaces') {
+              root.setAttribute('data-glass', 'surfaces');
+            }
             var font = localStorage.getItem('skillshare-custom-font');
             if (font && font.indexOf('https://fonts.googleapis.com/') === 0) {
               var link = document.createElement('link');

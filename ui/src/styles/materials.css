@@ -28,7 +28,283 @@
   }
   :root:not([data-theme='playful']) .ss-menu {
     padding: 6px;
-    border-radius: 14px;
+    border-radius: var(--r-float);
+  }
+  /* Glass everywhere (a custom theme's Glass: Everywhere): cards, lists and the sidebar are frosted
+     too. Frost needs something behind it, so the page gets a few soft, hue-less light pools fixed to
+     the window (base.css paints them, beside the inset panel it overrides). */
+  :root[data-glass='surfaces']:not([data-theme='playful']),
+  :root[data-glass='surfaces']:not([data-theme='playful']) .ss-mini[data-mode='light'] {
+    /* Grey on white has nothing to frost, and a dark accent would darken the page: the light pools
+       take only the accent's hue, kept pale, and fade with its chroma. A black or grey accent has
+       no hue to lend, so three pale pastels fade in as it does, the way coloured content looks
+       through frosted glass. */
+    --gs-glow: oklch(from var(--accent) 0.82 c h / min(0.5, calc(c * 3)));
+    --gs-hover: color-mix(in srgb, var(--ink) 4%, transparent);
+    --gs-pools:
+      radial-gradient(
+        36vw 28vw at 78% 22%,
+        oklch(from var(--accent) 0.82 c h / min(0.45, calc(c * 2.5))),
+        transparent 70%
+      ),
+      radial-gradient(
+        40vw 30vw at 28% 86%,
+        oklch(from var(--accent) 0.82 c h / min(0.3, calc(c * 1.7))),
+        transparent 70%
+      ),
+      radial-gradient(
+        28vw 22vw at 6% 30%,
+        oklch(from var(--accent) 0.82 c h / min(0.22, calc(c * 1.2))),
+        transparent 70%
+      ),
+      radial-gradient(
+        36vw 28vw at 78% 22%,
+        oklch(from var(--accent) 0.86 0.07 250 / max(0, calc(0.4 - c * 5))),
+        transparent 70%
+      ),
+      radial-gradient(
+        40vw 30vw at 28% 86%,
+        oklch(from var(--accent) 0.86 0.07 340 / max(0, calc(0.3 - c * 4))),
+        transparent 70%
+      ),
+      radial-gradient(
+        28vw 22vw at 6% 30%,
+        oklch(from var(--accent) 0.88 0.06 170 / max(0, calc(0.3 - c * 4))),
+        transparent 70%
+      );
+    --gs-card: color-mix(in srgb, var(--surface) 62%, transparent);
+    --gs-float: color-mix(in srgb, var(--surface) 50%, transparent);
+    /* Less blur than the cards': what passes behind a menu stays a soft shape, which is what reads as
+       frost. Over white content it cannot show; the lit edge is what says glass there. */
+    --gs-float-blur: blur(10px) saturate(180%);
+    --gs-well: color-mix(in srgb, var(--ink) 4%, transparent);
+    --gs-pill: color-mix(in srgb, var(--surface) 82%, transparent);
+    --gs-ctl: color-mix(in srgb, var(--surface) 55%, transparent);
+    --gs-dialog: color-mix(in srgb, var(--surface) 84%, transparent);
+    --gs-side: color-mix(in srgb, var(--surface) 50%, transparent);
+    --gs-edge: color-mix(in srgb, var(--ink) 6%, transparent);
+    --gs-rim: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    --gs-shadow: 0 1px 2px rgba(20, 19, 18, 0.04), 0 8px 20px -12px rgba(20, 19, 18, 0.1);
+    --gs-blur: blur(24px) saturate(160%);
+    /* Sticky headers and the pinned preview only smear what scrolls under them; the dialog frosts. */
+    --gs-frost: blur(24px);
+    --gs-dialog-blur: blur(30px) saturate(150%);
+    --gs-head: transparent;
+    --gs-pin: none;
+    --gs-picked: color-mix(in srgb, var(--sel) 70%, transparent);
+    /* Grain reads as dirt on a light page; only dark mode gets it. */
+    --gs-grain: none;
+  }
+  :root[data-glass='surfaces']:not([data-theme='playful']).dark,
+  :root[data-glass='surfaces']:not([data-theme='playful']) .ss-mini[data-mode='dark'] {
+    --gs-glow: rgba(255, 255, 255, 0.24);
+    --gs-hover: rgba(255, 255, 255, 0.06);
+    --gs-pools:
+      radial-gradient(24vw 18vw at 30% 16%, rgba(255, 255, 255, 0.26), transparent 70%),
+      radial-gradient(20vw 22vw at 80% 42%, rgba(255, 255, 255, 0.2), transparent 70%),
+      radial-gradient(26vw 18vw at 38% 84%, rgba(255, 255, 255, 0.16), transparent 70%);
+    --gs-card: color-mix(in srgb, var(--ink) 5%, transparent);
+    --gs-float: color-mix(in srgb, var(--surface) 74%, transparent);
+    --gs-float-blur: blur(14px) saturate(170%);
+    --gs-well: rgba(255, 255, 255, 0.04);
+    --gs-pill: rgba(255, 255, 255, 0.12);
+    --gs-ctl: color-mix(in srgb, var(--ink) 5%, transparent);
+    --gs-dialog: color-mix(in srgb, var(--surface) 86%, transparent);
+    --gs-side: color-mix(in srgb, var(--ink) 3%, transparent);
+    --gs-edge: rgba(255, 255, 255, 0.12);
+    --gs-rim: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    --gs-shadow: 0 10px 30px -14px rgba(0, 0, 0, 0.7);
+    --gs-blur: blur(26px) saturate(160%);
+    --gs-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  /* Reduce transparency: every surface turns back into its solid colour. */
+  @media (prefers-reduced-transparency: reduce) {
+    :root[data-glass='surfaces']:not([data-theme='playful']):is(*, .dark),
+    :root[data-glass='surfaces']:not([data-theme='playful']) .ss-mini[data-mode] {
+      --gs-glow: transparent;
+      --gs-pools: none;
+      --gs-card: var(--surface);
+      --gs-float: var(--surface);
+      --gs-float-blur: none;
+      --gs-well: var(--sunken);
+      --gs-pill: var(--surface);
+      --gs-ctl: var(--surface);
+      --gs-dialog: var(--surface);
+      --gs-side: var(--side);
+      --gs-blur: none;
+      --gs-grain: none;
+      --gs-frost: none;
+      --gs-dialog-blur: none;
+      --gs-head: var(--sunken);
+      --gs-pin: var(--bg);
+      --gs-picked: var(--sel);
+    }
+  }
+  /* The glass is painted on a ::before, as the sticky toolbar's is, so the surface is not a backdrop
+     root: a menu opened inside it (the sidebar's theme menu) still blurs the page behind. Sticky and
+     fixed boxes keep their position, which the utilities layer sets over this one. */
+  :root[data-glass='surfaces']:not([data-theme='playful'])
+    :is(aside.ss-side, .ss-box, .ss-list, .ss-counts) {
+    isolation: isolate;
+    background: none;
+  }
+  :root[data-glass='surfaces']:not([data-theme='playful']) :is(.ss-box, .ss-list, .ss-counts) {
+    position: relative;
+    border-color: var(--gs-edge);
+    box-shadow: var(--gs-rim), var(--gs-shadow);
+  }
+  :root[data-glass='surfaces']:not([data-theme='playful'])
+    :is(aside.ss-side, .ss-box, .ss-list, .ss-counts)::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    pointer-events: none;
+    background: var(--gs-grain), var(--gs-card);
+    -webkit-backdrop-filter: var(--gs-blur);
+    backdrop-filter: var(--gs-blur);
+  }
+  :root[data-glass='surfaces']:not([data-theme='playful']) aside.ss-side::before {
+    background: var(--gs-grain), var(--gs-side);
+  }
+  /* Column and group headers show the glass. Sticky ones only blur, with no fill of their own: at
+     rest they blur the even glass and do not show, stuck they smear the rows scrolling under. */
+  :root[data-glass='surfaces']:not([data-theme='playful']) :is(.ss-lh, .ss-gh) {
+    background: var(--gs-head);
+  }
+  :root[data-glass='surfaces']:not([data-theme='playful']) .ss-list.stick > :is(.ss-lh, .ss-gh) {
+    -webkit-backdrop-filter: var(--gs-frost);
+    backdrop-filter: var(--gs-frost);
+  }
+  /* Light mode: a light catching the glass edge, brightest top-left and bottom-right. A white
+     hairline would vanish on the light page; the gradient reads as the edge of a pane. */
+  :root[data-glass='surfaces']:not([data-theme='playful']):not(.dark)
+    :is(
+      .ss-box,
+      .ss-list,
+      .ss-counts,
+      .ss-mini[data-mode='light'] > .pn,
+      .ss-menu,
+      .ss-hud,
+      .ss-bulk,
+      .ss-dlg,
+      .ss-top
+    )::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    padding: 1.5px;
+    border-radius: inherit;
+    pointer-events: none;
+    background: linear-gradient(
+      135deg,
+      #fff,
+      rgba(255, 255, 255, 0.25) 30%,
+      transparent 50%,
+      rgba(255, 255, 255, 0.25) 70%,
+      #fff
+    );
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+  }
+  /* A shade, not the card's white: on the light sidebar's glass a white fill does not show. */
+  :root[data-glass='surfaces']:not([data-theme='playful']) .ss-nv.on {
+    background: var(--sel);
+  }
+  /* Hover lightens or shades the glass instead of laying a solid row on it, and fades. */
+  :root[data-glass='surfaces']:not([data-theme='playful']) :is(.ss-r.link, .ss-r:has(> .ss-rl)) {
+    transition: background-color 0.15s ease;
+  }
+  :root[data-glass='surfaces']:not([data-theme='playful'])
+    :is(
+      .ss-r.link:hover,
+      .ss-r:has(> .ss-rl:hover),
+      .ss-counts > a:hover,
+      .ss-counts > button:not(:disabled, [aria-pressed='true']):hover
+    ) {
+    background: var(--gs-hover);
+  }
+  /* Floating layers are the same material, a little denser so their text reads over what moves
+     behind them. The scrim only darkens: a blur there would be the dialog's backdrop root. */
+  :root[data-glass='surfaces']:not([data-theme='playful']) :is(.ss-menu, .ss-hud, .ss-bulk) {
+    background: var(--gs-grain), var(--gs-float);
+    border: 1px solid var(--gs-edge);
+    box-shadow: var(--gs-rim), var(--sh-float);
+    -webkit-backdrop-filter: var(--gs-float-blur);
+    backdrop-filter: var(--gs-float-blur);
+  }
+  :root[data-glass='surfaces']:not([data-theme='playful']) .ss-scrim {
+    background: rgba(20, 19, 18, 0.22);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  /* On a ::before too: a backdrop-filter on the dialog would make it the containing block of fixed
+     parts inside it, such as the hook editor expanded to the window. */
+  :root[data-glass='surfaces']:not([data-theme='playful']) .ss-dlg {
+    position: relative;
+    isolation: isolate;
+    background: none;
+    border-color: var(--gs-edge);
+    box-shadow: var(--gs-rim), var(--sh-dialog);
+  }
+  :root[data-glass='surfaces']:not([data-theme='playful']) .ss-dlg::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    pointer-events: none;
+    background: var(--gs-grain), var(--gs-dialog);
+    -webkit-backdrop-filter: var(--gs-dialog-blur);
+    backdrop-filter: var(--gs-dialog-blur);
+  }
+  :root[data-glass='surfaces']:not([data-theme='playful']) .ss-dlg .df {
+    background: var(--gs-hover);
+  }
+  /* The theme editor's preview shows the same: pools in its own backdrop, a frosted sidebar, and
+     the page panel as a pane of glass over them. */
+  :root[data-glass='surfaces']:not([data-theme='playful']) .ss-mini {
+    background:
+      radial-gradient(42% 80% at 74% 26%, var(--gs-glow), transparent 70%),
+      radial-gradient(38% 70% at 34% 90%, var(--gs-glow), transparent 70%), var(--bg);
+  }
+  :root[data-glass='surfaces']:not([data-theme='playful']) .ss-mini > .sd {
+    background: var(--gs-grain), var(--gs-side);
+  }
+  :root[data-glass='surfaces']:not([data-theme='playful']) .ss-mini > .pn {
+    position: relative;
+    /* The colour only, so the custom theme's dots stay on the pane. */
+    background-color: var(--gs-card);
+    border-color: var(--gs-edge);
+    box-shadow: var(--gs-rim), var(--gs-shadow);
+    -webkit-backdrop-filter: var(--gs-blur);
+    backdrop-filter: var(--gs-blur);
+  }
+  /* The preview's sticky box would be a solid block around the preview over the pools. Pinned, it
+     only blurs: rows scrolled under it smear, while the smooth pools look the same blurred, so no
+     extra layer shows. On a ::before, so the box is not the preview's backdrop root. */
+  :root[data-glass='surfaces']:not([data-theme='playful']) .ss-ministick {
+    background: var(--gs-pin);
+  }
+  :root[data-glass='surfaces']:not([data-theme='playful']) .ss-ministick.stuck::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    -webkit-backdrop-filter: var(--gs-frost);
+    backdrop-filter: var(--gs-frost);
+  }
+  /* The toolbar would be a solid band across the pools at rest; it frosts only once it sticks. */
+  :root[data-glass='surfaces']:not([data-theme='playful']) .ss-stickbar:not(.stuck)::before {
+    background: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
   }
   /* Clean segmented controls: the selected surface is one pill that slides between segments (segSlide). */
   :root:not([data-theme='playful']) .ss-seg[data-slide] {
@@ -44,7 +320,7 @@
     width: var(--seg-w);
     height: var(--seg-h);
     transform: translate(var(--seg-x), var(--seg-y));
-    border-radius: 7px;
+    border-radius: var(--r-in);
     background: var(--surface);
     box-shadow: 0 1px 2px rgba(20, 19, 18, 0.12);
   }
@@ -110,5 +386,53 @@
     :root:not([data-theme='playful']) .ss-tabs[data-slide='move']::before {
       transition: none;
     }
+  }
+  /* Glass everywhere: controls on the glass are glass too. The segmented track is a faint well, its
+     selected pill a denser pane; buttons, fields and the back-to-top button let the glass through.
+     Last in the layer so the pill wins over the dark-mode pill above at equal specificity. */
+  :root[data-glass='surfaces']:not([data-theme='playful']) .ss-seg {
+    background: var(--gs-well);
+    border-color: var(--gs-edge);
+  }
+  :root[data-glass='surfaces']:not([data-theme='playful']) .ss-seg:not([data-slide]) > *.on,
+  :root[data-glass='surfaces']:not([data-theme='playful']) .ss-seg[data-slide]::before {
+    background: var(--gs-pill);
+    box-shadow:
+      var(--gs-rim),
+      0 1px 2px rgba(20, 19, 18, 0.08);
+  }
+  :root[data-glass='surfaces']:not([data-theme='playful'])
+    :is(
+      .ss-btn:not(.pri, .ghost, .dng, .ss-bulk *, .ss-toast *),
+      .ss-inp,
+      .ss-preset,
+      .ss-tint,
+      .ss-pick,
+      .ss-pinnote
+    ) {
+    background: var(--gs-ctl);
+  }
+  :root[data-glass='surfaces']:not([data-theme='playful']) .ss-top {
+    background: var(--gs-float);
+    border-color: var(--gs-edge);
+    -webkit-backdrop-filter: var(--gs-blur);
+    backdrop-filter: var(--gs-blur);
+  }
+  :root[data-glass='surfaces']:not([data-theme='playful']) :is(.ss-preset, .ss-tint).on {
+    background: var(--gs-picked);
+  }
+  /* A box that scrolls its own content would scroll the ::before and ::after away with it, so it
+     carries the glass itself; a box with a tint of its own keeps that tint. */
+  :root[data-glass='surfaces']:not([data-theme='playful'])
+    :is(.ss-box, .ss-list):is(.overflow-auto, .overflow-y-auto) {
+    background: var(--gs-grain), var(--gs-card);
+    -webkit-backdrop-filter: var(--gs-blur);
+    backdrop-filter: var(--gs-blur);
+  }
+  :root[data-glass='surfaces']:not([data-theme='playful'])
+    :is(.ss-box, .ss-list, .ss-menu):is(.overflow-auto, .overflow-y-auto)::after,
+  :root[data-glass='surfaces']:not([data-theme='playful'])
+    :is(.ss-box, .ss-list):is(.overflow-auto, .overflow-y-auto, .bg-warn-bg)::before {
+    content: none;
   }
 }

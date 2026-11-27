@@ -572,7 +572,7 @@ function SourceCard({
       '',
     );
   return (
-    <div className="flex flex-col gap-1.5 rounded-xl border border-line bg-surface px-4 py-3">
+    <div className="flex flex-col gap-1.5 rounded-lg border border-line bg-surface px-4 py-3">
       <div className="flex min-h-8 flex-wrap items-center gap-2.5">
         {source ? (
           <Link2 size={15} className="shrink-0 text-ink-3" />

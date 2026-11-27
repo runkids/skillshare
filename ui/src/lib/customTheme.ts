@@ -54,7 +54,8 @@ export interface CustomTheme {
   depth: 'flat' | 'default' | 'lifted';
   borders: 'default' | 'bold';
   icons: 'light' | 'default' | 'bold';
-  glass: 'frosted' | 'solid';
+  /** Frosted: menus and the sticky toolbar. Surfaces: cards, lists and the sidebar too. */
+  glass: 'frosted' | 'surfaces' | 'solid';
 }
 
 export const ACCENT_SWATCHES = [
@@ -272,7 +273,7 @@ const ENUMS = {
   depth: ['flat', 'default', 'lifted'],
   borders: ['default', 'bold'],
   icons: ['light', 'default', 'bold'],
-  glass: ['frosted', 'solid'],
+  glass: ['frosted', 'surfaces', 'solid'],
 } as const;
 
 function hex(value: unknown): string | null {
@@ -765,7 +766,11 @@ function deriveMode(theme: CustomTheme, mode: Mode, out: Derived): Record<string
   v['line-soft'] = v.line;
   v.sep = `1px solid ${v.sep}`;
   v.frame = `${clean && theme.borders === 'bold' ? BOLD_BORDER : '1px'} solid ${v.frame}`;
-  if (clean && theme.depth !== 'default') v['sh-box'] = DEPTH[theme.depth][mode];
+  if (clean && theme.depth !== 'default') {
+    v['sh-box'] = DEPTH[theme.depth][mode];
+    // Glass cards list their rim before this shadow, where `none` would be invalid.
+    v['gs-shadow'] = theme.depth === 'flat' ? '0 0 transparent' : v['sh-box'];
+  }
   v.shell = v.side;
   v['glass-bar'] = alpha(v.bg, 0.74);
   v['glass-menu'] = dark
@@ -822,17 +827,19 @@ function block(selector: string, vars: Record<string, string>) {
 }
 
 /** The <html> attributes a style needs; `null` removes one. `data-theme` names the base style,
- *  `data-custom` turns on the generated stylesheet, and `data-layout` opts out of Clean's inset panel. */
+ *  `data-custom` turns on the generated stylesheet, `data-layout` opts out of Clean's inset panel,
+ *  and `data-glass` frosts cards, lists and the sidebar too. */
 export function rootAttributes(
   style: CustomBase | 'custom',
   custom: CustomTheme,
-): Record<'data-theme' | 'data-custom' | 'data-layout', string | null> {
+): Record<'data-theme' | 'data-custom' | 'data-layout' | 'data-glass', string | null> {
   const isCustom = style === 'custom';
   const base = isCustom ? custom.base : style;
   return {
     'data-theme': base === 'playful' ? 'playful' : null,
     'data-custom': isCustom ? '' : null,
     'data-layout': isCustom && base === 'clean' && custom.layout === 'full' ? 'full' : null,
+    'data-glass': isCustom && base === 'clean' && custom.glass === 'surfaces' ? 'surfaces' : null,
   };
 }
 

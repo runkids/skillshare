@@ -295,7 +295,7 @@
     align-items: flex-start;
     gap: 10px;
     padding: 11px 14px;
-    border-radius: 10px;
+    border-radius: var(--r-inner);
     background: var(--sunken);
     border: 1px solid var(--line);
     font-size: 13px;
@@ -344,9 +344,6 @@
     border-radius: var(--r-box);
     box-shadow: var(--sh-box);
     padding: 18px 20px;
-  }
-  :root:not([data-theme='playful']) .ss-box {
-    border-radius: 12px;
   }
   /* Sync's tint fades in when work is pending and out once it is done. A tint this large needs the
      time to read as a change of colour; at the height animation's 0.25s it reads as a blink. */

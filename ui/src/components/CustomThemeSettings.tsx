@@ -514,7 +514,7 @@ export default function CustomThemeSettings() {
           />
         </div>
         <div
-          className={`ss-ministick z-20 mb-3 bg-bg md:sticky md:top-0 md:-mt-3 md:pt-3 ${stuck ? 'stuck' : ''}`}
+          className={`ss-ministick z-20 mb-3 md:sticky md:top-0 md:-mt-3 md:pt-3 ${stuck ? 'stuck' : ''}`}
         >
           <MiniPreview
             mode={previewMode}
@@ -862,7 +862,7 @@ export default function CustomThemeSettings() {
               <Choice
                 label={t('settings.custom.glass')}
                 value={theme.glass}
-                options={(['frosted', 'solid'] as const).map((v) => ({
+                options={(['frosted', 'surfaces', 'solid'] as const).map((v) => ({
                   value: v,
                   label: t(`settings.custom.glass.${v}`),
                 }))}

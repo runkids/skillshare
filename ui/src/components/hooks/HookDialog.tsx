@@ -264,7 +264,7 @@ export default function HookDialog({
           ? 'hooks.emptyTarget.none'
           : 'hooks.emptyTarget.partial';
     return (
-      <div className="flex flex-col items-center gap-3 rounded-[12px] border border-dashed border-line-2 px-6 py-8 text-center">
+      <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-line-2 px-6 py-8 text-center">
         <h3 className="text-[15px] font-semibold">
           {t('hooks.emptyTarget.title', { agent: labelOf(agent) })}
         </h3>
@@ -466,7 +466,7 @@ export default function HookDialog({
               {copyNotes.map((n) => (
                 <div
                   key={`${n.agent}:${n.event}`}
-                  className="flex items-center gap-2.5 rounded-[10px] bg-sunken px-3.5 py-3 text-[13px] text-ink-2"
+                  className="flex items-center gap-2.5 rounded-[var(--r-inner)] bg-sunken px-3.5 py-3 text-[13px] text-ink-2"
                 >
                   <AgentIcon target={agentOf(n.agent)} size={16} />
                   <span className="flex-1">
