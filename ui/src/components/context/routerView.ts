@@ -16,12 +16,13 @@ export const orderTopics = (topics: RouterTopic[]): RouterTopic[] =>
   [...topics].sort((a, b) => share(b) - share(a) || a.name.localeCompare(b.name));
 
 type Params = Record<string, string | number>;
+type Sentence = { key: string; params: Params };
 
 /** A sentence to translate. `reason`, when set, is translated first and passed in as `{reason}`. */
 export interface RouterProblem {
   key: string;
   params: Params;
-  reason?: { key: string; params: Params };
+  reason?: Sentence;
 }
 
 /** Exact, since a topic can sit a few bytes under its cap. Digits are not localized: they are compared by eye with the router's own output. */
@@ -30,7 +31,7 @@ export const exactBytes = (n: number): string => n.toLocaleString('en-US');
 /** What is wrong with this folder's own kernel and topics, most pressing first. Mounts are not looked at. */
 export function routerProblems(r: RouterReport): RouterProblem[] {
   if (r.error) {
-    const reason =
+    const reason: Sentence =
       r.error.code === 'config_invalid'
         ? { key: 'context.router.reason.invalid', params: { detail: r.error.detail ?? '' } }
         : { key: `context.router.reason.${r.error.detail ?? 'missing'}`, params: {} };
@@ -59,7 +60,7 @@ export function routerProblems(r: RouterReport): RouterProblem[] {
     }
     for (const s of t.sources) {
       if (!s.error) continue;
-      const reason =
+      const reason: Sentence =
         s.error === 'heading'
           ? {
               key: plural('context.router.reason.heading', s.count ?? 0),
