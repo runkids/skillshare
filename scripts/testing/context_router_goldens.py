@@ -242,9 +242,11 @@ def compact_cases(script):
 
 
 def dump(path, value):
+    """One case per line: a changed case is one changed line, and span lists stay readable."""
     with open(path, 'w', encoding='utf-8', newline='\n') as out:
-        json.dump(value, out, indent=1, sort_keys=True, ensure_ascii=True)
-        out.write('\n')
+        out.write('{"reference": %s, "cases": [\n' % json.dumps(value['reference']))
+        out.write(',\n'.join(json.dumps(case, sort_keys=True, ensure_ascii=True) for case in value['cases']))
+        out.write('\n]}\n')
 
 
 def main():
