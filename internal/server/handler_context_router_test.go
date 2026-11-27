@@ -155,3 +155,30 @@ func TestContextRouter_InvalidConfig(t *testing.T) {
 		t.Fatalf("got roots %+v router %+v", resp.Roots, resp.Router)
 	}
 }
+
+// The report says which version the folder's own script is and whose size rule was applied.
+func TestContextRouter_ScriptVersion(t *testing.T) {
+	s, source := newTestServer(t)
+	root := addRouter(t, filepath.Dir(source), "`page`")
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/api/context/router", nil))
+	var raw struct {
+		Router map[string]any `json:"router"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &raw); err != nil {
+		t.Fatal(err)
+	}
+	if raw.Router["scriptVersion"] != "" || raw.Router["semanticsVersion"] != contextrouter.SemanticsVersion || raw.Router["versionStatus"] != contextrouter.VersionUnknown {
+		t.Fatalf("no script: %v", raw.Router)
+	}
+	if err := os.MkdirAll(filepath.Join(root, "scripts"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "scripts", "ai-context.py"), []byte("VERSION = '0.2.1'\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	resp := getContextRouter(t, s, "", http.StatusOK)
+	if resp.Router.ScriptVersion != "0.2.1" || resp.Router.SemanticsVersion != "0.2.1" || resp.Router.VersionStatus != contextrouter.VersionLegacy {
+		t.Fatalf("0.2.1 script: %+v", resp.Router)
+	}
+}
