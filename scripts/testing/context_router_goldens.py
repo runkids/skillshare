@@ -208,8 +208,10 @@ HAND = {
     'nested-brackets': f'[a [b] {LINK}](x.md)\n',
     'cjk-before': f'路由 {LINK} 器\n',
 }
-TOKENS = [LINK, '[docs/run.md][r]', '[r]: ../docs/run.md', '![a](b.png)', '![', '[', ']', '`', '``', '```', '~~~',
-          '> ', '- ', '1. ', '    ', '\t', '<div>', '</div>', '<!--', '-->', '<pre>', '# ', '---', '\\', 'text', ' ']
+TOKENS = [LINK, LINK, '[docs/run.md][r]', '[r]: ../docs/run.md', '[R]: <../docs/run.md> "t"', '![a](b.png)', '![', '[', ']',
+          '`', '``', '```', '~~~', '> ', '>', '- ', '* ', '1. ', '2) ', '    ', '  ', ' ', '\t', '<div>', '</div>', '<!--', '-->',
+          '<pre>', '</pre>', '<span a="b">', '<?', '?>', '# ', '---', '===', '***', '\\', 'text', '\u8def\u7531', '\u00e9',
+          '(', ')', '"', "'", '[wiki/guide.md](guide.md)', '[x](y)', '[r]', '[r][]', '!', '<a@b.c>', '<http://x>', '|', ':']
 
 
 def compact_cases(script):
@@ -223,12 +225,15 @@ def compact_cases(script):
         rng = random.Random(19)
         inputs = list(HAND.items())
         for index in range(300):
-            lines = [''.join(rng.choice(TOKENS) for _ in range(rng.randint(0, 6))) for _ in range(rng.randint(1, 12))]
+            lines = [''.join(rng.choice(TOKENS) for _ in range(rng.randint(0, 8))) for _ in range(rng.randint(1, 14))]
             inputs.append((f'generated-{index:03}', '\n'.join(lines) + '\n'))
         out = []
         for name, body in inputs:
             lines = body.split('\n')
-            text = module.markdown_text(lines)[0]
+            # Offsets are characters in the text the scanner reads: the lines with tabs among
+            # their leading container markers expanded. Record them as UTF-8 bytes of that text.
+            leads = [module.CONTAINER_LEAD.match(line).end() for line in lines]
+            text = '\n'.join(line[:lead].expandtabs(4) + line[lead:] for line, lead in zip(lines, leads))
             offset = lambda position: len(text[:position].encode('utf-8'))
             spans = [[offset(start), offset(end)] for _, _, start, end in module.link_destinations(lines, spans=True)]
             out.append({'name': name, 'source': 'wiki/guide.md', 'input': body, 'spans': spans,
