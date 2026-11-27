@@ -41,28 +41,30 @@ export function HooksSyncDialog({
   project,
   takeover,
   canTakeOver,
-  onTakeover,
   onClose,
 }: {
   project?: string;
   /** Replace this hook's conflicting native outputs. That plan applies as a whole, since `replace` is not kept in the source. */
   takeover?: { name: string; entry: HookEntry };
-  /** Offered on the conflicts of a plain sync: opens the take-over preview for that hook instead. */
+  /** Offered on the conflicts of a sync: stages take-over for that hook in this preview. */
   canTakeOver?: (c: HookChange) => boolean;
-  onTakeover?: (name: string) => void;
   onClose: () => void;
 }) {
   const t = useT();
   const cache = useQueryClient();
-  const mutation: HookMutation = takeover
-    ? { ...(project && { project }), name: takeover.name, entry: takeover.entry, replace: true }
-    : {};
+  const [replacing, setReplacing] = useState<string[]>(() => (takeover ? [takeover.name] : []));
+  const mutation: HookMutation =
+    replacing.length === 1 && takeover && replacing[0] === takeover.name
+      ? { ...(project && { project }), name: takeover.name, entry: takeover.entry, replace: true }
+      : replacing.length > 0
+        ? { ...(project && { project }), replaceNames: replacing }
+        : {};
   const {
     data: plan,
     error: previewError,
     isPending,
   } = useQuery({
-    queryKey: queryKeys.hooksSyncPreview(project ?? '', takeover?.name ?? ''),
+    queryKey: queryKeys.hooksSyncPreview(project ?? '', replacing),
     queryFn: () => hooksApi.preview(mutation),
     gcTime: 0,
     retry: false,
@@ -72,6 +74,15 @@ export function HooksSyncDialog({
   const [running, setRunning] = useState(false);
   const [error, setError] = useState('');
   const [done, setDone] = useState(false);
+  const canStage = canTakeOver
+    ? (c: HookChange) => !replacing.includes(c.name) && canTakeOver(c)
+    : undefined;
+  const remainingTakeovers = canStage
+    ? [...new Set((view?.changes ?? []).filter(canStage).map((c) => c.name))]
+    : [];
+  const stageTakeover = canStage
+    ? (name: string) => setReplacing((prev) => (prev.includes(name) ? prev : [...prev, name]))
+    : undefined;
 
   const sync = async () => {
     if (!plan) return;
@@ -79,7 +90,7 @@ export function HooksSyncDialog({
     setError('');
     try {
       // A project writes only its own root; the global scope writes the whole plan, as the MCP box does.
-      if (project && !takeover) await hooksApi.syncProject(project, plan.revision);
+      if (project && replacing.length === 0) await hooksApi.syncProject(project, plan.revision);
       else await hooksApi.configure(mutation, plan.revision, true);
       setDone(true);
     } catch (e) {
@@ -89,9 +100,12 @@ export function HooksSyncDialog({
       void invalidate(cache, 'hooksSynced');
     }
   };
-  const title = takeover
-    ? t('hooks.takeoverTitle', { name: takeover.name })
-    : t('hooks.syncButton');
+  const title =
+    replacing.length === 1
+      ? t('hooks.takeoverTitle', { name: replacing[0] })
+      : replacing.length > 1
+        ? t('hooks.takeover')
+        : t('hooks.syncButton');
   return (
     <DialogShell
       open
@@ -106,7 +120,7 @@ export function HooksSyncDialog({
           <h2 className="ss-h2">{done ? t('syncPreview.titleComplete') : title}</h2>
           {!done && (
             <p className="text-[13px] text-ink-2">
-              {takeover
+              {replacing.length > 0
                 ? t('hooks.takeoverMessage')
                 : t(project ? 'hooks.syncDialog.subtitle' : 'hooks.syncDialog.globalSubtitle')}
             </p>
@@ -122,13 +136,7 @@ export function HooksSyncDialog({
         ) : isPending ? (
           <Spinner size="sm" />
         ) : (
-          view && (
-            <HooksPreview
-              plan={view}
-              canTakeOver={takeover ? undefined : canTakeOver}
-              onTakeover={takeover ? undefined : onTakeover}
-            />
-          )
+          view && <HooksPreview plan={view} canTakeOver={canStage} onTakeover={stageTakeover} />
         )}
         {(previewError || error) && (
           <div className="ss-note bad" role="alert">
@@ -148,6 +156,17 @@ export function HooksSyncDialog({
               {t('syncPreview.cancelButton')}
             </Button>
             {/* A refused write means the plan moved: close and reopen for a fresh one rather than retry it. */}
+            {!error && remainingTakeovers.length > 0 && (
+              <Button
+                variant="secondary"
+                disabled={running}
+                onClick={() =>
+                  setReplacing((prev) => [...new Set([...prev, ...remainingTakeovers])])
+                }
+              >
+                {t('hooks.takeover')}
+              </Button>
+            )}
             {!error && (
               <Button
                 onClick={() => void sync()}
@@ -381,13 +400,6 @@ export default function HooksSyncBox({
         <HooksSyncDialog
           project={project}
           canTakeOver={canTakeOver}
-          onTakeover={
-            onTakeover &&
-            ((name) => {
-              setReviewing(false);
-              onTakeover(name);
-            })
-          }
           onClose={() => setReviewing(false)}
         />
       )}

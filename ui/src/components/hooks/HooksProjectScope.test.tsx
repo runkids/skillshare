@@ -352,4 +352,92 @@ describe('project row preview', () => {
     expect(screen.getByRole('button', { name: 'Sync hooks' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Trust Codex hooks' })).not.toBeInTheDocument();
   });
+
+  it('allows taking over all conflicting native hooks when multiple hooks conflict', async () => {
+    const user = userEvent.setup();
+    const conflictMsg =
+      'an identical hook exists that Skillshare does not manage; import it or explicitly replace it';
+    vi.mocked(hooksApi.preview).mockImplementation(async (m) => {
+      const taken = new Set([
+        ...(m?.replaceNames ?? []),
+        ...(m?.replace && m.name ? [m.name] : []),
+      ]);
+      const changes = ['claude-stop', 'claude-pretooluse'].map((name) =>
+        change({
+          target: 'claude',
+          name,
+          action: taken.has(name) ? 'adopt' : 'conflict',
+          message: taken.has(name) ? undefined : conflictMsg,
+        }),
+      );
+      return {
+        ...plan(changes),
+        blocked: changes.some((c) => c.action === 'conflict'),
+      };
+    });
+    vi.mocked(hooksApi.configure).mockResolvedValue({ applied: [], backupIds: [] });
+
+    wrap(
+      <HooksSyncDialog
+        takeover={{ name: 'claude-stop', entry: { bindings: { claude: { events: {} } } } }}
+        canTakeOver={(c) => c.action === 'conflict' && !c.root}
+        onClose={vi.fn()}
+      />,
+    );
+
+    const takeoverAllBtn = await screen.findByRole('button', {
+      name: 'Take over the conflicting native hooks',
+    });
+    expect(screen.getByRole('button', { name: 'Sync Now' })).toBeDisabled();
+
+    await user.click(takeoverAllBtn);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Sync Now' })).toBeEnabled());
+    expect(
+      screen.queryByRole('button', { name: 'Take over the conflicting native hooks' }),
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Sync Now' }));
+    await waitFor(() =>
+      expect(hooksApi.configure).toHaveBeenCalledWith(
+        { replaceNames: ['claude-stop', 'claude-pretooluse'] },
+        expect.any(String),
+        true,
+      ),
+    );
+  });
+
+  it('hides take-over controls once staged even when a conflict cannot be replaced', async () => {
+    const user = userEvent.setup();
+    vi.mocked(hooksApi.preview).mockResolvedValue({
+      ...plan([
+        change({
+          target: 'claude',
+          name: 'claude-stop',
+          action: 'conflict',
+          message: 'managed by another Skillshare config',
+        }),
+      ]),
+      blocked: true,
+    });
+
+    wrap(
+      <HooksSyncDialog canTakeOver={(c) => c.action === 'conflict' && !c.root} onClose={vi.fn()} />,
+    );
+
+    const takeoverAllBtn = await screen.findByRole('button', {
+      name: 'Take over the conflicting native hooks',
+    });
+    await user.click(takeoverAllBtn);
+
+    await waitFor(() =>
+      expect(hooksApi.preview).toHaveBeenCalledWith({ replaceNames: ['claude-stop'] }),
+    );
+    expect(
+      screen.queryByRole('button', { name: 'Take over the conflicting native hooks' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /Take over native hooks/ }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Sync Now' })).toBeDisabled();
+  });
 });
