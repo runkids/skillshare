@@ -1,8 +1,27 @@
 @import 'tailwindcss';
-@import './components.css';
+/* The cascade follows this order: only this file imports these, never a component. */
+@import './styles/tokens.css';
+@import './styles/base.css';
+@import './styles/shell.css';
+@import './styles/page.css';
+@import './styles/controls.css';
+@import './styles/choices.css';
+@import './styles/status.css';
+@import './styles/lists.css';
+@import './styles/progress.css';
+@import './styles/content.css';
+@import './styles/board.css';
+@import './styles/overlays.css';
+@import './styles/misc.css';
+@import './styles/theme-editor.css';
+@import './styles/code.css';
+@import './styles/playful.css';
+@import './styles/tree.css';
+@import './styles/states.css';
+@import './styles/materials.css';
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* Tailwind colour, font, radius and shadow names resolve to the design tokens in components.css,
+/* Tailwind colour, font, radius and shadow names resolve to the design tokens in styles/tokens.css,
    so every utility follows the active style (Clean / Playful) and mode (light / dark).
    The pencil / paper / muted names are kept as aliases for markup not yet moved to the new names. */
 @theme inline {

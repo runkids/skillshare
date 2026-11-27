@@ -627,7 +627,7 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
         return;
       }
       for (const u of gone) setPrune(u.name, 'out');
-      // ponytail: matches the .ss-collapse.out transition in components.css (each row 60ms after the
+      // ponytail: matches the .ss-collapse.out transition in styles/progress.css (each row 60ms after the
       // last, gap closing from 180ms over 300ms); change both together.
       setTimeout(
         () => {

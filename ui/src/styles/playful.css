@@ -1,0 +1,382 @@
+@layer components {
+  b.ok,
+  svg.ok {
+    color: var(--ok);
+  }
+  span.warn,
+  b.warn,
+  svg.warn {
+    color: var(--warn);
+  }
+  span.bad,
+  b.bad,
+  svg.bad {
+    color: var(--bad);
+  }
+  .ss-btn:hover:not(:disabled) {
+    filter: brightness(0.94);
+  }
+  :root[data-theme='playful'] .ss-btn:hover:not(:disabled) {
+    filter: none;
+  }
+  /* Lifts and sinks only under a real pointer, so a tap does not leave the control stuck out of place. */
+  @media (hover: hover) and (pointer: fine) {
+    :root[data-theme='playful'] .ss-btn:hover:not(:disabled) {
+      transform: translate(2px, 2px);
+      box-shadow: 1px 1px 0 var(--line);
+    }
+  }
+  .ss-btn:disabled {
+    opacity: 0.42;
+  }
+  .ss-btn .spin {
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+  }
+  .ss-btn .spin + svg {
+    display: none;
+  }
+  .ss-tabs .ss-cnt {
+    padding: 2px 6px;
+    margin: 0;
+    border: 0;
+    border-radius: 99px;
+    background: var(--sunken);
+    font: 600 11px/1.2 var(--f);
+    color: var(--ink-2);
+  }
+  :root[data-theme='playful'] .ss-tabs .ss-cnt {
+    margin: 0;
+    border: 1.5px solid var(--ink-3);
+    background: transparent;
+  }
+  :root[data-theme='playful'] .ss-bulk .ss-btn,
+  :root[data-theme='playful'] .ss-bulk .ss-ib {
+    color: var(--on-pa);
+  }
+  :root[data-theme='playful'] .ss-bulk .dv {
+    background: currentColor;
+    opacity: 0.35;
+  }
+  :root[data-theme='playful'] .ss-btn.sm {
+    box-shadow: 2px 2px 0 var(--line);
+  }
+  :root[data-theme='playful'] .ss-btn.ghost,
+  :root[data-theme='playful'] .ss-bulk .ss-btn,
+  :root[data-theme='playful'] .ss-toast .ss-btn {
+    box-shadow: none;
+  }
+  :root[data-theme='playful'] .ss-inp:focus-within {
+    border-color: var(--line);
+    box-shadow: 3px 3px 0 var(--accent);
+  }
+  :root[data-theme='playful'] .ss-inp.err {
+    box-shadow: 3px 3px 0 var(--bad);
+  }
+  :root[data-theme='playful'] .ss-lh {
+    background: transparent;
+    border-bottom: 2px solid var(--line);
+    height: 36px;
+    font: 600 10.5px/1 var(--fm);
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+  }
+  :root[data-theme='playful'] .ss-gh {
+    background: var(--pe);
+    border-top: 2px solid var(--line);
+    border-bottom: 1.5px dashed var(--line);
+  }
+  :root[data-theme='playful'] .ss-gh:first-child {
+    border-top: 0;
+  }
+  :root[data-theme='playful'] .ss-lh + .ss-gh {
+    border-top: 0;
+  }
+  :root[data-theme='playful'] .ss-list.stick > .ss-lh {
+    background: var(--surface);
+  }
+  :root[data-theme='playful'] .ss-list.stick > .ss-gh {
+    top: calc(var(--stick, 0px) + 36px);
+  }
+  :root[data-theme='playful'] .ss-gh + .ss-r {
+    border-top: 0;
+  }
+  :root[data-theme='playful'] .ss-tabs {
+    border-bottom: 0;
+    gap: 8px;
+  }
+  :root[data-theme='playful'] .ss-tabs > * {
+    margin: 0;
+    padding: 0 14px;
+    height: 34px;
+    border: 2px solid transparent;
+    border-radius: 999px;
+  }
+  :root[data-theme='playful'] .ss-tabs > *.on {
+    background: var(--pa);
+    color: var(--on-pa);
+    border-color: var(--line);
+    box-shadow: 3px 3px 0 var(--line);
+  }
+  /* Tabs with controls on the right; the bar carries the underline so it spans the controls too.
+   Controls that do not fit wrap above the tabs, so the tabs stay on the line. */
+  .ss-tabbar {
+    display: flex;
+    flex-wrap: wrap-reverse;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 8px 16px;
+    border-bottom: 1px solid var(--line);
+  }
+  .ss-tabbar > .ss-tabs {
+    border-bottom: 0;
+  }
+  .ss-tabbar > :not(.ss-tabs) {
+    margin-bottom: 6px;
+    margin-left: auto;
+  }
+  :root[data-theme='playful'] .ss-tabbar {
+    align-items: center;
+    border-bottom: 0;
+  }
+  :root[data-theme='playful'] .ss-tabbar > :not(.ss-tabs) {
+    margin-bottom: 0;
+  }
+  :root[data-theme='playful'] .ss-tabs .ss-cnt {
+    height: auto;
+    padding: 1px 6px;
+    border: 1.5px solid currentColor;
+    box-shadow: none;
+    background: transparent;
+    color: inherit;
+    opacity: 0.8;
+  }
+  :root[data-theme='playful'] .ss-seg {
+    border-radius: 999px;
+    border: 2px solid var(--line);
+    padding: 2px;
+  }
+  :root[data-theme='playful'] .ss-seg > * {
+    border-radius: 999px;
+  }
+  :root[data-theme='playful'] .ss-seg > *.on {
+    background: var(--pa);
+    color: var(--on-pa);
+    outline: 0;
+    box-shadow: inset 0 0 0 1.5px var(--line);
+  }
+  :root[data-theme='playful'] .ss-counts {
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+    gap: 16px;
+    border-radius: 0;
+  }
+  :root[data-theme='playful'] .ss-counts > a {
+    border: 2px solid var(--line);
+    border-radius: 14px;
+    box-shadow: 4px 4px 0 var(--line);
+    background: var(--pa);
+    color: var(--on-pa);
+  }
+  :root[data-theme='playful'] .ss-counts > a:first-child {
+    border-left: 2px solid var(--line);
+  }
+  :root[data-theme='playful'] .ss-counts > a:nth-child(4n + 2) {
+    background: var(--pb);
+  }
+  :root[data-theme='playful'] .ss-counts > a:nth-child(4n + 3) {
+    background: var(--pc);
+  }
+  :root[data-theme='playful'] .ss-counts > a:nth-child(4n + 4) {
+    background: var(--pd);
+  }
+  :root[data-theme='playful'] .ss-counts > a:nth-child(5) {
+    background: var(--surface);
+    color: var(--ink);
+  }
+  :root[data-theme='playful'] .ss-counts > a .lbl {
+    color: inherit;
+    opacity: 0.75;
+  }
+  :root[data-theme='playful'] .ss-counts > a .lbl {
+    font: 600 10.5px/1.2 var(--fm);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  :root[data-theme='playful'] .ss-counts b {
+    font: 700 32px/0.9 var(--fh);
+  }
+  :root[data-theme='playful'] .ss-note {
+    box-shadow: 3px 3px 0 var(--line);
+    border-color: var(--line) !important;
+  }
+  :root[data-theme='playful'] .ss-note.warn {
+    background: var(--pe);
+  }
+  :root[data-theme='playful'] .ss-note.bad {
+    background: var(--pb);
+    color: var(--ink);
+  }
+  :root[data-theme='playful'] .ss-note.inf {
+    background: var(--pc);
+    color: var(--ink);
+  }
+  :root[data-theme='playful'].dark .ss-note.bad,
+  :root[data-theme='playful'].dark .ss-note.inf,
+  :root[data-theme='playful'].dark .ss-note.warn {
+    color: #1b1916;
+  }
+  /* --pe is a dark tint in dark mode; warn notes need a light pastel like bad/inf so the dark text stays readable. */
+  :root[data-theme='playful'].dark .ss-note.warn {
+    background: var(--pa);
+  }
+  :root[data-theme='playful'].dark .ss-note .ss-btn {
+    color: var(--ink);
+  }
+  :root[data-theme='playful'] .ss-note svg {
+    color: inherit;
+  }
+  :root[data-theme='playful'] .ss-box {
+    box-shadow: 4px 4px 0 var(--line);
+  }
+  :root[data-theme='playful'] .ss-code {
+    box-shadow: none;
+    background: var(--surface);
+  }
+  :root[data-theme='playful'] .ss-bulk {
+    background: var(--pa);
+    color: var(--on-pa);
+    box-shadow: 5px 5px 0 var(--line);
+  }
+  :root[data-theme='playful'] .ss-toast {
+    border-color: var(--line);
+    box-shadow: 4px 4px 0 var(--pa);
+  }
+  :root[data-theme='playful'] .ss-menu > :is(a, button).hv {
+    background: var(--pa);
+    color: var(--on-pa);
+  }
+  :root[data-theme='playful'] .ss-pager > *.on {
+    background: var(--pa);
+    color: var(--on-pa);
+    outline: 2px solid var(--line);
+  }
+  :root[data-theme='playful'] .ss-pinnote {
+    border-radius: 12px;
+  }
+  :root[data-theme='playful'] .ss-pinnote.src {
+    background: var(--pa);
+    color: var(--sel-ink);
+    --ink: var(--sel-ink);
+    --ink-2: color-mix(in srgb, var(--sel-ink) 80%, transparent);
+    /* 72%, not less: the path under the title stays above 4.5:1. */
+    --ink-3: color-mix(in srgb, var(--sel-ink) 72%, transparent);
+  }
+  /* Dark mode keeps the pastels mid-tone, so only the source note turns dark and takes light ink. */
+  :root[data-theme='playful'].dark .ss-pinnote.src {
+    background: #3a3226;
+  }
+  :root[data-theme='playful'] .ss-sev {
+    border-radius: 6px;
+  }
+  :root[data-theme='playful'] .ss-sw {
+    box-shadow: 2px 2px 0 var(--line);
+  }
+  :root[data-theme='playful'] .ss-chk.on {
+    background: var(--ink);
+  }
+  :root[data-theme='playful'] .ss-chk.on {
+    background: var(--ink);
+    border-color: var(--line);
+    color: var(--pa);
+  }
+  :root[data-theme='playful'] .ss-chk.rad.on {
+    background: var(--surface);
+  }
+  :root[data-theme='playful'] .ss-gh:last-child {
+    border-bottom: 0;
+  }
+  .ss-ph h1 span.m {
+    font: 700 27px/1.15 var(--fm);
+    letter-spacing: -0.03em;
+  }
+  :root[data-theme='playful'] .ss-ph h1 span.m {
+    font-size: 29px;
+    padding: 2px 6px;
+    margin: 0 -6px;
+  }
+  :root[data-theme='playful'].dark .ss-chk.on {
+    background: var(--pa);
+    color: #1b1916;
+    border-color: var(--pa);
+  }
+  .ss-seg.ic > * {
+    padding: 0 9px;
+    display: inline-grid;
+    place-items: center;
+  }
+  .ss-tiles {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+  }
+  .ss-tile {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px 16px;
+    min-height: 132px;
+    background: var(--surface);
+    border: var(--frame);
+    border-radius: 12px;
+    box-shadow: var(--sh-box);
+  }
+  :root[data-theme='playful'] .ss-tile {
+    border-radius: 14px;
+  }
+  .ss-tile.sel {
+    background: var(--accent-bg);
+    border-color: var(--accent);
+  }
+  :root[data-theme='playful'] .ss-tile.sel {
+    background: var(--pe);
+    border-color: var(--line);
+  }
+  .ss-tile .ft {
+    margin-top: auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .ss-tile .ds {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .ss-tile .nm {
+    font: 600 13px/1.3 var(--fm);
+    letter-spacing: -0.015em;
+  }
+  .ss-gl {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    margin: 8px 0 -2px;
+  }
+  .ss-r.fold {
+    min-height: 42px;
+    background: var(--sunken);
+    gap: 9px;
+    font-size: 13px;
+  }
+  :root[data-theme='playful'] .ss-r.fold {
+    background: var(--pe);
+  }
+}

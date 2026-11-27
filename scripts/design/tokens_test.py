@@ -1,8 +1,8 @@
 import unittest
 
-from tokens import CSS_PATH, LIGHT, ROOT, export
+from tokens import LIGHT, export, read_css
 
-CSS = (ROOT / CSS_PATH).read_text()
+CSS = read_css()
 
 
 def tokens(data):

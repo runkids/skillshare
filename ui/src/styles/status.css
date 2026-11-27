@@ -1,0 +1,211 @@
+@layer components {
+  .ss-st {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .ss-st::before {
+    content: '';
+    width: 7px;
+    height: 7px;
+    border-radius: 99px;
+    background: var(--ink-3);
+  }
+  .ss-st.ok::before {
+    background: var(--ok);
+  }
+  .ss-st.warn::before {
+    background: var(--warn);
+  }
+  .ss-st.bad::before {
+    background: var(--bad);
+  }
+  .ss-st.warn {
+    color: var(--warn);
+  }
+  .ss-st.bad {
+    color: var(--bad);
+  }
+  .ss-st.off {
+    color: var(--ink-3);
+  }
+  /* Server messages have no length limit, so they wrap instead of pushing the row wider. */
+  .ss-st.wrap {
+    display: flex;
+    align-items: flex-start;
+    white-space: normal;
+  }
+  .ss-st.wrap::before {
+    margin-top: 5px;
+  }
+  .ss-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 19px;
+    padding: 0 6px;
+    font: 500 11px/1 var(--fm);
+    letter-spacing: 0;
+    color: var(--ink-2);
+    background: var(--sunken);
+    border: 1px solid var(--line);
+    border-radius: var(--r-tag);
+    white-space: nowrap;
+  }
+  :root[data-theme='playful'] .ss-tag {
+    border: 1.5px solid var(--ink-3);
+    background: var(--surface);
+  }
+  .ss-tag.ok {
+    color: var(--ok);
+    background: var(--ok-bg);
+    border-color: transparent;
+  }
+  .ss-tag.warn {
+    color: var(--warn);
+    background: var(--warn-bg);
+    border-color: transparent;
+  }
+  .ss-tag.bad {
+    color: var(--bad);
+    background: var(--bad-bg);
+    border-color: transparent;
+  }
+  .ss-tag.inf {
+    color: var(--accent);
+    background: var(--accent-bg);
+    border-color: transparent;
+  }
+  :root[data-theme='playful'] .ss-tag.ok,
+  :root[data-theme='playful'] .ss-tag.warn,
+  :root[data-theme='playful'] .ss-tag.bad,
+  :root[data-theme='playful'] .ss-tag.inf {
+    border-color: currentColor;
+  }
+  .ss-cat {
+    width: 34px;
+    height: 34px;
+    flex: none;
+    display: grid;
+    place-items: center;
+    border-radius: 9px;
+    color: var(--c);
+    background: var(--cb);
+  }
+  :root[data-theme='playful'] .ss-cat {
+    border-radius: 99px;
+    border: 2px solid var(--c);
+  }
+  .ss-cat.skill {
+    --c: var(--c-skill);
+    --cb: var(--c-skill-bg);
+  }
+  .ss-cat.agent {
+    --c: var(--c-agent);
+    --cb: var(--c-agent-bg);
+  }
+  .ss-cat.extra {
+    --c: var(--c-extra);
+    --cb: var(--c-extra-bg);
+  }
+  .ss-cat.mcp {
+    --c: var(--c-mcp);
+    --cb: var(--c-mcp-bg);
+  }
+  .ss-cat.hooks {
+    --c: var(--c-extra);
+    --cb: var(--c-extra-bg);
+  }
+  .ss-cat.target {
+    --c: var(--c-target);
+    --cb: var(--c-target-bg);
+  }
+  .ss-cat.plugin {
+    --c: var(--c-plugin);
+    --cb: var(--c-plugin-bg);
+  }
+  .ss-cat.warn {
+    --c: var(--warn);
+    --cb: var(--warn-bg);
+  }
+  .ss-cat.bad {
+    --c: var(--bad);
+    --cb: var(--bad-bg);
+  }
+  .ss-cat.ok {
+    --c: var(--ok);
+    --cb: var(--ok-bg);
+  }
+  .ss-cat.sm {
+    width: 26px;
+    height: 26px;
+    border-radius: 7px;
+  }
+  :root[data-theme='playful'] .ss-cat.sm {
+    border-radius: 99px;
+    border-width: 1.5px;
+  }
+  .ss-at {
+    width: 30px;
+    height: 30px;
+    flex: none;
+    display: grid;
+    place-items: center;
+    border-radius: 8px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    color: var(--ink);
+  }
+  :root[data-theme='playful'] .ss-at {
+    border: 1.5px solid var(--line);
+    border-radius: 8px;
+  }
+  .ss-at.lg {
+    width: 44px;
+    height: 44px;
+    border-radius: 11px;
+  }
+  .ss-stack {
+    display: inline-flex;
+    align-items: center;
+  }
+  .ss-stack .ss-at {
+    border-width: 1px;
+    width: 24px;
+    height: 24px;
+    border-radius: 99px;
+    margin-left: -6px;
+    box-shadow: 0 0 0 2px var(--surface);
+  }
+  .ss-stack .ss-at:first-child {
+    margin-left: 0;
+  }
+  /* A row's one Agent on a pill that turns it on and off: off greys it like an unticked .ss-tgl,
+   on brings it back with a small pop. Transitions, so a quick second click reverses midway. */
+  .ss-btn .ss-one {
+    filter: grayscale(1);
+    opacity: 0.45;
+    transform: scale(0.85);
+    transition:
+      filter 0.12s,
+      opacity 0.12s,
+      transform 0.12s cubic-bezier(0.23, 1, 0.32, 1);
+  }
+  .ss-btn[aria-checked='true'] .ss-one {
+    filter: none;
+    opacity: 1;
+    transform: none;
+    transition-duration: 0.18s;
+  }
+  /* A stack whose logos each sit in a Tooltip wrapper. */
+  .ss-stack > :not(:first-child) > .ss-at:first-child {
+    margin-left: -6px;
+  }
+  .ss-stack .ss-at:focus-visible {
+    position: relative;
+    z-index: 1;
+  }
+}

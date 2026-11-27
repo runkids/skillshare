@@ -1,0 +1,256 @@
+@layer components {
+  .ss-seg {
+    display: inline-flex;
+    padding: 2px;
+    gap: 2px;
+    background: var(--sunken);
+    border: var(--bw) solid var(--line);
+    border-radius: 9px;
+  }
+  .ss-seg > * {
+    height: 28px;
+    padding: 0 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font: 500 13px/1 var(--f);
+    color: var(--ink-2);
+    border-radius: 7px;
+  }
+  .ss-seg > *.on {
+    background: var(--surface);
+    color: var(--ink);
+    font-weight: 600;
+    box-shadow: 0 1px 2px rgba(20, 19, 18, 0.12);
+  }
+  .ss-seg > *:disabled {
+    opacity: 0.45;
+  }
+  :root[data-theme='playful'] .ss-seg {
+    border-radius: var(--r-ctl);
+    background: var(--surface);
+    padding: 3px;
+  }
+  :root[data-theme='playful'] .ss-seg > * {
+    border-radius: var(--r-ctl);
+  }
+  :root[data-theme='playful'] .ss-seg > *.on {
+    background: var(--sel);
+    color: var(--sel-ink);
+    box-shadow: none;
+    outline: 1.5px solid var(--line);
+  }
+  .ss-tabs {
+    display: flex;
+    gap: 22px;
+    border-bottom: 1px solid var(--line);
+  }
+  :root[data-theme='playful'] .ss-tabs {
+    border-bottom: 2px solid var(--line);
+  }
+  .ss-tabs > * {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 0 1px 10px;
+    margin-bottom: -1px;
+    font-weight: 500;
+    color: var(--ink-2);
+    border-bottom: 2px solid transparent;
+  }
+  .ss-tabs > *.on {
+    color: var(--ink);
+    font-weight: 600;
+    border-bottom-color: var(--pri);
+  }
+  :root[data-theme='playful'] .ss-tabs > * {
+    margin-bottom: -2px;
+    border-bottom-width: 4px;
+  }
+  :root[data-theme='playful'] .ss-tabs > *.on {
+    border-bottom-color: #c8372d;
+  }
+  .ss-cnt {
+    font: 500 12px/1 var(--f);
+    color: var(--ink-3);
+  }
+  .ss-chk {
+    position: relative;
+    width: 16px;
+    height: 16px;
+    flex: none;
+    display: grid;
+    place-items: center;
+    background: var(--surface);
+    border: 1.5px solid var(--line-2);
+    border-radius: 4px;
+    color: var(--on-pri);
+  }
+  /* The 16px box is under the 24px WCAG 2.2 minimum, and these sit in rows that navigate on click.
+   Grow the hit area only; the visual box and the layout stay put. */
+  .ss-chk::after {
+    content: '';
+    position: absolute;
+    inset: -8px;
+    border-radius: 8px;
+  }
+  :root:not([data-theme='playful']) .ss-chk:not(.on) {
+    border-color: #b9b5ac;
+  }
+  :root[data-theme='playful'] .ss-chk {
+    width: 17px;
+    height: 17px;
+    border: 2px solid var(--line);
+    border-radius: 5px;
+  }
+  :root[data-theme='playful'] .ss-chk.rad {
+    border-radius: 99px;
+  }
+  .ss-chk.on {
+    background: var(--pri);
+    border-color: var(--pri);
+  }
+  .ss-chk.rad {
+    border-radius: 99px;
+  }
+  .ss-chk.rad.on {
+    background: var(--surface);
+    border-width: 5px;
+  }
+  /* Toggle whose icon is the checkbox: faded when off, full colour with a check badge when on */
+  .ss-tgl {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--ink-3);
+    transition: color 0.15s;
+  }
+  .ss-tgl .ic {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    filter: grayscale(1);
+    opacity: 0.45;
+    transition:
+      filter 0.15s,
+      opacity 0.15s;
+  }
+  /* The badge pops in when ticked and shrinks away, quicker, when unticked; transitions, so rapid clicks reverse it midway. */
+  .ss-tgl .ic > i {
+    position: absolute;
+    right: -4px;
+    bottom: -4px;
+    display: grid;
+    place-items: center;
+    width: 14px;
+    height: 14px;
+    border-radius: 99px;
+    background: var(--pri);
+    color: var(--on-pri);
+    box-shadow: 0 0 0 2px var(--surface);
+    opacity: 0;
+    transform: scale(0.6);
+    transition:
+      opacity 0.12s,
+      transform 0.12s cubic-bezier(0.23, 1, 0.32, 1);
+  }
+  .ss-tgl.on {
+    color: var(--ink);
+  }
+  .ss-tgl.on .ic > i {
+    transition-duration: 0.18s;
+  }
+  /* Applying a selection shells out to the agent's own CLI and takes seconds, so
+   the badge stays visible in both states (.working) to carry a spinner. Without it
+   the row just freezes and reads as a hang. */
+  .ss-tgl:is(.on, .working) .ic {
+    filter: none;
+    opacity: 1;
+  }
+  .ss-tgl:is(.on, .working) .ic > i {
+    opacity: 1;
+    transform: none;
+  }
+  /* Touch screens keep :hover after a tap, which would leave an unticked logo half lit. */
+  @media (hover: hover) and (pointer: fine) {
+    .ss-tgl:not(.on):not(:disabled):hover .ic {
+      opacity: 0.75;
+    }
+  }
+  .ss-tgl:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+    border-radius: 6px;
+  }
+  :root[data-theme='playful'] .ss-tgl .ic > i {
+    background: var(--ink);
+    color: var(--pa);
+  }
+  :root[data-theme='playful'].dark .ss-tgl .ic > i {
+    background: var(--pa);
+    color: #1b1916;
+  }
+  .ss-sw {
+    width: 34px;
+    height: 20px;
+    flex: none;
+    padding: 2px;
+    display: flex;
+    border-radius: 99px;
+    background: var(--line-2);
+  }
+  .ss-sw i {
+    width: 16px;
+    height: 16px;
+    border-radius: 99px;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  }
+  .ss-sw.on {
+    background: var(--pri);
+  }
+  .ss-sw.on i {
+    background: var(--on-pri);
+  }
+  /* Some of the items it covers are on: half-tone track, centered knob with a dash. */
+  .ss-sw.mix {
+    background: var(--ink-3);
+  }
+  .ss-sw.mix i {
+    display: grid;
+    place-items: center;
+  }
+  .ss-sw.mix i::after {
+    content: '';
+    width: 8px;
+    height: 2px;
+    border-radius: 1px;
+    background: var(--ink-3);
+  }
+  :root[data-theme='playful'] .ss-sw {
+    width: 38px;
+    height: 22px;
+    background: var(--surface);
+    border: 2px solid var(--line);
+    padding: 2px;
+  }
+  :root[data-theme='playful'] .ss-sw i {
+    width: 14px;
+    height: 14px;
+    background: var(--ink-3);
+    box-shadow: none;
+  }
+  :root[data-theme='playful'] .ss-sw.on {
+    background: var(--ok-bg);
+  }
+  :root[data-theme='playful'] .ss-sw.on i {
+    background: var(--ok);
+  }
+  :root[data-theme='playful'] .ss-sw.mix i::after {
+    width: 6px;
+    background: var(--surface);
+  }
+}

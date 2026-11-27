@@ -1,6 +1,6 @@
 # Skillshare Web Dashboard — Style Guide
 
-The rules behind the dashboard, and why they exist. Token names, the `ss-*` class list and component APIs are in `../SKILL.md`; values are in `ui/src/components.css`.
+The rules behind the dashboard, and why they exist. Token names, the `ss-*` class list and component APIs are in `../SKILL.md`; values are in `ui/src/styles/tokens.css`.
 
 Reference pages: `ui/src/pages/TargetsPage.tsx`, `ui/src/pages/ResourcesPage.tsx`.
 

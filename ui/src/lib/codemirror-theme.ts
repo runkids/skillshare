@@ -55,7 +55,7 @@ const handEditorTheme = EditorView.theme({
   },
 });
 
-/** Syntax colors — same mapping as the `.tok-*` classes in components.css, so static and live code match. */
+/** Syntax colors — same mapping as the `.tok-*` classes in styles/code.css, so static and live code match. */
 const handHighlightStyle = HighlightStyle.define([
   { tag: [tags.keyword, tags.link], color: 'var(--accent)' },
   { tag: [tags.string, tags.special(tags.string), tags.attributeValue], color: 'var(--ok)' },

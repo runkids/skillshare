@@ -21,7 +21,7 @@ Before acting, run `python3 scripts/ai-context.py frontend`. That topic and the 
 | Aspect | UI Dashboard (`ui/`) | Website (`website/`) |
 |--------|---------------------|----------------------|
 | Stack | React 19 + Vite + Tailwind CSS v4 | Docusaurus 3 + custom CSS |
-| Source of truth | `ui/src/components.css` (tokens + `ss-*` classes), `ui/src/index.css` (Tailwind mapping) | `website/src/css/custom.css` (docs), `website/src/pages/*.module.css` (homepage, features) |
+| Source of truth | `ui/src/styles/*.css` (tokens + `ss-*` classes), `ui/src/index.css` (Tailwind mapping) | `website/src/css/custom.css` (docs), `website/src/pages/*.module.css` (homepage, features) |
 | Looks | Two styles, **Clean** and **Playful**, each in light and dark; **Custom** recolours either | Docs: clean. Homepage: hand-drawn string board |
 
 **This file names tokens and classes and says when to use them. It does not copy their values.** Colours, radii, fonts and shadows change; read them from the CSS when you need one.
@@ -55,7 +55,7 @@ All four looks come from CSS variables alone. A page that uses only tokens and `
 
 ### Design tokens
 
-Defined per look at the top of `ui/src/components.css`. `ui/src/index.css` exposes them to Tailwind through `@theme inline`, so `text-ink-2`, `bg-surface`, `border-line` all follow the active look.
+Defined per look in `ui/src/styles/tokens.css`. `ui/src/index.css` exposes them to Tailwind through `@theme inline`, so `text-ink-2`, `bg-surface`, `border-line` all follow the active look.
 
 | Group | Tokens | Use |
 |-------|--------|-----|
@@ -91,10 +91,10 @@ Tailwind names: `bg` `side` `surface` `sunken` `ink` `ink-2` `ink-3` `line` `lin
 
 ### The `ss-*` classes
 
-All in `@layer components` in `ui/src/components.css`. List what exists today:
+In `ui/src/styles/*.css`: `tokens.css` and `base.css` are unlayered, every other file is one `@layer components` block. The cascade follows the import order in `ui/src/index.css`, so moving or reordering rules can change which one wins. Only `index.css` imports these files: CSS imported from a component loads with its lazy route, in whatever order pages are opened. List what exists today:
 
 ```bash
-grep -o '\.ss-[a-z0-9-]*' ui/src/components.css | sort -u
+grep -oh '\.ss-[a-z0-9-]*' ui/src/styles/*.css | sort -u
 ```
 
 State and variant are short modifier classes on the same element: `.on` (selected or checked), `.sel` (selected row or tile), `.ok` `.warn` `.bad` `.inf` (tone), `.sm` `.lg` (size).

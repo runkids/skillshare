@@ -1,0 +1,196 @@
+@layer components {
+  .ss-scrim {
+    position: fixed;
+    z-index: 60;
+    inset: 0;
+    background: rgba(20, 19, 18, 0.36);
+    display: grid;
+    place-items: center;
+    animation: ss-fade-in 0.2s ease-out;
+  }
+  /* The backdrop darkens first; closing, it lightens as the dialog shrinks back (dialogGhost in lib/exitGhost.ts). */
+  @keyframes ss-fade-in {
+    from {
+      opacity: 0;
+    }
+  }
+  /* An exit copy (lib/exitGhost.ts) must not replay its entrances; its exit runs on the Web Animations API. */
+  .ss-ghost,
+  .ss-ghost * {
+    animation: none !important;
+    transition: none !important;
+  }
+  :root:not([data-theme='playful']) .ss-scrim {
+    backdrop-filter: blur(3px);
+  }
+  .ss-dlg {
+    width: 440px;
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    border: var(--frame);
+    border-radius: 16px;
+    box-shadow: var(--sh-dialog);
+    overflow: hidden;
+  }
+  :root[data-theme='playful'] .ss-dlg {
+    border-radius: 16px;
+  }
+  .ss-dlg .dh {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 20px 22px 0;
+  }
+  /* A long scrolling body slides under the title, so mark the edge the way the footer does */
+  .ss-dlg .dh.sep {
+    padding-bottom: 14px;
+    border-bottom: var(--sep);
+  }
+  /* The body is what scrolls, so the header and the footer's actions stay in reach on a short window */
+  .ss-dlg .db {
+    padding: 14px 22px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-height: 0;
+    overflow-y: auto;
+  }
+  /* Children keep their height so a long body scrolls instead of squashing (and clipping) its lists */
+  .ss-dlg .db > * {
+    flex-shrink: 0;
+  }
+  .ss-dlg .df {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 14px 22px;
+    border-top: var(--sep);
+    background: var(--sunken);
+  }
+  .ss-toast {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    height: 42px;
+    padding: 0 8px 0 14px;
+    background: #1e1d1b;
+    color: #f4f2ed;
+    border-radius: 11px;
+    box-shadow: var(--sh-float);
+    font-size: 13px;
+    font-weight: 500;
+  }
+  :root[data-theme='playful'] .ss-toast {
+    border: 2px solid #2d2d2d;
+    border-radius: 21px;
+  }
+  .ss-toast .ss-btn {
+    background: transparent;
+    color: #ffe27a;
+    border-color: transparent;
+    box-shadow: none;
+    height: 28px;
+    padding: 0 10px;
+  }
+  .ss-menu {
+    width: 210px;
+    padding: 5px;
+    background: var(--surface);
+    border: var(--frame);
+    border-radius: 11px;
+    box-shadow: var(--sh-float);
+    display: flex;
+    flex-direction: column;
+  }
+  :root[data-theme='playful'] .ss-menu {
+    border-radius: 12px;
+  }
+  .ss-menu > :is(a, button) {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    height: 32px;
+    padding: 0 9px;
+    border-radius: 7px;
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .ss-menu > :is(a, button).hv {
+    background: var(--sel);
+    color: var(--sel-ink);
+  }
+  .ss-menu > :is(a, button).dng {
+    color: var(--bad);
+  }
+  .ss-menu hr {
+    border: 0;
+    border-top: var(--sep);
+    margin: 5px 0;
+  }
+  .ss-menu .k {
+    margin-left: auto;
+    font: 500 11px/1 var(--fm);
+    color: var(--ink-3);
+  }
+  .ss-tip {
+    display: inline-block;
+    padding: 6px 9px;
+    background: #1e1d1b;
+    color: #f4f2ed;
+    font-size: 12px;
+    font-weight: 500;
+    border-radius: 7px;
+  }
+  .ss-top {
+    position: fixed;
+    right: 24px;
+    bottom: 24px;
+    z-index: 40;
+    width: 40px;
+    height: 40px;
+    display: grid;
+    place-items: center;
+    border-radius: 99px;
+    background: var(--surface);
+    color: var(--ink-2);
+    border: 1px solid var(--line-2);
+    box-shadow: 0 4px 14px rgba(20, 19, 18, 0.14);
+    cursor: pointer;
+  }
+  .ss-top:hover {
+    color: var(--ink);
+  }
+  :root[data-theme='playful'] .ss-top {
+    border: 2px solid var(--line);
+    color: var(--ink);
+    box-shadow: 3px 3px 0 var(--line);
+  }
+  :root[data-theme='playful'] .ss-top:hover {
+    transform: translate(2px, 2px);
+    box-shadow: 1px 1px 0 var(--line);
+  }
+  .ss-prog {
+    height: 6px;
+    border-radius: 99px;
+    background: var(--line);
+    overflow: hidden;
+    display: flex;
+  }
+  .ss-prog i {
+    background: var(--accent);
+    border-radius: 99px;
+    transition: width 0.45s cubic-bezier(0.3, 0.7, 0.3, 1);
+  }
+  :root[data-theme='playful'] .ss-prog {
+    height: 12px;
+    background: var(--surface);
+    border: 2px solid var(--line);
+  }
+  :root[data-theme='playful'] .ss-prog i {
+    border-radius: 0;
+    background: repeating-linear-gradient(-45deg, var(--accent) 0 5px, transparent 5px 8px);
+  }
+}
