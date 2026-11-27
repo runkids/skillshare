@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -99,7 +100,7 @@ func newTernFixture(t *testing.T) *ternFixture {
 		switch strings.Join(args, " ") {
 		case "--version":
 			return []byte("1"), nil
-		case "plugin --help", "plugin install --help", "plugin uninstall --help":
+		case "plugin --help", "plugin install --help", "plugin uninstall --help", "plugin update --help":
 			return []byte("help"), nil
 		case "plugin list --json":
 			if bin == "tern" {
@@ -249,5 +250,52 @@ func TestTernExistingInstallationRequiresImport(t *testing.T) {
 	d, err := s.load()
 	if err != nil || d.packages["tern-kata"].Bindings["tern"].ID != "tern-kata" || d.packages["tern-kata"].Bindings["tern"].Version != "0.17.0" {
 		t.Fatalf("import: %+v %v", d, err)
+	}
+}
+
+func TestTernMissingUpdateRefSkipsUnreachableSource(t *testing.T) {
+	f := newTernFixture(t)
+	sources := []string{f.source, fixture(t)}
+	for _, src := range sources {
+		for _, args := range [][]string{{"init", "-b", "main"}, {"add", "."}, {"-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "-m", "fixture"}, {"branch", "next"}} {
+			cmd := exec.Command("git", args...)
+			cmd.Dir = src
+			if out, err := cmd.CombinedOutput(); err != nil {
+				t.Fatalf("git %v: %s %v", args, out, err)
+			}
+		}
+	}
+	cfg := filepath.Join(t.TempDir(), "gitconfig")
+	writeFile(t, filepath.Dir(cfg), filepath.Base(cfg), fmt.Sprintf("[url \"file://%s\"]\n insteadOf = https://fixture.invalid/tern.git\n[url \"file://%s\"]\n insteadOf = https://fixture.invalid/other.git\n", sources[0], sources[1]))
+	t.Setenv("GIT_CONFIG_GLOBAL", cfg)
+	applyPluginRequest(t, f.service, Request{Action: "add", Name: "demo", Source: "https://fixture.invalid/tern.git", SourceRef: "main", Targets: []string{"tern"}})
+	applyPluginRequest(t, f.service, Request{Action: "add", Name: "demo", Source: "https://fixture.invalid/other.git", SourceRef: "main", Targets: []string{"copilot"}})
+	if err := os.Rename(sources[0], sources[0]+"-offline"); err != nil {
+		t.Fatal(err)
+	}
+	p, err := f.service.Preview(context.Background(), Request{Action: "update", Name: "demo", SourceRef: "next"})
+	if err != nil || p.Blocked {
+		t.Fatalf("preview: %+v %v", p, err)
+	}
+	var skipped, other bool
+	for _, c := range p.Changes {
+		if c.Target == "tern" && c.Action == "skip" && c.MessageKey == "plugins.error.cliMissing" {
+			skipped = true
+		}
+		if c.Target == "copilot" && c.Action != "skip" && c.Action != "blocked" {
+			other = true
+		}
+	}
+	if !skipped || !other {
+		t.Fatalf("changes: %+v", p.Changes)
+	}
+}
+
+func TestTernMissingDeferredAddRejectsDuplicateIdentity(t *testing.T) {
+	f := newTernFixture(t)
+	applyPluginRequest(t, f.service, Request{Action: "add", Name: "first", Source: f.source, Targets: []string{"tern"}})
+	p, err := f.service.Preview(context.Background(), Request{Action: "add", Name: "second", Source: f.source, Targets: []string{"tern"}})
+	if err != nil || !p.Blocked || len(p.Changes) != 1 || p.Changes[0].Action != "blocked" || p.Changes[0].MessageKey != "plugins.note.identityInUse" || !strings.Contains(p.Changes[0].Message, "first") {
+		t.Fatalf("duplicate: %+v %v", p, err)
 	}
 }

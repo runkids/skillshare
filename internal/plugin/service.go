@@ -519,6 +519,10 @@ func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval) (
 				}
 				decl, declared := d.intent[name].Bindings[target]
 
+				if deferMissing(Change{Name: name, Target: target, ID: b.ID, Binding: b, Action: r.Action}) {
+					continue
+				}
+
 				if r.Action == "update" && r.SourceRef != "" {
 					if decl.Source == "" || decl.Imported || isNpmSource(decl.Source) {
 						return nil, fmt.Errorf("source ref requires a reviewed Git source for %s/%s", name, target)
@@ -544,9 +548,6 @@ func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval) (
 				}
 				if r.Action == "unimport" && !d.canUnimport(name, target) {
 					return nil, agentError{key: "plugins.error.unimportReceiptRequired", message: fmt.Sprintf("%s/%s has no local import backed by a shared source recipe", name, target), args: map[string]string{"name": name, "target": target}}
-				}
-				if deferMissing(Change{Name: name, Target: target, ID: b.ID, Binding: b, Action: r.Action}) {
-					continue
 				}
 				if b.ContextChanged {
 					appendChange(Change{Name: name, Target: target, ID: b.ID, Binding: b, Action: "blocked", Message: "Native account or scope changed; restore the previous account settings to resolve its local receipt before rebinding.", MessageKey: "plugins.note.accountChanged"})
@@ -701,9 +702,14 @@ func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval) (
 			continue
 		}
 		for name, pack := range d.packages {
-			if c.ID != "" && name != c.Name && pack.Bindings[c.Target].ID == c.ID {
+			decl := d.intent[name].Bindings[c.Target]
+			deferredTern := r.Action == "add" && c.Action == "selection" && s.agentOf(c.Target) == "tern" && !decl.Imported && decl.Source != "" && decl.Plugin == c.ID
+			if c.ID != "" && name != c.Name && (pack.Bindings[c.Target].ID == c.ID || deferredTern) {
 				c.Action = "blocked"
 				c.Message = "This native plugin is already managed by package " + name
+				if deferredTern {
+					c.MessageKey, c.MessageArgs = "plugins.note.identityInUse", nil
+				}
 				p.Blocked = true
 			}
 		}
