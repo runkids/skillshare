@@ -16,24 +16,38 @@ const ignoreFile = [k.diff(), k.overview, k.skills.all, k.doctor];
  * `syncMatrixAll` and `diffAll` are prefixes that reach every target; `syncMatrix()` and `diff()` are the all-targets query only.
  */
 const events = {
-  // Skills and agents
-  skillsChanged: () => keys(k.skills.all, k.overview, k.diff(), k.versionCheck),
+  // Skills and agents. A skill file can be a source of a router topic, and the source folder can
+  // hold the router itself, so each event that changes source files refreshes the Router tab.
+  skillsChanged: () =>
+    keys(k.skills.all, k.overview, k.diff(), k.versionCheck, k.contextRouter.all),
   // A project's config.yaml declares the branch, so the config editor reloads too.
-  skillBranchSwitched: () => keys(k.skills.all, k.overview, k.diff(), k.config),
+  skillBranchSwitched: () =>
+    keys(k.skills.all, k.overview, k.diff(), k.config, k.contextRouter.all),
   // The list shows frontmatter (description, manual only), so an edit refreshes it too.
-  skillEdited: (name: string) => keys(k.skills.all, k.skills.detail(name)),
+  skillEdited: (name: string) => keys(k.skills.all, k.skills.detail(name), k.contextRouter.all),
   // The version card reads the built-in skill and .skillignore from the source, so events that add, remove or disable a skill refresh it.
-  installDialogClosed: () => keys(k.skills.all, k.versionCheck),
-  reposChanged: () => keys(k.overview, k.skills.all, k.trash, k.missingConfigEntries),
-  skillsMoved: () => keys(k.skills.all, k.overview, k.syncMatrixAll, k.diff(), k.versionCheck),
+  installDialogClosed: () => keys(k.skills.all, k.versionCheck, k.contextRouter.all),
+  reposChanged: () =>
+    keys(k.overview, k.skills.all, k.trash, k.missingConfigEntries, k.contextRouter.all),
+  skillsMoved: () =>
+    keys(k.skills.all, k.overview, k.syncMatrixAll, k.diff(), k.versionCheck, k.contextRouter.all),
   skillsUninstalled: () =>
-    keys(k.skills.all, k.overview, k.trash, k.syncMatrixAll, k.diff(), k.versionCheck),
-  trashChanged: () => keys(k.trash, k.skills.all, k.syncMatrixAll, k.versionCheck),
+    keys(
+      k.skills.all,
+      k.overview,
+      k.trash,
+      k.syncMatrixAll,
+      k.diff(),
+      k.versionCheck,
+      k.contextRouter.all,
+    ),
+  trashChanged: () =>
+    keys(k.trash, k.skills.all, k.syncMatrixAll, k.versionCheck, k.contextRouter.all),
   skillSyncChanged: () => keys(k.skills.all, k.syncMatrixAll, k.versionCheck),
   skillsToggled: () => keys(k.skills.all, k.syncMatrixAll, k.overview, k.versionCheck),
   skillTargetFilterChanged: () => keys(k.targets.all, k.syncMatrixAll, k.diffAll),
-  sourceLinked: () => keys(...sourceLinks),
-  sourceUnlinked: () => keys(...sourceLinks, k.trash, k.missingConfigEntries),
+  sourceLinked: () => keys(...sourceLinks, k.contextRouter.all),
+  sourceUnlinked: () => keys(...sourceLinks, k.trash, k.missingConfigEntries, k.contextRouter.all),
   collected: (target?: string) =>
     keys(
       k.skills.all,
@@ -43,6 +57,7 @@ const events = {
       k.syncMatrix(),
       k.collectScan(target),
       k.versionCheck,
+      k.contextRouter.all,
     ),
   configInstalled: () =>
     keys(
@@ -52,11 +67,12 @@ const events = {
       k.syncMatrixAll,
       k.diff(),
       k.versionCheck,
+      k.contextRouter.all,
     ),
 
   // Targets, projects and sync
   targetsChanged: () => keys(...targets, k.instructions.all, k.contextRouter.all),
-  synced: () => keys(k.targets.all, k.overview, k.diff()),
+  synced: () => keys(k.targets.all, k.overview, k.diff(), k.contextRouter.all),
   syncRan: () =>
     keys(...targets, k.extrasDiff(), k.extras, k.mcp, k.hooks, k.logAll, k.contextRouter.all),
   projectSynced: () => keys(...targets, k.mcp, k.hooks, k.logAll, k.contextRouter.all),
@@ -68,6 +84,7 @@ const events = {
   // Only the list: the removed file's content query is still mounted and would fetch again.
   targetFileRemoved: (target: string): InvalidateQueryFilters[] => [
     { queryKey: k.targetFiles.list(target), exact: true },
+    { queryKey: k.contextRouter.all },
   ],
 
   // Config
@@ -104,7 +121,7 @@ const events = {
     keys(k.instructions.all, k.extras, k.extrasDiff(), k.config, k.memory.all, k.contextRouter.all),
   managedFilesChanged: () =>
     keys(k.fileBackups.all, k.instructions.all, k.memory.all, k.contextRouter.all),
-  memoryNotesChanged: () => keys(k.memory.all, k.extras, k.fileBackups.all),
+  memoryNotesChanged: () => keys(k.memory.all, k.extras, k.fileBackups.all, k.contextRouter.all),
   memoryRefreshed: () => keys(k.memory.all),
 
   // MCP, hooks and plugins
