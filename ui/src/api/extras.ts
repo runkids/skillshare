@@ -9,6 +9,7 @@ import type {
   ExtraEditResult,
   ExtraFilterEntry,
   ExtrasSyncResult,
+  ExtraRemoveResult,
 } from './types/extras';
 
 const extraPath = (name: string) => `/extras/${encodeURIComponent(name)}`;
@@ -22,7 +23,7 @@ export const extrasApi = {
   createExtra: (input: CreateExtraRequest) => http.post<SuccessResponse>('/extras', input),
   syncExtras: (options: { name?: string; dry_run?: boolean; force?: boolean } = {}) =>
     http.post<{ extras: ExtrasSyncResult[] }>('/extras/sync', options),
-  deleteExtra: (name: string) => http.delete<SuccessResponse>(extraPath(name)),
+  deleteExtra: (name: string) => http.delete<ExtraRemoveResult>(extraPath(name)),
 
   // undefined leaves the extension unchanged; '' clears it; a name forces copy mode.
   setExtraMode: (

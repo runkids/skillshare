@@ -236,3 +236,28 @@ Pass `--all` to check skills and agents in one run. The text output has a Skills
 - [list](/docs/reference/commands/list) — View installed skills
 - [status](/docs/reference/commands/status) — Show sync status
 - [Agents](/docs/understand/agents) — Agent concepts
+
+
+## Check remote extras locally {#extras}
+
+```bash
+skillshare check extras -p
+skillshare check extras team-rules -g --json --exit-code
+```
+
+This is a read-only local integrity check: it never fetches and always reports
+“remote revision not checked”. Each remote extra includes origin, optional branch,
+installed commit and one of `intact`, `modified`, `interrupted`, `missing`, `error`.
+`intact` does not mean up to date with upstream. With `--exit-code`, non-intact
+state produces the existing outdated exit behavior; read failures still fail.
+The extras report accepts names, `--json` and `--exit-code`, without `--all`,
+`--group` or `--diff`. `check --all` keeps its existing scope and excludes extras.
+Restore missing or interrupted content through the explicit
+[`install <remote> --kind extra --name <name>`](install.md#remote-extras) command,
+using the same `-p` or `-g` mode; bare install does not restore extras.
+
+If a first install stopped before saving its declaration, direct managed staging
+artifacts still produce an `interrupted` row by name. No origin or branch is
+read from the marker for this diagnostic. Status and doctor report it too;
+rerun the original install with the same `--name`. List and dashboard rows
+continue to represent configured extras.

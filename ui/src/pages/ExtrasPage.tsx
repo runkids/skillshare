@@ -49,6 +49,7 @@ import {
   joinFile,
 } from '../components/extras/ExtraEditDialogs';
 import { invalidate } from '../lib/queryEvents';
+import { extraRestoreCommand, extraRemovalMessage } from '../lib/remoteExtras';
 import { segSlide } from '../lib/segSlide';
 import Tabs, { TabLink } from '../components/Tabs';
 
@@ -79,6 +80,20 @@ function TargetMark({ path, known }: { path: string; known: AvailableTarget[] })
   const name = targetOf(path, known);
   return (
     <AgentTile target={name ?? undefined} fallback={<Folder size={15} className="text-ink-3" />} />
+  );
+}
+
+function ExtraRestoreHint({ extra, project }: { extra: Extra; project: boolean }) {
+  const t = useT();
+  const [before, after] = t('extras.remote.restore').split('{command}');
+  return (
+    <span className="w-full break-words">
+      {before}
+      <code className="font-mono" dir="ltr">
+        {extraRestoreCommand(extra, project)}
+      </code>
+      {after}
+    </span>
   );
 }
 
@@ -762,7 +777,7 @@ export default function ExtrasPage() {
   const [creatingShared, setCreatingShared] = useState(false);
   const [addingTo, setAddingTo] = useState<string | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number; items: ContextMenuItem[] } | null>(null);
-  const [removeExtra, setRemoveExtra] = useState<string | null>(null);
+  const [removeExtra, setRemoveExtra] = useState<Extra | null>(null);
   const [removeTarget, setRemoveTarget] = useState<{ name: string; path: string } | null>(null);
   const [editing, setEditing] = useState<{ extra: Extra; target?: ExtraTarget } | null>(null);
   const closeEdit = () => {
@@ -778,7 +793,17 @@ export default function ExtrasPage() {
   const sync = async (name: string, force: boolean) => {
     try {
       const res = await api.syncExtras({ name, force });
-      const totals = sumEntry(res.extras.find((e) => e.name === name));
+      const entry = res.extras.find((e) => e.name === name);
+      const extra = data?.extras.find((e) => e.name === name);
+      if (extra?.remote && entry?.targets.length === 0 && !extra.source_exists) {
+        toast(
+          t('extras.remote.restore', { command: extraRestoreCommand(extra, isProjectMode) }),
+          'warning',
+        );
+        void invalidate(queryClient, 'extrasChanged');
+        return;
+      }
+      const totals = sumEntry(entry);
       toast(
         buildSyncToast(
           t('extras.toast.syncOne', { name }),
@@ -882,7 +907,7 @@ export default function ExtrasPage() {
       label: t('extras.removeConfirm.title'),
       icon: <Trash2 size={14} />,
       danger: true,
-      onSelect: () => setRemoveExtra(extra.name),
+      onSelect: () => setRemoveExtra(extra),
     },
   ];
 
@@ -1163,6 +1188,29 @@ export default function ExtrasPage() {
                     <Ellipsis size={16} />
                   </button>
                 </div>
+                {extra.remote && (
+                  <div className="ss-r flex-wrap text-[13px] text-ink-2">
+                    <span className="font-semibold">{t('extras.remote.origin')}</span>
+                    <span className="min-w-0 break-all font-mono">
+                      {extra.remote}
+                      {extra.branch ? ` · ${extra.branch}` : ''}
+                      {extra.commit && (
+                        <span title={extra.commit}> · {extra.commit.slice(0, 7)}</span>
+                      )}
+                    </span>
+                    {extra.state && (
+                      <span
+                        className={`ss-st ${extra.state === 'intact' ? 'ok' : extra.state === 'error' ? 'bad' : 'warn'}`}
+                      >
+                        {t(`extras.remote.state.${extra.state}`)}
+                      </span>
+                    )}
+                    <span>{t('extras.remote.localOnly')}</span>
+                    {(extra.state === 'missing' || extra.state === 'interrupted') && (
+                      <ExtraRestoreHint extra={extra} project={isProjectMode} />
+                    )}
+                  </div>
+                )}
                 {extra.targets.map((tg) => {
                   const status = STATUS[tg.status];
                   const dest = extra.file ? joinFile(tg.path, tg.as || extra.file) : tg.path;
@@ -1267,15 +1315,21 @@ export default function ExtrasPage() {
       <ConfirmDialog
         open={removeExtra !== null}
         title={t('extras.removeConfirm.title')}
-        message={t('extras.removeConfirm.message', { name: removeExtra ?? '' })}
+        message={t(
+          removeExtra?.remote ? 'extras.remote.removeConfirm' : 'extras.removeConfirm.message',
+          { name: removeExtra?.name ?? '' },
+        )}
         confirmText={t('extras.removeConfirm.confirmText')}
         variant="danger"
         onConfirm={async () => {
-          const name = removeExtra!;
+          const extra = removeExtra!;
           setRemoveExtra(null);
           try {
-            await api.deleteExtra(name);
-            toast(t('extras.toast.removed', { name }), 'success');
+            const result = await api.deleteExtra(extra.name);
+            toast(
+              extraRemovalMessage(extra, result, t),
+              result.kept_edited_dir || result.kept_outputs?.length ? 'warning' : 'success',
+            );
             void invalidate(queryClient, 'extrasChanged');
           } catch (err) {
             toast((err as Error).message, 'error');

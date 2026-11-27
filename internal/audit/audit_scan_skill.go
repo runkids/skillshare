@@ -168,6 +168,9 @@ func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]boo
 		if fi.Name() == ".skillshare-meta.json" {
 			return nil
 		}
+		if path == filepath.Join(skillPath, utils.ExtrasRootLockFileName) && fi.Mode().IsRegular() && fi.Size() == 0 {
+			return nil
+		}
 
 		normalizedRel := filepath.ToSlash(relPath)
 		// Header traversal may enter hidden directories, but the existing text

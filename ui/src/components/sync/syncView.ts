@@ -3,6 +3,7 @@ import {
   api,
   type DiffTarget,
   type ExtraDiffResult,
+  type ExtrasSyncResult,
   type Skill,
   type SyncMatrixEntry,
   type SyncResponse,
@@ -489,6 +490,17 @@ export const otherWarnings = (res: SyncResponse | null | undefined) => {
   return (res?.warnings ?? []).filter((w) => !failed.has(w));
 };
 
+function extraSyncFailures(extras: ExtrasSyncResult[]): SyncFailure[] {
+  const failures: SyncFailure[] = [];
+  for (const e of extras) {
+    for (const t of e.targets) {
+      const error = t.error || t.errors?.join('; ');
+      if (error) failures.push({ target: t.target, part: 'extra', extra: e.name, error });
+    }
+  }
+  return failures;
+}
+
 /**
  * Writes each included part in order. MCP is checked before anything is written and again right before it applies.
  * A failed target does not stop the run: it is returned in `failures`, like `skillshare sync --all` reports it.
@@ -533,15 +545,8 @@ export async function runSync(run: SyncRun) {
   const failures: SyncFailure[] = (resources?.failed ?? []).map(
     ({ target, part, error, conflict }) => ({ target, part, error, conflict }),
   );
-  if (run.extras) {
-    const extras = await api.syncExtras({ force: run.force });
-    for (const e of extras.extras) {
-      for (const t of e.targets) {
-        const error = t.error || t.errors?.join('; ');
-        if (error) failures.push({ target: t.target, part: 'extra', extra: e.name, error });
-      }
-    }
-  }
+  const extras = run.extras ? (await api.syncExtras({ force: run.force })).extras : [];
+  failures.push(...extraSyncFailures(extras));
   if (reviewed) {
     if (run.project) await mcpApi.syncProject(run.project.path, await recheck());
     else await mcpApi.configure({}, await recheck(), true);
@@ -550,7 +555,7 @@ export async function runSync(run: SyncRun) {
     if (run.project) await hooksApi.syncProject(run.project.path, await recheckHooks());
     else await hooksApi.configure({}, await recheckHooks(), true);
   }
-  return { resources, failures };
+  return { resources, failures, ...(run.extras && { extras }) };
 }
 
 /** Each independent remedy needed for the skipped skills. */

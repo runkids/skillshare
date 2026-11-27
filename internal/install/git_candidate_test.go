@@ -270,7 +270,7 @@ func TestPrepareCandidateAuditRejectsEscapingSymlinks(t *testing.T) {
 			if err := os.Symlink(tc.target, filepath.Join(candidate, "readme.md")); err != nil {
 				t.Skip(err)
 			}
-			if err := prepareCandidateAudit("", filepath.Join(base, "source", "_repo"), candidate); err == nil {
+			if err := prepareCandidateAudit("", filepath.Join(base, "source", "_repo"), candidate, false); err == nil {
 				t.Error("escaping symlink was accepted")
 			}
 		})

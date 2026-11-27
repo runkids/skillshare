@@ -858,3 +858,86 @@ skillshare extras source ~/company-shared/extras
 - [sync](/docs/reference/commands/sync#sync-extras) — Sync extras to targets
 - [status](/docs/reference/commands/status) — Show extras file and target counts
 - [Configuration](/docs/reference/targets/configuration#extras) — Extras config reference
+
+
+## Remote extras {#remote-extras}
+
+Install remote content with `install <remote> --kind extra --name <name> -p|-g`;
+there is no dashboard install/update flow. A remote entry has `remote`, optional
+`branch` and no per-extra `source`:
+
+```yaml
+extras:
+  - name: team-rules
+    remote: example-org/ai-hub/rules
+    branch: main
+    targets: []
+```
+
+A remote extra may start with zero targets. Add one with
+`skillshare extras team-rules --add-target .claude/rules -p`, then run
+`skillshare sync extras -p`. Target paths, modes and filters remain
+editable. CLI plain/JSON/TUI, status and dashboard show origin, pinned commit and
+local state (`intact`, `modified`, `interrupted`, `missing` or `error`), never
+remote freshness. `skillshare check extras -p` does not fetch. List and dashboard
+rows represent configured extras; before a first install saves its declaration,
+check, status and doctor report direct publication artifacts by name instead.
+
+Rename and source edits are refused for remote entries, including raw-config
+removal or origin changes. Use `skillshare extras remove team-rules -p --force`,
+then an explicit install with the desired name/source. Here removal `--force`
+skips confirmation; it does **not** authorize deleting edited source content.
+Removal clears the entry, pin, metadata and accepted findings. The API removal
+result includes `remote`, `commit`, `deleted_dir`, `kept_edited_dir`, `missing_dir`,
+`kept_outputs` and `warnings`. An unedited
+fetched directory is deleted; edited or unverified content is retained with its
+ignore rule. An already missing source is reported as missing. Owned links are
+cleaned; copied, transformed and unowned target outputs stay, with their paths
+reported. Local-extra removal keeps its existing behavior. After a failed remote removal,
+records and source are restored, but targets already cleaned are not relinked;
+run `skillshare sync extras` to restore those outputs.
+
+`extras collect` is allowed: collecting changes makes a remote extra locally
+modified without changing its origin or pin. A subsequent reinstall requires
+explicit `--force` to discard those edits. Global `extras source <path>` preserves
+entries but does not move content: move the whole extras root **including
+`.metadata.json`** yourself, while no remote writer is running. Project `extras source`
+is still unsupported.
+
+Remote installs and supported CLI/TUI/dashboard remote writers serialize under
+one extras-root lock, reread after acquisition and use fresh scoped merges.
+Unrelated config, lock and ignore writers (including raw config PUT, manual
+edits, and skill or agent commands) are not
+serialized: read-back rollback detection is best effort, with windows between
+write/read-back and compare/restore, so this is not general transaction isolation.
+Do not change `extras source` during install; after a failure inspect config/lock
+diffs and reapply any missing unrelated changes. If rollback observes changed
+participant files it preserves them, reports their paths and keeps the marker.
+
+Supported memory init/write/delete/index/move and shared-instruction content,
+conversion, guidance, assignment and settings writers participate in this lock
+when the root has a relevant remote extra. Read-only views and conversion previews
+do not acquire it; ordinary sync and external editors are not serialized.
+The lock is the permanent empty regular `.skillshare-extras.lock` inside the
+canonical root, shared across HOME/XDG locations and root aliases. A writable
+custom root does not require a writable parent. Do not remove or replace the lock,
+even after the last remote extra is removed. Sync and audit omit only an empty
+regular lock directly at their traversal root; nested, nonempty or nonregular
+same-name content follows normal policy. Skillshare Git status/staging omits only
+the known root's empty lock for that invocation; successful publication also
+records its exact ignore path when the root is inside the project.
+
+Removal compares saved provenance again before source deletion, retaining any
+observed edits and their ignore rule. A known empty installed tree is intact;
+missing hashes remain unverified. This comparison does not lock external editors
+or guarantee isolation between comparison and deletion.
+
+The raw config editor withholds parseable credential-bearing extras and unreadable
+extras types. For recovery, syntax-broken YAML is served **as written**, which may
+include credential text. PUT uses disk extras when readable, otherwise the last
+loaded baseline: a supported CLI install added after that load and before the
+file broke can be dropped or renamed by a repair PUT. Back up and inspect that
+file before saving; raw PUT does not share publication's lock.
+
+See [installation and interrupted repair](install.md#remote-extras) for audit,
+pinning, Windows and teammate-restore limits.

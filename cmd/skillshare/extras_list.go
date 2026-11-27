@@ -7,12 +7,17 @@ import (
 	"path/filepath"
 
 	"skillshare/internal/config"
+	"skillshare/internal/install"
 	"skillshare/internal/sync"
 	"skillshare/internal/theme"
 	"skillshare/internal/ui"
 )
 
 type extrasListEntry struct {
+	Remote       string             `json:"remote,omitempty"`
+	Branch       string             `json:"branch,omitempty"`
+	Commit       string             `json:"commit,omitempty"`
+	State        string             `json:"state,omitempty"`
 	Name         string             `json:"name"`
 	File         string             `json:"file,omitempty"` // single-file extra: the synced file in source_dir
 	SourceDir    string             `json:"source_dir"`
@@ -43,6 +48,11 @@ func buildExtrasListEntries(extras []config.ExtraConfig, extrasSource, extension
 			File:       extra.File,
 			SourceDir:  sourceDir,
 			SourceType: config.ResolveExtrasSourceType(extra, extrasSource),
+		}
+		entry.Targets = make([]extrasTargetInfo, 0, len(extra.Targets))
+		if extra.Remote != "" {
+			state := install.InspectRemoteExtra(filepath.Dir(sourceDir), extra.Name)
+			entry.Remote, entry.Branch, entry.Commit, entry.State = extra.Remote, extra.Branch, state.Commit, state.State()
 		}
 
 		files, discoverErr := sync.DiscoverExtraSource(sourceDir, extra.File)
@@ -231,6 +241,9 @@ func cmdExtrasList(args []string) error {
 			fmt.Println()
 		}
 		name := theme.Primary().Bold(true).Render(entry.Name)
+		if entry.Remote != "" {
+			fmt.Println(ui.DimText(remoteExtraSummary(entry.Remote, entry.Branch, entry.Commit, entry.State)))
+		}
 		if entry.File != "" {
 			// Single-file extra: the source is one file, shown in full.
 			src := shortenPath(filepath.Join(entry.SourceDir, entry.File))
@@ -242,6 +255,9 @@ func cmdExtrasList(args []string) error {
 			fmt.Println(name + "  " + ui.DimText("source not found"))
 		} else {
 			fmt.Println(name + "  " + ui.DimText(shortenPath(entry.SourceDir)+" · "+plural(entry.FileCount, "file")))
+		}
+		if entry.Remote != "" && entry.State == "missing" {
+			ui.Next(config.ExtraRestoreCommand(extras[i], mode == modeProject), "restore source")
 		}
 		paths := make([]string, len(entry.Targets))
 		for j, t := range entry.Targets {

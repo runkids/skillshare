@@ -185,15 +185,29 @@ func checkExtraSourceFile(sourceDir, file string) error {
 	return nil
 }
 
+// prospectiveExtras validates ownership before init changes sources or config.
+func (o extrasInitOptions) prospectiveExtras(before []config.ExtraConfig) ([]config.ExtraConfig, error) {
+	after := before
+	if o.force {
+		after = removeExtraByName(before, o.name)
+	} else if err := config.ValidateExtraNameUnique(o.name, before); err != nil {
+		return nil, err
+	}
+	after = append(after, o.extra())
+	if err := config.ValidateRemoteExtraEdits(before, after); err != nil {
+		return nil, err
+	}
+	return after, nil
+}
+
 func extrasInitGlobal(o extrasInitOptions, start time.Time) error {
 	cfg, err := config.Load()
 	if err != nil {
 		return err
 	}
 
-	if o.force {
-		cfg.Extras = removeExtraByName(cfg.Extras, o.name)
-	} else if err := config.ValidateExtraNameUnique(o.name, cfg.Extras); err != nil {
+	cfg.Extras, err = o.prospectiveExtras(cfg.Extras)
+	if err != nil {
 		return err
 	}
 
@@ -202,7 +216,6 @@ func extrasInitGlobal(o extrasInitOptions, start time.Time) error {
 	if err := checkExtraSourceFile(sourceDir, o.file); err != nil {
 		return err
 	}
-	cfg.Extras = append(cfg.Extras, extra)
 	if o.file != "" {
 		if err := cfg.ValidateExtras(o.name); err != nil {
 			return err
@@ -242,9 +255,8 @@ func extrasInitProject(cwd string, o extrasInitOptions, start time.Time) error {
 		return err
 	}
 
-	if o.force {
-		projCfg.Extras = removeExtraByName(projCfg.Extras, o.name)
-	} else if err := config.ValidateExtraNameUnique(o.name, projCfg.Extras); err != nil {
+	projCfg.Extras, err = o.prospectiveExtras(projCfg.Extras)
+	if err != nil {
 		return err
 	}
 
@@ -253,7 +265,6 @@ func extrasInitProject(cwd string, o extrasInitOptions, start time.Time) error {
 	if err := checkExtraSourceFile(sourceDir, o.file); err != nil {
 		return err
 	}
-	projCfg.Extras = append(projCfg.Extras, extra)
 	if o.file != "" {
 		if err := projCfg.ValidateExtras(cwd, o.name); err != nil {
 			return err

@@ -20,6 +20,7 @@ import {
   locationLabel,
   projectSourcePath,
   saveCopiesSummary,
+  sharedSyncFeedback,
   staleLocations,
 } from './instructionsView';
 import { invalidate } from '../../lib/queryEvents';
@@ -159,15 +160,11 @@ function SharedFileCard({ file, fileLinks }: { file: SharedInstructionsFile; fil
   const sync = () =>
     act(async () => {
       const res = await api.syncExtras({ name });
-      const failed = res.extras.flatMap((e) => e.targets).find((r) => r.error);
-      if (failed) throw new Error(failed.error);
-      toast(
-        t('instructions.shared.synced', {
-          name,
-          targets: labels(stale.length ? stale : locations),
-        }),
-        'success',
-      );
+      const message = t('instructions.shared.synced', {
+        name,
+        targets: labels(stale.length ? stale : locations),
+      });
+      toast(...sharedSyncFeedback(res.extras, message, t));
     });
 
   const remove = () =>

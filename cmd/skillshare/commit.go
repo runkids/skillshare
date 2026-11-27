@@ -60,7 +60,7 @@ func cmdCommit(args []string) error {
 		spinner = ui.StartSpinner("Checking changes...")
 	}
 
-	changes, err := getGitChanges(source)
+	changes, err := getGitChanges(source, cfg.EffectiveExtrasSource())
 	if err != nil {
 		spinner.Fail("Failed to check git status")
 		return err
@@ -85,7 +85,7 @@ func cmdCommit(args []string) error {
 		return nil
 	}
 
-	if err := stageAndCommit(source, cfg.EffectiveSkillsSource(), "commit", opts.message, spinner); err != nil {
+	if err := stageAndCommit(source, cfg.EffectiveSkillsSource(), "commit", opts.message, spinner, cfg.EffectiveExtrasSource()); err != nil {
 		return err
 	}
 

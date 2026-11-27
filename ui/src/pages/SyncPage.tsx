@@ -23,7 +23,7 @@ import {
   TriangleAlert,
   Webhook,
 } from 'lucide-react';
-import { api, formatTokenK, type SyncResponse } from '../api/client';
+import { api, formatTokenK, type ExtrasSyncResult, type SyncResponse } from '../api/client';
 import AgentIcon from '../components/AgentIcon';
 import AgentStack from '../components/AgentStack';
 import AgentTile from '../components/AgentTile';
@@ -82,6 +82,7 @@ import {
 } from '../hooks/useSharedQueries';
 import { invalidate } from '../lib/queryEvents';
 import { useSyncMatrix } from '../hooks/useSyncMatrix';
+import { buildSyncToast, sumAll } from '../lib/extrasSyncToast';
 import Switch from '../components/Switch';
 
 const ROW_ICON: Record<RowIcon, [typeof Plus, string]> = {
@@ -166,6 +167,22 @@ function ScopeRow({
       {children}
     </div>
   );
+}
+
+function syncFeedback(
+  extras: ExtrasSyncResult[],
+  failures: SyncFailure[],
+  force: boolean,
+  t: ReturnType<typeof useT>,
+): [string, 'success' | 'warning'] {
+  const headline =
+    failures.length > 0
+      ? t(plural('sync.toast.failed', failures.length), { count: failures.length })
+      : t('sync.toast.done');
+  const totals = sumAll(extras);
+  if (totals.warnings.length === 0) return [headline, failures.length > 0 ? 'warning' : 'success'];
+  const detail = buildSyncToast(t('extras.title'), t('extras.title'), totals, force, t);
+  return [failures.length > 0 ? `${headline}\n${detail}` : detail, 'warning'];
 }
 
 export default function SyncPage() {
@@ -294,7 +311,11 @@ export default function SyncPage() {
     setOutcome(null);
     setFailures([]);
     try {
-      const { resources: result, failures: failed } = await runSync({
+      const {
+        resources: result,
+        extras: extraResults,
+        failures: failed,
+      } = await runSync({
         resources:
           parts.has('skill') && parts.has('agent')
             ? 'both'
@@ -309,9 +330,7 @@ export default function SyncPage() {
       });
       setOutcome(result ?? null);
       setFailures(failed);
-      if (failed.length > 0)
-        toast(t(plural('sync.toast.failed', failed.length), { count: failed.length }), 'warning');
-      else toast(t('sync.toast.done'), 'success');
+      toast(...syncFeedback(extraResults ?? [], failed, force, t));
     } catch (err) {
       const message = (err as Error).message;
       setRunError(

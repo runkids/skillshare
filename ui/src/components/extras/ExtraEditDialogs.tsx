@@ -392,6 +392,7 @@ export function EditExtraDialog({
   const [source, setSource] = useState(wasCustom ? shortenHome(extra.source_dir) : '');
   const [saving, setSaving] = useState(false);
 
+  const remote = Boolean(extra.remote);
   const trimmedName = name.trim();
   const trimmedSource = source.trim();
   const renamed = trimmedName !== extra.name;
@@ -400,12 +401,14 @@ export function EditExtraDialog({
     ? trimmedSource !== '' && trimmedSource !== shortenHome(extra.source_dir)
     : wasCustom;
   const canSave =
+    !remote &&
     trimmedName !== '' &&
     (renamed || sourceChanged) &&
     !(custom && trimmedSource === '') &&
     !saving;
 
   const save = async () => {
+    if (remote || !canSave) return;
     setSaving(true);
     try {
       const res = await api.editExtra(extra.name, {
@@ -437,15 +440,20 @@ export function EditExtraDialog({
       onClose={onClose}
       onSave={() => void save()}
     >
+      {remote && (
+        <div className="ss-note inf">
+          <span className="flex-1">{t('extras.remote.identityLocked')}</span>
+        </div>
+      )}
       <div className="ss-fld">
         <label htmlFor="edit-extra-name">{t('extras.modal.name')}</label>
-        <span className="ss-inp">
+        <span className={`ss-inp ${remote ? 'opacity-50 cursor-not-allowed' : ''}`}>
           <input
             id="edit-extra-name"
-            className="font-mono"
+            className={`font-mono ${remote ? 'cursor-not-allowed' : ''}`}
             value={name}
             onChange={(e) => setName(e.target.value)}
-            disabled={saving}
+            disabled={saving || remote}
           />
         </span>
         {renamed && (
@@ -461,17 +469,17 @@ export function EditExtraDialog({
             { value: 'shared', label: t('extras.sourceType.shared') },
             { value: 'custom', label: t('extras.sourceType.custom') },
           ]}
-          disabled={saving}
+          disabled={saving || remote}
         />
         {custom ? (
-          <span className="ss-inp">
+          <span className={`ss-inp ${remote ? 'opacity-50 cursor-not-allowed' : ''}`}>
             <input
               className="font-mono"
               value={source}
               onChange={(e) => setSource(e.target.value)}
               placeholder={t('extras.modal.sourcePathPlaceholder')}
               aria-label={t('extras.sourceType.custom')}
-              disabled={saving}
+              disabled={saving || remote}
             />
           </span>
         ) : (

@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"skillshare/internal/config"
+	"skillshare/internal/install"
 	"skillshare/internal/resource"
 )
 
@@ -51,6 +52,7 @@ func AgentTargetPaths(agentsSource string, agentPaths []string) map[string]bool 
 type ExtraRun struct {
 	SourceMissing bool // the source directory is missing, so no target was synced
 	Targets       []ExtraTargetRun
+	Warnings      []string
 }
 
 // ExtraTargetRun is the outcome of one target. At most one of SkippedBy,
@@ -73,9 +75,8 @@ type ExtraTargetRun struct {
 // sourceDir syncs nothing and sets SourceMissing. It only syncs and reports;
 // callers print, log and count the results.
 func RunExtraTargets(extra config.ExtraConfig, sourceDir string, opts ExtraRunOptions) ExtraRun {
-	var run ExtraRun
-	if _, err := os.Stat(sourceDir); os.IsNotExist(err) {
-		run.SourceMissing = true
+	run := inspectExtraSync(extra, sourceDir, opts.ProjectRoot)
+	if run.SourceMissing || len(run.Warnings) > 0 {
 		return run
 	}
 
@@ -115,6 +116,13 @@ func runExtraTarget(extra config.ExtraConfig, t config.ExtraTargetConfig, source
 // SyncExtraTarget syncs one target of an extra. Single-file extras (file:)
 // sync just that file to <target>/<as or file>; others sync the directory.
 func SyncExtraTarget(extra config.ExtraConfig, target config.ExtraTargetConfig, sourceDir, targetPath, mode string, spec *ExtensionSpec, opts ExtraSyncOptions) (*ExtraResult, error) {
+	if err := CheckExtraSyncInterruption(extra, sourceDir, opts.ProjectRoot); err != nil {
+		return nil, err
+	}
+	return syncExtraTarget(extra, target, sourceDir, targetPath, mode, spec, opts)
+}
+
+func syncExtraTarget(extra config.ExtraConfig, target config.ExtraTargetConfig, sourceDir, targetPath, mode string, spec *ExtensionSpec, opts ExtraSyncOptions) (*ExtraResult, error) {
 	if extra.File == "" {
 		return syncExtraDir(sourceDir, targetPath, mode, target, spec, opts)
 	}
@@ -122,4 +130,20 @@ func SyncExtraTarget(extra config.ExtraConfig, target config.ExtraTargetConfig, 
 		return nil, fmt.Errorf("extensions are not supported for single-file extras")
 	}
 	return SyncExtraFile(NewExtraFile(sourceDir, extra.File, targetPath, target.As, mode), opts.DryRun, opts.ProjectRoot)
+}
+
+func inspectExtraSync(extra config.ExtraConfig, sourceDir, projectRoot string) ExtraRun {
+	if err := CheckExtraSyncInterruption(extra, sourceDir, projectRoot); err != nil {
+		return ExtraRun{Warnings: []string{err.Error()}}
+	}
+	_, err := os.Stat(sourceDir)
+	return ExtraRun{SourceMissing: os.IsNotExist(err)}
+}
+
+// CheckExtraSyncInterruption observes state without repairing, fetching or locking.
+func CheckExtraSyncInterruption(extra config.ExtraConfig, sourceDir, projectRoot string) error {
+	if extra.Remote != "" && install.InspectRemoteExtra(filepath.Dir(sourceDir), extra.Name).Interrupted {
+		return fmt.Errorf("extra %q has an interrupted publication; run: %s", extra.Name, config.ExtraRestoreCommand(extra, projectRoot != ""))
+	}
+	return nil
 }

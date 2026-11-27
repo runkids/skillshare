@@ -83,6 +83,11 @@ func (s *Server) handlePutTargetInstructionsSetup(w http.ResponseWriter, r *http
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	unlock := s.lockInstructionWrite(w, nil)
+	if unlock == nil {
+		return
+	}
+	defer unlock()
 	tc, found := s.cfg.Targets[name]
 	if !found {
 		writeCodedError(w, http.StatusNotFound, "instructions_target_not_found", "target not found: "+name, map[string]string{"target": name})
@@ -124,6 +129,11 @@ func (s *Server) handleDeleteTargetInstructionsSetup(w http.ResponseWriter, r *h
 	name := r.PathValue("name")
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	unlock := s.lockInstructionWrite(w, nil)
+	if unlock == nil {
+		return
+	}
+	defer unlock()
 	tc, found := s.cfg.Targets[name]
 	if !found {
 		writeCodedError(w, http.StatusNotFound, "instructions_target_not_found", "target not found: "+name, map[string]string{"target": name})

@@ -57,6 +57,7 @@ import {
   restorePlan,
   rowHint,
   saveCopiesSummary,
+  sharedSyncFeedback,
   staleLocations,
   statusTone,
   usesOf,
@@ -477,18 +478,11 @@ function FilePanel({
   const sync = () =>
     act(async () => {
       const res = await api.syncExtras({ name });
-      const failed = res.extras.flatMap((e) => e.targets).find((r) => r.error);
-      if (failed) throw new Error(failed.error);
-      toast(
-        t('instructions.shared.synced', {
-          name,
-          targets: list([
-            ...stale.map((tg) => tg.name),
-            ...staleLoc.map((l) => shortenHome(l.file)),
-          ]),
-        }),
-        'success',
-      );
+      const message = t('instructions.shared.synced', {
+        name,
+        targets: list([...stale.map((tg) => tg.name), ...staleLoc.map((l) => shortenHome(l.file))]),
+      });
+      toast(...sharedSyncFeedback(res.extras, message, t));
     });
 
   const remove = () =>
