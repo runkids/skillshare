@@ -35,11 +35,13 @@ Claude Code, Codex, Copilot, Antigravity CLI, Grok, Pi, 또는 OpenCode CLI는
 **Skillshare 백엔드가 실행되는 곳**에 설치되어 있어야 합니다.
 Codex는 Codex 데스크톱 app에 포함된 CLI도 인정됩니다. Codex가 다른 위치에 있는 머신에서는 [`SKILLSHARE_CODEX_CLI`](/docs/reference/appendix/environment-variables#skillshare_codex_cli)를 설정하세요.
 Cursor와 Antigravity 데스크톱은 대신 로컬 플러그인 디렉터리에 완전한 파일을 받습니다.
+Rex는 Skillshare가 `init.lua`에 추가하는 한 줄을 통해 plugin의 설정 코드를 받습니다.
+그 후 `rex config reload`를 실행하세요. `rex`가 없는 머신에서는 선택이 저장되고 Rex는 건너뜁니다.
 컨테이너 안에서 실행되는 대시보드는 호스트 머신에만 설치된 플러그인을 관리할 수
 없습니다. 로컬 CLI를 사용하거나, 네이티브 클라이언트 옆에서 Skillshare를 실행하세요.
 
 설치 Target은 **Claude Code, Codex, Cursor, Antigravity Desktop, Antigravity CLI,
-GitHub Copilot CLI, Pi, OpenCode**입니다. Grok은 import 전에 네이티브 설치와 신뢰
+GitHub Copilot CLI, Pi, OpenCode, Rex**입니다. Grok은 import 전에 네이티브 설치와 신뢰
 설정이 필요합니다. Kimi, Hermes, Devin 형식은 검색은 가능하지만 자동 설치는 불가능하며
 인터페이스가 그 이유를 설명해줍니다.
 Target에 맞게 배포된 형식을 선택하세요. Skillshare는 도구 간에 플러그인을 변환하지
@@ -52,7 +54,7 @@ Antigravity Desktop(`antigravity` 또는 `agy`)과 CLI(`antigravity-cli`)는 별
 **Import installed**를 선택하고 네이티브 설치를 선택하세요. Import는 재설치하거나,
 인증 정보를 복사하거나, 해당 Agent 안에서의 활성화 여부를 변경하지 않고 그저
 기록만 합니다. Import는 Claude, Codex, Copilot, Antigravity CLI, Grok, Pi, OpenCode에서
-사용할 수 있으며, Cursor와 Antigravity 로컬 패키지에는 **Add plugin**을 사용하세요.
+사용할 수 있으며, Cursor, Antigravity 로컬 패키지, Rex에는 **Add plugin**을 사용하세요.
 여러 개를 한 번에 가져오려면 체크하고(Agent 헤더도 가능) **Import selected**를 선택하세요.
 하나씩 차례로 가져오며 대화 상자는 열린 채로 유지됩니다. 리소스 필터가 있는 설치는 검토를 거쳐 따로 가져옵니다.
 
@@ -120,7 +122,7 @@ skillshare sync plugins --no-tui
 
 Plugins 페이지로 돌아오면 최근 2분 이내의 확인 결과를 재사용합니다. 오래된 결과는 다시 확인하는 동안에도 표시됩니다. 도구 목록의 새로고침 버튼을 누르면 목록과 업데이트를 즉시 다시 확인합니다. 모든 plugin은 동시에 확인되며, 각 행은 자신의 확인이 끝나는 즉시 결과를 표시하고 헤더에는 지금까지 확인한 개수가 표시됩니다. 확인하지 못한 plugin(Agent의 CLI가 60초 안에 응답하지 않는 경우 포함)에는 **Check failed**가 표시되며, 마우스를 올리면 이유를 볼 수 있습니다. source에 더 새로운 버전이 있는 행에는 `old → new`가 표시되고 헤더 버튼은 **Update N**이 됩니다. 이 버튼은 업데이트가 있는 모든 plugin을 나열한 하나의 대화상자를 엽니다. 기본적으로 모두 선택되어 있고 각 plugin이 설치된 Agent도 함께 표시됩니다. plugin이나 Agent의 선택을 해제하면 그 항목은 제외됩니다. **Update N plugins**는 선택한 항목을 하나씩 실행하며 각 행을 대기 중, 업데이트 중, 업데이트됨, 실패, 건너뜀 중 하나로 표시합니다. **Stop after this one**은 실행 중인 plugin까지만 마치고 나머지는 그대로 둡니다. 실패한 행에는 업데이트된 Agent와 실패한 Agent가 오류와 함께 표시되며, **Retry**는 실패한 Agent에만 다시 보냅니다. 결과가 페이지에 반영되므로 다시 확인할 필요가 없습니다. 확인 이후 source가 바뀌었다면 아무것도 설치되지 않으니 다시 확인하여 새 버전을 검토하세요. 단, Pi의 npm 패키지는 예외로, Pi는 npm이 latest로 지정한 버전을 설치합니다. 모두 최신이면 대화상자에 각 plugin이 Agent와 버전과 함께 나열됩니다.
 
-Claude는 네이티브 CLI를 통해 업데이트할 수 있습니다. Codex는 검토된 스냅샷에서 플러그인을 다시 add합니다. 단, Codex에서 비활성화된 플러그인은 add하면 다시 활성화되므로 업데이트하지 않습니다. Import한 Codex 플러그인은 마켓플레이스를 업그레이드하여 업데이트합니다. Cursor와 Antigravity는 로컬 편집을 확인한 후 관리되는 로컬 복사본을 교체합니다. Pi와 OpenCode는 검토된 스냅샷을 업데이트합니다. Oh My Pi는 자신의 설치를 제거한 뒤 검토된 commit을 다시 설치하며, OMP의 네이티브 upgrade는 실행하지 않습니다. Copilot과 Antigravity CLI는 알려진 활성화 상태를 보존하면서 검토된 Source를 새로고침할 수 있습니다. Grok의 업데이트는 네이티브 도구 안에 머무르며, 대화상자는 이런 설치를 **Update inside the Agent** 아래에 따로 나열합니다. Import된 패키지의 제한 사항은 명령어 레퍼런스를 참고하세요. 호환되는 plugin을 더 이상 제공하지 않는 source는 **Cannot update** 아래에 표시됩니다. 연결할 수 없는 Target은 이유와 함께 실패로 보고되며, 해당 플러그인의 다른 Agent는 그대로 업데이트됩니다.
+Claude는 네이티브 CLI를 통해 업데이트할 수 있습니다. Codex는 검토된 스냅샷에서 플러그인을 다시 add합니다. 단, Codex에서 비활성화된 플러그인은 add하면 다시 활성화되므로 업데이트하지 않습니다. Import한 Codex 플러그인은 마켓플레이스를 업그레이드하여 업데이트합니다. Cursor와 Antigravity는 로컬 편집을 확인한 후 관리되는 로컬 복사본을 교체합니다. Rex도 마찬가지로 교체하되, 새 버전이 `rex config check`를 통과한 후에 교체합니다. Pi와 OpenCode는 검토된 스냅샷을 업데이트합니다. Oh My Pi는 자신의 설치를 제거한 뒤 검토된 commit을 다시 설치하며, OMP의 네이티브 upgrade는 실행하지 않습니다. Copilot과 Antigravity CLI는 알려진 활성화 상태를 보존하면서 검토된 Source를 새로고침할 수 있습니다. Grok의 업데이트는 네이티브 도구 안에 머무르며, 대화상자는 이런 설치를 **Update inside the Agent** 아래에 따로 나열합니다. Import된 패키지의 제한 사항은 명령어 레퍼런스를 참고하세요. 호환되는 plugin을 더 이상 제공하지 않는 source는 **Cannot update** 아래에 표시됩니다. 연결할 수 없는 Target은 이유와 함께 실패로 보고되며, 해당 플러그인의 다른 Agent는 그대로 업데이트됩니다.
 
 Pi의 npm 패키지에는 비교할 source가 없으므로 확인 시 설치된 버전을 npm의 최신 버전과 비교합니다.
 

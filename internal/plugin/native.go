@@ -119,6 +119,23 @@ func runCommand(ctx context.Context, dir string, env []string, bin string, args 
 				return nil, failure
 			}
 		}
+		if bin == "rex" && len(args) >= 2 && args[0] == "config" && args[1] == "check" {
+			var result struct {
+				Diagnostics []struct {
+					Message string `json:"message"`
+				} `json:"diagnostics"`
+			}
+			if json.Unmarshal(stdout.Bytes(), &result) == nil {
+				var messages []string
+				for _, d := range result.Diagnostics {
+					messages = append(messages, d.Message)
+				}
+				if len(messages) > 0 {
+					message := strings.Join(messages, "; ")
+					return nil, agentError{key: "plugins.error.rexCheck", message: "Rex config check failed: " + message, args: map[string]string{"diagnostics": message}}
+				}
+			}
+		}
 		// An account's OpenCode CLI can have any name, so match the command and words, not bin.
 		if len(args) > 2 && args[0] == "plugin" && args[1] == "update" && strings.Contains(stderr.String()+stdout.String(), "Plugin is not configured: ") {
 			return nil, agentError{cause: errOpenCodeNotLoaded, key: "plugins.error.opencodeNotLoaded", message: "OpenCode had not loaded its plugins yet and reported this one as not configured (anomalyco/opencode#54654); run the update again"}

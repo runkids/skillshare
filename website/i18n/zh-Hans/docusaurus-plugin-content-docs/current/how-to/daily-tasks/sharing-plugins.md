@@ -33,11 +33,12 @@ skillshare plugin add
 Claude Code、Codex、Copilot、Antigravity CLI、Grok、Pi 或 OpenCode CLI 必须安装在**运行 Skillshare 后端的机器上**。
 Codex 的话，Codex 桌面 app 内置的 CLI 也算；Codex 装在其他位置的机器，请设置 [`SKILLSHARE_CODEX_CLI`](/docs/reference/appendix/environment-variables#skillshare_codex_cli)。
 Cursor 与 Antigravity 桌面版则会在其本地 plugin 目录中直接接收完整的文件。
+Rex 通过 Skillshare 添加到其 `init.lua` 的一行来接收 plugin 的配置代码；之后请运行 `rex config reload`。没有 `rex` 的机器会保存选择并跳过 Rex。
 运行在容器内的控制台，无法管理只安装在主机上的 plugin。
 请改用本地 CLI，或让 Skillshare 与这些原生客户端运行在同一台机器上。
 
 安装目标为 **Claude Code、Codex、Cursor、Antigravity Desktop、Antigravity CLI、
-GitHub Copilot CLI、Pi 与 OpenCode**。Grok 在导入前需要先完成原生安装
+GitHub Copilot CLI、Pi、OpenCode 与 Rex**。Grok 在导入前需要先完成原生安装
 与信任设置。Kimi、Hermes 与 Devin 的格式是可被发现的；但其自动
 安装功能目前不可用，界面会说明原因。
 请选择针对你的 Target 所发布的格式；Skillshare 不会在工具之间转换 plugin。
@@ -50,7 +51,7 @@ Antigravity Desktop（`antigravity` 或 `agy`）与 CLI（`antigravity-cli`）�
 选择 **Import installed**，然后选取一个原生安装。Import 只会记录
 该安装，而不会重新安装、复制其身份验证信息，或更改它在该 Agent 中是否
 启用。Import 适用于 Claude、Codex、Copilot、Antigravity CLI、Grok、Pi 与 OpenCode；
-Cursor 与 Antigravity 本地套件请改用 **Add plugin**。
+Cursor、Antigravity 本地套件与 Rex 请改用 **Add plugin**。
 要一次导入多个，勾选它们（或勾选 Agent 标题）后选择 **Import selected**；
 会逐一导入，对话框保持打开。有资源过滤器的安装会在预览后单独导入。
 
@@ -117,7 +118,7 @@ Plugin 与一般的 Skill 及 MCP 同步是彼此独立的。它们所打包的
 
 返回 Plugins 页面时，会直接显示最近两分钟内的检查结果。缓存过期后，页面会在后台重新检查，期间保留已有结果。点击「工具」旁的刷新按钮，可立即重新读取工具列表并检查更新。所有 plugin 会同时检查：每一行在自己的检查完成后就显示结果，标题栏会显示已检查的数量。无法检查的 plugin（包括 Agent 的 CLI 在 60 秒内没有响应的情况）会显示 **Check failed**，鼠标悬停可以看到原因。source 有较新版本的行会显示 `old → new`，标题栏的按钮变为 **Update N**。点击后会打开一个对话框，列出所有有更新的 plugin，默认全部勾选，并显示各 plugin 安装在哪些 Agent 上；取消勾选某个 plugin 或某个 Agent 即可排除。**Update N plugins** 会逐个执行所选项目，并把每一行显示为等待中、更新中、已更新、失败或已跳过。**Stop after this one** 会在正在更新的 plugin 完成后停止，其余不再更新。失败的行会列出已更新和失败的 Agent 以及错误信息，**Retry** 只会重新处理失败的 Agent。结果会同步到页面，无需再次检查。如果 source 在检查之后发生了变化，则不会安装任何内容；请再次检查以审核新版本。Pi 的 npm 包是例外：Pi 会安装 npm 标为 latest 的版本。全部都是最新版本时，对话框会列出每个 plugin 及其 Agent 与版本。
 
-Claude 可以通过其原生 CLI 进行更新。Codex 会用经审核的快照再次 add 该 plugin；但若它在 Codex 中被停用则不会更新，因为 add 会把它重新启用；导入的 Codex plugin 则通过升级其 marketplace 来更新。Cursor 与 Antigravity 会在检查本地编辑后替换受管理的本地副本。Pi 与 OpenCode 会更新经审核的快照。Oh My Pi 会先移除自己的安装，再重新安装经审核的 commit，不会运行 OMP 原生的 upgrade。Copilot 与 Antigravity CLI 可以在保留已知启用状态的同时刷新一份经审核的 Source。Grok 的更新仍留在原生工具中处理，对话框会把这类安装单独列在 **Update inside the Agent** 下；被 import 套件的限制请参见命令参考文档。不再提供兼容 plugin 的 source 会列在 **Cannot update** 下。无法连接的 Target 会连同原因报告为失败，该 plugin 的其他 Agent 仍会照常更新。
+Claude 可以通过其原生 CLI 进行更新。Codex 会用经审核的快照再次 add 该 plugin；但若它在 Codex 中被停用则不会更新，因为 add 会把它重新启用；导入的 Codex plugin 则通过升级其 marketplace 来更新。Cursor 与 Antigravity 会在检查本地编辑后替换受管理的本地副本；Rex 也一样，但要在新版本通过 `rex config check` 之后。Pi 与 OpenCode 会更新经审核的快照。Oh My Pi 会先移除自己的安装，再重新安装经审核的 commit，不会运行 OMP 原生的 upgrade。Copilot 与 Antigravity CLI 可以在保留已知启用状态的同时刷新一份经审核的 Source。Grok 的更新仍留在原生工具中处理，对话框会把这类安装单独列在 **Update inside the Agent** 下；被 import 套件的限制请参见命令参考文档。不再提供兼容 plugin 的 source 会列在 **Cannot update** 下。无法连接的 Target 会连同原因报告为失败，该 plugin 的其他 Agent 仍会照常更新。
 
 Pi 的 npm 包没有可比对的 source，所以检查时会拿已安装版本和 npm 上的最新版本比较。
 

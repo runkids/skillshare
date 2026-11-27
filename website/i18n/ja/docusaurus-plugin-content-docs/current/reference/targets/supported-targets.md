@@ -238,6 +238,10 @@ extension 編集の検証済みバージョン、所有権、ネイティブロ�
 OMP には project の信頼確認がありません。hooks を同期する前にコードを確認してください。書き込まれた
 extension は次回の OMP 起動時に実行される可能性があります。
 
+## Rex
+
+Rex は skills の Target ではなく [plugin の Target](../commands/plugin.md#rex) です。`skillshare plugin` で `--target rex` を使ってください。skillshare は rexd なしで Rex plugin の設定コードをインストールし、それを読み込む 1 行を Rex の `init.lua` に追加します。グローバルスコープのみです。
+
 ## DeepSeek Harness と GitLab Duo
 
 上記のパスはデフォルトです。組み込みの global パスについて、skillshare は次の設定にも従います。

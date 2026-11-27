@@ -229,6 +229,10 @@ OMP 的启用/停用列表和原生 server 设置。对于具名 profile，请�
 OMP 没有项目信任提示。同步 hooks 前请先审查代码：写入的 extension 可能会在下一次 OMP
 启动时执行。
 
+## Rex
+
+Rex 是 [plugin target](../commands/plugin.md#rex)，不是 skills target：请在 `skillshare plugin` 中使用 `--target rex`。Skillshare 无需 rexd 即可安装 Rex plugin 的配置代码，并在 Rex 的 `init.lua` 中添加一行来加载它。仅支持全局范围。
+
 ## DeepSeek Harness 和 GitLab Duo
 
 上表显示的是默认路径。对于内置的全局路径，skillshare 还会遵循：

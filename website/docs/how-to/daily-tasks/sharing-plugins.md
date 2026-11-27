@@ -34,11 +34,13 @@ skillshare plugin add
 Claude Code, Codex, Copilot, Antigravity CLI, Grok, Pi, or OpenCode CLI must be installed **where the Skillshare backend runs**.
 For Codex, the CLI inside the Codex desktop app counts; on a machine where Codex is elsewhere, set [`SKILLSHARE_CODEX_CLI`](/docs/reference/appendix/environment-variables#skillshare_codex_cli).
 Cursor and Antigravity desktop instead receive complete files in their local plugin directories.
+Rex receives a plugin's config code through one line Skillshare adds to its `init.lua`;
+run `rex config reload` afterward. A machine without `rex` saves the choice and skips Rex.
 A dashboard running inside a container cannot manage plugins installed only on
 the host machine. Use the local CLI, or run Skillshare beside the native clients.
 
 Install targets are **Claude Code, Codex, Cursor, Antigravity Desktop, Antigravity CLI,
-GitHub Copilot CLI, Pi, and OpenCode**. Grok requires native installation and trust
+GitHub Copilot CLI, Pi, OpenCode, and Rex**. Grok requires native installation and trust
 before import. Kimi, Hermes, and Devin formats are discoverable; their automatic
 installation is unavailable and the interface explains why.
 Choose the format published for your target; Skillshare does not translate plugins
@@ -51,7 +53,7 @@ stores. Choose the one you run.
 Choose **Import installed** and select a native installation. Importing records
 it without reinstalling, copying its authentication, or changing whether it is
 enabled in its Agent. Import is available for Claude, Codex, Copilot, Antigravity CLI, Grok, Pi, and OpenCode;
-use **Add plugin** for Cursor and Antigravity local packages.
+use **Add plugin** for Cursor, Antigravity local packages, and Rex.
 To import several at once, tick them (or an Agent's header) and choose
 **Import selected**; each is imported in turn and the dialog stays open.
 An installation with resource filters is imported on its own, after a review.
@@ -154,7 +156,8 @@ dialog lists each plugin with its Agent and version.
 Claude can update through its native CLI. Codex adds the plugin again from the
 reviewed snapshot, unless it is disabled in Codex, which adding would turn back
 on; an imported Codex plugin is updated by upgrading its marketplace. Cursor and
-Antigravity replace managed local copies after checking for local edits. Pi and
+Antigravity replace managed local copies after checking for local edits; so does Rex,
+after `rex config check` accepts the new version. Pi and
 OpenCode update the reviewed snapshot. Oh My Pi removes its own installation and
 installs the reviewed commit again, without running OMP's native upgrade. Copilot and Antigravity CLI can refresh a
 reviewed source while preserving known enabled state. Grok updates stay in

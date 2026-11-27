@@ -67,7 +67,7 @@ anything to update, or the update names a single `--target`, it is blocked inste
 
 | Option | Meaning |
 |---|---|
-| `--target TARGET` | Repeatable selection: `claude`, `codex`, `cursor`, `antigravity` (`agy` alias), `antigravity-cli`, `copilot`, `grok`, `pi`, `omp`, `opencode`, `herdr-app`, or the name of [another account of an Agent](#accounts); see the capability table below |
+| `--target TARGET` | Repeatable selection: `claude`, `codex`, `cursor`, `antigravity` (`agy` alias), `antigravity-cli`, `copilot`, `grok`, `pi`, `omp`, `opencode`, `herdr-app`, `rex`, or the name of [another account of an Agent](#accounts); see the capability table below |
 | `--plugin NAME` | Select one plugin from a source marketplace |
 | `--name NAME` | Logical package name when adding or importing |
 | `--from TARGET` | Import from Claude, Codex, Antigravity CLI, Copilot, Grok, Pi, OMP marketplaces, OpenCode, or [another account of an Agent](#accounts) |
@@ -92,6 +92,7 @@ the CLI exits nonzero when any target fails. Inspect the result before retrying.
 | Claude Code | `.claude-plugin/plugin.json` | Yes | Yes | Native update |
 | Codex | `.codex-plugin/plugin.json`, Agent Plugins root manifest, or Claude manifest | Yes | No | Refresh reviewed source and add it again, only if enabled in Codex |
 | Cursor | `.cursor-plugin/plugin.json` or Agent Plugins root manifest | Yes | No | Replace reviewed local copy |
+| Rex | `rex-plugin.toml` with a `config` file, or an Amber-style Lua module with a `setup` function | Yes | No | [Replace reviewed local copy](#rex) |
 | Antigravity Desktop | `.antigravity-plugin/plugin.json`, `.gemini-plugin/plugin.json`, or root `plugin.json` with an explicit name | Yes | Yes | Replace reviewed local copy |
 | Pi | `package.json` with `pi` resources, or `pi-package` keyword and conventional resource folders | Yes | Yes, with native project trust | Refresh managed source snapshot |
 | Oh My Pi | Marketplace-backed local/Git plugins with native-compatible metadata | Fresh-cache install/reinstall, import and scoped removal | At OMP's project anchor | Updates reinstall into fresh cache; removal retains shared cache |
@@ -233,6 +234,42 @@ On a machine without the Herdr app (its home is absent), `sync`, `check` and
 `update` skip `herdr-app` bindings, launchers included, without fetching anything,
 and the plugin's other targets still run. The binding stays declared. `add` to
 `herdr-app` on such a machine is refused. `remove` still removes the binding without creating the home. Other actions skip the binding. A home that exists but is not a folder blocks the target.
+
+### Rex {#rex}
+
+Rex has no plugin manager of its own, and Skillshare does not need rexd. It
+installs a plugin's config code (actions and key bindings), in global scope only:
+
+- Formats: a folder with `rex-plugin.toml` that names its `config` file, or an
+  Amber-style Lua module in `rex/lua/` or `lua/` with a `setup` function. A Lua
+  module is adopted only when the source has no other plugin manifest; its ID is
+  `owner.repo` (`local.<folder>` for a local directory) and its version is the
+  commit. With several modules, one must be named after the repository.
+- A plugin that declares `[[scripts]]` or `[[build]]` is refused: rexd runs event
+  scripts and build steps, and Skillshare runs no daemon.
+- Before installing, Skillshare runs `rex config check` on the plugin by itself. A
+  plugin Rex rejects is not installed.
+- Plugin copies stay in Skillshare's state directory. Skillshare writes a loader,
+  `skillshare_rex.lua`, next to `init.lua` (`REX_CONFIG`, else
+  `$XDG_CONFIG_HOME/rex/init.lua` or `~/.config/rex/init.lua`; `%AppData%\rex\init.lua`
+  on Windows), adds one line at the top of `init.lua` to load it, and leaves the
+  rest of the file untouched. Removing the last Rex plugin deletes the loader and
+  that line, so `init.lua` is as you had it.
+- Plugins get the `rexd.plugin` table (`id`, `version`, `dir`, `options`) and can
+  `require` modules from their `rex/lua` or `lua` folder, so config-only plugins
+  written for rexd load unchanged. All Rex plugins share Lua's module names, so
+  prefix a plugin's modules with its name, for example
+  `require("my-plugin.helpers")`. The loader wraps each plugin, so a runtime error
+  in one does not stop the others; `rex config check` reports problems.
+- Run `rex config reload` after a change so a running Rex server reads it.
+- On a machine without `rex`, Skillshare saves the change and skips Rex; it is
+  applied on a machine that has Rex. Rex plugins cannot be imported; add them from
+  their source.
+
+```bash
+skillshare plugin add owner/my-rex-plugin --target rex --no-tui -g
+rex config reload
+```
 
 ### Oh My Pi (OMP) {#omp}
 

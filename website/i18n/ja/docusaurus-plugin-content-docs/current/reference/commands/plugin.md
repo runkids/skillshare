@@ -51,7 +51,7 @@ skillshare plugin remove review --no-tui
 
 | オプション | 意味 |
 |---|---|
-| `--target TARGET` | 繰り返し指定可能な選択: `claude`、`codex`、`cursor`、`antigravity`（エイリアス `agy`）、`antigravity-cli`、`copilot`、`grok`、`pi`、`omp`、`opencode`、`herdr-app`、または [Agent の別のアカウント](#accounts)の名前。下の capability 表を参照 |
+| `--target TARGET` | 繰り返し指定可能な選択: `claude`、`codex`、`cursor`、`antigravity`（エイリアス `agy`）、`antigravity-cli`、`copilot`、`grok`、`pi`、`omp`、`opencode`、`herdr-app`、`rex`、または [Agent の別のアカウント](#accounts)の名前。下の capability 表を参照 |
 | `--plugin NAME` | source のマーケットプレイスから 1 つの plugin を選択 |
 | `--name NAME` | 追加またはインポート時の論理的な package 名 |
 | `--from TARGET` | Claude、Codex、Antigravity CLI、Copilot、Grok、Pi、OMP のマーケットプレイス、OpenCode、または [Agent の別のアカウント](#accounts)からインポート |
@@ -74,6 +74,7 @@ JSON 出力には source パスとネイティブ識別子が含まれます。s
 | Claude Code | `.claude-plugin/plugin.json` | Yes | Yes | ネイティブ update |
 | Codex | `.codex-plugin/plugin.json`、Agent Plugins ルートマニフェスト、または Claude マニフェスト | Yes | No | レビュー済みの Source を更新して再度 add。Codex で有効な場合のみ |
 | Cursor | `.cursor-plugin/plugin.json` または Agent Plugins ルートマニフェスト | Yes | No | reviewed されたローカルコピーを置き換え |
+| Rex | `config` ファイルを指定した `rex-plugin.toml`、または `setup` 関数を持つ Amber 形式の Lua モジュール | Yes | No | [reviewed されたローカルコピーを置き換え](#rex) |
 | Antigravity Desktop | `.antigravity-plugin/plugin.json`、`.gemini-plugin/plugin.json`、またはルートの `plugin.json`（明示的な名前が必要） | Yes | Yes | reviewed されたローカルコピーを置き換え |
 | Pi | `pi` resources を持つ `package.json`、または `pi-package` キーワードと慣例的な resource フォルダ | Yes | Yes（ネイティブな project trust が必要） | 管理下 source スナップショットを更新 |
 | Oh My Pi | ネイティブ互換のメタデータを持つ、マーケットプレイス経由のローカル/Git plugin | 新しい cache へのインストール/再インストール、インポート、スコープを限定した削除 | OMP の project アンカーで | 更新は新しい cache に再インストール。削除しても共有 cache は保持 |
@@ -157,6 +158,23 @@ mv ~/.config/herdr-app/mods/my-mod ~/my-mod.bak
 `update` はインストール先を表示し、mod が動いているとは断言しません。Herdr はファイルが変わると mod を再読み込みします。`herdr-app status` で確認してください。`place: none` の mod は自動で配置されないため、手動でレイアウトに追加してください。ランチャーの update の前にはアプリのチャットと readout を閉じ、update の後に開き直してください。
 
 Herdr app のないマシン（ホームが存在しない）では、`sync`、`check`、`update` は `herdr-app` のバインディングを（ランチャーも含め）何も取得せずにスキップし、plugin の他の target は通常どおり実行されます。バインディングの宣言は残ります。そのようなマシンでの `herdr-app` への `add` は拒否されます。`remove` はホームを作らずにバインディングを削除し、その他の操作はスキップします。ホームが存在してもフォルダでない場合、この target はブロックされます。
+
+### Rex {#rex}
+
+Rex には独自の plugin マネージャーがなく、skillshare は rexd を必要としません。plugin の設定コード（アクションとキーバインド）を、グローバルスコープでのみインストールします。
+
+- フォーマット: `config` ファイルを指定した `rex-plugin.toml` を持つフォルダ、または `rex/lua/` か `lua/` にある、`setup` 関数を持つ Amber 形式の Lua モジュール。Lua モジュールは Source にほかの plugin マニフェストがない場合にのみ採用されます。その ID は `owner.repo`（ローカルディレクトリでは `local.<folder>`）、バージョンは commit です。モジュールが複数ある場合は、1 つがリポジトリと同じ名前である必要があります。
+- `[[scripts]]` または `[[build]]` を宣言した plugin は拒否されます。イベントスクリプトとビルド手順は rexd が実行するもので、skillshare はデーモンを実行しません。
+- インストール前に、skillshare は plugin 単体に対して `rex config check` を実行します。Rex が拒否した plugin はインストールされません。
+- plugin のコピーは skillshare の state ディレクトリに置かれます。skillshare は `init.lua`（`REX_CONFIG`、なければ `$XDG_CONFIG_HOME/rex/init.lua` または `~/.config/rex/init.lua`、Windows では `%AppData%\rex\init.lua`）の隣にローダー `skillshare_rex.lua` を書き込み、それを読み込む 1 行を `init.lua` の先頭に追加し、ファイルの残りには手を加えません。最後の Rex plugin を削除するとローダーとその行が削除され、`init.lua` は元の状態に戻ります。
+- plugin は `rexd.plugin` テーブル（`id`、`version`、`dir`、`options`）を受け取り、`rex/lua` または `lua` フォルダのモジュールを `require` できるため、rexd 向けに書かれた設定コードのみの plugin はそのまま動作します。Rex の plugin はすべて Lua のモジュール名を共有するため、plugin のモジュールには `require("my-plugin.helpers")` のように plugin 名を前に付けてください。ローダーは plugin ごとに処理を包むため、ある plugin の実行時エラーで他の plugin が止まることはありません。問題は `rex config check` で報告されます。
+- 変更後は `rex config reload` を実行して、実行中の Rex サーバーに読み込ませてください。
+- `rex` のないマシンでは、skillshare は変更を保存して Rex をスキップし、Rex のあるマシンで適用します。Rex の plugin は Import できません。Source から add してください。
+
+```bash
+skillshare plugin add owner/my-rex-plugin --target rex --no-tui -g
+rex config reload
+```
 
 ### Oh My Pi (OMP) {#omp}
 

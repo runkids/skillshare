@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/pelletier/go-toml/v2"
 	"gopkg.in/yaml.v3"
 )
 
@@ -18,7 +19,7 @@ type manifestSpec struct{ path, target string }
 func inspect(root string, explicit ...string) (Candidate, error) {
 	c := Candidate{Targets: []string{}, Components: []string{}, TargetInfo: map[string]TargetPackage{}}
 	var claudeFields map[string]json.RawMessage
-	specs := []manifestSpec{{".codex-plugin/plugin.json", "codex"}, {".claude-plugin/plugin.json", "claude"}, {".omp-plugin/plugin.json", "omp"}, {".cursor-plugin/plugin.json", "cursor"}, {".antigravity-plugin/plugin.json", "antigravity"}, {".gemini-plugin/plugin.json", "antigravity"}, {"package.json", "pi"}, {"package.json", "opencode"}, {".plugin/plugin.json", "copilot"}, {".github/plugin/plugin.json", "copilot"}, {".grok-plugin/plugin.json", "grok"}, {"kimi.plugin.json", "kimi"}, {".kimi-plugin/plugin.json", "kimi"}, {".devin-plugin/plugin.json", "devin"}, {".hermes-plugin/plugin.yaml", "hermes"}, {"plugin.json", "codex"}, {"package.json", "omp"}}
+	specs := []manifestSpec{{".codex-plugin/plugin.json", "codex"}, {".claude-plugin/plugin.json", "claude"}, {".omp-plugin/plugin.json", "omp"}, {".cursor-plugin/plugin.json", "cursor"}, {".antigravity-plugin/plugin.json", "antigravity"}, {".gemini-plugin/plugin.json", "antigravity"}, {"package.json", "pi"}, {"package.json", "opencode"}, {".plugin/plugin.json", "copilot"}, {".github/plugin/plugin.json", "copilot"}, {".grok-plugin/plugin.json", "grok"}, {"kimi.plugin.json", "kimi"}, {".kimi-plugin/plugin.json", "kimi"}, {".devin-plugin/plugin.json", "devin"}, {".hermes-plugin/plugin.yaml", "hermes"}, {"plugin.json", "codex"}, {"package.json", "omp"}, {"rex-plugin.toml", "rex"}}
 	for _, spec := range specs {
 		data, err := os.ReadFile(filepath.Join(root, spec.path))
 		if os.IsNotExist(err) {
@@ -26,6 +27,12 @@ func inspect(root string, explicit ...string) (Candidate, error) {
 		}
 		info := TargetPackage{Manifest: spec.path, Components: []string{}}
 		var m map[string]json.RawMessage
+		if err == nil && strings.HasSuffix(spec.path, ".toml") {
+			var raw map[string]any
+			if err = toml.Unmarshal(data, &raw); err == nil {
+				data, err = json.Marshal(raw)
+			}
+		}
 		if err == nil && strings.HasSuffix(spec.path, ".yaml") {
 			var raw map[string]any
 			if err = yaml.Unmarshal(data, &raw); err == nil {
@@ -47,6 +54,12 @@ func inspect(root string, explicit ...string) (Candidate, error) {
 		_ = json.Unmarshal(m["version"], &info.Version)
 		_ = json.Unmarshal(m["description"], &desc)
 		_ = json.Unmarshal(m["$schema"], &schema)
+		if spec.target == "rex" {
+			_ = json.Unmarshal(m["id"], &name)
+			_ = json.Unmarshal(m["config"], &info.rexConfig)
+			info.Components = []string{"config"}
+			rexManifestProblem(root, m, &info)
+		}
 		if spec.path == "plugin.json" {
 			switch schema {
 			case "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json":
@@ -117,11 +130,14 @@ func inspect(root string, explicit ...string) (Candidate, error) {
 		// OMP, Pi and OpenCode install by path, so a package.json name may be scoped (@owner/pkg),
 		// differ, or be missing; it only names the plugin when nothing else does.
 		npm := spec.path == "package.json"
-		if !namePattern.MatchString(name) && !npm {
+		if !namePattern.MatchString(name) && !npm && spec.target != "rex" {
 			info.block("plugins.problem.manifestName", spec.path+" requires a valid plugin name", map[string]string{"manifest": spec.path})
 		}
 		if c.Name != "" && c.Name != name && !npm {
 			info.block("plugins.problem.nameDiffers", "Native manifest name differs from "+c.Name, map[string]string{"name": c.Name})
+		}
+		if spec.target == "rex" && c.Name == "" && len(name) <= 64 && rexID.MatchString(name) {
+			c.Name, c.Description, c.Version = name, desc, info.Version
 		}
 		if info.Problem == "" {
 			if c.Name == "" && namePattern.MatchString(name) {
@@ -206,6 +222,9 @@ func inspect(root string, explicit ...string) (Candidate, error) {
 	}
 	c.collectTargets()
 	if c.Name == "" {
+		if rex, ok := c.TargetInfo["rex"]; ok && rex.Problem != "" {
+			return c, agentError{key: rex.ProblemKey, message: rex.Problem, args: rex.ProblemArgs}
+		}
 		return c, agentError{
 			key:     "plugins.error.noPluginSource",
 			message: "No plugin found here. Paste a link to the package folder, or a Herdr mod's main.js link.",

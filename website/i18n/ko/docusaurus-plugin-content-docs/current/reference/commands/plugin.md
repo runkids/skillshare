@@ -51,7 +51,7 @@ skillshare plugin remove review --no-tui
 
 | Option | 의미 |
 |---|---|
-| `--target TARGET` | 반복 가능한 선택: `claude`, `codex`, `cursor`, `antigravity`(`agy` alias), `antigravity-cli`, `copilot`, `grok`, `pi`, `omp`, `opencode`, `herdr-app`, 또는 [Agent의 다른 계정](#accounts) 이름. 아래 capability 표 참고 |
+| `--target TARGET` | 반복 가능한 선택: `claude`, `codex`, `cursor`, `antigravity`(`agy` alias), `antigravity-cli`, `copilot`, `grok`, `pi`, `omp`, `opencode`, `herdr-app`, `rex`, 또는 [Agent의 다른 계정](#accounts) 이름. 아래 capability 표 참고 |
 | `--plugin NAME` | source marketplace에서 plugin 하나를 선택 |
 | `--name NAME` | 추가하거나 import할 때의 논리적 패키지 이름 |
 | `--from TARGET` | Claude, Codex, Antigravity CLI, Copilot, Grok, Pi, OMP marketplace, OpenCode, 또는 [Agent의 다른 계정](#accounts)에서 import |
@@ -74,6 +74,7 @@ JSON 출력에는 source 경로와 네이티브 식별자가 포함됩니다. so
 | Claude Code | `.claude-plugin/plugin.json` | 예 | 예 | 네이티브 업데이트 |
 | Codex | `.codex-plugin/plugin.json`, Agent Plugins 루트 매니페스트, 또는 Claude 매니페스트 | 예 | 아니요 | 검토된 Source를 갱신한 뒤 다시 add, Codex에서 활성화된 경우에만 |
 | Cursor | `.cursor-plugin/plugin.json` 또는 Agent Plugins 루트 매니페스트 | 예 | 아니요 | 검토된 로컬 사본 교체 |
+| Rex | `config` 파일을 지정한 `rex-plugin.toml`, 또는 `setup` 함수가 있는 Amber 스타일 Lua 모듈 | 예 | 아니요 | [검토된 로컬 사본 교체](#rex) |
 | Antigravity Desktop | `.antigravity-plugin/plugin.json`, `.gemini-plugin/plugin.json` 또는 루트의 `plugin.json` (이름 명시 필수) | 예 | 예 | 검토된 로컬 사본 교체 |
 | Pi | `pi` 리소스가 있는 `package.json`, 또는 `pi-package` 키워드와 관례적인 리소스 폴더 | 예 | 예, 네이티브 project trust 사용 시 | 관리되는 source 스냅샷 새로고침 |
 | Oh My Pi | 네이티브 호환 메타데이터를 가진 marketplace 기반 로컬/Git plugin | 새 cache 설치/재설치, import, scope 단위 제거 | OMP의 project anchor에서 | 업데이트는 새 cache에 재설치, 제거 시 공유 cache 유지 |
@@ -156,6 +157,23 @@ mv ~/.config/herdr-app/mods/my-mod ~/my-mod.bak
 `update`는 설치 경로를 표시하며 mod가 실행 중이라는 뜻은 아닙니다. Herdr는 파일이 바뀌면 mod를 다시 불러옵니다. `herdr-app status`로 확인하세요. `place: none`인 mod는 자동으로 배치되지 않으므로 레이아웃에 직접 추가하세요. launcher를 update하기 전에 앱의 채팅과 readout을 닫고, update 후 다시 여세요.
 
 Herdr app이 없는 머신(홈이 없음)에서는 `sync`, `check`, `update`가 `herdr-app` 바인딩을(launcher 포함) 아무것도 가져오지 않고 건너뛰며, plugin의 다른 target은 그대로 실행됩니다. 바인딩 선언은 유지됩니다. 그런 머신에서 `herdr-app`으로의 `add`는 거부됩니다. `remove`는 홈을 만들지 않고 바인딩을 제거하며 나머지 작업은 건너뜁니다. 홈이 있지만 폴더가 아니면 이 target은 차단됩니다.
+
+### Rex {#rex}
+
+Rex에는 자체 plugin 관리자가 없으며, Skillshare는 rexd가 필요하지 않습니다. plugin의 설정 코드(액션과 키 바인딩)를 전역 범위에서만 설치합니다.
+
+- 형식: `config` 파일을 지정한 `rex-plugin.toml`이 있는 폴더, 또는 `rex/lua/`나 `lua/`에 있고 `setup` 함수를 가진 Amber 스타일 Lua 모듈. Lua 모듈은 source에 다른 plugin 매니페스트가 없을 때만 채택됩니다. ID는 `owner.repo`(로컬 디렉터리는 `local.<folder>`)이고 버전은 commit입니다. 모듈이 여러 개이면 그중 하나는 저장소 이름과 같아야 합니다.
+- `[[scripts]]` 또는 `[[build]]`를 선언한 plugin은 거부됩니다. 이벤트 스크립트와 빌드 단계는 rexd가 실행하며, Skillshare는 데몬을 실행하지 않습니다.
+- 설치 전에 Skillshare는 plugin 하나만으로 `rex config check`를 실행합니다. Rex가 거부한 plugin은 설치되지 않습니다.
+- plugin 사본은 Skillshare의 state 디렉터리에 보관됩니다. Skillshare는 `init.lua`(`REX_CONFIG`, 없으면 `$XDG_CONFIG_HOME/rex/init.lua` 또는 `~/.config/rex/init.lua`, Windows에서는 `%AppData%\rex\init.lua`) 옆에 로더 `skillshare_rex.lua`를 쓰고, 이를 불러오는 한 줄을 `init.lua` 맨 위에 추가하며, 파일의 나머지는 건드리지 않습니다. 마지막 Rex plugin을 제거하면 로더와 그 줄이 삭제되어 `init.lua`가 원래대로 돌아갑니다.
+- plugin은 `rexd.plugin` 테이블(`id`, `version`, `dir`, `options`)을 받고 `rex/lua` 또는 `lua` 폴더의 모듈을 `require`할 수 있으므로, rexd용으로 작성된 설정 코드 전용 plugin은 그대로 동작합니다. 모든 Rex plugin은 Lua 모듈 이름을 공유하므로, `require("my-plugin.helpers")`처럼 plugin의 모듈 앞에 plugin 이름을 붙이세요. 로더가 plugin마다 감싸서 실행하므로 한 plugin의 런타임 오류가 다른 plugin을 멈추지 않습니다. 문제는 `rex config check`가 보고합니다.
+- 변경 후 `rex config reload`를 실행해 실행 중인 Rex 서버가 다시 읽도록 하세요.
+- `rex`가 없는 머신에서는 Skillshare가 변경을 저장하고 Rex를 건너뛰며, Rex가 있는 머신에서 적용합니다. Rex plugin은 import할 수 없으니 source에서 add하세요.
+
+```bash
+skillshare plugin add owner/my-rex-plugin --target rex --no-tui -g
+rex config reload
+```
 
 ### Oh My Pi (OMP) {#omp}
 

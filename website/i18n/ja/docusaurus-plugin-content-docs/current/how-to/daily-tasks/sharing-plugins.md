@@ -35,11 +35,13 @@ Claude Code、Codex、Copilot、Antigravity CLI、Grok、Pi、または OpenCode
 Codex の場合、Codex デスクトップ app に同梱の CLI も対象です。Codex が別の場所にあるマシンでは [`SKILLSHARE_CODEX_CLI`](/docs/reference/appendix/environment-variables#skillshare_codex_cli) を設定してください。
 Cursor と Antigravity
 デスクトップは代わりに、それぞれのローカルプラグインディレクトリに完全なファイルを受け取ります。
+Rex は、skillshare が `init.lua` に追加する 1 行を通じて plugin の設定コードを受け取ります。
+その後 `rex config reload` を実行してください。`rex` のないマシンでは選択が保存され、Rex はスキップされます。
 コンテナ内で動作しているダッシュボードは、ホストマシンにのみインストールされているプラグインを
 管理できません。ローカルの CLI を使うか、ネイティブクライアントと並べて skillshare を実行してください。
 
 インストール Target は **Claude Code、Codex、Cursor、Antigravity Desktop、Antigravity CLI、
-GitHub Copilot CLI、Pi、OpenCode** です。Grok は Import 前にネイティブなインストールと信頼設定が
+GitHub Copilot CLI、Pi、OpenCode、Rex** です。Grok は Import 前にネイティブなインストールと信頼設定が
 必要です。Kimi、Hermes、Devin のフォーマットは検出可能ですが、自動インストールは利用できず、
 インターフェースがその理由を説明します。Target 向けに公開されているフォーマットを選んでください。
 skillshare はツール間でプラグインを変換しません。Project mode は Claude、Antigravity Desktop、
@@ -51,7 +53,7 @@ Pi、OpenCode に対応しています。Antigravity Desktop（`antigravity` ま
 **Import installed** を選び、ネイティブなインストールを選択します。Import はそれを記録するだけで、
 再インストールしたり、その認証をコピーしたり、その Agent 内で有効かどうかを変更したりすることは
 ありません。Import は Claude、Codex、Copilot、Antigravity CLI、Grok、Pi、OpenCode で利用できます。
-Cursor と Antigravity のローカルパッケージには **Add plugin** を使ってください。
+Cursor、Antigravity のローカルパッケージ、Rex には **Add plugin** を使ってください。
 複数まとめてインポートするには、チェックを入れて（Agent の見出しでも可）**Import selected** を選びます。
 1 つずつ順にインポートされ、ダイアログは開いたままです。リソースフィルターのあるインストールは、確認を経て個別にインポートされます。
 
@@ -119,7 +121,7 @@ skillshare の Source にコピーされることはありません。
 
 Plugins ページに戻ると、直近 2 分以内の確認結果を再利用します。古い結果は再確認中も表示されます。ツール欄の更新ボタンで一覧と更新情報をすぐに再取得できます。plugin はすべて同時に確認され、各行は自分の確認が終わった時点で結果を表示し、ヘッダーには確認済みの数が表示されます。確認できなかった plugin（Agent の CLI が 60 秒以内に応答しない場合を含む）には **Check failed** が表示され、マウスを重ねると理由がわかります。source に新しいバージョンがある行には `old → new` が表示され、ヘッダーのボタンは **Update N** になります。これを押すと、更新のある plugin をすべて一覧にした 1 つのダイアログが開きます。初期状態ではすべてチェック済みで、各 plugin がインストールされている Agent も表示されます。plugin や Agent のチェックを外すと、その分は更新されません。**Update N plugins** は選んだものを 1 つずつ実行し、各行を待機中、更新中、更新済み、失敗、スキップのいずれかで表示します。**Stop after this one** は実行中の plugin を終えたところで止め、残りは更新しません。失敗した行には、更新できた Agent と失敗した Agent がエラーとともに表示され、**Retry** は失敗した Agent だけに再送します。結果はページに反映されるため、再度チェックする必要はありません。チェック後に source が変わっていた場合は何もインストールされないので、もう一度チェックして新しいバージョンを確認してください。ただし Pi の npm パッケージは例外で、Pi は npm が latest とするバージョンをインストールします。すべて最新のときは、ダイアログに各 plugin が Agent とバージョン付きで一覧表示されます。
 
-Claude はネイティブな CLI 経由で更新できます。Codex はレビュー済みのスナップショットからプラグインを再度 add します。ただし Codex で無効化されている場合は、add で再び有効になってしまうため更新しません。Import した Codex プラグインは marketplace のアップグレードで更新されます。Cursor と Antigravity は、ローカルの編集がないか確認した後、管理対象のローカルコピーを置き換えます。Pi と OpenCode はレビュー済みのスナップショットを更新します。Oh My Pi は自身のインストールを削除してからレビュー済みの commit を再度インストールし、OMP のネイティブ upgrade は実行しません。Copilot と Antigravity CLI は既知の有効状態を保持しながらレビュー済みの Source を更新できます。Grok の更新はネイティブツール側にとどまり、ダイアログではそうしたインストールを **Update inside the Agent** の下に分けて表示します。インポートされたパッケージの制限についてはコマンドリファレンスを参照してください。互換性のある plugin を提供しなくなった source は **Cannot update** に表示されます。update が接続できない Target は理由とともに失敗として報告され、その plugin のほかの Agent は通常どおり更新されます。
+Claude はネイティブな CLI 経由で更新できます。Codex はレビュー済みのスナップショットからプラグインを再度 add します。ただし Codex で無効化されている場合は、add で再び有効になってしまうため更新しません。Import した Codex プラグインは marketplace のアップグレードで更新されます。Cursor と Antigravity は、ローカルの編集がないか確認した後、管理対象のローカルコピーを置き換えます。Rex も同様に置き換えますが、新しいバージョンが `rex config check` を通過した後です。Pi と OpenCode はレビュー済みのスナップショットを更新します。Oh My Pi は自身のインストールを削除してからレビュー済みの commit を再度インストールし、OMP のネイティブ upgrade は実行しません。Copilot と Antigravity CLI は既知の有効状態を保持しながらレビュー済みの Source を更新できます。Grok の更新はネイティブツール側にとどまり、ダイアログではそうしたインストールを **Update inside the Agent** の下に分けて表示します。インポートされたパッケージの制限についてはコマンドリファレンスを参照してください。互換性のある plugin を提供しなくなった source は **Cannot update** に表示されます。update が接続できない Target は理由とともに失敗として報告され、その plugin のほかの Agent は通常どおり更新されます。
 
 Pi の npm パッケージには比較できる source がないため、チェックではインストール済みバージョンを npm の最新バージョンと比べます。
 

@@ -186,6 +186,9 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (_ *Result,
 		}
 		if c.Action == "selection" || c.Target == "" || c.ID == "" && c.Action == "forget" {
 			outcome.Status = "saved"
+			if s.agentOf(c.Target) == "rex" {
+				outcome.Message, outcome.MessageKey, outcome.MessageArgs = c.Message, c.MessageKey, c.MessageArgs
+			}
 
 			if c.Action == "forget" {
 				outcome.Status = "removed"
@@ -346,6 +349,9 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (_ *Result,
 					outcome.Message = "Installed in " + path + "; Herdr reloads the mod when files change. A mod with `place: none` needs a layout entry."
 					outcome.MessageKey, outcome.MessageArgs = "plugins.outcome.herdrModInstalled", map[string]string{"path": path}
 				}
+			}
+			if s.agentOf(c.Target) == "rex" {
+				outcome.Message, outcome.MessageKey = "Run rex config reload to apply this change to a running Rex server.", "plugins.outcome.rexReload"
 			}
 			if s.agentOf(c.Target) == "omp" && (c.Action == "remove" || c.Action == "forget" || c.Action == "uninstall") {
 				outcome.Message, outcome.MessageKey = "Removed from this scope; shared cache, marketplaces and plugin settings were retained.", "plugins.outcome.ompRemoved"

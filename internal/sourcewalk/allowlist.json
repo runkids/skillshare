@@ -656,6 +656,14 @@
     "note": "Inspect local plugin inventory"
   },
   {
+    "file": "internal/plugin/rex.go",
+    "function": "(*Service).rexEntries",
+    "callee": "os.ReadDir",
+    "root": "root",
+    "reason": "plugin",
+    "note": "Inspect managed Rex plugins to regenerate the loader"
+  },
+  {
     "file": "internal/plugin/omp_extensions.go",
     "function": "(*ompInventory).entries",
     "callee": "os.ReadDir",
@@ -1110,5 +1118,13 @@
     "root": "\".\"",
     "reason": "hooks",
     "note": "Read native package files without following symlinks; dependencies excluded"
+  },
+  {
+    "file": "internal/plugin/rex.go",
+    "function": "rexAdopt",
+    "callee": "os.ReadDir",
+    "root": "filepath.Join(dir, filepath.FromSlash(sub))",
+    "reason": "plugin",
+    "note": "Discover Amber Lua modules in a plugin source"
   }
 ]
