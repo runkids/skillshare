@@ -203,7 +203,8 @@ export default function TargetsPage() {
                     <span className="ss-tag">{tg.mode}</span>
                   )}
                 </span>
-                <span className="flex w-[340px] shrink-0 flex-wrap items-center gap-0.5 -ml-2">
+                {/* -ml-2 lines a door's label up with the header; the extra 8px of width keeps the columns before it in place. */}
+                <span className="flex w-[348px] shrink-0 flex-wrap items-center gap-0.5 -ml-2">
                   {doors(tg, state, pending).map((d) => (
                     <Link key={d.key} to={d.to} className="ss-door" title={d.title}>
                       {d.label}
