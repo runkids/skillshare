@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, ChevronDown, Copy } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -22,6 +22,7 @@ import { invalidate } from '../../lib/queryEvents';
 import MemoryTools from './MemoryTools';
 import { segSlide } from '../../lib/segSlide';
 import { useMenuPresence } from '../../hooks/usePresence';
+import { useDismiss } from '../../hooks/useDismiss';
 
 const MODES: MemoryUpdateMode[] = ['passive', 'active'];
 
@@ -32,21 +33,7 @@ function CopyGuidanceMenu({ instructions }: { instructions: MemoryInstructions }
   const [open, setOpen] = useState(false);
   const menu = useMenuPresence(open);
   const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
-    };
-    document.addEventListener('mousedown', onDown);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onDown);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [open]);
+  useDismiss(ref, open, () => setOpen(false));
   const copy = async (mode: MemoryUpdateMode) => {
     setOpen(false);
     try {

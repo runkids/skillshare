@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Check, Languages } from 'lucide-react';
 import { messagesByLocale, supportedLocales, useI18n, type Locale } from '../i18n';
 import { useMenuPresence } from '../hooks/usePresence';
+import { useDismiss } from '../hooks/useDismiss';
 
 export default function LanguagePopover() {
   const { locale, setLocale, t } = useI18n();
@@ -18,25 +19,7 @@ export default function LanguagePopover() {
       : supportedLocales;
   }, [locale]);
 
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
-    };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
-  }, [open]);
+  useDismiss(containerRef, open, () => setOpen(false));
 
   useEffect(() => {
     if (!open || !panelRef.current) return;

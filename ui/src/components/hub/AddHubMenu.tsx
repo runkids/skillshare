@@ -3,6 +3,7 @@ import { FilePlus, Plus, Upload } from 'lucide-react';
 import Button from '../Button';
 import { useT } from '../../i18n';
 import { useMenuPresence } from '../../hooks/usePresence';
+import { useDismiss } from '../../hooks/useDismiss';
 
 interface Props {
   /** Rejects with a message the menu shows under the field. */
@@ -27,21 +28,7 @@ export default function AddHubMenu({ onAdd, onCreate, onImport }: Props) {
     if (open) urlInput.current?.focus();
   }, [open]);
 
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
-    };
-    document.addEventListener('mousedown', onDown);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onDown);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [open]);
+  useDismiss(ref, open, () => setOpen(false));
 
   const add = async () => {
     setBusy(true);

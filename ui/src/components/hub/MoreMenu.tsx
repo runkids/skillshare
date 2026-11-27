@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { MoreHorizontal } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useMenuPresence } from '../../hooks/usePresence';
+import { useDismiss } from '../../hooks/useDismiss';
 
 interface Item {
   label: string;
@@ -16,21 +17,7 @@ export default function MoreMenu({ label, items }: { label: string; items: Item[
   const menu = useMenuPresence(open);
   const ref = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
-    };
-    document.addEventListener('mousedown', onDown);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onDown);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [open]);
+  useDismiss(ref, open, () => setOpen(false));
 
   return (
     <div ref={ref} className="relative shrink-0">

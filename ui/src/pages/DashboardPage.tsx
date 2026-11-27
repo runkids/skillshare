@@ -45,6 +45,7 @@ import { invalidate } from '../lib/queryEvents';
 import { formatVersion } from '../lib/format';
 import MemoryOverview from '../components/memory/MemoryOverview';
 import { useHeldWhileClosing, useMenuPresence } from '../hooks/usePresence';
+import { useDismiss } from '../hooks/useDismiss';
 
 const STAR_CTA_DISMISSED_KEY = 'skillshare.dashboard.starCta.dismissed';
 
@@ -735,23 +736,7 @@ function TrackedRepos({ repos }: { repos: Overview['trackedRepos'] }) {
   const [refusal, setRefusal] = useState<keyof typeof forceableRefusals | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!menuFor) return;
-    const close = (e: MouseEvent | KeyboardEvent) => {
-      if (
-        e instanceof KeyboardEvent
-          ? e.key === 'Escape'
-          : !menuRef.current?.contains(e.target as Node)
-      )
-        setMenuFor(null);
-    };
-    document.addEventListener('mousedown', close);
-    document.addEventListener('keydown', close);
-    return () => {
-      document.removeEventListener('mousedown', close);
-      document.removeEventListener('keydown', close);
-    };
-  }, [menuFor]);
+  useDismiss(menuRef, menuFor !== null, () => setMenuFor(null));
 
   const refresh = async () => {
     clearAuditCache(queryClient);

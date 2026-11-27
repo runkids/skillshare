@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { createContext, useContext, useId, useMemo, useRef, useState } from 'react';
 import { Link, useBeforeUnload, useBlocker, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -45,6 +45,7 @@ import {
 } from './instructionsView';
 import { invalidate } from '../../lib/queryEvents';
 import { useMenuPresence } from '../../hooks/usePresence';
+import { useDismiss } from '../../hooks/useDismiss';
 
 // The page's bottom padding, and the least height the tab keeps on a short window.
 const PAGE_BOTTOM = 40;
@@ -686,21 +687,7 @@ function ChangeMenu({
   const [busy, setBusy] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
-    };
-    document.addEventListener('mousedown', onDown);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onDown);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [open]);
+  useDismiss(ref, open, () => setOpen(false));
 
   const switchTo = async (name: string) => {
     setBusy(true);
