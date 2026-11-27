@@ -884,14 +884,17 @@ export function themeCss(theme: CustomTheme): string {
     }
     if (theme.texture === 'dots') {
       // On the page and the preview's page, not the shell around them. The doubled attribute
-      // outranks the inset panel's solid background whichever stylesheet loads first.
+      // outranks the inset panel's solid background whichever stylesheet loads first. Light dots
+      // take the stronger line colour to show at all; on a dark page the softer one is enough.
       const dots = (c: string) =>
         `{\n  background-image: radial-gradient(${c} 1px, transparent 1px);\n  background-size: 24px 24px;\n}`;
+      const light = dots(vars.light['line-2']);
+      const dark = dots(vars.dark.line);
       parts.push(
-        `:root[data-custom][data-custom]:not(.dark) .ss-main ${dots(vars.light['line-2'])}`,
-        `${DARK} .ss-main ${dots(vars.dark['line-2'])}`,
-        `:root[data-custom] .ss-mini[data-mode='light'] > .pn ${dots(vars.light['line-2'])}`,
-        `:root[data-custom] .ss-mini[data-mode='dark'] > .pn ${dots(vars.dark['line-2'])}`,
+        `:root[data-custom][data-custom]:not(.dark) .ss-main ${light}`,
+        `${DARK} .ss-main ${dark}`,
+        `:root[data-custom] .ss-mini[data-mode='light'] > .pn ${light}`,
+        `:root[data-custom] .ss-mini[data-mode='dark'] > .pn ${dark}`,
       );
     }
   }
