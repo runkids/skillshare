@@ -38,7 +38,7 @@
   <a href="#kurulum">Kurulum</a> •
   <a href="#hızlı-başlangıç">Hızlı Başlangıç</a> •
   <a href="#öne-çıkanlar">Öne Çıkanlar</a> •
-  <a href="#cli-ve-arayüz-ön-izlemesi">Ekran Görüntüleri</a> •
+  <a href="#screenshots">Ekran Görüntüleri</a> •
   <a href="#desktop-app">Masaüstü Uygulaması</a> •
   <a href="https://skillshare.runkids.cc/docs">Belgeler</a>
 </p>
@@ -64,6 +64,8 @@ Bir ekip arkadaşınız Claude Code, diğeri Codex kullanıyor olabilir. Paylaş
 Her şeyi yerel olarak yönetmek için masaüstü uygulamasını veya CLI'ı kullanın, [kullanmadan önce becerileri denetleyin](https://skillshare.runkids.cc/docs/reference/commands/audit) ve [her aracın ne alacağını seçin](https://skillshare.runkids.cc/docs/how-to/daily-tasks/filtering-skills).
 
 > Başka bir araçtan mı geliyorsunuz? [Geçiş Kılavuzu](https://skillshare.runkids.cc/docs/how-to/advanced/migration) · [Karşılaştırma](https://skillshare.runkids.cc/docs/understand/philosophy/comparison)
+
+<a id="screenshots"></a>
 
 ## CLI ve Arayüz Ön İzlemesi
 
