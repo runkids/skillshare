@@ -20,7 +20,7 @@ type analyzeSkillItem struct {
 	maxTokens int // largest desc tokens in current target (for bar scaling)
 }
 
-func (i analyzeSkillItem) FilterValue() string { return i.entry.Name }
+func (i analyzeSkillItem) FilterValue() string { return i.entry.label() }
 
 // computeThresholds returns P25 and P75 percentile values from a sorted token slice.
 func computeThresholds(tokens []int) (low, high int) {
@@ -106,6 +106,6 @@ func (d analyzeSkillDelegate) Render(w io.Writer, m list.Model, index int, listI
 	width := m.Width()
 	tokenStr := formatTokensStr(item.entry.DescriptionTokens)
 	dot := analyzeDots[tokenColorCode(item.entry.DescriptionTokens, d.thresholdLow, d.thresholdHigh)]
-	left := dot + " " + lintIcon(item.entry.LintIssues) + item.entry.Name
+	left := dot + " " + lintIcon(item.entry.LintIssues) + item.entry.label()
 	renderPrefixRow(w, alignRow(left, theme.Dim().Render(tokenStr), width-rowIndent), width, index == m.Index())
 }

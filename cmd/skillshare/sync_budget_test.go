@@ -184,3 +184,51 @@ func TestCheckBudget_BothExceed(t *testing.T) {
 		t.Errorf("second violation type = %q, want on_demand", violations[1].Type)
 	}
 }
+
+// Targets with the same cost share a line, and the largest skills are listed once.
+func TestPrintBudgetWarning_MergesTargetsWithTheSameCost(t *testing.T) {
+	big := []tokenOffender{{Name: "orbit", Label: "orbit", Tokens: 9870}, {Name: "apple", Label: "apple", Tokens: 5616}, {Name: "tiny", Label: "tiny", Tokens: 100}}
+	violations := []budgetViolation{
+		{Type: budgetTypeOnDemand, Target: "claude", Actual: 162230, Budget: 100000, Offenders: []tokenOffender{{Name: "orbit", Label: "orbit", Tokens: 9870}, {Name: "creator", Label: "creator", Tokens: 9110}}},
+		{Type: budgetTypeOnDemand, Target: "omp", Actual: 113102, Budget: 100000, Offenders: big},
+		{Type: budgetTypeOnDemand, Target: "universal", Actual: 113102, Budget: 100000, Offenders: big},
+	}
+	out := captureStdoutStderr(t, func() { printBudgetWarning(violations, true) })
+
+	if n := strings.Count(out, "over budget"); n != 1 {
+		t.Errorf("want one heading, got %d:\n%s", n, out)
+	}
+	if !strings.Contains(out, "omp, universal") {
+		t.Errorf("targets with the same cost are not merged:\n%s", out)
+	}
+	if n := strings.Count(out, "orbit"); n != 1 {
+		t.Errorf("want orbit listed once, got %d:\n%s", n, out)
+	}
+	if !strings.Contains(out, "creator") || !strings.Contains(out, "apple") || strings.Contains(out, "tiny") {
+		t.Errorf("want the three largest skills across targets:\n%s", out)
+	}
+}
+
+// A claude.ai skill reads as "<name> (claude.ai)" in text, so it stays apart from a
+// source skill of the same name. JSON keeps the full name, the identity analyze --json
+// reports.
+func TestBudgetWarning_LabelsClaudeAISkillsOnlyInText(t *testing.T) {
+	entries := []analyzeTargetEntry{{
+		Name:        "claude",
+		OnDemandMax: analyzeCharTokens{EstimatedTokens: 9610},
+		Skills: []analyzeSkillEntry{
+			{Name: "synced__org_user__skill-creator", BodyTokens: 9110, Local: true, displayName: "skill-creator (claude.ai)"},
+			{Name: "skill-creator", BodyTokens: 500},
+		},
+	}}
+	budget := config.ContextBudgetConfig{WarnOnDemandTokens: intPtr(10)}
+
+	out := captureStdoutStderr(t, func() { printBudgetWarning(checkBudget(entries, budget), true) })
+	if !strings.Contains(out, "Largest: skill-creator (claude.ai) ~9,110, skill-creator ~500") {
+		t.Errorf("text should label the claude.ai skill and keep the source skill:\n%s", out)
+	}
+	cost := buildContextCostJSON(entries, budget)
+	if len(cost.Warnings) != 1 || cost.Warnings[0].TopOffenders[0].Name != "synced__org_user__skill-creator" {
+		t.Errorf("JSON should keep the full name, got %+v", cost.Warnings)
+	}
+}

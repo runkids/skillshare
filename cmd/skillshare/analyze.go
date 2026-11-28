@@ -37,6 +37,15 @@ type analyzeSkillEntry struct {
 	isTracked   bool
 	targetNames []string
 	description string
+	displayName string // see ssync.SkillLabel; empty means Name
+}
+
+// label is the name text output shows; Name stays the identity in JSON.
+func (s analyzeSkillEntry) label() string {
+	if s.displayName != "" {
+		return s.displayName
+	}
+	return s.Name
 }
 
 type analyzeCharTokens struct {
@@ -391,6 +400,7 @@ func buildAnalyzeEntries(
 				isTracked:         s.IsInRepo,
 				targetNames:       s.Targets,
 				description:       s.Description,
+				displayName:       ssync.SkillLabel(name, target, s),
 			})
 		}
 
@@ -473,7 +483,7 @@ func printAnalyzeSection(names []string, e analyzeTargetEntry, showTopN, first b
 	limit := min(analyzeTopN, len(e.Skills))
 	labels := make([]string, limit)
 	for i, s := range e.Skills[:limit] {
-		labels[i] = "  " + truncateName(s.Name, analyzeNameMaxLen)
+		labels[i] = "  " + truncateName(s.label(), analyzeNameMaxLen)
 	}
 	fmt.Println()
 	fmt.Println("  " + ui.DimText("Largest descriptions"))

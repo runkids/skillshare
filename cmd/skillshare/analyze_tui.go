@@ -509,7 +509,7 @@ func (m analyzeTUIModel) renderRight(width, height int) string {
 	if !ok {
 		return ""
 	}
-	header := theme.Primary().Bold(true).Render(item.entry.Name)
+	header := theme.Primary().Bold(true).Render(item.entry.label())
 	body, _ := wrapAndScroll(m.renderDetailBody(item.entry, width), width, m.detailScroll, max(height-2, 4))
 	return header + "\n\n" + body
 }

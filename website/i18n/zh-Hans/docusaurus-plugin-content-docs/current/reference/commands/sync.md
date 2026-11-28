@@ -741,14 +741,13 @@ context_budget:
   warn_mcp_tool_tokens: 30000        # 默认值；0 = 停用
 ```
 
-当超过阈值时，会显示一条警告并列出前 3 名消耗者：
+当超过阈值时，每种预算只显示一条警告：列出超出的 target，数字相同的 target 合并为一行，最后列出这些 target 中最大的 3 个 skill：
 
 ```
-! Always-loaded context is ~50,123 tokens (budget: 10,000)
-   Top 3:
-     • my-big-skill                    ~8,200 tokens
-     • another-verbose-skill           ~6,400 tokens
-     • chatgpt-system-prompt           ~5,100 tokens
+! Always-loaded context is over budget (10,000 tokens) on 3 targets
+   claude                              ~50,123 tokens
+   cursor, windsurf                    ~12,400 tokens
+   Largest: my-big-skill ~8,200, another-verbose-skill ~6,400, chatgpt-system-prompt ~5,100
    Run `skillshare analyze` for details.
 ```
 

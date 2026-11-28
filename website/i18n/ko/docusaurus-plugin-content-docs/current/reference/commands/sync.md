@@ -704,14 +704,13 @@ context_budget:
   warn_mcp_tool_tokens: 30000        # 기본값; 0 = 비활성화
 ```
 
-임계값이 초과되면 상위 3개 원인과 함께 경고가 표시됩니다.
+임계값이 초과되면 예산마다 경고가 하나 표시됩니다. 초과한 target을 나열하되 토큰 수가 같은 target은 한 줄로 묶고, 그 target들에서 가장 큰 skill 3개를 보여 줍니다.
 
 ```
-! Always-loaded context is ~50,123 tokens (budget: 10,000)
-   Top 3:
-     • my-big-skill                    ~8,200 tokens
-     • another-verbose-skill           ~6,400 tokens
-     • chatgpt-system-prompt           ~5,100 tokens
+! Always-loaded context is over budget (10,000 tokens) on 3 targets
+   claude                              ~50,123 tokens
+   cursor, windsurf                    ~12,400 tokens
+   Largest: my-big-skill ~8,200, another-verbose-skill ~6,400, chatgpt-system-prompt ~5,100
    Run `skillshare analyze` for details.
 ```
 

@@ -58,6 +58,11 @@ skillshare analyze --json | jq '.targets[].skills[] | select(.lint_issues | leng
 
 トークン数の見積もりには近似値として `chars / 4` を使用します。
 
+各 target は、ツールが実際に見る内容で計測します。
+
+- **merge / copy モード** — target の include/exclude と `targets:` の絞り込みを通る source の skills から `.skillignore` で無効にしたものを除き、source から来たものではなく最初から target フォルダにある skills を加えたもの（JSON では `local` が付きます）。Claude の target では、Claude Code が claude.ai から `synced/<id>/skill-creator` に同期した skill は、テキスト出力と dashboard で `skill-creator (claude.ai)` と表示されます。JSON は完全な `name` を保持します。
+- **symlink モード** — `.skillignore` で除外した skills を含む source フォルダ全体（JSON では `disabled` が付きます）。symlink によってツールからはそれらも見えるためです。
+
 ### Skill 品質 Lint
 
 トークン分析に加えて、`analyze` はすべての Skill に対して組み込みの Lint エンジンを実行します。Lint ルールは SKILL.md の構造と説明文の品質をチェックし、問題を TUI と JSON 出力に直接表示します。

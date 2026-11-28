@@ -39,6 +39,22 @@ func TargetSkills(name string, target config.TargetConfig, defaultMode, sourcePa
 	return append(skills, localTargetSkills(sc.Path, sourcePath)...), nil
 }
 
+// SkillLabel is the name to show for a skill a target loads. Claude Code syncs
+// claude.ai skills into synced/<id>/<name>, and the id differs per account, so
+// on a Claude target, a second account included, those read "<name> (claude.ai)".
+// Every other skill keeps its FlatName, which stays the identity in JSON.
+func SkillLabel(targetName string, target config.TargetConfig, s DiscoveredSkill) string {
+	agent := targetName
+	if target.Agent != "" {
+		agent = target.Agent
+	}
+	parts := strings.Split(s.RelPath, "/")
+	if s.Local && agent == "claude" && len(parts) == 3 && parts[0] == "synced" {
+		return parts[2] + " (claude.ai)"
+	}
+	return s.FlatName
+}
+
 // localTargetSkills finds skills that sit in targetPath as real folders but are
 // not managed by skillshare: merge mode links source skills, so a real folder
 // is local; copy mode records its copies in the manifest, so anything missing

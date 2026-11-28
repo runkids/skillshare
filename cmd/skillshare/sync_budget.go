@@ -82,7 +82,8 @@ type budgetViolation struct {
 }
 
 type tokenOffender struct {
-	Name   string
+	Name   string // the skill's identity, as analyze --json reports it
+	Label  string // what text output shows; see analyzeSkillEntry.label
 	Tokens int
 }
 
@@ -125,8 +126,8 @@ func checkBudget(entries []analyzeTargetEntry, budget config.ContextBudgetConfig
 
 func topOffenders(skills []analyzeSkillEntry, n int, byDescription bool) []tokenOffender {
 	type pair struct {
-		name   string
-		tokens int
+		name, label string
+		tokens      int
 	}
 	var pairs []pair
 	for _, s := range skills {
@@ -135,7 +136,7 @@ func topOffenders(skills []analyzeSkillEntry, n int, byDescription bool) []token
 			tokens = s.BodyTokens
 		}
 		if tokens > 0 {
-			pairs = append(pairs, pair{s.Name, tokens})
+			pairs = append(pairs, pair{s.Name, s.label(), tokens})
 		}
 	}
 	sort.Slice(pairs, func(i, j int) bool { return pairs[i].tokens > pairs[j].tokens })
@@ -144,7 +145,7 @@ func topOffenders(skills []analyzeSkillEntry, n int, byDescription bool) []token
 	}
 	result := make([]tokenOffender, len(pairs))
 	for i, p := range pairs {
-		result[i] = tokenOffender{Name: p.name, Tokens: p.tokens}
+		result[i] = tokenOffender{Name: p.name, Label: p.label, Tokens: p.tokens}
 	}
 	return result
 }
@@ -161,33 +162,73 @@ func printTokenSummary(entries []analyzeTargetEntry) {
 	}
 }
 
+// printBudgetWarning prints one warning per budget type. Targets loading the same
+// amount share a line, largest first, and the details name the three largest skills
+// across them once: targets reading one folder would otherwise repeat the same block.
 func printBudgetWarning(violations []budgetViolation, showDetails bool) {
-	for _, v := range violations {
+	for _, typ := range []string{budgetTypeAlwaysLoaded, budgetTypeOnDemand} {
 		label := "Always-loaded"
-		if v.Type == budgetTypeOnDemand {
+		if typ == budgetTypeOnDemand {
 			label = "On-demand"
 		}
-		if v.Target != "" {
-			ui.Warning("%s: %s context is ~%s tokens (budget: %s)",
-				v.Target, label,
-				formatTokenComma(v.Actual),
-				formatTokenComma(v.Budget))
-		} else {
-			ui.Warning("%s context is ~%s tokens (budget: %s)",
-				label,
-				formatTokenComma(v.Actual),
-				formatTokenComma(v.Budget))
+		var amounts []int
+		targets := map[int][]string{}
+		largest := map[string]int{}
+		budget := 0
+		for _, v := range violations {
+			if v.Type != typ {
+				continue
+			}
+			budget = v.Budget
+			if len(targets[v.Actual]) == 0 {
+				amounts = append(amounts, v.Actual)
+			}
+			targets[v.Actual] = append(targets[v.Actual], v.Target)
+			for _, o := range v.Offenders {
+				largest[o.Label] = max(largest[o.Label], o.Tokens)
+			}
+		}
+		if len(amounts) == 0 {
+			continue
+		}
+		sort.Sort(sort.Reverse(sort.IntSlice(amounts)))
+		count := 0
+		for _, names := range targets {
+			count += len(names)
+		}
+		ui.Warning("%s context is over budget (%s tokens) on %s",
+			label, formatTokenComma(budget), plural(count, "target"))
+		for _, amount := range amounts {
+			names := targets[amount]
+			sort.Strings(names)
+			fmt.Printf("   %-35s ~%s tokens\n", strings.Join(names, ", "), formatTokenComma(amount))
 		}
 		if showDetails {
-			if len(v.Offenders) > 0 {
-				fmt.Printf("   Top %d:\n", len(v.Offenders))
-				for _, o := range v.Offenders {
-					fmt.Printf("     • %-35s ~%s tokens\n", o.Name, formatTokenComma(o.Tokens))
-				}
+			if top := largestSkills(largest, 3); top != "" {
+				fmt.Printf("   Largest: %s\n", top)
 			}
 			fmt.Println("   Run `skillshare analyze` for details.")
 		}
 	}
+}
+
+// largestSkills lists the n skills with the most tokens, largest first.
+func largestSkills(tokens map[string]int, n int) string {
+	names := make([]string, 0, len(tokens))
+	for name := range tokens {
+		names = append(names, name)
+	}
+	sort.Slice(names, func(i, j int) bool {
+		if tokens[names[i]] != tokens[names[j]] {
+			return tokens[names[i]] > tokens[names[j]]
+		}
+		return names[i] < names[j]
+	})
+	parts := make([]string, 0, n)
+	for _, name := range names[:min(n, len(names))] {
+		parts = append(parts, fmt.Sprintf("%s ~%s", name, formatTokenComma(tokens[name])))
+	}
+	return strings.Join(parts, ", ")
 }
 
 type contextCostJSON struct {

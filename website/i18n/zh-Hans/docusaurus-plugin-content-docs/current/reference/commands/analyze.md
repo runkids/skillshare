@@ -58,6 +58,11 @@ skillshare analyze --json | jq '.targets[].skills[] | select(.lint_issues | leng
 
 token 估算使用 `chars / 4` 作为近似值。
 
+每个 target 都按照工具实际看到的内容计算：
+
+- **merge / copy 模式**：通过 target 的 include/exclude 和 `targets:` 筛选的 source skills，去掉 `.skillignore` 停用的项目，再加上原本就在 target 文件夹中、并非来自 source 的 skills（JSON 中标为 `local`）。在 Claude target 上，Claude Code 从 claude.ai 同步到 `synced/<id>/skill-creator` 的 skill，在文本输出和 dashboard 中显示为 `skill-creator (claude.ai)`。JSON 保留完整的 `name`。
+- **symlink 模式**：整个 source 文件夹，包括被 `.skillignore` 排除的 skills（JSON 中标为 `disabled`），因为 symlink 本来就会让工具看到它们。
+
 ### Skill 质量 Lint
 
 除了 token 分析之外，`analyze` 还会对每个 skill 运行一个内置的 lint 引擎。lint 规则检查 SKILL.md 的结构和描述质量，并在 TUI 和 JSON 输出中直接展示问题。

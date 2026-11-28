@@ -125,3 +125,27 @@ func TestTargetSkills_SkillsOffCountsEverythingInTheFolder(t *testing.T) {
 		t.Errorf("want linked + copied (managed) + mine (local), not unlinked; got %+v", got)
 	}
 }
+
+// Claude Code syncs claude.ai skills into synced/<id>/<name>; the id differs per
+// account, so those read as "<name> (claude.ai)" on any Claude target. A skill
+// the user keeps under the same name elsewhere keeps its own name.
+func TestSkillLabel_NamesClaudeAISkillsOnClaudeTargets(t *testing.T) {
+	synced := DiscoveredSkill{FlatName: "synced__org_user__skill-creator", RelPath: "synced/org_user/skill-creator", Local: true}
+	tests := []struct {
+		name, target string
+		tc           config.TargetConfig
+		skill        DiscoveredSkill
+		want         string
+	}{
+		{"claude target", "claude", config.TargetConfig{}, synced, "skill-creator (claude.ai)"},
+		{"second claude account", "claude-work", config.TargetConfig{Agent: "claude"}, synced, "skill-creator (claude.ai)"},
+		{"other agent", "cursor", config.TargetConfig{}, synced, "synced__org_user__skill-creator"},
+		{"source skill", "claude", config.TargetConfig{}, DiscoveredSkill{FlatName: "skill-creator", RelPath: "skill-creator"}, "skill-creator"},
+		{"other local skill", "claude", config.TargetConfig{}, DiscoveredSkill{FlatName: "tools__lint", RelPath: "tools/lint", Local: true}, "tools__lint"},
+	}
+	for _, tt := range tests {
+		if got := SkillLabel(tt.target, tt.tc, tt.skill); got != tt.want {
+			t.Errorf("%s: SkillLabel = %q, want %q", tt.name, got, tt.want)
+		}
+	}
+}
