@@ -187,9 +187,9 @@ func TestCheckBudget_BothExceed(t *testing.T) {
 
 // Targets with the same cost share a line, and the largest skills are listed once.
 func TestPrintBudgetWarning_MergesTargetsWithTheSameCost(t *testing.T) {
-	big := []tokenOffender{{Name: "orbit", Tokens: 9870}, {Name: "apple", Tokens: 5616}, {Name: "tiny", Tokens: 100}}
+	big := []tokenOffender{{Name: "orbit", Label: "orbit", Tokens: 9870}, {Name: "apple", Label: "apple", Tokens: 5616}, {Name: "tiny", Label: "tiny", Tokens: 100}}
 	violations := []budgetViolation{
-		{Type: budgetTypeOnDemand, Target: "claude", Actual: 162230, Budget: 100000, Offenders: []tokenOffender{{Name: "orbit", Tokens: 9870}, {Name: "creator", Tokens: 9110}}},
+		{Type: budgetTypeOnDemand, Target: "claude", Actual: 162230, Budget: 100000, Offenders: []tokenOffender{{Name: "orbit", Label: "orbit", Tokens: 9870}, {Name: "creator", Label: "creator", Tokens: 9110}}},
 		{Type: budgetTypeOnDemand, Target: "omp", Actual: 113102, Budget: 100000, Offenders: big},
 		{Type: budgetTypeOnDemand, Target: "universal", Actual: 113102, Budget: 100000, Offenders: big},
 	}
@@ -209,15 +209,26 @@ func TestPrintBudgetWarning_MergesTargetsWithTheSameCost(t *testing.T) {
 	}
 }
 
-// A local skill is named by its folder, as the dashboard shows it, so the same
-// claude.ai skill synced into two Claude accounts reads, and counts, as one.
-func TestTopOffenders_NamesLocalSkillsByFolder(t *testing.T) {
-	skills := []analyzeSkillEntry{
-		{Name: "synced__org_user__skill-creator", BodyTokens: 9110, Local: true, relPath: "synced/org_user/skill-creator"},
-		{Name: "_pack__managed", BodyTokens: 100, relPath: "_pack/managed"},
+// A local skill is named by its folder in text, as the dashboard shows it, so the same
+// claude.ai skill synced into two Claude accounts reads, and counts, as one. JSON keeps
+// the full name, the identity analyze --json reports.
+func TestBudgetWarning_NamesLocalSkillsByFolderOnlyInText(t *testing.T) {
+	entries := []analyzeTargetEntry{{
+		Name:        "claude",
+		OnDemandMax: analyzeCharTokens{EstimatedTokens: 9210},
+		Skills: []analyzeSkillEntry{
+			{Name: "synced__org_user__skill-creator", BodyTokens: 9110, Local: true, relPath: "synced/org_user/skill-creator"},
+			{Name: "_pack__managed", BodyTokens: 100, relPath: "_pack/managed"},
+		},
+	}}
+	budget := config.ContextBudgetConfig{WarnOnDemandTokens: intPtr(10)}
+
+	out := captureStdoutStderr(t, func() { printBudgetWarning(checkBudget(entries, budget), true) })
+	if !strings.Contains(out, "Largest: skill-creator ~9,110, _pack__managed ~100") {
+		t.Errorf("text should name the local skill by its folder:\n%s", out)
 	}
-	got := topOffenders(skills, 3, false)
-	if len(got) != 2 || got[0].Name != "skill-creator" || got[1].Name != "_pack__managed" {
-		t.Errorf("topOffenders = %+v, want the local skill named by its folder and the source skill unchanged", got)
+	cost := buildContextCostJSON(entries, budget)
+	if len(cost.Warnings) != 1 || cost.Warnings[0].TopOffenders[0].Name != "synced__org_user__skill-creator" {
+		t.Errorf("JSON should keep the full name, got %+v", cost.Warnings)
 	}
 }

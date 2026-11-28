@@ -82,7 +82,8 @@ type budgetViolation struct {
 }
 
 type tokenOffender struct {
-	Name   string
+	Name   string // the skill's identity, as analyze --json reports it
+	Label  string // what text output shows; see analyzeSkillEntry.label
 	Tokens int
 }
 
@@ -125,8 +126,8 @@ func checkBudget(entries []analyzeTargetEntry, budget config.ContextBudgetConfig
 
 func topOffenders(skills []analyzeSkillEntry, n int, byDescription bool) []tokenOffender {
 	type pair struct {
-		name   string
-		tokens int
+		name, label string
+		tokens      int
 	}
 	var pairs []pair
 	for _, s := range skills {
@@ -135,7 +136,7 @@ func topOffenders(skills []analyzeSkillEntry, n int, byDescription bool) []token
 			tokens = s.BodyTokens
 		}
 		if tokens > 0 {
-			pairs = append(pairs, pair{s.label(), tokens})
+			pairs = append(pairs, pair{s.Name, s.label(), tokens})
 		}
 	}
 	sort.Slice(pairs, func(i, j int) bool { return pairs[i].tokens > pairs[j].tokens })
@@ -144,7 +145,7 @@ func topOffenders(skills []analyzeSkillEntry, n int, byDescription bool) []token
 	}
 	result := make([]tokenOffender, len(pairs))
 	for i, p := range pairs {
-		result[i] = tokenOffender{Name: p.name, Tokens: p.tokens}
+		result[i] = tokenOffender{Name: p.name, Label: p.label, Tokens: p.tokens}
 	}
 	return result
 }
@@ -184,7 +185,7 @@ func printBudgetWarning(violations []budgetViolation, showDetails bool) {
 			}
 			targets[v.Actual] = append(targets[v.Actual], v.Target)
 			for _, o := range v.Offenders {
-				largest[o.Name] = max(largest[o.Name], o.Tokens)
+				largest[o.Label] = max(largest[o.Label], o.Tokens)
 			}
 		}
 		if len(amounts) == 0 {
