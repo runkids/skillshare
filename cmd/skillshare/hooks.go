@@ -12,6 +12,7 @@ import (
 
 type hooksOptions struct {
 	name, file, from, revision  string
+	names                       []string // every positional name; name is the first
 	sync, dryRun, json, replace bool
 	keepFiles, trust, yes       bool
 }
@@ -48,10 +49,13 @@ func parseHooksOptions(args []string) (hooksOptions, error) {
 		case "--yes", "-y":
 			o.yes = true
 		default:
-			if strings.HasPrefix(a, "-") || o.name != "" {
+			if strings.HasPrefix(a, "-") {
 				return o, fmt.Errorf("unknown hooks argument %q", a)
 			}
-			o.name = a
+			if o.name == "" {
+				o.name = a
+			}
+			o.names = append(o.names, a)
 		}
 	}
 	return o, nil
@@ -125,7 +129,7 @@ func cmdSyncHooks(args []string) error {
 		return err
 	}
 	if o.name != "" || o.file != "" || o.from != "" || o.sync || o.replace || o.keepFiles || o.trust || o.yes {
-		return fmt.Errorf("sync hooks accepts only --dry-run, --json, --revision and scope flags; use 'skillshare hooks sync <name> --replace' to take over conflicts")
+		return fmt.Errorf("sync hooks accepts only --dry-run, --json, --revision and scope flags; use 'skillshare hooks sync <name>... --replace' to take over conflicts")
 	}
 	return hooksJSONError(runHooks(service, "sync", o), o)
 }
@@ -156,6 +160,9 @@ func checkHooksFlags(sub string, o hooksOptions) error {
 	if !ok {
 		return fmt.Errorf("unknown hooks command %q; run skillshare hooks --help", sub)
 	}
+	if len(o.names) > 1 && sub != "sync" {
+		return fmt.Errorf("unknown hooks argument %q", o.names[1])
+	}
 	used := map[string]bool{"name": o.name != "", "file": o.file != "", "from": o.from != "", "sync": o.sync, "replace": o.replace, "trust": o.trust}
 	for flag, set := range used {
 		if set && !strings.Contains(" "+spec+" ", " "+flag+" ") {
@@ -171,8 +178,11 @@ func checkHooksFlags(sub string, o hooksOptions) error {
 	if o.keepFiles && (sub != "remove" || o.sync) {
 		return fmt.Errorf("--keep-files only applies to hooks remove without --sync: it leaves Agent files as they are")
 	}
+	if sub == "sync" && o.replace && o.name == "" {
+		return fmt.Errorf("hooks sync --replace needs the names of the hooks to take over")
+	}
 	if sub == "sync" && o.name != "" && !o.replace {
-		return fmt.Errorf("hooks sync takes a name only with --replace, to take over that hook's conflicting Agent entries")
+		return fmt.Errorf("hooks sync takes names only with --replace, to take over those hooks' conflicting Agent entries")
 	}
 	if sub == "list" && (o.dryRun || o.revision != "") {
 		return fmt.Errorf("hooks list accepts only --json and scope flags")
@@ -190,7 +200,7 @@ func printHooksHelp() {
 			{"enable <name>", "Publish a disabled entry again on the next sync"},
 			{"disable <name>", "Keep the definition; the next sync removes its owned outputs"},
 			{"remove <name>", "Delete the entry; the next sync prunes its owned outputs,\nor stop managing it and keep its Agent entries (--keep-files)"},
-			{"sync [name]", "Write hooks to each Agent's native configuration; with a name\nand --replace, take over that hook's conflicting Agent entries"},
+			{"sync [name...]", "Write hooks to each Agent's native configuration; with names\nand --replace, take over those hooks' conflicting Agent entries"},
 			{"restore <id>", "Preview and restore an Agent file from a hooks backup"},
 		}},
 		helpGroup{title: "Options", rows: []helpRow{

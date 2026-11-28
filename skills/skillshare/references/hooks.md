@@ -51,8 +51,9 @@ No import, preview or sync executes hook commands.
 Mutations save source only unless `--sync` is supplied. An empty bindings map
 keeps source without publishing; disabling keeps source and queues removal of
 owned unchanged outputs. `--replace` explicitly replaces an existing source
-or the selected entry's conflicting native output. Never add it to bypass a
-conflict automatically. A stale preview requires refresh (`--revision` can
+or the selected entry's conflicting native output; `hooks sync A B --replace`
+takes over several entries at once, and any conflict left unnamed still blocks
+the sync. Never add it to bypass a conflict automatically. A stale preview requires refresh (`--revision` can
 require a specific one). Unrelated native settings and unowned hooks survive.
 `remove --keep-files` stops managing an entry: its native entries stay as they
 are, sync no longer touches them, and import offers them again (not with `--sync`).

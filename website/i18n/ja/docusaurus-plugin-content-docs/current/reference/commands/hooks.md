@@ -22,6 +22,7 @@ skillshare hooks enable check --sync
 skillshare hooks sync --dry-run --json
 skillshare hooks sync
 skillshare hooks sync check --replace --dry-run
+skillshare hooks sync check lint --replace --dry-run
 skillshare hooks sync --trust -g
 skillshare hooks sync --trust --yes -g
 skillshare hooks sync --trust --yes --json -g
@@ -41,7 +42,7 @@ skillshare hooks restore BACKUP_ID
 | `--from AGENT` | `codex-2` などのアカウント target も可。  インポート元 Agent またはネイティブ形式 |
 | `--sync` | 保存して同期 |
 | `--keep-files` | `remove` と併用: hook の管理をやめ、ネイティブのエントリはそのまま残す。`--sync` とは併用できない。[下記](#stop-managing-a-hook)を参照 |
-| `--replace` | 既存ソース entry またはその entry の競合出力を明示的に置換 |
+| `--replace` | 既存ソース entry またはその entry の競合出力を明示的に置換。`hooks sync` では複数の名前を指定してまとめて引き継げます |
 | `--trust` | `hooks sync` のみ：Skillshare が管理する hooks の Codex 信頼も記録。[Codex の信頼](#codex-trust)を参照 |
 | `--yes`, `-y` | `--trust` と併用：確認を省略し、一覧の hooks を信頼。[Codex の信頼](#codex-trust)を参照 |
 | `--dry-run, -n` | 書き込まずプレビュー |
@@ -272,7 +273,7 @@ plan は実際の `add`、`update`、`remove`、`unchanged` を維持し、実�
 
 global 設定の `hooks.projects` は絶対プロジェクトパスを同じ Entry 形式の `entries` に対応づけます。**Projects → Hooks** で管理できます。そこで **ここでの hook の管理をやめる** を選ぶとルートが `hooks.projects` から外れ、次の同期で Skillshare がその下に書いた hook が削除されます。独自の `.skillshare/config.yaml` があるプロジェクトは project scope で管理します。プロジェクト同期はそのルートだけを適用します。
 
-無関係な設定と所有していない hooks は保持します。内容の一致だけでは所有を判断しません。所有出力が外部編集されると、無効化、削除、復元も競合になります。明示的な置換は選択 entry のみが対象です。共有ファイルでは、plan の各行に entry が追加（`+`）、更新（`~`）、削除（`−`）する event を表示し、JSON plan の `events` にも含まれます。`update` は entry がそのファイルに登録を残すこと、`remove` はファイルから完全に外れることを意味します。編集はファイルの書式（コンパクトまたはインデント）を保ち、Skillshare が追加した `hooks` キーは最後の hook が外れると削除します。Skillshare が作成したファイルは、ほかに何も残っていなければ、作成して空になったフォルダーとともに削除し、プレビューではファイルの削除として表示します。以前からあったファイルやフォルダー、あなたが追加した内容は残ります。
+無関係な設定と所有していない hooks は保持します。内容の一致だけでは所有を判断しません。所有出力が外部編集されると、無効化、削除、復元も競合になります。明示的な置換は指定した entry のみが対象で、ほかの entry に競合が残る間は同期がブロックされます。複数の hook が競合する場合は、すべての名前を指定します：`skillshare hooks sync NAME1 NAME2 --replace`。共有ファイルでは、plan の各行に entry が追加（`+`）、更新（`~`）、削除（`−`）する event を表示し、JSON plan の `events` にも含まれます。`update` は entry がそのファイルに登録を残すこと、`remove` はファイルから完全に外れることを意味します。編集はファイルの書式（コンパクトまたはインデント）を保ち、Skillshare が追加した `hooks` キーは最後の hook が外れると削除します。Skillshare が作成したファイルは、ほかに何も残っていなければ、作成して空になったフォルダーとともに削除し、プレビューではファイルの削除として表示します。以前からあったファイルやフォルダー、あなたが追加した内容は残ります。
 
 バックアップは後から加わった無関係な変更を保持してネイティブ出力を復元し、ソース定義は変更しません。**Settings → Backups → Hooks** または `hooks restore` でプレビューして復元します。
 
