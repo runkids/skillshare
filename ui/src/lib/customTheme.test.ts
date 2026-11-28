@@ -226,10 +226,27 @@ describe('themeCss', () => {
     expect(themeCss({ ...PRESETS.indigo, base: 'playful' })).not.toContain('.ss-btn.pri');
   });
 
+  it('raises the selected segment with raised buttons, solid or glass', () => {
+    const pill = /\.ss-seg\[data-slide\]::before[^{]*\{[^}]*inset 0 1px/;
+    const solid = { ...PRESETS.indigo, glass: 'solid' } as const;
+    expect([
+      pill.test(themeCss(solid)),
+      pill.test(themeCss({ ...solid, glass: 'surfaces' })),
+      pill.test(themeCss({ ...solid, buttons: 'flat' })),
+    ]).toEqual([true, true, false]);
+  });
+
   it("gives the editor preview the raised button of the mode it shows, not the page's", () => {
     const css = themeCss(PRESETS.indigo);
     const rule = (mode: string) =>
       css.indexOf(`.ss-mini[data-mode='${mode}'] .ss-btn.pri`) > css.indexOf('.dark .ss-btn.pri');
+    expect([rule('light'), rule('dark')]).toEqual([true, true]);
+  });
+
+  it("gives the editor preview the raised segment of the mode it shows, not the page's", () => {
+    const css = themeCss(PRESETS.indigo);
+    const rule = (mode: string) =>
+      css.indexOf(`.ss-mini[data-mode='${mode}'] .ss-seg`) > css.indexOf('.dark .ss-seg');
     expect([rule('light'), rule('dark')]).toEqual([true, true]);
   });
 

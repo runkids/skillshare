@@ -874,6 +874,7 @@ export function rootAttributes(
 // is 0,2,0 and its .dark rule 0,3,0), so the result does not depend on stylesheet order.
 const LIGHT = ':root[data-custom]:not(.dark)';
 const DARK = ':root[data-custom][data-custom].dark';
+const PREVIEW = (mode: 'light' | 'dark') => `:root[data-custom] .ss-mini[data-mode='${mode}']`;
 
 /** The stylesheet that applies a theme, with the attributes from `rootAttributes` on <html>. The
  *  font loads separately from `fontUrl`, so an unreachable Google Fonts never holds up paint. */
@@ -915,6 +916,15 @@ export function themeCss(theme: CustomTheme): string {
         `${DARK} .ss-btn.pri ${dark}`,
         `:root[data-custom] .ss-mini[data-mode='light'] .ss-btn.pri ${light}`,
         `:root[data-custom] .ss-mini[data-mode='dark'] .ss-btn.pri ${dark}`,
+        // The selected segment is a button too: same lit top edge, solid or glass. Unlayered, so
+        // it wins over the pills in materials.css; the preview's rules come last, as above.
+        ...[LIGHT, DARK, PREVIEW('light'), PREVIEW('dark')].map((scope, i) => {
+          const lit =
+            i % 2 === 0
+              ? `{\n  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 1px 2px rgba(20, 19, 18, 0.14);\n}`
+              : `{\n  background-image: linear-gradient(rgba(255, 255, 255, 0.05), transparent);\n  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 1px 3px rgba(0, 0, 0, 0.4);\n}`;
+          return `${scope} .ss-seg[data-slide]::before,\n${scope} .ss-seg:not([data-slide]) > .on ${lit}`;
+        }),
       );
     }
     if (theme.texture === 'dots') {

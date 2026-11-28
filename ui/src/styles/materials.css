@@ -415,17 +415,20 @@
   }
   /* Glass everywhere: controls on the glass are glass too. The segmented track is a faint well, its
      selected pill a denser pane; buttons, fields and the back-to-top button let the glass through.
-     Last in the layer so the pill wins over the dark-mode pill above at equal specificity. */
+     Last in the layer so the pill wins over the dark-mode pill above at equal specificity; the
+     preview's own-mode pill is more specific, so it is named here too. */
   :root[data-glass='surfaces']:not([data-theme='playful']) .ss-seg {
     background: var(--gs-well);
     border-color: var(--gs-edge);
   }
   :root[data-glass='surfaces']:not([data-theme='playful']) .ss-seg:not([data-slide]) > *.on,
-  :root[data-glass='surfaces']:not([data-theme='playful']) .ss-seg[data-slide]::before {
+  :root[data-glass='surfaces']:not([data-theme='playful']) .ss-seg[data-slide]::before,
+  :root[data-glass='surfaces']:not([data-theme='playful'])
+    .ss-mini[data-mode]
+    .ss-seg[data-slide]::before {
     background: var(--gs-pill);
-    box-shadow:
-      var(--gs-rim),
-      0 1px 2px rgba(20, 19, 18, 0.08);
+    /* Flat; raised buttons add the lit top edge (customTheme.ts). */
+    box-shadow: 0 1px 2px rgba(20, 19, 18, 0.08);
   }
   :root[data-glass='surfaces']:not([data-theme='playful'])
     :is(

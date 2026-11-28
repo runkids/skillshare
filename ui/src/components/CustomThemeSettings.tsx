@@ -34,11 +34,14 @@ function Choice<T extends string>({
   value,
   options,
   onChange,
+  part,
 }: {
   label: string;
   value: T | null;
   options: { value: T; label: string }[];
   onChange: (value: T) => void;
+  /** The preview's own control: the names it answers to in the change hint. */
+  part?: string;
 }) {
   return (
     <div
@@ -46,6 +49,7 @@ function Choice<T extends string>({
       className="ss-seg max-w-full shrink-0 overflow-x-auto"
       role="radiogroup"
       aria-label={label}
+      data-part={part}
     >
       {options.map((o) => (
         <button
@@ -292,6 +296,7 @@ function MiniPreview({
             { value: 'dark', label: t('theme.dark') },
           ]}
           onChange={onMode}
+          part="button"
         />
       </div>
       <div inert className="sd">
