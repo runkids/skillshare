@@ -574,16 +574,34 @@ func TestWrapGitError(t *testing.T) {
 			wantSubstr: "GIT_SSL_NO_VERIFY",
 		},
 		{
-			name:       "other stderr",
+			name:       "other stderr — quotes git",
 			stderr:     "fatal: repository not found",
 			err:        errors.New("exit status 128"),
-			wantSubstr: "repository not found",
+			wantSubstr: "git said: repository not found",
 		},
 		{
 			name:       "ssh publickey denied — suggests ssh -T",
 			stderr:     "git@git.company.com: Permission denied (publickey).\nfatal: Could not read from remote repository.\n\nPlease make sure you have the correct access rights\nand the repository exists.\n",
 			err:        errors.New("exit status 128"),
 			wantSubstr: "Permission denied (publickey).\n       check your SSH key: ssh -T git@git.company.com",
+		},
+		{
+			name:       "git-lfs missing (filter-process) — asks to install Git LFS",
+			stderr:     "git-lfs filter-process: 1: git-lfs: not found\nfatal: the remote end hung up unexpectedly\nwarning: Clone succeeded, but checkout failed.\nYou can inspect what was checked out with 'git status'\nand retry with 'git restore --source=HEAD :/'\n",
+			err:        errors.New("exit status 128"),
+			wantSubstr: "Git LFS, which is not installed",
+		},
+		{
+			name:       "git-lfs missing (smudge, macOS shell) — asks to install Git LFS",
+			stderr:     "git-lfs smudge -- 'skills/demo/assets/a.mp4': git-lfs: command not found\nerror: external filter 'git-lfs smudge -- %f' failed 127\nerror: external filter 'git-lfs smudge -- %f' failed\nfatal: skills/demo/assets/a.mp4: smudge filter lfs failed\nwarning: Clone succeeded, but checkout failed.\n",
+			err:        errors.New("exit status 128"),
+			wantSubstr: "https://git-lfs.com",
+		},
+		{
+			name:       "git-lfs download fails — says LFS files could not be downloaded",
+			stderr:     "Error downloading object: assets/a.mp4 (1a2b3c4): Smudge error: Error downloading assets/a.mp4 (1a2b3c4d): batch response: This repository is over its data quota.\n\nErrors logged to '/tmp/repo/.git/lfs/logs/20261128T141500.log'.\nUse `git lfs logs last` to view the log.\nerror: external filter 'git-lfs filter-process' failed\nfatal: assets/a.mp4: smudge filter lfs failed\nwarning: Clone succeeded, but checkout failed.\n",
+			err:        errors.New("exit status 128"),
+			wantSubstr: "could not be downloaded",
 		},
 		{
 			name:       "empty stderr falls back to err",
@@ -914,5 +932,14 @@ func TestDiscoverSkillsByDirectory_DoesNotFollowLinks(t *testing.T) {
 	got := skillPaths(discoverSkillsByDirectory(repo, true))
 	if want := []string{"skills/c", "skills/x", "store/a", "store/b"}; !slices.Equal(got, want) {
 		t.Fatalf("skills = %v, want %v", got, want)
+	}
+}
+
+func TestDownloadErrorNamesSourceWithoutCredentials(t *testing.T) {
+	for _, raw := range []string{"heygen-com/hyperframes", "https://user:s3cret@github.com/heygen-com/hyperframes"} {
+		got := downloadError(&Source{Raw: raw}, errors.New("git said: x")).Error()
+		if !strings.HasPrefix(got, "could not download ") || !strings.Contains(got, "heygen-com/hyperframes") || strings.Contains(got, "s3cret") {
+			t.Errorf("downloadError(%q) = %q", raw, got)
+		}
 	}
 }

@@ -546,7 +546,7 @@ func installFromGit(source *Source, destPath string, result *InstallResult, opts
 
 	// Clone the repository
 	if err := cloneRepoForSource(source, destPath, source.Branch, true, opts.OnProgress); err != nil {
-		return nil, fmt.Errorf("failed to clone repository: %w", err)
+		return nil, downloadError(source, err)
 	}
 	if err := checkoutLinksWithin(destPath); err != nil {
 		if removeErr := removeAll(destPath); removeErr != nil {
@@ -862,7 +862,7 @@ func installFromGitSubdir(source *Source, destPath string, result *InstallResult
 			opts.OnProgress("Cloning repository...")
 		}
 		if err := cloneRepoForSource(source, tempRepoPath, source.Branch, true, opts.OnProgress); err != nil {
-			return nil, fmt.Errorf("failed to clone repository: %w", err)
+			return nil, downloadError(source, err)
 		}
 		if err := submoduleError(tempRepoPath, source.Subdir, source.authEnv()); err != nil {
 			return nil, err

@@ -35,7 +35,7 @@ func discoverFromGitWithProgressImpl(source *Source, onProgress ProgressCallback
 	repoPath := filepath.Join(tempDir, "repo")
 	if err := cloneRepoForSource(source, repoPath, source.Branch, true, onProgress); err != nil {
 		cleanupTempRepo(tempDir)
-		return nil, fmt.Errorf("failed to clone repository: %w", err)
+		return nil, downloadError(source, err)
 	}
 
 	// Discover skills (include root to support single-skill-at-root repos)
@@ -712,7 +712,7 @@ func discoverFromGitSubdirWithProgressImpl(source *Source, onProgress ProgressCa
 	}
 	if err := cloneRepoForSource(source, repoPath, source.Branch, true, onProgress); err != nil {
 		cleanupTempRepo(tempDir)
-		return nil, fmt.Errorf("failed to clone repository: %w", err)
+		return nil, downloadError(source, err)
 	}
 	if err := submoduleError(repoPath, source.Subdir, source.authEnv()); err != nil {
 		cleanupTempRepo(tempDir)

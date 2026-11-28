@@ -126,7 +126,7 @@ func wantCLISkills(versions map[string]string, names ...string) []checkSkillResu
 			r.InstalledAt = "2024-05-06"
 		}
 		if name == "broken" {
-			r.Message = "Could not read from remote repository."
+			r.Message = "git said: Could not read from remote repository."
 		}
 		want = append(want, r)
 	}

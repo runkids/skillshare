@@ -463,6 +463,21 @@ SSL 検証を無効化するのはセキュリティリスクです。オプシ�
 [環境変数 — Git SSL / TLS](/docs/reference/appendix/environment-variables#git-ssl--tls) を
 参照してください。
 
+### `this repository keeps large files in Git LFS, which is not installed on this computer`
+
+**原因:** このリポジトリは動画などの大きなファイルを [Git LFS](https://git-lfs.com) で保存しています。Git の設定がそれらを Git LFS でダウンロードするよう求めていますが、`git-lfs` がインストールされていないため、ダウンロードが止まります。
+
+**解決策:** Git LFS をインストールしてから、もう一度インストールしてください。
+
+```bash
+brew install git-lfs        # macOS
+sudo apt install git-lfs    # Debian / Ubuntu
+```
+
+Git for Windows には Git LFS が含まれています。
+
+メッセージが *could not be downloaded* の場合は、Git LFS はインストール済みですが、リポジトリのストレージがダウンロードを拒否しています。たとえば所有者の Git LFS 容量が上限に達している場合です。時間をおいて再試行するか、リポジトリの所有者に連絡してください。
+
 ### `invalid skill: SKILL.md not found`
 
 **原因:** Source に有効な SKILL.md ファイルがない。

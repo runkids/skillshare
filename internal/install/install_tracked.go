@@ -192,7 +192,7 @@ func installTrackedRepoImpl(source *Source, sourceDir string, opts InstallOption
 		if IsCommitSHA(cloneBranch) {
 			return nil, errTrackedNeedsBranch(cloneBranch)
 		}
-		return nil, fmt.Errorf("failed to clone repository: %w", err)
+		return nil, downloadError(source, err)
 	}
 	if isDetachedHead(clonePath) {
 		return nil, errTrackedNeedsBranch(cloneBranch)

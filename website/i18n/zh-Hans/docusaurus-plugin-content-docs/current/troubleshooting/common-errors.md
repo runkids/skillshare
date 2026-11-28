@@ -427,6 +427,21 @@ GIT_SSL_NO_VERIFY=true skillshare install https://gitlab.internal.company.com/te
 
 参见 [Environment Variables — Git SSL / TLS](/docs/reference/appendix/environment-variables#git-ssl--tls)。
 
+### `this repository keeps large files in Git LFS, which is not installed on this computer`
+
+**原因：** 该 repository 用 [Git LFS](https://git-lfs.com) 存放视频等大文件。你的 Git 配置要求由 Git LFS 下载这些文件，但电脑上没有安装 `git-lfs`，所以下载中断。
+
+**解决方式：** 安装 Git LFS 后再安装一次：
+
+```bash
+brew install git-lfs        # macOS
+sudo apt install git-lfs    # Debian / Ubuntu
+```
+
+Git for Windows 已内置 Git LFS。
+
+如果消息说的是文件 *could not be downloaded*，说明 Git LFS 已安装，但 repository 的存储拒绝了下载，例如所有者的 Git LFS 额度已用完。请稍后重试，或联系 repository 所有者。
+
 ### `invalid skill: SKILL.md not found`
 
 **原因：** 该 Source 没有有效的 SKILL.md 文件。

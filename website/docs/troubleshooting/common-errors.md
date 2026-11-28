@@ -457,6 +457,21 @@ Disabling SSL verification is a security risk. Prefer Option 1 or 2.
 
 See [Environment Variables — Git SSL / TLS](/docs/reference/appendix/environment-variables#git-ssl--tls).
 
+### `this repository keeps large files in Git LFS, which is not installed on this computer`
+
+**Cause:** The repository stores large files, such as videos, with [Git LFS](https://git-lfs.com). Your Git setup asks Git LFS to download them, but the `git-lfs` program is not installed, so the download stops.
+
+**Solution:** Install Git LFS, then install again:
+
+```bash
+brew install git-lfs        # macOS
+sudo apt install git-lfs    # Debian / Ubuntu
+```
+
+Git for Windows includes Git LFS.
+
+If the message says the files *could not be downloaded* instead, Git LFS is installed but the repository's storage refused the download, for example because the owner's Git LFS quota is used up. Try again later, or ask the repository owner.
+
 ### `invalid skill: SKILL.md not found`
 
 **Cause:** The source doesn't have a valid SKILL.md file.

@@ -125,9 +125,13 @@ func WrapGitError(stderr string, err error, tokenAuthAttempted bool) error {
 	}
 	if s != "" {
 		// Extract the fatal/error line from verbose git output, strip hint lines
-		msg := extractGitFatal(s)
-		if login := sshPublickeyLogin(msg); login != "" {
+		fatal := extractGitFatal(s)
+		msg := "git said: " + fatal
+		if login := sshPublickeyLogin(fatal); login != "" {
 			msg += "\n       check your SSH key: ssh -T " + login
+		}
+		if hint := lfsHint(s); hint != "" {
+			msg += "\n       " + hint
 		}
 		return fmt.Errorf("%s", msg)
 	}
@@ -148,6 +152,26 @@ func WrapGitError(stderr string, err error, tokenAuthAttempted bool) error {
 		}
 	}
 	return err
+}
+
+// lfsHint explains a checkout that failed in Git LFS, which repositories use for large
+// media: git's own words ("smudge filter lfs failed", "the remote end hung up") do not.
+func lfsHint(stderr string) string {
+	lower := strings.ToLower(stderr)
+	if !strings.Contains(lower, "git-lfs") {
+		return ""
+	}
+	if strings.Contains(lower, "not found") {
+		return "this repository keeps large files in Git LFS, which is not installed on this computer — install Git LFS (https://git-lfs.com), then try again"
+	}
+	return "this repository keeps large files in Git LFS, and they could not be downloaded — try again later, or ask the repository owner"
+}
+
+// downloadError names the source a clone failed for before git's words, so the first
+// line reads plainly. The source is the user's input, with any credentials removed.
+func downloadError(source *Source, err error) error {
+	name, _ := RedactRepoURL(sanitizeTokens(source.Raw))
+	return fmt.Errorf("could not download %s\n       %w", name, err)
 }
 
 // gitRemoteReadFatal is git's generic message when the transport (usually ssh)
