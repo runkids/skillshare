@@ -22,7 +22,7 @@ func automationProblem(target string) string {
 }
 
 func commandTarget(target string) bool {
-	return target == "copilot" || target == "antigravity-cli" || target == "grok"
+	return target == "copilot" || target == "antigravity-cli" || target == "grok" || target == "tern"
 }
 
 func (s *Service) commandHost(ctx context.Context, target string) Host {
@@ -65,6 +65,9 @@ func parseCommandInventory(target string, data []byte) ([]Installed, error) {
 		if err := json.Unmarshal(data, &envelope); err == nil && envelope.Imports != nil {
 			data = envelope.Imports
 		}
+	}
+	if target == "tern" {
+		return parseTernInventory(data)
 	}
 	var rows []struct {
 		Name        string `json:"name"`
@@ -117,7 +120,7 @@ func (s *Service) verifyNativeTarget(ctx context.Context, target, action, id str
 	}
 	// agy handles --help on subcommands as ordinary arguments; its parent help is safe.
 	args := []string{"plugin", command, "--help"}
-	if agent == "antigravity-cli" {
+	if agent == "antigravity-cli" || agent == "tern" {
 		args = []string{"plugin", "--help"}
 	}
 	_, err := s.run(ctx, target, args...)
@@ -129,13 +132,16 @@ func (s *Service) applyNativeTarget(ctx context.Context, c Change, b Binding, ro
 	command, argument := "install", root
 	if remove {
 		command, argument = "uninstall", b.ID
+		if s.agentOf(c.Target) == "tern" {
+			command = "remove"
+		}
 	}
 	if !remove && root == "" {
 		return fmt.Errorf("this imported plugin has no reviewed reinstall source; install in the native client and import again")
 	}
 	// Reinstallation may reset a disabled native plugin. Require the native client
 	// to update those installations rather than silently changing enablement.
-	if c.Action == "update" {
+	if c.Action == "update" && s.agentOf(c.Target) != "tern" {
 		enabled := false
 		for _, item := range s.host(ctx, c.Target).Installed {
 			if item.ID == b.ID && item.EnabledKnown && item.Enabled {
@@ -147,7 +153,11 @@ func (s *Service) applyNativeTarget(ctx context.Context, c Change, b Binding, ro
 			return fmt.Errorf("update this plugin in the native client to preserve its native enabled state")
 		}
 	}
-	if _, err := s.run(ctx, c.Target, "plugin", command, argument); err != nil {
+	args := []string{"plugin", command, argument}
+	if c.Action == "update" && s.agentOf(c.Target) == "tern" {
+		args = append(args, "--force")
+	}
+	if _, err := s.run(ctx, c.Target, args...); err != nil {
 		return err
 	}
 	h := s.host(ctx, c.Target)

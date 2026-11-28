@@ -51,10 +51,10 @@ skillshare plugin remove review --no-tui
 
 | Option | 의미 |
 |---|---|
-| `--target TARGET` | 반복 가능한 선택: `claude`, `codex`, `cursor`, `antigravity`(`agy` alias), `antigravity-cli`, `copilot`, `grok`, `pi`, `omp`, `opencode`, `herdr-app`, 또는 [Agent의 다른 계정](#accounts) 이름. 아래 capability 표 참고 |
+| `--target TARGET` | 반복 가능한 선택: `claude`, `codex`, `cursor`, `antigravity`(`agy` alias), `antigravity-cli`, `copilot`, `grok`, `tern`, `pi`, `omp`, `opencode`, `herdr-app`, 또는 [Agent의 다른 계정](#accounts) 이름. 아래 capability 표 참고 |
 | `--plugin NAME` | source marketplace에서 plugin 하나를 선택 |
 | `--name NAME` | 추가하거나 import할 때의 논리적 패키지 이름 |
-| `--from TARGET` | Claude, Codex, Antigravity CLI, Copilot, Grok, Pi, OMP marketplace, OpenCode, 또는 [Agent의 다른 계정](#accounts)에서 import |
+| `--from TARGET` | Claude, Codex, Antigravity CLI, Copilot, Grok, Tern, Pi, OMP marketplace, OpenCode, 또는 [Agent의 다른 계정](#accounts)에서 import |
 | `--all`, `-a` | 관리되는 모든 plugin 업데이트(`update` 전용, 패키지 이름이나 `--source-ref`와 함께 사용할 수 없음) |
 | `--dry-run`, `-n` | Skillshare나 Agent 설정을 변경하지 않고 미리보기 |
 | `--source-ref REF` | `discover`, `add`, `update`를 위한 Git 브랜치, 태그, 또는 커밋. 원격 source에만 해당 |
@@ -79,13 +79,17 @@ JSON 출력에는 source 경로와 네이티브 식별자가 포함됩니다. so
 | Oh My Pi | 네이티브 호환 메타데이터를 가진 marketplace 기반 로컬/Git plugin | 새 cache 설치/재설치, import, scope 단위 제거 | OMP의 project anchor에서 | 업데이트는 새 cache에 재설치, 제거 시 공유 cache 유지 |
 | OpenCode | SDK dependency가 있는 `package.json`, `.opencode/plugins/` entry, 또는 명시적 `--entry` | 예 | 예 | 관리되는 source 스냅샷 새로고침 |
 | Herdr app | plugin 매니페스트가 없는 source 루트의 `mods/<id>/main.js`, 또는 `--entry`로 지정한 launcher | 예 | 아니요 | Skillshare가 설치한 파일 교체 |
-
 | Antigravity CLI | `.antigravity-plugin/plugin.json`, `.gemini-plugin/plugin.json`, 루트의 `plugin.json` 또는 `agy`가 허용하는 Claude 매니페스트 | 예 | 아니요 | 네이티브 활성화 상태가 확인되고 활성화된 경우에만 검토된 source를 새로고침 |
 | GitHub Copilot CLI | `.plugin/plugin.json`, `.github/plugin/plugin.json`, Claude 매니페스트, 또는 Agent Plugins 루트 매니페스트 | 예 | 아니요 | 네이티브 활성화 상태가 확인되고 활성화된 경우에만 검토된 source를 새로고침 |
 | Grok Build | `.grok-plugin/plugin.json` 또는 Claude 매니페스트 | import/remove만 가능. 설치에는 네이티브 trust 필요 | 아니요 | 네이티브로 업데이트 |
+| Tern | `plugin.toml` | 예 | 아니요 | 검토된 스냅샷을 `--force`로 재설치 |
 | Kimi Code | `kimi.plugin.json` 또는 `.kimi-plugin/plugin.json` | discovery만 가능 | 아니요 | 자동화되지 않음 |
 | Hermes | `.hermes-plugin/plugin.yaml` | discovery만 가능 | 아니요 | 자동화되지 않음 |
 | Devin | `.devin-plugin/plugin.json` | discovery만 가능 | 아니요 | 자동화되지 않음 |
+
+저장소 루트의 `plugin.toml`만 검색하며 하위 디렉터리의 Tern 패키지(`REPO/PATH`)는 검색하지 않습니다.
+
+`tern`이 없는 컴퓨터에서는 Tern 작업을 건너뜁니다.
 
 Kimi의 비대화형 lifecycle, Hermes의 profile inventory/consent, Devin의 로컬 inventory/trust/cloud 구분은 아직 이러한 adapter들에 의해 검증되지 않았습니다. 이들의 형식은 discovery 중에 표시되지만, 설치는 사유와 함께 비활성화됩니다. source가 target을 선언한다고 해서 Skillshare가 이를 관리할 수 있다는 의미는 아닙니다. `list --json`과 `discover --json`은 허용된 작업과 함께 `targetDefinitions`를 포함합니다. discovery는 또한 각 형식의 버전, 구성 요소, entry, 검증 문제에 대한 `targetInfo`를 노출합니다. 손상된 매니페스트는 해당 target에만 격리되며, 잘못된 카탈로그는 유효한 형식을 숨기지 않고 경고로 보고됩니다.
 

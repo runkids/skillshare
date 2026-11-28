@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -243,5 +244,22 @@ func TestPluginTargetCompletionsIncludeHerdr(t *testing.T) {
 	shadow := "if ($cmd -eq 'plugin' -and $previousIndex -ge 0 -and $elements[$previousIndex] -in @('--target', '--from'))"
 	if strings.Contains(script, shadow) {
 		t.Fatal("PowerShell plugin target completion is shadowed by the combined branch")
+	}
+}
+
+func TestPluginCompletionsIncludeTern(t *testing.T) {
+	patterns := map[string][]string{
+		"bash":       {`(?m)^ *if .*== --target.*\n[^\n]*\btern\b`, `(?m)^ *if .*== --from.*\n[^\n]*\btern\b`},
+		"zsh":        {`(?m)^ *'--target[^\n]*\btern\b`, `(?m)^ *'--from[^\n]*\btern\b`},
+		"fish":       {`(?m)^complete .* -l target .*\btern\b`, `(?m)^complete .* -l from .*\btern\b`},
+		"powershell": {`(?m)^ *if .* -eq '--target'.*\n[^\n]*\btern\b`, `(?m)^ *if .* -eq '--from'.*\n[^\n]*\btern\b`},
+		"nushell":    {`(?m)^def "nu-complete skillshare plugin-target".*\n[^\n]*\btern\b`, `(?m)^def "nu-complete skillshare plugin-from".*\n[^\n]*\btern\b`},
+	}
+	for shell, expressions := range patterns {
+		for _, expression := range expressions {
+			if !regexp.MustCompile(expression).MatchString(shells[shell].script) {
+				t.Errorf("%s: missing Tern in completion matching %s", shell, expression)
+			}
+		}
 	}
 }

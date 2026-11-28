@@ -151,12 +151,12 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 	if r.Action == "check" && r.Name == "" {
 		return s.checkAll(ctx, r)
 	}
-	return s.preview(ctx, r, nil)
+	return s.preview(ctx, r, nil, false)
 }
 
 // cleanup is confined to the source replacement being resolved. Ordinary
 // previews cannot borrow a removal from another package or operation.
-func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval) (*Plan, error) {
+func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval, reconcile bool) (*Plan, error) {
 	r.Targets = slices.Clone(r.Targets)
 	for i, target := range r.Targets {
 		r.Targets[i] = NormalizeTarget(target)
@@ -224,6 +224,28 @@ func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval) (
 			}
 		}
 		return Installed{}, false
+	}
+	deferMissing := func(c Change) bool {
+		if s.agentOf(c.Target) != "tern" || host(c.Target).Status != HostMissing || c.Action == "blocked" {
+			return false
+		}
+		switch r.Action {
+		case "add", "remove":
+			c.Action = "selection"
+		case "update":
+			c.Action = "skip"
+			if r.SourceRef != "" {
+				c.Action = "selection"
+			}
+		case "sync", "check":
+			c.Action = "skip"
+		default:
+			return false
+		}
+		h := host(c.Target)
+		c.Message, c.MessageKey, c.MessageArgs = h.Error, h.ErrorKey, h.ErrorArgs
+		appendPrepared(c)
+		return true
 	}
 	if r.Action == "add" && isNpmSource(r.Source) {
 		name := r.Name
@@ -326,7 +348,7 @@ func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval) (
 				market := "skillshare-" + marketUnsafe.ReplaceAllString(c.Name, "-") + "-" + digest
 				b := Binding{ID: c.Name + "@" + market, Source: discovered.Source, SourceRef: discovered.SourceRef, Commit: discovered.Commit, Plugin: c.Name, Digest: discovered.Digest, Version: c.TargetInfo[agent].Version, Components: c.TargetInfo[agent].Components}
 				switch agent {
-				case "cursor", "antigravity", "antigravity-cli", "copilot", "grok", "kimi", "hermes", "devin":
+				case "cursor", "antigravity", "antigravity-cli", "copilot", "grok", "kimi", "hermes", "devin", "tern":
 					b.ID = c.Name
 				case "herdr-app":
 					b.ID, b.Entry = c.Name, c.TargetInfo[agent].Entry
@@ -364,11 +386,15 @@ func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval) (
 						change.Action, change.Message = "blocked", problem
 					}
 				}
-				if old, ok := d.packages[name].Bindings[target]; ok && old.ID != "" && !old.Cleanup {
-					if old.Source == b.Source && old.Plugin == b.Plugin && old.SourceRef == b.SourceRef || d.intent[name].Bindings[target].Source == b.Source && d.intent[name].Bindings[target].Plugin == b.Plugin && d.intent[name].Bindings[target].SourceRef == b.SourceRef {
-						change.Binding = old
-						change.ID = old.ID
-						if _, ok := find(target, old.ID); ok && change.Action != "blocked" {
+				old := d.packages[name].Bindings[target]
+				decl, declared := d.intent[name].Bindings[target]
+				if !old.Cleanup && (old.ID != "" || agent == "tern" && !reconcile && declared && !decl.Imported && decl.Source != "") {
+					if old.Source == b.Source && old.Plugin == b.Plugin && old.SourceRef == b.SourceRef || decl.Source == b.Source && decl.Plugin == b.Plugin && decl.SourceRef == b.SourceRef {
+						if old.ID != "" {
+							change.Binding = old
+							change.ID = old.ID
+						}
+						if _, ok := find(target, old.ID); old.ID != "" && ok && change.Action != "blocked" {
 							change.Action = "noop"
 						}
 					} else {
@@ -392,7 +418,9 @@ func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval) (
 						change.MessageKey, change.MessageArgs = "plugins.note.herdrIdentityInUse", map[string]string{"id": change.ID}
 					}
 				}
-				appendChange(change)
+				if !deferMissing(change) {
+					appendChange(change)
+				}
 			}
 			if r.HerdrPanel && !p.Blocked {
 				switch dock := c.TargetInfo["herdr-app"].HerdrDock; {
@@ -505,6 +533,12 @@ func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval) (
 						return nil, fmt.Errorf("source ref requires a reviewed Git source for %s/%s", name, target)
 					}
 					decl.SourceRef = r.SourceRef
+				}
+				if deferMissing(Change{Name: name, Target: target, ID: b.ID, Binding: b, Action: r.Action}) {
+					continue
+				}
+
+				if r.Action == "update" && r.SourceRef != "" {
 					disc, err := s.discover(ctx, decl.Source, decl.SourceRef, decl.Entry)
 					if err != nil {
 						return nil, err
@@ -679,9 +713,17 @@ func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval) (
 			continue
 		}
 		for name, pack := range d.packages {
-			if c.ID != "" && name != c.Name && pack.Bindings[c.Target].ID == c.ID {
+			decl := d.intent[name].Bindings[c.Target]
+			// Tern's candidate name is its validated manifest ID, including before
+			// a host has installed it and recorded a local receipt.
+			declaredID := ""
+			if s.agentOf(c.Target) == "tern" && (c.Action == "install" || r.Action == "add") && !decl.Imported && decl.Source != "" {
+				declaredID = decl.Plugin
+			}
+			if c.ID != "" && name != c.Name && (pack.Bindings[c.Target].ID == c.ID || declaredID == c.ID) {
 				c.Action = "blocked"
 				c.Message = "This native plugin is already managed by package " + name
+				c.MessageKey, c.MessageArgs = "", nil
 				p.Blocked = true
 			}
 		}

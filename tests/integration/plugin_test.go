@@ -142,3 +142,61 @@ func TestPluginDiscoverNpmPointsToAdd(t *testing.T) {
 	r.AssertFailure(t)
 	r.AssertAnyOutputContains(t, "skillshare plugin add npm:demo --target pi")
 }
+
+func TestPluginTernLifecycle(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	sb.WriteConfig("targets: {}\n")
+	bin := filepath.Join(sb.Home, "bin")
+	ternHome := filepath.Join(sb.Home, "tern")
+	source := filepath.Join(sb.Home, "source")
+	for _, dir := range []string{bin, ternHome, source} {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	manifest := filepath.Join(source, "plugin.toml")
+	if err := os.WriteFile(manifest, []byte("schema = 1\nid = 'demo'\nname = 'Demo'\nwindow = 'main.luau'\nversion = '1.0.0'\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(source, "main.luau"), []byte("return {}"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	// Real Tern 0.9.18 list --json printed (with its installed plugin values):
+	// {"plugins":[{"id":"tern-kata","name":"Kata","version":"0.17.0","description":"Example","icon":"puzzle","css":"","blocks":[],"lenses":[],"host":true,"window":false,"status":"ready"}],"problems":[],"jit":false,"canvas":true}
+	fake := `#!/bin/sh
+case "$*" in
+  --version) echo 0.9.18 ;;
+  'plugin --help') echo 'plugin install remove list' ;;
+  'plugin list --json') if [ -f "$TERN_CONFIG_DIR/plugins/demo/main.luau" ]; then echo '{"plugins":[{"id":"demo","name":"Demo","version":"1.0.0","description":"","icon":"puzzle","css":"","blocks":[],"lenses":[],"host":false,"window":true,"status":"ready"}],"problems":[],"jit":false,"canvas":true}'; else echo '{"plugins":[],"problems":[],"jit":false,"canvas":true}'; fi ;;
+  'plugin install '*) [ -f "$3/plugin.toml" ] && [ -f "$3/main.luau" ] || exit 1; printf '%s\n' "$*" >> "$TERN_CONFIG_DIR/commands"; if [ -d "$TERN_CONFIG_DIR/plugins/demo" ] && [ "$4" != '--force' ]; then exit 1; fi; mkdir -p "$TERN_CONFIG_DIR/plugins/demo"; cp -R "$3/." "$TERN_CONFIG_DIR/plugins/demo/" ;;
+  'plugin remove demo') echo "$*" >> "$TERN_CONFIG_DIR/commands"; [ -d "$TERN_CONFIG_DIR/plugins/demo" ] || exit 1; rm -r "$TERN_CONFIG_DIR/plugins/demo" ;;
+  *) echo "unexpected: $*" >&2; exit 1 ;;
+esac
+`
+	if err := os.WriteFile(filepath.Join(bin, "tern"), []byte(fake), 0755); err != nil {
+		t.Fatal(err)
+	}
+	env := map[string]string{"PATH": bin + ":" + os.Getenv("PATH"), "TERN_CONFIG_DIR": ternHome}
+	sb.RunCLIEnv(env, "plugin", "add", source, "--target", "tern", "--no-tui", "-g").AssertSuccess(t)
+	if err := os.WriteFile(filepath.Join(source, "extra.txt"), []byte("changed"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	sb.RunCLIEnv(env, "plugin", "check", "demo", "--json", "-g").AssertOutputContains(t, "update-available")
+	sb.RunCLIEnv(env, "plugin", "update", "demo", "--no-tui", "-g").AssertSuccess(t)
+	sb.RunCLIEnv(env, "plugin", "remove", "demo", "--no-tui", "-g").AssertSuccess(t)
+	data, err := os.ReadFile(filepath.Join(ternHome, "commands"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
+	if len(lines) != 3 || !strings.HasPrefix(lines[0], "plugin install ") || !strings.HasSuffix(lines[1], " --force") || lines[2] != "plugin remove demo" || strings.Contains(lines[0], source) {
+		t.Fatalf("unexpected native commands: %q", data)
+	}
+}
+
+func TestPluginTernHelp(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	sb.RunCLI("plugin", "--help").AssertOutputContains(t, "tern")
+}

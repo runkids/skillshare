@@ -26,6 +26,7 @@ func TargetDefinitions() []TargetDefinition {
 		{Target: "opencode", Label: "OpenCode", Project: true, Operations: all},
 		{Target: "omp", Label: "Oh My Pi", Project: true, Operations: []string{"add", "import", "sync", "check", "update", "remove", "enable", "disable"}, Reason: "Reviewed marketplace installs, updates and scoped removals are supported. Updates reinstall into a fresh cache; removal retains shared cache and settings, and OMP's native upgrade never runs because it can damage other projects.", ReasonKey: "plugins.reason.omp"},
 		{Target: "antigravity-cli", Label: "Antigravity CLI", Operations: all},
+		{Target: "tern", Label: "Tern", Operations: all},
 		{Target: "copilot", Label: "GitHub Copilot CLI", Operations: all},
 		{Target: "grok", Label: "Grok Build", Operations: []string{"import", "sync", "check", "remove", "enable", "disable"}, Reason: "Install or update in Grok to complete native trust, then import.", ReasonKey: "plugins.reason.grok"},
 		{Target: "kimi", Label: "Kimi Code", Operations: []string{}, Reason: automationProblem("kimi"), ReasonKey: "plugins.problem.kimi"},

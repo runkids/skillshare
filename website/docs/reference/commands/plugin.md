@@ -67,10 +67,10 @@ anything to update, or the update names a single `--target`, it is blocked inste
 
 | Option | Meaning |
 |---|---|
-| `--target TARGET` | Repeatable selection: `claude`, `codex`, `cursor`, `antigravity` (`agy` alias), `antigravity-cli`, `copilot`, `grok`, `pi`, `omp`, `opencode`, `herdr-app`, or the name of [another account of an Agent](#accounts); see the capability table below |
+| `--target TARGET` | Repeatable selection: `claude`, `codex`, `cursor`, `antigravity` (`agy` alias), `antigravity-cli`, `copilot`, `grok`, `tern`, `pi`, `omp`, `opencode`, `herdr-app`, or the name of [another account of an Agent](#accounts); see the capability table below |
 | `--plugin NAME` | Select one plugin from a source marketplace |
 | `--name NAME` | Logical package name when adding or importing |
-| `--from TARGET` | Import from Claude, Codex, Antigravity CLI, Copilot, Grok, Pi, OMP marketplaces, OpenCode, or [another account of an Agent](#accounts) |
+| `--from TARGET` | Import from Claude, Codex, Antigravity CLI, Copilot, Grok, Tern, Pi, OMP marketplaces, OpenCode, or [another account of an Agent](#accounts) |
 | `--all`, `-a` | Update all managed plugins (`update` only; cannot be combined with a package name or `--source-ref`) |
 | `--dry-run`, `-n` | Preview without changing Skillshare or Agent configuration |
 | `--source-ref REF` | Git branch, tag, or commit for `discover`, `add`, and `update`; remote sources only |
@@ -97,13 +97,15 @@ the CLI exits nonzero when any target fails. Inspect the result before retrying.
 | Oh My Pi | Marketplace-backed local/Git plugins with native-compatible metadata | Fresh-cache install/reinstall, import and scoped removal | At OMP's project anchor | Updates reinstall into fresh cache; removal retains shared cache |
 | OpenCode | `package.json` with an SDK dependency, `.opencode/plugins/` entry, or explicit `--entry` | Yes | Yes | Refresh managed source snapshot |
 | Herdr app | Root `mods/<id>/main.js` in a source with no plugin manifest, or a launcher named by `--entry` | Yes | No | Replace the files Skillshare installed |
-
 | Antigravity CLI | `.antigravity-plugin/plugin.json`, `.gemini-plugin/plugin.json`, root `plugin.json`, or Claude manifest accepted by `agy` | Yes | No | Refresh reviewed source, only if native enabled state is known and enabled |
 | GitHub Copilot CLI | `.plugin/plugin.json`, `.github/plugin/plugin.json`, Claude manifest, or Agent Plugins root manifest | Yes | No | Refresh reviewed source, only if native enabled state is known and enabled |
 | Grok Build | `.grok-plugin/plugin.json` or Claude manifest | Import/remove only; native trust required for install | No | Update natively |
+| Tern | `plugin.toml` | Yes | No | Reinstall reviewed snapshot with `--force` |
 | Kimi Code | `kimi.plugin.json` or `.kimi-plugin/plugin.json` | Discovery only | No | Not automated |
 | Hermes | `.hermes-plugin/plugin.yaml` | Discovery only | No | Not automated |
 | Devin | `.devin-plugin/plugin.json` | Discovery only | No | Not automated |
+
+Only a root `plugin.toml` is discovered. Without `tern`, Tern work is skipped on that machine.
 
 Kimi's noninteractive lifecycle, Hermes's profile inventory/consent, and Devin's
 local inventory/trust/cloud distinction are not yet verified by these adapters.

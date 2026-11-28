@@ -250,13 +250,13 @@ $_skillshareCompleter = {
         return
     }
     if ($cmd -eq 'plugin' -and $previousIndex -ge 0 -and $elements[$previousIndex] -eq '--from') {
-        @('claude', 'codex', 'cursor', 'antigravity', 'agy', 'antigravity-cli', 'copilot', 'grok', 'kimi', 'hermes', 'devin', 'pi', 'opencode', 'omp') | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {
+        @('claude', 'codex', 'cursor', 'antigravity', 'agy', 'antigravity-cli', 'copilot', 'grok', 'kimi', 'hermes', 'devin', 'tern', 'pi', 'opencode', 'omp') | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {
             [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
         }
         return
     }
     if ($cmd -eq 'plugin' -and $previousIndex -ge 0 -and $elements[$previousIndex] -eq '--target') {
-        @('claude', 'codex', 'cursor', 'antigravity', 'agy', 'antigravity-cli', 'copilot', 'grok', 'kimi', 'hermes', 'devin', 'pi', 'opencode', 'omp', 'herdr-app') | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {
+        @('claude', 'codex', 'cursor', 'antigravity', 'agy', 'antigravity-cli', 'copilot', 'grok', 'kimi', 'hermes', 'devin', 'tern', 'pi', 'opencode', 'omp', 'herdr-app') | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {
             [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
         }
         return

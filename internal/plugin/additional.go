@@ -41,6 +41,8 @@ func validTargetID(target, id string) bool {
 		return validID(id)
 	case "herdr-app", "cursor", "antigravity", "antigravity-cli", "grok", "kimi", "hermes", "devin":
 		return namePattern.MatchString(id)
+	case "tern":
+		return ternID.MatchString(id)
 	case "copilot":
 		return namePattern.MatchString(id) || validID(id)
 	case "pi", "opencode":

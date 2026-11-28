@@ -51,10 +51,10 @@ skillshare plugin remove review --no-tui
 
 | オプション | 意味 |
 |---|---|
-| `--target TARGET` | 繰り返し指定可能な選択: `claude`、`codex`、`cursor`、`antigravity`（エイリアス `agy`）、`antigravity-cli`、`copilot`、`grok`、`pi`、`omp`、`opencode`、`herdr-app`、または [Agent の別のアカウント](#accounts)の名前。下の capability 表を参照 |
+| `--target TARGET` | 繰り返し指定可能な選択: `claude`、`codex`、`cursor`、`antigravity`（エイリアス `agy`）、`antigravity-cli`、`copilot`、`grok`、`tern`、`pi`、`omp`、`opencode`、`herdr-app`、または [Agent の別のアカウント](#accounts)の名前。下の capability 表を参照 |
 | `--plugin NAME` | source のマーケットプレイスから 1 つの plugin を選択 |
 | `--name NAME` | 追加またはインポート時の論理的な package 名 |
-| `--from TARGET` | Claude、Codex、Antigravity CLI、Copilot、Grok、Pi、OMP のマーケットプレイス、OpenCode、または [Agent の別のアカウント](#accounts)からインポート |
+| `--from TARGET` | Claude、Codex、Antigravity CLI、Copilot、Grok、Tern、Pi、OMP のマーケットプレイス、OpenCode、または [Agent の別のアカウント](#accounts)からインポート |
 | `--all`, `-a` | すべての管理下 plugin を更新（`update` のみ。package 名や `--source-ref` とは併用不可） |
 | `--dry-run`, `-n` | Skillshare または Agent の設定を変更せずにプレビュー |
 | `--source-ref REF` | `discover`、`add`、`update` 用の git ブランチ、タグ、またはコミット。リモート source のみ |
@@ -79,13 +79,17 @@ JSON 出力には source パスとネイティブ識別子が含まれます。s
 | Oh My Pi | ネイティブ互換のメタデータを持つ、マーケットプレイス経由のローカル/Git plugin | 新しい cache へのインストール/再インストール、インポート、スコープを限定した削除 | OMP の project アンカーで | 更新は新しい cache に再インストール。削除しても共有 cache は保持 |
 | OpenCode | SDK 依存を持つ `package.json`、`.opencode/plugins/` エントリ、または明示的な `--entry` | Yes | Yes | 管理下 source スナップショットを更新 |
 | Herdr app | plugin マニフェストのない source のルートにある `mods/<id>/main.js`、または `--entry` で指定したランチャー | Yes | No | Skillshare がインストールしたファイルを置き換え |
-
 | Antigravity CLI | `.antigravity-plugin/plugin.json`、`.gemini-plugin/plugin.json`、ルートの `plugin.json`、または `agy` が受け付ける Claude マニフェスト | Yes | No | reviewed された source を更新（ネイティブな enabled 状態がわかっており enabled の場合のみ） |
 | GitHub Copilot CLI | `.plugin/plugin.json`、`.github/plugin/plugin.json`、Claude マニフェスト、または Agent Plugins ルートマニフェスト | Yes | No | reviewed された source を更新（ネイティブな enabled 状態がわかっており enabled の場合のみ） |
 | Grok Build | `.grok-plugin/plugin.json` または Claude マニフェスト | インポート/削除のみ。インストールにはネイティブな trust が必要 | No | ネイティブに update |
+| Tern | `plugin.toml` | はい | いいえ | レビュー済みスナップショットを `--force` で再インストール |
 | Kimi Code | `kimi.plugin.json` または `.kimi-plugin/plugin.json` | 検出のみ | No | 自動化されていない |
 | Hermes | `.hermes-plugin/plugin.yaml` | 検出のみ | No | 自動化されていない |
 | Devin | `.devin-plugin/plugin.json` | 検出のみ | No | 自動化されていない |
+
+検出するのはリポジトリのルートにある `plugin.toml` のみで、サブディレクトリの Tern パッケージ（`REPO/PATH`）は検出しません。
+
+`tern` がないマシンでは Tern の処理をスキップします。
 
 Kimi の非インタラクティブなライフサイクル、Hermes のプロファイルインベントリ/同意、Devin のローカルインベントリ/trust/クラウド区別は、これらのアダプタではまだ検証されていません。フォーマットは discovery 中に表示されますが、インストールは理由付きで無効化されています。source が target を宣言していても、Skillshare がそれを管理できることを意味しません。
 `list --json` と `discover --json` には、許可された操作を含む `targetDefinitions` が含まれます。discovery ではさらに、各フォーマットの version、コンポーネント、entry、検証上の問題を示す `targetInfo` も公開されます。壊れたマニフェストはその target に限定され、不正なカタログは有効なフォーマットを隠すことなく警告として報告されます。

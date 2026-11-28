@@ -110,11 +110,11 @@ def "nu-complete skillshare hooks" [] {
 }
 
 def "nu-complete skillshare plugin-target" [] {
-    [claude codex cursor antigravity agy antigravity-cli copilot grok kimi hermes devin pi opencode omp herdr-app]
+    [claude codex cursor antigravity agy antigravity-cli copilot grok kimi hermes devin tern pi opencode omp herdr-app]
 }
 
 def "nu-complete skillshare plugin-from" [] {
-    [claude codex cursor antigravity agy antigravity-cli copilot grok kimi hermes devin pi opencode omp]
+    [claude codex cursor antigravity agy antigravity-cli copilot grok kimi hermes devin tern pi opencode omp]
 }
 
 export extern "skillshare mcp" [

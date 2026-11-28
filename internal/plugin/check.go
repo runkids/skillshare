@@ -97,7 +97,7 @@ func (s *Service) Check(ctx context.Context, r Request, each func(name string, p
 		wg.Go(func() {
 			one := r
 			one.Name = name
-			p, err := check.preview(ctx, one, nil)
+			p, err := check.preview(ctx, one, nil, false)
 			mu.Lock()
 			defer mu.Unlock()
 			each(name, p, err)
