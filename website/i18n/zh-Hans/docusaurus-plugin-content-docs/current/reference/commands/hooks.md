@@ -22,6 +22,7 @@ skillshare hooks enable check --sync
 skillshare hooks sync --dry-run --json
 skillshare hooks sync
 skillshare hooks sync check --replace --dry-run
+skillshare hooks sync check lint --replace --dry-run
 skillshare hooks sync --trust -g
 skillshare hooks sync --trust --yes -g
 skillshare hooks sync --trust --yes --json -g
@@ -41,7 +42,7 @@ skillshare hooks restore BACKUP_ID
 | `--from AGENT` | `codex-2` 等账号 target 也可使用。  原生 Agent 格式或要读取的 Agent |
 | `--sync` | 保存并同步 |
 | `--keep-files` | 配合 `remove` 使用：停止管理该 hook，并让它的原生条目保持原样。不能与 `--sync` 同时使用。参见[下文](#stop-managing-a-hook) |
-| `--replace` | 明确替换已有来源 entry 或该 entry 冲突的原生输出 |
+| `--replace` | 明确替换已有来源 entry 或该 entry 冲突的原生输出。`hooks sync` 可同时指定多个名称一并接管 |
 | `--trust` | 仅用于 `hooks sync`：同时为 Skillshare 管理的 hooks 记录 Codex 信任。见 [Codex 信任](#codex-trust) |
 | `--yes`, `-y` | 与 `--trust` 一起使用：跳过询问并信任列出的 hooks。见 [Codex 信任](#codex-trust) |
 | `--dry-run, -n` | 仅预览，不保存或写入 |
@@ -264,7 +265,7 @@ plan 保留实际的 `add`、`update`、`remove` 或 `unchanged` 操作，并通
 
 global 配置的 `hooks.projects` 将绝对项目路径映射到相同 Entry 格式的 `entries`，可在“项目 → Hooks”管理；在那里按 **停止管理这里的 hook** 会把该路径从 `hooks.projects` 移除，下次同步时会删除 Skillshare 写在其下的 hook。已有 `.skillshare/config.yaml` 的项目须使用 project scope；单个项目同步只处理该项目。
 
-同步保留无关配置和非 Skillshare 管理的 hooks。内容相同不代表所有权。自有输出若被外部修改，停用、移除及恢复也会报告冲突。明确替换只作用于选定 entry；预览列出完整动作和路径。共享文件的每一行 plan 会列出该 entry 新增（`+`）、更新（`~`）、移除（`−`）的 event，JSON plan 的 `events` 也包含相同信息。`update` 表示该 entry 在文件中仍有注册，`remove` 表示完全离开该文件。编辑会保留文件原有格式（紧凑或缩进）；Skillshare 添加的 `hooks` key 在最后一个 hook 移除时一并移除。Skillshare 创建的文件若已没有其他内容就会删除，连同它创建且已清空的文件夹；预览会把这显示为删除文件。原本就存在的文件和文件夹，以及你添加的任何内容都会保留。
+同步保留无关配置和非 Skillshare 管理的 hooks。内容相同不代表所有权。自有输出若被外部修改，停用、移除及恢复也会报告冲突。明确替换只作用于指定的 entry，只要还有其他 entry 冲突，同步就会被阻止。多个 hook 冲突时请一次列出全部名称：`skillshare hooks sync NAME1 NAME2 --replace`。预览列出完整动作和路径。共享文件的每一行 plan 会列出该 entry 新增（`+`）、更新（`~`）、移除（`−`）的 event，JSON plan 的 `events` 也包含相同信息。`update` 表示该 entry 在文件中仍有注册，`remove` 表示完全离开该文件。编辑会保留文件原有格式（紧凑或缩进）；Skillshare 添加的 `hooks` key 在最后一个 hook 移除时一并移除。Skillshare 创建的文件若已没有其他内容就会删除，连同它创建且已清空的文件夹；预览会把这显示为删除文件。原本就存在的文件和文件夹，以及你添加的任何内容都会保留。
 
 备份恢复原生输出并保留后续无关改动，不改写来源定义。使用“设置 → 备份 → Hooks”或 `hooks restore` 先预览再恢复。
 

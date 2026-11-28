@@ -10,9 +10,11 @@ import (
 	"skillshare/internal/ui"
 )
 
-func printHooksPlan(p *hooks.Plan) {
+// printHooksPlan names the hooks a sync is already replacing in its takeover
+// hint, so the suggested command replaces them together with the conflicts.
+func printHooksPlan(p *hooks.Plan, replacing ...string) {
 	printHooksSource(p.SourcePath)
-	printHooksChanges(p)
+	printHooksChanges(p, replacing)
 	if len(p.Changes) == 0 {
 		ui.Note("no hook changes")
 	}
@@ -20,9 +22,9 @@ func printHooksPlan(p *hooks.Plan) {
 
 // printHooksChanges prints one row per change to an Agent file; conflicts
 // are failures and inactive outputs are warnings.
-func printHooksChanges(p *hooks.Plan) {
+func printHooksChanges(p *hooks.Plan, replacing []string) {
 	home, _ := os.UserHomeDir()
-	conflicts := []string{}
+	conflicts, takeover := false, slices.Clone(replacing)
 	labels := make([]string, len(p.Changes))
 	for i, c := range p.Changes {
 		labels[i] = hooksChangeLabel(c)
@@ -44,15 +46,19 @@ func printHooksChanges(p *hooks.Plan) {
 			mark = ui.MarkWarn
 		}
 		ui.Row(mark, hooksChangeLabel(c), c.Action+"  "+ui.DimText(detail), width)
-		if c.Action == "conflict" && c.Name != "" && c.Root == "" && !slices.Contains(conflicts, c.Name) {
-			conflicts = append(conflicts, c.Name)
+		if c.Action == "conflict" && c.Name != "" && c.Root == "" {
+			conflicts = true
+			if !slices.Contains(takeover, c.Name) {
+				takeover = append(takeover, c.Name)
+			}
 		}
 	}
 	for _, w := range p.Warnings {
 		ui.Warning("%s", w)
 	}
-	for _, name := range conflicts {
-		ui.Note(fmt.Sprintf("To take over %s's conflicting Agent entries: skillshare hooks sync %s --replace", name, name))
+	// A sync stays blocked while any conflict remains, so the hint names them together.
+	if conflicts {
+		ui.Note("To take over the conflicting Agent entries: skillshare hooks sync " + strings.Join(takeover, " ") + " --replace")
 	}
 }
 

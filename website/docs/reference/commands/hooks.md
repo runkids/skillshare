@@ -30,6 +30,7 @@ skillshare hooks enable check --sync
 skillshare hooks sync --dry-run --json
 skillshare hooks sync
 skillshare hooks sync check --replace --dry-run
+skillshare hooks sync check lint --replace --dry-run
 skillshare hooks sync --trust -g
 skillshare hooks sync --trust --yes -g
 skillshare hooks sync --trust --yes --json -g
@@ -82,7 +83,7 @@ not one transaction.
 | `--from AGENT` | Native Agent format or existing Agent/account configuration to import |
 | `--sync` | Save and synchronize the mutation |
 | `--keep-files` | With `remove`: stop managing the hook and leave its native entries as they are. Not with `--sync`. See [below](#stop-managing-a-hook) |
-| `--replace` | Explicitly replace an existing source entry or conflicting native output for that entry |
+| `--replace` | Explicitly replace an existing source entry or conflicting native output for that entry. `hooks sync` accepts several names to take them over together |
 | `--trust` | With `hooks sync`: also record Codex trust for the hooks Skillshare owns. See [Codex trust](#codex-trust) |
 | `--yes`, `-y` | With `--trust`: skip the question and trust the listed hooks. See [Codex trust](#codex-trust) |
 | `--dry-run`, `-n` | Preview without saving or writing native configuration |
@@ -464,7 +465,9 @@ project Entry with a binding for each Agent.
 Sync preserves unrelated settings and unowned hooks. Matching content alone
 does not establish ownership. Modified owned outputs are conflicts, including
 on disable, remove and restore. Use the preview to inspect exact actions; an
-explicit replacement applies only to the selected entry. For a shared file, each
+explicit replacement applies only to the named entries, and the sync stays
+blocked while any other entry conflicts. When several hooks conflict, name them
+all: `skillshare hooks sync NAME1 NAME2 --replace`. For a shared file, each
 plan line lists the events the entry adds (`+`), updates (`~`) and removes (`−`),
 also available as `events` in JSON plans. `update` means the entry keeps
 registrations in that file; `remove` means it leaves the file entirely. Edits keep

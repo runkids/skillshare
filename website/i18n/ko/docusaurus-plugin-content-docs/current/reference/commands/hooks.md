@@ -22,6 +22,7 @@ skillshare hooks enable check --sync
 skillshare hooks sync --dry-run --json
 skillshare hooks sync
 skillshare hooks sync check --replace --dry-run
+skillshare hooks sync check lint --replace --dry-run
 skillshare hooks sync --trust -g
 skillshare hooks sync --trust --yes -g
 skillshare hooks sync --trust --yes --json -g
@@ -41,7 +42,7 @@ skillshare hooks restore BACKUP_ID
 | `--from AGENT` | `codex-2` 계정 target도 지원.   가져올 Agent 또는 네이티브 형식 |
 | `--sync` | 저장 후 동기화 |
 | `--keep-files` | `remove`와 함께 사용: hook 관리를 멈추고 네이티브 항목은 그대로 둡니다. `--sync`와 함께 쓸 수 없습니다. [아래](#stop-managing-a-hook) 참고 |
-| `--replace` | 기존 소스 entry 또는 해당 entry의 충돌 출력을 명시적으로 교체 |
+| `--replace` | 기존 소스 entry 또는 해당 entry의 충돌 출력을 명시적으로 교체. `hooks sync`는 여러 이름을 받아 한 번에 인계합니다 |
 | `--trust` | `hooks sync`에서만: Skillshare가 관리하는 hooks의 Codex 신뢰도 기록. [Codex 신뢰](#codex-trust) 참고 |
 | `--yes`, `-y` | `--trust`와 함께: 질문을 건너뛰고 나열된 hooks를 신뢰. [Codex 신뢰](#codex-trust) 참고 |
 | `--dry-run, -n` | 저장하거나 쓰지 않고 미리보기 |
@@ -268,7 +269,7 @@ plan은 실제 `add`, `update`, `remove`, `unchanged` 동작을 유지하고 실
 
 global 설정의 `hooks.projects`는 절대 프로젝트 경로를 같은 Entry 형식의 `entries`에 연결합니다. **Projects → Hooks**에서 관리합니다. 거기서 **여기서 hook 관리 중지**를 누르면 루트가 `hooks.projects`에서 빠지고, 다음 동기화 때 Skillshare가 그 아래에 쓴 hook이 지워집니다. 자체 `.skillshare/config.yaml`이 있는 프로젝트는 project scope로 관리하고, 프로젝트 동기화는 해당 루트만 적용합니다.
 
-관련 없는 설정과 소유하지 않은 hooks는 유지합니다. 내용이 같다고 소유권을 부여하지 않습니다. 소유 출력이 외부에서 편집되면 비활성화, 제거, 복원도 충돌로 보고합니다. 명시적 교체는 선택한 entry에만 적용됩니다. 공유 파일의 plan 각 행에는 entry가 추가(`+`), 업데이트(`~`), 제거(`−`)하는 event가 표시되며 JSON plan의 `events`에도 포함됩니다. `update`는 entry가 그 파일에 등록을 남긴다는 뜻이고, `remove`는 파일에서 완전히 빠진다는 뜻입니다. 편집은 파일의 형식(압축 또는 들여쓰기)을 유지하며, Skillshare가 추가한 `hooks` 키는 마지막 hook이 빠질 때 함께 제거합니다. Skillshare가 만든 파일은 다른 내용이 남지 않으면 삭제하며, 만들었다가 비게 된 폴더도 함께 삭제합니다. 미리보기에는 파일 삭제로 표시됩니다. 원래 있던 파일과 폴더, 그리고 사용자가 추가한 내용은 유지됩니다.
+관련 없는 설정과 소유하지 않은 hooks는 유지합니다. 내용이 같다고 소유권을 부여하지 않습니다. 소유 출력이 외부에서 편집되면 비활성화, 제거, 복원도 충돌로 보고합니다. 명시적 교체는 지정한 entry에만 적용되며, 다른 entry에 충돌이 남아 있으면 동기화가 차단됩니다. 여러 hook이 충돌하면 모든 이름을 지정하세요: `skillshare hooks sync NAME1 NAME2 --replace`. 공유 파일의 plan 각 행에는 entry가 추가(`+`), 업데이트(`~`), 제거(`−`)하는 event가 표시되며 JSON plan의 `events`에도 포함됩니다. `update`는 entry가 그 파일에 등록을 남긴다는 뜻이고, `remove`는 파일에서 완전히 빠진다는 뜻입니다. 편집은 파일의 형식(압축 또는 들여쓰기)을 유지하며, Skillshare가 추가한 `hooks` 키는 마지막 hook이 빠질 때 함께 제거합니다. Skillshare가 만든 파일은 다른 내용이 남지 않으면 삭제하며, 만들었다가 비게 된 폴더도 함께 삭제합니다. 미리보기에는 파일 삭제로 표시됩니다. 원래 있던 파일과 폴더, 그리고 사용자가 추가한 내용은 유지됩니다.
 
 백업은 이후의 관련 없는 변경을 유지하며 네이티브 출력을 복원하고 소스 정의는 바꾸지 않습니다. **Settings → Backups → Hooks** 또는 `hooks restore`로 미리 보고 복원하세요.
 

@@ -202,6 +202,7 @@ func TestHooksRejectsInapplicableArguments(t *testing.T) {
 	for _, args := range [][]string{
 		{"hooks", "list", "--sync"},
 		{"hooks", "sync", "bash-log"},
+		{"hooks", "sync", "--replace"},
 		{"hooks", "restore", "id", "--replace"},
 		{"hooks", "add", "bash-log"},
 		{"hooks", "import"},
@@ -215,6 +216,37 @@ func TestHooksRejectsInapplicableArguments(t *testing.T) {
 	} {
 		sb.RunCLI(append(args, "-g")...).AssertFailure(t)
 	}
+	// Only hooks sync takes several names.
+	r := sb.RunCLI("hooks", "enable", "bash-log", "stop-log", "-g")
+	r.AssertFailure(t)
+	r.AssertAnyOutputContains(t, `unknown hooks argument "stop-log"`)
+}
+
+func TestHooksSyncReplaceTakesOverSeveralHooks(t *testing.T) {
+	sb := newHooksSandbox(t)
+	defer sb.Cleanup()
+	sb.RunCLI("hooks", "add", "bash-log", "--file", writeHooksEntry(t, sb), "-g").AssertSuccess(t)
+	stop := filepath.Join(sb.Root, "stop.yaml")
+	sb.WriteFile(stop, "bindings:\n  claude:\n    events:\n      Stop:\n        - hooks:\n            - type: command\n              command: echo skillshare-stop-test\n")
+	sb.RunCLI("hooks", "add", "stop-log", "--file", stop, "-g").AssertSuccess(t)
+	// Both definitions already exist, unowned, as after restoring config on a new machine.
+	settings := filepath.Join(sb.Home, ".claude", "settings.json")
+	native := `{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"echo skillshare-hooks-test"}]}],"Stop":[{"hooks":[{"type":"command","command":"echo skillshare-stop-test"}]}]}}`
+	sb.WriteFile(settings, native)
+
+	r := sb.RunCLI("hooks", "sync", "bash-log", "--replace", "-g")
+	r.AssertFailure(t)
+	r.AssertAnyOutputContains(t, "skillshare hooks sync bash-log stop-log --replace")
+	dry := sb.RunCLI("hooks", "sync", "bash-log", "stop-log", "--replace", "--dry-run", "-g")
+	dry.AssertSuccess(t)
+	if strings.Count(dry.Stdout, "adopt") != 2 || strings.Contains(dry.Stdout, "conflict") {
+		t.Fatalf("dry-run did not list both takeovers:\n%s", dry.Stdout)
+	}
+	if sb.ReadFile(settings) != native {
+		t.Fatal("dry-run wrote settings.json")
+	}
+	sb.RunCLI("hooks", "sync", "bash-log", "stop-log", "--replace", "-g").AssertSuccess(t)
+	sb.RunCLI("hooks", "sync", "-g").AssertSuccess(t)
 }
 
 func TestHooksImportDoesNotExecute(t *testing.T) {

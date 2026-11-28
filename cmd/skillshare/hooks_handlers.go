@@ -35,8 +35,8 @@ func runHooks(service *hooks.Service, sub string, o hooksOptions) error {
 		return finishHooksMutation(service, "hooks remove", hooks.Mutation{Name: o.name, Remove: true, Replace: o.replace, Unmanage: o.keepFiles}, o)
 	case "sync":
 		o.sync = true
-		// A name only scopes --replace; the sync itself covers every entry.
-		return finishHooksMutation(service, "hooks sync", hooks.Mutation{Name: o.name, Replace: o.replace}, o)
+		// Names only scope --replace; the sync itself covers every entry.
+		return finishHooksMutation(service, "hooks sync", hooks.Mutation{ReplaceNames: o.names}, o)
 	case "restore":
 		return runHooksRestore(service, o)
 	}
@@ -92,7 +92,7 @@ func runHooksList(service *hooks.Service, o hooksOptions) error {
 		})
 		if len(pending.Changes) > 0 {
 			ui.Section("Pending sync")
-			printHooksChanges(&pending)
+			printHooksChanges(&pending, nil)
 			ui.Next("skillshare hooks sync", "write them into Agent files")
 		}
 	}
@@ -212,7 +212,7 @@ func finishHooksMutation(service *hooks.Service, command string, mutation hooks.
 	if err != nil {
 		return err
 	}
-	if err := checkHooksPreview(p, o); err != nil || o.dryRun {
+	if err := checkHooksPreview(p, o, mutation.ReplaceNames...); err != nil || o.dryRun {
 		return err
 	}
 	start := time.Now()
@@ -268,7 +268,7 @@ func applyHooksSync(service *hooks.Service, start time.Time) (*hooks.Result, err
 
 // checkHooksPreview prints a dry-run or blocked plan and enforces --revision. Conflicts
 // block only writes to Agent files; saving the source alone always proceeds.
-func checkHooksPreview(p *hooks.Plan, o hooksOptions) error {
+func checkHooksPreview(p *hooks.Plan, o hooksOptions, replacing ...string) error {
 	if o.revision != "" && o.revision != p.Revision {
 		return hooks.ErrStaleRevision
 	}
@@ -282,7 +282,7 @@ func checkHooksPreview(p *hooks.Plan, o hooksOptions) error {
 	if o.json {
 		return writeJSONResult(p, blocked)
 	}
-	printHooksPlan(p)
+	printHooksPlan(p, replacing...)
 	if o.dryRun {
 		fmt.Println()
 		ui.DryRun()
