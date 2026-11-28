@@ -216,7 +216,9 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (_ *Result,
 
 		if c.Action == "noop" {
 			if err := s.rexSyncRepair(r, c); err != nil {
-				return result, errors.Join(append(failures, err)...)
+				recordApplyFailure(&outcome, err, &failures, failed, key)
+				result.Results = append(result.Results, outcome)
+				continue
 			}
 			if r.Action == "add" && !c.Binding.Imported && local.Applied != nil && c.Binding.ID == local.Applied.Binding.ID {
 				local.Applied.Intent, local.Applied.Binding.Imported = decl.fingerprint(), c.Binding.Imported
@@ -294,10 +296,7 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (_ *Result,
 			ompWritten[c.Target] = true
 		}
 		if applyErr != nil {
-			outcome.Status, outcome.Message = "failed", applyErr.Error()
-			outcome.MessageKey, outcome.MessageArgs = ErrorKey(applyErr)
-			failures = append(failures, applyErr)
-			failed[key] = true
+			recordApplyFailure(&outcome, applyErr, &failures, failed, key)
 		} else {
 			if herdrEnabledSync {
 				clearHerdrLayoutSuspension(&local, view)
@@ -397,6 +396,13 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (_ *Result,
 		result.Results = append(result.Results, outcome)
 	}
 	return result, errors.Join(failures...)
+}
+
+func recordApplyFailure(outcome *Outcome, err error, failures *[]error, failed map[string]bool, key string) {
+	outcome.Status, outcome.Message = "failed", err.Error()
+	outcome.MessageKey, outcome.MessageArgs = ErrorKey(err)
+	*failures = append(*failures, err)
+	failed[key] = true
 }
 
 func (s *Service) adoptPlanLegacy(ctx context.Context, d *document, p *Plan) {

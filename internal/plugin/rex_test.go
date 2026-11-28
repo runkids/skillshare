@@ -854,6 +854,69 @@ func TestRexSyncRepairsWiring(t *testing.T) {
 	}
 }
 
+func TestRexSyncKeepsNormalizedCRLFLine(t *testing.T) {
+	s, init, _ := rexRecordTestService(t)
+	applyPluginRequest(t, s, Request{Action: "add", Source: rexFixture(t), Targets: []string{"rex"}})
+	want := strings.TrimSuffix(rexLine, "\n") + "\r\n-- user\r\n"
+	if err := os.WriteFile(init, []byte(want), 0644); err != nil {
+		t.Fatal(err)
+	}
+	applyPluginRequest(t, s, Request{Action: "sync"})
+	if data, err := os.ReadFile(init); err != nil || string(data) != want {
+		t.Fatalf("synced init = %q, %v; want %q", data, err, want)
+	}
+	applyPluginRequest(t, s, Request{Action: "remove", Name: "acme.test"})
+	if data, err := os.ReadFile(init); err != nil || string(data) != "-- user\r\n" {
+		t.Fatalf("restored init = %q, %v", data, err)
+	}
+}
+
+func TestRexCRLFInitSyncAndRemoval(t *testing.T) {
+	s, init, _ := rexRecordTestService(t)
+	original := "#!/usr/bin/env rex\r\n-- user\r\n"
+	if err := os.WriteFile(init, []byte(original), 0644); err != nil {
+		t.Fatal(err)
+	}
+	applyPluginRequest(t, s, Request{Action: "add", Source: rexFixture(t), Targets: []string{"rex"}})
+	want := "#!/usr/bin/env rex\r\n" + strings.TrimSuffix(rexLine, "\n") + "\r\n-- user\r\n"
+	if data, err := os.ReadFile(init); err != nil || string(data) != want {
+		t.Fatalf("installed init = %q, %v; want %q", data, err, want)
+	}
+	applyPluginRequest(t, s, Request{Action: "sync"})
+	if data, err := os.ReadFile(init); err != nil || string(data) != want {
+		t.Fatalf("synced init = %q, %v; want %q", data, err, want)
+	}
+	applyPluginRequest(t, s, Request{Action: "remove", Name: "acme.test"})
+	if data, err := os.ReadFile(init); err != nil || string(data) != original {
+		t.Fatalf("restored init = %q, %v; want %q", data, err, original)
+	}
+}
+
+func TestRexRepairFailureDoesNotStopOtherTargets(t *testing.T) {
+	s, _, _ := rexRecordTestService(t)
+	applyPluginRequest(t, s, Request{Action: "add", Source: rexFixture(t), Targets: []string{"rex"}})
+	other := t.TempDir()
+	writePluginFile(t, other, ".cursor-plugin/plugin.json", `{"name":"z-other","version":"1"}`)
+	writePluginFile(t, other, "skills/demo/SKILL.md", "hello")
+	applyPluginRequest(t, s, Request{Action: "add", Source: other, Targets: []string{"cursor"}})
+	req := Request{Action: "sync"}
+	p, err := s.Preview(context.Background(), req)
+	if err != nil || p.Blocked {
+		t.Fatalf("preview: %+v %v", p, err)
+	}
+	loader := filepath.Join(s.StateDir, "skillshare_rex.lua")
+	if err := os.Remove(loader); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(loader, 0755); err != nil {
+		t.Fatal(err)
+	}
+	result, err := s.applyPlan(context.Background(), req, p)
+	if err == nil || result == nil || len(result.Results) != 2 || result.Results[0].Target != "rex" || result.Results[0].Status != "failed" || result.Results[1].Target != "cursor" || result.Results[1].Status != "unchanged" {
+		t.Fatalf("results = %+v, error = %v", result, err)
+	}
+}
+
 func TestRexSharedInitRestoredAfterOtherMachineRemoves(t *testing.T) {
 	shared := t.TempDir()
 	init := filepath.Join(shared, "init.lua")

@@ -257,7 +257,7 @@ func rexLineIndex(content string) int {
 		if start == 0 && strings.HasPrefix(content, "\xef\xbb\xbf") {
 			start = 3
 		}
-		if strings.HasPrefix(content[start:], rexLine) {
+		if rexManagedLine(content[start:]) {
 			return start
 		}
 		next := strings.IndexByte(content[offset:], '\n')
@@ -267,6 +267,11 @@ func rexLineIndex(content string) int {
 		offset += next + 1
 	}
 	return -1
+}
+
+func rexManagedLine(content string) bool {
+	line, _, _ := strings.Cut(content, "\n")
+	return strings.TrimSuffix(line, "\r") == strings.TrimSuffix(rexLine, "\n")
 }
 
 // rexWriteInit saves init.lua, or deletes it when Skillshare created it and nothing is left.

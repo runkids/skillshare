@@ -61,7 +61,7 @@ func rexRemoveRecord(root string) error {
 
 func rexRemoveLine(content string) string {
 	if i := rexLineIndex(content); i >= 0 {
-		return content[:i] + content[i+len(rexLine):]
+		return content[:i] + rexAfterLine(content[i:])
 	}
 	return content
 }
@@ -75,11 +75,23 @@ func rexInsertLine(content string) (string, error) {
 	if strings.HasPrefix(content[offset:], "#!") {
 		i := strings.IndexByte(content[offset:], '\n')
 		if i < 0 {
-			return content + "\n" + rexLine, nil
+			return content + "\n" + rexLineFor(content), nil
 		}
 		offset += i + 1
 	}
-	return content[:offset] + rexLine + content[offset:], nil
+	return content[:offset] + rexLineFor(content) + content[offset:], nil
+}
+
+func rexAfterLine(content string) string {
+	_, rest, _ := strings.Cut(content, "\n")
+	return rest
+}
+
+func rexLineFor(content string) string {
+	if i := strings.IndexByte(content, '\n'); i > 0 && content[i-1] == '\r' {
+		return strings.TrimSuffix(rexLine, "\n") + "\r\n"
+	}
+	return rexLine
 }
 
 // rexVersionedRecord accepts legacy records without a version while writing v1.
