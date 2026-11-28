@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.34.1] - 2026-11-28
+
+
+### Bug Fixes
+
+* **install:** explain failed downloads in plain words ([937297f](https://github.com/runkids/skillshare/commit/937297fffc191aabce7a8c64785a17b43001cef5))
+* **sync:** shorten the ignored skills and budget warnings ([#1093](https://github.com/runkids/skillshare/issues/1093)) ([a280b38](https://github.com/runkids/skillshare/commit/a280b38ef450543725204662233b54d7acce54ab))
+
 ## [0.34.0] - 2026-11-28
 
 ### New Features
