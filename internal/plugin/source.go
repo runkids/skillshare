@@ -258,6 +258,14 @@ func DiscoverOptions(ctx context.Context, source, ref, entry string) (*Discovery
 		if strings.HasPrefix(normalized, "https://") {
 			if commit, e := runCommand(ctx, root, nil, "git", "rev-parse", "HEAD"); e == nil {
 				d.Commit = strings.TrimSpace(string(commit))
+				for i := range d.Candidates {
+					c := &d.Candidates[i]
+					if info, ok := c.TargetInfo["rex"]; ok && info.Entry != "" {
+						info.Version = d.Commit[:min(len(d.Commit), 7)]
+						c.TargetInfo["rex"] = info
+						c.collectTargets()
+					}
+				}
 			} else {
 				return nil, e
 			}
@@ -451,19 +459,31 @@ func discoverRoot(root, source string, explicit ...string) (*Discovery, error) {
 		}
 	}
 	if len(result.Candidates) == 0 {
-		c, err := inspect(root, explicit...)
-		if err != nil {
+		c, inspectErr := inspect(root, explicit...)
+		if inspectErr == nil {
+			c.Path = "."
+			result.Candidates = append(result.Candidates, c)
+		} else if _, statErr := os.Stat(filepath.Join(root, "rex-plugin.toml")); !os.IsNotExist(statErr) {
+			return nil, inspectErr
+		} else {
 			entry := ""
 			if len(explicit) > 0 {
 				entry = explicit[0]
 			}
 			result.Candidates = herdrCandidates(root, entry)
 			if len(result.Candidates) == 0 {
-				return nil, err
+				m, adoptErr := rexAdopt(root, source, "")
+				if adoptErr != nil {
+					if isDirectory(filepath.Join(root, "rex", "lua")) || isDirectory(filepath.Join(root, "lua")) {
+						return nil, adoptErr
+					}
+					return nil, inspectErr
+				}
+				info := TargetPackage{Entry: m.Main, Version: m.Version, Components: []string{"config"}}
+				c := Candidate{Name: m.ID, Path: ".", TargetInfo: map[string]TargetPackage{"rex": info}}
+				c.collectTargets()
+				result.Candidates = append(result.Candidates, c)
 			}
-		} else {
-			c.Path = "."
-			result.Candidates = append(result.Candidates, c)
 		}
 	}
 	for i := range result.Candidates {

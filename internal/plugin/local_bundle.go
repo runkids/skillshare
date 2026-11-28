@@ -14,12 +14,17 @@ import (
 )
 
 type cursorOwner struct {
-	Config string `json:"config"`
-	Digest string `json:"digest"`
+	Config    string `json:"config"`
+	Digest    string `json:"digest"`
+	RexSource string `json:"rexSource,omitempty"`
+	RexCommit string `json:"rexCommit,omitempty"`
 }
 
 // localRoot returns the plugin folder and the Agent folder (or project) it lives in.
 func (s *Service) localRoot(target string) (string, string, error) {
+	if target == "rex" {
+		return filepath.Join(s.managedRoot(), "rex"), s.managedRoot(), nil
+	}
 	if target == "antigravity" && s.ProjectRoot != "" {
 		hidden := filepath.Join(s.ProjectRoot, ".agents", "plugins")
 		visible := filepath.Join(s.ProjectRoot, "_agents", "plugins")
@@ -101,6 +106,17 @@ func (s *Service) localInventory(target string) ([]Installed, string, error) {
 		}
 		dir := filepath.Join(root, entry.Name())
 		candidate, err := inspect(dir)
+		if target == "rex" && (err != nil || !slices.Contains(candidate.Targets, "rex")) {
+			// Re-adopt an Amber bundle from its marker.
+			var owner cursorOwner
+			data, _ := os.ReadFile(filepath.Join(root, ".skillshare-"+entry.Name()+".json"))
+			if json.Unmarshal(data, &owner) == nil && owner.RexSource != "" {
+				if m, e := rexAdopt(dir, owner.RexSource, owner.RexCommit); e == nil {
+					candidate, err = Candidate{Name: m.ID, TargetInfo: map[string]TargetPackage{"rex": {Version: m.Version, Components: []string{"config"}}}}, nil
+				}
+			}
+			candidate.collectTargets()
+		}
 		if err != nil {
 			return nil, "", fmt.Errorf("inspect local plugin %s: %w", entry.Name(), err)
 		}
@@ -213,7 +229,11 @@ func (s *Service) applyLocalIn(layout localFolderLayout, c Change, b Binding, so
 		}
 		return err
 	}
-	data, _ := json.Marshal(cursorOwner{Config: config, Digest: digest})
+	owner := cursorOwner{Config: config, Digest: digest}
+	if c.Target == "rex" {
+		owner.RexSource, owner.RexCommit = b.Source, b.Commit
+	}
+	data, _ := json.Marshal(owner)
 	if err = atomicNativeWrite(base, marker, data, 0600); err != nil {
 		return fmt.Errorf("Plugin files copied but ownership recording failed; inspect %s before retrying: %w", dest, err)
 	}

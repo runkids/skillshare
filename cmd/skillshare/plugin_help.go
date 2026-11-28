@@ -32,7 +32,7 @@ func printPluginHelp() {
 			{"-p, --project", "Project configuration (supported targets only)"},
 		}},
 		helpGroup{title: "Targets", rows: []helpRow{
-			{"Supported", "claude, codex, cursor, antigravity (desktop; alias: agy),\nantigravity-cli, copilot, grok, pi, opencode, omp, herdr-app"},
+			{"Supported", "claude, codex, cursor, antigravity (desktop; alias: agy),\nantigravity-cli, copilot, grok, pi, opencode, omp, herdr-app, rex"},
 			{"Discovery only", "kimi, hermes, devin (native automation not yet verified)"},
 			{"Project", "claude, antigravity, pi, opencode, omp"},
 		}},

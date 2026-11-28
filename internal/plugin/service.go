@@ -326,7 +326,7 @@ func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval) (
 				market := "skillshare-" + marketUnsafe.ReplaceAllString(c.Name, "-") + "-" + digest
 				b := Binding{ID: c.Name + "@" + market, Source: discovered.Source, SourceRef: discovered.SourceRef, Commit: discovered.Commit, Plugin: c.Name, Digest: discovered.Digest, Version: c.TargetInfo[agent].Version, Components: c.TargetInfo[agent].Components}
 				switch agent {
-				case "cursor", "antigravity", "antigravity-cli", "copilot", "grok", "kimi", "hermes", "devin":
+				case "rex", "cursor", "antigravity", "antigravity-cli", "copilot", "grok", "kimi", "hermes", "devin":
 					b.ID = c.Name
 				case "herdr-app":
 					b.ID, b.Entry = c.Name, c.TargetInfo[agent].Entry
@@ -423,7 +423,7 @@ func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval) (
 				return nil, fmt.Errorf("use --name to choose a logical package name for this native identifier")
 			}
 		}
-		if agent := s.agentOf(r.From); agent == "cursor" || agent == "antigravity" || agent == "herdr-app" {
+		if agent := s.agentOf(r.From); agent == "cursor" || agent == "antigravity" || agent == "herdr-app" || agent == "rex" {
 			return nil, fmt.Errorf("Local directory plugins can be added from source; importing existing or marketplace installations is not supported")
 		}
 		if installed.Filtered && s.agentOf(r.From) != "pi" {
@@ -498,6 +498,10 @@ func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval) (
 					p.Changes = append(p.Changes, Change{Name: name, Target: target, ID: b.ID, Binding: b, Action: "skip", Message: "Herdr app home is absent; skipped.", MessageKey: "plugins.note.herdrHomeSkipped"})
 					continue
 				}
+				if agent == "rex" && b.Selected() && r.Action != "remove" && r.Action != "uninstall" && r.Action != "enable" && r.Action != "disable" && host(target).Status == HostMissing {
+					p.Changes = append(p.Changes, Change{Name: name, Target: target, ID: b.ID, Binding: b, Action: "skip", Message: "Rex is not installed here; this will be applied on a machine that has it.", MessageKey: "plugins.note.rexMissing"})
+					continue
+				}
 				decl, declared := d.intent[name].Bindings[target]
 
 				if r.Action == "update" && r.SourceRef != "" {
@@ -543,7 +547,7 @@ func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval) (
 				}
 				if b.Cleanup && (r.Action == "sync" || r.Action == "update" || r.Action == "remove") {
 					action := "remove"
-					if _, exists := find(target, b.ID); !exists && host(target).Error == "" && !mayOwnMarket(target, b) {
+					if _, exists := find(target, b.ID); !exists && host(target).Error == "" && !mayOwnMarket(target, b) && !(agent == "rex" && d.state.Bindings[name][target].Pending != nil && d.state.Bindings[name][target].Pending.Action == "remove") {
 						action = "forget"
 					}
 					old := b
@@ -594,7 +598,7 @@ func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval) (
 				case "sync":
 					if !b.Selected() {
 						c.Action = "uninstall"
-						if !exists && !ownMarket(target, b) && agent != "omp" {
+						if !exists && !ownMarket(target, b) && agent != "omp" && !(agent == "rex" && b.Pending == "uninstall") {
 							c.Action = "noop"
 						}
 						break
@@ -606,7 +610,7 @@ func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval) (
 							c.Action = "noop"
 						}
 					}
-					if c.Action == "install" && exists && b.PiRegistration == "" {
+					if c.Action == "install" && exists && b.PiRegistration == "" && !(agent == "rex" && b.Pending == "install") {
 						c.Action = "noop"
 					}
 					if c.Action == "remove" && !exists && host(target).Error == "" && !mayOwnMarket(target, b) {
@@ -816,6 +820,11 @@ func (s *Service) prepareChange(ctx context.Context, r Request, d *document, hos
 	}
 	h := host(c.Target)
 	agent := s.agentOf(c.Target)
+	if agent == "rex" && r.Action == "add" && h.Status == HostMissing && c.Action == "install" {
+		c.Action = "selection"
+		c.Message, c.MessageKey = "Rex is not installed here; this will be applied on a machine that has it.", "plugins.note.rexMissing"
+		return c
+	}
 	failChange := func(message, key string, args map[string]string) {
 		if r.isolatesTargets() {
 			c.Action, c.Failed = "skip", true

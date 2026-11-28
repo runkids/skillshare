@@ -20,6 +20,7 @@ func TargetDefinitions() []TargetDefinition {
 		{Target: "claude", Label: "Claude Code", Project: true, Operations: all},
 		{Target: "codex", Label: "Codex", Operations: all},
 		{Target: "herdr-app", Label: "Herdr app", Operations: []string{"add", "sync", "check", "update", "remove", "enable", "disable"}},
+		{Target: "rex", Label: "Rex", Operations: []string{"add", "sync", "check", "update", "remove", "enable", "disable"}},
 		{Target: "cursor", Label: "Cursor", Operations: []string{"add", "sync", "check", "update", "remove", "enable", "disable"}},
 		{Target: "antigravity", Label: "Antigravity Desktop", Project: true, Operations: []string{"add", "sync", "check", "update", "remove", "enable", "disable"}},
 		{Target: "pi", Label: "Pi", Project: true, Operations: all},

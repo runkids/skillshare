@@ -230,6 +230,10 @@ marketplace 為基礎的本機/Git source。OMP 帳號不會改變 plugin 的儲
 OMP 沒有 project 信任提示。同步 hooks 前請先審閱程式碼：寫入的 extension 可能會在下次
 OMP 啟動時執行。
 
+## Rex
+
+Rex 是 [plugin target](../commands/plugin.md#rex)，不是 skills target：請在 `skillshare plugin` 中使用 `--target rex`。Skillshare 不需要 rexd 即可安裝 Rex plugin 的設定程式碼，並在 Rex 的 `init.lua` 中加入一行來載入它。僅支援全域範圍。
+
 ## DeepSeek Harness and GitLab Duo
 
 上方列出的是預設路徑。對於內建的全域路徑，skillshare 也會遵循：

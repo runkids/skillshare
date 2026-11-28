@@ -231,6 +231,10 @@ Hooks 소유 파일은 Skillshare의 소유권 기록과 파일 해시가 일치
 OMP에는 project trust 확인이 없습니다. hooks를 sync하기 전에 코드를 검토하세요. 작성된
 extension은 다음 OMP 시작 시 실행될 수 있습니다.
 
+## Rex
+
+Rex는 skills target이 아니라 [plugin target](../commands/plugin.md#rex)입니다. `skillshare plugin`에서 `--target rex`를 사용하세요. Skillshare는 rexd 없이 Rex plugin의 설정 코드를 설치하고, 이를 불러오는 한 줄을 Rex의 `init.lua`에 추가합니다. 전역 범위만 지원합니다.
+
 ## DeepSeek Harness and GitLab Duo
 
 위 경로는 기본값입니다. 내장 global 경로에 대해 skillshare는 다음도 따릅니다:

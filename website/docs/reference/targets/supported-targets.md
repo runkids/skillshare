@@ -236,6 +236,12 @@ ownership and native-lock requirements.
 OMP has no project trust prompt. Review code before syncing hooks: a written
 extension may execute at the next OMP startup.
 
+## Rex
+
+Rex is a [plugin target](../commands/plugin.md#rex), not a skills target: use
+`--target rex` with `skillshare plugin`. Skillshare installs a Rex plugin's config
+code without rexd and adds one line to Rex's `init.lua` to load it. Global scope only.
+
 ## DeepSeek Harness and GitLab Duo
 
 The paths above show defaults. For built-in global paths, skillshare also honors:

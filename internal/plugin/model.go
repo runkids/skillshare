@@ -78,6 +78,7 @@ func (r Request) isolatesTargets() bool {
 type TargetPackage struct {
 	openCodeV1Error string
 	openCodeV2Error string
+	rexConfig       string
 	Manifest        string     `json:"manifest"`
 	HerdrDock       *herdrDock `json:"herdrDock,omitempty"`
 	// Path is set when this Agent's catalog points at its own folder; empty means Candidate.Path.

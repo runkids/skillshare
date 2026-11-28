@@ -70,13 +70,7 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (_ *Result,
 	if err != nil {
 		return nil, err
 	}
-	// Reuse the inventory already observed by this apply's fresh Preview.
-	s.adoptLegacy(d, func(target string) Host {
-		if h, ok := p.hosts[target]; ok {
-			return h
-		}
-		return s.host(ctx, target)
-	})
+	s.adoptPlanLegacy(ctx, d, p)
 	before, _ := yaml.Marshal(d.intent)
 	for _, c := range p.Changes {
 		if c.Action == "skip" || c.Action == "blocked" {
@@ -186,6 +180,9 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (_ *Result,
 		}
 		if c.Action == "selection" || c.Target == "" || c.ID == "" && c.Action == "forget" {
 			outcome.Status = "saved"
+			if s.agentOf(c.Target) == "rex" {
+				outcome.Message, outcome.MessageKey, outcome.MessageArgs = c.Message, c.MessageKey, c.MessageArgs
+			}
 
 			if c.Action == "forget" {
 				outcome.Status = "removed"
@@ -218,6 +215,11 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (_ *Result,
 		}
 
 		if c.Action == "noop" {
+			if err := s.rexSyncRepair(r, c); err != nil {
+				recordApplyFailure(&outcome, err, &failures, failed, key)
+				result.Results = append(result.Results, outcome)
+				continue
+			}
 			if r.Action == "add" && !c.Binding.Imported && local.Applied != nil && c.Binding.ID == local.Applied.Binding.ID {
 				local.Applied.Intent, local.Applied.Binding.Imported = decl.fingerprint(), c.Binding.Imported
 				local.Legacy = nil
@@ -294,10 +296,7 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (_ *Result,
 			ompWritten[c.Target] = true
 		}
 		if applyErr != nil {
-			outcome.Status, outcome.Message = "failed", applyErr.Error()
-			outcome.MessageKey, outcome.MessageArgs = ErrorKey(applyErr)
-			failures = append(failures, applyErr)
-			failed[key] = true
+			recordApplyFailure(&outcome, applyErr, &failures, failed, key)
 		} else {
 			if herdrEnabledSync {
 				clearHerdrLayoutSuspension(&local, view)
@@ -347,6 +346,9 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (_ *Result,
 					outcome.MessageKey, outcome.MessageArgs = "plugins.outcome.herdrModInstalled", map[string]string{"path": path}
 				}
 			}
+			if s.agentOf(c.Target) == "rex" {
+				outcome.Message, outcome.MessageKey = "Run rex config reload to apply this change to a running Rex server.", "plugins.outcome.rexReload"
+			}
 			if s.agentOf(c.Target) == "omp" && (c.Action == "remove" || c.Action == "forget" || c.Action == "uninstall") {
 				outcome.Message, outcome.MessageKey = "Removed from this scope; shared cache, marketplaces and plugin settings were retained.", "plugins.outcome.ompRemoved"
 			}
@@ -394,4 +396,21 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (_ *Result,
 		result.Results = append(result.Results, outcome)
 	}
 	return result, errors.Join(failures...)
+}
+
+func recordApplyFailure(outcome *Outcome, err error, failures *[]error, failed map[string]bool, key string) {
+	outcome.Status, outcome.Message = "failed", err.Error()
+	outcome.MessageKey, outcome.MessageArgs = ErrorKey(err)
+	*failures = append(*failures, err)
+	failed[key] = true
+}
+
+func (s *Service) adoptPlanLegacy(ctx context.Context, d *document, p *Plan) {
+	// Reuse the inventory already observed by this apply's fresh Preview.
+	s.adoptLegacy(d, func(target string) Host {
+		if h, ok := p.hosts[target]; ok {
+			return h
+		}
+		return s.host(ctx, target)
+	})
 }

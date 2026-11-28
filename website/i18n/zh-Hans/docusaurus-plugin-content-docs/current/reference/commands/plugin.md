@@ -56,7 +56,7 @@ target 会保存该选择。下一次 `sync plugins` 会移除其受管理的安
 
 | Option | Meaning |
 |---|---|
-| `--target TARGET` | Repeatable selection: `claude`, `codex`, `cursor`, `antigravity` (`agy` alias), `antigravity-cli`, `copilot`, `grok`, `pi`, `omp`, `opencode`, `herdr-app`, or the name of [another account of an Agent](#accounts); see the capability table below |
+| `--target TARGET` | Repeatable selection: `claude`, `codex`, `cursor`, `antigravity` (`agy` alias), `antigravity-cli`, `copilot`, `grok`, `pi`, `omp`, `opencode`, `herdr-app`, `rex`, or the name of [another account of an Agent](#accounts); see the capability table below |
 | `--plugin NAME` | Select one plugin from a source marketplace |
 | `--name NAME` | Logical package name when adding or importing |
 | `--from TARGET` | Import from Claude, Codex, Antigravity CLI, Copilot, Grok, Pi, OMP marketplaces, OpenCode, or [another account of an Agent](#accounts) |
@@ -81,6 +81,7 @@ JSON 输出包含来源路径和原生标识符。不要在来源 URL 中放置�
 | Claude Code | `.claude-plugin/plugin.json` | Yes | Yes | Native update |
 | Codex | `.codex-plugin/plugin.json`, Agent Plugins root manifest, or Claude manifest | Yes | No | 刷新经审核的来源后再次 add，仅限在 Codex 中为启用状态 |
 | Cursor | `.cursor-plugin/plugin.json` or Agent Plugins root manifest | Yes | No | Replace reviewed local copy |
+| Rex | `rex-plugin.toml` with a `config` file, or an Amber-style Lua module with a `setup` function | Yes | No | [Replace reviewed local copy](#rex) |
 | Antigravity Desktop | `.antigravity-plugin/plugin.json`、`.gemini-plugin/plugin.json` 或根目录下的 `plugin.json`（须明确指定名称） | Yes | Yes | Replace reviewed local copy |
 | Pi | `package.json` with `pi` resources, or `pi-package` keyword and conventional resource folders | Yes | Yes, with native project trust | Refresh managed source snapshot |
 | Oh My Pi | Marketplace-backed local/Git plugins with native-compatible metadata | Fresh-cache install/reinstall, import and scoped removal | At OMP's project anchor | Updates reinstall into fresh cache; removal retains shared cache |
@@ -175,6 +176,23 @@ mv ~/.config/herdr-app/mods/my-mod ~/my-mod.bak
 `update` 显示安装路径，不代表 mod 已在运行。Herdr 在文件变化时会重新加载 mod；用 `herdr-app status` 确认。`place: none` 的 mod 不会被自动放置，需要手动加到 layout 中。更新启动器前，先关闭该应用的聊天和 readout，更新后再重新打开。
 
 在没有 Herdr app 的机器上（主目录不存在），`sync`、`check` 和 `update` 会跳过 `herdr-app` 绑定（包括启动器），不获取任何内容，plugin 的其他 target 照常运行。绑定声明会保留。在这样的机器上 `add` 到 `herdr-app` 会被拒绝。`remove` 会删除绑定而不创建主目录，其他操作会跳过该绑定。主目录存在但不是文件夹时，这个 target 会被阻止。
+
+### Rex {#rex}
+
+Rex 没有自己的 plugin 管理器，Skillshare 也不需要 rexd。它只在全局范围内安装 plugin 的配置代码（action 与按键绑定）：
+
+- 格式：一个带有 `rex-plugin.toml` 并指定其 `config` 文件的文件夹，或位于 `rex/lua/` 或 `lua/` 中、带有 `setup` 函数的 Amber 风格 Lua 模块。只有当 source 中没有其他 plugin manifest 时才会采用 Lua 模块；其 ID 为 `owner.repo`（本地目录为 `local.<folder>`），版本为 commit。若有多个模块，其中一个必须与仓库同名。
+- 声明了 `[[scripts]]` 或 `[[build]]` 的 plugin 会被拒绝：事件脚本与构建步骤由 rexd 运行，而 Skillshare 不运行守护进程。
+- 安装或更新前，Skillshare 会单独对该 plugin 运行 `rex config check`。Rex 拒绝的 plugin 不会被安装。
+- plugin 副本保存在 Skillshare 的状态目录中。Skillshare 会在 `init.lua`（`REX_CONFIG`，否则为 `$XDG_CONFIG_HOME/rex/init.lua` 或 `~/.config/rex/init.lua`；Windows 上为 `%AppData%\rex\init.lua`）加载状态目录中的加载器 `skillshare_rex.lua`，并在 `init.lua` 顶部添加一行，文件其余部分保持不变。移除最后一个 Rex plugin 时会删除加载器，并移除这台机器添加的那一行。
+- plugin 会获得 `rexd.plugin` 表（`id`、`version`、`dir`、`options`），并可 `require` 其 `rex/lua` 或 `lua` 文件夹中的模块，因此为 rexd 编写的纯配置 plugin 无需修改即可加载。所有 Rex plugin 共用 Lua 的模块名，所以请用 plugin 自己的名字作为其模块的前缀，例如 `require("my-plugin.helpers")`。加载器会记录 plugin 的运行时错误，并继续加载其他 plugin。
+- 更改后运行 `rex config reload`，让正在运行的 Rex 服务器重新读取。
+- 在没有 `rex` 的机器上，Skillshare 会保存更改并跳过 Rex，到有 Rex 的机器上再应用。Rex plugin 不能被导入，请从其 source 添加。
+
+```bash
+skillshare plugin add owner/my-rex-plugin --target rex --no-tui -g
+rex config reload
+```
 
 ### Oh My Pi (OMP) {#omp}
 

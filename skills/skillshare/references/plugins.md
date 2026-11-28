@@ -2,7 +2,7 @@
 
 Plugins are complete native packages, not standalone skills. Keep their components
 together. Install targets: `claude`, `codex`, `cursor`, `antigravity` (`agy` alias),
-`antigravity-cli`, `copilot`, `pi`, `opencode`, `omp`, and `herdr-app`. Grok supports native import/removal,
+`antigravity-cli`, `copilot`, `pi`, `opencode`, `omp`, `herdr-app`, and `rex` (global only). Grok supports native import/removal,
 with trust/install handled in Grok. Kimi, Hermes, and Devin are discovery-only.
 Read `targetDefinitions` from JSON output instead of assuming every format supports
 all operations. `targetInfo` reports per-target components, version, and problems.
@@ -129,7 +129,7 @@ targets (no `--target`, or more than one) isolates them the same way; with nothi
 `remove NAME --target` uninstalls that binding. `remove NAME` without `--target`, once
 no Agent holds it, drops the package from Skillshare entirely.
 
-Claude supports native updates; Codex re-adds the reviewed snapshot unless the plugin is disabled in Codex. Cursor/Antigravity replace managed
+Claude supports native updates; Codex re-adds the reviewed snapshot unless the plugin is disabled in Codex. Cursor/Antigravity/Rex replace managed
 local copies; Pi/OpenCode refresh reviewed source snapshots; OMP removes its scoped registration and reinstalls the reviewed commit. Imported Codex plugins update by upgrading their marketplace; imported Pi packages through `pi update`, global only. Imported OpenCode v1 packages must be updated natively. OpenCode v2 global
 package imports may use native update, retried while OpenCode is still loading its plugins (it then reports `Plugin is not configured`; packages its settings no longer list are skipped); imported local directories and project imports may not. Copilot and Antigravity CLI source updates
 require known native enabled state; Grok updates natively. Project mode supports Claude, Antigravity, Pi,
@@ -140,6 +140,12 @@ OMP and OpenCode, never falling back to global scope. An update reports failed t
 - Cursor: `.cursor-plugin/plugin.json` or Agent Plugins root manifest; copy to
   `~/.cursor/plugins/local/`. Local imports must be allowed; marketplace copies can
   take precedence. No CLI required. Reload and verify in Cursor.
+- Rex (global only, no rexd): `rex-plugin.toml` with `config`, or an Amber-style Lua module
+  with `setup` (adopted only when the source has no other manifest; ID `owner.repo`).
+  `[[scripts]]`/`[[build]]` are refused because rexd runs them. Each plugin passes
+  `rex config check` alone before install. Skillshare adds one line to `init.lua` and
+  leaves the rest; removing the last plugin restores it. Run `rex config reload` after.
+  Without `rex`, the change is saved and Rex is skipped. Not importable.
 - Antigravity: `.antigravity-plugin/plugin.json`, `.gemini-plugin/plugin.json`, or root
   `plugin.json` with explicit `name` (in that precedence order); native
   `.antigravity-plugin/marketplace.json` catalogs take precedence over

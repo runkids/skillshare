@@ -55,7 +55,7 @@ target 會儲存這個選擇。下一次 `sync plugins` 會移除其受管理的
 
 | Option | Meaning |
 |---|---|
-| `--target TARGET` | 可重複指定：`claude`、`codex`、`cursor`、`antigravity`（別名 `agy`）、`antigravity-cli`、`copilot`、`grok`、`pi`、`omp`、`opencode`、`herdr-app`，或[某個 Agent 的另一個帳號](#accounts)的名稱；請參閱下方的 capability 表 |
+| `--target TARGET` | 可重複指定：`claude`、`codex`、`cursor`、`antigravity`（別名 `agy`）、`antigravity-cli`、`copilot`、`grok`、`pi`、`omp`、`opencode`、`herdr-app`、`rex`，或[某個 Agent 的另一個帳號](#accounts)的名稱；請參閱下方的 capability 表 |
 | `--plugin NAME` | 從 source marketplace 選擇一個 plugin |
 | `--name NAME` | 新增或匯入時使用的邏輯套件名稱 |
 | `--from TARGET` | 從 Claude、Codex、Antigravity CLI、Copilot、Grok、Pi、OMP marketplaces、OpenCode 或[某個 Agent 的另一個帳號](#accounts)匯入 |
@@ -80,6 +80,7 @@ JSON 輸出包含 source 路徑與原生識別碼。請勿在 source URL 中放�
 | Claude Code | `.claude-plugin/plugin.json` | Yes | Yes | 原生更新 |
 | Codex | `.codex-plugin/plugin.json`、Agent Plugins 根目錄 manifest 或 Claude manifest | Yes | No | 重新整理已審閱的來源後再次 add，僅限在 Codex 中為啟用狀態 |
 | Cursor | `.cursor-plugin/plugin.json` 或 Agent Plugins 根目錄 manifest | Yes | No | 取代已檢視的本機複本 |
+| Rex | 指定 `config` 檔案的 `rex-plugin.toml`，或帶有 `setup` 函式的 Amber 風格 Lua 模組 | Yes | No | [取代已檢視的本機複本](#rex) |
 | Antigravity Desktop | `.antigravity-plugin/plugin.json`、`.gemini-plugin/plugin.json` 或根目錄的 `plugin.json`（須明確指定名稱） | Yes | Yes | 取代已檢視的本機複本 |
 | Pi | 含 `pi` resources 的 `package.json`，或帶有 `pi-package` 關鍵字與慣用 resource 資料夾 | Yes | Yes，需原生專案信任 | 重新整理受管理的 source 快照 |
 | Oh My Pi | 以 marketplace 為基礎、具有原生相容 metadata 的本機/Git plugins | 全新 cache 的安裝/重新安裝、匯入與限定 scope 的移除 | 在 OMP 的 project anchor | 更新會重新安裝到全新 cache；移除時保留共用 cache |
@@ -175,6 +176,23 @@ mv ~/.config/herdr-app/mods/my-mod ~/my-mod.bak
 `update` 顯示安裝路徑，不代表 mod 已在執行。Herdr 會在檔案變更時重新載入 mod；請用 `herdr-app status` 確認。`place: none` 的 mod 不會自動放置，需要手動加到 layout 中。更新啟動器前，先關閉該應用程式的聊天與 readout，更新後再重新開啟。
 
 在沒有 Herdr app 的機器上（主目錄不存在），`sync`、`check` 與 `update` 會略過 `herdr-app` 綁定（包括啟動器），不擷取任何內容，plugin 的其他 target 照常執行。綁定宣告會保留。在這樣的機器上 `add` 到 `herdr-app` 會被拒絕。`remove` 會刪除綁定而不建立主目錄，其他操作會略過該綁定。主目錄存在但不是資料夾時，這個 target 會被封鎖。
+
+### Rex {#rex}
+
+Rex 沒有自己的 plugin 管理器，Skillshare 也不需要 rexd。它只在全域範圍內安裝 plugin 的設定程式碼（action 與按鍵綁定）：
+
+- 格式：一個帶有 `rex-plugin.toml` 並指定其 `config` 檔案的資料夾，或位於 `rex/lua/` 或 `lua/` 中、帶有 `setup` 函式的 Amber 風格 Lua 模組。只有當 source 中沒有其他 plugin manifest 時才會採用 Lua 模組；其 ID 為 `owner.repo`（本機目錄為 `local.<folder>`），版本為 commit。若有多個模組，其中一個必須與儲存庫同名。
+- 宣告了 `[[scripts]]` 或 `[[build]]` 的 plugin 會被拒絕：事件指令碼與建置步驟由 rexd 執行，而 Skillshare 不執行常駐程式。
+- 安裝或更新前，Skillshare 會單獨對該 plugin 執行 `rex config check`。Rex 拒絕的 plugin 不會被安裝。
+- plugin 複本保存在 Skillshare 的狀態目錄中。Skillshare 會在 `init.lua`（`REX_CONFIG`，否則為 `$XDG_CONFIG_HOME/rex/init.lua` 或 `~/.config/rex/init.lua`；Windows 上為 `%AppData%\rex\init.lua`）載入狀態目錄中的載入器 `skillshare_rex.lua`，並在 `init.lua` 頂端加入一行，檔案其餘部分保持不變。移除最後一個 Rex plugin 時會刪除載入器，並移除這台機器加入的那一行。
+- plugin 會取得 `rexd.plugin` 表（`id`、`version`、`dir`、`options`），並可 `require` 其 `rex/lua` 或 `lua` 資料夾中的模組，因此為 rexd 撰寫的純設定 plugin 不需修改即可載入。所有 Rex plugin 共用 Lua 的模組名稱，所以請用 plugin 自己的名稱作為其模組的前綴，例如 `require("my-plugin.helpers")`。載入器會記錄 plugin 的執行時錯誤，並繼續載入其他 plugin。
+- 變更後執行 `rex config reload`，讓正在執行的 Rex 伺服器重新讀取。
+- 在沒有 `rex` 的電腦上，Skillshare 會儲存變更並略過 Rex，到有 Rex 的電腦上再套用。Rex plugin 無法匯入，請從其 source 新增。
+
+```bash
+skillshare plugin add owner/my-rex-plugin --target rex --no-tui -g
+rex config reload
+```
 
 ### Oh My Pi (OMP) {#omp}
 

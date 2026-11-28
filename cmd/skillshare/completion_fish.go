@@ -66,7 +66,7 @@ complete -c skillshare -n __fish_skillshare_no_subcommand -a search -d 'Search o
 complete -c skillshare -n __fish_skillshare_no_subcommand -a sync -d 'Sync skills/agents/extras/MCP to targets'
 complete -c skillshare -n __fish_skillshare_no_subcommand -a plugin -d 'Manage complete native plugins'
 complete -c skillshare -n '__fish_skillshare_using_command plugin' -a 'add discover import unimport list inspect sync check update enable disable remove'
-complete -c skillshare -n '__fish_skillshare_using_command plugin' -l target -r -a 'claude codex cursor antigravity agy antigravity-cli copilot grok kimi hermes devin pi opencode omp herdr-app' -d 'Plugin target'
+complete -c skillshare -n '__fish_skillshare_using_command plugin' -l target -r -a 'claude codex cursor antigravity agy antigravity-cli copilot grok kimi hermes devin pi opencode omp herdr-app rex' -d 'Plugin target'
 complete -c skillshare -n '__fish_skillshare_using_command plugin' -l from -r -a 'claude codex cursor antigravity agy antigravity-cli copilot grok kimi hermes devin pi opencode omp' -d 'Plugin target'
 complete -c skillshare -n '__fish_skillshare_using_command plugin' -l plugin -r
 complete -c skillshare -n '__fish_skillshare_using_command plugin' -l name -r
