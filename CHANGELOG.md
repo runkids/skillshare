@@ -1,5 +1,49 @@
 # Changelog
 
+## [0.34.0](https://github.com/runkids/skillshare/compare/v0.33.0...v0.34.0) (2026-11-28)
+
+
+### New Features
+
+* **hooks:** take over several conflicting hooks in one CLI sync ([#1091](https://github.com/runkids/skillshare/issues/1091)) ([3528766](https://github.com/runkids/skillshare/commit/352876675c8b162b6871a1444d24291cfa4604ef)), closes [#1090](https://github.com/runkids/skillshare/issues/1090) [#1081](https://github.com/runkids/skillshare/issues/1081)
+* **plugin:** install Herdr mods and launchers with the herdr-app target ([#1068](https://github.com/runkids/skillshare/issues/1068)) ([02df95c](https://github.com/runkids/skillshare/commit/02df95c7d552facd7e9e5f572d3a0b6e9718ebd6))
+* **plugin:** place Herdr mod panels and act on plugins together ([#1074](https://github.com/runkids/skillshare/issues/1074)) ([1296b20](https://github.com/runkids/skillshare/commit/1296b209db4662fe37c1519d23952731f5e33f5b)), closes [#1068](https://github.com/runkids/skillshare/issues/1068)
+* **ui:** add background tints and surface options to the custom theme ([a08ca8d](https://github.com/runkids/skillshare/commit/a08ca8dc0278d851fc04c1e8b5380268e06d006e))
+* **ui:** add Glass: Everywhere and make custom corners reach every part ([44756f2](https://github.com/runkids/skillshare/commit/44756f278969081225e2690b8de1bc7bcea0ebef))
+* **ui:** add Tabs components with a sliding underline ([71ba26e](https://github.com/runkids/skillshare/commit/71ba26e8bf3ad9f1898beb19b37cc43cd0650e8c))
+* **ui:** animate list groups as they collapse and open ([341cdc4](https://github.com/runkids/skillshare/commit/341cdc4a4e017f7e8a795b12561f15418b75e12c))
+* **ui:** show an Agent's MCP file and the extensions folder in the page ([#1071](https://github.com/runkids/skillshare/issues/1071)) ([73c31d3](https://github.com/runkids/skillshare/commit/73c31d3bc475778999a1f89c71bd710540b3288d)), closes [#1053](https://github.com/runkids/skillshare/issues/1053)
+* **ui:** show install options without an Advanced toggle ([9fb3de7](https://github.com/runkids/skillshare/commit/9fb3de7aa2dface8f7df893b3497c15335e6ae17))
+
+
+### Bug Fixes
+
+* **hooks:** adopt and retire original file when importing code and Copilot hooks ([#1088](https://github.com/runkids/skillshare/issues/1088)) ([c6bf870](https://github.com/runkids/skillshare/commit/c6bf870d1c10835bd7de88f866968edcec60fba8))
+* **hooks:** allow staging multiple conflicting native hooks in takeover preview ([#1087](https://github.com/runkids/skillshare/issues/1087)) ([9386b8c](https://github.com/runkids/skillshare/commit/9386b8c16016802144025a406d5097476982d271))
+* **hooks:** ignore Codex [hooks.state] trust table in codexInlineEvents ([#1084](https://github.com/runkids/skillshare/issues/1084)) ([e0dd564](https://github.com/runkids/skillshare/commit/e0dd564809045f91fd7d9eeb9db9ee0b13acb6c7))
+* **hooks:** stop offering Review for hooks import cannot take over ([#1089](https://github.com/runkids/skillshare/issues/1089)) ([cdc2b16](https://github.com/runkids/skillshare/commit/cdc2b16b0b72c4c2adbe539b077c83307f68e317)), closes [#1085](https://github.com/runkids/skillshare/issues/1085)
+* **sync:** sync skills that share a name under their full path names ([#1079](https://github.com/runkids/skillshare/issues/1079)) ([0cf993b](https://github.com/runkids/skillshare/commit/0cf993b32781b9663f3d494367177424ead666c5)), closes [#964](https://github.com/runkids/skillshare/issues/964)
+* **sync:** treat a target folder that is another tool's link as sync does ([#1072](https://github.com/runkids/skillshare/issues/1072)) ([1edc73b](https://github.com/runkids/skillshare/commit/1edc73b4340a488b17ea2f534ddc351d1684bbbc)), closes [#1070](https://github.com/runkids/skillshare/issues/1070)
+* **ui:** animate the in-sync targets list on the Sync page ([f320437](https://github.com/runkids/skillshare/commit/f320437f23efe869eec5d958e332a1fc09dc73ec))
+* **ui:** clear the inset sidebar and round the pinned preview's frost on glass ([a255283](https://github.com/runkids/skillshare/commit/a255283cd2529983022cd7e66039de396374b5c3))
+* **ui:** drop the Advanced toggle from the install conflict toast ([6be1702](https://github.com/runkids/skillshare/commit/6be17025cb46e4711d9c6507e5d3a9d74a4c10fa))
+* **ui:** keep dark glass text at 4.5:1 over the light behind it ([472f2ec](https://github.com/runkids/skillshare/commit/472f2ecfb6bc460d9d2b08f0ddeef21e3dfa4774))
+* **ui:** keep Remove in the plugin selection toolbar ink ([53a4d90](https://github.com/runkids/skillshare/commit/53a4d9076886f8c78a54e9610f17c56cd4e78727))
+* **ui:** keep the frosted blur on menus in production builds ([8fb954b](https://github.com/runkids/skillshare/commit/8fb954bd48825699ccfd3a28197f5bc492ce8880))
+* **ui:** keep the theme preview's controls clear of round corners ([7fd2eaa](https://github.com/runkids/skillshare/commit/7fd2eaa68d348e5274d681934097afba3b20b368))
+* **ui:** let glass dialogs show a scrim and the page through them ([95ddd13](https://github.com/runkids/skillshare/commit/95ddd132e728529c9528384b3fb1bda83e637dec))
+* **ui:** let switches and picked states follow the custom primary colour ([3741a7b](https://github.com/runkids/skillshare/commit/3741a7bcce3dcb0563a5fae5e7eddbb3ba2cf1d6))
+* **ui:** line up the Targets list columns with their headers ([a48d505](https://github.com/runkids/skillshare/commit/a48d505db4360a1f88f9ea9b5709790f0e78c5c5))
+* **ui:** pin the theme preview without relayout on every frame ([52dd117](https://github.com/runkids/skillshare/commit/52dd11765d3e5c1b057301800610442a236595e9))
+* **ui:** preserve target-event names for interpreter and shared dispatcher hook imports ([#1086](https://github.com/runkids/skillshare/issues/1086)) ([e35016f](https://github.com/runkids/skillshare/commit/e35016f486ef30c5c5896c78010a02d1b54a917b))
+* **ui:** put plugin logos on a neutral tile ([417d388](https://github.com/runkids/skillshare/commit/417d388d845cb9410ea5ee63dbfbb55eb4b117a5))
+* **ui:** quiet the selected-row tint in a dark custom theme ([40465e3](https://github.com/runkids/skillshare/commit/40465e3f2f37579c7a09c861d8d645bb07f3b7da))
+* **ui:** show titles on truncated lines in the app's own tooltip ([6b7ccdb](https://github.com/runkids/skillshare/commit/6b7ccdb3d0b584de3ca5a395f651db380851bdec))
+* **ui:** soften the dot texture on a dark page ([cbd8e7d](https://github.com/runkids/skillshare/commit/cbd8e7dee8cf60bdface6144f4f64cd0d82f0c31))
+* **ui:** soften the dot texture on a light page ([2b63826](https://github.com/runkids/skillshare/commit/2b638267beb44fa36f4962af23be8541804dafce))
+* **ui:** tie the selected segment's lift to the Buttons option ([50a7aeb](https://github.com/runkids/skillshare/commit/50a7aeb5ce383da6cee7dcd8c96dae8c74214100))
+* **ui:** update only the items that need it from Update all ([a7c0831](https://github.com/runkids/skillshare/commit/a7c0831ec13f354505f32d63d0d9c56a7b107283))
+
 ## [0.33.0] - 2026-11-26
 
 ### New Features
