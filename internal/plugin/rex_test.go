@@ -819,3 +819,112 @@ func TestRexSharedConfigTwoMachines(t *testing.T) {
 		t.Fatalf("machine B removed shared line: %q, %v", data, err)
 	}
 }
+
+func TestRexSyncRepairsWiring(t *testing.T) {
+	for _, damage := range []string{"line", "loader missing", "loader stale"} {
+		t.Run(damage, func(t *testing.T) {
+			s, init, _ := rexRecordTestService(t)
+			applyPluginRequest(t, s, Request{Action: "add", Source: rexFixture(t), Targets: []string{"rex"}})
+			loader := filepath.Join(s.StateDir, "skillshare_rex.lua")
+			original, err := os.ReadFile(loader)
+			if err != nil {
+				t.Fatal(err)
+			}
+			switch damage {
+			case "line":
+				err = os.WriteFile(init, []byte("-- dotfiles\n"), 0644)
+			case "loader missing":
+				err = os.Remove(loader)
+			case "loader stale":
+				err = os.WriteFile(loader, append(original, []byte("-- stale\n")...), 0644)
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			applyPluginRequest(t, s, Request{Action: "sync"})
+			data, err := os.ReadFile(init)
+			if err != nil || rexLineIndex(string(data)) < 0 {
+				t.Fatalf("init = %q, %v", data, err)
+			}
+			data, err = os.ReadFile(loader)
+			if err != nil || string(data) != string(original) {
+				t.Fatalf("loader = %q, %v", data, err)
+			}
+		})
+	}
+}
+
+func TestRexSharedInitRestoredAfterOtherMachineRemoves(t *testing.T) {
+	shared := t.TempDir()
+	init := filepath.Join(shared, "init.lua")
+	t.Setenv("REX_CONFIG", init)
+	machines := make([]*Service, 2)
+	for i, name := range []string{"a", "b"} {
+		home := filepath.Join(t.TempDir(), name)
+		s := &Service{ConfigPath: filepath.Join(home, "config.yaml"), StateDir: filepath.Join(home, "state")}
+		s.Run = func(_ context.Context, _ string, _ []string, _ string, args ...string) ([]byte, error) {
+			if args[0] == "version" {
+				return []byte(`{"rex_version":"1"}`), nil
+			}
+			return []byte(`{}`), nil
+		}
+		source := rexFixture(t)
+		applyPluginRequest(t, s, Request{Action: "add", Source: source, Targets: []string{"rex"}})
+		machines[i] = s
+	}
+	applyPluginRequest(t, machines[0], Request{Action: "remove", Name: "acme.test"})
+	applyPluginRequest(t, machines[1], Request{Action: "sync"})
+	data, err := os.ReadFile(init)
+	if err != nil || rexLineIndex(string(data)) < 0 {
+		t.Fatalf("shared init = %q, %v", data, err)
+	}
+	data, err = os.ReadFile(filepath.Join(machines[1].StateDir, "skillshare_rex.lua"))
+	if err != nil || !strings.Contains(string(data), "acme.test") {
+		t.Fatalf("B loader = %q, %v", data, err)
+	}
+	root, _, err := machines[1].localRoot("rex")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec, _, err := rexReadRecord(root)
+	if err != nil || !rec.InsertedLine {
+		t.Fatalf("B record = %+v, %v", rec, err)
+	}
+}
+
+func TestRexInstallAfterShebangWithoutNewline(t *testing.T) {
+	s, init, _ := rexRecordTestService(t)
+	if err := os.WriteFile(init, []byte("#!/usr/bin/env rex"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	applyPluginRequest(t, s, Request{Action: "add", Source: rexFixture(t), Targets: []string{"rex"}})
+	data, err := os.ReadFile(init)
+	if err != nil || string(data) != "#!/usr/bin/env rex\n"+rexLine {
+		t.Fatalf("init = %q, %v", data, err)
+	}
+}
+
+func TestRexRecordVersions(t *testing.T) {
+	s, _, record := rexRecordTestService(t)
+	applyPluginRequest(t, s, Request{Action: "add", Source: rexFixture(t), Targets: []string{"rex"}})
+	data, err := os.ReadFile(record)
+	if err != nil || !strings.Contains(string(data), `"version":1`) {
+		t.Errorf("record = %q, %v", data, err)
+	}
+	root, _, err := s.localRoot("rex")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		data string
+		bad  bool
+	}{{`{"inserted_line":true}`, false}, {`{"version":1}`, false}, {`{"version":2}`, true}, {`{"version":0}`, true}} {
+		if err := os.WriteFile(record, []byte(tc.data), 0644); err != nil {
+			t.Fatal(err)
+		}
+		_, _, err := rexReadRecord(root)
+		if tc.bad && (err == nil || !strings.Contains(err.Error(), record)) || !tc.bad && err != nil {
+			t.Errorf("record %s: %v", tc.data, err)
+		}
+	}
+}

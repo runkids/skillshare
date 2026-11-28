@@ -325,12 +325,16 @@ func (s *Service) applyRex(ctx context.Context, c Change, binding Binding, sourc
 	if err := s.applyLocal(c, binding, source); err != nil {
 		return err
 	}
+	return s.reconcileRex(init, dest, loader, root)
+}
+
+func (s *Service) reconcileRex(init, dest, loader, root string) error {
 	original, err := os.ReadFile(dest)
 	initExisted := err == nil
 	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
-	data, err = os.ReadFile(loader)
+	data, err := os.ReadFile(loader)
 	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
@@ -383,4 +387,50 @@ func (s *Service) applyRex(ctx context.Context, c Change, binding Binding, sourc
 		return rexRemoveRecord(root)
 	}
 	return nil
+}
+
+// rexNeedsRepair compares managed wiring with the locally installed bundles.
+func (s *Service) rexNeedsRepair() (bool, error) {
+	root, _, err := s.localRoot("rex")
+	if err != nil {
+		return false, err
+	}
+	entries, err := s.rexEntries(root)
+	if err != nil || len(entries) == 0 {
+		return false, err
+	}
+	loader := filepath.Join(s.StateDir, "skillshare_rex.lua")
+	data, err := os.ReadFile(loader)
+	if err != nil && !os.IsNotExist(err) {
+		return false, err
+	}
+	expected, err := s.rexExpectedLoader(entries, data)
+	if err != nil {
+		return false, fmt.Errorf("%s: %w", loader, err)
+	}
+	init, err := os.ReadFile(rexInitPath())
+	if err != nil && !os.IsNotExist(err) {
+		return false, err
+	}
+	return string(data) != expected || rexLineIndex(string(init)) < 0, nil
+}
+
+func (s *Service) rexSyncRepair(r Request, c Change) error {
+	if r.Action != "sync" || c.Target != "rex" || !c.Binding.Selected() {
+		return nil
+	}
+	needs, err := s.rexNeedsRepair()
+	if err != nil || !needs {
+		return err
+	}
+	init := rexInitPath()
+	dest, err := utils.ConfigWritePath(init, false)
+	if err != nil {
+		return err
+	}
+	root, _, err := s.localRoot("rex")
+	if err != nil {
+		return err
+	}
+	return s.reconcileRex(init, dest, filepath.Join(s.StateDir, "skillshare_rex.lua"), root)
 }

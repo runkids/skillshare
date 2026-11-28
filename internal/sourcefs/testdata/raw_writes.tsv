@@ -294,9 +294,9 @@ internal/plugin/pi_extensions_write.go	(*Service).piBackup	os.Remove	record	plug
 internal/plugin/pi_registration_private_other.go	makePiRegistrationDir	os.MkdirAll	path	plugin
 internal/plugin/pi_registration_private_windows.go	makePiRegistrationDir	os.MkdirAll	filepath.Dir(path)	plugin
 internal/plugin/rex.go	(*Service).applyRex	os.MkdirTemp	""	plugin
-internal/plugin/rex.go	(*Service).applyRex	os.Remove	loader	plugin
 internal/plugin/rex.go	(*Service).applyRex	os.RemoveAll	dir	plugin
 internal/plugin/rex.go	(*Service).applyRex	os.WriteFile	probe	plugin
+internal/plugin/rex.go	(*Service).reconcileRex	os.Remove	loader	plugin
 internal/plugin/rex.go	rexWriteInit	os.Remove	dest	plugin
 internal/plugin/rex_record.go	rexRemoveRecord	os.Remove	rexRecordPath(root)	plugin
 internal/plugin/source.go	acquireRef	os.MkdirTemp	""	plugin

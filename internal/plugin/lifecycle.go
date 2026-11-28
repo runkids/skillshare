@@ -70,13 +70,7 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (_ *Result,
 	if err != nil {
 		return nil, err
 	}
-	// Reuse the inventory already observed by this apply's fresh Preview.
-	s.adoptLegacy(d, func(target string) Host {
-		if h, ok := p.hosts[target]; ok {
-			return h
-		}
-		return s.host(ctx, target)
-	})
+	s.adoptPlanLegacy(ctx, d, p)
 	before, _ := yaml.Marshal(d.intent)
 	for _, c := range p.Changes {
 		if c.Action == "skip" || c.Action == "blocked" {
@@ -221,6 +215,9 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (_ *Result,
 		}
 
 		if c.Action == "noop" {
+			if err := s.rexSyncRepair(r, c); err != nil {
+				return result, errors.Join(append(failures, err)...)
+			}
 			if r.Action == "add" && !c.Binding.Imported && local.Applied != nil && c.Binding.ID == local.Applied.Binding.ID {
 				local.Applied.Intent, local.Applied.Binding.Imported = decl.fingerprint(), c.Binding.Imported
 				local.Legacy = nil
@@ -400,4 +397,14 @@ func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (_ *Result,
 		result.Results = append(result.Results, outcome)
 	}
 	return result, errors.Join(failures...)
+}
+
+func (s *Service) adoptPlanLegacy(ctx context.Context, d *document, p *Plan) {
+	// Reuse the inventory already observed by this apply's fresh Preview.
+	s.adoptLegacy(d, func(target string) Host {
+		if h, ok := p.hosts[target]; ok {
+			return h
+		}
+		return s.host(ctx, target)
+	})
 }

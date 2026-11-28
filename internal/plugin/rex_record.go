@@ -27,14 +27,11 @@ func rexReadRecord(root string) (rexInitRecord, bool, error) {
 	if os.IsNotExist(err) {
 		return rexInitRecord{}, false, nil
 	}
-	var rec rexInitRecord
-	if err == nil {
-		err = json.Unmarshal(data, &rec)
-	}
 	if err != nil {
 		return rexInitRecord{}, false, fmt.Errorf("%s: %w", path, err)
 	}
-	return rec, true, nil
+	rec, err := rexDecodeRecord(path, data)
+	return rec, err == nil, err
 }
 
 // rexInitState loads the record; with no record and no loader, nothing of ours is
@@ -48,7 +45,7 @@ func rexInitState(root string, hasLoader bool, original string, initExisted bool
 }
 
 func rexWriteRecord(root string, rec rexInitRecord) error {
-	data, err := json.Marshal(rec)
+	data, err := json.Marshal(rexVersionedRecord{Version: 1, rexInitRecord: rec})
 	if err != nil {
 		return err
 	}
@@ -78,9 +75,32 @@ func rexInsertLine(content string) (string, error) {
 	if strings.HasPrefix(content[offset:], "#!") {
 		i := strings.IndexByte(content[offset:], '\n')
 		if i < 0 {
-			return "", fmt.Errorf("cannot insert Rex loader after a shebang without a newline")
+			return content + "\n" + rexLine, nil
 		}
 		offset += i + 1
 	}
 	return content[:offset] + rexLine + content[offset:], nil
+}
+
+// rexVersionedRecord accepts legacy records without a version while writing v1.
+type rexVersionedRecord struct {
+	Version int `json:"version"`
+	rexInitRecord
+}
+
+func rexDecodeRecord(path string, data []byte) (rexInitRecord, error) {
+	var rec rexVersionedRecord
+	var version struct {
+		Version *int `json:"version"`
+	}
+	if err := json.Unmarshal(data, &rec); err != nil {
+		return rexInitRecord{}, fmt.Errorf("%s: %w", path, err)
+	}
+	if err := json.Unmarshal(data, &version); err != nil {
+		return rexInitRecord{}, fmt.Errorf("%s: %w", path, err)
+	}
+	if version.Version != nil && *version.Version != 1 {
+		return rexInitRecord{}, fmt.Errorf("%s: unsupported Rex init record version %d", path, *version.Version)
+	}
+	return rec.rexInitRecord, nil
 }
