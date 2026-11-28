@@ -208,3 +208,16 @@ func TestPrintBudgetWarning_MergesTargetsWithTheSameCost(t *testing.T) {
 		t.Errorf("want the three largest skills across targets:\n%s", out)
 	}
 }
+
+// A local skill is named by its folder, as the dashboard shows it, so the same
+// claude.ai skill synced into two Claude accounts reads, and counts, as one.
+func TestTopOffenders_NamesLocalSkillsByFolder(t *testing.T) {
+	skills := []analyzeSkillEntry{
+		{Name: "synced__org_user__skill-creator", BodyTokens: 9110, Local: true, relPath: "synced/org_user/skill-creator"},
+		{Name: "_pack__managed", BodyTokens: 100, relPath: "_pack/managed"},
+	}
+	got := topOffenders(skills, 3, false)
+	if len(got) != 2 || got[0].Name != "skill-creator" || got[1].Name != "_pack__managed" {
+		t.Errorf("topOffenders = %+v, want the local skill named by its folder and the source skill unchanged", got)
+	}
+}

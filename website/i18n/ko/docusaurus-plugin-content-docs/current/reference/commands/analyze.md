@@ -58,6 +58,11 @@ skillshare analyze --json | jq '.targets[].skills[] | select(.lint_issues | leng
 
 토큰 추정치는 근사값으로 `chars / 4`를 사용합니다.
 
+각 target은 도구가 실제로 보는 내용으로 측정합니다.
+
+- **merge / copy 모드** — target의 include/exclude와 `targets:` 필터를 통과한 source skills에서 `.skillignore`로 비활성화한 항목을 빼고, source에서 온 것이 아니라 원래 target 폴더에 있던 skills를 더한 것입니다(JSON에서 `local`로 표시). 텍스트 출력은 dashboard와 같이 로컬 skill을 폴더 이름으로 표시합니다. Claude Code가 claude.ai에서 `synced/<id>/skill-creator`로 동기화한 skill은 `skill-creator`로 표시됩니다. JSON은 전체 `name`을 유지합니다.
+- **symlink 모드** — `.skillignore`로 제외한 skills를 포함한 source 폴더 전체(JSON에서 `disabled`로 표시). symlink 때문에 도구가 어차피 그 skills를 보기 때문입니다.
+
 ### Skill 품질 Lint
 
 토큰 분석 외에도 `analyze`는 모든 skill에 대해 내장 lint 엔진을 실행합니다. Lint 규칙은 SKILL.md 구조와 description 품질을 검사하며, TUI와 JSON 출력에 문제를 직접 표시합니다.

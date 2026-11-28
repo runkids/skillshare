@@ -60,7 +60,7 @@ Token estimates count about 4 characters per token for ASCII text and 1 token pe
 
 Each target is measured as the tool sees it:
 
-- **merge / copy mode** — source skills that pass the target's include/exclude and `targets:` filters, minus anything disabled in `.skillignore`, plus skills that already live in the target folder without coming from the source (flagged `local` in JSON).
+- **merge / copy mode** — source skills that pass the target's include/exclude and `targets:` filters, minus anything disabled in `.skillignore`, plus skills that already live in the target folder without coming from the source (flagged `local` in JSON). Text output names a local skill by its folder, as the dashboard does: a skill Claude Code syncs from claude.ai into `synced/<id>/skill-creator` reads `skill-creator`. JSON keeps the full `name`.
 - **symlink mode** — the whole source folder, including `.skillignore`'d skills (flagged `disabled` in JSON), because the symlink exposes them anyway.
 
 ### Skill Quality Lint

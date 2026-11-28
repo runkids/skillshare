@@ -135,7 +135,7 @@ func topOffenders(skills []analyzeSkillEntry, n int, byDescription bool) []token
 			tokens = s.BodyTokens
 		}
 		if tokens > 0 {
-			pairs = append(pairs, pair{s.Name, tokens})
+			pairs = append(pairs, pair{s.label(), tokens})
 		}
 	}
 	sort.Slice(pairs, func(i, j int) bool { return pairs[i].tokens > pairs[j].tokens })

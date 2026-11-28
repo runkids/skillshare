@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"fmt"
 	"os"
+	"path"
 	"slices"
 	"strings"
 
@@ -37,6 +38,16 @@ type analyzeSkillEntry struct {
 	isTracked   bool
 	targetNames []string
 	description string
+}
+
+// label is the name to show. A local skill gets its folder, as the dashboard shows it:
+// its flattened path, such as synced__<id>__skill-creator for a skill Claude Code
+// syncs from claude.ai, differs per account and means nothing to a reader.
+func (s analyzeSkillEntry) label() string {
+	if s.Local && s.relPath != "" {
+		return path.Base(s.relPath)
+	}
+	return s.Name
 }
 
 type analyzeCharTokens struct {
@@ -473,7 +484,7 @@ func printAnalyzeSection(names []string, e analyzeTargetEntry, showTopN, first b
 	limit := min(analyzeTopN, len(e.Skills))
 	labels := make([]string, limit)
 	for i, s := range e.Skills[:limit] {
-		labels[i] = "  " + truncateName(s.Name, analyzeNameMaxLen)
+		labels[i] = "  " + truncateName(s.label(), analyzeNameMaxLen)
 	}
 	fmt.Println()
 	fmt.Println("  " + ui.DimText("Largest descriptions"))
