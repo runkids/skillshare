@@ -184,3 +184,27 @@ func TestCheckBudget_BothExceed(t *testing.T) {
 		t.Errorf("second violation type = %q, want on_demand", violations[1].Type)
 	}
 }
+
+// Targets with the same cost share a line, and the largest skills are listed once.
+func TestPrintBudgetWarning_MergesTargetsWithTheSameCost(t *testing.T) {
+	big := []tokenOffender{{Name: "orbit", Tokens: 9870}, {Name: "apple", Tokens: 5616}, {Name: "tiny", Tokens: 100}}
+	violations := []budgetViolation{
+		{Type: budgetTypeOnDemand, Target: "claude", Actual: 162230, Budget: 100000, Offenders: []tokenOffender{{Name: "orbit", Tokens: 9870}, {Name: "creator", Tokens: 9110}}},
+		{Type: budgetTypeOnDemand, Target: "omp", Actual: 113102, Budget: 100000, Offenders: big},
+		{Type: budgetTypeOnDemand, Target: "universal", Actual: 113102, Budget: 100000, Offenders: big},
+	}
+	out := captureStdoutStderr(t, func() { printBudgetWarning(violations, true) })
+
+	if n := strings.Count(out, "over budget"); n != 1 {
+		t.Errorf("want one heading, got %d:\n%s", n, out)
+	}
+	if !strings.Contains(out, "omp, universal") {
+		t.Errorf("targets with the same cost are not merged:\n%s", out)
+	}
+	if n := strings.Count(out, "orbit"); n != 1 {
+		t.Errorf("want orbit listed once, got %d:\n%s", n, out)
+	}
+	if !strings.Contains(out, "creator") || !strings.Contains(out, "apple") || strings.Contains(out, "tiny") {
+		t.Errorf("want the three largest skills across targets:\n%s", out)
+	}
+}

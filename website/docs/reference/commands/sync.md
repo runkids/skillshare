@@ -717,14 +717,13 @@ context_budget:
   warn_mcp_tool_tokens: 30000        # default; 0 = disabled
 ```
 
-When a threshold is exceeded, a warning appears with the top 3 offenders:
+When a threshold is exceeded, one warning per budget lists the targets over it, with targets at the same count on one line, and names the three largest skills across them:
 
 ```
-! Always-loaded context is ~50,123 tokens (budget: 10,000)
-   Top 3:
-     • my-big-skill                    ~8,200 tokens
-     • another-verbose-skill           ~6,400 tokens
-     • chatgpt-system-prompt           ~5,100 tokens
+! Always-loaded context is over budget (10,000 tokens) on 3 targets
+   claude                              ~50,123 tokens
+   cursor, windsurf                    ~12,400 tokens
+   Largest: my-big-skill ~8,200, another-verbose-skill ~6,400, chatgpt-system-prompt ~5,100
    Run `skillshare analyze` for details.
 ```
 

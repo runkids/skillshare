@@ -74,7 +74,7 @@ context_budget:
 	result := sb.RunCLI("sync")
 	result.AssertSuccess(t)
 	result.AssertAnyOutputContains(t, "Always-loaded context is")
-	result.AssertAnyOutputContains(t, "budget:")
+	result.AssertAnyOutputContains(t, "over budget (")
 }
 
 func TestSync_JSON_ContextCost(t *testing.T) {

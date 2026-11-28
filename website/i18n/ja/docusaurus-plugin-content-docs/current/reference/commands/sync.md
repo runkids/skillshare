@@ -701,14 +701,13 @@ context_budget:
   warn_mcp_tool_tokens: 30000        # デフォルト; 0 = 無効
 ```
 
-しきい値を超えると、上位 3 件の要因とともに警告が表示されます。
+しきい値を超えると、予算ごとに警告が 1 件表示されます。超えた target を一覧にし、同じトークン数の target は 1 行にまとめ、それらの中で最も大きい skill を 3 件挙げます。
 
 ```
-! Always-loaded context is ~50,123 tokens (budget: 10,000)
-   Top 3:
-     • my-big-skill                    ~8,200 tokens
-     • another-verbose-skill           ~6,400 tokens
-     • chatgpt-system-prompt           ~5,100 tokens
+! Always-loaded context is over budget (10,000 tokens) on 3 targets
+   claude                              ~50,123 tokens
+   cursor, windsurf                    ~12,400 tokens
+   Largest: my-big-skill ~8,200, another-verbose-skill ~6,400, chatgpt-system-prompt ~5,100
    Run `skillshare analyze` for details.
 ```
 

@@ -599,10 +599,7 @@ func printIgnoredSkills(stats *skillignore.IgnoreStats) {
 		return
 	}
 	fmt.Println()
-	fmt.Printf(ui.Dim+"%d skill(s) ignored by .skillignore:"+ui.Reset+"\n", stats.IgnoredCount())
-	for _, name := range stats.IgnoredSkills {
-		fmt.Printf(ui.Dim+"  • %s"+ui.Reset+"\n", name)
-	}
+	fmt.Printf(ui.Dim+"%d skill(s) ignored by .skillignore: %s"+ui.Reset+"\n", stats.IgnoredCount(), ignoredSkillGroups(stats.IgnoredSkills))
 	// Show source hint
 	hasRoot := stats.RootFile != ""
 	hasRootLocal := stats.RootLocalFile != ""
@@ -633,9 +630,34 @@ func printIgnoredSkills(stats *skillignore.IgnoreStats) {
 	} else if hasRepoLocal {
 		parts = append(parts, fmt.Sprintf("%d repo-level .skillignore.local", len(stats.RepoLocalFiles)))
 	}
+	from := ""
 	if len(parts) > 0 {
-		fmt.Printf(ui.Dim+"  (from %s)"+ui.Reset+"\n", strings.Join(parts, " + "))
+		from = "from " + strings.Join(parts, " + ") + " · "
 	}
+	fmt.Printf(ui.Dim+"  (%slist them: skillshare list --status disabled)"+ui.Reset+"\n", from)
+}
+
+// ignoredSkillGroups names ignored skills compactly: a folder holding several is
+// named once with its count, so a whole ignored pack takes one entry.
+func ignoredSkillGroups(names []string) string {
+	var order []string
+	members := map[string][]string{}
+	for _, name := range names {
+		group, _, _ := strings.Cut(name, "/")
+		if len(members[group]) == 0 {
+			order = append(order, group)
+		}
+		members[group] = append(members[group], name)
+	}
+	parts := make([]string, 0, len(order))
+	for _, group := range order {
+		if m := members[group]; len(m) > 1 {
+			parts = append(parts, fmt.Sprintf("%s (%d)", group, len(m)))
+		} else {
+			parts = append(parts, m[0])
+		}
+	}
+	return strings.Join(parts, ", ")
 }
 
 // syncOutputJSON converts sync results to JSON and writes to stdout.
