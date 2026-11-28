@@ -717,7 +717,7 @@ func (s *Service) preview(ctx context.Context, r Request, cleanup *ompRemoval, r
 			// Tern's candidate name is its validated manifest ID, including before
 			// a host has installed it and recorded a local receipt.
 			declaredID := ""
-			if s.agentOf(c.Target) == "tern" && !decl.Imported && decl.Source != "" {
+			if s.agentOf(c.Target) == "tern" && (c.Action == "install" || r.Action == "add") && !decl.Imported && decl.Source != "" {
 				declaredID = decl.Plugin
 			}
 			if c.ID != "" && name != c.Name && (pack.Bindings[c.Target].ID == c.ID || declaredID == c.ID) {

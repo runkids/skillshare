@@ -355,6 +355,32 @@ func TestTernDeferredOwnerThenHostAppears(t *testing.T) {
 	}
 }
 
+func TestTernRenamedDeclarationAllowsReceiptCleanup(t *testing.T) {
+	for _, action := range []string{"remove", "sync"} {
+		for _, installed := range []bool{true, false} {
+			t.Run(fmt.Sprintf("%s/installed=%t", action, installed), func(t *testing.T) {
+				f := newTernFixture(t)
+				f.missing = false
+				applyPluginRequest(t, f.service, Request{Action: "add", Name: "first", Source: f.source, Targets: []string{"tern"}})
+				other := &Service{ConfigPath: f.service.ConfigPath, StateDir: filepath.Join(filepath.Dir(f.service.StateDir), "other-state"), Run: f.service.Run}
+				f.missing = true
+				applyPluginRequest(t, other, Request{Action: "remove", Name: "first", Targets: []string{"tern"}})
+				applyPluginRequest(t, other, Request{Action: "add", Name: "second", Source: f.source, Targets: []string{"tern"}})
+				f.missing, f.installed["tern"] = false, installed
+				request := Request{Action: action, Name: "first", Targets: []string{"tern"}}
+				applyPluginRequest(t, f.service, request)
+				state := readState(t, f.service)
+				if state.state.Bindings["first"]["tern"].Applied != nil || f.installed["tern"] {
+					t.Fatalf("cleanup retained receipt or native installation: %+v", state.state.Bindings["first"]["tern"])
+				}
+				if state.intent["second"].Bindings["tern"].Source == "" {
+					t.Fatal("cleanup lost renamed declaration")
+				}
+			})
+		}
+	}
+}
+
 func TestTernDeferredSameNameDifferentSource(t *testing.T) {
 	f := newTernFixture(t)
 	applyPluginRequest(t, f.service, Request{Action: "add", Name: "demo", Source: f.source, Targets: []string{"tern"}})
