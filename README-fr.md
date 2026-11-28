@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **Dernière version** : v0.33.0 — Personnalisez le dashboard : **Settings → Appearance** propose un éditeur de thème avec 14 préréglages, ou votre propre couleur d'accent, teinte de fond, coins et police. Le mode sombre est dérivé pour vous, chaque couleur de texte reste lisible à 4.5:1, et un thème se partage par lien ou fichier JSON. Clean et Playful ont aussi été retravaillés. `skillshare hooks sync -p --trust` enregistre désormais la confiance Codex pour les hooks d'un projet, et MiniMax Code devient un target intégré. [Guide des thèmes →](https://skillshare.runkids.cc/docs/reference/commands/ui#theme-system) · [Toutes les versions →](https://github.com/runkids/skillshare/releases)
+> **Dernière version** : v0.34.0 — Les mods Herdr deviennent des plugins : la cible `herdr-app` installe, met à jour et supprime les mods et lanceurs Herdr, le panneau d'un mod peut s'ouvrir dans une copie de votre layout actuel, et le dashboard agit sur plusieurs plugins à la fois. `skillshare hooks sync NAME1 NAME2 --replace` reprend plusieurs hooks natifs en conflit en une seule fois, et deux skills portant le même nom sont désormais synchronisés tous les deux, l'un sous son nom de chemin complet, au lieu d'être ignorés. Le thème personnalisé ajoute **Glass: Everywhere**, six teintes de fond supplémentaires et des options de surface, et le dashboard peut afficher le fichier MCP d'un Agent dans la page. [Guide Herdr →](https://skillshare.runkids.cc/docs/learn/with-herdr) · [Toutes les versions →](https://github.com/runkids/skillshare/releases)
 
 ## Pourquoi skillshare
 

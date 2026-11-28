@@ -34,7 +34,7 @@ skillshare hooks restore BACKUP_ID --dry-run
 skillshare hooks restore BACKUP_ID
 ```
 
-没有子命令时列出 entries。`add`／`edit` 从 `--file` 读取 Entry JSON 或 YAML；导入不指定名称时列出候选项（每个 Agent event 或文件各一项），指定名称才保存。保存导入即原地接管读到的注册：下次同步直接 adopt，无需 `--replace`；未导入的 event 保持不受管理。导入只读取配置或代码，不执行。`hooks list` 也会列出 Agent 会加载、但导入不会读取的来源：Codex `config.toml` 里的 inline `[hooks]`、OMP 的 `hooks/pre` 与 `hooks/post`、Droid 旧版的 `hooks/hooks.json`、项目里 Claude 的 `settings.local.json`，以及 Git config 的 hook。这些来源显示为 `left as is` 而不是 `not managed`，在 `--json` 中带有 `"importable": false`，Dashboard 也只列出、不提供「查看」按钮。新增、编辑、导入、启用、停用与移除默认只保存来源，加上 `--sync` 才同步。同步与恢复会重新预览。Dashboard 的「目标里的 hook」对话框打开时不会预先勾选任何 hook，要导入的自己勾选；它也能直接修改或移除 Agent 配置文件里还没导入的 hook（hook 是配置的 Agent 都可以：存在同一个配置文件的 event（Claude、Codex、Gemini、Cursor、Qwen，以及 Droid 的 `hooks.json`）、Antigravity 的具名区块，或 Copilot 的 hook 文件，移除时会删除该文件；代码形式的 hook（Pi、Oh My Pi、Amp、OpenCode）要先导入）。写入前会显示文件差异并备份，该 hook 保持不受管理。
+没有子命令时列出 entries。`add`／`edit` 从 `--file` 读取 Entry JSON 或 YAML；导入不指定名称时列出候选项（每个 Agent event 或文件各一项），指定名称才保存。保存导入即原地接管读到的注册：下次同步直接 adopt，无需 `--replace`；未导入的 event 保持不受管理。直接从目标的原生目录导入（不带 `--file`）时，扁平代码文件（Pi、Oh My Pi、Amp、OpenCode）和 Copilot hook 文件会在同步时写入 `skillshare-NAME`，并在备份后移除导入的原始文件（同名的现有 `skillshare-NAME` 则原地接管，但输出为目录包的 OpenCode v2 除外）；可通过 `hooks restore` 恢复被移除的原始文件，`--file` 导入则只读取指定文件，不会移除。导入只读取配置或代码，不执行。`hooks list` 也会列出 Agent 会加载、但导入不会读取的来源：Codex `config.toml` 里的 inline `[hooks]`、OMP 的 `hooks/pre` 与 `hooks/post`、Droid 旧版的 `hooks/hooks.json`、项目里 Claude 的 `settings.local.json`，以及 Git config 的 hook。这些来源显示为 `left as is` 而不是 `not managed`，在 `--json` 中带有 `"importable": false`，Dashboard 也只列出、不提供「查看」按钮。新增、编辑、导入、启用、停用与移除默认只保存来源，加上 `--sync` 才同步。同步与恢复会重新预览。Dashboard 的「目标里的 hook」对话框打开时不会预先勾选任何 hook，要导入的自己勾选；它也能直接修改或移除 Agent 配置文件里还没导入的 hook（hook 是配置的 Agent 都可以：存在同一个配置文件的 event（Claude、Codex、Gemini、Cursor、Qwen，以及 Droid 的 `hooks.json`）、Antigravity 的具名区块，或 Copilot 的 hook 文件，移除时会删除该文件；代码形式的 hook（Pi、Oh My Pi、Amp、OpenCode）要先导入）。写入前会显示文件差异并备份，该 hook 保持不受管理。
 
 | Option | Meaning |
 |---|---|
@@ -265,7 +265,7 @@ plan 保留实际的 `add`、`update`、`remove` 或 `unchanged` 操作，并通
 
 global 配置的 `hooks.projects` 将绝对项目路径映射到相同 Entry 格式的 `entries`，可在“项目 → Hooks”管理；在那里按 **停止管理这里的 hook** 会把该路径从 `hooks.projects` 移除，下次同步时会删除 Skillshare 写在其下的 hook。已有 `.skillshare/config.yaml` 的项目须使用 project scope；单个项目同步只处理该项目。
 
-同步保留无关配置和非 Skillshare 管理的 hooks。内容相同不代表所有权。自有输出若被外部修改，停用、移除及恢复也会报告冲突。明确替换只作用于指定的 entry，只要还有其他 entry 冲突，同步就会被阻止。多个 hook 冲突时请一次列出全部名称：`skillshare hooks sync NAME1 NAME2 --replace`。预览列出完整动作和路径。共享文件的每一行 plan 会列出该 entry 新增（`+`）、更新（`~`）、移除（`−`）的 event，JSON plan 的 `events` 也包含相同信息。`update` 表示该 entry 在文件中仍有注册，`remove` 表示完全离开该文件。编辑会保留文件原有格式（紧凑或缩进）；Skillshare 添加的 `hooks` key 在最后一个 hook 移除时一并移除。Skillshare 创建的文件若已没有其他内容就会删除，连同它创建且已清空的文件夹；预览会把这显示为删除文件。原本就存在的文件和文件夹，以及你添加的任何内容都会保留。
+同步保留无关配置和非 Skillshare 管理的 hooks。内容相同不代表所有权。自有输出若被外部修改，停用、移除及恢复也会报告冲突。明确替换只作用于指定的 entry，只要还有其他 entry 冲突，同步就会被阻止。多个 hook 冲突时请一次列出全部名称：`skillshare hooks sync NAME1 NAME2 --replace`。在 dashboard 的同步预览中，冲突行的 **Take over native hooks** 会加入该 hook，**Take over the conflicting native hooks** 会加入所有可接管的冲突，一次同步就一并接管。预览列出完整动作和路径。共享文件的每一行 plan 会列出该 entry 新增（`+`）、更新（`~`）、移除（`−`）的 event，JSON plan 的 `events` 也包含相同信息。`update` 表示该 entry 在文件中仍有注册，`remove` 表示完全离开该文件。编辑会保留文件原有格式（紧凑或缩进）；Skillshare 添加的 `hooks` key 在最后一个 hook 移除时一并移除。Skillshare 创建的文件若已没有其他内容就会删除，连同它创建且已清空的文件夹；预览会把这显示为删除文件。原本就存在的文件和文件夹，以及你添加的任何内容都会保留。
 
 备份恢复原生输出并保留后续无关改动，不改写来源定义。使用“设置 → 备份 → Hooks”或 `hooks restore` 先预览再恢复。
 

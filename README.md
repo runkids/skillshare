@@ -48,7 +48,7 @@
 </p>
 
 > [!NOTE]
-> **Latest**: v0.33.0 — Make the dashboard your own: **Settings → Appearance** has a Custom theme editor with 14 presets, or your own accent, background tint, corners and font. Dark mode is derived for you, every text color stays readable at 4.5:1, and a theme can be shared as a link or JSON file. Clean and Playful are restyled too. `skillshare hooks sync -p --trust` now records Codex trust for a project's hooks, and MiniMax Code is a built-in target. [Theme guide →](https://skillshare.runkids.cc/docs/reference/commands/ui#theme-system) · [All releases →](https://github.com/runkids/skillshare/releases)
+> **Latest**: v0.34.0 — Herdr mods are plugins now: the `herdr-app` target installs, updates and removes Herdr mods and launchers, a mod's panel can open in a copy of your current layout, and the dashboard acts on several plugins at once. `skillshare hooks sync NAME1 NAME2 --replace` takes over several conflicting native hooks in one go, and two skills with the same name both sync, one under its full path name, instead of both being skipped. The custom theme adds **Glass: Everywhere**, six more background tints and surface options, and the dashboard can show an Agent's MCP file in the page. [Herdr guide →](https://skillshare.runkids.cc/docs/learn/with-herdr) · [All releases →](https://github.com/runkids/skillshare/releases)
 
 ## Why skillshare
 
@@ -338,6 +338,9 @@ Thank you to everyone who has reported a bug, suggested an improvement, or helpe
 <a href="https://github.com/leoarry"><img src="https://github.com/leoarry.png" width="50" style="border-radius:50%" alt="leoarry"></a>
 <a href="https://github.com/salmonumbrella"><img src="https://github.com/salmonumbrella.png" width="50" style="border-radius:50%" alt="salmonumbrella"></a>
 <a href="https://github.com/daylamtayari"><img src="https://github.com/daylamtayari.png" width="50" style="border-radius:50%" alt="daylamtayari"></a>
+<a href="https://github.com/jeanmonet"><img src="https://github.com/jeanmonet.png" width="50" style="border-radius:50%" alt="jeanmonet"></a>
+<a href="https://github.com/bowd"><img src="https://github.com/bowd.png" width="50" style="border-radius:50%" alt="bowd"></a>
+<a href="https://github.com/Burakceliks"><img src="https://github.com/Burakceliks.png" width="50" style="border-radius:50%" alt="Burakceliks"></a>
 <a href="https://github.com/dstotijn"><img src="https://github.com/dstotijn.png" width="50" style="border-radius:50%" alt="dstotijn"></a>
 <a href="https://github.com/ipruning"><img src="https://github.com/ipruning.png" width="50" style="border-radius:50%" alt="ipruning"></a>
 <a href="https://github.com/massukio"><img src="https://github.com/massukio.png" width="50" style="border-radius:50%" alt="massukio"></a>

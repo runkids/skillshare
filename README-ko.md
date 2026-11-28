@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **최신 버전**: v0.33.0 — dashboard를 내 취향대로 꾸미세요. **Settings → Appearance**의 커스텀 테마 편집기에서 14가지 프리셋을 고르거나 강조 색, 배경 색조, 모서리, 글꼴을 직접 정할 수 있습니다. 다크 모드는 자동으로 만들어지고, 모든 글자 색은 4.5:1 이상으로 읽기 쉽게 유지되며, 테마는 링크나 JSON 파일로 공유할 수 있습니다. Clean과 Playful 디자인도 다듬었습니다. `skillshare hooks sync -p --trust`는 이제 project의 hook에 대해서도 Codex trust를 기록하고, MiniMax Code가 내장 target으로 추가되었습니다. [테마 가이드 →](https://skillshare.runkids.cc/ko/docs/reference/commands/ui#테마-시스템) · [변경 기록 →](https://skillshare.runkids.cc/changelog)
+> **최신 버전**: v0.34.0 — Herdr mod가 이제 plugin입니다. `herdr-app` 타깃으로 Herdr mod와 런처를 설치·업데이트·제거할 수 있고, mod의 패널을 현재 레이아웃의 복사본에 열 수 있으며, dashboard에서 여러 plugin을 한 번에 다룰 수 있습니다. `skillshare hooks sync NAME1 NAME2 --replace`로 충돌하는 네이티브 hooks 여러 개를 한 번에 넘겨받을 수 있고, 이름이 같은 skill 두 개도 모두 건너뛰지 않고 하나는 전체 경로 이름으로 sync됩니다. 커스텀 테마에 **Glass: Everywhere**, 배경 색조 6가지, 표면 옵션이 추가되었고, dashboard에서 Agent의 MCP 파일을 페이지 안에서 볼 수 있습니다. [Herdr 가이드 →](https://skillshare.runkids.cc/ko/docs/learn/with-herdr) · [변경 기록 →](https://skillshare.runkids.cc/changelog)
 
 ## skillshare를 쓰는 이유
 

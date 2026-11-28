@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **最新版本**：v0.33.0 — 把 dashboard 改成你喜歡的樣子：**Settings → Appearance** 新增自訂主題編輯器，可以從 14 個預設開始，也可以自己選強調色、背景色調、圓角和字型。深色模式會自動推導，所有文字顏色都維持 4.5:1 以上的可讀性，主題還能用連結或 JSON 檔分享。Clean 和 Playful 的設計也重新調整了。`skillshare hooks sync -p --trust` 現在也能為 project 的 hook 記錄 Codex trust，MiniMax Code 也成為內建 target。 [主題指南 →](https://skillshare.runkids.cc/zh-Hant/docs/reference/commands/ui#主題系統) · [更新紀錄 →](https://skillshare.runkids.cc/changelog)
+> **最新版本**：v0.34.0 — Herdr 的 mod 現在是 plugin：`herdr-app` target 可以安裝、更新和移除 Herdr 的 mod 與啟動器，mod 的面板可以開在目前版面的副本裡，dashboard 也能一次操作多個 plugin。`skillshare hooks sync NAME1 NAME2 --replace` 能一次接管多個衝突的原生 hooks；兩個同名的 skill 不再都被略過，其中一個會用完整路徑名稱同步。自訂主題新增 **Glass: Everywhere**、6 種背景色調和表面選項，dashboard 也能在頁面裡直接檢視 Agent 的 MCP 檔案。[Herdr 指南 →](https://skillshare.runkids.cc/zh-Hant/docs/learn/with-herdr) · [更新紀錄 →](https://skillshare.runkids.cc/changelog)
 
 ## 為什麼用 skillshare
 

@@ -50,7 +50,8 @@ and events you did not import stay unmanaged. When importing directly from a
 target's native folder (without `--file`), flat code files (Pi, Oh My Pi, Amp,
 OpenCode) and Copilot hook files write `skillshare-NAME` on sync and retire the
 imported original file after taking a backup (an existing `skillshare-NAME`
-file under the same name is adopted in place); `hooks restore` can bring a
+file under the same name is adopted in place, except on OpenCode v2, whose
+output is a package directory); `hooks restore` can bring a
 retired original back, whereas `--file` imports read the supplied file without
 retiring it. Import only reads configuration or code and never runs it.
 
@@ -467,7 +468,10 @@ does not establish ownership. Modified owned outputs are conflicts, including
 on disable, remove and restore. Use the preview to inspect exact actions; an
 explicit replacement applies only to the named entries, and the sync stays
 blocked while any other entry conflicts. When several hooks conflict, name them
-all: `skillshare hooks sync NAME1 NAME2 --replace`. For a shared file, each
+all: `skillshare hooks sync NAME1 NAME2 --replace`. In the dashboard's sync
+preview, **Take over native hooks** on a conflicting row adds that hook and
+**Take over the conflicting native hooks** adds every conflict that can be taken
+over, so one sync takes them over together. For a shared file, each
 plan line lists the events the entry adds (`+`), updates (`~`) and removes (`−`),
 also available as `events` in JSON plans. `update` means the entry keeps
 registrations in that file; `remove` means it leaves the file entirely. Edits keep

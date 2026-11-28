@@ -48,7 +48,7 @@
 </p>
 
 > [!NOTE]
-> **Son sürüm**: v0.33.0 — Kontrol panelini kendinize göre özelleştirin: **Settings → Appearance** bölümünde 14 hazır ayara sahip Özel tema düzenleyicisi bulunur; dilerseniz kendi vurgu renginizi, arka plan tonunuzu, köşe yuvarlaklığınızı ve yazı tipinizi seçebilirsiniz. Koyu mod sizin için otomatik türetilir, her metin rengi 4.5:1 okunabilirlik oranını korur ve bir tema bağlantı veya JSON dosyası olarak paylaşılabilir. Clean ve Playful temaları da yenilendi. `skillshare hooks sync -p --trust` artık bir projenin kancaları için Codex güvenini kaydeder ve MiniMax Code yerleşik bir hedeftir. [Tema kılavuzu →](https://skillshare.runkids.cc/docs/reference/commands/ui#theme-system) · [Tüm sürümler →](https://github.com/runkids/skillshare/releases)
+> **Son sürüm**: v0.34.0 — Herdr modları artık birer plugin: `herdr-app` hedefi Herdr modlarını ve başlatıcılarını kurar, günceller ve kaldırır; bir modun paneli mevcut düzeninizin bir kopyasında açılabilir ve kontrol paneli birden fazla plugin üzerinde aynı anda işlem yapar. `skillshare hooks sync NAME1 NAME2 --replace` çakışan birden fazla yerel hook'u tek seferde devralır; aynı ada sahip iki skill de artık atlanmak yerine senkronize edilir, biri tam yol adıyla. Özel tema **Glass: Everywhere**, altı yeni arka plan tonu ve yüzey seçenekleri ekler; kontrol paneli bir Agent'ın MCP dosyasını sayfada gösterebilir. [Herdr kılavuzu →](https://skillshare.runkids.cc/docs/learn/with-herdr) · [Tüm sürümler →](https://github.com/runkids/skillshare/releases)
 
 ## Neden skillshare
 
