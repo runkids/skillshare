@@ -22,9 +22,9 @@ const STEP = 100;
 const MANAGED_ONLY_KEY = 'skillshare:analyze-managed-only';
 /** "description-length" reads as "description length" — the full sentence waits in the dialog. */
 const ruleLabel = (rule: string) => rule.replace(/-/g, ' ');
-/** A local skill's path is wherever the tool put it (e.g. synced/<org>_<uuid>/docx), so show just its folder. */
+/** The server labels claude.ai skills; any other local skill's path is wherever the tool put it, so show just its folder. */
 const skillLabel = (s: AnalyzeSkill) =>
-  s.local ? s.path.split('/').pop() || s.path : formatSkillDisplayName(s.name);
+  s.display_name ?? (s.local ? s.path.split('/').pop() || s.path : formatSkillDisplayName(s.name));
 /** Project targets are named `project@tool`; own targets have no `@`. */
 const projectOf = (name: string) =>
   name.includes('@') ? name.slice(0, name.lastIndexOf('@')) : '';

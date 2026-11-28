@@ -4,7 +4,6 @@ import (
 	"cmp"
 	"fmt"
 	"os"
-	"path"
 	"slices"
 	"strings"
 
@@ -38,14 +37,13 @@ type analyzeSkillEntry struct {
 	isTracked   bool
 	targetNames []string
 	description string
+	displayName string // see ssync.SkillLabel; empty means Name
 }
 
-// label is the name to show. A local skill gets its folder, as the dashboard shows it:
-// its flattened path, such as synced__<id>__skill-creator for a skill Claude Code
-// syncs from claude.ai, differs per account and means nothing to a reader.
+// label is the name text output shows; Name stays the identity in JSON.
 func (s analyzeSkillEntry) label() string {
-	if s.Local && s.relPath != "" {
-		return path.Base(s.relPath)
+	if s.displayName != "" {
+		return s.displayName
 	}
 	return s.Name
 }
@@ -402,6 +400,7 @@ func buildAnalyzeEntries(
 				isTracked:         s.IsInRepo,
 				targetNames:       s.Targets,
 				description:       s.Description,
+				displayName:       ssync.SkillLabel(name, target, s),
 			})
 		}
 

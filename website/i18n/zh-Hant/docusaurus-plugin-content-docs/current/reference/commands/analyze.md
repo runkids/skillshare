@@ -60,7 +60,7 @@ token 估算採用 `chars / 4` 作為近似值。
 
 每個 target 都依照工具實際看到的內容計算：
 
-- **merge / copy 模式**：通過 target 的 include/exclude 與 `targets:` 篩選的 source skills，扣掉 `.skillignore` 停用的項目，再加上原本就放在 target 資料夾、並非來自 source 的 skills（JSON 中標為 `local`）。文字輸出跟 dashboard 一樣，以資料夾名稱顯示本地 skill：Claude Code 從 claude.ai 同步到 `synced/<id>/skill-creator` 的 skill 會顯示為 `skill-creator`。JSON 保留完整的 `name`。
+- **merge / copy 模式**：通過 target 的 include/exclude 與 `targets:` 篩選的 source skills，扣掉 `.skillignore` 停用的項目，再加上原本就放在 target 資料夾、並非來自 source 的 skills（JSON 中標為 `local`）。在 Claude target 上，Claude Code 從 claude.ai 同步到 `synced/<id>/skill-creator` 的 skill，在文字輸出與 dashboard 中顯示為 `skill-creator (claude.ai)`。JSON 保留完整的 `name`。
 - **symlink 模式**：整個 source 資料夾，包含被 `.skillignore` 排除的 skills（JSON 中標為 `disabled`），因為 symlink 本來就會讓工具看到它們。
 
 ### Skill Quality Lint

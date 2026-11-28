@@ -61,6 +61,8 @@ export interface AnalyzeLintIssue {
 
 export interface AnalyzeSkill {
   name: string;
+  /** Set when the name to show differs from `name`, e.g. "skill-creator (claude.ai)". */
+  display_name?: string;
   description_chars: number;
   description_tokens: number;
   body_chars: number;

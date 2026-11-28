@@ -15,6 +15,7 @@ type analyzeCharTokensResponse struct {
 
 type analyzeSkillResponse struct {
 	Name              string            `json:"name"`
+	DisplayName       string            `json:"display_name,omitempty"` // set only when it differs from name
 	DescriptionChars  int               `json:"description_chars"`
 	DescriptionTokens int               `json:"description_tokens"`
 	BodyChars         int               `json:"body_chars"`
@@ -59,12 +60,17 @@ func (s *Server) handleAnalyze(w http.ResponseWriter, r *http.Request) {
 		skills := make([]analyzeSkillResponse, 0, len(filtered))
 		var totalDescChars, totalBodyChars, totalDescTokens, totalBodyTokens int
 		for _, sk := range filtered {
+			displayName := ssync.SkillLabel(name, target, sk)
+			if displayName == sk.FlatName {
+				displayName = ""
+			}
 			totalDescChars += sk.DescChars
 			totalBodyChars += sk.BodyChars
 			totalDescTokens += sk.DescTokens
 			totalBodyTokens += sk.BodyTokens
 			skills = append(skills, analyzeSkillResponse{
 				Name:              sk.FlatName,
+				DisplayName:       displayName,
 				DescriptionChars:  sk.DescChars,
 				DescriptionTokens: sk.DescTokens,
 				BodyChars:         sk.BodyChars,

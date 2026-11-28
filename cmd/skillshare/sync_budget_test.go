@@ -209,23 +209,23 @@ func TestPrintBudgetWarning_MergesTargetsWithTheSameCost(t *testing.T) {
 	}
 }
 
-// A local skill is named by its folder in text, as the dashboard shows it, so the same
-// claude.ai skill synced into two Claude accounts reads, and counts, as one. JSON keeps
-// the full name, the identity analyze --json reports.
-func TestBudgetWarning_NamesLocalSkillsByFolderOnlyInText(t *testing.T) {
+// A claude.ai skill reads as "<name> (claude.ai)" in text, so it stays apart from a
+// source skill of the same name. JSON keeps the full name, the identity analyze --json
+// reports.
+func TestBudgetWarning_LabelsClaudeAISkillsOnlyInText(t *testing.T) {
 	entries := []analyzeTargetEntry{{
 		Name:        "claude",
-		OnDemandMax: analyzeCharTokens{EstimatedTokens: 9210},
+		OnDemandMax: analyzeCharTokens{EstimatedTokens: 9610},
 		Skills: []analyzeSkillEntry{
-			{Name: "synced__org_user__skill-creator", BodyTokens: 9110, Local: true, relPath: "synced/org_user/skill-creator"},
-			{Name: "_pack__managed", BodyTokens: 100, relPath: "_pack/managed"},
+			{Name: "synced__org_user__skill-creator", BodyTokens: 9110, Local: true, displayName: "skill-creator (claude.ai)"},
+			{Name: "skill-creator", BodyTokens: 500},
 		},
 	}}
 	budget := config.ContextBudgetConfig{WarnOnDemandTokens: intPtr(10)}
 
 	out := captureStdoutStderr(t, func() { printBudgetWarning(checkBudget(entries, budget), true) })
-	if !strings.Contains(out, "Largest: skill-creator ~9,110, _pack__managed ~100") {
-		t.Errorf("text should name the local skill by its folder:\n%s", out)
+	if !strings.Contains(out, "Largest: skill-creator (claude.ai) ~9,110, skill-creator ~500") {
+		t.Errorf("text should label the claude.ai skill and keep the source skill:\n%s", out)
 	}
 	cost := buildContextCostJSON(entries, budget)
 	if len(cost.Warnings) != 1 || cost.Warnings[0].TopOffenders[0].Name != "synced__org_user__skill-creator" {
