@@ -1311,7 +1311,7 @@
   "install.hubs.urlExists": "이 허브 URL이 이미 존재합니다",
   "install.hubs.subtitle": "검색은 선택한 hub에서 이루어집니다. GitHub 검색은 항상 사용할 수 있습니다.",
   "install.toast.installed": "{label}: 설치됨",
-  "install.toast.exists": "{count}개는 이미 설치됨: {names}. 교체하려면 Advanced에서 Force overwrite를 켜세요.",
+  "install.toast.exists": "{count}개는 이미 설치됨: {names}. 교체하려면 Force overwrite를 켜세요.",
   "install.done": "완료",
   "install.title.skills": "skill 설치",
   "install.title.agents": "agent 설치",

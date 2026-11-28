@@ -1311,7 +1311,7 @@
   "install.hubs.urlExists": "此 hub URL 已存在",
   "install.hubs.subtitle": "搜尋會在你選的 hub 裡進行。GitHub 搜尋一直都能用。",
   "install.toast.installed": "{label}：已安裝",
-  "install.toast.exists": "{count} 個已安裝：{names}。要覆蓋請在 Advanced 開啟 Force overwrite。",
+  "install.toast.exists": "{count} 個已安裝：{names}。要覆蓋請開啟 Force overwrite。",
   "install.done": "完成",
   "install.title.skills": "安裝 skills",
   "install.title.agents": "安裝 agents",

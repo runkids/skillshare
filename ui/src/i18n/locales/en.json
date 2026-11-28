@@ -1311,7 +1311,7 @@
   "install.hubs.urlExists": "This hub URL already exists",
   "install.hubs.subtitle": "Search looks in the hub you pick. GitHub search is always available.",
   "install.toast.installed": "Installed {label}",
-  "install.toast.exists": "{count} already installed: {names}. Turn on Force overwrite under Advanced to replace.",
+  "install.toast.exists": "{count} already installed: {names}. Turn on Force overwrite to replace.",
   "install.done": "Done",
   "install.title.skills": "Install skills",
   "install.title.agents": "Install agents",

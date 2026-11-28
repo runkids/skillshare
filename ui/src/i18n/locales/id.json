@@ -1311,7 +1311,7 @@
   "install.hubs.urlExists": "URL hub ini sudah ada",
   "install.hubs.subtitle": "Pencarian dilakukan di hub yang Anda pilih. Pencarian GitHub selalu tersedia.",
   "install.toast.installed": "{label}: Terinstal",
-  "install.toast.exists": "{count} sudah terpasang: {names}. Untuk mengganti, aktifkan Force overwrite di Advanced.",
+  "install.toast.exists": "{count} sudah terpasang: {names}. Untuk mengganti, aktifkan Force overwrite.",
   "install.done": "Selesai",
   "install.title.skills": "Instal skill",
   "install.title.agents": "Instal agent",

@@ -1311,7 +1311,7 @@
   "install.hubs.urlExists": "このハブ URL はすでに存在します",
   "install.hubs.subtitle": "検索は選んだ hub を対象にします。GitHub 検索はいつでも使えます。",
   "install.toast.installed": "{label}: インストール完了",
-  "install.toast.exists": "{count} 件はインストール済み: {names}。置き換えるには Advanced で Force overwrite をオンにしてください。",
+  "install.toast.exists": "{count} 件はインストール済み: {names}。置き換えるには Force overwrite をオンにしてください。",
   "install.done": "完了",
   "install.title.skills": "スキルをインストール",
   "install.title.agents": "エージェントをインストール",

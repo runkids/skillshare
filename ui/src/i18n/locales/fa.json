@@ -1311,7 +1311,7 @@
   "install.hubs.urlExists": "این آدرس hub از قبل موجود است",
   "install.hubs.subtitle": "جستجو در hub انتخابی شما انجام می‌شود. جستجوی GitHub همیشه در دسترس است.",
   "install.toast.installed": "{label}: نصب شد",
-  "install.toast.exists": "{count} مورد از قبل نصب شده: {names}. برای جایگزینی، Force overwrite را در Advanced روشن کنید.",
+  "install.toast.exists": "{count} مورد از قبل نصب شده: {names}. برای جایگزینی، Force overwrite را روشن کنید.",
   "install.done": "پایان",
   "install.title.skills": "نصب اسکیل‌ها",
   "install.title.agents": "نصب ایجنت‌ها",
